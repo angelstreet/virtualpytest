@@ -323,7 +323,14 @@ class ZapExecutor:
                 context=context
             )
             
-            action_completion_time = time.time()  # ✅ FIXED: Use completion time, not start time
+            # ✅ Use action timestamp from navigation context (written to last_action.json)
+            # This ensures perfect sync with capture_monitor's zapping detection
+            nav_context = self.device.navigation_context
+            action_completion_time = nav_context.get('last_action_timestamp')
+            if not action_completion_time:
+                # Fallback: use current time if timestamp not available
+                action_completion_time = time.time()
+                print(f"⚠️ [ZapExecutor] No action_timestamp found, using current time as fallback")
             
             if result.get('success', False):
                 # Perform zap-specific analysis and record zap step (use completion time for matching)
@@ -852,8 +859,9 @@ class ZapExecutor:
                     
                     timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
                     
-                    # Allow small timing variance (max 5 seconds)
-                    if timestamp_diff > 5.0:
+                    # Allow timing variance for navigation execution + confirmation + motion detection processing
+                    # Max 15s: navigation (5s) + confirmation wait (5s) + motion detection (3s) + buffer (2s)
+                    if timestamp_diff > 15.0:
                         print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.1f}s")
                         return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.1f}s'}
                     

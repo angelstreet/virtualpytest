@@ -610,6 +610,13 @@ class NavigationExecutor:
                     )
                     
                     actions_executed += result.get('passed_count', 0)
+                    
+                    # ✅ Track last action timestamp for zapping detection sync
+                    if result.get('results'):
+                        last_action_result = result['results'][-1]  # Get last executed action
+                        last_action_timestamp = last_action_result.get('action_timestamp')
+                        if last_action_timestamp:
+                            nav_context['last_action_timestamp'] = last_action_timestamp
                 else:
                     # No actions to execute, just mark as successful
                     result = {'success': True, 'main_actions_succeeded': True}

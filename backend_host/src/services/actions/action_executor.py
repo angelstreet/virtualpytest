@@ -653,6 +653,7 @@ class ActionExecutor:
             'execution_time_ms': total_execution_time,
             'action_category': action_category,
             'screenshot_path': screenshot_path,  # Always present
+            'action_timestamp': action_completion_timestamp,  # ✅ NEW: Timestamp for zapping detection sync
             'iterations': iteration_results if iterator_count > 1 else None
         }
     
