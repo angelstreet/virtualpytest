@@ -1449,11 +1449,17 @@ class NavigationExecutor:
             if not target_node_id or not target_tree_id or not edge_id or not action_set_id:
                 return
             
+            # Strip _reverse suffix if present (reverse edges have synthetic IDs in the graph)
+            # Database only stores the original edge_id
+            db_edge_id = edge_id.replace('_reverse', '') if edge_id.endswith('_reverse') else edge_id
+            
             # Get edge data to fetch action_set KPI configuration
             from shared.src.lib.supabase.navigation_trees_db import get_edge_by_id, get_node_by_id
-            edge_result = get_edge_by_id(edge_tree_id, edge_id, team_id)
+            edge_result = get_edge_by_id(edge_tree_id, db_edge_id, team_id)
             
             if not edge_result.get('success'):
+                print(f"[@navigation_executor] ❌ Failed to get edge '{edge_id}' for KPI: {edge_result.get('error', 'Unknown error')}")
+                print(f"[@navigation_executor] Edge tree_id: {edge_tree_id}, Team: {team_id}")
                 return
             
             edge_data = edge_result['edge']
