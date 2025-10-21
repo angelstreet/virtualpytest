@@ -1619,9 +1619,28 @@ class InotifyFrameMonitor:
             if not existing_audio_data and capture_folder in self.audio_cache:
                 existing_audio_data = self.audio_cache[capture_folder]
             
-            # Run expensive detection only if needed
+            # ✅ INCIDENT PRIORITY OPTIMIZATION: Skip expensive checks if another incident is ongoing
+            # Check device_state to see what's currently active
+            device_info = get_device_info_from_capture_folder(capture_folder)
+            device_id = device_info.get('device_id', capture_folder)
+            device_state = self.incident_manager.get_device_state(device_id)
+            
+            skip_freeze = False
+            skip_blackscreen = False
+            
             if needs_detection:
-                detection_result = detect_issues(frame_path, queue_size=queue_size)
+                # Check if blackscreen is ongoing → skip freeze detection
+                if device_state.get('blackscreen_event_start'):
+                    skip_freeze = True
+                    logger.debug(f"[{capture_folder}] ⏩ Skipping freeze detection (blackscreen ongoing)")
+                
+                # Check if freeze is ongoing → skip blackscreen detection
+                elif device_state.get('freeze_event_start'):
+                    skip_blackscreen = True
+                    logger.debug(f"[{capture_folder}] ⏩ Skipping blackscreen detection (freeze ongoing)")
+                
+                # Run detection with skip flags (avoids wasting CPU on lower-priority checks)
+                detection_result = detect_issues(frame_path, queue_size=queue_size, skip_freeze=skip_freeze, skip_blackscreen=skip_blackscreen)
             else:
                 # JSON exists without audio - just add audio from cache (no detection needed)
                 detection_result = {}  # Empty dict to merge with existing data
@@ -1630,34 +1649,44 @@ class InotifyFrameMonitor:
             if existing_audio_data:
                 detection_result.update(existing_audio_data)
             
+            # ✅ PRIORITY SUPPRESSION: Apply BEFORE event tracking to avoid unnecessary processing
+            # Priority: Blackscreen > Freeze > Macroblocks
+            if detection_result is not None:
+                has_blackscreen = detection_result.get('blackscreen', False)
+                has_freeze = detection_result.get('freeze', False)
+                has_macroblocks = detection_result.get('macroblocks', False)
+                
+                # Suppress lower-priority events BEFORE tracking starts
+                if has_blackscreen:
+                    # Blackscreen has priority - suppress freeze and macroblocks
+                    if has_freeze:
+                        detection_result['freeze'] = False
+                        logger.debug(f"[{capture_folder}] Suppressing freeze (blackscreen has priority)")
+                    if has_macroblocks:
+                        detection_result['macroblocks'] = False
+                        logger.debug(f"[{capture_folder}] Suppressing macroblocks (blackscreen has priority)")
+                elif has_freeze:
+                    # Freeze has priority over macroblocks
+                    if has_macroblocks:
+                        detection_result['macroblocks'] = False
+                        logger.debug(f"[{capture_folder}] Suppressing macroblocks (freeze has priority)")
+            
             # ALWAYS add event duration tracking (needed for audio_loss even when skipping detection)
+            # NOTE: Suppressed events won't trigger tracking since they're now False
             if detection_result is not None:
                 detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename, queue_size)
             
+            # Build issues list for logging
             issues = []
             has_blackscreen = detection_result and detection_result.get('blackscreen', False)
             has_freeze = detection_result and detection_result.get('freeze', False)
             has_macroblocks = detection_result and detection_result.get('macroblocks', False)
             
-            # Priority: Blackscreen > Freeze > Macroblocks
-            # NOTE: Macroblocks is disabled by default (ENABLE_MACROBLOCKS=False in detector.py)
             if has_blackscreen:
                 issues.append('blackscreen')
-                # Blackscreen has priority - suppress freeze and macroblocks detection
-                if has_freeze:
-                    detection_result['freeze'] = False
-                    logger.debug(f"[{capture_folder}] Suppressing freeze (blackscreen has priority)")
-                if has_macroblocks:
-                    detection_result['macroblocks'] = False
-                    logger.debug(f"[{capture_folder}] Suppressing macroblocks (blackscreen has priority)")
             elif has_freeze:
-                # Freeze has priority over macroblocks
                 issues.append('freeze')
-                if has_macroblocks:
-                    detection_result['macroblocks'] = False
-                    logger.debug(f"[{capture_folder}] Suppressing macroblocks (freeze has priority)")
             elif has_macroblocks:
-                # Only report macroblocks if no blackscreen or freeze
                 issues.append('macroblocks')
             
             if issues:

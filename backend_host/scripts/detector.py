@@ -358,7 +358,7 @@ def quick_blackscreen_check(img, threshold=10):
 
 # analyze_subtitles() removed - now handled by subtitle_monitor.py
 
-def detect_issues(image_path, fps=5, queue_size=0, debug=False):
+def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=False, skip_blackscreen=False):
     """
     Main detection function - OPTIMIZED WORKFLOW with zap state tracking
     
@@ -378,6 +378,11 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     - During zap: Skip expensive ops (~2ms vs full detection)
     - When blackscreen ends: Mark end frame, clear state
     
+    INCIDENT PRIORITY OPTIMIZATION:
+    - skip_freeze: Skip freeze detection (when blackscreen is ongoing)
+    - skip_blackscreen: Skip blackscreen detection (when freeze is ongoing)
+    - Saves CPU by only checking the ONGOING incident type
+    
     NOTE: Subtitle OCR is handled by subtitle_monitor.py (separate process)
     
     Args:
@@ -385,6 +390,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
         fps: Frames per second (5 for v4l2, 2 for x11grab/VNC) - used for freeze detection
         queue_size: Current queue backlog
         debug: Enable debug output (unused, kept for compatibility)
+        skip_freeze: Skip freeze detection (incident priority optimization)
+        skip_blackscreen: Skip blackscreen detection (incident priority optimization)
     """
     # Performance timing storage
     timings = {}
@@ -535,52 +542,58 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # ADAPTIVE: When overloaded, only detect every N frames (1 second)
     start = time.perf_counter()
     
-    # Threshold = 10 (matches production - accounts for compression artifacts)
-    threshold = 10
-    
-    # Check if we should use cached result (adaptive sampling when overloaded)
-    if queue_size > 50 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
-        # Return cached blackscreen result
-        global _blackscreen_result_cache
-        device_key = capture_dir
-        if device_key in _blackscreen_result_cache:
-            cached = _blackscreen_result_cache[device_key]
-            blackscreen = cached['blackscreen']
-            dark_percentage = cached['percentage']
-            timings['blackscreen'] = 0.0  # Skipped - adaptive sampling
-        else:
-            # No cache - assume not blackscreen
-            blackscreen = False
-            dark_percentage = 0.0
-            timings['blackscreen'] = 0.0  # Skipped - no cache
+    # ✅ SKIP: If freeze incident is ongoing, don't waste CPU checking blackscreen
+    if skip_blackscreen:
+        blackscreen = False
+        dark_percentage = 0.0
+        timings['blackscreen'] = 0.0  # Skipped - incident priority
     else:
-        # Run full blackscreen detection
-        # Analyze 5% to 70% (skip header, skip bottom banner)
-        top_region = img[header_y:split_y, :]
+        # Threshold = 10 (matches production - accounts for compression artifacts)
+        threshold = 10
         
-        # Sample every 4th pixel (6.25% sample) - OPTIMIZED from every 3rd (11%)
-        sample = top_region[::4, ::4]
-        sample_dark = np.sum(sample <= threshold)
-        sample_total = sample.shape[0] * sample.shape[1]
-        dark_percentage = (sample_dark / sample_total) * 100
-        
-        # Full scan only if edge case (70-90%)
-        if 70 <= dark_percentage <= 90:
-            total_pixels = top_region.shape[0] * top_region.shape[1]
-            dark_pixels = np.sum(top_region <= threshold)
-            dark_percentage = (dark_pixels / total_pixels) * 100
-        
-        blackscreen = bool(dark_percentage > 85)
-        timings['blackscreen'] = (time.perf_counter() - start) * 1000
-        
-        # Cache result for next frames (when overloaded)
-        if queue_size > 50:
+        # Check if we should use cached result (adaptive sampling when overloaded)
+        if queue_size > 50 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
+            # Return cached blackscreen result
+            global _blackscreen_result_cache
             device_key = capture_dir
-            _blackscreen_result_cache[device_key] = {
-                'blackscreen': blackscreen,
-                'percentage': dark_percentage,
-                'frame_number': frame_number
-            }
+            if device_key in _blackscreen_result_cache:
+                cached = _blackscreen_result_cache[device_key]
+                blackscreen = cached['blackscreen']
+                dark_percentage = cached['percentage']
+                timings['blackscreen'] = 0.0  # Skipped - adaptive sampling
+            else:
+                # No cache - assume not blackscreen
+                blackscreen = False
+                dark_percentage = 0.0
+                timings['blackscreen'] = 0.0  # Skipped - no cache
+        else:
+            # Run full blackscreen detection
+            # Analyze 5% to 70% (skip header, skip bottom banner)
+            top_region = img[header_y:split_y, :]
+            
+            # Sample every 4th pixel (6.25% sample) - OPTIMIZED from every 3rd (11%)
+            sample = top_region[::4, ::4]
+            sample_dark = np.sum(sample <= threshold)
+            sample_total = sample.shape[0] * sample.shape[1]
+            dark_percentage = (sample_dark / sample_total) * 100
+            
+            # Full scan only if edge case (70-90%)
+            if 70 <= dark_percentage <= 90:
+                total_pixels = top_region.shape[0] * top_region.shape[1]
+                dark_pixels = np.sum(top_region <= threshold)
+                dark_percentage = (dark_pixels / total_pixels) * 100
+            
+            blackscreen = bool(dark_percentage > 85)
+            timings['blackscreen'] = (time.perf_counter() - start) * 1000
+            
+            # Cache result for next frames (when overloaded)
+            if queue_size > 50:
+                device_key = capture_dir
+                _blackscreen_result_cache[device_key] = {
+                    'blackscreen': blackscreen,
+                    'percentage': dark_percentage,
+                    'frame_number': frame_number
+                }
     
     # === STEP 3: Bottom Content Check (ONLY if blackscreen - for zap confirmation) ===
     start = time.perf_counter()
@@ -615,20 +628,26 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False):
     # === STEP 4: Freeze Detection (Pixel diff - fastest & most accurate) ===
     start = time.perf_counter()
     
-    # Load current frame thumbnail for freeze detection (compare thumbnails with thumbnails)
-    current_thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
-    current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
-    
-    if os.path.exists(current_thumbnail_path):
-        current_thumbnail = cv2.imread(current_thumbnail_path, cv2.IMREAD_GRAYSCALE)
-        if current_thumbnail is not None:
-            frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps, queue_size)
+    # ✅ SKIP: If blackscreen incident is ongoing, don't waste CPU checking freeze
+    if skip_freeze:
+        frozen = False
+        freeze_details = {}
+        timings['freeze'] = 0.0  # Skipped - incident priority
+    else:
+        # Load current frame thumbnail for freeze detection (compare thumbnails with thumbnails)
+        current_thumbnail_filename = filename.replace('.jpg', '_thumbnail.jpg')
+        current_thumbnail_path = os.path.join(thumbnails_dir, current_thumbnail_filename)
+        
+        if os.path.exists(current_thumbnail_path):
+            current_thumbnail = cv2.imread(current_thumbnail_path, cv2.IMREAD_GRAYSCALE)
+            if current_thumbnail is not None:
+                frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps, queue_size)
+            else:
+                frozen, freeze_details = False, {}
         else:
             frozen, freeze_details = False, {}
-    else:
-        frozen, freeze_details = False, {}
-    
-    timings['freeze'] = (time.perf_counter() - start) * 1000
+        
+        timings['freeze'] = (time.perf_counter() - start) * 1000
     
     # === STEP 5: Subtitle Detection - REMOVED ===
     # Subtitle OCR is now handled exclusively by subtitle_monitor.py (separate process)
