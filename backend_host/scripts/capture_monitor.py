@@ -178,6 +178,13 @@ class InotifyFrameMonitor:
             frame_count += 1
             queue_size = work_queue.qsize()
             
+            # 🔍 TRACE: Extract sequence and log when pulled from queue
+            try:
+                sequence = int(filename.split('_')[1].split('.')[0])
+                logger.info(f"[{capture_folder}] 🔄 PROCESSING: {filename} (seq={sequence}, queue_size={queue_size})")
+            except:
+                sequence = None
+            
             # Track maximum backlog for diagnostics
             if queue_size > max_queue_size_seen:
                 max_queue_size_seen = queue_size
@@ -193,14 +200,6 @@ class InotifyFrameMonitor:
             elif queue_size > 20 and (current_time - last_backlog_warning) > 10:
                 logger.info(f"[{capture_folder}] 📊 Queue: {queue_size} frames (peak: {max_queue_size_seen})")
                 last_backlog_warning = current_time
-            
-            # Extract sequence number for logging
-            try:
-                sequence = int(filename.split('_')[1].split('.')[0])
-                if frame_count % 100 == 0 or queue_size > 50:
-                    logger.debug(f"[{capture_folder}] Processing frame {sequence} (queue: {queue_size})")
-            except:
-                sequence = None
             
             try:
                 self.process_frame(path, filename, queue_size)
@@ -338,7 +337,7 @@ class InotifyFrameMonitor:
             logger.error(f"[{capture_folder}] ✗ Chunk append FAILED → {chunk_path if 'chunk_path' in locals() else 'unknown'}: {e}")
             raise Exception(f"Chunk append error: {e}")
     
-    def _add_event_duration_metadata(self, capture_folder, detection_result, current_filename):
+    def _add_event_duration_metadata(self, capture_folder, detection_result, current_filename, queue_size=0):
         """Add event duration tracking for all event types"""
         from datetime import datetime
         
@@ -1537,7 +1536,7 @@ class InotifyFrameMonitor:
             
             # ALWAYS add event duration tracking (needed for audio_loss even when skipping detection)
             if detection_result is not None:
-                detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename)
+                detection_result = self._add_event_duration_metadata(capture_folder, detection_result, filename, queue_size)
             
             issues = []
             has_blackscreen = detection_result and detection_result.get('blackscreen', False)
@@ -1724,16 +1723,30 @@ class InotifyFrameMonitor:
                 if 'IN_MOVED_TO' in type_names:
                     if path in self.dir_to_info:
                         capture_folder = self.dir_to_info[path]['capture_folder']
-                        logger.debug(f"[{capture_folder}] inotify event: {filename}")
+                        
+                        # 🔍 TRACE: Extract sequence from filename for logging
+                        try:
+                            sequence = int(filename.split('_')[1].split('.')[0])
+                            logger.info(f"[{capture_folder}] 📥 INOTIFY ARRIVED: {filename} (seq={sequence})")
+                        except:
+                            sequence = None
+                            logger.debug(f"[{capture_folder}] inotify event: {filename}")
                         
                         work_queue = self.device_queues[capture_folder]
                         queue_size = work_queue.qsize()
                         
                         # Don't fill queue if >150 (images may be deleted from hot storage before processing)
                         if queue_size > 150:
-                            logger.warning(f"[{capture_folder}] ⏭️  Queue over 150 ({queue_size}), skipping {filename} (images may expire)")
+                            if sequence:
+                                logger.warning(f"[{capture_folder}] ⏭️  Queue over 150 ({queue_size}), SKIPPING {filename} (seq={sequence}) - images may expire")
+                            else:
+                                logger.warning(f"[{capture_folder}] ⏭️  Queue over 150 ({queue_size}), skipping {filename} (images may expire)")
                         else:
                             try:
+                                # 🔍 TRACE: Log queue insertion
+                                if sequence:
+                                    logger.info(f"[{capture_folder}] 📤 QUEUED: {filename} (seq={sequence}, queue_size={queue_size} → {queue_size+1})")
+                                
                                 work_queue.put_nowait((path, filename))
                                 
                                 if queue_size > 100:
