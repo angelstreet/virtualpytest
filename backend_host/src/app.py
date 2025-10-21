@@ -213,6 +213,15 @@ def main():
     cleanup_host_ports()
     time.sleep(1)
     
+    # STEP 2.1: Clear navigation file cache on startup
+    print("[@backend_host:main] Step 2.1: Clearing navigation file cache...")
+    try:
+        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+        clear_unified_cache()  # Clear all file caches
+        print("[@backend_host:main] ✅ Navigation file cache cleared")
+    except Exception as e:
+        print(f"[@backend_host:main] ⚠️  Failed to clear navigation cache: {e}")
+    
     app = setup_flask_app("VirtualPyTest-backend_host")
     
     with app.app_context():

@@ -99,26 +99,30 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
         setPendingSubmit(edgeForm);
         setDependencyDialogOpen(true);
       } else if (result.success && !result.has_shared_actions) {
-        // No dependencies found, proceed with saving
-        onSubmit(edgeForm);
+        // No dependencies found, proceed with saving (self-contained)
+        await edgeEdit.handleSave();
+        onClose();
       } else {
         // Handle other cases (like API errors)
         console.warn('Unexpected dependency check result:', result);
-        onSubmit(edgeForm);
+        await edgeEdit.handleSave();
+        onClose();
       }
     } catch (error) {
       console.warn('Failed to check dependencies for actions:', error);
       // Continue with save if dependency check fails
-      onSubmit(edgeForm);
+      await edgeEdit.handleSave();
+      onClose();
     } finally {
       setIsCheckingDependencies(false);
     }
   };
 
-  const handleDependencyConfirm = () => {
+  const handleDependencyConfirm = async () => {
     setDependencyDialogOpen(false);
     if (pendingSubmit) {
-      onSubmit(pendingSubmit);
+      await edgeEdit.handleSave();
+      onClose();
     }
     setPendingSubmit(null);
     setDependencyEdges([]);

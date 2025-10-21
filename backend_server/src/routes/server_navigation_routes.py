@@ -263,6 +263,63 @@ def create_empty_navigation_config(interface_name):
 # CACHE MANAGEMENT ENDPOINTS
 # =====================================================
 
+@server_navigation_bp.route('/cache/invalidate/<tree_id>', methods=['POST'])
+def invalidate_navigation_cache(tree_id):
+    """Invalidate navigation cache on all hosts after node/edge updates"""
+    try:
+        team_id = request.args.get('team_id')
+        
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        print(f"[@route:server_navigation:invalidate_navigation_cache] Invalidating cache for tree {tree_id}")
+        
+        # Get all hosts and clear cache on each
+        from backend_server.src.lib.utils.server_utils import get_host_manager
+        from backend_server.src.lib.utils.route_utils import proxy_to_host_direct
+        
+        host_manager = get_host_manager()
+        hosts = host_manager.get_all_hosts()
+        
+        results = []
+        for host in hosts:
+            try:
+                result, _ = proxy_to_host_direct(
+                    host,
+                    f'/host/navigation/cache/clear/{tree_id}',
+                    'POST',
+                    None,
+                    {'team_id': team_id}
+                )
+                results.append({
+                    'host': host.get('host_name'),
+                    'success': result.get('success', False) if result else False
+                })
+                print(f"[@route:server_navigation:invalidate_navigation_cache] Cache cleared on {host.get('host_name')}")
+            except Exception as e:
+                print(f"[@route:server_navigation:invalidate_navigation_cache] Failed for {host.get('host_name')}: {e}")
+                results.append({
+                    'host': host.get('host_name'),
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cache invalidation requested for tree {tree_id}',
+            'results': results
+        })
+        
+    except Exception as e:
+        print(f"[@route:server_navigation:invalidate_navigation_cache] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Cache invalidation failed: {str(e)}'
+        }), 500
+
 @server_navigation_bp.route('/cache/refresh', methods=['POST'])
 def refresh_navigation_cache():
     """Proxy cache refresh request to pathfinding service"""

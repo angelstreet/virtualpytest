@@ -5,6 +5,7 @@ import { EdgeForm, UINavigationEdge } from '../../types/pages/Navigation_Types';
 import { Action } from '../../types/pages/Navigation_Types';
 
 import { useEdge } from './useEdge';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
 
 export interface UseEdgeEditProps {
   isOpen: boolean;
@@ -23,6 +24,9 @@ export const useEdgeEdit = ({
   selectedHost,
   isControlActive = false,
 }: UseEdgeEditProps) => {
+
+  // Get navigation context for save and treeId
+  const { saveEdgeWithStateUpdate, treeId } = useNavigation();
 
   // Edge hook for loading actions from IDs
   const edgeHook = useEdge({
@@ -267,6 +271,34 @@ export const useEdgeEdit = ({
     });
   }, [localActions]);
 
+  // Handle save operation - SELF-CONTAINED (Option 1)
+  const handleSave = useCallback(async () => {
+    if (!edgeForm) {
+      console.error('[useEdgeEdit] Cannot save: edgeForm is null');
+      return;
+    }
+    
+    try {
+      // Save to database via context
+      await saveEdgeWithStateUpdate(edgeForm);
+      
+      // Invalidate navigation cache on all hosts after edge update
+      if (treeId) {
+        console.log('[useEdgeEdit] Invalidating navigation cache for tree:', treeId);
+        const { buildServerUrl } = await import('../../utils/buildUrlUtils');
+        
+        // Call server to invalidate cache on all hosts (buildServerUrl adds team_id automatically)
+        await fetch(buildServerUrl(`/server/navigation/cache/invalidate/${treeId}`), {
+          method: 'POST',
+        });
+        console.log('[useEdgeEdit] Cache invalidated successfully');
+      }
+    } catch (error) {
+      console.error('[useEdgeEdit] Failed to save edge or invalidate cache:', error);
+      throw error;
+    }
+  }, [edgeForm, saveEdgeWithStateUpdate, treeId]);
+
   // Use edgeHook.canRunActions directly instead of duplicating logic
 
   return {
@@ -285,7 +317,8 @@ export const useEdgeEdit = ({
     handleRetryActionsChange,
     handleFailureActionsChange,
 
-    // Validation
+    // Validation & Save (aligned with useNodeEdit)
     isFormValid,
+    handleSave,
   };
 };

@@ -25,8 +25,8 @@ export const useNodeEdit = ({
   // Get device data context for model references
   const { getModelReferences, referencesLoading, references } = useDeviceData();
   
-  // Get userInterface from navigation context - this is the ONLY source of truth
-  const { userInterface } = useNavigation();
+  // Get navigation context for save and treeId
+  const { userInterface, saveNodeWithStateUpdate, treeId } = useNavigation();
 
   // Use userinterface name for reference lookup
   const referenceKey = userInterface?.name;
@@ -102,12 +102,35 @@ export const useNodeEdit = ({
     [nodeForm, setNodeForm, verification],
   );
 
-  // Handle save operation
-  const handleSave = useCallback((onSubmit: () => void) => {
-    onSubmit();
-    setSaveSuccess(true);
-    setTimeout(() => setSaveSuccess(false), 2000);
-  }, []);
+  // Handle save operation - SELF-CONTAINED (Option 1)
+  const handleSave = useCallback(async () => {
+    if (!nodeForm) {
+      console.error('[useNodeEdit] Cannot save: nodeForm is null');
+      return;
+    }
+    
+    try {
+      // Save to database via context
+      await saveNodeWithStateUpdate(nodeForm);
+      setSaveSuccess(true);
+      setTimeout(() => setSaveSuccess(false), 2000);
+      
+      // Invalidate navigation cache on all hosts after node update
+      if (treeId) {
+        console.log('[useNodeEdit] Invalidating navigation cache for tree:', treeId);
+        const { buildServerUrl } = await import('../../utils/buildUrlUtils');
+        
+        // Call server to invalidate cache on all hosts (buildServerUrl adds team_id automatically)
+        await fetch(buildServerUrl(`/server/navigation/cache/invalidate/${treeId}`), {
+          method: 'POST',
+        });
+        console.log('[useNodeEdit] Cache invalidated successfully');
+      }
+    } catch (error) {
+      console.error('[useNodeEdit] Failed to save node or invalidate cache:', error);
+      throw error;
+    }
+  }, [nodeForm, saveNodeWithStateUpdate, treeId]);
 
   // Validate form
   const isFormValid = useCallback(

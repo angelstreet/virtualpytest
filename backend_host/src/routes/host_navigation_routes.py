@@ -165,6 +165,34 @@ def check_navigation_cache(tree_id):
             'error': f'Cache check failed: {str(e)}'
         }), 500
 
+@host_navigation_bp.route('/cache/clear/<tree_id>', methods=['POST'])
+def clear_navigation_cache_for_tree(tree_id):
+    """Clear navigation cache for a specific tree after node/edge updates"""
+    try:
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+        clear_unified_cache(tree_id, team_id)
+        
+        print(f"[@route:host_navigation:clear_navigation_cache_for_tree] Cache cleared for tree {tree_id}")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Cache cleared for tree {tree_id}'
+        })
+        
+    except Exception as e:
+        print(f"[@route:host_navigation:clear_navigation_cache_for_tree] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Cache clear failed: {str(e)}'
+        }), 500
+
 @host_navigation_bp.route('/cache/populate/<tree_id>', methods=['POST'])
 def populate_navigation_cache(tree_id):
     """Populate unified navigation cache in host process (with duplicate protection)"""

@@ -60,8 +60,9 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     isControlActive,
   });
 
-  const handleSave = () => {
-    nodeEdit.handleSave(onSubmit);
+  const handleSave = async () => {
+    await nodeEdit.handleSave();
+    onClose();
   };
 
   // Get button visibility from the hook
