@@ -9,7 +9,7 @@ interface ServerManagerProviderProps {
 
 // Cache configuration
 const CACHE_KEY = 'serverHostsData_cache';
-const CACHE_TTL = 60 * 60 * 1000; // 1 hour in milliseconds
+const CACHE_TTL = 2 * 60 * 1000; // 2 minutes in milliseconds
 
 interface CachedData {
   data: ServerHostData[];
