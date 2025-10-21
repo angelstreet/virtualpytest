@@ -87,7 +87,8 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
 
   // Get current location to determine if we should skip device locking
   const location = useLocation();
-  const isMonitoringPage = location.pathname.includes('/monitoring/');
+  const isIncidentsPage = location.pathname.includes('/monitoring/incidents');
+  const isAIQueuePage = location.pathname.includes('/monitoring/ai-queue');
 
   // Memoize userInterface to prevent unnecessary re-renders
   const stableUserInterface = useMemo(() => userInterface, [userInterface]);
@@ -661,13 +662,13 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // EFFECTS
   // ========================================
 
-  // Initialize lock reclaim on mount (skip for all monitoring pages)
+  // Initialize lock reclaim on mount (skip for incidents and AI queue pages)
   useEffect(() => {
-    if (!initializedRef.current && !isMonitoringPage) {
+    if (!initializedRef.current && !isIncidentsPage && !isAIQueuePage) {
       initializedRef.current = true;
       reclaimUserLocks();
     }
-  }, [reclaimUserLocks, isMonitoringPage]);
+  }, [reclaimUserLocks, isIncidentsPage, isAIQueuePage]);
 
   // Clean up locks on unmount
   useEffect(() => {
