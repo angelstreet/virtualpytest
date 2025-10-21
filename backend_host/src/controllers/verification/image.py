@@ -691,64 +691,92 @@ class ImageVerificationController:
         Route will handle URL building.
         """
         try:
+            print(f"[@controller:ImageVerification] ========== GENERATING COMPARISON IMAGES ==========")
+            print(f"[@controller:ImageVerification] INPUT: source_path = {source_path}")
+            print(f"[@controller:ImageVerification] INPUT: reference_path = {reference_path}")
+            print(f"[@controller:ImageVerification] INPUT: area = {area}")
+            print(f"[@controller:ImageVerification] INPUT: verification_index = {verification_index}")
+            
             # Use predefined verification results directory
             results_dir = self.verification_results_dir
+            print(f"[@controller:ImageVerification] Results directory: {results_dir}")
             
             # Generate unique filenames for this verification
             source_result_path = f'{results_dir}/source_image_{verification_index}.png'
             overlay_result_path = f'{results_dir}/result_overlay_{verification_index}.png'
             
-            print(f"[@controller:ImageVerification] Generating comparison images:")
-            print(f"  Source: {source_result_path}")
-            print(f"  Reference: {reference_path} (using original, not copying)")
-            print(f"  Overlay: {overlay_result_path}")
+            print(f"[@controller:ImageVerification] OUTPUT PATHS:")
+            print(f"[@controller:ImageVerification]   Cropped source will be saved to: {source_result_path}")
+            print(f"[@controller:ImageVerification]   Overlay will be saved to: {overlay_result_path}")
             
             # === STEP 1: Handle Source Image ===
             if area:
-                print(f"[@controller:ImageVerification] Cropping source to area: {area}")
+                print(f"[@controller:ImageVerification] STEP 1: Cropping source image")
+                print(f"[@controller:ImageVerification]   FROM: {source_path}")
+                print(f"[@controller:ImageVerification]   TO: {source_result_path}")
+                print(f"[@controller:ImageVerification]   AREA: {area}")
                 if not self.helpers.crop_image_to_area(source_path, source_result_path, area):
-                    print(f"[@controller:ImageVerification] Failed to crop source image")
+                    print(f"[@controller:ImageVerification] ERROR: Failed to crop source image")
                     return {}
+                print(f"[@controller:ImageVerification] ✓ Cropped source saved successfully")
             else:
-                print(f"[@controller:ImageVerification] Using full source image: {source_path}")
+                print(f"[@controller:ImageVerification] STEP 1: Copying full source image (no crop)")
+                print(f"[@controller:ImageVerification]   FROM: {source_path}")
+                print(f"[@controller:ImageVerification]   TO: {source_result_path}")
                 self.helpers.copy_image_file(source_path, source_result_path)
+                print(f"[@controller:ImageVerification] ✓ Full source copied successfully")
             
             # Apply filter to source if requested
             if image_filter and image_filter != 'none':
-                print(f"[@controller:ImageVerification] Applying {image_filter} filter to source")
+                print(f"[@controller:ImageVerification] STEP 2: Applying {image_filter} filter to source")
+                print(f"[@controller:ImageVerification]   Target file: {source_result_path}")
                 if not self.helpers.apply_image_filter(source_result_path, image_filter):
-                    print(f"[@controller:ImageVerification] Warning: Failed to apply {image_filter} filter to source")
+                    print(f"[@controller:ImageVerification] WARNING: Failed to apply {image_filter} filter to source")
+                else:
+                    print(f"[@controller:ImageVerification] ✓ Filter applied successfully")
             
-            # === STEP 2: Determine Reference Image Path (No Copying) ===
-            # Use filtered reference if available, otherwise use original
+            # === STEP 3: Determine Reference Image Path (No Copying) ===
+            print(f"[@controller:ImageVerification] STEP 3: Determining reference image for overlay")
             reference_image_for_overlay = reference_path
             if image_filter and image_filter != 'none':
                 base_path, ext = os.path.splitext(reference_path)
                 filtered_reference_path = f"{base_path}_{image_filter}{ext}"
                 
                 if os.path.exists(filtered_reference_path):
-                    print(f"[@controller:ImageVerification] Using existing filtered reference: {filtered_reference_path}")
+                    print(f"[@controller:ImageVerification]   Using filtered reference: {filtered_reference_path}")
                     reference_image_for_overlay = filtered_reference_path
                 else:
-                    print(f"[@controller:ImageVerification] Filtered reference not available, using original: {reference_path}")
+                    print(f"[@controller:ImageVerification]   Filtered reference not found, using original: {reference_path}")
             else:
-                print(f"[@controller:ImageVerification] Using original reference: {reference_path}")
+                print(f"[@controller:ImageVerification]   Using original reference: {reference_path}")
             
-            # === STEP 3: Create Overlay ===
+            # === STEP 4: Create Overlay ===
+            print(f"[@controller:ImageVerification] STEP 4: Creating pixel difference overlay")
+            print(f"[@controller:ImageVerification]   Loading cropped source from: {source_result_path}")
             source_img = cv2.imread(source_result_path)
-            ref_img = cv2.imread(reference_image_for_overlay)
-            
-            if source_img is None or ref_img is None:
-                print(f"[@controller:ImageVerification] Failed to load images for comparison")
+            if source_img is None:
+                print(f"[@controller:ImageVerification] ERROR: Failed to load cropped source image")
                 return {}
+            print(f"[@controller:ImageVerification]   ✓ Source loaded: shape = {source_img.shape}")
             
+            print(f"[@controller:ImageVerification]   Loading reference from: {reference_image_for_overlay}")
+            ref_img = cv2.imread(reference_image_for_overlay)
+            if ref_img is None:
+                print(f"[@controller:ImageVerification] ERROR: Failed to load reference image")
+                return {}
+            print(f"[@controller:ImageVerification]   ✓ Reference loaded: shape = {ref_img.shape}")
+            
+            print(f"[@controller:ImageVerification]   Creating overlay by comparing the two images...")
             overlay_img = self._create_pixel_difference_overlay(source_img, ref_img)
             if overlay_img is not None:
+                print(f"[@controller:ImageVerification]   Saving overlay to: {overlay_result_path}")
                 cv2.imwrite(overlay_result_path, overlay_img)
-                print(f"[@controller:ImageVerification] Created overlay image")
+                print(f"[@controller:ImageVerification]   ✓ Overlay saved successfully")
             else:
-                print(f"[@controller:ImageVerification] Failed to create overlay")
+                print(f"[@controller:ImageVerification] ERROR: Failed to create overlay")
                 return {}
+            
+            print(f"[@controller:ImageVerification] ========== COMPARISON IMAGES COMPLETE ==========")
             
             # Return paths - NO reference_image_path since we don't create a copy
             return {
