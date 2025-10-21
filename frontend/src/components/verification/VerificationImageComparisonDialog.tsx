@@ -169,6 +169,7 @@ export const VerificationImageComparisonDialog: React.FC<
               }}
             >
               <img
+                key={cacheBustedSourceUrl}
                 src={cacheBustedSourceUrl}
                 alt="Source"
                 style={{
@@ -209,6 +210,7 @@ export const VerificationImageComparisonDialog: React.FC<
               }}
             >
               <img
+                key={cacheBustedReferenceUrl}
                 src={cacheBustedReferenceUrl}
                 alt="Reference"
                 style={{
@@ -250,6 +252,7 @@ export const VerificationImageComparisonDialog: React.FC<
                 }}
               >
                 <img
+                  key={cacheBustedOverlayUrl}
                   src={cacheBustedOverlayUrl}
                   alt="Pixel Difference Overlay"
                   style={{

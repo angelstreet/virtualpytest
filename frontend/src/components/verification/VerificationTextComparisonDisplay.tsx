@@ -138,6 +138,7 @@ export const VerificationTextComparisonDisplay: React.FC<
             Source
           </Typography>
           <img
+            key={buildImageUrl(sourceUrl)}
             src={buildImageUrl(sourceUrl)}
             alt="Source"
             onClick={handleSourceImageClick}

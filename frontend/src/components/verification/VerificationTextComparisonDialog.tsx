@@ -228,6 +228,7 @@ export const VerificationTextComparisonDialog: React.FC<VerificationTextComparis
                 }}
               >
                 <img
+                  key={cacheBustedSourceUrl}
                   src={cacheBustedSourceUrl}
                   alt="Source"
                   style={{

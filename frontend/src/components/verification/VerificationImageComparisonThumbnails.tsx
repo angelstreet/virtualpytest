@@ -119,6 +119,7 @@ export const VerificationImageComparisonThumbnails: React.FC<
             }}
           >
             <img
+              key={cacheBustedSourceUrl}
               src={cacheBustedSourceUrl}
               alt="Source"
               style={{
@@ -167,6 +168,7 @@ export const VerificationImageComparisonThumbnails: React.FC<
             }}
           >
             <img
+              key={cacheBustedReferenceUrl}
               src={cacheBustedReferenceUrl}
               alt="Reference"
               style={{
