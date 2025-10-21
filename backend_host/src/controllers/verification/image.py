@@ -701,6 +701,21 @@ class ImageVerificationController:
             results_dir = self.verification_results_dir
             print(f"[@controller:ImageVerification] Results directory: {results_dir}")
             
+            # Clean up old verification result images before creating new ones
+            try:
+                import glob
+                old_files = glob.glob(f'{results_dir}/*_image_*.png') + glob.glob(f'{results_dir}/result_overlay_*.png')
+                if old_files:
+                    print(f"[@controller:ImageVerification] Cleaning up {len(old_files)} old verification result images")
+                    for old_file in old_files:
+                        try:
+                            os.remove(old_file)
+                        except Exception as e:
+                            print(f"[@controller:ImageVerification] Warning: Failed to delete {old_file}: {e}")
+                    print(f"[@controller:ImageVerification] Cleanup complete")
+            except Exception as e:
+                print(f"[@controller:ImageVerification] Warning: Cleanup failed: {e}")
+            
             # Generate UNIQUE filenames using timestamp to avoid browser caching issues
             timestamp = int(time.time() * 1000)  # milliseconds
             source_result_path = f'{results_dir}/source_image_{verification_index}_{timestamp}.png'
