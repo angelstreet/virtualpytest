@@ -682,6 +682,12 @@ class InotifyFrameMonitor:
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] Failed to parse frame numbers: {e}")
                     
+                    # ✅ SKIP if already learned different pattern (e.g., device zaps on freeze, not blackscreen)
+                    learned_type = device_state.get('zapping_event_type')
+                    if learned_type and learned_type != 'blackscreen':
+                        logger.info(f"[{capture_folder}] ⏭️  SKIP zapping check (device zaps on {learned_type}, not blackscreen)")
+                        continue
+                    
                     # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
                     self.zapping_executor.submit(
                         self._check_for_zapping_async,
@@ -752,6 +758,12 @@ class InotifyFrameMonitor:
                                 
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] Failed to parse frame numbers: {e}")
+                    
+                    # ✅ SKIP if already learned different pattern (e.g., device zaps on blackscreen, not freeze)
+                    learned_type = device_state.get('zapping_event_type')
+                    if learned_type and learned_type != 'freeze':
+                        logger.info(f"[{capture_folder}] ⏭️  SKIP zapping check (device zaps on {learned_type}, not freeze)")
+                        continue
                     
                     # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
                     self.zapping_executor.submit(
@@ -1022,6 +1034,11 @@ class InotifyFrameMonitor:
                     logger.info(f"[{capture_folder}] 📋 Cache: will add to next 5 frames (safety margin)")
                 except Exception as e:
                     logger.error(f"[{capture_folder}] Failed to setup cache: {e}")
+                
+                # ✅ LEARN: Store which event type triggers zapping (first confirmed zapping only)
+                if not device_state.get('zapping_event_type'):
+                    device_state['zapping_event_type'] = event_type
+                    logger.info(f"[{capture_folder}] 🎓 LEARNED: Zapping is {event_type}-based (will only check {event_type} from now on)")
                 
             elif result.get('error'):
                 logger.warning(f"[{capture_folder}] ⚠️  Zapping detection failed: {result.get('error')}")
