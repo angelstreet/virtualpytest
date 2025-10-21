@@ -42,8 +42,6 @@ export const useNavigationEditor = () => {
             type: node.node_type || 'screen',
             description: node.description,
             verifications: node.verifications, // Directly embedded
-            kpi_references: node.kpi_references, // KPI measurement references
-            use_verifications_for_kpi: node.use_verifications_for_kpi || false, // KPI checkbox state
             ...node.data // Additional data
           }
         }));
@@ -122,8 +120,6 @@ export const useNavigationEditor = () => {
               type: node.node_type || 'screen',
               description: node.description,
               verifications: node.verifications,
-              kpi_references: node.kpi_references,
-              use_verifications_for_kpi: node.use_verifications_for_kpi || false,
               ...node.data
             }
           }));
@@ -573,8 +569,6 @@ export const useNavigationEditor = () => {
           label: `new_${type}`,
           description: '',
           verifications: [],
-          kpi_references: [],
-          use_verifications_for_kpi: false,
         },
       };
       navigation.setNodes([...navigation.nodes, newNode as any]);
@@ -590,8 +584,6 @@ export const useNavigationEditor = () => {
       type: 'screen',
       description: '',
       verifications: [],
-      kpi_references: [],
-      use_verifications_for_kpi: false,
     });
   }, [navigation]);
 
