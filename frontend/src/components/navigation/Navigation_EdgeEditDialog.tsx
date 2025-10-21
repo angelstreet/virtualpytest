@@ -82,10 +82,32 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
 
   // Filter available verifications for KPI - only show wait functions (same as NodeEditDialog)
   const kpiAvailableVerifications = useMemo(() => {
-    // For now, return empty object - KPI verifications will use same filtering logic
-    // TODO: Fetch available verification types if needed
-    return {};
-  }, []);
+    const allowedKpiCommands = [
+      'waitForImageToAppear',
+      'waitForImageToDisappear',
+      'waitForTextToAppear',
+      'waitForTextToDisappear'
+    ];
+
+    const filtered: Record<string, any> = {};
+
+    // Get verifications from edgeEdit verification hook
+    const availableTypes = edgeEdit.verification?.availableVerificationTypes || {};
+
+    Object.entries(availableTypes).forEach(([category, verifications]) => {
+      if (Array.isArray(verifications)) {
+        const filteredVerifications = verifications.filter((v: any) => 
+          allowedKpiCommands.includes(v.command)
+        );
+        
+        if (filteredVerifications.length > 0) {
+          filtered[category] = filteredVerifications;
+        }
+      }
+    });
+
+    return filtered;
+  }, [edgeEdit.verification]);
 
       // Check if form has actions - same logic as EdgeSelectionPanel
     const hasActions = (edgeForm?.action_sets?.length || 0) > 0;
@@ -468,8 +490,8 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                   selectedHost={selectedHost || undefined}
                   testResults={[]}
                   onReferenceSelected={() => {}}
-                  modelReferences={{}}
-                  referencesLoading={false}
+                  modelReferences={edgeEdit.modelReferences}
+                  referencesLoading={edgeEdit.referencesLoading}
                   showCollapsible={false}
                   title=""
                   onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time

@@ -1,4 +1,4 @@
-import { useCallback, useState, useEffect, useRef } from 'react';
+import { useCallback, useState, useEffect, useRef, useMemo } from 'react';
 
 import { Host } from '../../types/common/Host_Types';
 import { EdgeForm, UINavigationEdge } from '../../types/pages/Navigation_Types';
@@ -6,6 +6,8 @@ import { Action } from '../../types/pages/Navigation_Types';
 
 import { useEdge } from './useEdge';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { useDeviceData } from '../../contexts/device/DeviceDataContext';
+import { useVerification } from '../verification/useVerification';
 
 export interface UseEdgeEditProps {
   isOpen: boolean;
@@ -26,7 +28,25 @@ export const useEdgeEdit = ({
 }: UseEdgeEditProps) => {
 
   // Get navigation context for save and treeId
-  const { saveEdgeWithStateUpdate, treeId } = useNavigation();
+  const { saveEdgeWithStateUpdate, treeId, userInterface } = useNavigation();
+
+  // Get device data context for model references
+  const { getModelReferences, referencesLoading, references } = useDeviceData();
+  
+  // Use userinterface name for reference lookup
+  const referenceKey = userInterface?.name;
+
+  // Get model references using the userinterface name
+  const modelReferences = useMemo(() => {
+    if (!referenceKey) return {};
+    return getModelReferences(referenceKey);
+  }, [getModelReferences, referenceKey, references]);
+
+  // Verification hook for managing verifications (for KPI references)
+  const verification = useVerification({
+    captureSourcePath: undefined,
+    userinterfaceName: referenceKey,  // Pass userinterface name for reference resolution
+  });
 
   // Edge hook for loading actions from IDs
   const edgeHook = useEdge({
@@ -366,6 +386,11 @@ export const useEdgeEdit = ({
     handleFailureActionsChange,
     handleKpiReferencesChange,
     handleUseVerificationsForKpiChange,
+
+    // Verification (for KPI references)
+    verification,
+    modelReferences,
+    referencesLoading,
 
     // Validation & Save (aligned with useNodeEdit)
     isFormValid,
