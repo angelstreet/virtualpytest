@@ -432,73 +432,81 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             )}
           </Box>
 
-          {/* KPI Measurement Sections - One for each action_set */}
-          {edgeForm?.action_sets?.map((actionSet, index) => (
-            <Box
-              key={`kpi-${index}`}
-              sx={{
-                border: '1px solid',
-                borderColor: 'divider',
-                borderRadius: 1,
-                p: 1,
-                mb: 1,
-              }}
-            >
-              {/* Title and Checkbox on same line */}
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="h6" sx={{ fontSize: '1rem', m: 0 }}>
-                  📊 KPI Measurement - {actionSet.label}
-                </Typography>
-                
-                {/* Checkbox to use verifications for KPI */}
-                <FormControlLabel
-                  control={
-                    <Checkbox
-                      checked={actionSet.use_verifications_for_kpi || false}
-                      onChange={(e) => edgeEdit.handleUseVerificationsForKpiChange(index, e.target.checked)}
-                      size="small"
-                    />
-                  }
-                  label={
-                    <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
-                      Use target node verifications
-                    </Typography>
-                  }
-                  sx={{ m: 0 }}
-                />
-              </Box>
-              
-              {/* Helper text */}
-              <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 0.5, display: 'block' }}>
-                Measure time from action to visual confirmation (timeout: 1-60 seconds)
-              </Typography>
-              
-              {/* KPI References List - disabled when checkbox is checked */}
+          {/* KPI Measurement Section - Only for current action_set */}
+          {edgeForm?.action_sets && (() => {
+            // Get the current action_set based on direction
+            const direction = edgeForm.direction || 'forward';
+            const actionSetIndex = edgeForm.action_sets.length === 1 ? 0 : (direction === 'forward' ? 0 : 1);
+            const actionSet = edgeForm.action_sets[actionSetIndex];
+            
+            if (!actionSet) return null;
+            
+            return (
               <Box
                 sx={{
-                  opacity: actionSet.use_verifications_for_kpi ? 0.5 : 1,
-                  pointerEvents: actionSet.use_verifications_for_kpi ? 'none' : 'auto',
-                  transition: 'opacity 0.2s',
+                  border: '1px solid',
+                  borderColor: 'divider',
+                  borderRadius: 1,
+                  p: 1,
+                  mb: 1,
                 }}
               >
-                <VerificationsList
-                  verifications={actionSet.kpi_references || []}
-                  availableVerifications={kpiAvailableVerifications}
-                  onVerificationsChange={(newRefs) => edgeEdit.handleKpiReferencesChange(index, newRefs)}
-                  loading={false}
-                  model={model}
-                  selectedHost={selectedHost || undefined}
-                  testResults={[]}
-                  onReferenceSelected={() => {}}
-                  modelReferences={edgeEdit.modelReferences}
-                  referencesLoading={edgeEdit.referencesLoading}
-                  showCollapsible={false}
-                  title=""
-                  onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time
-                />
+                {/* Title and Checkbox on same line */}
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                  <Typography variant="h6" sx={{ fontSize: '1rem', m: 0 }}>
+                    📊 KPI Measurement - {actionSet.label}
+                  </Typography>
+                  
+                  {/* Checkbox to use verifications for KPI */}
+                  <FormControlLabel
+                    control={
+                      <Checkbox
+                        checked={actionSet.use_verifications_for_kpi || false}
+                        onChange={(e) => edgeEdit.handleUseVerificationsForKpiChange(actionSetIndex, e.target.checked)}
+                        size="small"
+                      />
+                    }
+                    label={
+                      <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                        Use target node verifications
+                      </Typography>
+                    }
+                    sx={{ m: 0 }}
+                  />
+                </Box>
+                
+                {/* Helper text */}
+                <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 0.5, display: 'block' }}>
+                  Measure time from action to visual confirmation (timeout: 1-60 seconds)
+                </Typography>
+                
+                {/* KPI References List - disabled when checkbox is checked */}
+                <Box
+                  sx={{
+                    opacity: actionSet.use_verifications_for_kpi ? 0.5 : 1,
+                    pointerEvents: actionSet.use_verifications_for_kpi ? 'none' : 'auto',
+                    transition: 'opacity 0.2s',
+                  }}
+                >
+                  <VerificationsList
+                    verifications={actionSet.kpi_references || []}
+                    availableVerifications={kpiAvailableVerifications}
+                    onVerificationsChange={(newRefs) => edgeEdit.handleKpiReferencesChange(actionSetIndex, newRefs)}
+                    loading={false}
+                    model={model}
+                    selectedHost={selectedHost || undefined}
+                    testResults={[]}
+                    onReferenceSelected={() => {}}
+                    modelReferences={edgeEdit.modelReferences}
+                    referencesLoading={edgeEdit.referencesLoading}
+                    showCollapsible={false}
+                    title=""
+                    onTest={undefined}  // KPI measurements are post-processed, cannot be tested in real-time
+                  />
+                </Box>
               </Box>
-            </Box>
-          ))}
+            );
+          })()}
 
           {/* Linear Progress - shown when running */}
           {edgeHook.actionHook.loading && (
