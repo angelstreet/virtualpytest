@@ -170,13 +170,37 @@ class InotifyFrameMonitor:
         """Worker thread for sequential frame processing per device (LIFO - newest first)"""
         frame_count = 0
         prev_queue_size = 0
+        max_queue_size_seen = 0
+        last_backlog_warning = 0
+        
         while True:
             path, filename = work_queue.get()
             frame_count += 1
             queue_size = work_queue.qsize()
             
-            if frame_count % 25 == 0 and queue_size > 50:
-                logger.warning(f"[{capture_folder}] ⚠️  Queue backlog: {queue_size} frames pending")
+            # Track maximum backlog for diagnostics
+            if queue_size > max_queue_size_seen:
+                max_queue_size_seen = queue_size
+                logger.warning(f"[{capture_folder}] 📈 BACKLOG PEAK: {queue_size} frames (new max)")
+            
+            # Log backlog more frequently during high load
+            current_time = time.time()
+            if queue_size > 50 and (current_time - last_backlog_warning) > 5:
+                logger.warning(f"[{capture_folder}] ⚠️  BACKLOG: {queue_size} frames pending (peak: {max_queue_size_seen})")
+                logger.warning(f"[{capture_folder}]     ⚠️  LIFO processing: Newest frames processed first!")
+                logger.warning(f"[{capture_folder}]     ⚠️  Events may be processed OUT OF ORDER")
+                last_backlog_warning = current_time
+            elif queue_size > 20 and (current_time - last_backlog_warning) > 10:
+                logger.info(f"[{capture_folder}] 📊 Queue: {queue_size} frames (peak: {max_queue_size_seen})")
+                last_backlog_warning = current_time
+            
+            # Extract sequence number for logging
+            try:
+                sequence = int(filename.split('_')[1].split('.')[0])
+                if frame_count % 100 == 0 or queue_size > 50:
+                    logger.debug(f"[{capture_folder}] Processing frame {sequence} (queue: {queue_size})")
+            except:
+                sequence = None
             
             try:
                 self.process_frame(path, filename, queue_size)
@@ -397,8 +421,10 @@ class InotifyFrameMonitor:
                             else:
                                 logger.warning(f"[{capture_folder}] ⚠️  FIRST thumbnail not found: {first_thumbnail_path}")
                             device_state['blackscreen_start_filename'] = first_filename
+                            device_state['blackscreen_start_sequence'] = current_sequence  # 🔒 VALIDATION: Store sequence for chronological check
                             
                             logger.info(f"[{capture_folder}] 📋 BLACKSCREEN START: Copied {copied_count}/4 images to cold")
+                            logger.info(f"[{capture_folder}] 📋 STORED: blackscreen_start_sequence={current_sequence}, queue_size={queue_size}")
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] ⚠️  Failed to capture blackscreen START images: {e}")
                     
@@ -456,8 +482,15 @@ class InotifyFrameMonitor:
                             else:
                                 logger.warning(f"[{capture_folder}] ⚠️  FIRST freeze thumbnail not found: {first_thumbnail_path}")
                             device_state['freeze_start_filename'] = first_filename
+                            device_state['freeze_start_sequence'] = current_sequence  # 🔒 VALIDATION: Store sequence for chronological check
                             
+                            # 🔍 DEBUG: Log stored filenames with frame numbers
                             logger.info(f"[{capture_folder}] 📋 FREEZE START: Copied {copied_count}/4 images to cold")
+                            logger.info(f"[{capture_folder}] 📋 STORED in device_state:")
+                            logger.info(f"[{capture_folder}]     freeze_before_filename: {before_filename}")
+                            logger.info(f"[{capture_folder}]     freeze_start_filename: {first_filename}")
+                            logger.info(f"[{capture_folder}]     freeze_start_sequence: {current_sequence}")
+                            logger.info(f"[{capture_folder}]     current_queue_size: {queue_size}")
                         except Exception as e:
                             logger.warning(f"[{capture_folder}] ⚠️  Failed to capture freeze START images: {e}")
                     
@@ -569,7 +602,13 @@ class InotifyFrameMonitor:
                         # Just store the filename for reference
                         device_state['freeze_closure_filename'] = current_filename
                         
+                        # 🔍 DEBUG: Log stored filenames with frame numbers
                         logger.info(f"[{capture_folder}] 📋 FREEZE END: Copied {copied_count}/2 LAST images (AFTER=analyzed frame, copied during banner detection)")
+                        logger.info(f"[{capture_folder}] 📋 STORED in device_state:")
+                        logger.info(f"[{capture_folder}]     freeze_last_filename: {last_filename}")
+                        logger.info(f"[{capture_folder}]     freeze_closure_filename: {current_filename}")
+                        logger.info(f"[{capture_folder}]     freeze_end_sequence: {current_sequence}")
+                        logger.info(f"[{capture_folder}]     current_queue_size: {queue_size}")
                     except Exception as e:
                         logger.warning(f"[{capture_folder}] ⚠️  Failed to capture freeze END images: {e}")
                 
@@ -591,8 +630,58 @@ class InotifyFrameMonitor:
                     # Blackscreens > 10s are likely real incidents, not channel changes
                     logger.info(f"[{capture_folder}] Blackscreen ended ({total_duration_ms}ms) - checking for zapping...")
                     
-                    # Get start filename for audio check (blackscreen segment, not current segment)
+                    # Get start filename and sequence for validation
                     blackscreen_start_filename = device_state.get('blackscreen_start_filename')
+                    blackscreen_start_sequence = device_state.get('blackscreen_start_sequence', 0)
+                    
+                    # 🔍 DEBUG: Log what we're passing to audio check
+                    logger.info(f"[{capture_folder}] 📋 RETRIEVED from device_state for audio check:")
+                    logger.info(f"[{capture_folder}]     blackscreen_start_filename: {blackscreen_start_filename}")
+                    logger.info(f"[{capture_folder}]     blackscreen_start_sequence: {blackscreen_start_sequence}")
+                    logger.info(f"[{capture_folder}]     current_filename (END): {current_filename}")
+                    
+                    # 🔒 SEQUENCE VALIDATION: Ensure chronological order
+                    if blackscreen_start_filename and current_filename:
+                        try:
+                            start_frame_num = int(blackscreen_start_filename.split('_')[1].split('.')[0])
+                            end_frame_num = int(current_filename.split('_')[1].split('.')[0])
+                            logger.info(f"[{capture_folder}]     start_frame_number: {start_frame_num}")
+                            logger.info(f"[{capture_folder}]     end_frame_number: {end_frame_num}")
+                            
+                            # ❌ CRITICAL VALIDATION: Detect non-chronological processing
+                            if start_frame_num > end_frame_num:
+                                logger.error(f"[{capture_folder}] ❌ NON-CHRONOLOGICAL EVENT DETECTED!")
+                                logger.error(f"[{capture_folder}]     start_frame ({start_frame_num}) > end_frame ({end_frame_num})")
+                                logger.error(f"[{capture_folder}]     Frame difference: {start_frame_num - end_frame_num} frames")
+                                logger.error(f"[{capture_folder}]     ROOT CAUSE: LIFO queue processing + backlog")
+                                logger.error(f"[{capture_folder}]     IMPACT: Event processed backwards, audio check will fail")
+                                logger.error(f"[{capture_folder}]     SOLUTION: Clearing stale state and ABORTING this event")
+                                
+                                # Clear stale blackscreen state
+                                device_state['blackscreen_start_filename'] = None
+                                device_state['blackscreen_start_sequence'] = None
+                                device_state['blackscreen_start_time'] = None
+                                
+                                # Don't process this event - it's invalid
+                                logger.warning(f"[{capture_folder}] ⏭️  SKIPPING zapping detection for non-chronological event")
+                                continue  # Skip to next iteration (don't submit to executor)
+                                
+                            elif blackscreen_start_sequence and blackscreen_start_sequence >= end_frame_num:
+                                # Extra validation using stored sequence
+                                logger.error(f"[{capture_folder}] ❌ SEQUENCE VALIDATION FAILED!")
+                                logger.error(f"[{capture_folder}]     stored_start_sequence ({blackscreen_start_sequence}) >= end_frame ({end_frame_num})")
+                                logger.error(f"[{capture_folder}]     This confirms LIFO processing issue")
+                                
+                                # Clear stale state
+                                device_state['blackscreen_start_filename'] = None
+                                device_state['blackscreen_start_sequence'] = None
+                                device_state['blackscreen_start_time'] = None
+                                
+                                logger.warning(f"[{capture_folder}] ⏭️  SKIPPING zapping detection for invalid sequence")
+                                continue
+                                
+                        except Exception as e:
+                            logger.warning(f"[{capture_folder}] Failed to parse frame numbers: {e}")
                     
                     # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
                     self.zapping_executor.submit(
@@ -612,8 +701,58 @@ class InotifyFrameMonitor:
                     # Freezes > 10s are likely real incidents, not channel changes
                     logger.info(f"[{capture_folder}] Freeze ended ({total_duration_ms}ms) - checking for zapping...")
                     
-                    # Get start filename for audio check (freeze segment, not current segment)
+                    # Get start filename and sequence for validation
                     freeze_start_filename = device_state.get('freeze_start_filename')
+                    freeze_start_sequence = device_state.get('freeze_start_sequence', 0)
+                    
+                    # 🔍 DEBUG: Log what we're passing to audio check
+                    logger.info(f"[{capture_folder}] 📋 RETRIEVED from device_state for audio check:")
+                    logger.info(f"[{capture_folder}]     freeze_start_filename: {freeze_start_filename}")
+                    logger.info(f"[{capture_folder}]     freeze_start_sequence: {freeze_start_sequence}")
+                    logger.info(f"[{capture_folder}]     current_filename (END): {current_filename}")
+                    
+                    # 🔒 SEQUENCE VALIDATION: Ensure chronological order
+                    if freeze_start_filename and current_filename:
+                        try:
+                            start_frame_num = int(freeze_start_filename.split('_')[1].split('.')[0])
+                            end_frame_num = int(current_filename.split('_')[1].split('.')[0])
+                            logger.info(f"[{capture_folder}]     start_frame_number: {start_frame_num}")
+                            logger.info(f"[{capture_folder}]     end_frame_number: {end_frame_num}")
+                            
+                            # ❌ CRITICAL VALIDATION: Detect non-chronological processing
+                            if start_frame_num > end_frame_num:
+                                logger.error(f"[{capture_folder}] ❌ NON-CHRONOLOGICAL EVENT DETECTED!")
+                                logger.error(f"[{capture_folder}]     start_frame ({start_frame_num}) > end_frame ({end_frame_num})")
+                                logger.error(f"[{capture_folder}]     Frame difference: {start_frame_num - end_frame_num} frames")
+                                logger.error(f"[{capture_folder}]     ROOT CAUSE: LIFO queue processing + backlog")
+                                logger.error(f"[{capture_folder}]     IMPACT: Event processed backwards, audio check will fail")
+                                logger.error(f"[{capture_folder}]     SOLUTION: Clearing stale state and ABORTING this event")
+                                
+                                # Clear stale freeze state
+                                device_state['freeze_start_filename'] = None
+                                device_state['freeze_start_sequence'] = None
+                                device_state['freeze_start_time'] = None
+                                
+                                # Don't process this event - it's invalid
+                                logger.warning(f"[{capture_folder}] ⏭️  SKIPPING zapping detection for non-chronological event")
+                                continue  # Skip to next iteration (don't submit to executor)
+                                
+                            elif freeze_start_sequence and freeze_start_sequence >= end_frame_num:
+                                # Extra validation using stored sequence
+                                logger.error(f"[{capture_folder}] ❌ SEQUENCE VALIDATION FAILED!")
+                                logger.error(f"[{capture_folder}]     stored_start_sequence ({freeze_start_sequence}) >= end_frame ({end_frame_num})")
+                                logger.error(f"[{capture_folder}]     This confirms LIFO processing issue")
+                                
+                                # Clear stale state
+                                device_state['freeze_start_filename'] = None
+                                device_state['freeze_start_sequence'] = None
+                                device_state['freeze_start_time'] = None
+                                
+                                logger.warning(f"[{capture_folder}] ⏭️  SKIPPING zapping detection for invalid sequence")
+                                continue
+                                
+                        except Exception as e:
+                            logger.warning(f"[{capture_folder}] Failed to parse frame numbers: {e}")
                     
                     # ✅ NON-BLOCKING: Submit to thread pool (AI analysis takes ~5s, don't block frame queue!)
                     self.zapping_executor.submit(
@@ -933,6 +1072,11 @@ class InotifyFrameMonitor:
                 - segments_checked (list): List of segment numbers checked
         """
         try:
+            # 🔍 DEBUG: Log what we received
+            logger.info(f"[{capture_folder}] 🔊 _check_segment_audio called:")
+            logger.info(f"[{capture_folder}]     start_filename: {blackscreen_start_filename}")
+            logger.info(f"[{capture_folder}]     end_filename: {blackscreen_end_filename}")
+            
             if not blackscreen_start_filename or not blackscreen_end_filename:
                 logger.warning(f"[{capture_folder}] Missing blackscreen start/end filenames")
                 return {
@@ -947,12 +1091,41 @@ class InotifyFrameMonitor:
             start_frame = int(blackscreen_start_filename.split('_')[1].split('.')[0])
             end_frame = int(blackscreen_end_filename.split('_')[1].split('.')[0])
             
+            # 🔍 DEBUG: Log extracted frame numbers
+            logger.info(f"[{capture_folder}]     start_frame_number: {start_frame}")
+            logger.info(f"[{capture_folder}]     end_frame_number: {end_frame}")
+            
+            # 🔒 VALIDATION: Check if chronological
+            if start_frame > end_frame:
+                logger.error(f"[{capture_folder}] ❌ CRITICAL: Non-chronological frame numbers in audio check!")
+                logger.error(f"[{capture_folder}]     start_frame ({start_frame}) > end_frame ({end_frame})")
+                logger.error(f"[{capture_folder}]     Difference: {start_frame - end_frame} frames")
+                logger.error(f"[{capture_folder}]     ROOT CAUSES:")
+                logger.error(f"[{capture_folder}]       1. LIFO queue processing + backlog (MOST LIKELY)")
+                logger.error(f"[{capture_folder}]       2. Hot storage rotated between event start and end")
+                logger.error(f"[{capture_folder}]       3. Stale data in device_state from previous event")
+                logger.error(f"[{capture_folder}]       4. Frame counter wrapped around (unlikely)")
+                logger.error(f"[{capture_folder}]     IMPACT: Cannot determine audio segments, results would be invalid")
+                logger.error(f"[{capture_folder}]     ABORTING audio check")
+                return {
+                    'has_continuous_audio': False,
+                    'silence_duration': 0.0,
+                    'mean_volume_db': -100.0,
+                    'segment_duration': 0.0,
+                    'segments_checked': []  # Empty = validation failed
+                }
+            
             # Get device FPS and calculate segment numbers
             from shared.src.lib.utils.storage_path_utils import get_device_fps, get_segment_number_from_capture
             device_fps = get_device_fps(capture_folder)
             
+            logger.info(f"[{capture_folder}]     device_fps: {device_fps}")
+            
             start_segment = get_segment_number_from_capture(start_frame, device_fps)
             end_segment = get_segment_number_from_capture(end_frame, device_fps)
+            
+            logger.info(f"[{capture_folder}]     start_segment: {start_segment} (frame {start_frame})")
+            logger.info(f"[{capture_folder}]     end_segment: {end_segment} (frame {end_frame})")
             
             # Add 1 extra segment after to check if audio comes back
             segments_to_check = list(range(start_segment, end_segment + 2))  # +2 because range is exclusive
