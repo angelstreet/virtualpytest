@@ -1147,21 +1147,26 @@ class InotifyFrameMonitor:
             # Build segment file list (segments are .ts files in segments directory)
             segment_files = [os.path.join(segments_dir, f"segment_{seg_num:09d}.ts") for seg_num in segments_to_check]
             
-            logger.info(f"[{capture_folder}] Merging {len(segment_files)} segments: {segments_to_check}")
+            logger.info(f"[{capture_folder}] Will check {len(segment_files)} segments: {segments_to_check}")
             
             # ✅ DIAGNOSTIC: Check which segments exist and their sizes
             logger.info(f"[{capture_folder}] 📋 Segment files diagnostic:")
+            available_segments = []
             missing_segments = []
-            for seg_file in segment_files:
+            
+            for seg_num in segments_to_check:
+                seg_file = os.path.join(segments_dir, f"segment_{seg_num:09d}.ts")
                 if os.path.exists(seg_file):
                     size_kb = os.path.getsize(seg_file) / 1024
                     logger.info(f"[{capture_folder}]   ✓ {seg_file} ({size_kb:.1f} KB)")
+                    available_segments.append((seg_num, seg_file))
                 else:
                     logger.warning(f"[{capture_folder}]   ✗ MISSING: {seg_file}")
                     missing_segments.append(seg_file)
             
-            if missing_segments:
-                logger.error(f"[{capture_folder}] ❌ Cannot merge: {len(missing_segments)}/{len(segment_files)} segments missing")
+            # ✅ RESILIENT: Use whatever segments we have (even just 1)
+            if len(available_segments) == 0:
+                logger.error(f"[{capture_folder}] ❌ No segments available: 0/{len(segment_files)} found")
                 for missing in missing_segments:
                     logger.error(f"[{capture_folder}]   - {missing}")
                 
@@ -1198,8 +1203,54 @@ class InotifyFrameMonitor:
                     'silence_duration': 0.0,
                     'mean_volume_db': -100.0,
                     'segment_duration': 0.0,
-                    'segments_checked': []  # ✅ EMPTY = segments missing
+                    'segments_checked': []  # ✅ EMPTY = no segments available
                 }
+            
+            # ✅ PARTIAL ANALYSIS: Use whatever segments we have
+            if missing_segments:
+                logger.warning(f"[{capture_folder}] ⚠️  Partial analysis: {len(available_segments)}/{len(segment_files)} segments available")
+                logger.warning(f"[{capture_folder}]     Missing: {[os.path.basename(m) for m in missing_segments]}")
+                logger.info(f"[{capture_folder}]     Proceeding with available segments (better than aborting)")
+            
+            # Build segment file list from available segments only
+            segment_files_to_use = [seg_file for _, seg_file in available_segments]
+            segments_used = [seg_num for seg_num, _ in available_segments]
+            
+            logger.info(f"[{capture_folder}] 🔊 Analyzing {len(segment_files_to_use)} segment(s): {segments_used}")
+            
+            # ✅ OPTIMIZATION: Single segment = check directly (no merge needed)
+            if len(segment_files_to_use) == 1:
+                single_segment = segment_files_to_use[0]
+                segment_size = os.path.getsize(single_segment) / 1024
+                logger.info(f"[{capture_folder}] 📁 Single segment analysis (no merge needed): {os.path.basename(single_segment)} ({segment_size:.1f} KB)")
+                
+                # Calculate duration for this single segment
+                segment_duration = get_device_segment_duration(capture_folder)
+                logger.info(f"[{capture_folder}] Analyzing single segment audio: {segment_duration:.1f}s")
+                
+                has_continuous_audio, silence_duration, mean_volume = check_audio_continuous(
+                    file_path=single_segment,
+                    sample_duration=segment_duration,
+                    min_silence_duration=0.1,
+                    timeout=10,
+                    context=capture_folder
+                )
+                
+                if has_continuous_audio:
+                    logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (single segment)")
+                else:
+                    logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT: {silence_duration:.2f}s silence in {segment_duration:.1f}s (mean: {mean_volume:.1f}dB)")
+                
+                return {
+                    'has_continuous_audio': has_continuous_audio,
+                    'silence_duration': silence_duration,
+                    'mean_volume_db': mean_volume,
+                    'segment_duration': segment_duration,
+                    'segments_checked': segments_used
+                }
+            
+            # ✅ Multiple segments: Merge and check
+            logger.info(f"[{capture_folder}] 🔗 Merging {len(segment_files_to_use)} segments for audio analysis")
             
             # ✅ Use FIXED filenames (overwrite each time - no space accumulation!)
             concat_list_path = f'/tmp/{capture_folder}_concat_list.txt'
@@ -1208,7 +1259,7 @@ class InotifyFrameMonitor:
             try:
                 # Write concat list (overwrites previous file)
                 with open(concat_list_path, 'w') as f:
-                    for seg_file in segment_files:
+                    for seg_file in segment_files_to_use:
                         f.write(f"file '{seg_file}'\n")
                 
                 logger.info(f"[{capture_folder}] 📝 Concat list written to: {concat_list_path}")
@@ -1260,10 +1311,10 @@ class InotifyFrameMonitor:
                 
                 # Get total duration of merged file
                 merged_size = os.path.getsize(merged_path)
-                logger.info(f"[{capture_folder}] Merged {len(segment_files)} segments → {merged_path} ({merged_size/1024:.1f} KB)")
+                logger.info(f"[{capture_folder}] Merged {len(segment_files_to_use)} segments → {merged_path} ({merged_size/1024:.1f} KB)")
                 
                 # Analyze merged file for audio continuity
-                segment_duration = get_device_segment_duration(capture_folder) * len(segment_files)
+                segment_duration = get_device_segment_duration(capture_folder) * len(segment_files_to_use)
                 logger.info(f"[{capture_folder}] Analyzing merged audio: {segment_duration:.1f}s total")
                 
                 has_continuous_audio, silence_duration, mean_volume = check_audio_continuous(
@@ -1275,7 +1326,7 @@ class InotifyFrameMonitor:
                 )
                 
                 if has_continuous_audio:
-                    logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (no dropouts across {len(segment_files)} segments)")
+                    logger.info(f"[{capture_folder}] 🔊 Audio CONTINUOUS: {mean_volume:.1f}dB (no dropouts across {len(segment_files_to_use)} segments)")
                 else:
                     logger.info(f"[{capture_folder}] 🔇 Audio DROPOUT detected: {silence_duration:.2f}s silence in {segment_duration:.1f}s total (mean: {mean_volume:.1f}dB)")
                 
@@ -1284,7 +1335,7 @@ class InotifyFrameMonitor:
                     'silence_duration': silence_duration,
                     'mean_volume_db': mean_volume,
                     'segment_duration': segment_duration,
-                    'segments_checked': segments_to_check
+                    'segments_checked': segments_used
                 }
                 
             finally:
