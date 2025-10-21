@@ -220,6 +220,7 @@ def execute_image_verification():
         # Build URLs from file paths if verification generated images
         if 'source_image_path' in verification_result.get('details', {}):
             from shared.src.lib.utils.build_url_utils import buildVerificationResultUrl
+            import time
             
             # Get host info for URL building
             host = get_host()
@@ -227,26 +228,33 @@ def execute_image_verification():
             
             details = verification_result.get('details', {})
             
+            # Generate timestamp for cache-busting (milliseconds since epoch)
+            cache_buster = int(time.time() * 1000)
+            
             # Build URLs for the generated images using frontend-expected property names
             if details.get('source_image_path'):
                 filename = os.path.basename(details['source_image_path'])
-                verification_result['sourceUrl'] = buildVerificationResultUrl(host_info, filename, device_id)
+                base_url = buildVerificationResultUrl(host_info, filename, device_id)
+                verification_result['sourceUrl'] = f"{base_url}?cache={cache_buster}"
             
             # Use original R2 URL for reference image (no local copy created)
             if details.get('reference_image_url'):
-                verification_result['referenceUrl'] = details['reference_image_url']
+                # Add cache buster to R2 URL too
+                verification_result['referenceUrl'] = f"{details['reference_image_url']}?cache={cache_buster}"
                 print(f"[@route:host_verification_image:execute] Using R2 reference URL: {details['reference_image_url']}")
             elif details.get('reference_image_path'):
                 # Fallback for legacy code - should not happen with new implementation
                 filename = os.path.basename(details['reference_image_path'])
-                verification_result['referenceUrl'] = buildVerificationResultUrl(host_info, filename, device_id)
+                base_url = buildVerificationResultUrl(host_info, filename, device_id)
+                verification_result['referenceUrl'] = f"{base_url}?cache={cache_buster}"
                 print(f"[@route:host_verification_image:execute] Using legacy reference path: {details['reference_image_path']}")
                 
             if details.get('result_overlay_path'):
                 filename = os.path.basename(details['result_overlay_path'])
-                verification_result['overlayUrl'] = buildVerificationResultUrl(host_info, filename, device_id)
+                base_url = buildVerificationResultUrl(host_info, filename, device_id)
+                verification_result['overlayUrl'] = f"{base_url}?cache={cache_buster}"
             
-            print(f"[@route:host_verification_image:execute] Built URLs:")
+            print(f"[@route:host_verification_image:execute] Built URLs with cache-buster={cache_buster}:")
             print(f"  Source: {verification_result.get('sourceUrl')}")
             print(f"  Reference: {verification_result.get('referenceUrl')}")
             print(f"  Overlay: {verification_result.get('overlayUrl')}")
