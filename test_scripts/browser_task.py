@@ -6,12 +6,12 @@ This script navigates to a URL using device.action, waits 10 seconds,
 then executes a browser-use AI task.
 
 Usage:
-    python test_scripts/gw/browser_task.py --url <url> --task <task_description>
+    python test_scripts/browser_task.py --url <url> --task <task_description>
     
 Examples:
-    python test_scripts/gw/browser_task.py --url "google.com" --task "Search for Python tutorials"
-    python test_scripts/gw/browser_task.py --url "https://youtube.com" --task "Find a video about cats"
-    python test_scripts/gw/browser_task.py --url "amazon.com" --task "Search for wireless headphones and show me the top 3 results"
+    python test_scripts/browser_task.py --url "google.com" --task "Search for Python tutorials"
+    python test_scripts/browser_task.py --url "https://youtube.com" --task "Find a video about cats"
+    python test_scripts/browser_task.py --url "amazon.com" --task "Search for wireless headphones and show me the top 3 results"
 """
 
 import sys
@@ -19,11 +19,9 @@ import os
 import time
 from typing import Dict, Any
 
-# Add project root to path (handle subfolder location)
+# Add project root to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# Go up to test_scripts/, then up to project root
-test_scripts_dir = os.path.dirname(current_dir)
-project_root = os.path.dirname(test_scripts_dir)
+project_root = os.path.dirname(current_dir)
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
