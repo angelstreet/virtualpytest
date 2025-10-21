@@ -701,9 +701,10 @@ class ImageVerificationController:
             results_dir = self.verification_results_dir
             print(f"[@controller:ImageVerification] Results directory: {results_dir}")
             
-            # Generate unique filenames for this verification
-            source_result_path = f'{results_dir}/source_image_{verification_index}.png'
-            overlay_result_path = f'{results_dir}/result_overlay_{verification_index}.png'
+            # Generate UNIQUE filenames using timestamp to avoid browser caching issues
+            timestamp = int(time.time() * 1000)  # milliseconds
+            source_result_path = f'{results_dir}/source_image_{verification_index}_{timestamp}.png'
+            overlay_result_path = f'{results_dir}/result_overlay_{verification_index}_{timestamp}.png'
             
             print(f"[@controller:ImageVerification] OUTPUT PATHS:")
             print(f"[@controller:ImageVerification]   Cropped source will be saved to: {source_result_path}")
