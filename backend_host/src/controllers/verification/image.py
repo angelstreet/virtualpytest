@@ -77,7 +77,7 @@ class ImageVerificationController:
     
     def waitForImageToAppear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8, 
                              area: dict = None, image_list: List[str] = None,
-                             verification_index: int = 0, image_filter: str = 'none', model: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
+                             verification_index: int = 0, image_filter: str = 'none', userinterface_name: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
         """
         Wait for image to appear either in provided image list or by capturing new frames.
         
@@ -89,7 +89,7 @@ class ImageVerificationController:
             image_list: List of image paths to search in (if None, captures new frames)
             verification_index: Index of verification for naming
             image_filter: Filter to apply ('none', 'greyscale', 'binary')
-            model: Device model for reference image resolution
+            userinterface_name: User interface name for reference image resolution
             
         Returns:
             Tuple of (success, message, additional_data)
@@ -105,7 +105,7 @@ class ImageVerificationController:
             print(f"[@controller:ImageVerification] Using image filter: {image_filter}")
         
         # Resolve reference image path and area using userinterface_name and team_id
-        resolved_image_path, resolved_area = self._resolve_reference_image(image_path, model, team_id)
+        resolved_image_path, resolved_area = self._resolve_reference_image(image_path, userinterface_name, team_id)
         if not resolved_image_path:
             error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
             print(f"[@controller:ImageVerification] {error_msg}")
@@ -140,7 +140,7 @@ class ImageVerificationController:
         reference_name = os.path.basename(image_path)
         if not reference_name.endswith(('.jpg', '.jpeg', '.png')):
             reference_name = f"{reference_name}.jpg"
-        reference_r2_url = f"https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/reference-images/{model}/{reference_name}"
+        reference_r2_url = f"https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/reference-images/{userinterface_name}/{reference_name}"
         
         additional_data = {
             "reference_image_path": filtered_reference_path,  # Local path for processing
@@ -250,7 +250,7 @@ class ImageVerificationController:
 
     def waitForImageToDisappear(self, image_path: str, timeout: float = 1.0, threshold: float = 0.8,
                                area: dict = None, image_list: List[str] = None,
-                               verification_index: int = 0, image_filter: str = 'none', model: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
+                               verification_index: int = 0, image_filter: str = 'none', userinterface_name: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
         """Wait for image to disappear - checks all images in timeout window"""
         if not image_path or image_path.strip() == '':
             error_msg = "No reference image specified. Please select a reference image or provide an image path."
@@ -292,7 +292,7 @@ class ImageVerificationController:
             # Check if image is present
             found, message, check_data = self.waitForImageToAppear(
                 image_path, 0, threshold, area, [source_path], 
-                verification_index, image_filter, model, team_id
+                verification_index, image_filter, userinterface_name, team_id
             )
             
             additional_data = check_data
@@ -541,7 +541,7 @@ class ImageVerificationController:
             # Extract team_id for database operations (reference area resolution)
             team_id = verification_config.get('team_id')
             
-            # Extract userinterface_name for reference resolution (NO LEGACY device_model)
+            # Extract userinterface_name for reference resolution
             userinterface_name = verification_config.get('userinterface_name')
             if not userinterface_name:
                 return {
@@ -613,7 +613,7 @@ class ImageVerificationController:
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
-                    model=userinterface_name,  # Use userinterface_name for reference resolution
+                    userinterface_name=userinterface_name,  # Use userinterface_name for reference resolution
                     team_id=team_id
                 )
             elif command == 'waitForImageToDisappear':
@@ -625,7 +625,7 @@ class ImageVerificationController:
                     image_list=[source_path],  # Use source_path as image list
                     verification_index=verification_index,  # Use dynamic index
                     image_filter=image_filter,
-                    model=userinterface_name,  # Use userinterface_name for reference resolution
+                    userinterface_name=userinterface_name,  # Use userinterface_name for reference resolution
                     team_id=team_id
                 )
             else:
@@ -907,6 +907,9 @@ class ImageVerificationController:
                 error_msg = f"No area found in database for reference: {base_name} (userinterface: {userinterface_name})"
                 print(f"[@controller:ImageVerification] {error_msg}")
                 return None, None
+            
+            # Round all coordinates to integers (pixels should always be integers)
+            resolved_area = {k: round(v) if isinstance(v, (int, float)) else v for k, v in resolved_area.items()}
             
             print(f"[@controller:ImageVerification] Resolved area from database: {resolved_area}")
             return local_path, resolved_area

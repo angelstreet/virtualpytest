@@ -61,6 +61,11 @@ class ImageHelpers:
         try:
             print(f"[@image_helpers] Uploading reference to R2: {reference_name} for userinterface: {userinterface_name}")
             
+            # Round all area coordinates to integers (pixels should always be integers)
+            if area:
+                area = {k: round(v) if isinstance(v, (int, float)) else v for k, v in area.items()}
+                print(f"[@image_helpers] Rounded area coordinates: {area}")
+            
             # Upload to R2 using cloudflare utils
             from shared.src.lib.utils.cloudflare_utils import upload_reference_image
             

@@ -48,6 +48,11 @@ class TextHelpers:
         try:
             print(f"[@text_helpers] Saving text reference to database: {reference_name} for userinterface: {userinterface_name}")
             
+            # Round all area coordinates to integers (pixels should always be integers)
+            if area:
+                area = {k: round(v) if isinstance(v, (int, float)) else v for k, v in area.items()}
+                print(f"[@text_helpers] Rounded area coordinates: {area}")
+            
             # Save reference to database
             from shared.src.lib.supabase.verifications_references_db import save_reference
             
