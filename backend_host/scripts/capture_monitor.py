@@ -816,7 +816,21 @@ class InotifyFrameMonitor:
             event_name = event_type.upper()
             logger.info(f"[{capture_folder}] 🔒 LOCK ACQUIRED - Zapping worker started for {current_filename} ({event_name} event)")
             
-            # ✅ WRITE "in_progress" marker IMMEDIATELY (before slow AI processing)
+            # ✅ FIRST CHECK: Only detect zapping for system-triggered actions (within 10s)
+            # This prevents wasting resources (audio analysis, FFmpeg, AI tokens) on manual user zaps
+            action_info = self._get_action_from_device_state(capture_folder)
+            
+            if not action_info:
+                logger.info(f"[{capture_folder}] ⏭️  ABORT: No recent action found (> 10s old or missing)")
+                logger.info(f"[{capture_folder}]     Only monitoring zaps triggered by our system")
+                logger.info(f"[{capture_folder}]     Manual user zaps are not tracked")
+                logger.info(f"[{capture_folder}]     Skipping all analysis (audio + banner detection)")
+                
+                # ✅ Write "aborted" status so zap_executor doesn't timeout
+                self._write_zapping_aborted(capture_folder, current_filename, 'No recent action - not system-triggered zap')
+                return
+            
+            # ✅ WRITE "in_progress" marker (after action check - only if we're proceeding)
             # This allows zap_executor to wait instead of reading stale data
             self._write_zapping_in_progress(capture_folder, current_filename, blackscreen_duration_ms)
             
@@ -844,10 +858,23 @@ class InotifyFrameMonitor:
                 mean_volume = audio_info.get('mean_volume_db', 0)
                 silence_duration = audio_info.get('silence_duration', 0)
                 
-                if mean_volume <= -90:  # Constant silence - might be real zapping
+                # ✅ PROTECTION: Silence > 2s = real incident, not zapping
+                # Zapping causes brief silence (0.1-1s), not extended silence
+                MAX_ZAPPING_SILENCE = 2.0
+                
+                if silence_duration > MAX_ZAPPING_SILENCE:
+                    logger.info(f"[{capture_folder}] ⏭️  ABORT: Silence too long ({silence_duration:.1f}s > {MAX_ZAPPING_SILENCE}s)")
+                    logger.info(f"[{capture_folder}]     This is a REAL incident (freeze/blackscreen), not zapping")
+                    logger.info(f"[{capture_folder}]     mean_volume={mean_volume:.1f}dB")
+                    logger.info(f"[{capture_folder}]     Skipping banner detection to avoid wasting AI tokens")
+                    
+                    # ✅ Write "aborted" status so zap_executor doesn't timeout
+                    self._write_zapping_aborted(capture_folder, current_filename, f'Silence too long ({silence_duration:.1f}s > {MAX_ZAPPING_SILENCE}s) - real incident')
+                    return
+                elif mean_volume <= -90:  # Constant silence but short (< 2s) - might be real zapping
                     logger.warning(f"[{capture_folder}] ⚠️  Constant silence detected (no audio throughout)")
                     logger.warning(f"[{capture_folder}]     mean_volume={mean_volume:.1f}dB, silence={silence_duration:.1f}s")
-                    logger.warning(f"[{capture_folder}]     Proceeding with banner detection anyway (might be real zapping)")
+                    logger.warning(f"[{capture_folder}]     Proceeding with banner detection (short silence < {MAX_ZAPPING_SILENCE}s)")
                     # Continue to banner detection
                 else:
                     # Actual continuous audio → ABORT (likely dark content, not zapping)
@@ -864,9 +891,6 @@ class InotifyFrameMonitor:
                 logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
                 logger.info(f"[{capture_folder}]     Checked {len(segments_checked)} segments: {segments_checked}")
                 logger.info(f"[{capture_folder}]     mean_volume={audio_info.get('mean_volume_db', 0):.1f}dB, silence={audio_info.get('silence_duration', 0):.1f}s")
-            
-            # Check for recent action (reads last_action.json)
-            action_info = self._get_action_from_device_state(capture_folder)
             
             # Get device_state to access transition images (same way as _add_event_duration_metadata)
             device_state = self.incident_manager.get_device_state(device_id)
@@ -1140,7 +1164,7 @@ class InotifyFrameMonitor:
                     'segments_checked': []  # Empty = validation failed
                 }
             
-            # Get device FPS and calculate segment numbers
+            # Get segment numbers from frames
             from shared.src.lib.utils.storage_path_utils import get_device_fps, get_segment_number_from_capture
             device_fps = get_device_fps(capture_folder)
             
@@ -1152,12 +1176,13 @@ class InotifyFrameMonitor:
             logger.info(f"[{capture_folder}]     start_segment: {start_segment} (frame {start_frame})")
             logger.info(f"[{capture_folder}]     end_segment: {end_segment} (frame {end_frame})")
             
-            # ✅ NO EXTRA SEGMENTS: Event segments are sufficient to detect audio dropout
-            # Short freeze/blackscreen (0.1-0.5s) already captured in start→end range
-            segments_to_check = list(range(start_segment, end_segment + 1))  # +1 because range is exclusive
+            # ✅ CAP TO 2 SEGMENTS MAX: Audio dropout happens at START of zapping (channel change)
+            # Even if event lasts 10s (slow STB), we only need to check first 2 segments
+            # This prevents analyzing 9+ segments when queue backlog causes stale device_state
+            segments_to_check = [start_segment, start_segment + 1]  # Always max 2 segments
             
             logger.info(f"[{capture_folder}] Event: frames {start_frame}-{end_frame} → segments {start_segment}-{end_segment}")
-            logger.info(f"[{capture_folder}] Will analyze {len(segments_to_check)} segment(s): {segments_to_check}")
+            logger.info(f"[{capture_folder}] Will analyze {len(segments_to_check)} segment(s) [CAPPED TO 2]: {segments_to_check}")
             
             # Find all segment files
             segments_dir = get_segments_path(capture_folder)

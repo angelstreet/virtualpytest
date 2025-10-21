@@ -859,11 +859,13 @@ class ZapExecutor:
                     
                     timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
                     
-                    # Allow timing variance for navigation execution + confirmation + motion detection processing
-                    # Max 15s: navigation (5s) + confirmation wait (5s) + motion detection (3s) + buffer (2s)
-                    if timestamp_diff > 15.0:
-                        print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.1f}s")
-                        return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.1f}s'}
+                    # ✅ Perfect sync: Both read from same last_action.json timestamp
+                    # Only allow 0.1s tolerance for floating-point precision and file I/O timing
+                    if timestamp_diff > 0.1:
+                        print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.3f}s (expected <0.1s)")
+                        print(f"    action_timestamp: {action_timestamp}")
+                        print(f"    zapping_timestamp: {zapping_action_timestamp}")
+                        return {'success': False, 'zapping_detected': False, 'error': f'Timestamp mismatch: {timestamp_diff:.3f}s'}
                     
                     zapping_detected = zapping_data.get('zapping_detected', False)
                     
