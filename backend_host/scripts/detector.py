@@ -80,7 +80,7 @@ from shared.src.lib.utils.image_utils import (
     analyze_macroblocks
 )
 
-def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue_size=0):
+def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue_size=0, freeze_duration_ms=0):
     """
     Freeze detection using pixel difference - OPTIMIZED with in-memory cache
     
@@ -88,16 +88,22 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     Uses in-memory cache to avoid disk I/O on thumbnail loading (5-10ms savings).
     
     ADAPTIVE SAMPLING WHEN OVERLOADED:
-    - When queue_size > 50, only run freeze detection every N frames (default: every 5th frame = 1 second)
+    - When queue_size > 30, only run freeze detection every N frames (default: every 10th frame = 2 seconds)
     - Reduces CPU load during backlog while still detecting freezes
     - Other frames return last known state (cached result)
+    
+    LONG FREEZE OPTIMIZATION:
+    - When freeze has been ongoing for >30s, only check every 30s (150 frames at 5fps)
+    - Long freezes are confirmed incidents, no need to check frequently
+    - Saves significant CPU during long freeze incidents
     
     Args:
         current_img: Current thumbnail (grayscale numpy array, 320x180)
         thumbnails_dir: Directory containing thumbnails
         filename: Current frame filename (e.g., capture_000001.jpg)
         fps: Frames per second
-        queue_size: Current processing queue size (adaptive sampling if > 50)
+        queue_size: Current processing queue size (adaptive sampling if > 30)
+        freeze_duration_ms: Duration of ongoing freeze in milliseconds (0 if no freeze)
         
     Returns:
         (frozen: bool, details: dict)
@@ -112,6 +118,26 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     
     # Get device key for cache
     device_key = os.path.dirname(thumbnails_dir)
+    
+    # LONG FREEZE OPTIMIZATION: If freeze ongoing for >30s, only check every 30s (150 frames at 5fps)
+    if freeze_duration_ms > 30000:
+        LONG_FREEZE_INTERVAL = 150  # 30 seconds at 5fps
+        if frame_number % LONG_FREEZE_INTERVAL != 0:
+            # Return cached result - no need to check frequently for long freezes
+            if device_key in _freeze_result_cache:
+                cached = _freeze_result_cache[device_key]
+                return cached['frozen'], {
+                    **cached['details'],
+                    'skipped_reason': 'long_freeze_optimization',
+                    'freeze_duration_ms': freeze_duration_ms,
+                    'last_detection_frame': cached.get('frame_number', 0)
+                }
+            else:
+                # No cache - assume still frozen
+                return True, {
+                    'skipped_reason': 'long_freeze_no_cache',
+                    'freeze_duration_ms': freeze_duration_ms
+                }
     
     # ADAPTIVE: When overloaded, only detect every N frames (2 seconds) - OPTIMIZATION: Lowered threshold from 50 to 30
     if queue_size > 30:
@@ -358,7 +384,7 @@ def quick_blackscreen_check(img, threshold=10):
 
 # analyze_subtitles() removed - now handled by subtitle_monitor.py
 
-def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=False, skip_blackscreen=False, skip_macroblocks=False):
+def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=False, skip_blackscreen=False, skip_macroblocks=False, freeze_duration_ms=0):
     """
     Main detection function - OPTIMIZED WORKFLOW with zap state tracking
     
@@ -643,7 +669,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
         if os.path.exists(current_thumbnail_path):
             current_thumbnail = cv2.imread(current_thumbnail_path, cv2.IMREAD_GRAYSCALE)
             if current_thumbnail is not None:
-                frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps, queue_size)
+                frozen, freeze_details = detect_freeze_pixel_diff(current_thumbnail, thumbnails_dir, filename, fps, queue_size, freeze_duration_ms)
             else:
                 frozen, freeze_details = False, {}
         else:

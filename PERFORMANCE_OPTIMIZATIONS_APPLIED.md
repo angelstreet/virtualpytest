@@ -39,11 +39,28 @@ if sequence % 5 == 0 and queue_size <= 30:  # Added queue_size check
 **Impact**: Saves **20-30ms per append** during backlog (file locking, I/O avoided)
 
 ### 5. ✅ Reduce Audio Cache Window (66% I/O reduction)
-**File**: `capture_monitor.py` line 1621
+**File**: `capture_monitor.py` line 1631
 ```python
 for i in range(1, 2):  # Changed from range(1, 4) - now checks only 1 frame instead of 3
 ```
 **Impact**: **66% reduction in JSON reads** for audio cache = ~5-7ms saved per frame
+
+### 6. ✅ Skip Audio Lookups During Freeze (100% I/O elimination during freeze)
+**Files**: `capture_monitor.py` lines 1618-1665
+```python
+skip_audio_lookup = bool(device_state.get('freeze_event_start'))
+if not skip_audio_lookup:
+    # Do audio cache lookup
+else:
+    # Use cached value, skip I/O
+```
+**Impact**: During freeze incidents, **skips all audio cache I/O** while still writing audio data to JSON from cache. Saves ~5-10ms per frame during freeze (when queue is most stressed).
+
+**How it works**:
+- Detects if freeze is ongoing by checking device_state
+- If freeze: Skips expensive JSON reads, uses last cached audio value
+- If no cache: Uses safe default (audio=False, -91.0dB)
+- JSON always gets audio data written, but without the I/O cost during freeze
 
 ## Expected Results
 
@@ -64,8 +81,10 @@ for i in range(1, 2):  # Changed from range(1, 4) - now checks only 1 frame inst
 ### Combined Savings Per Frame (during overload):
 - Freeze detection: ~10ms saved (runs less frequently)
 - Audio cache: ~5-7ms saved (fewer reads)
+- Audio during freeze: ~5-10ms saved (no I/O during freeze incidents)
 - Chunk append: ~5ms saved average (skipped 1 in 5 frames)
-- **Total: ~15-20ms saved per frame = 40-50% improvement**
+- **Total: ~20-30ms saved per frame = 50-75% improvement**
+- **During freeze incidents: Even more savings due to optimization #6**
 
 ## Testing Instructions
 
