@@ -778,6 +778,11 @@ class ZapExecutor:
         Returns:
             Complete zapping data dict, or error dict if not found/too old
         """
+        # 🔍 DEBUG: Log what we're looking for
+        print(f"🔍 [ZapExecutor] _read_zapping_by_action_timestamp called:")
+        print(f"    action_timestamp: {action_timestamp}")
+        print(f"    capture_folder: {capture_folder}")
+        
         try:
             # ✅ READ FROM SAME LOCATION AS METADATA (hot or cold based on mode)
             from shared.src.lib.utils.storage_path_utils import get_metadata_path
@@ -789,6 +794,10 @@ class ZapExecutor:
                     # Read the zapping file
                     with open(last_zapping_path, 'r') as f:
                         zapping_data = json.load(f)
+                    
+                    # 🔍 DEBUG: Print full zapping data to understand mismatch
+                    print(f"🔍 [ZapExecutor] last_zapping.json content:")
+                    print(f"    {json.dumps(zapping_data, indent=2)}")
                     
                     # ✅ CHECK: Is detection in progress?
                     status = zapping_data.get('status')

@@ -51,11 +51,11 @@ from contextlib import contextmanager
 # Macroblocks detection (expensive, disabled by default to reduce CPU load)
 ENABLE_MACROBLOCKS = False  # Set to True to enable macroblocks detection
 
-# Adaptive detection frequency when system is overloaded (queue > 50)
-OVERLOAD_DETECTION_INTERVAL = 5  # Run expensive detections every N frames (1 second at 5fps)
+# Adaptive detection frequency when system is overloaded (queue > 30)
+OVERLOAD_DETECTION_INTERVAL = 10  # Run expensive detections every N frames (2 seconds at 5fps) - OPTIMIZATION: Reduced from 5
 
 # Freeze detection threshold (percentage of pixels that must differ)
-FREEZE_THRESHOLD = 2.0  # 2.0% pixel difference = frozen (increased to reduce false positives)
+FREEZE_THRESHOLD = 3.5  # 3.5% pixel difference = frozen - OPTIMIZATION: Increased from 2.0 to reduce false positives
 
 from shared.src.lib.utils.storage_path_utils import (
     is_ram_mode,
@@ -113,8 +113,8 @@ def detect_freeze_pixel_diff(current_img, thumbnails_dir, filename, fps=5, queue
     # Get device key for cache
     device_key = os.path.dirname(thumbnails_dir)
     
-    # ADAPTIVE: When overloaded, only detect every N frames (1 second)
-    if queue_size > 50:
+    # ADAPTIVE: When overloaded, only detect every N frames (2 seconds) - OPTIMIZATION: Lowered threshold from 50 to 30
+    if queue_size > 30:
         # Check if this frame should run detection
         if frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
             # Return cached result from previous detection
@@ -541,7 +541,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
     split_y = int(img_height * 0.7)     # Blackscreen region: 5-70%
     
     # === STEP 2: Blackscreen Detection (optimized sampling) ===
-    # ADAPTIVE: When overloaded, only detect every N frames (1 second)
+    # ADAPTIVE: When overloaded, only detect every N frames (2 seconds) - OPTIMIZATION: Lowered threshold from 50 to 30
     start = time.perf_counter()
     
     # Threshold = 10 (matches production - accounts for compression artifacts)
@@ -554,7 +554,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
         timings['blackscreen'] = 0.0  # Skipped - incident priority
     else:
         # Check if we should use cached result (adaptive sampling when overloaded)
-        if queue_size > 50 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
+        if queue_size > 30 and frame_number % OVERLOAD_DETECTION_INTERVAL != 0:
             # Return cached blackscreen result
             global _blackscreen_result_cache
             device_key = capture_dir
@@ -588,8 +588,8 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
             blackscreen = bool(dark_percentage > 85)
             timings['blackscreen'] = (time.perf_counter() - start) * 1000
             
-            # Cache result for next frames (when overloaded)
-            if queue_size > 50:
+            # Cache result for next frames (when overloaded) - OPTIMIZATION: Lowered threshold from 50 to 30
+            if queue_size > 30:
                 device_key = capture_dir
                 _blackscreen_result_cache[device_key] = {
                     'blackscreen': blackscreen,
@@ -670,7 +670,7 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
         # Skip if blackscreen/freeze already detected in current frame (priority rules)
         macroblocks, quality_score = False, 0.0
         timings['macroblocks'] = 0.0  # Skipped
-    elif queue_size > 50:
+    elif queue_size > 30:  # OPTIMIZATION: Lowered threshold from 50 to 30
         # ADAPTIVE: Auto-skip when system overloaded (even if ENABLE_MACROBLOCKS=True)
         # This prevents false macroblocks when it's likely a freeze
         # Also reduces CPU load during backlog processing

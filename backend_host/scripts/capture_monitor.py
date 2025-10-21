@@ -1615,9 +1615,10 @@ class InotifyFrameMonitor:
         try:
             sequence = int(filename.split('_')[1].split('.')[0])
             
-            # Check last 3 frames for audio data (refreshes cache from transcript_accumulator writes)
+            # Check last 1 frame for audio data (refreshes cache from transcript_accumulator writes)
             # This runs for EVERY frame to catch audio updates written to recent frames
-            for i in range(1, 4):  # Check previous 3 frames (600ms window)
+            # OPTIMIZATION: Reduced from 3 frames to 1 frame to save I/O (66% reduction)
+            for i in range(1, 2):  # Check only previous 1 frame (200ms window)
                 prev_json = os.path.join(metadata_path, f'capture_{sequence-i:09d}.json')
                 if os.path.exists(prev_json):
                     try:
@@ -1883,7 +1884,8 @@ class InotifyFrameMonitor:
                     logger.debug(f"[{capture_folder}] ✓ Created JSON → {json_file} (seq={sequence})")
                 
                 # Append to chunk: 1 frame per second only (HLS displays at 1-second granularity)
-                if sequence % 5 == 0:
+                # OPTIMIZATION: Skip chunk append during backlog to reduce I/O and lock contention
+                if sequence % 5 == 0 and queue_size <= 30:
                     try:
                         self._append_to_chunk(capture_folder, filename, analysis_data)
                     except Exception as e:
