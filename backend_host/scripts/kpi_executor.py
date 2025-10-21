@@ -107,7 +107,7 @@ class KPIExecutorService:
                 except queue.Empty:
                     # Periodic heartbeat
                     iteration += 1
-                    if iteration % 30 == 0:
+                    if iteration % 120 == 0:
                         logger.info(f"💓 KPI worker heartbeat (queue size: {work_queue.qsize()})")
                     continue
                 
