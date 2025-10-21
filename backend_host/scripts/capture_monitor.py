@@ -679,10 +679,22 @@ class InotifyFrameMonitor:
                 blackscreen_end_filename=current_filename  # End of blackscreen
             )
             
+            # ✅ CRITICAL: Validate audio check succeeded before making decisions
+            # If segments_checked is empty, audio analysis FAILED - we cannot determine if zapping
+            segments_checked = audio_info.get('segments_checked', [])
+            if not segments_checked or len(segments_checked) == 0:
+                logger.warning(f"[{capture_folder}] ⏭️  ABORT: Audio check FAILED (no segments analyzed) - cannot determine if zapping")
+                logger.warning(f"[{capture_folder}]     Possible causes: segments not found, ffmpeg error, timeout")
+                logger.warning(f"[{capture_folder}]     This prevents wasting AI tokens on uncertain events")
+                self._write_zapping_aborted(capture_folder, current_filename, 'Audio check failed - no segments analyzed')
+                return
+            
             if audio_info['has_continuous_audio']:
                 # Continuous audio → ABORT (likely dark content, not zapping)
                 # Example: Movie scene with dark screen but continuous audio
                 logger.info(f"[{capture_folder}] ⏭️  ABORT: Continuous audio detected - likely dark content, not zapping")
+                logger.info(f"[{capture_folder}]     Checked {len(segments_checked)} segments: {segments_checked}")
+                logger.info(f"[{capture_folder}]     mean_volume={audio_info.get('mean_volume_db', 0):.1f}dB, silence={audio_info.get('silence_duration', 0):.1f}s")
                 
                 # ✅ Write "aborted" status so zap_executor doesn't timeout
                 self._write_zapping_aborted(capture_folder, current_filename, 'Continuous audio detected')
@@ -691,6 +703,8 @@ class InotifyFrameMonitor:
                 # Audio dropout detected → PROCEED with banner detection (likely zapping)
                 # Example: 800ms audio + 200ms silence during channel switch
                 logger.info(f"[{capture_folder}] ✅ Audio dropout detected - proceeding with banner detection (likely zapping)")
+                logger.info(f"[{capture_folder}]     Checked {len(segments_checked)} segments: {segments_checked}")
+                logger.info(f"[{capture_folder}]     mean_volume={audio_info.get('mean_volume_db', 0):.1f}dB, silence={audio_info.get('silence_duration', 0):.1f}s")
             
             # Check for recent action (reads last_action.json)
             action_info = self._get_action_from_device_state(capture_folder)
@@ -963,6 +977,29 @@ class InotifyFrameMonitor:
             
             logger.info(f"[{capture_folder}] Merging {len(segment_files)} segments: {segments_to_check}")
             
+            # ✅ DIAGNOSTIC: Check which segments exist and their sizes
+            logger.info(f"[{capture_folder}] 📋 Segment files diagnostic:")
+            missing_segments = []
+            for seg_file in segment_files:
+                if os.path.exists(seg_file):
+                    size_kb = os.path.getsize(seg_file) / 1024
+                    logger.info(f"[{capture_folder}]   ✓ {seg_file} ({size_kb:.1f} KB)")
+                else:
+                    logger.warning(f"[{capture_folder}]   ✗ MISSING: {seg_file}")
+                    missing_segments.append(seg_file)
+            
+            if missing_segments:
+                logger.error(f"[{capture_folder}] ❌ Cannot merge: {len(missing_segments)}/{len(segment_files)} segments missing")
+                for missing in missing_segments:
+                    logger.error(f"[{capture_folder}]   - {missing}")
+                return {
+                    'has_continuous_audio': False,
+                    'silence_duration': 0.0,
+                    'mean_volume_db': -100.0,
+                    'segment_duration': 0.0,
+                    'segments_checked': []  # ✅ EMPTY = segments missing
+                }
+            
             # ✅ Use FIXED filenames (overwrite each time - no space accumulation!)
             concat_list_path = f'/tmp/{capture_folder}_concat_list.txt'
             merged_path = f'/tmp/{capture_folder}_audio_check.ts'
@@ -973,11 +1010,13 @@ class InotifyFrameMonitor:
                     for seg_file in segment_files:
                         f.write(f"file '{seg_file}'\n")
                 
+                logger.info(f"[{capture_folder}] 📝 Concat list written to: {concat_list_path}")
+                
                 # Merge segments with ffmpeg (overwrites previous merged file)
                 merge_cmd = [
                     'ffmpeg',
                     '-hide_banner',
-                    '-loglevel', 'error',
+                    '-loglevel', 'warning',  # Changed from 'error' to 'warning' for more details
                     '-f', 'concat',
                     '-safe', '0',
                     '-i', concat_list_path,
@@ -986,6 +1025,8 @@ class InotifyFrameMonitor:
                     merged_path
                 ]
                 
+                logger.info(f"[{capture_folder}] 🔧 FFmpeg command: {' '.join(merge_cmd)}")
+                
                 result = subprocess.run(merge_cmd, capture_output=True, text=True, timeout=10)
                 
                 # Clean up concat list (tiny file, but good practice)
@@ -993,13 +1034,27 @@ class InotifyFrameMonitor:
                     os.unlink(concat_list_path)
                 
                 if result.returncode != 0:
-                    logger.warning(f"[{capture_folder}] Failed to merge segments: {result.stderr}")
+                    logger.error(f"[{capture_folder}] ❌ FFmpeg merge FAILED (exit code {result.returncode})")
+                    logger.error(f"[{capture_folder}] 📋 Attempted segments: {segments_to_check}")
+                    logger.error(f"[{capture_folder}] 📂 Segments directory: {segments_dir}")
+                    logger.error(f"[{capture_folder}] 📝 Concat list: {concat_list_path}")
+                    logger.error(f"[{capture_folder}] 📤 Output path: {merged_path}")
+                    if result.stderr:
+                        logger.error(f"[{capture_folder}] 🔴 FFmpeg STDERR:")
+                        for line in result.stderr.strip().split('\n'):
+                            logger.error(f"[{capture_folder}]     {line}")
+                    if result.stdout:
+                        logger.error(f"[{capture_folder}] 🔵 FFmpeg STDOUT:")
+                        for line in result.stdout.strip().split('\n'):
+                            logger.error(f"[{capture_folder}]     {line}")
+                    
+                    # ✅ Return EMPTY segments_checked so caller knows merge FAILED
                     return {
                         'has_continuous_audio': False,
                         'silence_duration': 0.0,
                         'mean_volume_db': -100.0,
                         'segment_duration': 0.0,
-                        'segments_checked': segments_to_check
+                        'segments_checked': []  # ✅ EMPTY = merge failed (caller will abort)
                     }
                 
                 # Get total duration of merged file

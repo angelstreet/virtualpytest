@@ -87,7 +87,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
 
   // Get current location to determine if we should skip device locking
   const location = useLocation();
-  const isHeatmapPage = location.pathname.includes('/monitoring/heatmap');
+  const isMonitoringPage = location.pathname.includes('/monitoring/');
 
   // Memoize userInterface to prevent unnecessary re-renders
   const stableUserInterface = useMemo(() => userInterface, [userInterface]);
@@ -661,13 +661,13 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // EFFECTS
   // ========================================
 
-  // Initialize lock reclaim on mount (skip for Heatmap page)
+  // Initialize lock reclaim on mount (skip for all monitoring pages)
   useEffect(() => {
-    if (!initializedRef.current && !isHeatmapPage) {
+    if (!initializedRef.current && !isMonitoringPage) {
       initializedRef.current = true;
       reclaimUserLocks();
     }
-  }, [reclaimUserLocks, isHeatmapPage]);
+  }, [reclaimUserLocks, isMonitoringPage]);
 
   // Clean up locks on unmount
   useEffect(() => {
