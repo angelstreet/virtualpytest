@@ -862,7 +862,9 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     if (state.isControlActive && state.currentHost) {
       fetchAllData(false); // Don't force, use cache if available
     }
-  }, [state.isControlActive, state.currentHost, fetchAllData]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Only trigger when control state changes, not when fetchAllData reference changes
+  }, [state.isControlActive, state.currentHost]);
 
   // ========================================
   // CONTEXT VALUE

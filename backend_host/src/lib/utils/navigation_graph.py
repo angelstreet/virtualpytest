@@ -43,6 +43,11 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         
         print(f"[@navigation:graph:create_networkx_graph] Adding node: {label} ({node_id})")
         
+        # DEBUG: Log verifications for Home node
+        verifications = node.get('verifications', [])
+        if label == 'Home':
+            print(f"[@DEBUG:graph] Home node from DB has verifications: {verifications}")
+        
         G.add_node(node_id, **{
             'label': label,
             'node_type': node_type_value,  # Use top-level node_type column
@@ -53,7 +58,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             'has_children': node_data.get('has_children', False),
             'child_tree_id': node_data.get('child_tree_id'),
             'metadata': node_data,
-            'verifications': node.get('verifications', [])  # Embedded verifications
+            'verifications': verifications  # Embedded verifications
         })
     
     print(f"[@navigation:graph:create_networkx_graph] Added {len(G.nodes)} nodes to graph")
