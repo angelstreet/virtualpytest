@@ -272,9 +272,14 @@ export function useHdmiStream({
 
       const result = await response.json();
       if (result.success && result.screenshot_url) {
-        setScreenshotPath(result.screenshot_url);
+        // Add cache-busting timestamp to force image reload
+        const timestamp = new Date().getTime();
+        const screenshotUrlWithTimestamp = `${result.screenshot_url}?t=${timestamp}`;
+        
+        setScreenshotPath(screenshotUrlWithTimestamp);
+        setCaptureSourcePath(screenshotUrlWithTimestamp);
         setCaptureMode('screenshot');
-        console.log('[@hook:useHdmiStream] Screenshot taken:', result.screenshot_url);
+        console.log('[@hook:useHdmiStream] Screenshot taken:', screenshotUrlWithTimestamp);
       }
     } catch (error) {
       console.error('[@hook:useHdmiStream] Screenshot failed:', error);

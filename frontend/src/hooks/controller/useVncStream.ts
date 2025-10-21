@@ -140,8 +140,13 @@ export function useVncStream({
 
       if (result.success && result.screenshot_url) {
         console.log(`[@hook:useVncStream] Screenshot captured: ${result.screenshot_url}`);
-        setScreenshotPath(result.screenshot_url);
-        setCaptureSourcePath(result.screenshot_url);
+        
+        // Add cache-busting timestamp to force image reload
+        const timestamp = new Date().getTime();
+        const screenshotUrlWithTimestamp = `${result.screenshot_url}?t=${timestamp}`;
+        
+        setScreenshotPath(screenshotUrlWithTimestamp);
+        setCaptureSourcePath(screenshotUrlWithTimestamp);
         setHasCaptured(true);
         setSuccessMessage('VNC screenshot captured successfully');
 
