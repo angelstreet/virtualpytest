@@ -192,9 +192,13 @@ def main():
     print(f"📋 [browser_task] EXECUTING BROWSER-USE TASK")
     print(f"📋 [browser_task] ==========================================\n")
     
+    # Add context to task
+    task_with_context = f"You are on website {final_url}\n\nExecute task: {task}"
+    
     print(f"🤖 [browser_task] Task: {task}")
+    print(f"🤖 [browser_task] Context: You are on website {final_url}")
     print(f"🤖 [browser_task] Max Steps: {max_steps}")
-    task_result = web_controller.browser_use_task(task, max_steps=max_steps)
+    task_result = web_controller.browser_use_task(task_with_context, max_steps=max_steps)
     
     if not task_result.get('success'):
         print(f"❌ [browser_task] Task execution failed: {task_result.get('error', 'Unknown error')}")
