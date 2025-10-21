@@ -28,7 +28,13 @@ class BrowserUseManager:
             )
         return self.llm
 
-    async def execute_task(self, task: str) -> Dict[str, Any]:
+    async def execute_task(self, task: str, max_steps: int = 20) -> Dict[str, Any]:
+        """Execute browser-use task with configurable max_steps.
+        
+        Args:
+            task: Task description for browser-use
+            max_steps: Maximum steps for browser-use agent (default: 20)
+        """
         start_time = time.time()
         execution_logs = []
         
@@ -96,7 +102,7 @@ class BrowserUseManager:
                 max_failures=5,  # Allow more failures before stopping
                 retry_delay=2    # Shorter retry delay
             )
-            await agent.run(max_steps=10)
+            await agent.run(max_steps=max_steps)
             
             # Get captured logs
             captured_logs = log_capture_string.getvalue()

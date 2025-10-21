@@ -1212,11 +1212,16 @@ class PlaywrightWebController(WebControllerInterface):
                 'chrome_running': False
             }
     
-    def browser_use_task(self, task: str) -> Dict[str, Any]:
-        """Execute browser-use task using existing Chrome instance."""
+    def browser_use_task(self, task: str, max_steps: int = 20) -> Dict[str, Any]:
+        """Execute browser-use task using existing Chrome instance.
+        
+        Args:
+            task: Task description for browser-use
+            max_steps: Maximum steps for browser-use agent (default: 20)
+        """
         async def _async_browser_use_task():
             try:
-                print(f"[PLAYWRIGHT]: Executing browser-use task: {task}")
+                print(f"[PLAYWRIGHT]: Executing browser-use task: {task} (max_steps={max_steps})")
                 
                 # Import browseruse_utils only when needed
                 try:
@@ -1232,8 +1237,8 @@ class PlaywrightWebController(WebControllerInterface):
                 # Create browser-use manager with existing browser session reuse
                 browseruse_manager = BrowserUseManager(self.utils)
                 
-                # Execute task
-                result = await browseruse_manager.execute_task(task)
+                # Execute task with max_steps
+                result = await browseruse_manager.execute_task(task, max_steps=max_steps)
                 
                 # Update page state if successful
                 if result.get('success') and result.get('page_info', {}).get('final_url'):
@@ -1383,6 +1388,7 @@ class PlaywrightWebController(WebControllerInterface):
         
         elif command == 'browser_use_task':
             task = params.get('task', '')
+            max_steps = params.get('max_steps', 20)
             
             if not task:
                 return {
@@ -1391,7 +1397,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
             
-            return self.browser_use_task(task)
+            return self.browser_use_task(task, max_steps=max_steps)
         
         elif command == 'press_key':
             key = params.get('key')
