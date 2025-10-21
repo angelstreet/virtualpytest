@@ -810,7 +810,11 @@ class NavigationExecutor:
                 tree_id=final_tree_id,
                 image_source_url=image_source_url
             )
-            verification_timestamp = time.time()
+            # Only set verification_timestamp if there were actual verifications
+            if verification_result.get('has_verifications', True):
+                verification_timestamp = time.time()
+            else:
+                verification_timestamp = None  # No verifications - KPI will use last_action_wait_ms
             
             # Only fail if verifications exist and they failed
             # If no verifications are defined (has_verifications=False), don't fail - we just can't verify
