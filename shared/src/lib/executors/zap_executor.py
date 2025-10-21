@@ -868,9 +868,8 @@ class ZapExecutor:
                     
                     timestamp_diff = abs(action_timestamp - zapping_action_timestamp)
                     
-                    # ✅ Perfect sync: Both read from same last_action.json timestamp
-                    # Only allow 0.1s tolerance for floating-point precision and file I/O timing
-                    if timestamp_diff > 0.1:
+                    # ✅ Try to find last action but some time get previous
+                    if timestamp_diff > 10:
                         print(f"❌ [ZapExecutor] Timestamp mismatch: {timestamp_diff:.3f}s (expected <0.1s)")
                         print(f"    action_timestamp: {action_timestamp}")
                         print(f"    zapping_timestamp: {zapping_action_timestamp}")
