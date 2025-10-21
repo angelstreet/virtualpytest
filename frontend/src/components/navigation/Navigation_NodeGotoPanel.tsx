@@ -349,7 +349,7 @@ export const NodeGotoPanel: React.FC<NodeGotoPanelProps> = ({
                       <strong>Type:</strong> {verification.verification_type || 'No type'}
                       {verification.verification_type === 'image' && verification.params?.image_path && (
                         <span style={{ color: '#1976d2', fontWeight: 'bold', marginLeft: '4px' }}>
-                          {(verification.params as any).image_path}
+                         - {(verification.params as any).image_path}
                         </span>
                       )}
                       {verification.verification_type === 'text' && verification.params?.text && (
