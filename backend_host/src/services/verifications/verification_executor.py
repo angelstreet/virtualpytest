@@ -429,7 +429,8 @@ class VerificationExecutor:
                 # Helper function to check if path needs conversion
                 def needs_conversion(path):
                     """Check if path is a URL that needs conversion (vs already a local path)"""
-                    return path.startswith(('http://', 'https://')) or (path.startswith('/') and not path.startswith('/var/www/html/'))
+                    # Only convert HTTP URLs - all local file paths (including /tmp/) should pass through
+                    return path.startswith(('http://', 'https://'))
                 
                 # Handle comma-separated paths (for multiple images in subtitle/audio detection)
                 if isinstance(image_source_url, str) and ',' in image_source_url:
