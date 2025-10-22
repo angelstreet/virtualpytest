@@ -369,13 +369,21 @@ class KPIExecutorService:
         # Helper to test a capture
         def test_capture(capture, label):
             logger.info(f"🔍 Quick check - {label}: {os.path.basename(capture['path'])}")
-            result = verif_executor.execute_verifications(
-                verifications=verifications,
-                userinterface_name=request.userinterface_name,  # MANDATORY parameter
-                image_source_url=capture['path'],
-                team_id=request.team_id
-            )
-            return result.get('success')
+            try:
+                result = verif_executor.execute_verifications(
+                    verifications=verifications,
+                    userinterface_name=request.userinterface_name,  # MANDATORY parameter
+                    image_source_url=capture['path'],
+                    team_id=request.team_id
+                )
+                success = result.get('success', False)
+                logger.info(f"   ↳ Result: {success}")
+                return success
+            except Exception as e:
+                logger.error(f"   ↳ ERROR in test_capture: {e}")
+                import traceback
+                traceback.print_exc()
+                return False
         
         captures_scanned = 0
         
@@ -414,9 +422,11 @@ class KPIExecutorService:
                 }
         
         logger.info(f"⚡ Quick check: no immediate match, proceeding to backward scan")
+        logger.info(f"   ↳ Early idx: {early_idx}, Late idx: {late_idx}, Checked: {checked_indices}")
         
         # PHASE 2: BACKWARD SCAN
         logger.info(f"🔙 Phase 2: Backward scan from verification → action")
+        logger.info(f"   ↳ Will scan {total_captures - len(checked_indices)} remaining captures")
         
         checked_indices = {early_idx, late_idx}
         
@@ -429,22 +439,31 @@ class KPIExecutorService:
             
             logger.info(f"🔍 Backward scan {i+1}/{total_captures}: {os.path.basename(capture['path'])}")
             
-            result = verif_executor.execute_verifications(
-                verifications=verifications,
-                userinterface_name=request.userinterface_name,  # MANDATORY parameter
-                image_source_url=capture['path'],
-                team_id=request.team_id
-            )
-            
-            if result.get('success'):
-                return {
-                    'success': True,
-                    'timestamp': capture['timestamp'],
-                    'capture_path': capture['path'],
-                    'captures_scanned': captures_scanned,
-                    'error': None,
-                    'algorithm': 'backward_scan'
-                }
+            try:
+                result = verif_executor.execute_verifications(
+                    verifications=verifications,
+                    userinterface_name=request.userinterface_name,  # MANDATORY parameter
+                    image_source_url=capture['path'],
+                    team_id=request.team_id
+                )
+                
+                if result.get('success'):
+                    logger.info(f"   ↳ MATCH FOUND in backward scan!")
+                    return {
+                        'success': True,
+                        'timestamp': capture['timestamp'],
+                        'capture_path': capture['path'],
+                        'captures_scanned': captures_scanned,
+                        'error': None,
+                        'algorithm': 'backward_scan'
+                    }
+                else:
+                    logger.debug(f"   ↳ No match")
+            except Exception as e:
+                logger.error(f"   ↳ ERROR in backward scan: {e}")
+                import traceback
+                traceback.print_exc()
+                continue
         
         # No match found - backward scan completed without finding match
         logger.info(f"🔙 Backward scan completed: checked {captures_scanned} captures total")
