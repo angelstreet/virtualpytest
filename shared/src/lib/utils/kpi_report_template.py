@@ -213,10 +213,7 @@ def create_kpi_report_template() -> str:
         <div class="header">
             <h1>✓ KPI: {kpi_ms}ms</h1>
             <div class="meta">
-                <div><strong>Device:</strong> {device_name}</div>
-                <div><strong>Navigation:</strong> {navigation_path}</div>
-                <div><strong>Algorithm:</strong> {algorithm}</div>
-                <div><strong>Captures Scanned:</strong> {captures_scanned}</div>
+                <strong>Device:</strong> {device_name} &nbsp;|&nbsp; <strong>Navigation:</strong> {navigation_path} &nbsp;|&nbsp; <strong>Algorithm:</strong> {algorithm} &nbsp;|&nbsp; <strong>Captures Scanned:</strong> {captures_scanned}
             </div>
         </div>
         
@@ -240,7 +237,6 @@ def create_kpi_report_template() -> str:
                         <div class="timestamp">{match_time}</div>
                     </div>
                 </div>
-                <div class="hint">Click any image to view full size</div>
             </div>
             
             <div class="section">
