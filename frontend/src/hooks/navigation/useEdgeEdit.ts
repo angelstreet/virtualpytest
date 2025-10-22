@@ -354,22 +354,37 @@ export const useEdgeEdit = ({
       await saveEdgeWithStateUpdate(edgeForm);
       
       // 2. Update cache incrementally on all hosts (no rebuild)
-      if (treeId) {
+      if (treeId && selectedEdge) {
         console.log('[useEdgeEdit] Updating edge in cache for tree:', treeId);
         const { buildServerUrl } = await import('../../utils/buildUrlUtils');
+        
+        // Build proper edge data structure for cache update
+        const edgeDataForCache = {
+          id: edgeForm.edgeId,
+          source_node_id: selectedEdge.source,
+          target_node_id: selectedEdge.target,
+          action_sets: edgeForm.action_sets,
+          default_action_set_id: edgeForm.default_action_set_id,
+          final_wait_time: edgeForm.final_wait_time,
+          priority: edgeForm.priority,
+          threshold: edgeForm.threshold
+        };
+        
+        console.log('[useEdgeEdit] Cache update payload:', edgeDataForCache);
         
         // Call server to update edge in cache on all hosts (buildServerUrl adds team_id automatically)
         const response = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            edge: edgeForm,
+            edge: edgeDataForCache,
             tree_id: treeId
           })
         });
         
         if (!response.ok) {
-          console.error('[useEdgeEdit] Failed to update edge in cache:', response.statusText);
+          const errorText = await response.text();
+          console.error('[useEdgeEdit] Failed to update edge in cache:', response.statusText, errorText);
         } else {
           const result = await response.json();
           console.log('[useEdgeEdit] ✅ Edge updated in cache (incremental):', result);
