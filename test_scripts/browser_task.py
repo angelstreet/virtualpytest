@@ -30,7 +30,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 # Script arguments
 # MUST be defined near top of file (within first 300 lines) for script analyzer
 _script_args = [
-    '--url:str:https://youtube.com',                    # URL to navigate to
+    '--url:str:youtube.com',                    # URL to navigate to
     '--task:str:Launch funny cat video',  # Browser-use task description
     '--max_steps:int:10'                       # Maximum steps for browser-use (default: 20)
 ]
