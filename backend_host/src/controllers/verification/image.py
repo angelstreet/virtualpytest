@@ -981,13 +981,22 @@ class ImageVerificationController:
             if area:
                 x, y, w, h = int(area['x']), int(area['y']), int(area['width']), int(area['height'])
                 cropped_source = source_img[y:y+h, x:x+w]
-                
-                result = cv2.matchTemplate(cropped_source, ref_img, cv2.TM_CCOEFF_NORMED)
-                _, max_val, _, max_loc = cv2.minMaxLoc(result)
-                
-                # For exact match, location is the search area itself
                 location = {'x': x, 'y': y, 'width': w, 'height': h}
-                return max_val, location
+                
+                # Use pixel-based matching (same logic as overlay)
+                if cropped_source.shape != ref_img.shape:
+                    ref_resized = cv2.resize(ref_img, (cropped_source.shape[1], cropped_source.shape[0]))
+                else:
+                    ref_resized = ref_img
+                source_gray = cv2.cvtColor(cropped_source, cv2.COLOR_BGR2GRAY)
+                ref_gray = cv2.cvtColor(ref_resized, cv2.COLOR_BGR2GRAY)
+                diff = cv2.absdiff(source_gray, ref_gray)
+                matching_pixels = np.sum(diff <= 10)
+                total_pixels = source_gray.shape[0] * source_gray.shape[1]
+                pixel_score = matching_pixels / total_pixels
+                
+                print(f"[@controller:ImageVerification] Pixel match: {matching_pixels}/{total_pixels} = {pixel_score:.1%}")
+                return pixel_score, location
             
             # No area specified - full image search
             result = cv2.matchTemplate(source_img, ref_img, cv2.TM_CCOEFF_NORMED)
