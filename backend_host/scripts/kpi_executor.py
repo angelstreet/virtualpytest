@@ -445,11 +445,12 @@ class KPIExecutorService:
                 }
         
         # No match found
+        window_duration = scan_end - scan_start
         return {
             'success': False,
             'timestamp': None,
             'captures_scanned': captures_scanned,
-            'error': f'No match found in {total_captures} captures ({window_s:.2f}s window)',
+            'error': f'No match found in {total_captures} captures ({window_duration:.2f}s window)',
             'algorithm': 'exhaustive_search_failed'
         }
     
