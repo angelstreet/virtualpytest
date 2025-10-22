@@ -72,6 +72,11 @@ class TextVerificationController:
             print(f"[@controller:TextVerification] {error_msg}")
             return False, error_msg, {"searchedText": text or "", "image_filter": image_filter}
         
+        # SAFEGUARD: Cap timeout at reasonable maximum (30 seconds) to prevent infinite waits
+        if timeout > 30:
+            print(f"[@controller:TextVerification] WARNING: Timeout {timeout}s exceeds maximum (30s), capping at 30s")
+            timeout = 30
+        
         print(f"[@controller:TextVerification] Looking for text pattern: '{text}'")
         if image_filter and image_filter != 'none':
             print(f"[@controller:TextVerification] Using image filter: {image_filter}")

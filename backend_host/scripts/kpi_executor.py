@@ -371,13 +371,21 @@ class KPIExecutorService:
             logger.info(f"📸 Found {total_captures} captures in window")
         
         # Convert kpi_references to verification format
+        # CRITICAL: Force timeout=0 to check ONLY the provided image (no future frame scanning)
         verifications = []
         for kpi_ref in kpi_references:
+            command = kpi_ref.get('command', 'waitForImageToAppear')
+            params = dict(kpi_ref.get('params', {}))  # Copy params
+            original_timeout = params.get('timeout', 0)
+            params['timeout'] = 0  # Force single-image check (no waiting for future frames)
             verifications.append({
                 'verification_type': kpi_ref.get('verification_type', 'image'),
-                'command': kpi_ref.get('command', 'waitForImageToAppear'),
-                'params': kpi_ref.get('params', {})
+                'command': command,
+                'params': params
             })
+            logger.info(f"   • Verification: {command} (timeout: {original_timeout}s → forced to 0s for single-image check)")
+        
+        logger.info(f"   • Total verifications configured: {len(verifications)}")
         
         # Helper to test a capture
         def test_capture(capture, label):

@@ -99,6 +99,11 @@ class ImageVerificationController:
             error_msg = "No reference image specified. Please select a reference image or provide an image path."
             return False, error_msg, {}
         
+        # SAFEGUARD: Cap timeout at reasonable maximum (30 seconds) to prevent infinite waits
+        if timeout > 30:
+            print(f"[@controller:ImageVerification] WARNING: Timeout {timeout}s exceeds maximum (30s), capping at 30s")
+            timeout = 30
+        
         # Resolve reference image path and area using userinterface_name and team_id
         resolved_image_path, resolved_area = self._resolve_reference_image(image_path, userinterface_name, team_id)
         if not resolved_image_path:
@@ -234,6 +239,11 @@ class ImageVerificationController:
             error_msg = "No reference image specified. Please select a reference image or provide an image path."
             print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
+        
+        # SAFEGUARD: Cap timeout at reasonable maximum (30 seconds) to prevent infinite waits
+        if timeout > 30:
+            print(f"[@controller:ImageVerification] WARNING: Timeout {timeout}s exceeds maximum (30s), capping at 30s")
+            timeout = 30
             
         print(f"[@controller:ImageVerification] Looking for image to disappear: {image_path}")
         
