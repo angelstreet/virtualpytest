@@ -1486,6 +1486,11 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                     return (action.params as any).key === (act.params as any).key;
                   }
                   
+                  // For scroll actions (predefined), match the direction parameter
+                  if (action.command === 'scroll' && action.params && act.params) {
+                    return (action.params as any).direction === (act.params as any).direction;
+                  }
+                  
                   // For other actions, just match by command
                   return true;
                 })?.id || ''
