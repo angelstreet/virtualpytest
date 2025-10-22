@@ -50,21 +50,34 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   const fetchInProgress = useRef(false);
   const lastFetchKey = useRef<string | null>(null);
   
-  // Track if component has mounted - don't fetch on initial mount with cached values
-  const hasMounted = useRef(false);
+  // Track previous values to detect actual user changes (not just cached values)
+  const prevUserinterface = useRef<string>('');
+  const prevHost = useRef<string>('');
+  const hasUserChangedValues = useRef(false);
 
   const fetchEdges = useCallback(async () => {
-    // Don't fetch if disabled OR if required props are missing
-    if (disabled || !userinterfaceName || !hostName) {
+    // Don't fetch if disabled OR if required props are missing or empty
+    if (disabled || !userinterfaceName || !hostName || userinterfaceName.trim() === '' || hostName.trim() === '') {
       setEdges([]);
       setError(null);
       return;
     }
     
-    // Don't fetch on initial mount (prevents fetching from cached values)
-    // Only fetch when values change after mount
-    if (!hasMounted.current) {
-      hasMounted.current = true;
+    // Track if user has actually changed values (not just initial/cached values)
+    const userinterfaceChanged = prevUserinterface.current !== '' && prevUserinterface.current !== userinterfaceName;
+    const hostChanged = prevHost.current !== '' && prevHost.current !== hostName;
+    
+    if (userinterfaceChanged || hostChanged) {
+      hasUserChangedValues.current = true;
+    }
+    
+    // Update previous values
+    prevUserinterface.current = userinterfaceName;
+    prevHost.current = hostName;
+    
+    // Don't fetch until user has explicitly changed values (prevents fetching from cached values)
+    if (!hasUserChangedValues.current) {
+      console.log('[EdgeSelector] Skipping fetch - waiting for user to explicitly select values');
       return;
     }
 
