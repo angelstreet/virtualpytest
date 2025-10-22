@@ -621,26 +621,21 @@ class NavigationExecutor:
                     # No actions to execute, just mark as successful
                     result = {'success': True, 'main_actions_succeeded': True}
                 
-                # Execute verifications after actions (if any) - BUT ONLY if actions succeeded
+                # Execute verifications after actions (if any)
                 verification_result = {'success': True, 'results': []}
                 step_verifications = step.get('verifications', [])
                 if step_verifications:
-                    # Only run verifications if actions succeeded (main actions OR retry actions)
-                    # result['success'] = True if main actions passed OR if retry actions passed
-                    if result.get('success', False):
-                        print(f"[@navigation_executor:execute_navigation] Executing {len(step_verifications)} verifications for step")
-                        
-                        verification_result = self.device.verification_executor.execute_verifications(
-                            verifications=step_verifications,
-                            userinterface_name=userinterface_name,  # Pass as mandatory parameter
-                            team_id=team_id,
-                            tree_id=tree_id,
-                            node_id=step.get('to_node_id'),
-                            context=context
-                        )
-                        print(f"[@navigation_executor:execute_navigation] Verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
-                    else:
-                        print(f"[@navigation_executor:execute_navigation] Skipping {len(step_verifications)} verifications - actions failed")
+                    print(f"[@navigation_executor:execute_navigation] Executing {len(step_verifications)} verifications for step")
+                    
+                    verification_result = self.device.verification_executor.execute_verifications(
+                        verifications=step_verifications,
+                        userinterface_name=userinterface_name,  # Pass as mandatory parameter
+                        team_id=team_id,
+                        tree_id=tree_id,
+                        node_id=step.get('to_node_id'),
+                        context=context
+                    )
+                    print(f"[@navigation_executor:execute_navigation] Verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
                 
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 

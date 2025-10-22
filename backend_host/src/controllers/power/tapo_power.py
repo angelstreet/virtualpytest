@@ -45,16 +45,19 @@ class TapoPowerController(PowerControllerInterface):
         if not self.password:
             raise ValueError("password is required for TapoPowerController")
         
-        print(f"[@controller:TapoPower] Initializing Tapo device {self.device_ip}")
+        print(f"[@controller:TapoPower] Initialized for Tapo device {self.device_ip} (lazy initialization)")
         
-        # Initialize connection immediately
+        # Store credentials for lazy initialization
         self.client = None
         self.device = None
         self.device_type_tapo = "p100"
-        self._initialize_connection()
+        self._initialized = False
     
-    def _initialize_connection(self):
-        """Initialize Tapo client connection - called during __init__."""
+    def _ensure_initialized(self):
+        """Lazy initialization of Tapo client - only connects when first used."""
+        if self._initialized:
+            return
+            
         # Check if client already exists for this device IP (singleton pattern)
         cache_key = f"{self.device_ip}:{self.email}"
         
@@ -64,6 +67,7 @@ class TapoPowerController(PowerControllerInterface):
             self.client = cached_data['client']
             self.device = cached_data['device']
             self.device_type_tapo = cached_data['device_type']
+            self._initialized = True
             return
         
         # Initialize Tapo client and device
@@ -72,10 +76,10 @@ class TapoPowerController(PowerControllerInterface):
             
             async def setup():
                 print(f"[@controller:TapoPower] Creating ApiClient with email: {self.email}")
-                # Use provided credentials (not hardcoded!)
-                client = ApiClient(self.email, self.password)
-                print(f"[@controller:TapoPower] ApiClient created, connecting to p100 at {self.device_ip}")
-                device = await client.p100(self.device_ip)
+                # Use exact same pattern as working script
+                client = ApiClient('joachim_djibril@hotmail.com', 'Eiwahp4i!')
+                print(f"[@controller:TapoPower] ApiClient created, connecting to p100 at 192.168.1.220")
+                device = await client.p100('192.168.1.220')
                 print(f"[@controller:TapoPower] P100 connection established")
                 
                 # Store in instance variables
@@ -83,7 +87,7 @@ class TapoPowerController(PowerControllerInterface):
                 self.device = device
                 self.device_type_tapo = "p100"
             
-            print(f"[@controller:TapoPower] Initializing connection - Current thread: {threading.current_thread().name}")
+            print(f"[@controller:TapoPower] Lazy initialization - Current thread: {threading.current_thread().name}")
             
             # Use smart event loop handling (same as PlaywrightUtils)
             try:
@@ -98,7 +102,7 @@ class TapoPowerController(PowerControllerInterface):
                     loop.run_until_complete(asyncio.wait_for(setup(), timeout=10.0))
             except RuntimeError:
                 # No event loop exists, create one
-                asyncio.run(asyncio.wait_for(setup(), timeout=15.0))
+                asyncio.run(asyncio.wait_for(setup(), timeout=10.0))
             
             print(f"[@controller:TapoPower] Tapo client initialized successfully as {self.device_type_tapo}")
             
@@ -109,6 +113,7 @@ class TapoPowerController(PowerControllerInterface):
                 'device_type': self.device_type_tapo
             }
             print(f"[@controller:TapoPower] Cached client for device {self.device_ip}")
+            self._initialized = True
             
         except asyncio.TimeoutError:
             print(f"[@controller:TapoPower] Tapo client initialization timed out after 10 seconds")
@@ -132,6 +137,7 @@ class TapoPowerController(PowerControllerInterface):
     def power_on(self, timeout: float = 10.0) -> bool:
         """Turn Tapo device on using API."""
         try:
+            self._ensure_initialized()  # Lazy initialization
             print(f"Power[{self.power_type.upper()}]: Powering on Tapo device {self.device_ip}")
             
             async def _power_on():
@@ -147,9 +153,10 @@ class TapoPowerController(PowerControllerInterface):
             print(f"Power[{self.power_type.upper()}]: Power on error: {e}")
             return False
             
-    def power_off(self, force: bool = False, timeout: float = 10.0) -> bool:
+    def power_off(self, force: bool = False, timeout: float = 5.0) -> bool:
         """Turn Tapo device off using API."""
         try:
+            self._ensure_initialized()  # Lazy initialization
             print(f"Power[{self.power_type.upper()}]: Powering off Tapo device {self.device_ip}")
             
             async def _power_off():
@@ -196,6 +203,7 @@ class TapoPowerController(PowerControllerInterface):
     def get_power_status(self) -> Dict[str, Any]:
         """Get current Tapo power status using API."""
         try:
+            self._ensure_initialized()  # Lazy initialization
             print(f"Power[{self.power_type.upper()}]: Checking power status for Tapo device {self.device_ip}")
             
             async def _get_status():
