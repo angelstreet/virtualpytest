@@ -147,7 +147,7 @@ def action_execute_batch():
                 'POST', 
                 execution_payload, 
                 query_params, 
-                timeout=120
+                timeout=30
             )
             
             print(f"[@route:server_actions:action_execute_batch] Execution completed: success={response_data.get('success')}")

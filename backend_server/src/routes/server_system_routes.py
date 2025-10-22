@@ -756,7 +756,7 @@ def disk_usage_diagnostics_proxy():
         host_endpoint = f'/host/monitoring/disk-usage?capture_dir={capture_dir}'
         host_url = buildHostUrl(host_data, host_endpoint)
         
-        response = requests.get(host_url, timeout=120)  # Long timeout for file scanning
+        response = requests.get(host_url, timeout=30)  # Long timeout for file scanning
         
         if response.status_code == 200:
             result = response.json()

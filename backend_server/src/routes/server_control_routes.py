@@ -373,7 +373,7 @@ def batch_execute_navigation():
         response = requests.post(
             host_url,
             json={'batch_data': batch_data},
-            timeout=120  # Longer timeout for batch operations
+            timeout=180  # Longer timeout for batch operations
         )
         
         if response.status_code == 200:
