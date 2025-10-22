@@ -28,6 +28,7 @@ interface EdgeSelectorProps {
   required?: boolean;
   userinterfaceName?: string; // Required to fetch edges
   hostName?: string; // Required to fetch edges
+  disabled?: boolean; // Disable fetching until ready
 }
 
 export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
@@ -39,6 +40,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   required = false,
   userinterfaceName,
   hostName,
+  disabled = false,
 }) => {
   const [edges, setEdges] = useState<EdgeOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -47,11 +49,22 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
   // Prevent duplicate fetch requests
   const fetchInProgress = useRef(false);
   const lastFetchKey = useRef<string | null>(null);
+  
+  // Track if component has mounted - don't fetch on initial mount with cached values
+  const hasMounted = useRef(false);
 
   const fetchEdges = useCallback(async () => {
-    if (!userinterfaceName || !hostName) {
+    // Don't fetch if disabled OR if required props are missing
+    if (disabled || !userinterfaceName || !hostName) {
       setEdges([]);
       setError(null);
+      return;
+    }
+    
+    // Don't fetch on initial mount (prevents fetching from cached values)
+    // Only fetch when values change after mount
+    if (!hasMounted.current) {
+      hasMounted.current = true;
       return;
     }
 
@@ -69,7 +82,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
     setError(null);
 
     try {
-      console.log('[EdgeSelector] Fetching edges for:', { userinterfaceName, hostName, team_id: TEAM_ID });
+      console.log('[EdgeSelector] Fetching edges for:', { userinterfaceName, hostName, team_id: TEAM_ID, disabled });
       
       const response = await fetch(buildServerUrl('/server/script/get_edge_options'), {
         method: 'POST',
@@ -103,7 +116,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       setLoading(false);
       fetchInProgress.current = false;
     }
-  }, [userinterfaceName, hostName]);
+  }, [userinterfaceName, hostName, disabled]);
 
   // Fetch edges when dependencies change
   useEffect(() => {
@@ -161,7 +174,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       renderOption={renderOption}
       renderInput={renderInput}
       loading={loading}
-      disabled={!userinterfaceName || !hostName || loading}
+      disabled={disabled || !userinterfaceName || !hostName || loading}
       disableClearable
       noOptionsText={
         !userinterfaceName

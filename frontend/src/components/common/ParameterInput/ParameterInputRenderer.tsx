@@ -61,7 +61,12 @@ export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
   }
 
   // Special handling for edge parameter (KPI measurement) - use EdgeSelector to fetch edges
+  // Only enable fetching AFTER userinterface_name has been explicitly set (not just cached)
+  // The disabled prop prevents fetching from cached/default values
   if (parameter.name === 'edge') {
+    // Only enable if BOTH userinterfaceName AND hostName are truthy
+    const shouldEnableFetch = Boolean(userinterfaceName && hostName);
+    
     return (
       <EdgeSelector
         key={parameter.name}
@@ -73,6 +78,7 @@ export const ParameterInputRenderer: React.FC<ParameterInputRendererProps> = ({
         required={parameter.required}
         userinterfaceName={userinterfaceName}
         hostName={hostName}
+        disabled={!shouldEnableFetch}
       />
     );
   }
