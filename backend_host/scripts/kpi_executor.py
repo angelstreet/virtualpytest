@@ -442,16 +442,19 @@ class KPIExecutorService:
                     'algorithm': 'quick_check_late'
                 }
         
-        logger.info(f"⚡ Quick check: no immediate match, proceeding to backward scan")
+        logger.info(f"⚡ Quick check: no immediate match, proceeding to exhaustive scan")
+        checked_indices = {early_idx, late_idx}
         logger.info(f"   ↳ Early idx: {early_idx}, Late idx: {late_idx}, Checked: {checked_indices}")
         
-        # PHASE 2: BACKWARD SCAN
+        # PHASE 2: BACKWARD SCAN (optimized to find earliest match)
         logger.info(f"🔙 Phase 2: Backward scan from verification → action")
         logger.info(f"   ↳ Will scan {total_captures - len(checked_indices)} remaining captures")
+        logger.info(f"   ↳ Strategy: Scan backward in steps of 2, fill gap when boundary found")
         
-        checked_indices = {early_idx, late_idx}
+        earliest_match = None  # Track the earliest (closest to action) match found
         
-        for i in range(total_captures - 1, -1, -1):
+        # Scan backward in steps of 2 (skip every other frame for speed)
+        for i in range(total_captures - 1, -1, -2):
             if i in checked_indices:
                 continue
             
@@ -469,14 +472,46 @@ class KPIExecutorService:
                 )
                 
                 if result.get('success'):
-                    logger.info(f"   ↳ MATCH FOUND in backward scan!")
-                    return {
-                        'success': True,
+                    # Found a match - keep scanning backward to find earliest
+                    earliest_match = {
                         'timestamp': capture['timestamp'],
                         'capture_path': capture['path'],
+                        'index': i
+                    }
+                    logger.info(f"   ↳ Match found! Continuing backward (step -2)...")
+                elif earliest_match:
+                    # No match after having matches - check the skipped frame (i+1) to fill the gap
+                    gap_idx = i + 1
+                    if gap_idx < total_captures and gap_idx not in checked_indices:
+                        logger.info(f"   ↳ Checking skipped frame at idx {gap_idx} to confirm boundary...")
+                        gap_capture = all_captures[gap_idx]
+                        captures_scanned += 1
+                        
+                        gap_result = verif_executor.execute_verifications(
+                            verifications=verifications,
+                            userinterface_name=request.userinterface_name,
+                            image_source_url=gap_capture['path'],
+                            team_id=request.team_id
+                        )
+                        
+                        if gap_result.get('success'):
+                            # Gap frame matches, so earliest is the gap frame
+                            earliest_match = {
+                                'timestamp': gap_capture['timestamp'],
+                                'capture_path': gap_capture['path'],
+                                'index': gap_idx
+                            }
+                            logger.info(f"   ↳ Gap frame matches - earliest is at idx {gap_idx}")
+                    
+                    # Return the earliest match found
+                    logger.info(f"   ↳ Boundary confirmed - earliest match at idx {earliest_match['index']}")
+                    return {
+                        'success': True,
+                        'timestamp': earliest_match['timestamp'],
+                        'capture_path': earliest_match['capture_path'],
                         'captures_scanned': captures_scanned,
                         'error': None,
-                        'algorithm': 'backward_scan'
+                        'algorithm': 'backward_scan_step2'
                     }
                 else:
                     logger.debug(f"   ↳ No match")
@@ -485,6 +520,39 @@ class KPIExecutorService:
                 import traceback
                 traceback.print_exc()
                 continue
+        
+        # If we have a match at the end (reached start while still matching)
+        # Check if there's a skipped frame at index 0 that we need to verify
+        if earliest_match:
+            if earliest_match['index'] > 0 and 0 not in checked_indices:
+                logger.info(f"   ↳ Checking first frame (idx 0) to confirm earliest...")
+                first_capture = all_captures[0]
+                captures_scanned += 1
+                
+                first_result = verif_executor.execute_verifications(
+                    verifications=verifications,
+                    userinterface_name=request.userinterface_name,
+                    image_source_url=first_capture['path'],
+                    team_id=request.team_id
+                )
+                
+                if first_result.get('success'):
+                    earliest_match = {
+                        'timestamp': first_capture['timestamp'],
+                        'capture_path': first_capture['path'],
+                        'index': 0
+                    }
+                    logger.info(f"   ↳ First frame matches - earliest is at idx 0")
+            
+            logger.info(f"   ↳ Reached start of window - earliest match at idx {earliest_match['index']}")
+            return {
+                'success': True,
+                'timestamp': earliest_match['timestamp'],
+                'capture_path': earliest_match['capture_path'],
+                'captures_scanned': captures_scanned,
+                'error': None,
+                'algorithm': 'backward_scan_step2'
+            }
         
         # No match found - backward scan completed without finding match
         logger.info(f"🔙 Backward scan completed: checked {captures_scanned} captures total")
