@@ -66,8 +66,9 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
     // Track if user has actually changed values (not just initial/cached values)
     const userinterfaceChanged = prevUserinterface.current !== '' && prevUserinterface.current !== userinterfaceName;
     const hostChanged = prevHost.current !== '' && prevHost.current !== hostName;
+    const valuesFirstSet = prevUserinterface.current === '' && prevHost.current === '' && userinterfaceName && hostName;
     
-    if (userinterfaceChanged || hostChanged) {
+    if (userinterfaceChanged || hostChanged || valuesFirstSet) {
       hasUserChangedValues.current = true;
     }
     

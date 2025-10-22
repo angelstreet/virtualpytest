@@ -6,6 +6,7 @@ import {
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
+import { ParameterInputRenderer } from '../components/common/ParameterInput/ParameterInputRenderer';
 import { CronHelper } from '../components/common/CronHelper';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 import { useHostManager } from '../hooks/useHostManager';
@@ -457,33 +458,19 @@ const Deployments: React.FC = () => {
                             {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
                           </Select>
                         </FormControl>
-                        {displayParameters.map(p => {
-                          // Special rendering for userinterface_name parameter
-                          if (p.name === 'userinterface_name') {
-                            return (
-                              <Box key={p.name} sx={{ minWidth: 150 }}>
-                                <UserinterfaceSelector 
-                                  deviceModel={deviceModel} 
-                                  value={parameterValues[p.name] || ''} 
-                                  onChange={(value) => handleParameterChange(p.name, value)} 
-                                  label="Userinterface" 
-                                  size="small" 
-                                  fullWidth 
-                                />
-                              </Box>
-                            );
-                          }
-                          // Regular text field for other parameters
-                          return (
-                            <TextField 
-                              key={p.name} 
-                              label={p.name} 
-                              value={parameterValues[p.name] || ''} 
-                              onChange={e => handleParameterChange(p.name, e.target.value)} 
-                              size="small" 
+                        {displayParameters.map(p => (
+                          <Box key={p.name} sx={{ minWidth: 150 }}>
+                            <ParameterInputRenderer
+                              parameter={p}
+                              value={parameterValues[p.name] || ''}
+                              onChange={handleParameterChange}
+                              error={p.required && !(parameterValues[p.name] || '').trim()}
+                              deviceModel={deviceModel}
+                              userinterfaceName={parameterValues['userinterface_name'] || ''}
+                              hostName={selectedHost}
                             />
-                          );
-                        })}
+                          </Box>
+                        ))}
                       </Box>
                     </Box>
 
