@@ -474,11 +474,23 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(() => {
-      // Get target tree from navigation stack or fall back to root
-      const newCurrentLevel = stack.length > 1 ? stack[stack.length - 2] : null;
-      const targetTreeId = newCurrentLevel ? newCurrentLevel.treeId : navigation.rootTreeId;
+      // Get current level to access parentTreeId
+      const currentStackLevel = stack.length > 0 ? stack[stack.length - 1] : null;
       
-      console.log(`[@NavigationEditor] Navigation back - target tree: ${targetTreeId}, stack length: ${stack.length}, rootTreeId: ${navigation.rootTreeId}`);
+      // Determine target tree ID:
+      // 1. If current level has parentTreeId, use that (it's where the parent node lives)
+      // 2. Otherwise, if there's a previous level, use its treeId
+      // 3. Finally, fall back to rootTreeId
+      let targetTreeId: string | null = null;
+      if (currentStackLevel?.parentTreeId) {
+        targetTreeId = currentStackLevel.parentTreeId;
+      } else if (stack.length > 1) {
+        targetTreeId = stack[stack.length - 2].treeId;
+      } else {
+        targetTreeId = navigation.rootTreeId;
+      }
+      
+      console.log(`[@NavigationEditor] Navigation back - target tree: ${targetTreeId}, stack length: ${stack.length}, rootTreeId: ${navigation.rootTreeId}, parentTreeId: ${currentStackLevel?.parentTreeId}`);
       
       if (!targetTreeId) {
         console.error(`[@NavigationEditor] Cannot navigate back - no target tree ID found. Stack:`, stack, 'RootTreeId:', navigation.rootTreeId);
@@ -672,10 +684,17 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         // STEP 1: Load tree data directly (simplified approach)
         console.log(`[@component:NavigationEditor] Loading tree for userInterface: ${userInterface.id}`);
         loadTreeForUserInterface(userInterface.id);
+        
+        // STEP 2: Set rootTreeId and actualTreeId when loading initial tree (not nested)
+        if (!isNested && stack.length === 0) {
+          console.log(`[@component:NavigationEditor] Setting rootTreeId to: ${userInterface.id}`);
+          navigation.setRootTreeId(userInterface.id);
+          setActualTreeId(userInterface.id);
+        }
 
         // No auto-unlock for navigation tree - keep it locked for editing session
       }
-    }, [userInterface?.id, isLoadingInterface, loadTreeForUserInterface, navigation, isNested]);
+    }, [userInterface?.id, isLoadingInterface, loadTreeForUserInterface, navigation, isNested, stack.length, setActualTreeId]);
 
     // Simple update handlers - complex validation logic moved to device control component
     const handleUpdateNode = useCallback(

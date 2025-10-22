@@ -281,15 +281,11 @@ class KPIExecutorService:
         logger.info(f"✅ Copied {copied_captures} captures to /tmp/ (RAM)")
         
         # Copy thumbnails in same time window (needed for KPI report)
-        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, is_ram_mode
+        # Use centralized path utilities (no manual path manipulation!)
+        from shared.src.lib.utils.storage_path_utils import get_capture_folder, get_thumbnails_path
         
-        # Determine thumbnail source path (hot or cold depending on mode)
-        if is_ram_mode(request.capture_dir):
-            # RAM mode: thumbnails in hot storage
-            thumb_source_dir = os.path.join(request.capture_dir, 'hot', 'thumbnails')
-        else:
-            # SD mode: thumbnails in root
-            thumb_source_dir = os.path.join(request.capture_dir, 'thumbnails')
+        device_folder = get_capture_folder(request.capture_dir)
+        thumb_source_dir = get_thumbnails_path(device_folder)
         
         if os.path.isdir(thumb_source_dir):
             thumb_pattern = os.path.join(thumb_source_dir, "capture_*_thumbnail.jpg")

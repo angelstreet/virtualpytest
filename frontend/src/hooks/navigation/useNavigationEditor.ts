@@ -144,6 +144,10 @@ export const useNavigationEditor = () => {
           navigation.setEdges(frontendEdges);
           navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
           navigation.setHasUnsavedChanges(false);
+          
+          // Cache the loaded tree for navigation back functionality
+          navigation.cacheTree(userInterfaceId, { nodes: frontendNodes, edges: frontendEdges });
+          console.log(`[@useNavigationEditor:loadTreeByUserInterface] Cached tree ${userInterfaceId} with ${frontendNodes.length} nodes`);
 
           // If metrics were included in the response, log them
           if (result.metrics) {
