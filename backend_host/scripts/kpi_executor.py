@@ -329,15 +329,18 @@ class KPIExecutorService:
         # Calculate scan window based on available information (same logic as copy)
         if verification_timestamp:
             # Case 1: Has verification - scan backwards from verification
+            logger.info(f"   • Case 1: Has verification - scan backwards from verification")
             scan_end = verification_timestamp
             scan_start = max(action_timestamp, verification_timestamp - request.timeout_ms / 1000)
         elif request.last_action_wait_ms > 0:
             # Case 2: No verification but has wait - scan backwards from wait end
+            logger.info(f"   • Case 2: No verification but has wait - scan backwards from wait end")
             wait_end = action_timestamp + request.last_action_wait_ms / 1000
             scan_end = wait_end
             scan_start = max(action_timestamp, wait_end - request.timeout_ms / 1000)
         else:
             # Case 3: No verification, no wait - scan FORWARD from action
+            logger.info(f"   • Case 3: No verification, no wait - scan FORWARD from action")
             scan_start = action_timestamp
             scan_end = action_timestamp + request.timeout_ms / 1000
         
