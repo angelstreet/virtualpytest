@@ -380,12 +380,12 @@ class KPIExecutorService:
         # PHASE 1: QUICK CHECK (2 checks)
         logger.info(f"⚡ Phase 1: Quick check")
         
-        # Quick check 1: T0+200ms
-        target_ts = action_timestamp + 0.2
+        # Quick check 1: T0+200ms (early in the scan window)
+        target_ts = scan_start + 0.2
         early_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
         captures_scanned += 1
         
-        if test_capture(all_captures[early_idx], f"early check (T0+200ms, idx {early_idx}/{total_captures})"):
+        if test_capture(all_captures[early_idx], f"early check (start+200ms, idx {early_idx}/{total_captures})"):
             return {
                 'success': True,
                 'timestamp': all_captures[early_idx]['timestamp'],
@@ -395,8 +395,8 @@ class KPIExecutorService:
                 'algorithm': 'quick_check_early'
             }
         
-        # Quick check 2: T1-200ms
-        target_ts = verification_timestamp - 0.2
+        # Quick check 2: T_end-200ms (late in the scan window)
+        target_ts = scan_end - 0.2
         late_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
         
         if late_idx != early_idx:
