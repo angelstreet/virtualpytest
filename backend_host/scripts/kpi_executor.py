@@ -408,10 +408,11 @@ class KPIExecutorService:
         
         captures_scanned = 0
         
-        # PHASE 1: QUICK CHECK (2 checks)
-        logger.info(f"⚡ Phase 1: Quick check")
+        # PHASE 1: QUICK CHECK (early only - late check is useless for finding earliest)
+        logger.info(f"⚡ Phase 1: Quick check (early only)")
         
-        # Quick check 1: T0+200ms (early in the scan window)
+        # Quick check: T0+200ms (early in the scan window)
+        # If it matches here, we know it appeared very early (earliest or close to it)
         target_ts = scan_start + 0.2
         early_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
         captures_scanned += 1
@@ -426,25 +427,9 @@ class KPIExecutorService:
                 'algorithm': 'quick_check_early'
             }
         
-        # Quick check 2: T_end-200ms (late in the scan window)
-        target_ts = scan_end - 0.2
-        late_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
-        
-        if late_idx != early_idx:
-            captures_scanned += 1
-            if test_capture(all_captures[late_idx], f"late check (T1-200ms, idx {late_idx}/{total_captures})"):
-                return {
-                    'success': True,
-                    'timestamp': all_captures[late_idx]['timestamp'],
-                    'capture_path': all_captures[late_idx]['path'],
-                    'captures_scanned': captures_scanned,
-                    'error': None,
-                    'algorithm': 'quick_check_late'
-                }
-        
-        logger.info(f"⚡ Quick check: no immediate match, proceeding to exhaustive scan")
-        checked_indices = {early_idx, late_idx}
-        logger.info(f"   ↳ Early idx: {early_idx}, Late idx: {late_idx}, Checked: {checked_indices}")
+        logger.info(f"⚡ Quick check: no early match, proceeding to backward scan")
+        checked_indices = {early_idx}
+        logger.info(f"   ↳ Early idx checked: {early_idx}")
         
         # PHASE 2: BACKWARD SCAN (optimized to find earliest match)
         logger.info(f"🔙 Phase 2: Backward scan from verification → action")
