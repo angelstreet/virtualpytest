@@ -97,28 +97,20 @@ class ImageVerificationController:
         # Check if image_path is provided
         if not image_path or image_path.strip() == '':
             error_msg = "No reference image specified. Please select a reference image or provide an image path."
-            print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
-        
-        print(f"[@controller:ImageVerification] Looking for image: {image_path}")
-        if image_filter and image_filter != 'none':
-            print(f"[@controller:ImageVerification] Using image filter: {image_filter}")
         
         # Resolve reference image path and area using userinterface_name and team_id
         resolved_image_path, resolved_area = self._resolve_reference_image(image_path, userinterface_name, team_id)
         if not resolved_image_path:
             error_msg = f"Reference image file not found: '{image_path}' (could not locate or download reference image)"
-            print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
         
         if not resolved_area:
             error_msg = f"Reference area not found in database: '{image_path}'"
-            print(f"[@controller:ImageVerification] {error_msg}")
             return False, error_msg, {}
         
         # Use database area (REQUIRED - no fallback)
         area = resolved_area
-        print(f"[@controller:ImageVerification] Using database area for reference {image_path}: {resolved_area}")
         
         # Get filtered reference image path (only change the reference, not source)
         filtered_reference_path = resolved_image_path
@@ -127,9 +119,9 @@ class ImageVerificationController:
             filtered_path = f"{base_path}_{image_filter}{ext}"
             if os.path.exists(filtered_path):
                 filtered_reference_path = filtered_path
-                print(f"[@controller:ImageVerification] Using pre-existing filtered reference: {filtered_reference_path}")
             else:
-                print(f"[@controller:ImageVerification] Filtered reference not found, using original: {resolved_image_path}")
+                # Filtered reference not found, using original
+                pass
         
         ref_img = cv2.imread(filtered_reference_path, cv2.IMREAD_COLOR)
         if ref_img is None:
@@ -166,7 +158,6 @@ class ImageVerificationController:
                     if next_path:
                         images_to_check.append(next_path)
             
-            print(f"[@controller:ImageVerification] Searching in {len(images_to_check)} images")
             max_threshold_score = 0.0
             best_source_path = None
             best_match_location = None  # Store actual match location
@@ -178,15 +169,12 @@ class ImageVerificationController:
                         time.sleep(wait_ms / 1000.0)
                 
                 if not os.path.exists(source_path):
-                    print(f"[@controller:ImageVerification] Skip: {os.path.basename(source_path)}")
                     continue
                 if not os.path.exists(source_path):
-                    print(f"[@controller:ImageVerification] WARNING: Source image not found: {os.path.basename(source_path)}")
                     continue
                 
                 source_img = cv2.imread(source_path, cv2.IMREAD_COLOR)
                 if source_img is None:
-                    print(f"[@controller:ImageVerification] WARNING: Source image corrupted/invalid: {os.path.basename(source_path)}")
                     continue
                 
                 threshold_score, match_location = self._match_template(ref_img, source_img, area)
@@ -198,12 +186,6 @@ class ImageVerificationController:
                     best_match_location = match_location
                 
                 if threshold_score >= threshold:
-                    print(f"[@controller:ImageVerification] Match found in {source_path} with threshold score {threshold_score:.3f}")
-                    
-                    # Log actual match location for debugging
-                    if match_location:
-                        print(f"[@controller:ImageVerification] Match location: x={match_location['x']}, y={match_location['y']}, w={match_location['width']}, h={match_location['height']}")
-                    
                     # Save actual threshold score (separate from user threshold)
                     additional_data["matching_result"] = threshold_score  # Actual threshold score
                     
@@ -212,7 +194,6 @@ class ImageVerificationController:
                         match_timestamp = os.path.getmtime(source_path)
                         additional_data["kpi_match_timestamp"] = match_timestamp
                         additional_data["kpi_match_index"] = idx
-                        print(f"[@controller:ImageVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
                     
                     # Generate comparison images using ACTUAL match location (not search area)
                     image_urls = self._generate_comparison_images(source_path, resolved_image_path, match_location, verification_index, image_filter)
@@ -226,12 +207,9 @@ class ImageVerificationController:
             
             # ALWAYS generate comparison images for debugging (especially important for failures)
             if best_source_path:
-                print(f"[@controller:ImageVerification] Generating debug comparison images for failed match (best score: {max_threshold_score:.3f})")
                 # Use best match location (even if it didn't meet threshold)
                 image_urls = self._generate_comparison_images(best_source_path, resolved_image_path, best_match_location, verification_index, image_filter)
                 additional_data.update(image_urls)
-            else:
-                print(f"[@controller:ImageVerification] WARNING: No valid source images found for comparison")
             
             # Save best threshold score (separate from user threshold)
             additional_data["matching_result"] = max_threshold_score  # Actual threshold score
@@ -554,7 +532,6 @@ class ImageVerificationController:
             source_path = verification_config.get('source_image_path')
             
             if source_path:
-                print(f"[@controller:ImageVerification] Using provided source image: {source_path}")
                 # Validate the provided source image exists
                 if not os.path.exists(source_path):
                     return {
@@ -564,7 +541,6 @@ class ImageVerificationController:
                     }
             else:
                 # Fallback: automatically capture screenshot from AV controller
-                print(f"[@controller:ImageVerification] No source image provided, capturing screenshot automatically")
                 source_path = self.av_controller.take_screenshot()
                 if not source_path or not os.path.exists(source_path):
                     return {
@@ -572,7 +548,6 @@ class ImageVerificationController:
                         'message': 'Failed to capture screenshot automatically for image verification',
                         'screenshot_path': None
                     }
-                print(f"[@controller:ImageVerification] Using automatically captured screenshot: {source_path}")
             
             # Extract parameters from nested structure
             params = verification_config.get('params', {})
@@ -593,15 +568,6 @@ class ImageVerificationController:
             area = params.get('area')
             image_filter = params.get('image_filter', 'none')
             verification_index = verification_config.get('verification_index', 0)  # Get index from config
-            
-            # Keep area as dict - different functions expect different formats
-            print(f"[@controller:ImageVerification] Using area: {area}")
-            
-            print(f"[@controller:ImageVerification] Searching for image: {image_path}")
-            print(f"[@controller:ImageVerification] Timeout: {timeout}s, Threshold: {threshold}")
-            print(f"[@controller:ImageVerification] Using source image: {source_path}")
-            print(f"[@controller:ImageVerification] Verification index: {verification_index} (source_image_{verification_index}.png)")
-            print(f"[@controller:ImageVerification] Using userinterface: {userinterface_name}")
             
             # Execute verification based on command using userinterface_name
             if command == 'waitForImageToAppear':
@@ -650,6 +616,8 @@ class ImageVerificationController:
             
         except Exception as e:
             print(f"[@controller:ImageVerification] Execution error: {e}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'message': f'Image verification execution error: {str(e)}',
@@ -691,108 +659,61 @@ class ImageVerificationController:
         Route will handle URL building.
         """
         try:
-            print(f"[@controller:ImageVerification] ========== GENERATING COMPARISON IMAGES ==========")
-            print(f"[@controller:ImageVerification] INPUT: source_path = {source_path}")
-            print(f"[@controller:ImageVerification] INPUT: reference_path = {reference_path}")
-            print(f"[@controller:ImageVerification] INPUT: area = {area}")
-            print(f"[@controller:ImageVerification] INPUT: verification_index = {verification_index}")
-            
             # Use predefined verification results directory
             results_dir = self.verification_results_dir
-            print(f"[@controller:ImageVerification] Results directory: {results_dir}")
             
             # Clean up old verification result images before creating new ones
             try:
                 import glob
                 old_files = glob.glob(f'{results_dir}/*_image_*.png') + glob.glob(f'{results_dir}/result_overlay_*.png')
                 if old_files:
-                    print(f"[@controller:ImageVerification] Cleaning up {len(old_files)} old verification result images")
                     for old_file in old_files:
                         try:
                             os.remove(old_file)
                         except Exception as e:
-                            print(f"[@controller:ImageVerification] Warning: Failed to delete {old_file}: {e}")
-                    print(f"[@controller:ImageVerification] Cleanup complete")
+                            pass
             except Exception as e:
-                print(f"[@controller:ImageVerification] Warning: Cleanup failed: {e}")
+                pass
             
             # Generate UNIQUE filenames using timestamp to avoid browser caching issues
             timestamp = int(time.time() * 1000)  # milliseconds
             source_result_path = f'{results_dir}/source_image_{verification_index}_{timestamp}.png'
             overlay_result_path = f'{results_dir}/result_overlay_{verification_index}_{timestamp}.png'
             
-            print(f"[@controller:ImageVerification] OUTPUT PATHS:")
-            print(f"[@controller:ImageVerification]   Cropped source will be saved to: {source_result_path}")
-            print(f"[@controller:ImageVerification]   Overlay will be saved to: {overlay_result_path}")
-            
             # === STEP 1: Handle Source Image ===
             if area:
-                print(f"[@controller:ImageVerification] STEP 1: Cropping source image")
-                print(f"[@controller:ImageVerification]   FROM: {source_path}")
-                print(f"[@controller:ImageVerification]   TO: {source_result_path}")
-                print(f"[@controller:ImageVerification]   AREA: {area}")
                 if not self.helpers.crop_image_to_area(source_path, source_result_path, area):
-                    print(f"[@controller:ImageVerification] ERROR: Failed to crop source image")
                     return {}
-                print(f"[@controller:ImageVerification] ✓ Cropped source saved successfully")
             else:
-                print(f"[@controller:ImageVerification] STEP 1: Copying full source image (no crop)")
-                print(f"[@controller:ImageVerification]   FROM: {source_path}")
-                print(f"[@controller:ImageVerification]   TO: {source_result_path}")
                 self.helpers.copy_image_file(source_path, source_result_path)
-                print(f"[@controller:ImageVerification] ✓ Full source copied successfully")
             
             # Apply filter to source if requested
             if image_filter and image_filter != 'none':
-                print(f"[@controller:ImageVerification] STEP 2: Applying {image_filter} filter to source")
-                print(f"[@controller:ImageVerification]   Target file: {source_result_path}")
-                if not self.helpers.apply_image_filter(source_result_path, image_filter):
-                    print(f"[@controller:ImageVerification] WARNING: Failed to apply {image_filter} filter to source")
-                else:
-                    print(f"[@controller:ImageVerification] ✓ Filter applied successfully")
+                self.helpers.apply_image_filter(source_result_path, image_filter)
             
             # === STEP 3: Determine Reference Image Path (No Copying) ===
-            print(f"[@controller:ImageVerification] STEP 3: Determining reference image for overlay")
             reference_image_for_overlay = reference_path
             if image_filter and image_filter != 'none':
                 base_path, ext = os.path.splitext(reference_path)
                 filtered_reference_path = f"{base_path}_{image_filter}{ext}"
                 
                 if os.path.exists(filtered_reference_path):
-                    print(f"[@controller:ImageVerification]   Using filtered reference: {filtered_reference_path}")
                     reference_image_for_overlay = filtered_reference_path
-                else:
-                    print(f"[@controller:ImageVerification]   Filtered reference not found, using original: {reference_path}")
-            else:
-                print(f"[@controller:ImageVerification]   Using original reference: {reference_path}")
             
             # === STEP 4: Create Overlay ===
-            print(f"[@controller:ImageVerification] STEP 4: Creating pixel difference overlay")
-            print(f"[@controller:ImageVerification]   Loading cropped source from: {source_result_path}")
             source_img = cv2.imread(source_result_path)
             if source_img is None:
-                print(f"[@controller:ImageVerification] ERROR: Failed to load cropped source image")
                 return {}
-            print(f"[@controller:ImageVerification]   ✓ Source loaded: shape = {source_img.shape}")
             
-            print(f"[@controller:ImageVerification]   Loading reference from: {reference_image_for_overlay}")
             ref_img = cv2.imread(reference_image_for_overlay)
             if ref_img is None:
-                print(f"[@controller:ImageVerification] ERROR: Failed to load reference image")
                 return {}
-            print(f"[@controller:ImageVerification]   ✓ Reference loaded: shape = {ref_img.shape}")
             
-            print(f"[@controller:ImageVerification]   Creating overlay by comparing the two images...")
             overlay_img = self._create_pixel_difference_overlay(source_img, ref_img)
             if overlay_img is not None:
-                print(f"[@controller:ImageVerification]   Saving overlay to: {overlay_result_path}")
                 cv2.imwrite(overlay_result_path, overlay_img)
-                print(f"[@controller:ImageVerification]   ✓ Overlay saved successfully")
             else:
-                print(f"[@controller:ImageVerification] ERROR: Failed to create overlay")
                 return {}
-            
-            print(f"[@controller:ImageVerification] ========== COMPARISON IMAGES COMPLETE ==========")
             
             # Return paths - NO reference_image_path since we don't create a copy
             return {
@@ -802,7 +723,9 @@ class ImageVerificationController:
             }
             
         except Exception as e:
-            print(f"[@controller:ImageVerification] Error generating comparison images: {e}")
+            print(f"[@controller:ImageVerification] ERROR: Failed to generate comparison images: {e}")
+            import traceback
+            traceback.print_exc()
             return {}
 
     def _create_pixel_difference_overlay(self, source_img, ref_img):
@@ -815,7 +738,6 @@ class ImageVerificationController:
         try:
             # Ensure both images have the same dimensions
             if source_img.shape != ref_img.shape:
-                print(f"[@controller:ImageVerification] Resizing images to match - Source: {source_img.shape}, Ref: {ref_img.shape}")
                 # Resize reference to match source
                 ref_img = cv2.resize(ref_img, (source_img.shape[1], source_img.shape[0]))
             
@@ -850,13 +772,8 @@ class ImageVerificationController:
             if np.any(small_diff_mask):
                 overlay[small_diff_mask] = [0, 255, 0, transparency // 2]  # More transparent green
             
-            print(f"[@controller:ImageVerification] Pixel comparison stats:")
             matching_pixels = np.sum(matching_mask)
             total_pixels = height * width
-            match_percentage = (matching_pixels / total_pixels) * 100
-            print(f"  Matching pixels: {matching_pixels}/{total_pixels} ({match_percentage:.1f}%)")
-            print(f"  Pixel threshold: {pixel_threshold}")
-            print(f"  Overlay transparency: {transparency}/255")
             
             return overlay
             

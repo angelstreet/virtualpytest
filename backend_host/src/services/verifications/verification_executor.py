@@ -215,11 +215,7 @@ class VerificationExecutor:
         Returns:
             Dict with success status, results, and execution statistics
         """
-        print(f"[@lib:verification_executor:execute_verifications] Starting batch verification execution")
-        print(f"[@lib:verification_executor:execute_verifications] Processing {len(verifications)} verifications")
-        print(f"[@lib:verification_executor:execute_verifications] Host: {self.host_name}")
-        print(f"[@lib:verification_executor:execute_verifications] DEBUG: Received image_source_url: {image_source_url}")
-        print(f"[@lib:verification_executor:execute_verifications] Source: {image_source_url}")
+        # Reduced logging for cleaner output during KPI scans
         
 
         
@@ -252,8 +248,6 @@ class VerificationExecutor:
         for i, verification in enumerate(valid_verifications):
             verification_type = verification.get('verification_type', 'text')
             
-            print(f"[@lib:verification_executor:execute_verifications] Processing verification {i+1}/{len(valid_verifications)}: {verification_type}")
-            
             start_time = time.time()
             result = self._execute_single_verification(verification, userinterface_name, image_source_url, context, team_id)
             execution_time = int((time.time() - start_time) * 1000)
@@ -281,8 +275,6 @@ class VerificationExecutor:
         
         # Calculate overall success
         overall_success = passed_count == len(valid_verifications)
-        
-        print(f"[@lib:verification_executor:execute_verifications] Batch completed: {passed_count}/{len(valid_verifications)} passed")
         
         # Extract detailed error information from failed verifications
         error_info = None
@@ -460,14 +452,9 @@ class VerificationExecutor:
                     if needs_conversion(image_source_url):
                         source_image_path = convertHostUrlToLocalPath(image_source_url)
                         verification_config['source_image_path'] = source_image_path
-                        print(f"[@lib:verification_executor:_execute_single_verification] Converted URL to local path: {image_source_url} -> {source_image_path}")
                     else:
                         # Already a local path, use as-is
                         verification_config['source_image_path'] = image_source_url
-                        print(f"[@lib:verification_executor:_execute_single_verification] Using local path as-is: {image_source_url}")
-            
-            print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Passing source_image_path to controller: {verification_config.get('source_image_path')}")
-            print(f"[@lib:verification_executor:_execute_single_verification] DEBUG: Command: {verification.get('command')}")
             
             # Set context on controller so helpers can access it (for motion image collection)
             if context:
@@ -526,8 +513,6 @@ class VerificationExecutor:
                 'details': verification_result.get('details', {}),
                 'screenshot_path': screenshot_path  # Always present
             }
-            
-            print(f"[@lib:verification_executor:_execute_single_verification] Verification result: success={flattened_result['success']}, type={flattened_result['verification_type']}")
             
             # Clean up context reference to avoid memory leaks
             if hasattr(controller, '_current_context'):
