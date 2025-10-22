@@ -218,8 +218,18 @@ class KPIExecutorService:
         pattern = os.path.join(request.capture_dir, "capture_*.jpg")
         copied_count = 0
         
-        # Determine scan end timestamp
-        scan_end = request.verification_timestamp if request.verification_timestamp else (request.action_timestamp + request.last_action_wait_ms / 1000)
+        # Calculate scan window: scan BACKWARDS from end (last N seconds based on timeout)
+        if request.verification_timestamp:
+            # With verification: scan last timeout_ms before verification
+            scan_end = request.verification_timestamp
+            scan_start = max(request.action_timestamp, request.verification_timestamp - request.timeout_ms / 1000)
+        else:
+            # No verification: scan last timeout_ms before action + wait
+            wait_end = request.action_timestamp + request.last_action_wait_ms / 1000
+            scan_end = wait_end
+            scan_start = max(request.action_timestamp, wait_end - request.timeout_ms / 1000)
+        
+        logger.info(f"   • Scan window: {scan_end - scan_start:.2f}s (backwards from end, max {request.timeout_ms}ms)")
         
         for source_path in glob.glob(pattern):
             if "_thumbnail" in source_path:
@@ -227,8 +237,8 @@ class KPIExecutorService:
             
             try:
                 ts = os.path.getmtime(source_path)
-                # Copy images in time window: action → scan_end (verification or action + wait)
-                if request.action_timestamp <= ts <= scan_end:
+                # Copy images in time window: scan_start → scan_end (last N seconds)
+                if scan_start <= ts <= scan_end:
                     filename = os.path.basename(source_path)
                     dest_path = os.path.join(working_dir, filename)
                     shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
@@ -291,15 +301,23 @@ class KPIExecutorService:
         pattern = os.path.join(capture_dir, "capture_*.jpg")
         all_captures = []
         
-        # Determine scan end timestamp (same logic as copy)
-        scan_end = verification_timestamp if verification_timestamp else (action_timestamp + request.last_action_wait_ms / 1000)
+        # Calculate scan window: scan BACKWARDS from end (same logic as copy)
+        if verification_timestamp:
+            # With verification: scan last timeout_ms before verification
+            scan_end = verification_timestamp
+            scan_start = max(action_timestamp, verification_timestamp - request.timeout_ms / 1000)
+        else:
+            # No verification: scan last timeout_ms before action + wait
+            wait_end = action_timestamp + request.last_action_wait_ms / 1000
+            scan_end = wait_end
+            scan_start = max(action_timestamp, wait_end - request.timeout_ms / 1000)
         
         for path in glob.glob(pattern):
             if "_thumbnail" in path:
                 continue
             try:
                 ts = os.path.getmtime(path)
-                if action_timestamp <= ts <= scan_end:
+                if scan_start <= ts <= scan_end:
                     all_captures.append({'path': path, 'timestamp': ts})
             except OSError:
                 continue
