@@ -339,7 +339,7 @@ export const useEdgeEdit = ({
     });
   }, [localActions]);
 
-  // Handle save operation - SELF-CONTAINED (Option 1)
+  // Handle save operation - INCREMENTAL CACHE UPDATE (no rebuild)
   const handleSave = useCallback(async () => {
     if (!edgeForm) {
       console.error('[useEdgeEdit] Cannot save: edgeForm is null');
@@ -347,22 +347,33 @@ export const useEdgeEdit = ({
     }
     
     try {
-      // Save to database via context
+      // 1. Save to database via context
       await saveEdgeWithStateUpdate(edgeForm);
       
-      // Invalidate navigation cache on all hosts after edge update
+      // 2. Update cache incrementally on all hosts (no rebuild)
       if (treeId) {
-        console.log('[useEdgeEdit] Invalidating navigation cache for tree:', treeId);
+        console.log('[useEdgeEdit] Updating edge in cache for tree:', treeId);
         const { buildServerUrl } = await import('../../utils/buildUrlUtils');
         
-        // Call server to invalidate cache on all hosts (buildServerUrl adds team_id automatically)
-        await fetch(buildServerUrl(`/server/navigation/cache/invalidate/${treeId}`), {
+        // Call server to update edge in cache on all hosts (buildServerUrl adds team_id automatically)
+        const response = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            edge: edgeForm,
+            tree_id: treeId
+          })
         });
-        console.log('[useEdgeEdit] Cache invalidated successfully');
+        
+        if (!response.ok) {
+          console.error('[useEdgeEdit] Failed to update edge in cache:', response.statusText);
+        } else {
+          const result = await response.json();
+          console.log('[useEdgeEdit] ✅ Edge updated in cache (incremental):', result);
+        }
       }
     } catch (error) {
-      console.error('[useEdgeEdit] Failed to save edge or invalidate cache:', error);
+      console.error('[useEdgeEdit] Failed to save edge or update cache:', error);
       throw error;
     }
   }, [edgeForm, saveEdgeWithStateUpdate, treeId]);

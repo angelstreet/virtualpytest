@@ -100,6 +100,33 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
         print(f"[@navigation:cache:populate_unified_cache] Error: {e}")
         return None
 
+def save_unified_cache(root_tree_id: str, team_id: str, graph: nx.DiGraph) -> bool:
+    """
+    Save existing unified graph to file cache (incremental update)
+    
+    Args:
+        root_tree_id: Root navigation tree ID
+        team_id: Team ID for security
+        graph: NetworkX graph to save
+        
+    Returns:
+        True if saved successfully, False otherwise
+    """
+    cache_key = f"unified_{root_tree_id}_{team_id}"
+    cache_file = f"{CACHE_DIR}/{cache_key}.pkl"
+    
+    try:
+        cache_data = {'graph': graph, 'timestamp': datetime.now()}
+        with open(cache_file, 'wb') as f:
+            pickle.dump(cache_data, f)
+        
+        print(f"[@navigation:cache:save_unified_cache] ✅ Saved graph to file: {cache_key} ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
+        return True
+        
+    except Exception as e:
+        print(f"[@navigation:cache:save_unified_cache] Error: {e}")
+        return False
+
 def get_node_tree_location(node_id: str, root_tree_id: str, team_id: str) -> Optional[str]:
     """
     Get which tree a node belongs to in the unified hierarchy

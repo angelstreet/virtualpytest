@@ -263,9 +263,135 @@ def create_empty_navigation_config(interface_name):
 # CACHE MANAGEMENT ENDPOINTS
 # =====================================================
 
+@server_navigation_bp.route('/cache/update-edge', methods=['POST'])
+def update_edge_in_cache():
+    """Update a specific edge in cached graphs on all hosts (incremental - no rebuild)"""
+    try:
+        data = request.get_json() or {}
+        edge_data = data.get('edge')
+        tree_id = data.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not edge_data or not tree_id or not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'edge, tree_id, and team_id are required'
+            }), 400
+        
+        print(f"[@route:server_navigation:update_edge_in_cache] Updating edge {edge_data.get('id')} on all hosts")
+        
+        # Get all hosts and update edge on each
+        from backend_server.src.lib.utils.server_utils import get_host_manager
+        from backend_server.src.lib.utils.route_utils import proxy_to_host_direct
+        
+        host_manager = get_host_manager()
+        hosts = host_manager.get_all_hosts()
+        
+        results = []
+        for host in hosts:
+            try:
+                result, _ = proxy_to_host_direct(
+                    host,
+                    f'/host/navigation/cache/update-edge',
+                    'POST',
+                    {'edge': edge_data, 'tree_id': tree_id},
+                    {'team_id': team_id}
+                )
+                results.append({
+                    'host': host.get('host_name'),
+                    'success': result.get('success', False) if result else False,
+                    'cache_exists': result.get('cache_exists', False) if result else False
+                })
+                print(f"[@route:server_navigation:update_edge_in_cache] Edge updated on {host.get('host_name')}")
+            except Exception as e:
+                print(f"[@route:server_navigation:update_edge_in_cache] Failed for {host.get('host_name')}: {e}")
+                results.append({
+                    'host': host.get('host_name'),
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return jsonify({
+            'success': True,
+            'message': f'Edge update requested for tree {tree_id}',
+            'results': results
+        })
+        
+    except Exception as e:
+        print(f"[@route:server_navigation:update_edge_in_cache] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Edge update failed: {str(e)}'
+        }), 500
+
+@server_navigation_bp.route('/cache/update-node', methods=['POST'])
+def update_node_in_cache():
+    """Update a specific node in cached graphs on all hosts (incremental - no rebuild)"""
+    try:
+        data = request.get_json() or {}
+        node_data = data.get('node')
+        tree_id = data.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not node_data or not tree_id or not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'node, tree_id, and team_id are required'
+            }), 400
+        
+        print(f"[@route:server_navigation:update_node_in_cache] Updating node {node_data.get('id')} on all hosts")
+        
+        # Get all hosts and update node on each
+        from backend_server.src.lib.utils.server_utils import get_host_manager
+        from backend_server.src.lib.utils.route_utils import proxy_to_host_direct
+        
+        host_manager = get_host_manager()
+        hosts = host_manager.get_all_hosts()
+        
+        results = []
+        for host in hosts:
+            try:
+                result, _ = proxy_to_host_direct(
+                    host,
+                    f'/host/navigation/cache/update-node',
+                    'POST',
+                    {'node': node_data, 'tree_id': tree_id},
+                    {'team_id': team_id}
+                )
+                results.append({
+                    'host': host.get('host_name'),
+                    'success': result.get('success', False) if result else False,
+                    'cache_exists': result.get('cache_exists', False) if result else False
+                })
+                print(f"[@route:server_navigation:update_node_in_cache] Node updated on {host.get('host_name')}")
+            except Exception as e:
+                print(f"[@route:server_navigation:update_node_in_cache] Failed for {host.get('host_name')}: {e}")
+                results.append({
+                    'host': host.get('host_name'),
+                    'success': False,
+                    'error': str(e)
+                })
+        
+        return jsonify({
+            'success': True,
+            'message': f'Node update requested for tree {tree_id}',
+            'results': results
+        })
+        
+    except Exception as e:
+        print(f"[@route:server_navigation:update_node_in_cache] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Node update failed: {str(e)}'
+        }), 500
+
 @server_navigation_bp.route('/cache/invalidate/<tree_id>', methods=['POST'])
 def invalidate_navigation_cache(tree_id):
-    """Invalidate navigation cache on all hosts after node/edge updates"""
+    """Invalidate navigation cache on all hosts (full rebuild required - use for major changes)"""
     try:
         team_id = request.args.get('team_id')
         

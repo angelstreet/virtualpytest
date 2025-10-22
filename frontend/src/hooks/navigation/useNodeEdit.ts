@@ -102,7 +102,7 @@ export const useNodeEdit = ({
     [nodeForm, setNodeForm, verification],
   );
 
-  // Handle save operation - SELF-CONTAINED (Option 1)
+  // Handle save operation - INCREMENTAL CACHE UPDATE (no rebuild)
   const handleSave = useCallback(async () => {
     if (!nodeForm) {
       console.error('[useNodeEdit] Cannot save: nodeForm is null');
@@ -110,24 +110,35 @@ export const useNodeEdit = ({
     }
     
     try {
-      // Save to database via context
+      // 1. Save to database via context
       await saveNodeWithStateUpdate(nodeForm);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       
-      // Invalidate navigation cache on all hosts after node update
+      // 2. Update cache incrementally on all hosts (no rebuild)
       if (treeId) {
-        console.log('[useNodeEdit] Invalidating navigation cache for tree:', treeId);
+        console.log('[useNodeEdit] Updating node in cache for tree:', treeId);
         const { buildServerUrl } = await import('../../utils/buildUrlUtils');
         
-        // Call server to invalidate cache on all hosts (buildServerUrl adds team_id automatically)
-        await fetch(buildServerUrl(`/server/navigation/cache/invalidate/${treeId}`), {
+        // Call server to update node in cache on all hosts (buildServerUrl adds team_id automatically)
+        const response = await fetch(buildServerUrl(`/server/navigation/cache/update-node`), {
           method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            node: nodeForm,
+            tree_id: treeId
+          })
         });
-        console.log('[useNodeEdit] Cache invalidated successfully');
+        
+        if (!response.ok) {
+          console.error('[useNodeEdit] Failed to update node in cache:', response.statusText);
+        } else {
+          const result = await response.json();
+          console.log('[useNodeEdit] ✅ Node updated in cache (incremental):', result);
+        }
       }
     } catch (error) {
-      console.error('[useNodeEdit] Failed to save node or invalidate cache:', error);
+      console.error('[useNodeEdit] Failed to save node or update cache:', error);
       throw error;
     }
   }, [nodeForm, saveNodeWithStateUpdate, treeId]);

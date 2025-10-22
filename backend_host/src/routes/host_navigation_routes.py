@@ -165,9 +165,180 @@ def check_navigation_cache(tree_id):
             'error': f'Cache check failed: {str(e)}'
         }), 500
 
+@host_navigation_bp.route('/cache/update-edge', methods=['POST'])
+def update_edge_in_cache():
+    """Update a specific edge in the cached graph (incremental update - no rebuild)"""
+    try:
+        data = request.get_json() or {}
+        edge_data = data.get('edge')
+        tree_id = data.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not edge_data or not tree_id or not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'edge, tree_id, and team_id are required'
+            }), 400
+        
+        edge_id = edge_data.get('id')
+        source_node = edge_data.get('source_node_id')
+        target_node = edge_data.get('target_node_id')
+        
+        if not edge_id or not source_node or not target_node:
+            return jsonify({
+                'success': False,
+                'error': 'edge must have id, source_node_id, and target_node_id'
+            }), 400
+        
+        print(f"[@route:host_navigation:update_edge_in_cache] Updating edge {edge_id} in cache for tree {tree_id}")
+        
+        # Get the cached graph
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache
+        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        
+        if not cached_graph:
+            print(f"[@route:host_navigation:update_edge_in_cache] No cache found - edge update skipped (will be loaded on next navigation)")
+            return jsonify({
+                'success': True,
+                'message': 'No cache exists - update skipped',
+                'cache_exists': False
+            })
+        
+        # Update edge in graph
+        if cached_graph.has_edge(source_node, target_node):
+            # Update edge data
+            cached_graph[source_node][target_node].update(edge_data)
+            print(f"[@route:host_navigation:update_edge_in_cache] Updated edge {source_node} -> {target_node}")
+        else:
+            # Edge doesn't exist in graph - add it
+            cached_graph.add_edge(source_node, target_node, **edge_data)
+            print(f"[@route:host_navigation:update_edge_in_cache] Added new edge {source_node} -> {target_node}")
+        
+        # Save updated graph to file cache
+        save_unified_cache(tree_id, team_id, cached_graph)
+        
+        # Update in-memory graphs in all NavigationExecutor instances
+        host_devices = getattr(current_app, 'host_devices', {})
+        updated_devices = []
+        for device_id, device in host_devices.items():
+            if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                if device.navigation_executor.unified_graph:
+                    # Update the edge in the in-memory graph
+                    if device.navigation_executor.unified_graph.has_edge(source_node, target_node):
+                        device.navigation_executor.unified_graph[source_node][target_node].update(edge_data)
+                    else:
+                        device.navigation_executor.unified_graph.add_edge(source_node, target_node, **edge_data)
+                    updated_devices.append(device_id)
+                    print(f"[@route:host_navigation:update_edge_in_cache] Updated edge in NavigationExecutor for device {device_id}")
+                
+                # Clear preview cache for this tree (previews may have changed)
+                device.navigation_executor.clear_preview_cache(tree_id)
+        
+        print(f"[@route:host_navigation:update_edge_in_cache] ✅ Edge updated in cache (file + {len(updated_devices)} NavigationExecutor instances)")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Edge {edge_id} updated in cache',
+            'updated_devices': updated_devices,
+            'cache_exists': True
+        })
+        
+    except Exception as e:
+        print(f"[@route:host_navigation:update_edge_in_cache] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Edge update failed: {str(e)}'
+        }), 500
+
+@host_navigation_bp.route('/cache/update-node', methods=['POST'])
+def update_node_in_cache():
+    """Update a specific node in the cached graph (incremental update - no rebuild)"""
+    try:
+        data = request.get_json() or {}
+        node_data = data.get('node')
+        tree_id = data.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not node_data or not tree_id or not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'node, tree_id, and team_id are required'
+            }), 400
+        
+        node_id = node_data.get('id')
+        if not node_id:
+            return jsonify({
+                'success': False,
+                'error': 'node must have id'
+            }), 400
+        
+        print(f"[@route:host_navigation:update_node_in_cache] Updating node {node_id} in cache for tree {tree_id}")
+        
+        # Get the cached graph
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache
+        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        
+        if not cached_graph:
+            print(f"[@route:host_navigation:update_node_in_cache] No cache found - node update skipped (will be loaded on next navigation)")
+            return jsonify({
+                'success': True,
+                'message': 'No cache exists - update skipped',
+                'cache_exists': False
+            })
+        
+        # Update node in graph
+        if cached_graph.has_node(node_id):
+            # Update node data
+            cached_graph.nodes[node_id].update(node_data)
+            print(f"[@route:host_navigation:update_node_in_cache] Updated node {node_id}")
+        else:
+            # Node doesn't exist - add it
+            cached_graph.add_node(node_id, **node_data)
+            print(f"[@route:host_navigation:update_node_in_cache] Added new node {node_id}")
+        
+        # Save updated graph to file cache
+        save_unified_cache(tree_id, team_id, cached_graph)
+        
+        # Update in-memory graphs in all NavigationExecutor instances
+        host_devices = getattr(current_app, 'host_devices', {})
+        updated_devices = []
+        for device_id, device in host_devices.items():
+            if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                if device.navigation_executor.unified_graph:
+                    # Update the node in the in-memory graph
+                    if device.navigation_executor.unified_graph.has_node(node_id):
+                        device.navigation_executor.unified_graph.nodes[node_id].update(node_data)
+                    else:
+                        device.navigation_executor.unified_graph.add_node(node_id, **node_data)
+                    updated_devices.append(device_id)
+                    print(f"[@route:host_navigation:update_node_in_cache] Updated node in NavigationExecutor for device {device_id}")
+                
+                # Clear preview cache for this tree (previews may have changed)
+                device.navigation_executor.clear_preview_cache(tree_id)
+        
+        print(f"[@route:host_navigation:update_node_in_cache] ✅ Node updated in cache (file + {len(updated_devices)} NavigationExecutor instances)")
+        
+        return jsonify({
+            'success': True,
+            'message': f'Node {node_id} updated in cache',
+            'updated_devices': updated_devices,
+            'cache_exists': True
+        })
+        
+    except Exception as e:
+        print(f"[@route:host_navigation:update_node_in_cache] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Node update failed: {str(e)}'
+        }), 500
+
 @host_navigation_bp.route('/cache/clear/<tree_id>', methods=['POST'])
 def clear_navigation_cache_for_tree(tree_id):
-    """Clear navigation cache for a specific tree after node/edge updates"""
+    """Clear navigation cache for a specific tree (full rebuild required)"""
     try:
         team_id = request.args.get('team_id')
         if not team_id:
@@ -176,14 +347,30 @@ def clear_navigation_cache_for_tree(tree_id):
                 'error': 'team_id is required'
             }), 400
         
+        # 1. Clear file cache
         from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
         clear_unified_cache(tree_id, team_id)
         
-        print(f"[@route:host_navigation:clear_navigation_cache_for_tree] Cache cleared for tree {tree_id}")
+        # 2. Clear in-memory graph from all NavigationExecutor instances
+        host_devices = getattr(current_app, 'host_devices', {})
+        cleared_devices = []
+        for device_id, device in host_devices.items():
+            if hasattr(device, 'navigation_executor') and device.navigation_executor:
+                # Clear the in-memory unified graph
+                if device.navigation_executor.unified_graph:
+                    device.navigation_executor.unified_graph = None
+                    cleared_devices.append(device_id)
+                    print(f"[@route:host_navigation:clear_navigation_cache_for_tree] Cleared unified_graph from NavigationExecutor for device {device_id}")
+                
+                # Clear preview cache for this tree
+                device.navigation_executor.clear_preview_cache(tree_id)
+        
+        print(f"[@route:host_navigation:clear_navigation_cache_for_tree] ✅ Cache cleared for tree {tree_id} (file cache + {len(cleared_devices)} NavigationExecutor instances)")
         
         return jsonify({
             'success': True,
-            'message': f'Cache cleared for tree {tree_id}'
+            'message': f'Cache cleared for tree {tree_id}',
+            'cleared_devices': cleared_devices
         })
         
     except Exception as e:
