@@ -65,12 +65,13 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       [paramName]: value,
     };
     
-    console.log('🔍 [DEBUG] handleParamChange:', {
+    console.log('🔍 [ActionItem:handleParamChange] Updating param:', {
       paramName,
       value,
       oldParams: action.params,
       newParams,
-      actionIndex: index
+      actionIndex: index,
+      actionCommand: action.command
     });
     
     onUpdateAction(index, {

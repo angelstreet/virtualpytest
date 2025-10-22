@@ -242,7 +242,11 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
 
   const loadTreeByUserInterface = async (userInterfaceId: string, options?: { includeMetrics?: boolean }): Promise<any> => {
     const includeMetrics = options?.includeMetrics || false;
-    const cacheKey = `${userInterfaceId}|metrics:${includeMetrics}`;
+    
+    // Include server URL in cache key to prevent cross-server cache pollution
+    // When user switches servers, cache from different server should not be used
+    const selectedServer = localStorage.getItem('selectedServer') || 'default';
+    const cacheKey = `${selectedServer}|${userInterfaceId}|metrics:${includeMetrics}`;
     
     // Check cache first
     const cached = treeCache.current.get(cacheKey);
@@ -250,7 +254,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       const age = Date.now() - cached.timestamp;
       if (age < TREE_CACHE_TTL_MS) {
         const ageSeconds = Math.floor(age / 1000);
-        console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} (age: ${ageSeconds}s, metrics: ${includeMetrics})`);
+        console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} from ${selectedServer} (age: ${ageSeconds}s, metrics: ${includeMetrics})`);
         
         // Still set the tree ID from cache
         if (cached.data.tree) {
@@ -262,7 +266,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
         // Entry expired, remove it
         treeCache.current.delete(cacheKey);
         scheduleCacheSave();
-        console.log(`[@TreeCache] ⏰ EXPIRED: interface ${userInterfaceId} (removing, will fetch fresh)`);
+        console.log(`[@TreeCache] ⏰ EXPIRED: interface ${userInterfaceId} from ${selectedServer} (removing, will fetch fresh)`);
       }
     }
     
@@ -271,7 +275,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     try {
       const url = buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}${includeMetrics ? '?include_metrics=true' : ''}`);
       
-      console.log(`[@TreeCache] 🌐 FETCH: interface ${userInterfaceId} (metrics: ${includeMetrics})`);
+      console.log(`[@TreeCache] 🌐 FETCH: interface ${userInterfaceId} from ${selectedServer} (metrics: ${includeMetrics})`);
       
       const response = await fetch(url);
       const result = await response.json();
@@ -279,7 +283,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       if (result.success && result.tree) {
         setActualTreeId(result.tree.id);
         
-        // Cache the result
+        // Cache the result with server-aware key
         treeCache.current.set(cacheKey, {
           data: result,
           timestamp: Date.now(),
@@ -287,9 +291,9 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
         scheduleCacheSave();
         
         if (result.metrics) {
-          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} with metrics (nodes: ${Object.keys(result.metrics.nodes || {}).length}, edges: ${Object.keys(result.metrics.edges || {}).length}, TTL: 5min)`);
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with metrics (nodes: ${Object.keys(result.metrics.nodes || {}).length}, edges: ${Object.keys(result.metrics.edges || {}).length}, TTL: 5min)`);
         } else {
-          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} (total: ${treeCache.current.size}, TTL: 5min)`);
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} (total: ${treeCache.current.size}, TTL: 5min)`);
         }
         
         return result;
@@ -426,12 +430,13 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  // Cache invalidation function
+  // Cache invalidation function - invalidates cache entries across all servers for the given interface
   const invalidateTreeCache = useCallback((userInterfaceId: string) => {
-    const keysToDelete = Array.from(treeCache.current.keys()).filter(k => k.startsWith(`${userInterfaceId}|`));
+    // Find all cache keys containing this userInterfaceId (across all servers)
+    const keysToDelete = Array.from(treeCache.current.keys()).filter(k => k.includes(`|${userInterfaceId}|`));
     keysToDelete.forEach(k => treeCache.current.delete(k));
     scheduleCacheSave();
-    console.log(`[@TreeCache] 🗑️ Invalidated ${keysToDelete.length} cache entries for interface ${userInterfaceId}`);
+    console.log(`[@TreeCache] 🗑️ Invalidated ${keysToDelete.length} cache entries for interface ${userInterfaceId} (across all servers)`);
   }, [scheduleCacheSave]);
 
   return (

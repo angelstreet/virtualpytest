@@ -107,6 +107,7 @@ export const useEdgeEdit = ({
         retry_actions: actionSet.retry_actions?.length || 0,
         failure_actions: actionSet.failure_actions?.length || 0
       });
+      console.log('[@useEdgeEdit] Loaded actions detail from edgeForm:', JSON.stringify(actionSet.actions, null, 2));
       
       setLocalActions(actionSet.actions || []);
       setLocalRetryActions(actionSet.retry_actions || []);
@@ -160,6 +161,7 @@ export const useEdgeEdit = ({
   const handleActionsChange = useCallback(
     (newActions: Action[]) => {
       console.log('[@useEdgeEdit:handleActionsChange] Called with actions:', newActions.length);
+      console.log('[@useEdgeEdit:handleActionsChange] Actions detail:', JSON.stringify(newActions, null, 2));
       if (!edgeForm) return;
 
       setLocalActions(newActions);
@@ -180,6 +182,7 @@ export const useEdgeEdit = ({
         };
       }
       
+      console.log('[@useEdgeEdit:handleActionsChange] Updated action_sets:', JSON.stringify(updatedActionSets, null, 2));
       console.log('[@useEdgeEdit:handleActionsChange] Updating edgeForm, isUserEditRef =', isUserEditRef.current);
       setEdgeForm({
         ...edgeForm,
