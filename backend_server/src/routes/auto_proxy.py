@@ -82,9 +82,15 @@ def auto_proxy(endpoint):
                         else:
                             del _stream_url_cache[cache_key]
         
+        # Determine timeout based on endpoint type
+        if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint:
+            timeout = 180  # 3 minutes for navigation execution
+        else:
+            timeout = 60  # Default timeout for other operations
+        
         # Proxy to host
         response_data, status_code = proxy_to_host_with_params(
-            host_endpoint, target_method, data, query_params, timeout=60
+            host_endpoint, target_method, data, query_params, timeout=timeout
         )
         
         # Store in cache if successful getStreamUrl
