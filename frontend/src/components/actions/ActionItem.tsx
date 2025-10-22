@@ -1081,17 +1081,17 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         break;
 
       case 'waitForImageToAppearThenDisappear':
-        // Debug verification action properties
-        console.log('[ActionItem] Image appear-then-disappear verification action debug:', {
+        // Debug action properties
+        console.log('[ActionItem] Image appear-then-disappear action debug:', {
           command: action.command,
           action_type: action.action_type,
           verification_type: action.verification_type,
           full_action: action
         });
         
-        // Check if this is a verification action with image type
-        if (action.action_type === 'verification' && action.verification_type === 'image') {
-          console.log('[ActionItem] Rendering image appear-then-disappear verification UI');
+        // Check if this is a verification or kpi_measurement action with image type
+        if ((action.action_type === 'verification' || action.action_type === 'kpi_measurement') && action.verification_type === 'image') {
+          console.log('[ActionItem] Rendering image appear-then-disappear UI');
           // Image reference selection (same as other image verifications)
           fields.push(
             <FormControl key="image_reference" size="small" sx={{ width: 250 }}>
@@ -1155,7 +1155,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             </FormControl>,
           );
         } else {
-          console.log('[ActionItem] NOT rendering image appear-then-disappear verification UI - check failed');
+          console.log('[ActionItem] NOT rendering image appear-then-disappear UI - check failed');
         }
         break;
 
