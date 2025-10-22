@@ -91,7 +91,8 @@ CREATE TABLE execution_results (
     action_set_id text,  -- UPDATED: Added for bidirectional edge tracking
     kpi_measurement_ms integer,  -- KPI: Measured time from action to visual confirmation
     kpi_measurement_success boolean,  -- KPI: Whether measurement succeeded
-    kpi_measurement_error text  -- KPI: Error message if measurement failed
+    kpi_measurement_error text,  -- KPI: Error message if measurement failed
+    kpi_report_url text  -- KPI: URL to the R2-hosted KPI measurement report with thumbnail evidence
 );
 
 -- Script execution results (UPDATED SCHEMA)
@@ -176,6 +177,7 @@ CREATE INDEX idx_execution_results_device_name ON execution_results(device_name)
 CREATE INDEX idx_execution_results_kpi_query ON execution_results(team_id, device_name, executed_at) WHERE kpi_measurement_ms IS NOT NULL;
 CREATE INDEX idx_execution_results_kpi_success ON execution_results(kpi_measurement_success) WHERE kpi_measurement_success IS NOT NULL;
 CREATE INDEX idx_execution_results_kpi_ms ON execution_results(kpi_measurement_ms) WHERE kpi_measurement_ms IS NOT NULL;
+CREATE INDEX idx_execution_results_kpi_report ON execution_results(kpi_report_url) WHERE kpi_report_url IS NOT NULL;
 CREATE INDEX idx_script_results_team_id ON script_results(team_id);
 CREATE INDEX idx_script_results_script_name ON script_results(script_name);
 CREATE INDEX idx_script_results_host_name ON script_results(host_name);
@@ -198,6 +200,7 @@ COMMENT ON COLUMN execution_results.device_name IS 'Device name (unique identifi
 COMMENT ON COLUMN execution_results.kpi_measurement_ms IS 'KPI: Measured time from action to visual confirmation';
 COMMENT ON COLUMN execution_results.kpi_measurement_success IS 'KPI: Whether measurement succeeded';
 COMMENT ON COLUMN execution_results.kpi_measurement_error IS 'KPI: Error message if measurement failed';
+COMMENT ON COLUMN execution_results.kpi_report_url IS 'KPI: URL to the R2-hosted KPI measurement report with thumbnail evidence';
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE test_cases ENABLE ROW LEVEL SECURITY;

@@ -111,16 +111,16 @@ $$ LANGUAGE plpgsql;
 ### Phase 4: Create the Trigger
 ```sql
 -- Drop existing trigger if it exists
-DROP TRIGGER IF EXISTS sync_parent_nodes_trigger ON navigation_nodes;
+DROP TRIGGER IF EXISTS sync_parent_node_to_subtrees_trigger ON navigation_nodes;
 
 -- Create the trigger
-CREATE TRIGGER sync_parent_nodes_trigger
+CREATE TRIGGER sync_parent_node_to_subtrees_trigger
     AFTER UPDATE ON navigation_nodes
     FOR EACH ROW
     WHEN (
-        -- Only fire for actual data changes (not just updated_at)
+        -- Only fire when synced fields change
         OLD.label IS DISTINCT FROM NEW.label OR
-        OLD.data IS DISTINCT FROM NEW.data OR 
+        OLD.data IS DISTINCT FROM NEW.data OR
         OLD.verifications IS DISTINCT FROM NEW.verifications OR
         OLD.node_type IS DISTINCT FROM NEW.node_type OR
         OLD.style IS DISTINCT FROM NEW.style
@@ -128,6 +128,7 @@ CREATE TRIGGER sync_parent_nodes_trigger
     EXECUTE FUNCTION sync_parent_node_to_subtrees();
 ```
 
+### Phase 5: Testing
 ## Advanced Features
 
 ### 1. Selective Field Sync

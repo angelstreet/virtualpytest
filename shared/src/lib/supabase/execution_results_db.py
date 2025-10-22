@@ -659,7 +659,8 @@ def update_execution_result_with_kpi(
     team_id: str,
     kpi_measurement_success: bool,
     kpi_measurement_ms: Optional[int] = None,
-    kpi_measurement_error: Optional[str] = None
+    kpi_measurement_error: Optional[str] = None,
+    kpi_report_url: Optional[str] = None
 ) -> bool:
     """Update execution_result with KPI measurement results."""
     try:
@@ -671,9 +672,12 @@ def update_execution_result_with_kpi(
             update_data['kpi_measurement_ms'] = kpi_measurement_ms
         if kpi_measurement_error is not None:
             update_data['kpi_measurement_error'] = kpi_measurement_error
+        if kpi_report_url is not None:
+            update_data['kpi_report_url'] = kpi_report_url
         
         kpi_status = f"✓ {kpi_measurement_ms}ms" if kpi_measurement_success else f"✗ {kpi_measurement_error}"
-        print(f"[@db:execution_results:update_kpi] {execution_result_id[:8]} | KPI: {kpi_status}")
+        report_status = f" | Report: {kpi_report_url[:50]}..." if kpi_report_url else ""
+        print(f"[@db:execution_results:update_kpi] {execution_result_id[:8]} | KPI: {kpi_status}{report_status}")
         
         supabase = get_supabase()
         result = supabase.table('execution_results').update(update_data).eq(

@@ -899,3 +899,129 @@ def get_script_report_folder_url(device_model: str, script_name: str, timestamp:
     folder_name = f"{script_name}_{date_str}_{timestamp}"
     folder_path = f"script-reports/{device_model}/{folder_name}"
     return uploader.get_public_url(folder_path)
+
+
+def upload_kpi_thumbnails(thumbnails: Dict[str, str], execution_result_id: str, timestamp: str) -> Dict:
+    """
+    Upload 3 KPI thumbnails to R2 (action, before, match).
+    
+    Args:
+        thumbnails: Dict with 'action', 'before', 'match' keys pointing to local thumbnail paths
+        execution_result_id: Execution result ID
+        timestamp: Timestamp string (YYYYMMDDHHMMSS)
+        
+    Returns:
+        Dict with 'action', 'before', 'match' keys containing R2 URLs
+    """
+    try:
+        uploader = get_cloudflare_utils()
+        
+        # Create file mappings for batch upload
+        file_mappings = []
+        for thumb_type in ['action', 'before', 'match']:
+            local_path = thumbnails.get(thumb_type)
+            if local_path and os.path.exists(local_path):
+                remote_path = f"kpi_measurement/{execution_result_id[:8]}/{timestamp}_{thumb_type}.jpg"
+                file_mappings.append({
+                    'local_path': local_path,
+                    'remote_path': remote_path,
+                    'content_type': 'image/jpeg'
+                })
+        
+        if not file_mappings:
+            return {'action': '', 'before': '', 'match': ''}
+        
+        # Batch upload
+        upload_result = uploader.upload_files(file_mappings)
+        
+        # Extract URLs
+        urls = {}
+        for uploaded in upload_result.get('uploaded_files', []):
+            remote_path = uploaded['remote_path']
+            if 'action' in remote_path:
+                urls['action'] = uploaded['url']
+            elif 'before' in remote_path:
+                urls['before'] = uploaded['url']
+            elif 'match' in remote_path:
+                urls['match'] = uploaded['url']
+        
+        logger.info(f"Uploaded {len(urls)} KPI thumbnails for {execution_result_id[:8]}")
+        return urls
+        
+    except Exception as e:
+        logger.error(f"KPI thumbnails upload failed: {str(e)}")
+        return {'action': '', 'before': '', 'match': ''}
+
+
+def upload_kpi_report(html_content: str, execution_result_id: str, timestamp: str) -> Dict:
+    """
+    Upload KPI measurement report HTML to R2.
+    
+    Args:
+        html_content: HTML report content
+        execution_result_id: Execution result ID
+        timestamp: Timestamp string (YYYYMMDDHHMMSS)
+        
+    Returns:
+        Dict with 'success', 'report_url', 'report_path'
+    """
+    try:
+        uploader = get_cloudflare_utils()
+        
+        # R2 path: kpi_measurement/{exec_result_id_prefix}/{timestamp}.html
+        report_path = f"kpi_measurement/{execution_result_id[:8]}/{timestamp}.html"
+        
+        # Create temporary HTML file
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode='w', suffix='.html', delete=False) as temp_file:
+            temp_file.write(html_content)
+            temp_file_path = temp_file.name
+        
+        try:
+            # Upload HTML report
+            file_mappings = [{
+                'local_path': temp_file_path, 
+                'remote_path': report_path,
+                'content_type': 'text/html; charset=utf-8'
+            }]
+            upload_result = uploader.upload_files(file_mappings)
+            
+            # Convert to single file result
+            if upload_result['uploaded_files']:
+                result = {
+                    'success': True,
+                    'url': upload_result['uploaded_files'][0]['url'],
+                    'remote_path': upload_result['uploaded_files'][0]['remote_path']
+                }
+            else:
+                result = {
+                    'success': False,
+                    'error': upload_result['failed_uploads'][0]['error'] if upload_result['failed_uploads'] else 'Upload failed'
+                }
+            
+            if result['success']:
+                logger.info(f"Uploaded KPI report: {report_path}")
+                return {
+                    'success': True,
+                    'report_path': report_path,
+                    'report_url': result['url']
+                }
+            else:
+                return {
+                    'success': False,
+                    'error': result.get('error', 'Upload failed'),
+                    'report_url': ''
+                }
+                
+        finally:
+            # Clean up temporary file
+            if os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
+                
+    except Exception as e:
+        logger.error(f"KPI report upload failed: {str(e)}")
+        return {
+            'success': False,
+            'error': str(e),
+            'report_url': ''
+        }

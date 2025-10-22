@@ -186,7 +186,11 @@ class KPIExecutorService:
                 logger.info(f"   • KPI duration: {kpi_ms}ms")
                 logger.info(f"   • Algorithm: {algorithm}")
                 logger.info(f"   • Captures scanned: {match_result['captures_scanned']}")
-                self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
+                
+                # Generate KPI report with thumbnails
+                report_url = self._generate_kpi_report(request, match_result, kpi_ms)
+                
+                self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None, report_url)
             else:
                 algorithm = match_result.get('algorithm', 'unknown')
                 logger.error(f"❌ KPI measurement failed: {match_result['error']}")
@@ -553,7 +557,135 @@ class KPIExecutorService:
             'algorithm': 'exhaustive_search_failed'
         }
     
-    def _update_result(self, execution_result_id: str, team_id: str, success: bool, kpi_ms: int, error: str):
+    def _find_closest_thumbnail(self, thumb_dir: str, target_ts: float) -> Optional[str]:
+        """Find thumbnail closest to target timestamp in cold storage"""
+        if not os.path.isdir(thumb_dir):
+            return None
+        
+        import glob
+        thumbnails = glob.glob(os.path.join(thumb_dir, 'capture_*_thumbnail.jpg'))
+        
+        if not thumbnails:
+            return None
+        
+        closest = None
+        min_diff = float('inf')
+        
+        for thumb_path in thumbnails:
+            try:
+                mtime = os.path.getmtime(thumb_path)
+                diff = abs(mtime - target_ts)
+                if diff < min_diff:
+                    min_diff = diff
+                    closest = thumb_path
+            except OSError:
+                continue
+        
+        return closest
+    
+    def _generate_kpi_report(self, request: KPIMeasurementRequest, match_result: Dict, kpi_ms: int) -> Optional[str]:
+        """Generate KPI report HTML with thumbnail evidence and upload to R2"""
+        try:
+            from datetime import datetime
+            from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, is_ram_mode, get_cold_storage_path
+            from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails, upload_kpi_report
+            from shared.src.lib.utils.kpi_report_template import create_kpi_report_template
+            
+            logger.info(f"📊 Generating KPI report for {request.execution_result_id[:8]}")
+            
+            # Determine thumbnail paths (check cold storage first, then hot)
+            capture_dir = request.capture_dir
+            if is_ram_mode(capture_dir):
+                # RAM mode: Try cold first (archived), fallback to hot
+                cold_thumb_dir = os.path.join(capture_dir, 'thumbnails')
+                hot_thumb_dir = get_thumbnails_path(os.path.basename(capture_dir))
+                thumb_dir = cold_thumb_dir if os.path.isdir(cold_thumb_dir) else hot_thumb_dir
+            else:
+                # SD mode: All in same directory
+                thumb_dir = get_thumbnails_path(os.path.basename(capture_dir))
+            
+            if not os.path.isdir(thumb_dir):
+                logger.warning(f"⚠️  Thumbnail directory not found: {thumb_dir}")
+                return None
+            
+            # Find 3 thumbnails
+            action_thumb = self._find_closest_thumbnail(thumb_dir, request.action_timestamp)
+            before_match_ts = match_result['timestamp'] - 0.6  # ~3 frames before at 5fps
+            before_thumb = self._find_closest_thumbnail(thumb_dir, before_match_ts)
+            match_thumb = self._find_closest_thumbnail(thumb_dir, match_result['timestamp'])
+            
+            if not all([action_thumb, before_thumb, match_thumb]):
+                logger.warning(f"⚠️  Could not find all thumbnails (action={bool(action_thumb)}, before={bool(before_thumb)}, match={bool(match_thumb)})")
+                return None
+            
+            logger.info(f"✓ Found all 3 thumbnails")
+            logger.info(f"   • Action: {os.path.basename(action_thumb)}")
+            logger.info(f"   • Before: {os.path.basename(before_thumb)}")
+            logger.info(f"   • Match: {os.path.basename(match_thumb)}")
+            
+            # Upload thumbnails to R2
+            timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
+            thumbnails = {
+                'action': action_thumb,
+                'before': before_thumb,
+                'match': match_thumb
+            }
+            thumb_urls = upload_kpi_thumbnails(thumbnails, request.execution_result_id, timestamp)
+            
+            if not all(thumb_urls.values()):
+                logger.error(f"❌ Failed to upload thumbnails")
+                return None
+            
+            logger.info(f"✓ Uploaded 3 thumbnails to R2")
+            
+            # Format timestamps for display
+            action_time = datetime.fromtimestamp(request.action_timestamp).strftime('%H:%M:%S.%f')[:-3]
+            before_time = datetime.fromtimestamp(before_match_ts).strftime('%H:%M:%S.%f')[:-3]
+            match_time = datetime.fromtimestamp(match_result['timestamp']).strftime('%H:%M:%S.%f')[:-3]
+            action_timestamp_full = datetime.fromtimestamp(request.action_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            match_timestamp_full = datetime.fromtimestamp(match_result['timestamp']).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
+            
+            # Calculate scan window
+            scan_window = match_result['timestamp'] - request.action_timestamp
+            
+            # Generate HTML
+            html_template = create_kpi_report_template()
+            html_content = html_template.format(
+                kpi_ms=kpi_ms,
+                device_name=f"{request.device_id}",
+                navigation_path=request.userinterface_name,
+                algorithm=match_result.get('algorithm', 'unknown'),
+                captures_scanned=match_result.get('captures_scanned', 0),
+                action_thumb=thumb_urls['action'],
+                before_thumb=thumb_urls['before'],
+                match_thumb=thumb_urls['match'],
+                action_time=action_time,
+                before_time=before_time,
+                match_time=match_time,
+                execution_result_id=request.execution_result_id[:12],
+                action_timestamp=action_timestamp_full,
+                match_timestamp=match_timestamp_full,
+                scan_window=f"{scan_window:.2f}"
+            )
+            
+            # Upload HTML to R2
+            upload_result = upload_kpi_report(html_content, request.execution_result_id, timestamp)
+            
+            if upload_result.get('success'):
+                report_url = upload_result['report_url']
+                logger.info(f"✅ KPI report generated: {report_url}")
+                return report_url
+            else:
+                logger.error(f"❌ Failed to upload KPI report: {upload_result.get('error')}")
+                return None
+                
+        except Exception as e:
+            logger.error(f"❌ Error generating KPI report: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
+    
+    def _update_result(self, execution_result_id: str, team_id: str, success: bool, kpi_ms: int, error: str, report_url: str = None):
         """Update execution_results with KPI measurement"""
         try:
             from shared.src.lib.supabase.execution_results_db import update_execution_result_with_kpi
@@ -563,11 +695,15 @@ class KPIExecutorService:
                 team_id=team_id,
                 kpi_measurement_success=success,
                 kpi_measurement_ms=kpi_ms,
-                kpi_measurement_error=error
+                kpi_measurement_error=error,
+                kpi_report_url=report_url
             )
             
             if result:
-                logger.info(f"💾 Stored KPI result: {kpi_ms}ms (success: {success})")
+                if report_url:
+                    logger.info(f"💾 Stored KPI result: {kpi_ms}ms (success: {success}) - Report: {report_url}")
+                else:
+                    logger.info(f"💾 Stored KPI result: {kpi_ms}ms (success: {success})")
             else:
                 logger.warning(f"⚠️  Failed to update execution_result_id: {execution_result_id[:8]}")
                 

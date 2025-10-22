@@ -700,20 +700,19 @@ AS $$
     ORDER BY tree_depth ASC;
 $$;
 
--- Function to sync parent node label and screenshot to subtrees
-CREATE OR REPLACE FUNCTION sync_parent_label_screenshot()
+-- Function to sync parent node label, screenshot, and verifications to subtrees
+CREATE OR REPLACE FUNCTION sync_parent_node_to_subtrees()
 RETURNS trigger
 LANGUAGE plpgsql
 AS $$
 BEGIN
     -- Only sync if this node is referenced as a parent by subtrees
-    -- AND only if label or screenshot changed
     IF EXISTS(
         SELECT 1 FROM navigation_trees 
         WHERE parent_node_id = NEW.node_id 
         AND team_id = NEW.team_id
     ) THEN
-        -- Update label and screenshot in all subtree duplicates
+        -- Update label, screenshot, and verifications in all subtree duplicates
         UPDATE navigation_nodes 
         SET 
             label = NEW.label,
@@ -722,6 +721,7 @@ BEGIN
                 '{screenshot}', 
                 to_jsonb(NEW.data->>'screenshot')
             ),
+            verifications = NEW.verifications,
             updated_at = NOW()
         WHERE 
             node_id = NEW.node_id
@@ -733,7 +733,7 @@ BEGIN
             );
             
         -- Log sync operation
-        RAISE NOTICE 'Synced label/screenshot for parent node % to subtrees', NEW.node_id;
+        RAISE NOTICE 'Synced label/screenshot/verifications for parent node % to subtrees', NEW.node_id;
     END IF;
     
     RETURN NEW;
@@ -887,15 +887,16 @@ CREATE TRIGGER cascade_delete_subtrees_trigger
     FOR EACH ROW 
     EXECUTE FUNCTION cascade_delete_subtrees();
 
--- Trigger to sync parent node label and screenshot to subtrees
-CREATE TRIGGER sync_parent_label_screenshot_trigger 
+-- Trigger to sync parent node label, screenshot, and verifications to subtrees
+CREATE TRIGGER sync_parent_node_to_subtrees_trigger 
     AFTER UPDATE ON navigation_nodes 
     FOR EACH ROW 
     WHEN (
         OLD.label IS DISTINCT FROM NEW.label OR
-        OLD.data->>'screenshot' IS DISTINCT FROM NEW.data->>'screenshot'
+        OLD.data->>'screenshot' IS DISTINCT FROM NEW.data->>'screenshot' OR
+        OLD.verifications IS DISTINCT FROM NEW.verifications
     )
-    EXECUTE FUNCTION sync_parent_label_screenshot();
+    EXECUTE FUNCTION sync_parent_node_to_subtrees();
 
 -- Trigger to auto-update edge labels when node label changes
 CREATE TRIGGER trigger_auto_update_edge_labels_on_node_change 

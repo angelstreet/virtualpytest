@@ -1,21 +1,17 @@
--- Migration 006: Parent Node Sync Triggers
--- Date: 2024-01-XX
--- Description: Add automatic sync triggers for parent node label/screenshot/verifications changes
---              and cascade delete for subtrees when parent node is deleted
+-- Migration 007: Add Verifications to Parent Node Sync
+-- Date: 2025-10-22
+-- Description: Extend parent node sync trigger to include verifications field
+--              This ensures verifications are automatically synced from parent to subtree nodes
 
--- Drop existing triggers and functions if they exist (for clean recreation)
-DROP TRIGGER IF EXISTS cascade_delete_subtrees_trigger ON navigation_nodes;
-DROP TRIGGER IF EXISTS sync_parent_node_to_subtrees_trigger ON navigation_nodes;
+-- Drop existing trigger and function to recreate with extended functionality
 DROP TRIGGER IF EXISTS sync_parent_label_screenshot_trigger ON navigation_nodes;
-DROP FUNCTION IF EXISTS cascade_delete_subtrees() CASCADE;
-DROP FUNCTION IF EXISTS sync_parent_node_to_subtrees() CASCADE;
 DROP FUNCTION IF EXISTS sync_parent_label_screenshot() CASCADE;
 
 -- ==============================================================================
--- SYNC TRIGGERS FOR NESTED NAVIGATION
+-- EXTENDED SYNC FUNCTION - NOW INCLUDES VERIFICATIONS
 -- ==============================================================================
 
--- 1. Function to sync parent node label, screenshot, and verifications to subtrees
+-- Renamed function to reflect expanded scope
 CREATE OR REPLACE FUNCTION sync_parent_node_to_subtrees()
 RETURNS TRIGGER AS $$
 BEGIN
@@ -55,35 +51,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
--- 2. Function to cascade delete subtrees when parent node is deleted
-CREATE OR REPLACE FUNCTION cascade_delete_subtrees()
-RETURNS TRIGGER AS $$
-DECLARE
-    subtree_count INTEGER;
-BEGIN
-    -- Count subtrees before deletion for logging
-    SELECT COUNT(*) INTO subtree_count
-    FROM navigation_trees 
-    WHERE parent_node_id = OLD.node_id 
-    AND team_id = OLD.team_id;
-    
-    -- When a parent node is deleted, delete all its subtrees
-    -- This will cascade delete all nodes and edges in those subtrees
-    DELETE FROM navigation_trees 
-    WHERE parent_node_id = OLD.node_id 
-    AND team_id = OLD.team_id;
-    
-    -- Log cascade delete for debugging
-    IF subtree_count > 0 THEN
-        RAISE NOTICE 'Cascade deleted % subtrees for parent node %', subtree_count, OLD.node_id;
-    END IF;
-    
-    RETURN OLD;
-END;
-$$ LANGUAGE plpgsql;
+-- ==============================================================================
+-- CREATE TRIGGER - FIRES ON LABEL, SCREENSHOT, OR VERIFICATIONS CHANGES
+-- ==============================================================================
 
--- 3. Create sync trigger (fires on label, screenshot, or verifications changes)
-DROP TRIGGER IF EXISTS sync_parent_node_to_subtrees_trigger ON navigation_nodes;
 CREATE TRIGGER sync_parent_node_to_subtrees_trigger
     AFTER UPDATE ON navigation_nodes
     FOR EACH ROW
@@ -95,22 +66,21 @@ CREATE TRIGGER sync_parent_node_to_subtrees_trigger
     )
     EXECUTE FUNCTION sync_parent_node_to_subtrees();
 
--- 4. Create cascade delete trigger
-DROP TRIGGER IF EXISTS cascade_delete_subtrees_trigger ON navigation_nodes;
-CREATE TRIGGER cascade_delete_subtrees_trigger
-    AFTER DELETE ON navigation_nodes
-    FOR EACH ROW
-    EXECUTE FUNCTION cascade_delete_subtrees();
-
 -- ==============================================================================
 -- ROLLBACK INSTRUCTIONS
 -- ==============================================================================
 -- To rollback this migration, run:
 --
 -- DROP TRIGGER IF EXISTS sync_parent_node_to_subtrees_trigger ON navigation_nodes;
--- DROP TRIGGER IF EXISTS cascade_delete_subtrees_trigger ON navigation_nodes;
 -- DROP FUNCTION IF EXISTS sync_parent_node_to_subtrees();
--- DROP FUNCTION IF EXISTS cascade_delete_subtrees();
+-- 
+-- Then restore the old trigger:
+-- CREATE TRIGGER sync_parent_label_screenshot_trigger
+--     AFTER UPDATE ON navigation_nodes
+--     FOR EACH ROW
+--     WHEN (OLD.label IS DISTINCT FROM NEW.label OR OLD.data->>'screenshot' IS DISTINCT FROM NEW.data->>'screenshot')
+--     EXECUTE FUNCTION sync_parent_label_screenshot();
 
 -- Log migration completion
-SELECT 'Migration 006: Parent node sync triggers applied successfully' as status;
+SELECT 'Migration 007: Parent node verifications sync applied successfully' as status;
+
