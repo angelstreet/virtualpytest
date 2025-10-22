@@ -195,17 +195,44 @@ def get_edge_options():
         
         print(f"[@host_script:get_edge_options] Found {len(edges)} edges from validation sequence")
         
-        # Helper function to check if an action_set has KPI references
-        def action_set_has_kpi(action_set: dict) -> bool:
-            """Check if action_set has KPI references directly (post-migration)"""
+        # Batch fetch all nodes to check verifications when use_verifications_for_kpi is true
+        from shared.src.lib.supabase.navigation_trees_db import get_nodes_batch
+        
+        node_ids_to_fetch = set()
+        for edge in edges:
+            node_ids_to_fetch.add(edge.get('to_node_id'))  # Forward target
+            node_ids_to_fetch.add(edge.get('from_node_id'))  # Reverse target
+        
+        batch_result = get_nodes_batch(tree_id, list(node_ids_to_fetch), team_id)
+        if not batch_result.get('success'):
+            return jsonify({
+                'success': False,
+                'error': f"Failed to batch fetch nodes: {batch_result.get('error')}"
+            }), 500
+        
+        nodes_cache = batch_result['nodes']  # Dict: node_id -> node_data
+        
+        # Helper function to check if an action_set has KPI
+        def action_set_has_kpi(action_set: dict, target_node_id: str) -> bool:
+            """
+            Check if action_set has KPI references (post-migration).
+            
+            If use_verifications_for_kpi is true, check target node's verifications.
+            Otherwise, check action_set's kpi_references.
+            """
             if not action_set:
                 return False
             
             use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)
             if use_verifications_for_kpi:
-                verifications = action_set.get('verifications', [])
+                # Check target NODE's verifications
+                node_data = nodes_cache.get(target_node_id)
+                if not node_data:
+                    return False
+                verifications = node_data.get('verifications', [])
                 return bool(verifications)
             else:
+                # Check action_set's kpi_references
                 kpi_references = action_set.get('kpi_references', [])
                 return bool(kpi_references)
         
@@ -219,12 +246,14 @@ def get_edge_options():
             action_sets = edge_data.get('action_sets', [])
             from_label = edge.get('from_node_label', 'unknown')
             to_label = edge.get('to_node_label', 'unknown')
+            from_node_id = edge.get('from_node_id')
+            to_node_id = edge.get('to_node_id')
             
-            # Forward action set (index 0)
+            # Forward action set (index 0) - target is to_node
             if len(action_sets) > 0:
                 forward_set = action_sets[0]
                 forward_label = forward_set.get('label', '')
-                forward_has_kpi = action_set_has_kpi(forward_set)
+                forward_has_kpi = action_set_has_kpi(forward_set, to_node_id)
                 
                 if forward_label and forward_set.get('actions') and forward_has_kpi:
                     edge_options.append(forward_label)
@@ -237,11 +266,11 @@ def get_edge_options():
                 elif forward_label and forward_set.get('actions') and not forward_has_kpi:
                     filtered_count += 1
             
-            # Reverse action set (index 1) - if exists and has actions
+            # Reverse action set (index 1) - target is from_node (swapped)
             if len(action_sets) > 1:
                 reverse_set = action_sets[1]
                 reverse_label = reverse_set.get('label', '')
-                reverse_has_kpi = action_set_has_kpi(reverse_set)
+                reverse_has_kpi = action_set_has_kpi(reverse_set, from_node_id)
                 
                 if reverse_label and reverse_set.get('actions') and reverse_has_kpi:
                     edge_options.append(reverse_label)
