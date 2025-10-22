@@ -188,8 +188,8 @@ class KPIExecutorService:
                 logger.info(f"   • Algorithm: {algorithm}")
                 logger.info(f"   • Captures scanned: {match_result['captures_scanned']}")
                 
-                # Generate KPI report with thumbnails
-                report_url = self._generate_kpi_report(request, match_result, kpi_ms)
+                # Generate KPI report with thumbnails (from working directory)
+                report_url = self._generate_kpi_report(request, match_result, kpi_ms, working_dir)
                 
                 self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None, report_url)
             else:
@@ -218,7 +218,7 @@ class KPIExecutorService:
     
     def _copy_images_to_tmp(self, request: KPIMeasurementRequest) -> str:
         """
-        Copy required images from hot/cold storage to /tmp/ working directory (RAM).
+        Copy required images AND thumbnails from hot/cold storage to /tmp/ working directory (RAM).
         Avoids race condition where hot storage images are deleted during processing.
         
         Returns:
@@ -233,10 +233,6 @@ class KPIExecutorService:
         logger.info(f"📂 Copying images to /tmp/ working directory...")
         logger.info(f"   • Source: {request.capture_dir}")
         logger.info(f"   • Working dir: {working_dir}")
-        
-        # Find all captures in time window
-        pattern = os.path.join(request.capture_dir, "capture_*.jpg")
-        copied_count = 0
         
         # Calculate scan window based on available information
         if request.verification_timestamp:
@@ -258,6 +254,10 @@ class KPIExecutorService:
         
         logger.info(f"   • Scan window: {scan_end - scan_start:.2f}s (max {request.timeout_ms}ms)")
         
+        # Copy captures in time window
+        pattern = os.path.join(request.capture_dir, "capture_*.jpg")
+        copied_captures = 0
+        
         for source_path in glob.glob(pattern):
             if "_thumbnail" in source_path:
                 continue
@@ -269,16 +269,49 @@ class KPIExecutorService:
                     filename = os.path.basename(source_path)
                     dest_path = os.path.join(working_dir, filename)
                     shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
-                    copied_count += 1
+                    copied_captures += 1
             except (OSError, IOError) as e:
                 logger.warning(f"Could not copy {source_path}: {e}")
                 continue
         
-        if copied_count == 0:
-            logger.error(f"❌ No images copied from {request.capture_dir}")
+        if copied_captures == 0:
+            logger.error(f"❌ No captures copied from {request.capture_dir}")
             return None
         
-        logger.info(f"✅ Copied {copied_count} images to /tmp/ (RAM)")
+        logger.info(f"✅ Copied {copied_captures} captures to /tmp/ (RAM)")
+        
+        # Copy thumbnails in same time window (needed for KPI report)
+        from shared.src.lib.utils.storage_path_utils import get_thumbnails_path, is_ram_mode
+        
+        # Determine thumbnail source path (hot or cold depending on mode)
+        if is_ram_mode(request.capture_dir):
+            # RAM mode: thumbnails in hot storage
+            thumb_source_dir = os.path.join(request.capture_dir, 'hot', 'thumbnails')
+        else:
+            # SD mode: thumbnails in root
+            thumb_source_dir = os.path.join(request.capture_dir, 'thumbnails')
+        
+        if os.path.isdir(thumb_source_dir):
+            thumb_pattern = os.path.join(thumb_source_dir, "capture_*_thumbnail.jpg")
+            copied_thumbnails = 0
+            
+            for source_path in glob.glob(thumb_pattern):
+                try:
+                    ts = os.path.getmtime(source_path)
+                    # Copy thumbnails in same time window as captures
+                    if scan_start <= ts <= scan_end:
+                        filename = os.path.basename(source_path)
+                        dest_path = os.path.join(working_dir, filename)
+                        shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
+                        copied_thumbnails += 1
+                except (OSError, IOError) as e:
+                    logger.warning(f"Could not copy thumbnail {source_path}: {e}")
+                    continue
+            
+            logger.info(f"✅ Copied {copied_thumbnails} thumbnails to /tmp/ (RAM)")
+        else:
+            logger.warning(f"⚠️  Thumbnail directory not found: {thumb_source_dir}")
+        
         return working_dir
     
     def _cleanup_working_dir(self, working_dir: str):
@@ -559,7 +592,7 @@ class KPIExecutorService:
         }
     
     def _find_closest_thumbnail(self, thumb_dir: str, target_ts: float) -> Optional[str]:
-        """Find thumbnail closest to target timestamp in cold storage"""
+        """Find thumbnail closest to target timestamp in directory"""
         if not os.path.isdir(thumb_dir):
             return None
         
@@ -584,7 +617,7 @@ class KPIExecutorService:
         
         return closest
     
-    def _generate_kpi_report(self, request: KPIMeasurementRequest, match_result: Dict, kpi_ms: int) -> Optional[str]:
+    def _generate_kpi_report(self, request: KPIMeasurementRequest, match_result: Dict, kpi_ms: int, working_dir: str) -> Optional[str]:
         """Generate KPI report HTML with thumbnail evidence and upload to R2"""
         try:
             from datetime import datetime
@@ -594,32 +627,24 @@ class KPIExecutorService:
             
             logger.info(f"📊 Generating KPI report for {request.execution_result_id[:8]}")
             
-            # Determine thumbnail paths (check cold storage first, then hot)
-            capture_dir = request.capture_dir
-            if is_ram_mode(capture_dir):
-                # RAM mode: Try cold first (archived), fallback to hot
-                cold_thumb_dir = os.path.join(capture_dir, 'thumbnails')
-                hot_thumb_dir = get_thumbnails_path(os.path.basename(capture_dir))
-                thumb_dir = cold_thumb_dir if os.path.isdir(cold_thumb_dir) else hot_thumb_dir
-            else:
-                # SD mode: All in same directory
-                thumb_dir = get_thumbnails_path(os.path.basename(capture_dir))
+            # Find 3 thumbnails from working directory (already copied to /tmp/)
+            logger.info(f"🔍 Searching for thumbnails in working directory: {working_dir}")
             
-            if not os.path.isdir(thumb_dir):
-                logger.warning(f"⚠️  Thumbnail directory not found: {thumb_dir}")
+            if not os.path.isdir(working_dir):
+                logger.warning(f"⚠️  Working directory not found: {working_dir}")
                 return None
             
             # Find 3 thumbnails
-            action_thumb = self._find_closest_thumbnail(thumb_dir, request.action_timestamp)
+            action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
             before_match_ts = match_result['timestamp'] - 0.6  # ~3 frames before at 5fps
-            before_thumb = self._find_closest_thumbnail(thumb_dir, before_match_ts)
-            match_thumb = self._find_closest_thumbnail(thumb_dir, match_result['timestamp'])
+            before_thumb = self._find_closest_thumbnail(working_dir, before_match_ts)
+            match_thumb = self._find_closest_thumbnail(working_dir, match_result['timestamp'])
             
             if not all([action_thumb, before_thumb, match_thumb]):
                 logger.warning(f"⚠️  Could not find all thumbnails (action={bool(action_thumb)}, before={bool(before_thumb)}, match={bool(match_thumb)})")
                 return None
             
-            logger.info(f"✓ Found all 3 thumbnails")
+            logger.info(f"✓ Found all 3 thumbnails in working directory")
             logger.info(f"   • Action: {os.path.basename(action_thumb)}")
             logger.info(f"   • Before: {os.path.basename(before_thumb)}")
             logger.info(f"   • Match: {os.path.basename(match_thumb)}")

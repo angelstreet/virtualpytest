@@ -284,13 +284,16 @@ class TextVerificationController:
                     from shared.src.lib.utils.build_url_utils import convertHostUrlToLocalPath
                     from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
                     
+                    # Strip query parameters from filename (e.g., ?t=timestamp)
+                    clean_filename = image_source_url.split('?')[0]
+                    
                     # Build a proper URL first if it's just a filename
-                    if not image_source_url.startswith('/'):
+                    if not clean_filename.startswith('/'):
                         # Assume it's a filename from captures directory
-                        image_source_path = os.path.join(self.captures_path, image_source_url)
+                        image_source_path = os.path.join(self.captures_path, clean_filename)
                     else:
                         # Use URL conversion utility
-                        image_source_path = convertHostUrlToLocalPath(image_source_url)
+                        image_source_path = convertHostUrlToLocalPath(clean_filename)
                     
                     print(f"[@controller:TextVerification] Resolved path: {image_source_path}")
                     
