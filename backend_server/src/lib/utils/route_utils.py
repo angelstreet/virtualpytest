@@ -78,7 +78,7 @@ def proxy_to_host(endpoint, method='GET', data=None, timeout=30, headers=None):
         # Prepare request parameters
         # Use tuple format: (connect_timeout, read_timeout) to ensure read timeout is respected
         kwargs = {
-            'timeout': (180, timeout),  # 60s connect, specified read timeout
+            'timeout': (60, timeout),  # 60s connect, specified read timeout
             'verify': False  # For self-signed certificates
         }
         
