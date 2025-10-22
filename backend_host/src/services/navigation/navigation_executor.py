@@ -1488,11 +1488,18 @@ class NavigationExecutor:
             last_action_wait_ms = 0
             if actions:
                 last_action = actions[-1]
+                params = last_action.get('params', {})
                 print(f"[@navigation_executor:KPI] Last action command: {last_action.get('command')}")
-                print(f"[@navigation_executor:KPI] Last action params: {last_action.get('params')}")
-                if last_action.get('command') == 'wait':
-                    last_action_wait_ms = int(last_action.get('params', {}).get('duration', 0) * 1000)
-                    print(f"[@navigation_executor:KPI] Calculated last_action_wait_ms: {last_action_wait_ms}ms")
+                print(f"[@navigation_executor:KPI] Last action params: {params}")
+                
+                # Check for wait_time embedded in action params (e.g., press_key with wait_time)
+                if 'wait_time' in params:
+                    last_action_wait_ms = int(params['wait_time'])  # Already in milliseconds
+                    print(f"[@navigation_executor:KPI] Found wait_time in action params: {last_action_wait_ms}ms")
+                # Also support dedicated wait action with duration in seconds
+                elif last_action.get('command') == 'wait' and 'duration' in params:
+                    last_action_wait_ms = int(params['duration'] * 1000)
+                    print(f"[@navigation_executor:KPI] Found wait action with duration: {last_action_wait_ms}ms")
             else:
                 print(f"[@navigation_executor:KPI] No actions found in step")
             

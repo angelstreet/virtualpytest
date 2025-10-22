@@ -346,9 +346,14 @@ class KPIExecutorService:
             return {'success': False, 'error': 'No captures found in time window', 'captures_scanned': 0}
         
         total_captures = len(all_captures)
-        saved_ms = request.timeout_ms - window_ms
-        saved_s = saved_ms / 1000
-        logger.info(f"📸 Found {total_captures} captures in optimized window (saved ~{saved_s:.2f}s of scanning)")
+        
+        # Calculate saved time only if verification exists
+        if verification_timestamp:
+            saved_ms = request.timeout_ms - int((verification_timestamp - action_timestamp) * 1000)
+            saved_s = saved_ms / 1000
+            logger.info(f"📸 Found {total_captures} captures in optimized window (saved ~{saved_s:.2f}s of scanning)")
+        else:
+            logger.info(f"📸 Found {total_captures} captures in window")
         
         # Convert kpi_references to verification format
         verifications = []
