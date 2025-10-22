@@ -1101,14 +1101,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                
                console.log('[@NavigationContext] Updated frontend state with server response');
                
-               // UPDATE TREE CACHE: Keep cache synchronized with current state
-               if (navigationConfig?.actualTreeId) {
-                 cacheTree(navigationConfig.actualTreeId, { 
-                   nodes: nodes as UINavigationNode[], 
-                   edges: updatedEdges as UINavigationEdge[] 
-                 });
-                 console.log('[@NavigationContext] Updated tree cache after edge save');
-               }
+              // UPDATE TREE CACHE: Keep cache synchronized with current state
+              if (navigationConfig?.actualTreeId) {
+                cacheTree(navigationConfig.actualTreeId, { 
+                  nodes: nodes as UINavigationNode[], 
+                  edges: updatedEdges as UINavigationEdge[] 
+                });
+                console.log('[@NavigationContext] Updated tree cache after edge save');
+                
+                // Invalidate preview cache since edge actions changed
+                invalidateTree(navigationConfig.actualTreeId);
+                console.log('[@NavigationContext] 🗑️ Preview cache invalidated for tree:', navigationConfig.actualTreeId);
+              }
              }
 
                           // Refresh navigation cache (non-blocking)
