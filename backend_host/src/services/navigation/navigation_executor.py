@@ -1488,8 +1488,13 @@ class NavigationExecutor:
             last_action_wait_ms = 0
             if actions:
                 last_action = actions[-1]
+                print(f"[@navigation_executor:KPI] Last action command: {last_action.get('command')}")
+                print(f"[@navigation_executor:KPI] Last action params: {last_action.get('params')}")
                 if last_action.get('command') == 'wait':
                     last_action_wait_ms = int(last_action.get('params', {}).get('duration', 0) * 1000)
+                    print(f"[@navigation_executor:KPI] Calculated last_action_wait_ms: {last_action_wait_ms}ms")
+            else:
+                print(f"[@navigation_executor:KPI] No actions found in step")
             
             # Check if action_set uses verifications of target node for KPI measurement
             use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)

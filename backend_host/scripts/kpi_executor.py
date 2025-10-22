@@ -301,11 +301,14 @@ class KPIExecutorService:
         if not verif_executor:
             return {'success': False, 'error': f'No verification_executor for device {request.device_id}', 'captures_scanned': 0}
         
-        # Calculate optimized time window
-        window_ms = int((verification_timestamp - action_timestamp) * 1000)
-        timeout_s = request.timeout_ms / 1000
-        window_s = window_ms / 1000
-        logger.info(f"🎯 Optimized scan window: {window_s:.2f}s (action → verification) vs timeout: {timeout_s:.1f}s")
+        # Calculate optimized time window (only if verification exists)
+        if verification_timestamp:
+            window_ms = int((verification_timestamp - action_timestamp) * 1000)
+            timeout_s = request.timeout_ms / 1000
+            window_s = window_ms / 1000
+            logger.info(f"🎯 Optimized scan window: {window_s:.2f}s (action → verification) vs timeout: {timeout_s:.1f}s")
+        else:
+            logger.info(f"🎯 No verification - using timeout-based scan window")
         
         # Find all captures in time window
         pattern = os.path.join(capture_dir, "capture_*.jpg")
