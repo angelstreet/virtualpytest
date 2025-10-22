@@ -30,46 +30,56 @@ server_alerts_bp = Blueprint('server_alerts', __name__, url_prefix='/server/aler
 
 @server_alerts_bp.route('/getAllAlerts', methods=['GET'])
 def get_all_alerts_endpoint():
-    """Get all alerts (both active and resolved) - optimized single query.
+    """Get all alerts (both active and resolved) - optimized split queries.
+    
+    OPTIMIZED: Uses 2 separate indexed queries for much better performance.
     
     Optional query parameters:
     - host_name: Filter by specific host
     - device_id: Filter by specific device
     - incident_type: Filter by incident type
-    - limit: Maximum number of alerts to return (default: 200)
+    - active_limit: Maximum number of active alerts (default: 100)
+    - resolved_limit: Maximum number of resolved alerts (default: 100)
     """
     try:
         # Get optional query parameters
         host_name = request.args.get('host_name')
         device_id = request.args.get('device_id') 
         incident_type = request.args.get('incident_type')
-        limit = int(request.args.get('limit', 200))
+        active_limit = int(request.args.get('active_limit', 100))
+        resolved_limit = int(request.args.get('resolved_limit', 100))
         
-        print("[@routes:server_alerts:getAllAlerts] Getting all alerts with optional filters:")
+        print("[@routes:server_alerts:getAllAlerts] Getting all alerts with split queries:")
         print(f"  - host_name: {host_name}")
         print(f"  - device_id: {device_id}")
         print(f"  - incident_type: {incident_type}")
-        print(f"  - limit: {limit}")
+        print(f"  - active_limit: {active_limit}")
+        print(f"  - resolved_limit: {resolved_limit}")
         
         result = get_all_alerts(
             host_name=host_name,
             device_id=device_id, 
             incident_type=incident_type,
-            limit=limit
+            active_limit=active_limit,
+            resolved_limit=resolved_limit
         )
         
         if result['success']:
             return jsonify({
                 'success': True,
                 'alerts': result['alerts'],
-                'count': result['count']
+                'count': result['count'],
+                'active_count': result['active_count'],
+                'resolved_count': result['resolved_count']
             })
         else:
             return jsonify({
                 'success': False,
                 'error': result['error'],
                 'alerts': [],
-                'count': 0
+                'count': 0,
+                'active_count': 0,
+                'resolved_count': 0
             }), 500
             
     except Exception as e:
@@ -78,7 +88,9 @@ def get_all_alerts_endpoint():
             'success': False,
             'error': str(e),
             'alerts': [],
-            'count': 0
+            'count': 0,
+            'active_count': 0,
+            'resolved_count': 0
         }), 500
 
 @server_alerts_bp.route('/getActiveAlerts', methods=['GET'])

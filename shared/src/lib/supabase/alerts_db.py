@@ -20,71 +20,68 @@ def get_all_alerts(
     host_name: Optional[str] = None,
     device_id: Optional[str] = None,
     incident_type: Optional[str] = None,
-    limit: int = 200
+    active_limit: int = 100,
+    resolved_limit: int = 100
 ) -> Dict:
     """Get all alerts (both active and resolved) with optional filtering.
     
-    Uses DISTINCT ON to ensure only the most recent alert per host/device/incident_type combination.
+    OPTIMIZED: Splits into 2 separate queries (active + resolved) for better performance.
+    Uses indexes on (status, start_time) for fast queries.
     """
     try:
-        print(f"[@db:alerts:get_all_alerts] Getting all alerts:")
+        print(f"[@db:alerts:get_all_alerts] Getting alerts with split queries:")
         print(f"  - host_name: {host_name}")
         print(f"  - device_id: {device_id}")
         print(f"  - incident_type: {incident_type}")
-        print(f"  - limit: {limit}")
+        print(f"  - active_limit: {active_limit}")
+        print(f"  - resolved_limit: {resolved_limit}")
         
         supabase = get_supabase()
         
-        # Build the query with DISTINCT ON to get most recent alert per combination
-        # Note: Supabase client doesn't support DISTINCT ON directly, so we'll use a subquery approach
-        base_query = supabase.table('alerts').select('*')
+        # Query 1: Get active alerts (typically very few - 8 total)
+        active_query = supabase.table('alerts').select('*').eq('status', 'active')
         
-        # Add filters
+        # Add filters to active query
         if host_name:
-            base_query = base_query.eq('host_name', host_name)
-            print(f"  - Applied host_name filter: {host_name}")
+            active_query = active_query.eq('host_name', host_name)
         if device_id:
-            base_query = base_query.eq('device_id', device_id)
-            print(f"  - Applied device_id filter: {device_id}")
+            active_query = active_query.eq('device_id', device_id)
         if incident_type:
-            base_query = base_query.eq('incident_type', incident_type)
-            print(f"  - Applied incident_type filter: {incident_type}")
+            active_query = active_query.eq('incident_type', incident_type)
         
-        # Execute query with ordering and limit
-        # Order by start_time desc to get most recent first
-        result = base_query.order('start_time', desc=True).limit(limit).execute()
+        # Execute active query - uses idx_alerts_status_start_time index
+        active_result = active_query.order('start_time', desc=True).limit(active_limit).execute()
+        active_alerts = active_result.data
+        print(f"  - Found {len(active_alerts)} active alerts")
         
-        # Post-process to remove duplicates (keep most recent per host/device/incident_type)
-        alerts = result.data
-        unique_alerts = {}
+        # Query 2: Get resolved alerts (many more, but indexed)
+        resolved_query = supabase.table('alerts').select('*').eq('status', 'resolved')
         
-        for alert in alerts:
-            key = f"{alert['host_name']}-{alert['device_id']}-{alert['incident_type']}-{alert['status']}"
-            
-            if key not in unique_alerts:
-                unique_alerts[key] = alert
-            else:
-                # Keep the one with the most recent start_time
-                existing_time = unique_alerts[key]['start_time']
-                current_time = alert['start_time']
-                
-                if current_time > existing_time:
-                    unique_alerts[key] = alert
-                    print(f"  - Replaced duplicate alert for {key} with more recent one")
+        # Add filters to resolved query
+        if host_name:
+            resolved_query = resolved_query.eq('host_name', host_name)
+        if device_id:
+            resolved_query = resolved_query.eq('device_id', device_id)
+        if incident_type:
+            resolved_query = resolved_query.eq('incident_type', incident_type)
         
-        # Convert back to list and sort by start_time desc
-        final_alerts = list(unique_alerts.values())
-        final_alerts.sort(key=lambda x: x['start_time'], reverse=True)
+        # Execute resolved query - uses idx_alerts_status_start_time index
+        resolved_result = resolved_query.order('start_time', desc=True).limit(resolved_limit).execute()
+        resolved_alerts = resolved_result.data
+        print(f"  - Found {len(resolved_alerts)} resolved alerts")
         
-        if host_name or device_id or incident_type:
-            print(f"[@db:alerts:get_all_alerts] Found {len(final_alerts)} unique filtered alerts (removed {len(alerts) - len(final_alerts)} duplicates)")
-        else:
-            print(f"[@db:alerts:get_all_alerts] Found {len(final_alerts)} unique total alerts (removed {len(alerts) - len(final_alerts)} duplicates)")
-            
+        # Combine and sort by start_time desc
+        all_alerts = active_alerts + resolved_alerts
+        all_alerts.sort(key=lambda x: x['start_time'], reverse=True)
+        
+        print(f"[@db:alerts:get_all_alerts] Total: {len(all_alerts)} alerts ({len(active_alerts)} active, {len(resolved_alerts)} resolved)")
+        
         return {
             'success': True,
-            'alerts': final_alerts,
-            'count': len(final_alerts)
+            'alerts': all_alerts,
+            'count': len(all_alerts),
+            'active_count': len(active_alerts),
+            'resolved_count': len(resolved_alerts)
         }
         
     except Exception as e:
@@ -93,7 +90,9 @@ def get_all_alerts(
             'success': False,
             'error': str(e),
             'alerts': [],
-            'count': 0
+            'count': 0,
+            'active_count': 0,
+            'resolved_count': 0
         }
 
 def get_active_alerts(
