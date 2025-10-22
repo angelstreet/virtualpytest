@@ -217,7 +217,8 @@ class VerificationExecutor:
         """
         # Reduced logging for cleaner output during KPI scans
         
-
+        # Clear screenshots from previous verification batch (VerificationExecutor is a singleton per device)
+        self.verification_screenshots = []
         
         # Validate inputs
         if not verifications:
