@@ -26,6 +26,7 @@ import shutil
 import uuid
 from queue import Queue
 from datetime import datetime
+from typing import Dict, Optional
 
 # Setup path
 script_dir = os.path.dirname(os.path.abspath(__file__))
