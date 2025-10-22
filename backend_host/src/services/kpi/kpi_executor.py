@@ -31,11 +31,12 @@ class KPIMeasurementRequest:
         team_id: str,
         capture_dir: str,
         action_timestamp: float,
-        verification_timestamp: float,
         kpi_references: List[Dict[str, Any]],
         timeout_ms: int,
         device_id: str,
         userinterface_name: str,  # MANDATORY for reference resolution
+        verification_timestamp: float = None,  # Optional: when verification succeeded
+        last_action_wait_ms: int = None,  # Optional: for wait actions (from last action's wait_time)
         device_model: str = None,
         **kwargs
     ):
@@ -56,9 +57,12 @@ class KPIMeasurementRequest:
             raise ValueError("device_id required")
         if not userinterface_name:
             raise ValueError("userinterface_name required")
-        if not verification_timestamp:
-            raise ValueError("verification_timestamp required")
-        if verification_timestamp < action_timestamp:
+        
+        # Validate that we have at least one: verification_timestamp OR last_action_wait_ms
+        if not verification_timestamp and not last_action_wait_ms:
+            raise ValueError("Either verification_timestamp or last_action_wait_ms required")
+        
+        if verification_timestamp and verification_timestamp < action_timestamp:
             raise ValueError(f"verification_timestamp ({verification_timestamp}) must be >= action_timestamp ({action_timestamp})")
         
         self.execution_result_id = execution_result_id
@@ -66,6 +70,7 @@ class KPIMeasurementRequest:
         self.capture_dir = capture_dir
         self.action_timestamp = action_timestamp
         self.verification_timestamp = verification_timestamp
+        self.last_action_wait_ms = last_action_wait_ms
         self.kpi_references = kpi_references
         self.timeout_ms = timeout_ms
         self.device_id = device_id
@@ -300,14 +305,53 @@ class KPIExecutor:
         if not verif_executor:
             return {'success': False, 'error': f'No verification_executor for device {request.device_id}', 'captures_scanned': 0}
         
-        # Calculate optimized time window using verification timestamp (NOT timeout!)
-        # We know KPI appeared by verification_timestamp, so no need to scan beyond it
-        window_ms = int((verification_timestamp - action_timestamp) * 1000)
-        timeout_s = request.timeout_ms / 1000
-        window_s = window_ms / 1000
-        print(f"🎯 [KPIExecutor] Optimized scan window: {window_s:.2f}s (action → verification) vs timeout: {timeout_s:.1f}s")
+        # Calculate optimized time window based on what we have
+        # Case 1: verification succeeded - use verification_timestamp
+        # Case 2: last_action_wait_ms with no verification - use action + wait_time
+        # Case 3: no verification, no wait_time - scan forward from action
         
-        # Find all captures in optimized time window
+        if request.verification_timestamp:
+            # CASE 1: Has verification - scan BACKWARD from verification
+            end_timestamp = request.verification_timestamp
+            window_ms = int((end_timestamp - action_timestamp) * 1000)
+            window_s = window_ms / 1000
+            
+            # Limit: 25 images (5s) normally, 100 images (20s) for long waits (>60s)
+            max_images = 100 if window_s > 60 else 25
+            max_window_s = max_images / 5.0
+            scan_start = end_timestamp - max_window_s
+            
+            print(f"🔙 [KPIExecutor] Case 1: Scan BACKWARD from verification")
+            print(f"   Window: {window_s:.2f}s, limiting to last {max_images} images ({max_window_s:.1f}s)")
+            
+        elif request.last_action_wait_ms:
+            # CASE 2: Has last_action_wait_ms - scan BACKWARD from action + wait_time
+            end_timestamp = action_timestamp + (request.last_action_wait_ms / 1000)
+            window_s = request.last_action_wait_ms / 1000
+            
+            # Limit: 25 images (5s) normally, 100 images (20s) for long waits (>60s)
+            max_images = 100 if window_s > 60 else 25
+            max_window_s = max_images / 5.0
+            scan_start = end_timestamp - max_window_s
+            
+            print(f"🔙 [KPIExecutor] Case 2: Scan BACKWARD from last_action_wait_ms end")
+            print(f"   Wait: {window_s:.2f}s, limiting to last {max_images} images ({max_window_s:.1f}s)")
+            
+        else:
+            # CASE 3: No verification, no last_action_wait_ms - scan FORWARD from action
+            scan_start = action_timestamp
+            timeout_s = request.timeout_ms / 1000
+            window_s = timeout_s
+            
+            # Limit: 25 images (5s) normally, 100 images (20s) for long timeouts (>60s)
+            max_images = 100 if timeout_s > 60 else 25
+            max_window_s = max_images / 5.0
+            end_timestamp = scan_start + max_window_s
+            
+            print(f"⏩ [KPIExecutor] Case 3: Scan FORWARD from action")
+            print(f"   Timeout: {timeout_s:.2f}s, limiting to first {max_images} images ({max_window_s:.1f}s)")
+        
+        # Find all captures in limited time window
         pattern = os.path.join(capture_dir, "capture_*.jpg")
         all_captures = []
         
@@ -316,7 +360,7 @@ class KPIExecutor:
                 continue
             try:
                 ts = os.path.getmtime(path)
-                if action_timestamp <= ts <= verification_timestamp:
+                if scan_start <= ts <= end_timestamp:
                     all_captures.append({'path': path, 'timestamp': ts})
             except OSError:
                 continue
@@ -360,8 +404,8 @@ class KPIExecutor:
         print(f"⚡ [KPIExecutor] Phase 1: Quick check")
         
         # Quick check 1: T0+200ms (immediate appearance)
-        # Find capture closest to action_timestamp + 200ms
-        target_ts = action_timestamp + 0.2
+        # Find capture closest to scan_start + 200ms
+        target_ts = scan_start + 0.2
         early_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
         captures_scanned += 1
         
@@ -376,8 +420,8 @@ class KPIExecutor:
             }
         
         # Quick check 2: T1-200ms (late appearance)
-        # Find capture closest to verification_timestamp - 200ms
-        target_ts = verification_timestamp - 0.2
+        # Find capture closest to end_timestamp - 200ms
+        target_ts = end_timestamp - 0.2
         late_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
         
         # Only test if different from early check
@@ -393,25 +437,31 @@ class KPIExecutor:
                     'algorithm': 'quick_check_late'
                 }
         
-        print(f"⚡ [KPIExecutor] Quick check: no immediate match, proceeding to backward scan")
-        
         # ========================================
-        # PHASE 2: BACKWARD SCAN
+        # PHASE 2: FULL SCAN
         # ========================================
-        print(f"🔙 [KPIExecutor] Phase 2: Backward scan from verification → action")
+        # Determine scan direction based on case
+        if request.verification_timestamp or request.last_action_wait_ms:
+            # Cases 1 & 2: BACKWARD SCAN (from end to start)
+            print(f"🔙 [KPIExecutor] Phase 2: Backward scan (end → start)")
+            scan_range = range(total_captures - 1, -1, -1)
+        else:
+            # Case 3: FORWARD SCAN (from start to end)
+            print(f"⏩ [KPIExecutor] Phase 2: Forward scan (start → end)")
+            scan_range = range(total_captures)
         
-        # Scan backward from verification_timestamp to action_timestamp
-        # Start from late_idx and go backward (skip captures already checked)
+        # Scan in determined direction
+        # Skip captures already checked in quick check phase
         checked_indices = {early_idx, late_idx}
         
-        for i in range(total_captures - 1, -1, -1):
+        for i in scan_range:
             if i in checked_indices:
                 continue
             
             capture = all_captures[i]
             captures_scanned += 1
             
-            print(f"🔍 [KPIExecutor] Backward scan {i+1}/{total_captures}: {os.path.basename(capture['path'])}")
+            print(f"🔍 [KPIExecutor] Scan {i+1}/{total_captures}: {os.path.basename(capture['path'])}")
             
             result = verif_executor.execute_verifications(
                 verifications=verifications,
@@ -420,15 +470,16 @@ class KPIExecutor:
                 team_id=request.team_id
             )
             
-            # MATCH FOUND - this is the earliest appearance
+            # MATCH FOUND
             if result.get('success'):
+                algorithm = 'backward_scan' if (request.verification_timestamp or request.last_action_wait_ms) else 'forward_scan'
                 return {
                     'success': True,
                     'timestamp': capture['timestamp'],
                     'capture_path': capture['path'],
                     'captures_scanned': captures_scanned,
                     'error': None,
-                    'algorithm': 'backward_scan'
+                    'algorithm': algorithm
                 }
         
         # No match found after quick check + backward scan
