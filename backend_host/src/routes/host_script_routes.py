@@ -280,13 +280,20 @@ def get_edge_options():
         
         print(f"[@host_script:get_edge_options] Extracted {len(edge_options)} action_set labels with KPI (filtered {filtered_count} without KPI)")
         
-        return jsonify({
+        # Prevent frontend caching
+        response_data = {
             'success': True,
             'edge_options': edge_options,
             'edge_details': edge_details,  # For debugging/tooltips
             'count': len(edge_options),
             'cache_used': cached_graph is not None
-        })
+        }
+        
+        response = jsonify(response_data)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         print(f"[@host_script:get_edge_options] Error: {e}")

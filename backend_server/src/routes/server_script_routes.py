@@ -272,7 +272,12 @@ def get_edge_options():
         
         print(f"[@get_edge_options] Found {len(result.get('edge_options', []))} edge options")
         
-        return jsonify(result)
+        # Prevent frontend caching
+        response = jsonify(result)
+        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response.headers['Pragma'] = 'no-cache'
+        response.headers['Expires'] = '0'
+        return response
         
     except Exception as e:
         print(f"[@get_edge_options] Error: {e}")

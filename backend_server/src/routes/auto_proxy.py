@@ -85,8 +85,12 @@ def auto_proxy(endpoint):
         # Determine timeout based on endpoint type
         if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint:
             timeout = 180  # 3 minutes for navigation execution
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: navigation execution)")
         else:
             timeout = 60  # Default timeout for other operations
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: default timeout)")
+        
+        print(f"[@auto_proxy] 📡 Proxying {target_method} /server/{endpoint} -> {host_endpoint} with timeout={timeout}s")
         
         # Proxy to host
         response_data, status_code = proxy_to_host_with_params(
