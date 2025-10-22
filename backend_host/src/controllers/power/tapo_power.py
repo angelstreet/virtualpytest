@@ -249,6 +249,14 @@ class TapoPowerController(PowerControllerInterface):
                 'connected': self.is_connected,
                 'error': f'Status check error: {e}'
             }
+    
+    def isPowerOn(self) -> bool:
+        """Check if device is powered on."""
+        return self.get_power_status().get('power_state') == 'on'
+    
+    def isPowerOff(self) -> bool:
+        """Check if device is powered off."""
+        return self.get_power_status().get('power_state') == 'off'
             
     def get_available_actions(self) -> Dict[str, Any]:
         """Get available actions for this Tapo power controller."""
