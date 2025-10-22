@@ -581,6 +581,72 @@ class FFmpegCaptureController(AVControllerInterface):
         except Exception as e:
             print(f"[{self.capture_source}]: Error creating video: {e}")
             return None
+    
+    def take_video_for_report(self, duration_seconds: float, test_start_time: float) -> Optional[str]:
+        """
+        Capture test execution video for report using HYBRID approach (HOT + COLD).
+        
+        This method intelligently combines:
+        - Recent segments from HOT storage (last ~90s)
+        - Missing history from COLD MP4 chunks (if needed)
+        
+        This solves the problem where archiver has already moved old segments to COLD,
+        leaving only recent segments in HOT storage.
+        
+        Args:
+            duration_seconds: Total video duration needed (e.g., 154s for full test)
+            test_start_time: Unix timestamp when test started
+            
+        Returns:
+            Local path to created MP4 video, or None if failed
+        """
+        try:
+            import os
+            from datetime import datetime
+            from shared.src.lib.utils.storage_path_utils import (
+                extract_test_video_hybrid, 
+                get_capture_folder, 
+                is_ram_mode
+            )
+            
+            print(f"📹 [{self.capture_source}] Capturing test video for report...")
+            print(f"   Duration needed: {duration_seconds:.1f}s")
+            print(f"   Test start: {datetime.fromtimestamp(test_start_time).strftime('%H:%M:%S')}")
+            
+            # Get device folder from capture path
+            device_folder = get_capture_folder(self.video_capture_path)
+            
+            # Determine output path
+            video_filename = "test_video.mp4"
+            if is_ram_mode(self.video_capture_path):
+                output_path = os.path.join(self.video_capture_path, 'hot', video_filename)
+            else:
+                output_path = os.path.join(self.video_capture_path, video_filename)
+            
+            # Convert timestamp to datetime
+            start_datetime = datetime.fromtimestamp(test_start_time)
+            
+            # Use hybrid extraction (HOT + COLD backfill)
+            video_path = extract_test_video_hybrid(
+                device_folder=device_folder,
+                start_time=start_datetime,
+                duration_seconds=int(duration_seconds),
+                output_path=output_path
+            )
+            
+            if video_path and os.path.exists(video_path):
+                video_size_mb = os.path.getsize(video_path) / 1024 / 1024
+                print(f"✅ [{self.capture_source}] Test video created: {video_path} ({video_size_mb:.1f}MB)")
+                return video_path
+            else:
+                print(f"❌ [{self.capture_source}] Hybrid video extraction failed")
+                return None
+                
+        except Exception as e:
+            print(f"❌ [{self.capture_source}] Error capturing test video for report: {e}")
+            import traceback
+            traceback.print_exc()
+            return None
         
     def take_control(self) -> Dict[str, Any]:
         """

@@ -994,7 +994,9 @@ class ScriptExecutor:
                 
                 # Use the captured baseline execution time
                 video_duration = max(10.0, actual_test_duration_seconds)
-                test_video_url = av_controller.take_video(video_duration, context.start_time)
+                
+                # Use hybrid video capture for reports (combines HOT + COLD storage)
+                test_video_url = av_controller.take_video_for_report(video_duration, context.start_time)
                 context.test_video_url = test_video_url
                 print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
             except Exception as e:

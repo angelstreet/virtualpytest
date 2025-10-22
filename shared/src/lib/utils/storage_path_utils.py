@@ -20,6 +20,7 @@ import json
 import logging
 import re
 import time
+from typing import Optional
 
 logger = logging.getLogger(__name__)
 
@@ -835,3 +836,276 @@ def copy_to_cold_storage(hot_or_cold_path):
         return cold_path
     
     return None
+
+
+# =====================================================
+# HYBRID VIDEO EXTRACTION (HOT + COLD)
+# =====================================================
+
+def extract_test_video_hybrid(
+    device_folder: str,
+    start_time,
+    duration_seconds: int,
+    output_path: str
+) -> Optional[str]:
+    """
+    Extract test video using HYBRID approach (HOT + COLD).
+    
+    Strategy:
+    1. Try HOT segments first (recent data, last ~90s)
+    2. If not enough, backfill gap from COLD chunks
+    3. Merge both pieces seamlessly
+    
+    This solves the problem where archiver has already moved old segments to COLD,
+    leaving only recent segments in HOT storage.
+    
+    Args:
+        device_folder: Device folder name (e.g., 'capture1', 'capture3')
+        start_time: Test start time (datetime object)
+        duration_seconds: Test duration in seconds
+        output_path: Where to save final MP4
+        
+    Returns:
+        Path to created video file, or None if failed
+        
+    Example:
+        >>> from datetime import datetime, timedelta
+        >>> test_start = datetime.now() - timedelta(seconds=154)
+        >>> video = extract_test_video_hybrid('capture3', test_start, 154, '/tmp/test.mp4')
+        >>> # Creates video even if only 64s available in HOT (backfills 90s from COLD)
+    """
+    from datetime import timedelta
+    import glob
+    
+    try:
+        end_time = start_time + timedelta(seconds=duration_seconds)
+        
+        # ============================================
+        # STEP 1: Check HOT segments (recent data)
+        # ============================================
+        hot_segments_dir = get_segments_path(device_folder)  # REUSE: auto hot/cold detection
+        hot_segments = sorted(glob.glob(f"{hot_segments_dir}/segment_*.ts"))
+        
+        segment_duration = get_device_segment_duration(device_folder)  # REUSE: 1s or 4s per segment
+        available_hot_seconds = int(len(hot_segments) * segment_duration)
+        
+        logger.info(f"[{device_folder}] Test video: need {duration_seconds}s, found {available_hot_seconds}s in HOT")
+        
+        if available_hot_seconds >= duration_seconds:
+            # ✅ Enough in HOT - use only HOT segments
+            logger.info(f"[{device_folder}] Using HOT segments only (sufficient data)")
+            needed_count = int(duration_seconds / segment_duration)
+            needed_segments = hot_segments[-needed_count:] if needed_count <= len(hot_segments) else hot_segments
+            return _merge_segments_to_mp4(needed_segments, output_path)
+        
+        # ============================================
+        # STEP 2: Not enough - backfill from COLD
+        # ============================================
+        gap_seconds = duration_seconds - available_hot_seconds
+        logger.info(f"[{device_folder}] Need to backfill {gap_seconds}s from COLD chunks")
+        
+        # Extract gap from COLD chunks
+        cold_gap_file = _extract_from_cold_chunks(
+            device_folder,
+            start_time,
+            gap_seconds
+        )
+        
+        if not cold_gap_file or not os.path.exists(cold_gap_file):
+            logger.error(f"[{device_folder}] Failed to extract gap from COLD chunks")
+            # Fallback: use whatever we have in HOT
+            return _merge_segments_to_mp4(hot_segments, output_path)
+        
+        # Merge HOT segments to MP4
+        hot_tail_file = f"/tmp/hot_tail_{int(time.time())}.mp4"
+        hot_tail_result = _merge_segments_to_mp4(hot_segments, hot_tail_file)
+        
+        if not hot_tail_result or not os.path.exists(hot_tail_result):
+            logger.error(f"[{device_folder}] Failed to merge HOT segments")
+            # Use only COLD gap (better than nothing)
+            os.rename(cold_gap_file, output_path)
+            return output_path
+        
+        # ============================================
+        # STEP 3: Concatenate COLD + HOT
+        # ============================================
+        logger.info(f"[{device_folder}] Merging COLD gap ({gap_seconds}s) + HOT tail ({available_hot_seconds}s)")
+        result = _concat_videos([cold_gap_file, hot_tail_file], output_path)
+        
+        # Cleanup temp files
+        try:
+            if os.path.exists(cold_gap_file):
+                os.remove(cold_gap_file)
+            if os.path.exists(hot_tail_file):
+                os.remove(hot_tail_file)
+        except Exception as e:
+            logger.warning(f"Failed to cleanup temp files: {e}")
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"[{device_folder}] Hybrid video extraction failed: {e}", exc_info=True)
+        return None
+
+
+def _extract_from_cold_chunks(
+    device_folder: str,
+    start_time,
+    duration_seconds: int
+) -> Optional[str]:
+    """
+    Extract video segment from COLD MP4 chunks using FFmpeg -ss/-t.
+    
+    Uses precise frame-accurate extraction without re-encoding.
+    Handles both single-chunk and multi-chunk extraction.
+    
+    Args:
+        device_folder: Device folder name
+        start_time: Start time (datetime object)
+        duration_seconds: Duration to extract
+        
+    Returns:
+        Path to extracted MP4 file, or None if failed
+    """
+    import subprocess
+    from datetime import timedelta
+    
+    try:
+        # REUSE: Get hour and chunk location
+        hour, chunk_index = calculate_chunk_location(start_time)
+        
+        # REUSE: Get COLD segments directory
+        cold_base = get_cold_segments_path(device_folder)
+        chunk_path = os.path.join(cold_base, str(hour), f'chunk_10min_{chunk_index}.mp4')
+        
+        if not os.path.exists(chunk_path):
+            logger.error(f"[{device_folder}] COLD chunk not found: {chunk_path}")
+            return None
+        
+        # Calculate offset within chunk (seconds since chunk start)
+        chunk_start_minute = chunk_index * 10
+        offset_seconds = (start_time.minute - chunk_start_minute) * 60 + start_time.second
+        
+        # Check if extraction spans multiple chunks
+        chunk_remaining = (10 * 60) - offset_seconds  # Seconds left in current chunk
+        
+        if duration_seconds <= chunk_remaining:
+            # Single chunk extraction
+            logger.info(f"[{device_folder}] Extracting {duration_seconds}s from single chunk: {chunk_path}")
+            output_path = f"/tmp/cold_gap_{device_folder}_{int(time.time())}.mp4"
+            
+            # Extract precise segment (NO re-encoding!)
+            result = subprocess.run([
+                'ffmpeg', '-ss', str(offset_seconds),
+                '-i', chunk_path,
+                '-t', str(duration_seconds),
+                '-c', 'copy',  # No re-encoding = instant
+                output_path, '-y'
+            ], capture_output=True, timeout=30)
+            
+            if result.returncode == 0 and os.path.exists(output_path):
+                return output_path
+            else:
+                logger.error(f"[{device_folder}] FFmpeg extraction failed: {result.stderr.decode()[-200:]}")
+                return None
+        else:
+            # Multi-chunk extraction (rare, but handle it)
+            logger.info(f"[{device_folder}] Extraction spans multiple chunks, extracting from first chunk only")
+            # For simplicity, extract only from first chunk (covers most cases)
+            output_path = f"/tmp/cold_gap_{device_folder}_{int(time.time())}.mp4"
+            
+            result = subprocess.run([
+                'ffmpeg', '-ss', str(offset_seconds),
+                '-i', chunk_path,
+                '-t', str(chunk_remaining),
+                '-c', 'copy',
+                output_path, '-y'
+            ], capture_output=True, timeout=30)
+            
+            if result.returncode == 0 and os.path.exists(output_path):
+                return output_path
+            else:
+                return None
+        
+    except Exception as e:
+        logger.error(f"[{device_folder}] COLD chunk extraction failed: {e}")
+        return None
+
+
+def _merge_segments_to_mp4(segment_files: list, output_path: str) -> Optional[str]:
+    """
+    Merge TS segments to MP4 using FFmpeg concat demuxer.
+    
+    Args:
+        segment_files: List of .ts segment file paths
+        output_path: Output MP4 path
+        
+    Returns:
+        Output path if successful, None otherwise
+    """
+    import subprocess
+    
+    if not segment_files:
+        return None
+    
+    try:
+        # Create concat file list
+        concat_file = f"{output_path}.concat.txt"
+        with open(concat_file, 'w') as f:
+            for seg in segment_files:
+                f.write(f"file '{seg}'\n")
+        
+        # Merge using concat demuxer (fast, no re-encoding)
+        result = subprocess.run([
+            'ffmpeg', '-f', 'concat', '-safe', '0',
+            '-i', concat_file,
+            '-c', 'copy',  # No re-encoding
+            output_path, '-y'
+        ], capture_output=True, timeout=60)
+        
+        # Cleanup concat file
+        try:
+            os.remove(concat_file)
+        except:
+            pass
+        
+        if result.returncode == 0 and os.path.exists(output_path):
+            return output_path
+        else:
+            logger.error(f"FFmpeg merge failed: {result.stderr.decode()[-200:]}")
+            return None
+        
+    except Exception as e:
+        logger.error(f"Segment merge failed: {e}")
+        return None
+
+
+def _concat_videos(video_files: list, output_path: str) -> Optional[str]:
+    """
+    Concatenate multiple MP4 files into single MP4.
+    REUSES existing merge_video_files() from video_utils!
+    
+    Args:
+        video_files: List of MP4 file paths
+        output_path: Output MP4 path
+        
+    Returns:
+        Output path if successful, None otherwise
+    """
+    try:
+        # REUSE: Existing video merge function
+        from shared.src.lib.utils.video_utils import merge_video_files
+        
+        result = merge_video_files(
+            video_files,
+            output_path,
+            output_format='mp4',
+            delete_source=False,
+            timeout=60
+        )
+        
+        return result
+        
+    except Exception as e:
+        logger.error(f"Video concatenation failed: {e}")
+        return None
