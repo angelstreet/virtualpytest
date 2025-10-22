@@ -28,7 +28,7 @@ def find_shortest_path(tree_id: str, target_node_id: str, team_id: str, start_no
     """
     # Use unified pathfinding ONLY - NO FALLBACK
     unified_result = find_shortest_path_unified(tree_id, target_node_id, team_id, start_node_id)
-    if unified_result:
+    if unified_result is not None:  # FIX: Check for None explicitly, not falsy (empty list [] is valid)
         return unified_result
     
     # FAIL EARLY - no fallback available
