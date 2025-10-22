@@ -248,17 +248,13 @@ def get_edge_options():
                 'error': f'Host not found: {host_name}'
             }), 404
         
-        # Call host to get edges (with cache-busting headers)
+        # Call host to get edges
         host_url = buildHostUrl(host_info, '/host/script/get_edge_options')
         response = requests.post(
             host_url,
             json={
                 'userinterface_name': userinterface_name,
                 'team_id': team_id
-            },
-            headers={
-                'Cache-Control': 'no-cache, no-store, must-revalidate',
-                'Pragma': 'no-cache'
             },
             timeout=30
         )
@@ -276,12 +272,7 @@ def get_edge_options():
         
         print(f"[@get_edge_options] Found {len(result.get('edge_options', []))} edge options")
         
-        # Prevent frontend caching
-        response = jsonify(result)
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
+        return jsonify(result)
         
     except Exception as e:
         print(f"[@get_edge_options] Error: {e}")

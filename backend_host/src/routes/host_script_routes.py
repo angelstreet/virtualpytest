@@ -195,40 +195,21 @@ def get_edge_options():
         
         print(f"[@host_script:get_edge_options] Found {len(edges)} edges from validation sequence")
         
-        # OPTIMIZED: Batch fetch all nodes in ONE query instead of N+1 queries
-        from shared.src.lib.supabase.navigation_trees_db import get_nodes_batch
-        
-        # Step 1: Collect all unique node IDs that need KPI checking
-        node_ids_to_fetch = set()
-        for edge in edges:
-            node_ids_to_fetch.add(edge.get('to_node_id'))  # Forward target
-            node_ids_to_fetch.add(edge.get('from_node_id'))  # Reverse target
-        
-        # Step 2: Batch fetch all nodes in a SINGLE query
-        batch_result = get_nodes_batch(tree_id, list(node_ids_to_fetch), team_id)
-        if not batch_result.get('success'):
-            return jsonify({
-                'success': False,
-                'error': f"Failed to batch fetch nodes: {batch_result.get('error')}"
-            }), 500
-        
-        nodes_cache = batch_result['nodes']  # Dict: node_id -> node_data
-        
-        # Helper function to check if a node has KPI (using cached nodes)
-        def node_has_kpi(node_id: str) -> bool:
-            node_data = nodes_cache.get(node_id)
-            if not node_data:
+        # Helper function to check if an action_set has KPI references
+        def action_set_has_kpi(action_set: dict) -> bool:
+            """Check if action_set has KPI references directly (post-migration)"""
+            if not action_set:
                 return False
             
-            use_verifications_for_kpi = node_data.get('use_verifications_for_kpi', False)
+            use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)
             if use_verifications_for_kpi:
-                verifications = node_data.get('verifications', [])
+                verifications = action_set.get('verifications', [])
                 return bool(verifications)
             else:
-                kpi_references = node_data.get('kpi_references', [])
+                kpi_references = action_set.get('kpi_references', [])
                 return bool(kpi_references)
         
-        # Step 3: Extract action_set labels (bidirectional support) - FILTER by KPI availability
+        # Extract action_set labels (bidirectional support) - FILTER by KPI availability
         edge_options = []
         edge_details = []  # For debugging/display
         filtered_count = 0
@@ -238,17 +219,14 @@ def get_edge_options():
             action_sets = edge_data.get('action_sets', [])
             from_label = edge.get('from_node_label', 'unknown')
             to_label = edge.get('to_node_label', 'unknown')
-            from_node_id = edge.get('from_node_id')
-            to_node_id = edge.get('to_node_id')
-            
-            # Check if forward target node has KPI (from cache)
-            forward_has_kpi = node_has_kpi(to_node_id)
             
             # Forward action set (index 0)
-            if len(action_sets) > 0 and forward_has_kpi:
+            if len(action_sets) > 0:
                 forward_set = action_sets[0]
                 forward_label = forward_set.get('label', '')
-                if forward_label and forward_set.get('actions'):
+                forward_has_kpi = action_set_has_kpi(forward_set)
+                
+                if forward_label and forward_set.get('actions') and forward_has_kpi:
                     edge_options.append(forward_label)
                     edge_details.append({
                         'label': forward_label,
@@ -256,44 +234,35 @@ def get_edge_options():
                         'from': from_label,
                         'to': to_label
                     })
-            elif len(action_sets) > 0 and not forward_has_kpi:
-                filtered_count += 1
+                elif forward_label and forward_set.get('actions') and not forward_has_kpi:
+                    filtered_count += 1
             
             # Reverse action set (index 1) - if exists and has actions
             if len(action_sets) > 1:
                 reverse_set = action_sets[1]
                 reverse_label = reverse_set.get('label', '')
-                if reverse_label and reverse_set.get('actions'):
-                    # For reverse, check the FROM node (which becomes target) - from cache
-                    reverse_has_kpi = node_has_kpi(from_node_id)
-                    
-                    if reverse_has_kpi:
-                        edge_options.append(reverse_label)
-                        edge_details.append({
-                            'label': reverse_label,
-                            'direction': 'reverse',
-                            'from': to_label,  # Swapped for reverse
-                            'to': from_label   # Swapped for reverse
-                        })
-                    else:
-                        filtered_count += 1
+                reverse_has_kpi = action_set_has_kpi(reverse_set)
+                
+                if reverse_label and reverse_set.get('actions') and reverse_has_kpi:
+                    edge_options.append(reverse_label)
+                    edge_details.append({
+                        'label': reverse_label,
+                        'direction': 'reverse',
+                        'from': to_label,  # Swapped for reverse
+                        'to': from_label   # Swapped for reverse
+                    })
+                elif reverse_label and reverse_set.get('actions') and not reverse_has_kpi:
+                    filtered_count += 1
         
         print(f"[@host_script:get_edge_options] Extracted {len(edge_options)} action_set labels with KPI (filtered {filtered_count} without KPI)")
         
-        # Prevent frontend caching
-        response_data = {
+        return jsonify({
             'success': True,
             'edge_options': edge_options,
             'edge_details': edge_details,  # For debugging/tooltips
             'count': len(edge_options),
             'cache_used': cached_graph is not None
-        }
-        
-        response = jsonify(response_data)
-        response.headers['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
-        response.headers['Pragma'] = 'no-cache'
-        response.headers['Expires'] = '0'
-        return response
+        })
         
     except Exception as e:
         print(f"[@host_script:get_edge_options] Error: {e}")
