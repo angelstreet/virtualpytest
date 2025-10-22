@@ -239,7 +239,7 @@ class KPIExecutorService:
             # Case 3: No verification, no wait - scan FORWARD from action
             scan_start = request.action_timestamp
             scan_end = request.action_timestamp + request.timeout_ms / 1000
-            logger.info(f"   • Scan mode: NO verification, NO wait (forward from action)")
+            logger.info(f"   • Scan mode: NO verification, NO wait (FORWARD from action)")
         
         logger.info(f"   • Scan window: {scan_end - scan_start:.2f}s (max {request.timeout_ms}ms)")
         
