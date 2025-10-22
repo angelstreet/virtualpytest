@@ -197,6 +197,16 @@ class KPIExecutorService:
             processing_time = int((time.time() - start_time) * 1000)
             logger.info(f"⏱️  KPI processing completed in {processing_time}ms")
         
+        except Exception as e:
+            logger.error(f"❌ Exception during KPI scan: {e}")
+            import traceback
+            traceback.print_exc()
+            # Store failure result
+            error_msg = f"Exception during scan: {str(e)}"
+            self._update_result(request.execution_result_id, request.team_id, False, None, error_msg)
+            processing_time = int((time.time() - start_time) * 1000)
+            logger.info(f"⏱️  KPI processing failed in {processing_time}ms")
+        
         finally:
             # Cleanup: Delete working directory
             self._cleanup_working_dir(working_dir)
