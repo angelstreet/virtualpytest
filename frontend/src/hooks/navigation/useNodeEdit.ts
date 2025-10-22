@@ -6,6 +6,7 @@ import { Verification } from '../../types/verification/Verification_Types';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useVerification } from '../verification/useVerification';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { useNavigationPreviewCache } from '../../contexts/navigation/NavigationPreviewCacheContext';
 
 export interface UseNodeEditProps {
   isOpen: boolean;
@@ -27,6 +28,9 @@ export const useNodeEdit = ({
   
   // Get navigation context for save and treeId
   const { userInterface, saveNodeWithStateUpdate, treeId } = useNavigation();
+  
+  // Get preview cache context for invalidation
+  const { invalidateTree } = useNavigationPreviewCache();
 
   // Use userinterface name for reference lookup
   const referenceKey = userInterface?.name;
@@ -136,12 +140,16 @@ export const useNodeEdit = ({
           const result = await response.json();
           console.log('[useNodeEdit] ✅ Node updated in cache (incremental):', result);
         }
+        
+        // 3. Invalidate preview cache since node data changed
+        invalidateTree(treeId);
+        console.log('[useNodeEdit] 🗑️ Preview cache invalidated for tree:', treeId);
       }
     } catch (error) {
       console.error('[useNodeEdit] Failed to save node or update cache:', error);
       throw error;
     }
-  }, [nodeForm, saveNodeWithStateUpdate, treeId]);
+  }, [nodeForm, saveNodeWithStateUpdate, treeId, invalidateTree]);
 
   // Validate form
   const isFormValid = useCallback(
