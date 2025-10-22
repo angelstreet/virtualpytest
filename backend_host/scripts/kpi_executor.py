@@ -176,6 +176,8 @@ class KPIExecutorService:
             # Scan captures from /tmp/ working directory
             match_result = self._scan_until_match(request, working_dir)
             
+            logger.info(f"🔍 Scan completed, processing result: success={match_result.get('success')}")
+            
             # Store result
             if match_result['success']:
                 kpi_ms = int((match_result['timestamp'] - request.action_timestamp) * 1000)
@@ -444,13 +446,17 @@ class KPIExecutorService:
                     'algorithm': 'backward_scan'
                 }
         
-        # No match found
+        # No match found - backward scan completed without finding match
+        logger.info(f"🔙 Backward scan completed: checked {captures_scanned} captures total")
         window_duration = scan_end - scan_start
+        error_msg = f'No match found in {total_captures} captures ({window_duration:.2f}s window)'
+        logger.warning(f"⚠️  {error_msg}")
+        
         return {
             'success': False,
             'timestamp': None,
             'captures_scanned': captures_scanned,
-            'error': f'No match found in {total_captures} captures ({window_duration:.2f}s window)',
+            'error': error_msg,
             'algorithm': 'exhaustive_search_failed'
         }
     
