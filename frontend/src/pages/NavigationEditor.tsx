@@ -683,14 +683,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
         // STEP 1: Load tree data directly (simplified approach)
         console.log(`[@component:NavigationEditor] Loading tree for userInterface: ${userInterface.id}`);
-        loadTreeForUserInterface(userInterface.id);
-        
-        // STEP 2: Set rootTreeId and actualTreeId when loading initial tree (not nested)
-        if (!isNested && stack.length === 0) {
-          console.log(`[@component:NavigationEditor] Setting rootTreeId to: ${userInterface.id}`);
-          navigation.setRootTreeId(userInterface.id);
-          setActualTreeId(userInterface.id);
-        }
+        loadTreeForUserInterface(userInterface.id).then((result: any) => {
+          // STEP 2: Extract actual tree_id UUID from the loaded tree and set it
+          // (userInterface.id is the interface name, but we need the tree's UUID for cache population)
+          if (result?.tree?.id && !isNested && stack.length === 0) {
+            const actualTreeUuid = result.tree.id;
+            console.log(`[@component:NavigationEditor] Setting rootTreeId to actual tree UUID: ${actualTreeUuid} (not interface ID: ${userInterface.id})`);
+            navigation.setRootTreeId(actualTreeUuid);
+            setActualTreeId(actualTreeUuid);
+          }
+        }).catch((error: any) => {
+          console.error(`[@component:NavigationEditor] Failed to load tree:`, error);
+        });
 
         // No auto-unlock for navigation tree - keep it locked for editing session
       }

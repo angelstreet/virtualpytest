@@ -82,7 +82,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
           autoComplete="off"
           onChange={(e) =>
             onUpdateVerification(index, {
-              params: verification.verification_type === 'appium' ? { ...verification.params, search_term: e.target.value } : {},
+              params: { ...verification.params, search_term: e.target.value },
             })
           }
           sx={{

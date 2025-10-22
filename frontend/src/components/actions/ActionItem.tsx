@@ -1089,8 +1089,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           full_action: action
         });
         
-        // Check if this is a verification or kpi_measurement action with image type
-        if ((action.action_type === 'verification' || action.action_type === 'kpi_measurement') && action.verification_type === 'image') {
+        // Check if this is a verification action with image type
+        if (action.action_type === 'verification' && action.verification_type === 'image') {
           console.log('[ActionItem] Rendering image appear-then-disappear UI');
           // Image reference selection (same as other image verifications)
           fields.push(
