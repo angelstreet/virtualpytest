@@ -311,6 +311,167 @@ class ImageVerificationController:
         else:
             return False, f"Image still present", additional_data
 
+    def waitForImageToAppearThenDisappear(self, image_path: str, timeout: float = 10.0, threshold: float = 0.8,
+                                         area: dict = None, image_list: List[str] = None,
+                                         verification_index: int = 0, image_filter: str = 'none', 
+                                         userinterface_name: str = 'default', team_id: str = None) -> Tuple[bool, str, dict]:
+        """
+        Wait for image to appear then disappear within single timeout window.
+        Uses state machine: WAITING_FOR_APPEAR → WAITING_FOR_DISAPPEAR
+        Both events must occur within the timeout period.
+        """
+        if not image_path or image_path.strip() == '':
+            error_msg = "No reference image specified. Please select a reference image or provide an image path."
+            return False, error_msg, {}
+        
+        # SAFEGUARD: Cap timeout at reasonable maximum (30 seconds)
+        if timeout > 30:
+            print(f"[@controller:ImageVerification] WARNING: Timeout {timeout}s exceeds maximum (30s), capping at 30s")
+            timeout = 30
+        
+        print(f"[@controller:ImageVerification] Waiting for image to appear then disappear: {image_path} (timeout: {timeout}s)")
+        
+        # Resolve reference image path and area
+        resolved_image_path, resolved_area = self._resolve_reference_image(image_path, userinterface_name, team_id)
+        if not resolved_image_path:
+            error_msg = f"Reference image file not found: '{image_path}'"
+            return False, error_msg, {}
+        
+        if not resolved_area:
+            error_msg = f"Reference area not found in database: '{image_path}'"
+            return False, error_msg, {}
+        
+        area = resolved_area
+        
+        # Get filtered reference image
+        filtered_reference_path = resolved_image_path
+        if image_filter and image_filter != 'none':
+            base_path, ext = os.path.splitext(resolved_image_path)
+            filtered_path = f"{base_path}_{image_filter}{ext}"
+            if os.path.exists(filtered_path):
+                filtered_reference_path = filtered_path
+        
+        ref_img = cv2.imread(filtered_reference_path, cv2.IMREAD_COLOR)
+        if ref_img is None:
+            error_msg = f"Reference image corrupted or invalid format: '{os.path.basename(filtered_reference_path)}'"
+            return False, error_msg, {}
+        
+        # Construct R2 URL for reference
+        reference_name = os.path.basename(image_path)
+        if not reference_name.endswith(('.jpg', '.jpeg', '.png')):
+            reference_name = f"{reference_name}.jpg"
+        reference_r2_url = f"https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/reference-images/{userinterface_name}/{reference_name}"
+        
+        # Expand image_list for full timeout window
+        images_to_check = image_list.copy() if image_list else []
+        if timeout > 0 and len(image_list) == 1:
+            fps = getattr(self.av_controller, 'screenshot_fps', 5)
+            max_images = int(timeout * fps)
+            wait_ms = int(1000 / fps)
+            
+            print(f"[@controller:ImageVerification] Checking {max_images} frames over {timeout}s")
+            
+            base_path = image_list[0]
+            for i in range(1, max_images):
+                next_path = self._get_next_capture(base_path, i)
+                if next_path:
+                    images_to_check.append(next_path)
+        
+        # State machine
+        state = "WAITING_FOR_APPEAR"
+        appear_index = None
+        appear_timestamp = None
+        appear_source_path = None
+        appear_match_location = None
+        disappear_index = None
+        disappear_timestamp = None
+        
+        wait_ms = int(1000 / getattr(self.av_controller, 'screenshot_fps', 5)) if timeout > 0 else 0
+        
+        for idx, source_path in enumerate(images_to_check):
+            # Wait for frame if needed
+            if idx > 0 and not os.path.exists(source_path):
+                if wait_ms > 0:
+                    time.sleep(wait_ms / 1000.0)
+            
+            if not os.path.exists(source_path):
+                continue
+            
+            # Load source image
+            source_img = cv2.imread(source_path, cv2.IMREAD_COLOR)
+            if source_img is None:
+                continue
+            
+            # Check match
+            threshold_score, match_location = self._match_template(ref_img, source_img, area)
+            
+            if state == "WAITING_FOR_APPEAR":
+                if threshold_score >= threshold:
+                    # Image appeared!
+                    state = "WAITING_FOR_DISAPPEAR"
+                    appear_index = idx
+                    appear_timestamp = os.path.getmtime(source_path)
+                    appear_source_path = source_path
+                    appear_match_location = match_location
+                    print(f"[@controller:ImageVerification] Image APPEARED at frame {idx} (score: {threshold_score:.3f})")
+            
+            elif state == "WAITING_FOR_DISAPPEAR":
+                if threshold_score < threshold:
+                    # Image disappeared!
+                    disappear_index = idx
+                    disappear_timestamp = os.path.getmtime(source_path)
+                    print(f"[@controller:ImageVerification] Image DISAPPEARED at frame {idx} (score: {threshold_score:.3f})")
+                    
+                    # Generate comparison images using appear frame
+                    image_urls = self._generate_comparison_images(
+                        appear_source_path, resolved_image_path, appear_match_location, 
+                        verification_index, image_filter
+                    )
+                    
+                    additional_data = {
+                        "reference_image_path": filtered_reference_path,
+                        "reference_image_url": reference_r2_url,
+                        "image_filter": image_filter,
+                        "user_threshold": threshold,
+                        "matching_result": threshold_score,
+                        "kpi_appear_timestamp": appear_timestamp,
+                        "kpi_appear_index": appear_index,
+                        "kpi_disappear_timestamp": disappear_timestamp,
+                        "kpi_disappear_index": disappear_index
+                    }
+                    additional_data.update(image_urls)
+                    
+                    source_info = f"source: {os.path.basename(appear_source_path)}"
+                    reference_info = f"reference: {os.path.basename(resolved_image_path)}"
+                    message = f"{reference_info} appeared at frame {appear_index} and disappeared at frame {disappear_index} in {source_info}"
+                    
+                    return True, message, additional_data
+        
+        # Failed - determine why
+        additional_data = {
+            "reference_image_path": filtered_reference_path,
+            "reference_image_url": reference_r2_url,
+            "image_filter": image_filter,
+            "user_threshold": threshold
+        }
+        
+        if state == "WAITING_FOR_APPEAR":
+            error_msg = f"Image never appeared within {timeout}s timeout"
+            return False, error_msg, additional_data
+        else:  # state == "WAITING_FOR_DISAPPEAR"
+            # Image appeared but never disappeared
+            if appear_source_path:
+                image_urls = self._generate_comparison_images(
+                    appear_source_path, resolved_image_path, appear_match_location,
+                    verification_index, image_filter
+                )
+                additional_data.update(image_urls)
+                additional_data["kpi_appear_timestamp"] = appear_timestamp
+                additional_data["kpi_appear_index"] = appear_index
+            
+            error_msg = f"Image appeared at frame {appear_index} but never disappeared within timeout"
+            return False, error_msg, additional_data
+
     # =============================================================================
     # Route Interface Methods (Required by host_verification_image_routes.py)
     # =============================================================================
@@ -604,6 +765,18 @@ class ImageVerificationController:
                     userinterface_name=userinterface_name,  # Use userinterface_name for reference resolution
                     team_id=team_id
                 )
+            elif command == 'waitForImageToAppearThenDisappear':
+                success, message, details = self.waitForImageToAppearThenDisappear(
+                    image_path=image_path,
+                    timeout=timeout,
+                    threshold=threshold,
+                    area=area,
+                    image_list=[source_path],  # Use source_path as image list
+                    verification_index=verification_index,  # Use dynamic index
+                    image_filter=image_filter,
+                    userinterface_name=userinterface_name,  # Use userinterface_name for reference resolution
+                    team_id=team_id
+                )
             else:
                 return {
                     'success': False,
@@ -658,6 +831,17 @@ class ImageVerificationController:
                 },
                 "verification_type": "image",
                 "description": "Wait for image to disappear from screen"
+            },
+            {
+                "command": "waitForImageToAppearThenDisappear",
+                "params": {
+                    "image_path": "",       # Empty string for user input
+                    "timeout": 10,          # Default: 10s window for both events
+                    "threshold": 0.8,      # Default value
+                    "area": None            # Optional area
+                },
+                "verification_type": "image",
+                "description": "Wait for image to appear then disappear within timeout"
             }
         ]
 

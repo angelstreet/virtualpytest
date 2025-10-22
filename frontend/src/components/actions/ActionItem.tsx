@@ -1080,6 +1080,85 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         }
         break;
 
+      case 'waitForImageToAppearThenDisappear':
+        // Debug verification action properties
+        console.log('[ActionItem] Image appear-then-disappear verification action debug:', {
+          command: action.command,
+          action_type: action.action_type,
+          verification_type: action.verification_type,
+          full_action: action
+        });
+        
+        // Check if this is a verification action with image type
+        if (action.action_type === 'verification' && action.verification_type === 'image') {
+          console.log('[ActionItem] Rendering image appear-then-disappear verification UI');
+          // Image reference selection (same as other image verifications)
+          fields.push(
+            <FormControl key="image_reference" size="small" sx={{ width: 250 }}>
+              <InputLabel>Image Reference</InputLabel>
+              <Select
+                value={action.params?.reference_name || ''}
+                onChange={(e) => {
+                  const internalKey = e.target.value;
+                  const selectedRef = modelReferences[internalKey];
+                  console.log('🔍 [DEBUG] Image reference selection (appear-then-disappear):', {
+                    internalKey,
+                    selectedRef,
+                    modelReferences,
+                    currentParams: action.params
+                  });
+                  
+                  if (selectedRef && selectedRef.type === 'image') {
+                    console.log('🔍 [DEBUG] Updating image reference params:', {
+                      reference_name: internalKey,
+                      image_path: selectedRef.name || internalKey
+                    });
+                    
+                    // Update both parameters in a single call to avoid state race condition
+                    const newParams = {
+                      ...(action.params as any),
+                      reference_name: internalKey,
+                      image_path: selectedRef.name || internalKey
+                    };
+                    
+                    console.log('🔍 [DEBUG] Setting combined image params:', newParams);
+                    onUpdateAction(index, { params: newParams });
+                  } else {
+                    console.log('🔍 [DEBUG] Image reference selection failed - invalid ref or type');
+                  }
+                }}
+                label="Image Reference"
+                size="small"
+                sx={{
+                  '& .MuiSelect-select': {
+                    fontSize: '0.8rem',
+                    py: 0.5,
+                  },
+                }}
+              >
+                {Object.entries(modelReferences)
+                  .filter(([_internalKey, ref]) => ref.type === 'image')
+                  .map(([internalKey, ref]) => (
+                    <MenuItem key={internalKey} value={internalKey} sx={{ fontSize: '0.75rem' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        🖼️ <span>{ref.name || internalKey}</span>
+                      </Box>
+                    </MenuItem>
+                  ))}
+                {Object.entries(modelReferences).filter(([_internalKey, ref]) => ref.type === 'image')
+                  .length === 0 && (
+                  <MenuItem disabled value="" sx={{ fontSize: '0.75rem', fontStyle: 'italic' }}>
+                    No image references available
+                  </MenuItem>
+                )}
+              </Select>
+            </FormControl>,
+          );
+        } else {
+          console.log('[ActionItem] NOT rendering image appear-then-disappear verification UI - check failed');
+        }
+        break;
+
       case 'waitForElementToAppear':
       case 'waitForElementToDisappear':
         // Debug verification action properties
