@@ -69,20 +69,20 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
         />
       )}
 
-      {verification.command && verification.verification_type === 'web' && (
+      {verification.command && verification.verification_type === 'appium' && (
         <TextField
           size="small"
           label="Element Text/ID"
           placeholder="Log out, #element-id"
           value={
-            typeof verification.params?.search_term === 'string'
+            verification.verification_type === 'appium' && typeof verification.params?.search_term === 'string'
               ? verification.params.search_term
               : ''
           }
           autoComplete="off"
           onChange={(e) =>
             onUpdateVerification(index, {
-              params: { ...verification.params, search_term: e.target.value },
+              params: verification.verification_type === 'appium' ? { ...verification.params, search_term: e.target.value } : {},
             })
           }
           sx={{

@@ -1090,8 +1090,8 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           full_action: action
         });
         
-        // Check if this is a verification action with web type
-        if (action.action_type === 'verification' && action.verification_type === 'web') {
+        // Check if this is a verification action with appium type (web automation)
+        if (action.action_type === 'verification' && action.verification_type === 'appium') {
           console.log('[ActionItem] Rendering web element verification UI (text input like ADB)');
           // Simple text input for search term (like ADB verifications - consistent parameter name)
           fields.push(

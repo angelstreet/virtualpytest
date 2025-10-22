@@ -346,7 +346,6 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
                 internal_key: internalKey,
                 display_name: selectedRef.name,
                 reference_text: selectedRef.text,
-                font_size: selectedRef.font_size,
                 backend_reference_name: selectedRef.name || internalKey,
                 updatedParams: {
                   ...baseParams,

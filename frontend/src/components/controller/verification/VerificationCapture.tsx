@@ -60,7 +60,7 @@ export const VerificationCapture: React.FC<VerificationCaptureProps> = ({
     setImageProcessingOptions,
     referenceText,
     setReferenceText,
-    detectedTextData,
+    detectedTextData: _detectedTextData,
     handleAutoDetectText,
     validateRegex,
     referenceName,

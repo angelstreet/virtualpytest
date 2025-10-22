@@ -27,7 +27,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   nodeForm,
   nodes,
   setNodeForm,
-  onSubmit,
+  onSubmit: _onSubmit,
   onClose,
   onResetNode,
   selectedHost,

@@ -235,6 +235,29 @@ class KPIExecutor:
         print("🔍 [KPIExecutor] Processing KPI measurement")
         print(f"   • Execution result: {request.execution_result_id[:8]}")
         
+        # Log use case early and clearly
+        if request.verification_timestamp:
+            window_s = (request.verification_timestamp - request.action_timestamp)
+            use_case = "CASE 1: Has verification"
+            strategy = f"Scan BACKWARD from verification (last {min(100 if window_s > 60 else 25, int(window_s * 5))} images)"
+            print(f"📋 [KPIExecutor] {use_case}")
+            print(f"   • Strategy: {strategy}")
+            print(f"   • Window: {window_s:.2f}s")
+        elif request.last_action_wait_ms:
+            wait_s = request.last_action_wait_ms / 1000
+            use_case = "CASE 2: Has last_action_wait_ms"
+            strategy = f"Scan BACKWARD from wait end (last {min(100 if wait_s > 60 else 25, int(wait_s * 5))} images)"
+            print(f"📋 [KPIExecutor] {use_case}")
+            print(f"   • Strategy: {strategy}")
+            print(f"   • Wait time: {wait_s:.2f}s")
+        else:
+            timeout_s = request.timeout_ms / 1000
+            use_case = "CASE 3: No verification, no wait"
+            strategy = f"Scan FORWARD from action (first {min(100 if timeout_s > 60 else 25, int(timeout_s * 5))} images)"
+            print(f"📋 [KPIExecutor] {use_case}")
+            print(f"   • Strategy: {strategy}")
+            print(f"   • Timeout: {timeout_s:.2f}s")
+        
         # Check if KPI already calculated during verification (timeout polling found exact match)
         if request.kpi_timestamp:
             kpi_ms = int((request.kpi_timestamp - request.action_timestamp) * 1000)
@@ -369,12 +392,25 @@ class KPIExecutor:
         all_captures.sort(key=lambda x: x['timestamp'])
         
         if not all_captures:
+            print(f"❌ [KPIExecutor] No captures found in time window!")
+            print(f"   • Scan window: {scan_start:.2f} → {end_timestamp:.2f}")
+            print(f"   • Directory: {capture_dir}")
             return {'success': False, 'error': 'No captures found in time window', 'captures_scanned': 0}
         
         total_captures = len(all_captures)
-        saved_ms = request.timeout_ms - window_ms
-        saved_s = saved_ms / 1000
-        print(f"📸 [KPIExecutor] Found {total_captures} captures in optimized window (saved ~{saved_s:.2f}s of scanning)")
+        
+        # Log capture range with full paths and timestamps for debugging
+        first_capture = all_captures[0]
+        last_capture = all_captures[-1]
+        first_time = time.strftime('%H:%M:%S', time.localtime(first_capture['timestamp']))
+        last_time = time.strftime('%H:%M:%S', time.localtime(last_capture['timestamp']))
+        
+        print(f"📸 [KPIExecutor] Found {total_captures} captures to scan")
+        print(f"   • First: {first_capture['path']}")
+        print(f"   •   Time: {first_time} (ts={first_capture['timestamp']:.3f})")
+        print(f"   • Last: {last_capture['path']}")
+        print(f"   •   Time: {last_time} (ts={last_capture['timestamp']:.3f})")
+        print(f"   • Time span: {(last_capture['timestamp'] - first_capture['timestamp']):.2f}s")
         
         # Convert kpi_references to verification format (same structure as navigation)
         verifications = []
@@ -454,6 +490,8 @@ class KPIExecutor:
         # Skip captures already checked in quick check phase
         checked_indices = {early_idx, late_idx}
         
+        print(f"🔍 [KPIExecutor] Starting full scan of {total_captures - len(checked_indices)} remaining captures")
+        
         for i in scan_range:
             if i in checked_indices:
                 continue
@@ -461,7 +499,9 @@ class KPIExecutor:
             capture = all_captures[i]
             captures_scanned += 1
             
-            print(f"🔍 [KPIExecutor] Scan {i+1}/{total_captures}: {os.path.basename(capture['path'])}")
+            # Log progress every 10 captures to avoid spam
+            if captures_scanned % 10 == 0 or captures_scanned == total_captures:
+                print(f"🔍 [KPIExecutor] Progress: {captures_scanned}/{total_captures} captures scanned")
             
             result = verif_executor.execute_verifications(
                 verifications=verifications,
@@ -482,7 +522,11 @@ class KPIExecutor:
                     'algorithm': algorithm
                 }
         
-        # No match found after quick check + backward scan
+        # No match found after quick check + full scan
+        print(f"❌ [KPIExecutor] Exhausted all {total_captures} captures without finding match")
+        print(f"   • Window scanned: {window_s:.2f}s")
+        print(f"   • Total captures checked: {captures_scanned}")
+        
         return {
             'success': False,
             'timestamp': None,

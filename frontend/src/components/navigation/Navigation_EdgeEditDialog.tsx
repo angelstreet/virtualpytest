@@ -48,7 +48,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
   isOpen,
   edgeForm,
   setEdgeForm,
-  onSubmit,
+  onSubmit: _onSubmit,
   onClose,
   selectedEdge: _selectedEdge,
   isControlActive = false,
@@ -477,7 +477,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                 
                 {/* Helper text */}
                 <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary', mb: 0.5, display: 'block' }}>
-                  Measure time from action to visual confirmation (timeout: 1-60 seconds)
+                  Measure time from action to visual confirmation
                 </Typography>
                 
                 {/* KPI References List - disabled when checkbox is checked */}
