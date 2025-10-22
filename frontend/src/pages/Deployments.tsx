@@ -458,19 +458,38 @@ const Deployments: React.FC = () => {
                             {devices.map(d => <MenuItem key={d.device_id} value={d.device_id}>{d.device_name}</MenuItem>)}
                           </Select>
                         </FormControl>
-                        {displayParameters.map(p => (
-                          <Box key={p.name} sx={{ minWidth: 150 }}>
-                            <ParameterInputRenderer
-                              parameter={p}
-                              value={parameterValues[p.name] || ''}
-                              onChange={handleParameterChange}
-                              error={p.required && !(parameterValues[p.name] || '').trim()}
-                              deviceModel={deviceModel}
-                              userinterfaceName={parameterValues['userinterface_name'] || ''}
-                              hostName={selectedHost}
-                            />
-                          </Box>
-                        ))}
+                        {displayParameters.map(p => {
+                          // Special handling for userinterface_name parameter - render it separately like RunTests does
+                          if (p.name === 'userinterface_name') {
+                            return (
+                              <Box key={p.name} sx={{ minWidth: 150 }}>
+                                <UserinterfaceSelector
+                                  deviceModel={deviceModel}
+                                  value={parameterValues[p.name] || ''}
+                                  onChange={(newValue) => handleParameterChange(p.name, newValue)}
+                                  label="Userinterface"
+                                  size="small"
+                                  fullWidth
+                                />
+                              </Box>
+                            );
+                          }
+                          
+                          // For all other parameters (including edge), use ParameterInputRenderer
+                          return (
+                            <Box key={p.name} sx={{ minWidth: 150 }}>
+                              <ParameterInputRenderer
+                                parameter={p}
+                                value={parameterValues[p.name] || ''}
+                                onChange={handleParameterChange}
+                                error={p.required && !(parameterValues[p.name] || '').trim()}
+                                deviceModel={deviceModel}
+                                userinterfaceName={parameterValues['userinterface_name'] || ''}
+                                hostName={selectedHost}
+                              />
+                            </Box>
+                          );
+                        })}
                       </Box>
                     </Box>
 
