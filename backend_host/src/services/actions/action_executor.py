@@ -458,6 +458,14 @@ class ActionExecutor:
                         'params': params,
                         'device_id': self.device_id
                     }
+                elif action_type == 'power':
+                    # Route to power endpoint
+                    endpoint = '/host/power/executeCommand'
+                    request_data = {
+                        'command': action.get('command'),
+                        'params': params,
+                        'device_id': self.device_id
+                    }
                 else:
                     # Route to remote endpoint (default behavior for remote actions)
                     endpoint = '/host/remote/executeCommand'
@@ -514,6 +522,21 @@ class ActionExecutor:
                             response_data = {'success': False, 'error': 'PyAutoGUI desktop controller not available'}
                             status_code = 500
                             
+                elif action_type == 'power':
+                    # Use power controller directly
+                    power_controller = self.device._get_controller('power')
+                    if power_controller:
+                        response_data = power_controller.execute_command(
+                            command=request_data['command'],
+                            params=request_data['params']
+                        )
+                        # Power controller returns boolean, convert to proper response format
+                        if isinstance(response_data, bool):
+                            response_data = {'success': response_data}
+                        status_code = 200 if response_data.get('success', False) else 500
+                    else:
+                        response_data = {'success': False, 'error': 'Power controller not available'}
+                        status_code = 500
                 else:
                     # Use remote controller (default for remote actions)
                     remote_controller = self.device._get_controller('remote')
