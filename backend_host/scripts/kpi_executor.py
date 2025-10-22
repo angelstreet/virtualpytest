@@ -376,10 +376,18 @@ class KPIExecutorService:
             scan_start = max(action_timestamp, verification_timestamp - request.timeout_ms / 1000)
         elif request.last_action_wait_ms > 0:
             # Case 2: No verification but has wait - scan backwards from wait end
-            logger.info(f"   • Case 2: No verification but has wait - scan backwards from wait end")
             wait_end = action_timestamp + request.last_action_wait_ms / 1000
             scan_end = wait_end
-            scan_start = max(action_timestamp, wait_end - request.timeout_ms / 1000)
+            
+            # For long waits (>60s), scan last 20s instead of timeout window
+            if request.last_action_wait_ms > 60000:
+                scan_window_s = 20.0  # Last 20 seconds
+                logger.info(f"   • Case 2: No verification but has LONG wait ({request.last_action_wait_ms/1000:.1f}s) - scanning last 20s")
+            else:
+                scan_window_s = request.timeout_ms / 1000
+                logger.info(f"   • Case 2: No verification but has wait - scan backwards from wait end")
+            
+            scan_start = max(action_timestamp, wait_end - scan_window_s)
         else:
             # Case 3: No verification, no wait - scan FORWARD from action
             logger.info(f"   • Case 3: No verification, no wait - scan FORWARD from action")
