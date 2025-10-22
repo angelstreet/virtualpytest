@@ -148,6 +148,13 @@ class KPIExecutorService:
         logger.info(f"🔍 Processing KPI measurement")
         logger.info(f"   • Execution result: {request.execution_result_id[:8]}")
         
+        # DEBUG: Show exact values received
+        logger.info(f"   • verification_timestamp: {request.verification_timestamp}")
+        logger.info(f"   • last_action_wait_ms: {request.last_action_wait_ms}ms")
+        logger.info(f"   • action_timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
+        logger.info(f"   • timeout_ms: {request.timeout_ms}ms")
+        logger.info(f"   • kpi_references: {len(request.kpi_references)}")
+        
         # Check if KPI already calculated during verification
         if request.kpi_timestamp:
             kpi_ms = int((request.kpi_timestamp - request.action_timestamp) * 1000)
@@ -155,10 +162,6 @@ class KPIExecutorService:
             logger.info(f"   • Skipping post-processing scan")
             self._update_result(request.execution_result_id, request.team_id, True, kpi_ms, None)
             return
-        
-        logger.info(f"   • Action timestamp: {time.strftime('%H:%M:%S', time.localtime(request.action_timestamp))}")
-        logger.info(f"   • Timeout: {request.timeout_ms}ms ({request.timeout_ms / 1000:.1f}s)")
-        logger.info(f"   • KPI references: {len(request.kpi_references)}")
         
         start_time = time.time()
         
@@ -218,18 +221,25 @@ class KPIExecutorService:
         pattern = os.path.join(request.capture_dir, "capture_*.jpg")
         copied_count = 0
         
-        # Calculate scan window: scan BACKWARDS from end (last N seconds based on timeout)
+        # Calculate scan window based on available information
         if request.verification_timestamp:
-            # With verification: scan last timeout_ms before verification
+            # Case 1: Has verification - scan backwards from verification
             scan_end = request.verification_timestamp
             scan_start = max(request.action_timestamp, request.verification_timestamp - request.timeout_ms / 1000)
-        else:
-            # No verification: scan last timeout_ms before action + wait
+            logger.info(f"   • Scan mode: WITH verification (backwards from verification)")
+        elif request.last_action_wait_ms > 0:
+            # Case 2: No verification but has wait - scan backwards from wait end
             wait_end = request.action_timestamp + request.last_action_wait_ms / 1000
             scan_end = wait_end
             scan_start = max(request.action_timestamp, wait_end - request.timeout_ms / 1000)
+            logger.info(f"   • Scan mode: NO verification, WITH wait (backwards from wait end)")
+        else:
+            # Case 3: No verification, no wait - scan FORWARD from action
+            scan_start = request.action_timestamp
+            scan_end = request.action_timestamp + request.timeout_ms / 1000
+            logger.info(f"   • Scan mode: NO verification, NO wait (forward from action)")
         
-        logger.info(f"   • Scan window: {scan_end - scan_start:.2f}s (backwards from end, max {request.timeout_ms}ms)")
+        logger.info(f"   • Scan window: {scan_end - scan_start:.2f}s (max {request.timeout_ms}ms)")
         
         for source_path in glob.glob(pattern):
             if "_thumbnail" in source_path:
@@ -301,16 +311,20 @@ class KPIExecutorService:
         pattern = os.path.join(capture_dir, "capture_*.jpg")
         all_captures = []
         
-        # Calculate scan window: scan BACKWARDS from end (same logic as copy)
+        # Calculate scan window based on available information (same logic as copy)
         if verification_timestamp:
-            # With verification: scan last timeout_ms before verification
+            # Case 1: Has verification - scan backwards from verification
             scan_end = verification_timestamp
             scan_start = max(action_timestamp, verification_timestamp - request.timeout_ms / 1000)
-        else:
-            # No verification: scan last timeout_ms before action + wait
+        elif request.last_action_wait_ms > 0:
+            # Case 2: No verification but has wait - scan backwards from wait end
             wait_end = action_timestamp + request.last_action_wait_ms / 1000
             scan_end = wait_end
             scan_start = max(action_timestamp, wait_end - request.timeout_ms / 1000)
+        else:
+            # Case 3: No verification, no wait - scan FORWARD from action
+            scan_start = action_timestamp
+            scan_end = action_timestamp + request.timeout_ms / 1000
         
         for path in glob.glob(pattern):
             if "_thumbnail" in path:
