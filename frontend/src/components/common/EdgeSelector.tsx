@@ -81,6 +81,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
           team_id: TEAM_ID,
           host_name: hostName,
         }),
+        cache: 'no-store', // Prevent browser caching
       });
 
       const data = await response.json();

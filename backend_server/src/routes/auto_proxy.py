@@ -83,9 +83,9 @@ def auto_proxy(endpoint):
                             del _stream_url_cache[cache_key]
         
         # Determine timeout based on endpoint type
-        if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint:
-            timeout = 180  # 3 minutes for navigation execution
-            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: navigation execution)")
+        if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint or 'action/executeBatch' in endpoint:
+            timeout = 180  # 3 minutes for navigation/action execution
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: navigation/action execution)")
         else:
             timeout = 60  # Default timeout for other operations
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: default timeout)")

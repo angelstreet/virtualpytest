@@ -248,13 +248,17 @@ def get_edge_options():
                 'error': f'Host not found: {host_name}'
             }), 404
         
-        # Call host to get edges
+        # Call host to get edges (with cache-busting headers)
         host_url = buildHostUrl(host_info, '/host/script/get_edge_options')
         response = requests.post(
             host_url,
             json={
                 'userinterface_name': userinterface_name,
                 'team_id': team_id
+            },
+            headers={
+                'Cache-Control': 'no-cache, no-store, must-revalidate',
+                'Pragma': 'no-cache'
             },
             timeout=30
         )
