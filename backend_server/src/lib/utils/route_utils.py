@@ -76,8 +76,9 @@ def proxy_to_host(endpoint, method='GET', data=None, timeout=30, headers=None):
         print(f"[@utils:routeUtils:proxy_to_host] Proxying {method} {endpoint} to {full_url}")
         
         # Prepare request parameters
+        # Use tuple format: (connect_timeout, read_timeout) to ensure read timeout is respected
         kwargs = {
-            'timeout': timeout,
+            'timeout': (180, timeout),  # 60s connect, specified read timeout
             'verify': False  # For self-signed certificates
         }
         
@@ -186,8 +187,9 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
             print(f"[@utils:routeUtils:proxy_to_host_with_params] Query params: {query_params}")
         
         # Prepare request parameters
+        # Use tuple format: (connect_timeout, read_timeout) to ensure read timeout is respected
         kwargs = {
-            'timeout': timeout,
+            'timeout': (60, timeout),  # 60s connect, specified read timeout
             'verify': False  # For self-signed certificates
         }
         
@@ -300,8 +302,9 @@ def proxy_to_host_direct(host_info, endpoint, method='GET', data=None, timeout=3
         print(f"[@utils:routeUtils:proxy_to_host_direct] Proxying {method} {endpoint} to {full_url}")
         
         # Prepare request parameters
+        # Use tuple format: (connect_timeout, read_timeout) to ensure read timeout is respected
         kwargs = {
-            'timeout': timeout,
+            'timeout': (60, timeout),  # 60s connect, specified read timeout
             'verify': False  # For self-signed certificates
         }
         
