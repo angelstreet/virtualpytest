@@ -73,6 +73,8 @@ class Colors:
 HOT_THREAD_INTERVAL = 15    # 15s - hot storage cleanup + MP4 building
 COLD_THREAD_INTERVAL = 60   # 60s - cold storage cleanup (batched)
 COLD_BATCH_LIMIT = 200      # Max files to delete per device per cold cycle (prevents hour-long cycles)
+VERIFICATION_CLEANUP_INTERVAL = 3600  # 1 hour - verification results cleanup
+last_verification_cleanup = 0  # Track last cleanup time
 
 # Hot storage limits
 # LIFECYCLE:
@@ -633,6 +635,25 @@ def cleanup_cold_thumbnails(capture_dir: str, batch_limit: Optional[int] = None)
     if deleted > 0:
         logger.info(f"{Colors.BLUE}Cold thumbnails: Deleted {deleted} files older than 1h{Colors.RESET}")
     
+    return deleted
+
+
+def cleanup_verification_results(capture_dir: str) -> int:
+    """Delete verification results older than 24h"""
+    deleted = 0
+    now = time.time()
+    verif_dir = os.path.join(capture_dir, 'captures', 'verification_results')
+    if not os.path.isdir(verif_dir):
+        return 0
+    try:
+        for f in Path(verif_dir).glob('*'):
+            if f.is_file() and now - f.stat().st_mtime > 86400:  # 24h
+                os.remove(str(f))
+                deleted += 1
+    except Exception as e:
+        logger.error(f"Error cleaning verification results: {e}")
+    if deleted > 0:
+        logger.info(f"Verification: Deleted {deleted} files >24h")
     return deleted
 
 
@@ -1715,6 +1736,13 @@ def cold_storage_loop():
             for capture_dir in capture_dirs:
                 try:
                     process_cold_storage(capture_dir)
+                    
+                    # Verification cleanup every 1 hour
+                    global last_verification_cleanup
+                    if time.time() - last_verification_cleanup > VERIFICATION_CLEANUP_INTERVAL:
+                        cleanup_verification_results(capture_dir)
+                        last_verification_cleanup = time.time()
+                    
                 except Exception as e:
                     logger.error(f"{Colors.BLUE}Error processing cold storage for {capture_dir}: {e}{Colors.RESET}", exc_info=True)
             
