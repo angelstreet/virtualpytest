@@ -55,8 +55,8 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         }));
         setInterfaces(options);
         
-        // Auto-select first if no value set
-        if (!value && onChange) {
+        // Auto-select first if no value set or value is empty string
+        if ((!value || value.trim() === '') && onChange) {
           onChange(options[0].name);
         }
         return;
@@ -82,8 +82,9 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
           }));
           setInterfaces(options);
 
-          // Auto-select first if no value set
-          if (!value && onChange) {
+          // Auto-select first if no value set or value is empty string
+          if ((!value || value.trim() === '') && onChange) {
+            console.log('[@UserinterfaceSelector] Auto-selecting first interface:', options[0].name);
             onChange(options[0].name);
           }
         } else {

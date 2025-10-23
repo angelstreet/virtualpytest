@@ -741,6 +741,7 @@ const RunTests: React.FC = () => {
                           onChange={(e) => {
                             setSelectedHost(e.target.value);
                             setSelectedDevice(''); // Reset device when host changes
+                            handleParameterChange('userinterface_name', ''); // Reset userinterface so it can auto-fill
                           }}
                         >
                           {hosts.map((host) => (
@@ -758,7 +759,10 @@ const RunTests: React.FC = () => {
                         <Select
                           value={selectedDevice}
                           label="Device"
-                          onChange={(e) => setSelectedDevice(e.target.value)}
+                          onChange={(e) => {
+                            setSelectedDevice(e.target.value);
+                            handleParameterChange('userinterface_name', ''); // Reset userinterface so it can auto-fill for new device
+                          }}
                           disabled={!selectedHost || getAvailableDevicesForSelection().length === 0}
                         >
                           {getAvailableDevicesForSelection().map((device) => {
