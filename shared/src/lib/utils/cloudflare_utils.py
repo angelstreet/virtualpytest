@@ -942,8 +942,14 @@ def upload_kpi_thumbnails(thumbnails: Dict[str, str], execution_result_id: str, 
         for uploaded in upload_result.get('uploaded_files', []):
             remote_path = uploaded['remote_path']
             url = uploaded['url']
-            # Extract type from remote_path (e.g., "20251023120221_before_action.jpg" → "before_action")
-            thumb_type = remote_path.split('_', 1)[1].replace('.jpg', '') if '_' in remote_path else 'unknown'
+            # Extract type from filename (e.g., "20251023120221_before_action.jpg" → "before_action")
+            filename = os.path.basename(remote_path)  # Get just the filename
+            # Remove timestamp prefix and .jpg extension
+            # Format: "20251023120221_before_action.jpg" → "before_action"
+            if '_' in filename:
+                thumb_type = '_'.join(filename.split('_')[1:]).replace('.jpg', '')
+            else:
+                thumb_type = 'unknown'
             urls[thumb_type] = url
             logger.info(f"✅ Uploaded {thumb_type}: {url}")
         
