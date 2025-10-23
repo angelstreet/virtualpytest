@@ -198,6 +198,7 @@ class NavigationExecutor:
                           target_node_label: str = None,
                           navigation_path: List[Dict] = None,
                           current_node_id: Optional[str] = None,
+                          frontend_sent_position: bool = False,  # NEW: Did frontend explicitly send position?
                           image_source_url: Optional[str] = None,
                           team_id: str = None,
                           context=None) -> Dict[str, Any]:
@@ -292,17 +293,26 @@ class NavigationExecutor:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
             from backend_host.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
             
-            # Handle current_node_id parameter - update navigation context if provided
-            if current_node_id:
-                # Update navigation context with provided starting position
-                nav_context['current_node_id'] = current_node_id
-                nav_context['current_node_label'] = self.get_node_label(current_node_id, tree_id, team_id)
-                print(f"[@navigation_executor:execute_navigation] Starting from provided location: {current_node_id} ({nav_context['current_node_label']})")
-            elif nav_context.get('current_node_id'):
-                current_label = nav_context.get('current_node_label', 'unknown')
-                print(f"[@navigation_executor:execute_navigation] Starting from device current position: {nav_context['current_node_id']} ({current_label})")
+            # SIMPLE RULE: Frontend is source of truth when it sends position (even if None)
+            if frontend_sent_position:
+                if current_node_id:
+                    # Frontend says "start from this node"
+                    nav_context['current_node_id'] = current_node_id
+                    nav_context['current_node_label'] = self.get_node_label(current_node_id, tree_id, team_id)
+                    print(f"[@navigation_executor:execute_navigation] Starting from frontend position: {current_node_id} ({nav_context['current_node_label']})")
+                else:
+                    # Frontend says "I don't know position" → clear backend, use entry
+                    if nav_context.get('current_node_id'):
+                        print(f"[@navigation_executor:execute_navigation] Frontend cleared position (was: {nav_context.get('current_node_id')})")
+                    nav_context['current_node_id'] = None
+                    nav_context['current_node_label'] = None
+                    print(f"[@navigation_executor:execute_navigation] Starting from entry (frontend doesn't know position)")
             else:
-                print(f"[@navigation_executor:execute_navigation] Starting from default entry point (no current location)")
+                # Frontend didn't send position → trust backend (set by previous navigation in script)
+                if nav_context.get('current_node_id'):
+                    print(f"[@navigation_executor:execute_navigation] Starting from backend position: {nav_context['current_node_id']} ({nav_context.get('current_node_label', 'unknown')})")
+                else:
+                    print(f"[@navigation_executor:execute_navigation] Starting from entry (no position tracked)")
             
             # Skip "already at target" optimization if using pre-computed path (validation mode)
             if navigation_path:
@@ -315,6 +325,82 @@ class NavigationExecutor:
             current_position = nav_context.get('current_node_id')
             if not navigation_path:
                 print(f"[@navigation_executor:execute_navigation] Current position: {current_position}, Target: {target_node_id}")
+            
+            # 🔍 POSITION TRACKING BUG DETECTION: If position tracking says we're elsewhere but target is close,
+            # verify target first to catch stale position tracking (e.g., "android_home" vs "home" confusion)
+            if not navigation_path and current_position and current_position != target_node_id:
+                # Quick pathfinding check: is target reachable in 1 step?
+                from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+                cached_graph = get_cached_unified_graph(tree_id, team_id)
+                if cached_graph and current_position in cached_graph.nodes and target_node_id in cached_graph.nodes:
+                    # Check if target is a direct neighbor (1 step away)
+                    if cached_graph.has_edge(current_position, target_node_id):
+                        print(f"[@navigation_executor:execute_navigation] 🔍 Target is 1 step away - verifying if already there to catch position tracking bugs")
+                        verification_result = self.device.verification_executor.verify_node(
+                            node_id=target_node_id,
+                            userinterface_name=userinterface_name,
+                            team_id=team_id,
+                            tree_id=tree_id
+                        )
+                        
+                        # If we're ACTUALLY at the target visually, update position and skip navigation
+                        if verification_result.get('success') and verification_result.get('has_verifications', True):
+                            current_label = nav_context.get('current_node_label', 'unknown')
+                            print(f"[@navigation_executor:execute_navigation] ⚠️ POSITION TRACKING BUG DETECTED!")
+                            print(f"[@navigation_executor:execute_navigation]   System thought we were at: {current_position} ({current_label})")
+                            print(f"[@navigation_executor:execute_navigation]   But verification confirms we're already at: {target_node_id} ({target_node_label or target_node_id})")
+                            print(f"[@navigation_executor:execute_navigation] ✅ Correcting position and skipping navigation")
+                            
+                            # Correct the position tracking
+                            self.update_current_position(target_node_id, tree_id, target_node_label)
+                            nav_context['last_verified_timestamp'] = time.time()
+                            nav_context['current_node_navigation_success'] = True
+                            
+                            # Record dummy step showing position correction
+                            if context:
+                                from datetime import datetime
+                                from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                                
+                                screenshot_path = ""
+                                screenshot_id = capture_screenshot_for_script(self.device, context, f"position_corrected_{target_node_label or target_node_id}")
+                                if screenshot_id and context.screenshot_paths:
+                                    screenshot_path = context.screenshot_paths[-1]
+                                
+                                dummy_step_result = {
+                                    'success': True,
+                                    'from_node': target_node_label or target_node_id,
+                                    'to_node': target_node_label or target_node_id,
+                                    'message': f"Position tracking corrected: {current_label} → {target_node_label or target_node_id}",
+                                    'already_at_destination': True,
+                                    'position_tracking_bug_detected': True,
+                                    'execution_time_ms': 0,
+                                    'start_time': datetime.now().strftime('%H:%M:%S'),
+                                    'end_time': datetime.now().strftime('%H:%M:%S'),
+                                    'actions': [],
+                                    'step_category': 'navigation',
+                                    'step_end_screenshot_path': screenshot_path,
+                                    'screenshot_path': screenshot_path
+                                }
+                                context.record_step_immediately(dummy_step_result)
+                                if hasattr(context, 'write_running_log'):
+                                    context.write_running_log()
+                            
+                            return self._build_result(
+                                True,
+                                f"Position tracking bug detected and corrected - already at '{target_node_label or target_node_id}'",
+                                tree_id, target_node_id, current_node_id, start_time,
+                                transitions_executed=0,
+                                total_transitions=0,
+                                actions_executed=0,
+                                total_actions=0,
+                                path_length=0,
+                                already_at_target=True,
+                                position_tracking_bug_corrected=True,
+                                unified_pathfinding_used=True,
+                                navigation_path=[]
+                            )
+                        else:
+                            print(f"[@navigation_executor:execute_navigation] Verification failed - position tracking is correct, proceeding with navigation")
             
             if current_position and current_position == target_node_id and not navigation_path:
                 print(f"[@navigation_executor:execute_navigation] 🔍 Context indicates already at target '{target_node_label or target_node_id}' - verifying...")

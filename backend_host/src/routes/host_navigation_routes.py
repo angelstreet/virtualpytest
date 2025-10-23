@@ -20,11 +20,15 @@ def navigation_execute(tree_id, target_node_id):
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         team_id = request.args.get('team_id')
-        current_node_id = data.get('current_node_id')
+        # Check if frontend explicitly sent current_node_id (even if None)
+        frontend_sent_position = 'current_node_id' in data
+        current_node_id = data.get('current_node_id') if frontend_sent_position else None
         image_source_url = data.get('image_source_url')
         userinterface_name = data.get('userinterface_name')  # MANDATORY for reference resolution
         
         print(f"[@route:host_navigation:navigation_execute] Device: {device_id}, Tree: {tree_id}, Team: {team_id}, Userinterface: {userinterface_name}")
+        if frontend_sent_position:
+            print(f"[@route:host_navigation:navigation_execute] Frontend sent current_node_id: {current_node_id}")
         
         # Validate
         if not device_id:
@@ -59,6 +63,7 @@ def navigation_execute(tree_id, target_node_id):
             userinterface_name=userinterface_name,  # MANDATORY parameter
             target_node_id=target_node_id,
             current_node_id=current_node_id,
+            frontend_sent_position=frontend_sent_position,  # NEW: Tell executor if frontend sent position
             image_source_url=image_source_url,
             team_id=team_id
         )
