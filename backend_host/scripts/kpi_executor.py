@@ -73,8 +73,10 @@ class KPIMeasurementRequest:
         self.from_node_label = data.get('from_node_label')
         self.to_node_label = data.get('to_node_label')
         self.last_action = data.get('last_action')
-        self.before_action_screenshot_path = data.get('before_action_screenshot_path')  # ✅ NEW: Before screenshot
+        self.before_action_screenshot_path = data.get('before_action_screenshot_path')  # ✅ Before screenshot
         self.action_screenshot_path = data.get('action_screenshot_path')  # After screenshot
+        self.action_details = data.get('action_details', {})  # ✅ NEW: Action execution details
+        self.verification_evidence_list = data.get('verification_evidence_list', [])  # ✅ NEW: Verification evidence
 
 
 class KPIExecutorService:
@@ -870,6 +872,51 @@ class KPIExecutorService:
             # Calculate scan window
             scan_window = match_result['timestamp'] - request.action_timestamp
             
+            # Upload verification evidence images and prepare data for template
+            verification_cards_html = ""
+            verification_count = 0
+            
+            if request.verification_evidence_list:
+                from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
+                
+                # Collect all verification evidence images for upload
+                verification_images = {}
+                for i, evidence in enumerate(request.verification_evidence_list):
+                    ref_path = evidence.get('reference_image_path')
+                    src_path = evidence.get('source_image_path')
+                    
+                    if ref_path and os.path.exists(ref_path):
+                        verification_images[f'verif_{i}_reference'] = ref_path
+                    if src_path and os.path.exists(src_path):
+                        verification_images[f'verif_{i}_source'] = src_path
+                
+                # Upload all verification images
+                verif_urls = {}
+                if verification_images:
+                    verif_urls = upload_kpi_thumbnails(verification_images, request.execution_result_id, timestamp)
+                    logger.info(f"📦 Uploaded {len(verification_images)} verification evidence images")
+                
+                # Generate HTML cards for each verification
+                from shared.src.lib.utils.kpi_report_template import create_verification_card
+                for i, evidence in enumerate(request.verification_evidence_list):
+                    # Build evidence data dict with R2 URLs
+                    evidence_with_urls = evidence.copy()
+                    evidence_with_urls['reference_url'] = verif_urls.get(f'verif_{i}_reference', '')
+                    evidence_with_urls['source_url'] = verif_urls.get(f'verif_{i}_source', '')
+                    
+                    # Generate card HTML
+                    card_html = create_verification_card(i + 1, evidence_with_urls)
+                    verification_cards_html += card_html
+                    verification_count += 1
+            
+            # Prepare action details for template
+            action_command = request.action_details.get('command', 'N/A')
+            action_type = request.action_details.get('action_type', 'N/A')
+            action_params = json.dumps(request.action_details.get('params', {}))
+            action_execution_time = request.action_details.get('execution_time_ms', 0)
+            action_wait_time = request.action_details.get('wait_time_ms', 0)
+            action_total_time = request.action_details.get('total_time_ms', 0)
+            
             # Generate HTML
             html_template = create_kpi_report_template()
             html_content = html_template.format(
@@ -898,7 +945,17 @@ class KPIExecutorService:
                 action_set_id=request.action_set_id or 'N/A',
                 from_node_label=request.from_node_label or 'N/A',
                 to_node_label=request.to_node_label or 'N/A',
-                last_action=request.last_action or 'N/A'
+                last_action=request.last_action or 'N/A',
+                # Action details
+                action_command=action_command,
+                action_type=action_type,
+                action_params=action_params,
+                action_execution_time=action_execution_time,
+                action_wait_time=action_wait_time,
+                action_total_time=action_total_time,
+                # Verification evidence
+                verification_count=verification_count,
+                verification_cards=verification_cards_html
             )
             
             # Upload HTML to R2

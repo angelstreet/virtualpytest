@@ -210,6 +210,10 @@ class ActionExecutor:
         # Clear screenshots from previous step - ActionExecutor is reused across navigation steps
         self.action_screenshots = []
         
+        # Clear context screenshots to prevent stale images from previous steps
+        if context and hasattr(context, 'screenshot_paths'):
+            context.screenshot_paths = []
+        
         # Validate inputs
         if not actions:
             return {
@@ -723,6 +727,17 @@ class ActionExecutor:
         if screenshot_path:
             self.action_screenshots.append(screenshot_path)
         
+        # Build detailed action info for KPI report
+        action_details = {
+            'command': action.get('command'),
+            'action_type': action_type,
+            'params': params,
+            'iterator_count': iterator_count,
+            'execution_time_ms': total_execution_time,
+            'wait_time_ms': wait_time,
+            'total_time_ms': total_execution_time + wait_time
+        }
+        
         return {
             'success': all_iterations_successful,
             'message': result_message,
@@ -732,7 +747,8 @@ class ActionExecutor:
             'action_category': action_category,
             'screenshot_path': screenshot_path,  # Always present
             'action_timestamp': action_completion_timestamp,  # ✅ NEW: Timestamp for zapping detection sync
-            'iterations': iteration_results if iterator_count > 1 else None
+            'iterations': iteration_results if iterator_count > 1 else None,
+            'action_details': action_details  # ✅ NEW: Detailed action info for KPI report
         }
     
     def _detect_action_type_from_device(self, command: str) -> str:

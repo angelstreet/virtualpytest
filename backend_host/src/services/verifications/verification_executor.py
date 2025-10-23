@@ -220,6 +220,10 @@ class VerificationExecutor:
         # Clear screenshots from previous verification batch (VerificationExecutor is a singleton per device)
         self.verification_screenshots = []
         
+        # Clear context screenshots to prevent stale images from previous steps
+        if context and hasattr(context, 'screenshot_paths'):
+            context.screenshot_paths = []
+        
         # Validate inputs
         if not verifications:
             return {
@@ -286,6 +290,12 @@ class VerificationExecutor:
                     error_info = result.get('message', 'Verification failed')
                     break
         
+        # Collect all verification evidence for KPI report
+        verification_evidence_list = []
+        for result in results:
+            if 'verification_evidence' in result:
+                verification_evidence_list.append(result['verification_evidence'])
+        
         result = {
             'success': overall_success,
             'total_count': len(valid_verifications),
@@ -293,6 +303,7 @@ class VerificationExecutor:
             'failed_count': len(valid_verifications) - passed_count,
             'results': results,
             'verification_screenshots': self.verification_screenshots,  # NEW: Include screenshots
+            'verification_evidence_list': verification_evidence_list,  # ✅ NEW: All verification evidence for KPI
             'message': f'Batch verification completed: {passed_count}/{len(valid_verifications)} passed'
         }
         
@@ -482,6 +493,33 @@ class VerificationExecutor:
             if screenshot_path:
                 self.verification_screenshots.append(screenshot_path)
             
+            # Build verification evidence for KPI report (NEW)
+            verification_evidence = {
+                'type': verification_type,
+                'command': verification.get('command'),
+                'success': verification_result.get('success', False),
+                'params': verification.get('params', {}),
+            }
+            
+            # Add type-specific evidence
+            if verification_type == 'image':
+                verification_evidence.update({
+                    'reference_image_path': details.get('reference_image_path'),  # Local cropped reference
+                    'source_image_path': details.get('source_image_path'),  # Local cropped source
+                    'threshold': verification_result.get('threshold', 0.8),
+                    'matching_score': verification_result.get('matching_result', 0.0),
+                    'search_area': verification.get('params', {}).get('area'),
+                    'image_filter': verification_result.get('imageFilter', 'none'),
+                })
+            elif verification_type == 'text':
+                verification_evidence.update({
+                    'source_image_path': details.get('source_image_path'),
+                    'searched_text': verification_result.get('searchedText', ''),
+                    'extracted_text': verification_result.get('extractedText', ''),
+                    'language': verification_result.get('detected_language', 'unknown'),
+                    'confidence': verification_result.get('language_confidence', 0),
+                })
+            
             flattened_result = {
                 'success': verification_result.get('success', False),
                 'message': verification_result.get('message'),
@@ -512,7 +550,8 @@ class VerificationExecutor:
                 'verification_type': verification_result.get('verification_type', verification_type),
                 'execution_time_ms': verification_result.get('execution_time_ms'),
                 'details': verification_result.get('details', {}),
-                'screenshot_path': screenshot_path  # Always present
+                'screenshot_path': screenshot_path,  # Always present
+                'verification_evidence': verification_evidence  # ✅ NEW: Evidence data for KPI report
             }
             
             # Clean up context reference to avoid memory leaks
