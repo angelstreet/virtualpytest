@@ -1174,6 +1174,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           const initialNodesMap = new Map(initialState?.nodes?.map(n => [n.id, n]) || []);
           const initialEdgesMap = new Map(initialState?.edges?.map(e => [e.id, e]) || []);
           
+          console.log(`[@NavigationContext] Initial state has ${initialNodesMap.size} nodes and ${initialEdgesMap.size} edges`);
+          console.log(`[@NavigationContext] Current state has ${nodesToSave.length} nodes and ${edges.length} edges`);
+          
           // Filter to only changed nodes
           const changedNodes = nodesToSave.filter(node => hasNodeChanged(node, initialNodesMap.get(node.id)));
           console.log(`[@NavigationContext] Only saving ${changedNodes.length}/${nodesToSave.length} changed nodes`);
