@@ -879,26 +879,32 @@ class KPIExecutorService:
             if request.verification_evidence_list:
                 from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
                 
-                # Collect source images for upload (references already in R2)
+                # Collect all verification evidence images for upload
                 verification_images = {}
                 for i, evidence in enumerate(request.verification_evidence_list):
+                    ref_path = evidence.get('reference_image_path')
                     src_path = evidence.get('source_image_path')
+                    
+                    if ref_path and os.path.exists(ref_path):
+                        verification_images[f'verif_{i}_reference'] = ref_path
                     if src_path and os.path.exists(src_path):
                         verification_images[f'verif_{i}_source'] = src_path
                 
-                # Upload source images only
+                # Upload all verification images
                 verif_urls = {}
                 if verification_images:
                     verif_urls = upload_kpi_thumbnails(verification_images, request.execution_result_id, timestamp)
-                    logger.info(f"📦 Uploaded {len(verification_images)} verification source images")
+                    logger.info(f"📦 Uploaded {len(verification_images)} verification evidence images")
                 
-                # Generate HTML cards with R2 URLs
+                # Generate HTML cards for each verification
                 from shared.src.lib.utils.kpi_report_template import create_verification_card
                 for i, evidence in enumerate(request.verification_evidence_list):
+                    # Build evidence data dict with R2 URLs
                     evidence_with_urls = evidence.copy()
-                    evidence_with_urls['reference_url'] = evidence.get('reference_url', '')  # Already in R2
+                    evidence_with_urls['reference_url'] = verif_urls.get(f'verif_{i}_reference', '')
                     evidence_with_urls['source_url'] = verif_urls.get(f'verif_{i}_source', '')
                     
+                    # Generate card HTML
                     card_html = create_verification_card(i + 1, evidence_with_urls)
                     verification_cards_html += card_html
                     verification_count += 1
