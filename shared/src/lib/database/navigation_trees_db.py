@@ -28,7 +28,7 @@ def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
         if tree_result['success']:
             userinterface_id = tree_result['tree'].get('userinterface_id')
             if userinterface_id:
-                from shared.src.lib.supabase.userinterface_db import get_userinterface
+                from shared.src.lib.database.userinterface_db import get_userinterface
                 interface = get_userinterface(userinterface_id, team_id)
                 if interface:
                     interface_name = interface.get('name')
