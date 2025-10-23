@@ -896,18 +896,12 @@ class ImageVerificationController:
                 self.helpers.apply_image_filter(source_result_path, image_filter)
             
             # === STEP 2: Handle Reference Image ===
-            reference_image_for_overlay = reference_path
-            if area:
-                if not self.helpers.crop_image_to_area(reference_path, reference_result_path, area):
-                    return {}
-                reference_image_for_overlay = reference_result_path
-            else:
-                self.helpers.copy_image_file(reference_path, reference_result_path)
-                reference_image_for_overlay = reference_result_path
+            # Reference is ALREADY cropped when saved to database, just copy it
+            self.helpers.copy_image_file(reference_path, reference_result_path)
+            reference_image_for_overlay = reference_result_path
             
             if image_filter and image_filter != 'none':
                 self.helpers.apply_image_filter(reference_result_path, image_filter)
-                reference_image_for_overlay = reference_result_path
             
             # === STEP 3: Create Overlay ===
             source_img = cv2.imread(source_result_path)
