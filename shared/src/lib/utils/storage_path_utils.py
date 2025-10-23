@@ -467,6 +467,46 @@ def get_thumbnails_path(device_folder):
     return get_capture_storage_path(device_folder, 'thumbnails')
 
 
+def get_thumbnail_path_from_capture(capture_path: str) -> str:
+    """
+    Get thumbnail path from capture image path.
+    CENTRALIZED - Handles hot/cold storage automatically!
+    
+    Preserves storage location (hot→hot, cold→cold).
+    
+    Args:
+        capture_path: Full path to capture image
+        
+    Returns:
+        Full path to corresponding thumbnail
+        
+    Examples:
+        >>> get_thumbnail_path_from_capture('/var/www/html/stream/capture4/hot/captures/capture_000001.jpg')
+        '/var/www/html/stream/capture4/hot/thumbnails/capture_000001_thumbnail.jpg'
+        
+        >>> get_thumbnail_path_from_capture('/var/www/html/stream/capture4/captures/capture_000001.jpg')
+        '/var/www/html/stream/capture4/thumbnails/capture_000001_thumbnail.jpg'
+        
+        >>> get_thumbnail_path_from_capture('/tmp/kpi_working/abc123/capture_000001.jpg')
+        '/tmp/kpi_working/abc123/capture_000001_thumbnail.jpg'
+    """
+    # Get directory and filename
+    capture_dir = os.path.dirname(capture_path)
+    capture_filename = os.path.basename(capture_path)
+    
+    # Generate thumbnail filename (capture_X.jpg → capture_X_thumbnail.jpg)
+    thumb_filename = capture_filename.replace('.jpg', '_thumbnail.jpg')
+    
+    # Replace /captures/ with /thumbnails/ in path (handles both hot and cold)
+    if '/captures/' in capture_dir:
+        thumb_dir = capture_dir.replace('/captures/', '/thumbnails/')
+    else:
+        # If not in captures directory (e.g., working directory), use same directory
+        thumb_dir = capture_dir
+    
+    return os.path.join(thumb_dir, thumb_filename)
+
+
 def get_metadata_path(device_folder):
     """
     Get metadata storage path (HOT or COLD depending on mode).

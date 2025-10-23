@@ -310,7 +310,7 @@ class KPIExecutorService:
                 copied_captures += 1
                 copied_capture_names.append(before_window_cap['filename'])
                 extra_before_filename = before_window_cap['filename']  # Store it
-                logger.info(f"📸 Copied 1 extra frame BEFORE scan window: {extra_before_filename}")
+                logger.info(f"📸 Copied extra frame BEFORE: {before_window_cap['path']} → {dest_path}")
             except (OSError, IOError) as e:
                 logger.warning(f"Could not copy before-window frame: {e}")
         
@@ -329,6 +329,7 @@ class KPIExecutorService:
                         shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
                         copied_captures += 1
                         copied_capture_names.append(filename)
+                        logger.debug(f"📸 Copied: {source_path} → {dest_path}")
             except (OSError, IOError) as e:
                 logger.warning(f"Could not copy {source_path}: {e}")
                 continue
@@ -339,40 +340,33 @@ class KPIExecutorService:
         
         logger.info(f"✅ Copied {copied_captures} captures to /tmp/ (RAM) - includes 1 before scan window")
         
-        # Copy thumbnails for EACH capture we copied (not by mtime - ensures 1:1 mapping)
-        # Use centralized path utilities (no manual path manipulation!)
-        from shared.src.lib.utils.storage_path_utils import get_capture_folder, get_thumbnails_path
-        
-        device_folder = get_capture_folder(request.capture_dir)
-        thumb_source_dir = get_thumbnails_path(device_folder)
+        # Copy thumbnails for EACH capture we copied (use centralized function!)
+        from shared.src.lib.utils.storage_path_utils import get_thumbnail_path_from_capture
         
         copied_thumbnails = 0
         missing_thumbnails = 0
         
-        if os.path.isdir(thumb_source_dir):
-            for capture_name in copied_capture_names:
-                # For each capture, find its corresponding thumbnail
-                thumb_name = capture_name.replace('.jpg', '_thumbnail.jpg')
-                thumb_source = os.path.join(thumb_source_dir, thumb_name)
-                thumb_dest = os.path.join(working_dir, thumb_name)
-                
-                if os.path.exists(thumb_source):
-                    try:
-                        shutil.copy2(thumb_source, thumb_dest)
-                        copied_thumbnails += 1
-                    except (OSError, IOError) as e:
-                        logger.warning(f"Could not copy thumbnail {thumb_name}: {e}")
-                        missing_thumbnails += 1
-                else:
-                    logger.debug(f"Thumbnail not found: {thumb_name}")
-                    missing_thumbnails += 1
+        for capture_name in copied_capture_names:
+            # For each capture, get its thumbnail path using centralized function
+            capture_source = os.path.join(request.capture_dir, capture_name)
+            thumb_source = get_thumbnail_path_from_capture(capture_source)
+            thumb_dest = os.path.join(working_dir, os.path.basename(thumb_source))
             
-            if missing_thumbnails > 0:
-                logger.warning(f"⚠️  {missing_thumbnails} thumbnails missing for copied captures")
-            logger.info(f"✅ Copied {copied_thumbnails}/{copied_captures} thumbnails to /tmp/ (RAM)")
-        else:
-            logger.warning(f"⚠️  Thumbnail directory not found: {thumb_source_dir}")
-            missing_thumbnails = copied_captures
+            if os.path.exists(thumb_source):
+                try:
+                    shutil.copy2(thumb_source, thumb_dest)
+                    copied_thumbnails += 1
+                    logger.debug(f"🖼️  Copied thumbnail: {thumb_source} → {thumb_dest}")
+                except (OSError, IOError) as e:
+                    logger.warning(f"Could not copy thumbnail: {e}")
+                    missing_thumbnails += 1
+            else:
+                logger.warning(f"⚠️  Thumbnail NOT found: {thumb_source}")
+                missing_thumbnails += 1
+        
+        if missing_thumbnails > 0:
+            logger.warning(f"⚠️  {missing_thumbnails} thumbnails missing for copied captures")
+        logger.info(f"✅ Copied {copied_thumbnails}/{copied_captures} thumbnails to /tmp/ (RAM)")
         
         return working_dir, extra_before_filename
     
@@ -725,7 +719,10 @@ class KPIExecutorService:
             match_capture = all_captures[match_index]
             match_capture_filename = os.path.basename(match_capture['path'])
             match_image = os.path.join(working_dir, match_capture_filename)  # Full-size original for click
-            match_thumb_filename = match_capture_filename.replace('.jpg', '_thumbnail.jpg')
+            
+            # Use centralized function for thumbnail path
+            from shared.src.lib.utils.storage_path_utils import get_thumbnail_path_from_capture
+            match_thumb_filename = os.path.basename(get_thumbnail_path_from_capture(match_capture_filename))
             match_thumb = os.path.join(working_dir, match_thumb_filename)  # Thumbnail for display
             
             # Get before match capture (match - 1) - frame right before match was found
@@ -734,7 +731,7 @@ class KPIExecutorService:
                 # Match is first in scan window - use extra frame we copied before window
                 if extra_before_filename:
                     before_capture_filename = extra_before_filename
-                    before_thumb_filename = extra_before_filename.replace('.jpg', '_thumbnail.jpg')
+                    before_thumb_filename = os.path.basename(get_thumbnail_path_from_capture(extra_before_filename))
                     before_match_thumb = os.path.join(working_dir, before_thumb_filename)
                     # Get timestamp from file
                     before_time_ts = os.path.getmtime(os.path.join(working_dir, extra_before_filename))
@@ -749,7 +746,7 @@ class KPIExecutorService:
             else:
                 before_capture = all_captures[before_index]
                 before_capture_filename = os.path.basename(before_capture['path'])
-                before_thumb_filename = before_capture_filename.replace('.jpg', '_thumbnail.jpg')
+                before_thumb_filename = os.path.basename(get_thumbnail_path_from_capture(before_capture_filename))
                 before_match_thumb = os.path.join(working_dir, before_thumb_filename)
                 before_time_ts = before_capture['timestamp']
                 logger.info(f"   • Before Match: {before_thumb_filename} (index {before_index})")
@@ -792,27 +789,40 @@ class KPIExecutorService:
                 logger.warning(f"⚠️  Before match thumbnail not found - will use placeholder")
                 before_match_thumb = None
             
-            logger.info(f"✓ Found 4 thumbnails + 1 original")
-            logger.info(f"   • Before Match: {before_thumb_filename} (index {before_index})")
-            logger.info(f"   • Match: {match_thumb_filename} + original (index {match_index})")
-            
-            # Calculate timestamps for display
-            before_time_ts = before_capture['timestamp']
-            
             # Upload only images that exist
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             thumbnails = {}
             
+            logger.info(f"📦 Preparing images for upload:")
             if before_action_thumb and os.path.exists(before_action_thumb):
                 thumbnails['before_action'] = before_action_thumb
+                logger.info(f"   ✓ before_action: {before_action_thumb}")
+            else:
+                logger.warning(f"   ✗ before_action: NOT FOUND")
+                
             if after_action_thumb and os.path.exists(after_action_thumb):
                 thumbnails['after_action'] = after_action_thumb
+                logger.info(f"   ✓ after_action: {after_action_thumb}")
+            else:
+                logger.warning(f"   ✗ after_action: NOT FOUND")
+                
             if before_match_thumb and os.path.exists(before_match_thumb):
                 thumbnails['before_match'] = before_match_thumb
+                logger.info(f"   ✓ before_match: {before_match_thumb}")
+            else:
+                logger.warning(f"   ✗ before_match: NOT FOUND at {before_match_thumb}")
+                
             if match_thumb and os.path.exists(match_thumb):
                 thumbnails['match'] = match_thumb
+                logger.info(f"   ✓ match: {match_thumb}")
+            else:
+                logger.warning(f"   ✗ match: NOT FOUND at {match_thumb}")
+                
             if match_image and os.path.exists(match_image):
                 thumbnails['match_original'] = match_image
+                logger.info(f"   ✓ match_original: {match_image}")
+            else:
+                logger.warning(f"   ✗ match_original: NOT FOUND at {match_image}")
             
             # Upload what we have
             if thumbnails:
@@ -820,19 +830,16 @@ class KPIExecutorService:
                 if not thumb_urls:
                     thumb_urls = {}
             else:
+                logger.warning(f"⚠️  No thumbnails to upload")
                 thumb_urls = {}
             
             # Placeholder for missing images
             placeholder = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='200' height='150'%3E%3Crect fill='%23ddd' width='200' height='150'/%3E%3Ctext x='50%25' y='50%25' text-anchor='middle' fill='%23666'%3ENo Image%3C/text%3E%3C/svg%3E"
-            
             thumb_urls.setdefault('before_action', placeholder)
             thumb_urls.setdefault('after_action', placeholder)
             thumb_urls.setdefault('before_match', placeholder)
             thumb_urls.setdefault('match', placeholder)
             thumb_urls.setdefault('match_original', placeholder)
-            
-            uploaded_count = len([v for v in thumb_urls.values() if not v.startswith('data:')])
-            logger.info(f"✓ Uploaded {uploaded_count}/5 images to R2 (rest will use placeholders)")
             
             # Format timestamps for display using actual capture timestamps
             action_time = datetime.fromtimestamp(request.action_timestamp).strftime('%H:%M:%S.%f')[:-3]

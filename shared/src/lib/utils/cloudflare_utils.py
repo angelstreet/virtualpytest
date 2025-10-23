@@ -903,54 +903,56 @@ def get_script_report_folder_url(device_model: str, script_name: str, timestamp:
 
 def upload_kpi_thumbnails(thumbnails: Dict[str, str], execution_result_id: str, timestamp: str) -> Dict:
     """
-    Upload 3 KPI thumbnails to R2 (action, before, match).
+    Upload KPI thumbnails to R2.
     
     Args:
-        thumbnails: Dict with 'action', 'before', 'match' keys pointing to local thumbnail paths
+        thumbnails: Dict with keys ('before_action', 'after_action', 'before_match', 'match', 'match_original') pointing to local paths
         execution_result_id: Execution result ID
         timestamp: Timestamp string (YYYYMMDDHHMMSS)
         
     Returns:
-        Dict with 'action', 'before', 'match' keys containing R2 URLs
+        Dict with same keys containing R2 URLs
     """
     try:
         uploader = get_cloudflare_utils()
         
         # Create file mappings for batch upload
         file_mappings = []
-        for thumb_type in ['action', 'before', 'match']:
-            local_path = thumbnails.get(thumb_type)
+        for thumb_type, local_path in thumbnails.items():
             if local_path and os.path.exists(local_path):
+                logger.info(f"📁 Uploading {thumb_type}: {local_path}")
                 remote_path = f"kpi_measurement/{execution_result_id[:8]}/{timestamp}_{thumb_type}.jpg"
                 file_mappings.append({
                     'local_path': local_path,
                     'remote_path': remote_path,
                     'content_type': 'image/jpeg'
                 })
+            else:
+                logger.warning(f"⚠️  Skipping {thumb_type}: file not found at {local_path}")
         
         if not file_mappings:
-            return {'action': '', 'before': '', 'match': ''}
+            logger.warning(f"⚠️  No images to upload for {execution_result_id[:8]}")
+            return {}
         
         # Batch upload
         upload_result = uploader.upload_files(file_mappings)
         
-        # Extract URLs
+        # Extract URLs and log them
         urls = {}
         for uploaded in upload_result.get('uploaded_files', []):
             remote_path = uploaded['remote_path']
-            if 'action' in remote_path:
-                urls['action'] = uploaded['url']
-            elif 'before' in remote_path:
-                urls['before'] = uploaded['url']
-            elif 'match' in remote_path:
-                urls['match'] = uploaded['url']
+            url = uploaded['url']
+            # Extract type from remote_path (e.g., "20251023120221_before_action.jpg" → "before_action")
+            thumb_type = remote_path.split('_', 1)[1].replace('.jpg', '') if '_' in remote_path else 'unknown'
+            urls[thumb_type] = url
+            logger.info(f"✅ Uploaded {thumb_type}: {url}")
         
-        logger.info(f"Uploaded {len(urls)} KPI thumbnails for {execution_result_id[:8]}")
+        logger.info(f"✓ Uploaded {len(urls)}/{len(thumbnails)} images to R2")
         return urls
         
     except Exception as e:
         logger.error(f"KPI thumbnails upload failed: {str(e)}")
-        return {'action': '', 'before': '', 'match': ''}
+        return {}
 
 
 def upload_kpi_report(html_content: str, execution_result_id: str, timestamp: str) -> Dict:
