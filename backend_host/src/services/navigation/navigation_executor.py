@@ -722,6 +722,46 @@ class NavigationExecutor:
                         context=context
                     )
                     print(f"[@navigation_executor:execute_navigation] Verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
+                    
+                    # ✅ VERIFICATION-DRIVEN RETRY: If main actions succeeded BUT verifications failed, try retry actions
+                    if result.get('success', False) and result.get('main_actions_succeeded', False) and not verification_result.get('success', True) and retry_actions:
+                        print(f"[@navigation_executor:execute_navigation] ⚠️ Main actions succeeded but verifications failed - attempting retry actions")
+                        
+                        # Execute retry actions as main actions (no retry/failure for retry)
+                        retry_result = self.device.action_executor.execute_actions(
+                            actions=retry_actions,
+                            retry_actions=[],  # No nested retries
+                            failure_actions=[],  # No failure actions for retry attempt
+                            team_id=team_id,
+                            context=context
+                        )
+                        
+                        # Track retry action timestamp
+                        if retry_result.get('results'):
+                            last_retry_action = retry_result['results'][-1]
+                            last_retry_timestamp = last_retry_action.get('action_timestamp')
+                            if last_retry_timestamp:
+                                nav_context['last_action_timestamp'] = last_retry_timestamp
+                        
+                        # Re-execute verifications after retry actions
+                        if retry_result.get('success', False):
+                            print(f"[@navigation_executor:execute_navigation] Retry actions succeeded - re-executing verifications")
+                            verification_result = self.device.verification_executor.execute_verifications(
+                                verifications=step_verifications,
+                                userinterface_name=userinterface_name,
+                                team_id=team_id,
+                                tree_id=tree_id,
+                                node_id=step.get('to_node_id'),
+                                context=context
+                            )
+                            print(f"[@navigation_executor:execute_navigation] Post-retry verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
+                            
+                            # Update result to reflect retry success
+                            if verification_result.get('success', True):
+                                print(f"[@navigation_executor:execute_navigation] ✅ Retry actions + verifications succeeded")
+                                result = retry_result  # Use retry result for KPI tracking
+                        else:
+                            print(f"[@navigation_executor:execute_navigation] ❌ Retry actions failed - verification remains failed")
                 
                 step_execution_time = int((time.time() - step_start_time) * 1000)
                 
