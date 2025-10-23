@@ -270,9 +270,10 @@ export const useNode = (props?: UseNodeProps) => {
 
       // Use current position and root tree from context
       const startingNodeId = currentNodeId ?? null;
+      const treeId = rootTreeId || props.treeId;
       
       // Check cache first (always use root tree for pathfinding)
-      const cached = getCachedPreview(rootTreeId!, startingNodeId, selectedNode.id);
+      const cached = getCachedPreview(treeId, startingNodeId, selectedNode.id);
       if (cached) {
         setNavigationTransitions(cached);
         if (shouldUpdateMinimap) {
@@ -285,8 +286,7 @@ export const useNode = (props?: UseNodeProps) => {
       setNavigationError(null);
 
       try {
-        // Use buildServerUrl to ensure team_id is automatically included (same as preview)
-        const baseUrl = buildServerUrl(`/server/navigation/preview/${rootTreeId!}/${selectedNode.id}`);
+        const baseUrl = buildServerUrl(`/server/navigation/preview/${treeId}/${selectedNode.id}`);
         const url = new URL(baseUrl);
 
         // Add required host_name parameter from props (same as execution)
@@ -312,8 +312,7 @@ export const useNode = (props?: UseNodeProps) => {
           const transitions = result.transitions || [];
           setNavigationTransitions(transitions);
           
-          // Cache the result using root tree
-          cachePreview(rootTreeId!, startingNodeId, selectedNode.id, transitions);
+          cachePreview(treeId, startingNodeId, selectedNode.id, transitions);
 
           // Only update minimap indicators if explicitly requested (during execution)
           if (shouldUpdateMinimap) {
@@ -367,9 +366,10 @@ export const useNode = (props?: UseNodeProps) => {
         resetNodeVerificationColors(currentNodeId);
       }
 
+      const treeId = rootTreeId || props.treeId;
+
       try {
-        // Use root tree for execution and build URL with team_id
-        const executionUrl = buildServerUrl(`/server/navigation/execute/${rootTreeId!}/${selectedNode.id}`);
+        const executionUrl = buildServerUrl(`/server/navigation/execute/${treeId}/${selectedNode.id}`);
         
         const result = await fetch(
           executionUrl,
