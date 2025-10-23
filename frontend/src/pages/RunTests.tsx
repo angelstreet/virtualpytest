@@ -216,6 +216,11 @@ const RunTests: React.FC = () => {
     return allDevices;
   };
 
+  // Check if a specific device is currently executing
+  const isDeviceExecuting = (hostName: string, deviceId: string): boolean => {
+    return executingIds.some(id => id.includes(`${hostName}_${deviceId}`));
+  };
+
   // Load available scripts from virtualpytest/scripts folder
   useEffect(() => {
     const loadScripts = async () => {
@@ -756,11 +761,26 @@ const RunTests: React.FC = () => {
                           onChange={(e) => setSelectedDevice(e.target.value)}
                           disabled={!selectedHost || getAvailableDevicesForSelection().length === 0}
                         >
-                          {getAvailableDevicesForSelection().map((device) => (
-                            <MenuItem key={device.device_id} value={device.device_id}>
-                              {device.device_name || device.device_id}
-                            </MenuItem>
-                          ))}
+                          {getAvailableDevicesForSelection().map((device) => {
+                            const deviceIsExecuting = isDeviceExecuting(selectedHost, device.device_id);
+                            return (
+                              <MenuItem 
+                                key={device.device_id} 
+                                value={device.device_id}
+                                disabled={deviceIsExecuting}
+                              >
+                                {device.device_name || device.device_id}
+                                {deviceIsExecuting && (
+                                  <Chip 
+                                    label="Executing" 
+                                    size="small" 
+                                    color="warning" 
+                                    sx={{ ml: 1, fontSize: '0.7rem', height: '18px' }} 
+                                  />
+                                )}
+                              </MenuItem>
+                            );
+                          })}
                         </Select>
                       </FormControl>
                     </Box>
@@ -800,7 +820,12 @@ const RunTests: React.FC = () => {
                               setSelectedDevice('');
                             }
                           }}
-                          disabled={!selectedHost || !selectedDevice || (scriptDeclaresUserinterface && !parameterValues['userinterface_name'])}
+                          disabled={
+                            !selectedHost || 
+                            !selectedDevice || 
+                            (scriptDeclaresUserinterface && !parameterValues['userinterface_name']) ||
+                            isDeviceExecuting(selectedHost, selectedDevice) // Prevent adding device that's currently executing
+                          }
                           size="small"
                         >
                           Add Device
@@ -928,8 +953,10 @@ const RunTests: React.FC = () => {
                       startIcon={isExecuting ? <CircularProgress size={16} /> : <ScriptIcon />}
                       onClick={handleExecuteScript}
                       disabled={
-                        isExecuting ||  // EXECUTION LOCK: Prevent new executions while any are running
-                        ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||  // Need at least one device
+                        // Check if selected device is currently executing
+                        (selectedHost && selectedDevice && isDeviceExecuting(selectedHost, selectedDevice)) ||
+                        // Need at least one device
+                        ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||
                         !selectedScript ||
                         loadingScripts ||
                         !validateParameters().valid
