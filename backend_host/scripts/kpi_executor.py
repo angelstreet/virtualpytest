@@ -65,6 +65,14 @@ class KPIMeasurementRequest:
         self.kpi_timestamp = data.get('kpi_timestamp')
         self.last_action_wait_ms = data.get('last_action_wait_ms', 0)
         self.request_file = data.get('_request_file')  # Track source file
+        # Extended metadata for report
+        self.host_name = data.get('host_name')
+        self.device_name = data.get('device_name')
+        self.tree_id = data.get('tree_id')
+        self.action_set_id = data.get('action_set_id')
+        self.from_node_label = data.get('from_node_label')
+        self.to_node_label = data.get('to_node_label')
+        self.last_action = data.get('last_action')
 
 
 class KPIExecutorService:
@@ -709,7 +717,15 @@ class KPIExecutorService:
                 execution_result_id=request.execution_result_id[:12],
                 action_timestamp=action_timestamp_full,
                 match_timestamp=match_timestamp_full,
-                scan_window=f"{scan_window:.2f}"
+                scan_window=f"{scan_window:.2f}",
+                # Extended metadata
+                host_name=request.host_name or 'N/A',
+                device_model=request.device_model or 'N/A',
+                tree_id=(request.tree_id[:8] if request.tree_id else 'N/A'),
+                action_set_id=(request.action_set_id[:8] if request.action_set_id else 'N/A'),
+                from_node_label=request.from_node_label or 'N/A',
+                to_node_label=request.to_node_label or 'N/A',
+                last_action=request.last_action or 'N/A'
             )
             
             # Upload HTML to R2

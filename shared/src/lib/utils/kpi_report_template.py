@@ -34,19 +34,30 @@ def create_kpi_report_template() -> str:
         .header {{
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
-            padding: 30px;
+            padding: 20px 30px;
         }}
         
         .header h1 {{
             font-size: 36px;
-            margin: 0 0 15px 0;
+            margin: 0 0 10px 0;
             font-weight: 600;
         }}
         
         .header .meta {{
-            font-size: 15px;
+            font-size: 14px;
             opacity: 0.95;
-            line-height: 1.6;
+            line-height: 1.8;
+            margin: 10px 0 5px 0;
+        }}
+        
+        .header .meta-line {{
+            margin: 3px 0;
+            font-size: 13px;
+        }}
+        
+        .header .meta-inline {{
+            display: inline-block;
+            margin-right: 20px;
         }}
         
         .content {{
@@ -213,13 +224,20 @@ def create_kpi_report_template() -> str:
         <div class="header">
             <h1>✓ KPI: {kpi_ms}ms</h1>
             <div class="meta">
-                <strong>Device:</strong> {device_name} &nbsp;|&nbsp; <strong>Navigation:</strong> {navigation_path} &nbsp;|&nbsp; <strong>Algorithm:</strong> {algorithm} &nbsp;|&nbsp; <strong>Captures Scanned:</strong> {captures_scanned}
+                <div class="meta-line">
+                    <strong>Navigation:</strong> {from_node_label} → {to_node_label} &nbsp;|&nbsp; <strong>Last Action:</strong> {last_action}
+                </div>
+                <div class="meta-line">
+                    <strong>Host:</strong> {host_name} &nbsp;|&nbsp; <strong>Device:</strong> {device_name} ({device_model}) &nbsp;|&nbsp; <strong>UI:</strong> {navigation_path}
+                </div>
+                <div class="meta-line">
+                    <strong>Tree:</strong> {tree_id} &nbsp;|&nbsp; <strong>Action Set:</strong> {action_set_id} &nbsp;|&nbsp; <strong>Algorithm:</strong> {algorithm} &nbsp;|&nbsp; <strong>Scanned:</strong> {captures_scanned} frames
+                </div>
             </div>
         </div>
         
         <div class="content">
             <div class="section">
-                <h2>📸 Evidence</h2>
                 <div class="thumbnails">
                     <div class="thumb-card">
                         <h3>Action Time</h3>

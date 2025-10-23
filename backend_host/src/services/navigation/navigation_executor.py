@@ -1652,7 +1652,15 @@ class NavigationExecutor:
                 'device_id': self.device_id,
                 'device_model': self.device_model,
                 'userinterface_name': userinterface_name,  # MANDATORY for reference resolution
-                'last_action_wait_ms': last_action_wait_ms
+                'last_action_wait_ms': last_action_wait_ms,
+                # Extended metadata for report
+                'host_name': self.host_name,
+                'device_name': self.device_name,
+                'tree_id': edge_tree_id,
+                'action_set_id': step.get('action_set_id'),
+                'from_node_label': step.get('from_node_label'),
+                'to_node_label': step.get('to_node_label'),
+                'last_action': step.get('last_action')  # Last action pressed
             }
             
             # Write to JSON file queue for standalone KPI executor service (atomic write for inotify)
