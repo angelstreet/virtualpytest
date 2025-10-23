@@ -569,21 +569,6 @@ class TextVerificationController:
             results_dir = os.path.join(cold_captures_path, 'verification_results')
             os.makedirs(results_dir, exist_ok=True)
             
-            # Clean up old text verification result images before creating new ones
-            try:
-                import glob
-                old_files = glob.glob(f'{results_dir}/text_source_image_*.png')
-                if old_files:
-                    print(f"[@controller:TextVerification] Cleaning up {len(old_files)} old text verification result images")
-                    for old_file in old_files:
-                        try:
-                            os.remove(old_file)
-                        except Exception as e:
-                            print(f"[@controller:TextVerification] Warning: Failed to delete {old_file}: {e}")
-                    print(f"[@controller:TextVerification] Cleanup complete")
-            except Exception as e:
-                print(f"[@controller:TextVerification] Warning: Cleanup failed: {e}")
-            
             # Create result file path with UNIQUE timestamp to avoid browser caching
             timestamp = int(time.time() * 1000)  # milliseconds
             cropped_result_path = f'{results_dir}/text_source_image_{verification_index}_{timestamp}.png'
