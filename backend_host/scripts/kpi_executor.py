@@ -73,6 +73,7 @@ class KPIMeasurementRequest:
         self.from_node_label = data.get('from_node_label')
         self.to_node_label = data.get('to_node_label')
         self.last_action = data.get('last_action')
+        self.action_screenshot_path = data.get('action_screenshot_path')  # ✅ NEW: Screenshot from action_executor
 
 
 class KPIExecutorService:
@@ -480,6 +481,8 @@ class KPIExecutorService:
                 'success': True,
                 'timestamp': all_captures[early_idx]['timestamp'],
                 'capture_path': all_captures[early_idx]['path'],
+                'capture_index': early_idx,  # ✅ Return index for thumbnail selection
+                'all_captures': all_captures,  # ✅ Return full list for before/match selection
                 'captures_scanned': captures_scanned,
                 'error': None,
                 'algorithm': 'quick_check_early'
@@ -552,6 +555,8 @@ class KPIExecutorService:
                         'success': True,
                         'timestamp': earliest_match['timestamp'],
                         'capture_path': earliest_match['capture_path'],
+                        'capture_index': earliest_match['index'],  # ✅ Return index for thumbnail selection
+                        'all_captures': all_captures,  # ✅ Return full list for before/match selection
                         'captures_scanned': captures_scanned,
                         'error': None,
                         'algorithm': 'backward_scan_step2'
@@ -592,6 +597,8 @@ class KPIExecutorService:
                 'success': True,
                 'timestamp': earliest_match['timestamp'],
                 'capture_path': earliest_match['capture_path'],
+                'capture_index': earliest_match['index'],  # ✅ Return index for thumbnail selection
+                'all_captures': all_captures,  # ✅ Return full list for before/match selection
                 'captures_scanned': captures_scanned,
                 'error': None,
                 'algorithm': 'backward_scan_step2'
@@ -606,6 +613,8 @@ class KPIExecutorService:
         return {
             'success': False,
             'timestamp': None,
+            'capture_index': None,  # ✅ Include for consistency
+            'all_captures': all_captures,  # ✅ Include for consistency (even on failure)
             'captures_scanned': captures_scanned,
             'error': error_msg,
             'algorithm': 'exhaustive_search_failed'
@@ -654,20 +663,60 @@ class KPIExecutorService:
                 logger.warning(f"⚠️  Working directory not found: {working_dir}")
                 return None
             
-            # Find 3 thumbnails
-            action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
-            before_match_ts = match_result['timestamp'] - 0.6  # ~3 frames before at 5fps
-            before_thumb = self._find_closest_thumbnail(working_dir, before_match_ts)
-            match_thumb = self._find_closest_thumbnail(working_dir, match_result['timestamp'])
+            # Find 3 thumbnails using INDEX-BASED selection (not timestamp search!)
+            # This guarantees before ≠ match (unless match is first frame)
+            match_index = match_result.get('capture_index')
+            all_captures = match_result.get('all_captures', [])
             
-            if not all([action_thumb, before_thumb, match_thumb]):
-                logger.warning(f"⚠️  Could not find all thumbnails (action={bool(action_thumb)}, before={bool(before_thumb)}, match={bool(match_thumb)})")
+            if match_index is None or not all_captures:
+                logger.error(f"❌ No capture_index or all_captures in match_result")
                 return None
             
-            logger.info(f"✓ Found all 3 thumbnails in working directory")
-            logger.info(f"   • Action: {os.path.basename(action_thumb)}")
-            logger.info(f"   • Before: {os.path.basename(before_thumb)}")
-            logger.info(f"   • Match: {os.path.basename(match_thumb)}")
+            # Get match capture (the one that passed verification)
+            match_capture = all_captures[match_index]
+            match_capture_filename = os.path.basename(match_capture['path'])
+            match_thumb_filename = match_capture_filename.replace('.jpg', '_thumbnail.jpg')
+            match_thumb = os.path.join(working_dir, match_thumb_filename)
+            
+            # Get before capture (match - 1, or match if it's the first frame)
+            before_index = max(0, match_index - 1)
+            before_capture = all_captures[before_index]
+            before_capture_filename = os.path.basename(before_capture['path'])
+            before_thumb_filename = before_capture_filename.replace('.jpg', '_thumbnail.jpg')
+            before_thumb = os.path.join(working_dir, before_thumb_filename)
+            
+            # Get action thumbnail - use provided screenshot from action_executor if available
+            if request.action_screenshot_path and os.path.exists(request.action_screenshot_path):
+                # Copy the provided action screenshot to working directory
+                action_screenshot_filename = os.path.basename(request.action_screenshot_path)
+                action_thumb = os.path.join(working_dir, action_screenshot_filename)
+                shutil.copy2(request.action_screenshot_path, action_thumb)
+                logger.info(f"   • Action: {action_screenshot_filename} (from action_executor) ✅")
+            else:
+                # Fallback: Find closest thumbnail by timestamp (old behavior)
+                action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
+                if action_thumb:
+                    logger.info(f"   • Action: {os.path.basename(action_thumb)} (timestamp search - fallback)")
+                else:
+                    logger.warning(f"⚠️  No action screenshot provided and timestamp search failed")
+            
+            # Verify all thumbnails exist
+            if not os.path.exists(match_thumb):
+                logger.warning(f"⚠️  Match thumbnail not found: {match_thumb_filename}")
+                return None
+            if not os.path.exists(before_thumb):
+                logger.warning(f"⚠️  Before thumbnail not found: {before_thumb_filename}")
+                return None
+            if not action_thumb or not os.path.exists(action_thumb):
+                logger.warning(f"⚠️  Action thumbnail not found")
+                return None
+            
+            logger.info(f"✓ Found all 3 thumbnails (index-based selection)")
+            logger.info(f"   • Before: {before_thumb_filename} (index {before_index})")
+            logger.info(f"   • Match: {match_thumb_filename} (index {match_index})")
+            
+            # Calculate timestamps for display
+            before_time_ts = before_capture['timestamp']
             
             # Upload thumbnails to R2
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
@@ -683,16 +732,18 @@ class KPIExecutorService:
                 return None
             
             # Handle deduplication for very fast KPIs (same image used multiple times)
+            # NOTE: With index-based selection, before and match should NEVER be the same
+            # unless match is at index 0 (first frame)
             if len(thumb_urls) < 3:
                 single_url = list(thumb_urls.values())[0]
                 thumb_urls = {'action': single_url, 'before': single_url, 'match': single_url}
-                logger.info(f"✓ Uploaded 1 thumbnail to R2 (same image used for all 3 - very fast KPI)")
+                logger.info(f"✓ Uploaded 1 thumbnail to R2 (deduplicated - likely all same file)")
             else:
-                logger.info(f"✓ Uploaded 3 thumbnails to R2")
+                logger.info(f"✓ Uploaded {len(thumb_urls)} thumbnails to R2")
             
-            # Format timestamps for display
+            # Format timestamps for display using actual capture timestamps
             action_time = datetime.fromtimestamp(request.action_timestamp).strftime('%H:%M:%S.%f')[:-3]
-            before_time = datetime.fromtimestamp(before_match_ts).strftime('%H:%M:%S.%f')[:-3]
+            before_time = datetime.fromtimestamp(before_time_ts).strftime('%H:%M:%S.%f')[:-3]
             match_time = datetime.fromtimestamp(match_result['timestamp']).strftime('%H:%M:%S.%f')[:-3]
             action_timestamp_full = datetime.fromtimestamp(request.action_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
             match_timestamp_full = datetime.fromtimestamp(match_result['timestamp']).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
