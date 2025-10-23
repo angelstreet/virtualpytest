@@ -20,7 +20,7 @@ def get_supabase():
     return get_supabase_client()
 
 def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
-    """Clear cache when tree is modified"""
+    """Clear cache when tree is modified - includes materialized view refresh"""
     try:
         from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
         # Get interface name for this tree
@@ -35,6 +35,14 @@ def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
                     print(f"[@cache_invalidation] Clearing cache for interface: {interface_name}, tree: {tree_id}")
                     # Clear existing cache
                     clear_unified_cache(tree_id, team_id)
+        
+        # CRITICAL: Refresh materialized view to ensure latest data is served
+        try:
+            supabase = get_supabase()
+            supabase.rpc('refresh_tree_cache_mv', {'p_tree_id': tree_id}).execute()
+            print(f"[@cache_invalidation] ✅ Refreshed materialized view for tree: {tree_id}")
+        except Exception as mv_error:
+            print(f"[@cache_invalidation] Warning: Could not refresh materialized view: {mv_error}")
     except Exception as e:
         print(f"[@cache_invalidation] Error: {e}")
         import traceback
