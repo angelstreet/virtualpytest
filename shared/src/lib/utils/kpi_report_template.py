@@ -34,25 +34,25 @@ def create_kpi_report_template() -> str:
         .header {{
             background: linear-gradient(135deg, #4CAF50 0%, #45a049 100%);
             color: white;
-            padding: 20px 30px;
+            padding: 15px 25px;
         }}
         
         .header h1 {{
-            font-size: 36px;
-            margin: 0 0 10px 0;
+            font-size: 28px;
+            margin: 0 0 8px 0;
             font-weight: 600;
         }}
         
         .header .meta {{
-            font-size: 14px;
+            font-size: 13px;
             opacity: 0.95;
-            line-height: 1.8;
-            margin: 10px 0 5px 0;
+            line-height: 1.6;
+            margin: 5px 0 0 0;
         }}
         
         .header .meta-line {{
-            margin: 3px 0;
-            font-size: 13px;
+            margin: 2px 0;
+            font-size: 12px;
         }}
         
         .header .meta-inline {{
@@ -222,7 +222,7 @@ def create_kpi_report_template() -> str:
 <body>
     <div class="container">
         <div class="header">
-            <h1>✓ KPI: {kpi_ms}ms</h1>
+            <h1>✓ KPI: <span id="kpiDisplay" data-ms="{kpi_ms}">{kpi_ms}ms</span></h1>
             <div class="meta">
                 <div class="meta-line">
                     <strong>Navigation:</strong> {from_node_label} → {to_node_label} &nbsp;|&nbsp; <strong>Last Action:</strong> {last_action}
@@ -303,6 +303,25 @@ def create_kpi_report_template() -> str:
     </div>
     
     <script>
+        // Format milliseconds to mm:ss:ms
+        function formatKPI() {{
+            const kpiEl = document.getElementById('kpiDisplay');
+            const ms = parseInt(kpiEl.dataset.ms);
+            
+            const minutes = Math.floor(ms / 60000);
+            const seconds = Math.floor((ms % 60000) / 1000);
+            const milliseconds = ms % 1000;
+            
+            const formatted = String(minutes).padStart(2, '0') + ':' + 
+                            String(seconds).padStart(2, '0') + ':' + 
+                            String(milliseconds).padStart(3, '0');
+            
+            kpiEl.textContent = formatted;
+        }}
+        
+        // Format on page load
+        formatKPI();
+        
         function openModal(src) {{
             event.stopPropagation();
             document.getElementById('modal').classList.add('active');

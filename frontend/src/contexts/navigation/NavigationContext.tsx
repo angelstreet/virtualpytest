@@ -1126,11 +1126,10 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            setError(null);
 
                     // Convert frontend format to normalized format with current canvas positions
-          // FILTER OUT parent reference nodes - they should not be saved to database
-          const nodesToSave = nodes.filter(node => !node.data.isParentReference);
-          const filteredOutCount = nodes.length - nodesToSave.length;
+          // DO NOT filter parent references - they are real nodes in the subtree with their own positions
+          const nodesToSave = nodes; // Save all nodes including parent references
           
-          console.log(`[@NavigationContext] Bulk saving tree with ${nodesToSave.length} nodes (filtered out ${filteredOutCount} parent references)`);
+          console.log(`[@NavigationContext] Bulk saving tree with ${nodesToSave.length} nodes (all nodes including parent references)`);
           
           // Helper to compare if node has changed
           const hasNodeChanged = (node: any, initialNode: any) => {
@@ -1144,14 +1143,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             const typeChanged = node.type !== initialNode.type;
             const verificationsChanged = JSON.stringify(node.data.verifications) !== JSON.stringify(initialNode.data.verifications);
             
+            // DETAILED LOGGING for debugging
+            console.log(`[@NavigationContext:hasNodeChanged] Comparing node ${node.id} (${node.data.label}):`, {
+              currentPos: `(${node.position?.x}, ${node.position?.y})`,
+              initialPos: `(${initialNode.position?.x}, ${initialNode.position?.y})`,
+              posChanged,
+              labelChanged,
+              descChanged,
+              typeChanged,
+              verificationsChanged
+            });
+            
             if (posChanged || labelChanged || descChanged || typeChanged || verificationsChanged) {
-              console.log(`[@NavigationContext:hasNodeChanged] Node ${node.id} CHANGED:`, {
-                position: posChanged ? `(${initialNode.position?.x}, ${initialNode.position?.y}) -> (${node.position?.x}, ${node.position?.y})` : 'unchanged',
-                label: labelChanged,
-                description: descChanged,
-                type: typeChanged,
-                verifications: verificationsChanged
-              });
               return true;
             }
             return false;
@@ -1170,7 +1173,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             );
           };
           
-          // Create lookup maps for initial state
+          // Create lookup maps for initial state - include all nodes (parent references are real nodes)
           const initialNodesMap = new Map(initialState?.nodes?.map(n => [n.id, n]) || []);
           const initialEdgesMap = new Map(initialState?.edges?.map(e => [e.id, e]) || []);
           
