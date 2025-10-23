@@ -879,22 +879,34 @@ class KPIExecutorService:
             if request.verification_evidence_list:
                 from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
                 
+                logger.info(f"📸 Processing {len(request.verification_evidence_list)} verification evidence items")
+                
                 # Collect all verification evidence images for upload
                 verification_images = {}
                 for i, evidence in enumerate(request.verification_evidence_list):
                     ref_path = evidence.get('reference_image_path')
                     src_path = evidence.get('source_image_path')
                     
+                    logger.info(f"🔍 Evidence {i}:")
+                    logger.info(f"   • source_image_path: {src_path}")
+                    logger.info(f"   • source exists: {os.path.exists(src_path) if src_path else 'N/A'}")
+                    
                     if ref_path and os.path.exists(ref_path):
                         verification_images[f'verif_{i}_reference'] = ref_path
                     if src_path and os.path.exists(src_path):
                         verification_images[f'verif_{i}_source'] = src_path
+                        logger.info(f"   ✅ Source added to upload queue")
                 
                 # Upload all verification images
                 verif_urls = {}
                 if verification_images:
+                    logger.info(f"📦 Uploading {len(verification_images)} verification evidence images to R2...")
                     verif_urls = upload_kpi_thumbnails(verification_images, request.execution_result_id, timestamp)
-                    logger.info(f"📦 Uploaded {len(verification_images)} verification evidence images")
+                    logger.info(f"✅ Upload complete! Got {len(verif_urls)} R2 URLs")
+                    
+                    # Log each uploaded URL
+                    for key, url in verif_urls.items():
+                        logger.info(f"   • {key}: {url[:80]}..." if len(url) > 80 else f"   • {key}: {url}")
                 
                 # Generate HTML cards for each verification
                 from shared.src.lib.utils.kpi_report_template import create_verification_card
@@ -903,6 +915,10 @@ class KPIExecutorService:
                     evidence_with_urls = evidence.copy()
                     evidence_with_urls['reference_url'] = verif_urls.get(f'verif_{i}_reference', '')
                     evidence_with_urls['source_url'] = verif_urls.get(f'verif_{i}_source', '')
+                    
+                    logger.info(f"📄 Verification card {i+1}:")
+                    logger.info(f"   • reference_url: {evidence_with_urls['reference_url'][:60]}..." if len(evidence_with_urls.get('reference_url', '')) > 60 else f"   • reference_url: {evidence_with_urls.get('reference_url', 'N/A')}")
+                    logger.info(f"   • source_url: {evidence_with_urls['source_url'][:60]}..." if len(evidence_with_urls.get('source_url', '')) > 60 else f"   • source_url: {evidence_with_urls.get('source_url', 'N/A')}")
                     
                     # Generate card HTML
                     card_html = create_verification_card(i + 1, evidence_with_urls)
