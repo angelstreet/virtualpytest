@@ -881,7 +881,6 @@ class ImageVerificationController:
             # Generate UNIQUE filenames using timestamp to avoid browser caching issues
             timestamp = int(time.time() * 1000)  # milliseconds
             source_result_path = f'{results_dir}/source_image_{verification_index}_{timestamp}.png'
-            reference_result_path = f'{results_dir}/reference_image_{verification_index}_{timestamp}.png'
             overlay_result_path = f'{results_dir}/result_overlay_{verification_index}_{timestamp}.png'
             
             # === STEP 1: Handle Source Image ===
@@ -895,21 +894,16 @@ class ImageVerificationController:
             if image_filter and image_filter != 'none':
                 self.helpers.apply_image_filter(source_result_path, image_filter)
             
-            # === STEP 2: Handle Reference Image ===
+            # === STEP 3: Determine Reference Image Path (No Copying) ===
             reference_image_for_overlay = reference_path
-            if area:
-                if not self.helpers.crop_image_to_area(reference_path, reference_result_path, area):
-                    return {}
-                reference_image_for_overlay = reference_result_path
-            else:
-                self.helpers.copy_image_file(reference_path, reference_result_path)
-                reference_image_for_overlay = reference_result_path
-            
             if image_filter and image_filter != 'none':
-                self.helpers.apply_image_filter(reference_result_path, image_filter)
-                reference_image_for_overlay = reference_result_path
+                base_path, ext = os.path.splitext(reference_path)
+                filtered_reference_path = f"{base_path}_{image_filter}{ext}"
+                
+                if os.path.exists(filtered_reference_path):
+                    reference_image_for_overlay = filtered_reference_path
             
-            # === STEP 3: Create Overlay ===
+            # === STEP 4: Create Overlay ===
             source_img = cv2.imread(source_result_path)
             if source_img is None:
                 return {}
@@ -924,10 +918,11 @@ class ImageVerificationController:
             else:
                 return {}
             
+            # Return paths - NO reference_image_path since we don't create a copy
             return {
-                "reference_image_path": reference_result_path,
                 "source_image_path": source_result_path,
                 "result_overlay_path": overlay_result_path
+                # NOTE: reference_image_path removed - use reference_image_url from waitForImageToAppear instead
             }
             
         except Exception as e:
