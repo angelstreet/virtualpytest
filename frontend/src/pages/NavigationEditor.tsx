@@ -665,7 +665,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       addNewNode('screen', { x: 250, y: 250 });
     }, [addNewNode]);
 
-
+    // Wrap onNodesChange to track position changes as unsaved changes
+    const wrappedOnNodesChange = useCallback(
+      (changes: any) => {
+        onNodesChange(changes);
+        // Check if any change is a position change
+        const hasPositionChange = changes.some((change: any) => change.type === 'position' && change.dragging === false);
+        if (hasPositionChange) {
+          setHasUnsavedChanges(true);
+        }
+      },
+      [onNodesChange, setHasUnsavedChanges]
+    );
 
     // ========================================
     // 7. RENDER
@@ -781,7 +792,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 <ReactFlow
                   nodes={nodes}
                   edges={edges}
-                  onNodesChange={onNodesChange}
+                  onNodesChange={wrappedOnNodesChange}
                   onEdgesChange={onEdgesChange}
                   onConnect={onConnect}
                   onNodeClick={wrappedOnNodeClick}
