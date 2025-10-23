@@ -24,7 +24,7 @@ export interface UseNodeProps {
 }
 
 export const useNode = (props?: UseNodeProps) => {
-  console.log('[@useNode] Hook initialized with props:', props);
+  // Debug logging removed - was causing noise on every re-render
   
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
   const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, parentChain, userInterface } =
