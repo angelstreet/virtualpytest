@@ -147,7 +147,7 @@ export const useNavigationEditor = () => {
           
           if (navigation.parentChain.length === 0) {
             navigation.addToParentChain({ 
-              treeId: userInterfaceId, 
+              treeId: result.tree.id, 
               treeName: result.tree.name || userInterfaceId,
               nodes: frontendNodes, 
               edges: frontendEdges 
