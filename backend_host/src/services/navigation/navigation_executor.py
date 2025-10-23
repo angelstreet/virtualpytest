@@ -839,9 +839,9 @@ class NavigationExecutor:
                     # Get actual action completion timestamp from navigation context
                     nav_context = self.device.navigation_context
                     action_completion_timestamp = nav_context.get('last_action_timestamp', step_start_time)
-                    # Get action screenshots (before + after)
+                    # Get action screenshots: before-action from separate field, after-action from screenshot list
+                    before_action_screenshot = result.get('before_action_screenshot')  # From separate field (not in validation report)
                     action_screenshots = result.get('action_screenshots', [])
-                    before_action_screenshot = action_screenshots[0] if len(action_screenshots) > 0 else None
                     after_action_screenshot = action_screenshots[-1] if len(action_screenshots) > 0 else None
                     # Get action details from last action result for KPI report
                     action_details = None
