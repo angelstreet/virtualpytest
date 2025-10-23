@@ -244,13 +244,14 @@ class ActionExecutor:
         main_actions_failed = False
         
         # Capture "before action" screenshot BEFORE executing last action (for KPI report)
-        # Don't add to context - only for KPI internal use
+        # Store separately - DON'T add to action_screenshots (which is used for validation report counting)
+        before_action_screenshot = ""
         if valid_actions:
             from shared.src.lib.utils.device_utils import capture_screenshot
             before_action_screenshot = capture_screenshot(self.device, context=None) or ""
             if before_action_screenshot:
-                self.action_screenshots.append(before_action_screenshot)
-                print(f"[@lib:action_executor:execute_actions] 📸 Captured before-action screenshot (for KPI)")
+                # Store in separate variable for KPI use - not in action_screenshots list
+                print(f"[@lib:action_executor:execute_actions] 📸 Captured before-action screenshot (for KPI, not for validation report)")
         
         for i, action in enumerate(valid_actions):
             result = self._execute_single_action(action, execution_order, i+1, 'main', team_id, context)
@@ -337,7 +338,8 @@ class ActionExecutor:
             'passed_count': passed_count,
             'failed_count': len(valid_actions) - passed_count,
             'results': results,
-            'action_screenshots': self.action_screenshots,  # NEW: Include screenshots
+            'action_screenshots': self.action_screenshots,  # Only actual action screenshots (for validation report)
+            'before_action_screenshot': before_action_screenshot,  # Separate for KPI use only
             'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
             'error': error_message,
             'execution_time_ms': total_execution_time,
