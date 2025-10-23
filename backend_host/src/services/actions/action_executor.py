@@ -244,9 +244,10 @@ class ActionExecutor:
         main_actions_failed = False
         
         # Capture "before action" screenshot BEFORE executing last action (for KPI report)
+        # Don't add to context - only for KPI internal use
         if valid_actions:
             from shared.src.lib.utils.device_utils import capture_screenshot
-            before_action_screenshot = capture_screenshot(self.device, context) or ""
+            before_action_screenshot = capture_screenshot(self.device, context=None) or ""
             if before_action_screenshot:
                 self.action_screenshots.append(before_action_screenshot)
                 print(f"[@lib:action_executor:execute_actions] 📸 Captured before-action screenshot (for KPI)")
