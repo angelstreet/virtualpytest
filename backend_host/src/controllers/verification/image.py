@@ -857,9 +857,8 @@ class ImageVerificationController:
     def _generate_comparison_images(self, source_path: str, reference_path: str, area: dict = None, 
                                    verification_index: int = 0, image_filter: str = 'none') -> dict:
         """
-        Generate comparison images and return local file paths.
-        Only creates source image and overlay - does NOT copy reference image.
-        Route will handle URL building.
+        Generate comparison images, upload to R2 immediately, and return R2 URLs.
+        This ensures cropped images are permanently available for KPI reports.
         """
         try:
             # Use predefined verification results directory
@@ -894,8 +893,10 @@ class ImageVerificationController:
             if image_filter and image_filter != 'none':
                 self.helpers.apply_image_filter(source_result_path, image_filter)
             
-            # === STEP 3: Determine Reference Image Path (No Copying) ===
+            # === STEP 2: Crop Reference Image (for overlay and upload) ===
+            reference_cropped_path = f'{results_dir}/reference_image_{verification_index}_{timestamp}.png'
             reference_image_for_overlay = reference_path
+            
             if image_filter and image_filter != 'none':
                 base_path, ext = os.path.splitext(reference_path)
                 filtered_reference_path = f"{base_path}_{image_filter}{ext}"
@@ -903,12 +904,20 @@ class ImageVerificationController:
                 if os.path.exists(filtered_reference_path):
                     reference_image_for_overlay = filtered_reference_path
             
-            # === STEP 4: Create Overlay ===
+            # Crop reference to same area as source (for fair comparison)
+            if area:
+                if not self.helpers.crop_image_to_area(reference_image_for_overlay, reference_cropped_path, area):
+                    # If cropping fails, copy full reference
+                    self.helpers.copy_image_file(reference_image_for_overlay, reference_cropped_path)
+            else:
+                self.helpers.copy_image_file(reference_image_for_overlay, reference_cropped_path)
+            
+            # === STEP 3: Create Overlay ===
             source_img = cv2.imread(source_result_path)
             if source_img is None:
                 return {}
             
-            ref_img = cv2.imread(reference_image_for_overlay)
+            ref_img = cv2.imread(reference_cropped_path)
             if ref_img is None:
                 return {}
             
@@ -918,11 +927,33 @@ class ImageVerificationController:
             else:
                 return {}
             
-            # Return paths - NO reference_image_path since we don't create a copy
+            # === STEP 4: Upload cropped images to R2 immediately ===
+            from shared.src.lib.utils.cloudflare_utils import upload_verification_evidence
+            
+            upload_result = upload_verification_evidence({
+                'reference': reference_cropped_path,
+                'source': source_result_path,
+                'overlay': overlay_result_path
+            }, verification_index, timestamp)
+            
+            if not upload_result.get('success'):
+                print(f"[@controller:ImageVerification] WARNING: Failed to upload to R2: {upload_result.get('error')}")
+                # Continue with local paths as fallback
+                return {
+                    "source_image_path": source_result_path,
+                    "reference_image_path": reference_cropped_path,
+                    "result_overlay_path": overlay_result_path
+                }
+            
+            # Return R2 URLs (permanent) instead of local paths (temporary)
+            r2_urls = upload_result.get('urls', {})
             return {
-                "source_image_path": source_result_path,
-                "result_overlay_path": overlay_result_path
-                # NOTE: reference_image_path removed - use reference_image_url from waitForImageToAppear instead
+                "source_image_path": source_result_path,  # Keep for backward compatibility
+                "reference_image_path": reference_cropped_path,  # Keep for backward compatibility
+                "result_overlay_path": overlay_result_path,  # Keep for backward compatibility
+                "source_image_url": r2_urls.get('source'),  # ✅ R2 URL (permanent)
+                "reference_image_url": r2_urls.get('reference'),  # ✅ R2 URL (permanent)
+                "result_overlay_url": r2_urls.get('overlay')  # ✅ R2 URL (permanent)
             }
             
         except Exception as e:

@@ -877,37 +877,34 @@ class KPIExecutorService:
             verification_count = 0
             
             if request.verification_evidence_list:
-                from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
-                
-                # Collect all verification evidence images for upload
-                verification_images = {}
-                for i, evidence in enumerate(request.verification_evidence_list):
-                    ref_path = evidence.get('reference_image_path')
-                    src_path = evidence.get('source_image_path')
-                    
-                    if ref_path and os.path.exists(ref_path):
-                        verification_images[f'verif_{i}_reference'] = ref_path
-                    if src_path and os.path.exists(src_path):
-                        verification_images[f'verif_{i}_source'] = src_path
-                
-                # Upload all verification images
-                verif_urls = {}
-                if verification_images:
-                    verif_urls = upload_kpi_thumbnails(verification_images, request.execution_result_id, timestamp)
-                    logger.info(f"📦 Uploaded {len(verification_images)} verification evidence images")
-                
-                # Generate HTML cards for each verification
+                # Generate HTML cards for each verification using R2 URLs
                 from shared.src.lib.utils.kpi_report_template import create_verification_card
+                
                 for i, evidence in enumerate(request.verification_evidence_list):
-                    # Build evidence data dict with R2 URLs
-                    evidence_with_urls = evidence.copy()
-                    evidence_with_urls['reference_url'] = verif_urls.get(f'verif_{i}_reference', '')
-                    evidence_with_urls['source_url'] = verif_urls.get(f'verif_{i}_source', '')
+                    # Use R2 URLs directly (already uploaded during verification)
+                    # No need to upload again - they're permanent!
+                    evidence_with_urls = {
+                        'type': evidence.get('type', 'image'),
+                        'command': evidence.get('command', 'N/A'),
+                        'success': evidence.get('success', False),
+                        'reference_url': evidence.get('reference_image_url', ''),  # ✅ Use R2 URL from verification
+                        'source_url': evidence.get('source_image_url', ''),  # ✅ Use R2 URL from verification
+                        'matching_score': evidence.get('matching_score', 0.0),
+                        'threshold': evidence.get('threshold', 0.8),
+                        'area': evidence.get('area', {}),
+                        'image_filter': evidence.get('image_filter', 'none'),
+                        'searched_text': evidence.get('searched_text', ''),
+                        'extracted_text': evidence.get('extracted_text', ''),
+                        'confidence': evidence.get('confidence', 0),
+                        'language': evidence.get('language', 'unknown')
+                    }
                     
                     # Generate card HTML
                     card_html = create_verification_card(i + 1, evidence_with_urls)
                     verification_cards_html += card_html
                     verification_count += 1
+                    
+                logger.info(f"📊 Generated {verification_count} verification evidence cards using R2 URLs")
             
             # Prepare action details for template
             action_command = request.action_details.get('command', 'N/A')

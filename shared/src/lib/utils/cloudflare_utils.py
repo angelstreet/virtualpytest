@@ -901,6 +901,69 @@ def get_script_report_folder_url(device_model: str, script_name: str, timestamp:
     return uploader.get_public_url(folder_path)
 
 
+def upload_verification_evidence(images: Dict[str, str], verification_index: int, timestamp: int) -> Dict:
+    """
+    Upload verification evidence images (cropped reference, source, overlay) to R2 immediately.
+    This ensures images are permanently available for KPI reports even after hot storage rotation.
+    
+    Args:
+        images: Dict with keys ('reference', 'source', 'overlay') pointing to local paths
+        verification_index: Verification index
+        timestamp: Timestamp (milliseconds since epoch)
+        
+    Returns:
+        Dict with 'success': bool, 'urls': Dict with same keys containing R2 URLs
+    """
+    try:
+        uploader = get_cloudflare_utils()
+        
+        # Create file mappings for batch upload
+        file_mappings = []
+        for image_type, local_path in images.items():
+            if local_path and os.path.exists(local_path):
+                logger.info(f"📁 Uploading verification {image_type}: {local_path}")
+                file_ext = os.path.splitext(local_path)[1] or '.png'
+                remote_path = f"verification_evidence/{timestamp}_{verification_index}_{image_type}{file_ext}"
+                file_mappings.append({
+                    'local_path': local_path,
+                    'remote_path': remote_path,
+                    'content_type': 'image/png' if file_ext == '.png' else 'image/jpeg'
+                })
+            else:
+                logger.warning(f"⚠️  Skipping verification {image_type}: file not found at {local_path}")
+        
+        if not file_mappings:
+            logger.warning(f"⚠️  No verification evidence images to upload")
+            return {'success': False, 'error': 'No images to upload'}
+        
+        # Batch upload
+        upload_result = uploader.upload_files(file_mappings)
+        
+        if not upload_result.get('success'):
+            return {'success': False, 'error': upload_result.get('error')}
+        
+        # Extract URLs
+        urls = {}
+        for uploaded in upload_result.get('uploaded_files', []):
+            remote_path = uploaded['remote_path']
+            url = uploaded['url']
+            # Extract type from filename (e.g., "1730000000_0_source.png" → "source")
+            filename = os.path.basename(remote_path)
+            # Format: "timestamp_index_type.png" → extract type
+            parts = filename.split('_')
+            if len(parts) >= 3:
+                image_type = parts[2].split('.')[0]  # Remove extension
+                urls[image_type] = url
+                logger.info(f"✅ Uploaded verification {image_type}: {url}")
+        
+        logger.info(f"✓ Uploaded {len(urls)}/{len(images)} verification evidence images to R2")
+        return {'success': True, 'urls': urls}
+        
+    except Exception as e:
+        logger.error(f"Verification evidence upload failed: {str(e)}")
+        return {'success': False, 'error': str(e)}
+
+
 def upload_kpi_thumbnails(thumbnails: Dict[str, str], execution_result_id: str, timestamp: str) -> Dict:
     """
     Upload KPI thumbnails to R2.
