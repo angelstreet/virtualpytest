@@ -107,6 +107,18 @@ class ScriptExecutionContext:
                     shutil.copy2(screenshot_path, cold_path)
                 screenshot_path = cold_path
             
+            # DEBUG: Log who's adding screenshots to context
+            import traceback
+            caller_stack = traceback.extract_stack()
+            # Get the last 3 stack frames (excluding this function)
+            caller_info = []
+            for frame in caller_stack[-4:-1]:  # -4 to -1 excludes this function
+                caller_info.append(f"{frame.filename.split('/')[-1]}:{frame.lineno} in {frame.name}")
+            
+            screenshot_name = os.path.basename(screenshot_path)
+            print(f"📸 [Context] add_screenshot called: {screenshot_name} (total: {len(self.screenshot_paths)+1})")
+            print(f"   └─ Call stack: {' ← '.join(reversed(caller_info))}")
+            
             self.screenshot_paths.append(screenshot_path)
     
     def upload_screenshots_to_r2(self) -> Dict[str, str]:
