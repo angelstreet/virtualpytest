@@ -36,13 +36,8 @@ def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
                     # Clear existing cache
                     clear_unified_cache(tree_id, team_id)
         
-        # CRITICAL: Refresh materialized view to ensure latest data is served
-        try:
-            supabase = get_supabase()
-            supabase.rpc('refresh_tree_cache_mv', {'p_tree_id': tree_id}).execute()
-            print(f"[@cache_invalidation] ✅ Refreshed materialized view for tree: {tree_id}")
-        except Exception as mv_error:
-            print(f"[@cache_invalidation] Warning: Could not refresh materialized view: {mv_error}")
+        # NOTE: Materialized view (mv_full_navigation_trees) is automatically refreshed by database triggers
+        # on navigation_nodes, navigation_edges, and navigation_trees tables - no manual refresh needed
     except Exception as e:
         print(f"[@cache_invalidation] Error: {e}")
         import traceback
