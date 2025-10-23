@@ -210,10 +210,6 @@ class ActionExecutor:
         # Clear screenshots from previous step - ActionExecutor is reused across navigation steps
         self.action_screenshots = []
         
-        # Clear context screenshots to prevent stale images from previous steps
-        if context and hasattr(context, 'screenshot_paths'):
-            context.screenshot_paths = []
-        
         # Validate inputs
         if not actions:
             return {

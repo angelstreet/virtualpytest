@@ -220,10 +220,6 @@ class VerificationExecutor:
         # Clear screenshots from previous verification batch (VerificationExecutor is a singleton per device)
         self.verification_screenshots = []
         
-        # Clear context screenshots to prevent stale images from previous steps
-        if context and hasattr(context, 'screenshot_paths'):
-            context.screenshot_paths = []
-        
         # Validate inputs
         if not verifications:
             return {
