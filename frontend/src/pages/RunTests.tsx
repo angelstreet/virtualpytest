@@ -331,17 +331,24 @@ const RunTests: React.FC = () => {
     return value;
   };
 
-  const buildParameterString = (deviceHost?: string, deviceId?: string) => {
+  const buildParameterString = (deviceHost?: string, deviceId?: string, deviceUserinterface?: string) => {
     const paramStrings: string[] = [];
 
     // Use provided device info or fall back to selected values
     const targetHost = deviceHost || selectedHost;
     const targetDevice = deviceId || selectedDevice;
+    const targetUserinterface = deviceUserinterface !== undefined ? deviceUserinterface : (parameterValues['userinterface_name'] || '');
 
     // Add parameters from script analysis (includes userinterface_name if script declares it)
     if (scriptAnalysis) {
       scriptAnalysis.parameters.forEach((param) => {
-        const value = parameterValues[param.name]?.trim();
+        // For userinterface_name, use the device-specific value
+        let value: string;
+        if (param.name === 'userinterface_name') {
+          value = targetUserinterface;
+        } else {
+          value = parameterValues[param.name]?.trim() || '';
+        }
         
         // Skip host and device - they're added at the end as --host and --device
         if (param.name === 'host' || param.name === 'device') {
@@ -433,7 +440,7 @@ const RunTests: React.FC = () => {
       scriptName: selectedScript,
       hostName: hostDevice.hostName,
       deviceId: hostDevice.deviceId,
-      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId), // Device-specific parameters
+      parameters: buildParameterString(hostDevice.hostName, hostDevice.deviceId, hostDevice.userinterface), // Device-specific parameters
     }));
 
     // Initialize completion stats
