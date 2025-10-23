@@ -1132,26 +1132,30 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           
           console.log(`[@NavigationContext] Bulk saving tree with ${nodesToSave.length} nodes (filtered out ${filteredOutCount} parent references)`);
           
-          const normalizedNodes = nodesToSave.map(node => ({
-            node_id: node.id,
-            label: node.data.label,
-            position_x: node.position?.x || 0,
-            position_y: node.position?.y || 0,
-            node_type: node.type || 'screen', // Use ReactFlow type field
-            verifications: node.data.verifications || [],
-            data: {
-              // Only include non-verification data to avoid duplication
-              description: node.data.description,
-              screenshot: node.data.screenshot,
-              depth: node.data.depth,
-              parent: node.data.parent,
-              menu_type: node.data.menu_type,
-              priority: node.data.priority,
-              is_root: node.data.is_root,
-              // REMOVED: isParentReference, originalTreeId (frontend-only metadata)
-              // DO NOT include verifications here - they're already at top level
-            }
-          }));
+          const normalizedNodes = nodesToSave.map(node => {
+            const normalized = {
+              node_id: node.id,
+              label: node.data.label,
+              position_x: node.position?.x || 0,
+              position_y: node.position?.y || 0,
+              node_type: node.type || 'screen', // Use ReactFlow type field
+              verifications: node.data.verifications || [],
+              data: {
+                // Only include non-verification data to avoid duplication
+                description: node.data.description,
+                screenshot: node.data.screenshot,
+                depth: node.data.depth,
+                parent: node.data.parent,
+                menu_type: node.data.menu_type,
+                priority: node.data.priority,
+                is_root: node.data.is_root,
+                // REMOVED: isParentReference, originalTreeId (frontend-only metadata)
+                // DO NOT include verifications here - they're already at top level
+              }
+            };
+            console.log(`[@NavigationContext] Saving node ${node.id} (${node.data.label}) at position:`, { x: normalized.position_x, y: normalized.position_y });
+            return normalized;
+          });
 
                      const normalizedEdges = edges.map(edge => ({
             edge_id: edge.id,

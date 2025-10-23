@@ -672,6 +672,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         // Check if any change is a position change
         const hasPositionChange = changes.some((change: any) => change.type === 'position' && change.dragging === false);
         if (hasPositionChange) {
+          console.log('[@NavigationEditor] Node position changed:', changes.filter((c: any) => c.type === 'position'));
           setHasUnsavedChanges(true);
         }
       },
