@@ -16,10 +16,8 @@ def _import_real_supabase():
         filtered_path = [p for p in sys.path if not p.endswith('/virtualpytest') and 'shared/lib' not in p]
         sys.path[:] = filtered_path
         
-        # Import the real supabase package
-        import supabase
-        create_client = supabase.create_client
-        Client = supabase.Client
+        # Import using the API from supabase==2.18.1 (must match requirements.txt)
+        from supabase import create_client, Client
         return create_client, Client
     finally:
         # Restore original path

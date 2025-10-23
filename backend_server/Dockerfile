@@ -36,9 +36,9 @@ ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_host/src"
 # Copy backend_host (required dependency)
 COPY backend_host/ backend_host/
 
-# Copy backend_server requirements and install
+# Copy backend_server requirements and install with exact versions (no cache)
 COPY backend_server/requirements.txt backend_server/
-RUN pip install --no-cache-dir -r backend_server/requirements.txt
+RUN pip install --no-cache-dir --force-reinstall -r backend_server/requirements.txt
 
 # Copy backend_server source
 COPY backend_server/src/ backend_server/src/
