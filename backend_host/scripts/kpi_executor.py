@@ -670,11 +670,17 @@ class KPIExecutorService:
             }
             thumb_urls = upload_kpi_thumbnails(thumbnails, request.execution_result_id, timestamp)
             
-            if not all(thumb_urls.values()):
+            if not thumb_urls:
                 logger.error(f"❌ Failed to upload thumbnails")
                 return None
             
-            logger.info(f"✓ Uploaded 3 thumbnails to R2")
+            # Handle deduplication for very fast KPIs (same image used multiple times)
+            if len(thumb_urls) < 3:
+                single_url = list(thumb_urls.values())[0]
+                thumb_urls = {'action': single_url, 'before': single_url, 'match': single_url}
+                logger.info(f"✓ Uploaded 1 thumbnail to R2 (same image used for all 3 - very fast KPI)")
+            else:
+                logger.info(f"✓ Uploaded 3 thumbnails to R2")
             
             # Format timestamps for display
             action_time = datetime.fromtimestamp(request.action_timestamp).strftime('%H:%M:%S.%f')[:-3]
