@@ -213,12 +213,12 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
                 .eq('node_id', node_data['node_id'])\
                 .eq('team_id', team_id)\
             .execute()
-            print(f"[@db:navigation_trees:save_node] Updated node: {node_data['node_id']}")
+            print(f"[@db:navigation_trees:save_node] Updated node: {node_data['node_id']}, position: ({node_data.get('position_x', 'missing')}, {node_data.get('position_y', 'missing')})")
         else:
             # Insert new node
             node_data['created_at'] = datetime.now(timezone.utc).isoformat()
             result = supabase.table('navigation_nodes').insert(node_data).execute()
-            print(f"[@db:navigation_trees:save_node] Created new node: {node_data['node_id']}")
+            print(f"[@db:navigation_trees:save_node] Created new node: {node_data['node_id']}, position: ({node_data.get('position_x', 'missing')}, {node_data.get('position_y', 'missing')})")
         
         # Invalidate cache after successful save
         invalidate_navigation_cache_for_tree(tree_id, team_id)
