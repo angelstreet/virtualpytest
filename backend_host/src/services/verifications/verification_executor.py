@@ -11,7 +11,7 @@ The core logic is the same as /server/verification/executeBatch but available as
 
 import time
 from typing import Dict, List, Optional, Any, Tuple
-from shared.src.lib.supabase.execution_results_db import record_node_execution
+from shared.src.lib.database.execution_results_db import record_node_execution
 
 
 class VerificationExecutor:
@@ -198,7 +198,8 @@ class VerificationExecutor:
                             team_id: str = None,
                             context = None,
                             tree_id: Optional[str] = None,
-                            node_id: Optional[str] = None
+                            node_id: Optional[str] = None,
+                            verification_pass_condition: str = 'all'  # NEW: 'all' or 'any'
                            ) -> Dict[str, Any]:
         """
         Execute batch of verifications
@@ -211,6 +212,7 @@ class VerificationExecutor:
             context: Optional execution context
             tree_id: Navigation tree ID for database recording
             node_id: Navigation node ID for database recording
+            verification_pass_condition: Condition for passing ('all' = all must pass, 'any' = any can pass)
             
         Returns:
             Dict with success status, results, and execution statistics
@@ -274,8 +276,15 @@ class VerificationExecutor:
         
 
         
-        # Calculate overall success
-        overall_success = passed_count == len(valid_verifications)
+        # Calculate overall success based on verification_pass_condition
+        if verification_pass_condition == 'any':
+            # Pass if ANY verification passed (at least one)
+            overall_success = passed_count > 0
+            print(f"[@lib:verification_executor:execute_verifications] 'any can pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
+        else:
+            # Default: Pass only if ALL verifications passed
+            overall_success = passed_count == len(valid_verifications)
+            print(f"[@lib:verification_executor:execute_verifications] 'all must pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
         
         # Extract detailed error information from failed verifications
         error_info = None
@@ -333,7 +342,7 @@ class VerificationExecutor:
                 print(f"[@lib:verification_executor:verify_node] Tree ID from context: {tree_id}")
             
             # Get node data from database to retrieve verifications
-            from shared.src.lib.supabase.navigation_trees_db import get_node_by_id
+            from shared.src.lib.database.navigation_trees_db import get_node_by_id
             print(f"[@lib:verification_executor:verify_node] Fetching node data from database...")
             node_data = get_node_by_id(tree_id, node_id, team_id)
             
@@ -350,7 +359,10 @@ class VerificationExecutor:
                 print(f"[@lib:verification_executor:verify_node] No verifications for node {node_id}")
                 return {'success': False, 'has_verifications': False, 'message': 'No verifications defined - cannot verify position', 'results': []}
             
-            print(f"[@lib:verification_executor:verify_node] Executing {len(verifications)} verifications for node {node_id}")
+            # Extract verification_pass_condition from node (defaults to 'all')
+            verification_pass_condition = node_data.get('node', {}).get('verification_pass_condition') or node_data.get('node', {}).get('data', {}).get('verification_pass_condition') or 'all'
+            
+            print(f"[@lib:verification_executor:verify_node] Executing {len(verifications)} verifications for node {node_id} with condition '{verification_pass_condition}'")
             
             # Execute verifications with proper tree_id and node_id for database recording
             return self.execute_verifications(
@@ -359,7 +371,8 @@ class VerificationExecutor:
                 image_source_url=image_source_url,
                 team_id=team_id,
                 tree_id=tree_id,
-                node_id=node_id
+                node_id=node_id,
+                verification_pass_condition=verification_pass_condition  # NEW: Pass condition from node
             )
             
         except Exception as e:

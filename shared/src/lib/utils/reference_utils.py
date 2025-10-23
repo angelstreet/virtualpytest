@@ -24,7 +24,7 @@ def resolve_reference_area_backend(reference_name: str, userinterface_name: str,
             print(f"[@reference_utils:resolve_reference_area_backend] ERROR: team_id is required")
             return None
             
-        from shared.src.lib.supabase.verifications_references_db import get_references
+        from shared.src.lib.database.verifications_references_db import get_references
         
         result = get_references(team_id, userinterface_name=userinterface_name, name=reference_name)
         if result.get('success') and result.get('references'):

@@ -14,7 +14,7 @@ import re
 from difflib import get_close_matches
 from typing import Dict, List, Optional, Tuple
 
-from shared.src.lib.supabase.ai_prompt_disambiguation_db import (
+from shared.src.lib.database.ai_prompt_disambiguation_db import (
     get_learned_mapping,
     get_learned_mappings_batch,
     save_disambiguation

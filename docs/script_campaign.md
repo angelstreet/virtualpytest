@@ -307,7 +307,7 @@ print('✅ CampaignExecutor created successfully')
 
 # Check available userinterfaces
 python3 -c "
-from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
+from shared.src.lib.database.userinterface_db import get_all_userinterfaces
 interfaces = get_all_userinterfaces('7fdeb4bb-3639-4ec3-959f-b54769a219ce')
 print(f'Available interfaces: {[ui[\"name\"] for ui in interfaces]}')
 "

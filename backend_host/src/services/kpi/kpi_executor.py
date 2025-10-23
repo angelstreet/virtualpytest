@@ -547,7 +547,7 @@ class KPIExecutor:
         Update execution_results with KPI measurement result using shared database function
         """
         try:
-            from shared.src.lib.supabase.execution_results_db import update_execution_result_with_kpi
+            from shared.src.lib.database.execution_results_db import update_execution_result_with_kpi
             
             result = update_execution_result_with_kpi(
                 execution_result_id=execution_result_id,

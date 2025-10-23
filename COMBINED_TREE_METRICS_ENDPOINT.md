@@ -81,8 +81,8 @@ def _fetch_tree_metrics(tree_id: str, team_id: str):
     """
     try:
         # Import metrics functions
-        from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
-        from shared.src.lib.supabase.navigation_metrics_db import get_tree_metrics
+        from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy
+        from shared.src.lib.database.navigation_metrics_db import get_tree_metrics
         
         # Get complete tree hierarchy (root + all nested subtrees)
         hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)

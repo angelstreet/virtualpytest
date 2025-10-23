@@ -540,7 +540,7 @@ Respond ONLY in this JSON format:
     def _get_script_from_database(self, script_id: str) -> Optional[Dict[str, Any]]:
         """Get complete script result data from database"""
         try:
-            from shared.src.lib.supabase.script_results_db import get_script_by_id
+            from shared.src.lib.database.script_results_db import get_script_by_id
             return get_script_by_id(script_id)
         except Exception as e:
             print(f"[@ai_analyzer] Error retrieving script from database: {e}")
@@ -549,7 +549,7 @@ Respond ONLY in this JSON format:
     def _get_alert_from_database(self, alert_id: str) -> Optional[Dict[str, Any]]:
         """Get complete alert data from database"""
         try:
-            from shared.src.lib.supabase.alerts_db import get_alert_by_id
+            from shared.src.lib.database.alerts_db import get_alert_by_id
             return get_alert_by_id(alert_id)
         except Exception as e:
             print(f"[@ai_analyzer] Error retrieving alert from database: {e}")

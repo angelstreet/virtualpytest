@@ -101,7 +101,7 @@ class ImageHelpers:
                 upload_reference_image(binary_path, userinterface_name, binary_filename)
             
             # Save reference to database
-            from shared.src.lib.supabase.verifications_references_db import save_reference
+            from shared.src.lib.database.verifications_references_db import save_reference
             
             db_result = save_reference(
                 name=reference_name,

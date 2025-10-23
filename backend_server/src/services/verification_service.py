@@ -80,7 +80,7 @@ class VerificationService:
                 }
             
             # Get all references from database
-            from shared.src.lib.supabase.verifications_references_db import get_references
+            from shared.src.lib.database.verifications_references_db import get_references
             
             print(f'[VerificationService] Getting all references for team: {team_id}')
             
@@ -95,7 +95,7 @@ class VerificationService:
                 }
             
             # Get valid userinterface names from database
-            from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
+            from shared.src.lib.database.userinterface_db import get_all_userinterfaces
             userinterfaces = get_all_userinterfaces(team_id)
             
             if not userinterfaces:

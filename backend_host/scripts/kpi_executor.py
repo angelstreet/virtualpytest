@@ -994,7 +994,7 @@ class KPIExecutorService:
     def _update_result(self, execution_result_id: str, team_id: str, success: bool, kpi_ms: int, error: str, report_url: str = None):
         """Update execution_results with KPI measurement"""
         try:
-            from shared.src.lib.supabase.execution_results_db import update_execution_result_with_kpi
+            from shared.src.lib.database.execution_results_db import update_execution_result_with_kpi
             
             result = update_execution_result_with_kpi(
                 execution_result_id=execution_result_id,

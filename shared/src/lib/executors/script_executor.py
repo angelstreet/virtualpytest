@@ -28,7 +28,7 @@ from typing import Dict, List, Optional, Any, Tuple
 # Import required modules for context preparation
 from shared.src.lib.utils.app_utils import load_environment_variables
 from shared.src.lib.utils.report_generation_utils import generate_and_upload_script_report
-from shared.src.lib.supabase.script_results_db import record_script_execution_start, update_script_execution_result
+from shared.src.lib.database.script_results_db import record_script_execution_start, update_script_execution_result
 
 DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
 

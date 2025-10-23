@@ -54,7 +54,7 @@ def _lazy_import_db():
     global create_alert_safe, resolve_alert
     if create_alert_safe is None:
         try:
-            from shared.src.lib.supabase.alerts_db import create_alert_safe as _create_alert_safe, resolve_alert as _resolve_alert
+            from shared.src.lib.database.alerts_db import create_alert_safe as _create_alert_safe, resolve_alert as _resolve_alert
             create_alert_safe = _create_alert_safe
             resolve_alert = _resolve_alert
             logger.info("Database functions imported successfully")
@@ -142,7 +142,7 @@ class IncidentManager:
             
             # Import the get_active_alerts function
             try:
-                from shared.src.lib.supabase.alerts_db import get_active_alerts
+                from shared.src.lib.database.alerts_db import get_active_alerts
             except ImportError as e:
                 logger.warning(f"[@incident_manager] Could not import get_active_alerts: {e}")
                 return

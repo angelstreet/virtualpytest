@@ -260,7 +260,7 @@ class AIExecutorCache:
             fingerprint = generate_fingerprint(prompt, context)
             
             # Try exact match first
-            from shared.src.lib.supabase.ai_plan_generation_db import get_plan_by_fingerprint, delete_plan_by_fingerprint
+            from shared.src.lib.database.ai_plan_generation_db import get_plan_by_fingerprint, delete_plan_by_fingerprint
             exact_match = get_plan_by_fingerprint(fingerprint, team_id)
             if exact_match:
                 # Validate plan format - delete if invalid
@@ -274,7 +274,7 @@ class AIExecutorCache:
             
             # Try compatible plans
             normalized_prompt = normalize_prompt(prompt)
-            from shared.src.lib.supabase.ai_plan_generation_db import find_compatible_plans
+            from shared.src.lib.database.ai_plan_generation_db import find_compatible_plans
             compatible_plans = find_compatible_plans(
                 normalized_prompt=normalized_prompt,
                 device_model=context.get('device_model'),
@@ -328,7 +328,7 @@ class AIExecutorCache:
             normalized_prompt = normalize_prompt(prompt)
             
             # Store in database
-            from shared.src.lib.supabase.ai_plan_generation_db import store_plan
+            from shared.src.lib.database.ai_plan_generation_db import store_plan
             success = store_plan(
                 fingerprint=fingerprint,
                 original_prompt=prompt,
@@ -366,7 +366,7 @@ class AIExecutorCache:
             True if updated successfully, False otherwise
         """
         try:
-            from shared.src.lib.supabase.ai_plan_generation_db import update_plan_metrics
+            from shared.src.lib.database.ai_plan_generation_db import update_plan_metrics
             result = update_plan_metrics(fingerprint, success, execution_time_ms, team_id)
             
             if result:
@@ -391,7 +391,7 @@ class AIExecutorCache:
             True if invalidated successfully, False otherwise
         """
         try:
-            from shared.src.lib.supabase.ai_plan_generation_db import invalidate_plan
+            from shared.src.lib.database.ai_plan_generation_db import invalidate_plan
             result = invalidate_plan(fingerprint, team_id)
             
             if result:

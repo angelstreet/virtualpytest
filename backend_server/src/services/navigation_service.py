@@ -6,7 +6,7 @@ This service manages tree metadata, nodes, edges, and complex tree operations.
 """
 
 from typing import Dict, Any, List, Optional
-from shared.src.lib.supabase.navigation_trees_db import (
+from shared.src.lib.database.navigation_trees_db import (
     # Tree metadata operations
     get_all_trees, get_tree_metadata, save_tree_metadata, delete_tree,
     # Node operations
@@ -21,7 +21,7 @@ from shared.src.lib.supabase.navigation_trees_db import (
     get_node_sub_trees, create_sub_tree, get_tree_hierarchy, 
     get_tree_breadcrumb, delete_tree_cascade, move_subtree
 )
-from shared.src.lib.supabase.userinterface_db import get_all_userinterfaces
+from shared.src.lib.database.userinterface_db import get_all_userinterfaces
 from shared.src.lib.utils.app_utils import DEFAULT_USER_ID, check_supabase
 
 class NavigationService:

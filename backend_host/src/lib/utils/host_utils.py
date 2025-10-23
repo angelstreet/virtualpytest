@@ -376,7 +376,7 @@ def send_ping_to_server():
         print(f"[@host:debug] 🔍 Host system stats: CPU={host_system_stats.get('cpu_percent', 'N/A')}%, RAM={host_system_stats.get('memory_percent', 'N/A')}%, Disk={host_system_stats.get('disk_percent', 'N/A')}%{disk_write_str}{temp_str}{load_str}{service_uptime_str}")
         
         # Store host system metrics directly (same function as server uses)
-        from shared.src.lib.supabase.system_metrics_db import store_system_metrics
+        from shared.src.lib.database.system_metrics_db import store_system_metrics
         store_system_metrics(host.host_name, host_system_stats)
         print(f"✅ Host system metrics stored: {host.host_name}")
         
@@ -384,7 +384,7 @@ def send_ping_to_server():
         per_device_metrics = get_per_device_metrics(host.get_devices())
         
         # HOST INDEPENDENCE: Store device metrics locally (not via server)
-        from shared.src.lib.supabase.system_metrics_db import store_device_metrics
+        from shared.src.lib.database.system_metrics_db import store_device_metrics
         for device_metric in per_device_metrics:
             device_name = device_metric.get('device_name', 'Unknown')
             capture_folder = device_metric.get('capture_folder', 'unknown')

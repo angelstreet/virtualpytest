@@ -90,6 +90,7 @@ export const useNode = (props?: UseNodeProps) => {
       menu_type: node.data.menu_type,
       priority: node.data.priority || 'p3', // Default to p3 if not set
       verifications: node.data.verifications || [], // Embedded verifications - no ID resolution needed
+      verification_pass_condition: node.data.verification_pass_condition || 'all', // Default to 'all' if not set
     };
   }, []);
 

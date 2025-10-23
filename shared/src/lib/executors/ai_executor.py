@@ -259,7 +259,7 @@ class AIExecutor:
     def execute_testcase(self, test_case_id: str, team_id: str) -> Dict[str, Any]:
         """Execute stored test case"""
         try:
-            from shared.src.lib.supabase.testcase_db import get_test_case
+            from shared.src.lib.database.testcase_db import get_test_case
             
             test_case = get_test_case(test_case_id, team_id)
             if not test_case:

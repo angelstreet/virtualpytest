@@ -45,7 +45,7 @@ def execute_ai_test_case(test_case_id: str, team_id: str) -> bool:
     
     # Load test case from database
     try:
-        from shared.src.lib.supabase.testcase_db import get_test_case
+        from shared.src.lib.database.testcase_db import get_test_case
         
         test_case = get_test_case(test_case_id, team_id)
         if not test_case:
@@ -142,7 +142,7 @@ def main():
     
     # Always capture summary for report (regardless of success/failure)
     try:
-        from shared.src.lib.supabase.testcase_db import get_test_case
+        from shared.src.lib.database.testcase_db import get_test_case
         test_case = get_test_case(test_case_id, team_id)
         stored_plan = test_case.get('ai_plan', {}) if test_case else {}
         summary_text = capture_ai_execution_summary(context, args.userinterface_name, test_case or {}, stored_plan.get('steps', []))

@@ -214,6 +214,8 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             showCollapsible={false}
             title=""
             onTest={nodeEdit.verification.handleTest}
+            passCondition={nodeForm?.verification_pass_condition || 'all'}
+            onPassConditionChange={(condition) => setNodeForm({ ...nodeForm, verification_pass_condition: condition })}
           />
         </Box>
 

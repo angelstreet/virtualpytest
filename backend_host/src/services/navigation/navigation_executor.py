@@ -95,8 +95,8 @@ class NavigationExecutor:
     def get_available_context(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """Get available navigation context using cache when possible"""
         # First check if we have a cached unified graph for this interface
-        from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
-        from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+        from shared.src.lib.database.userinterface_db import get_userinterface_by_name
+        from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
         from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
         
         # Get interface and root tree ID
@@ -1172,7 +1172,7 @@ class NavigationExecutor:
             print(f"🗺️ [NavigationExecutor] Loading navigation tree for '{userinterface_name}'")
             
             # 1. Get root tree ID to check cache
-            from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
+            from shared.src.lib.database.userinterface_db import get_userinterface_by_name
             userinterface = get_userinterface_by_name(userinterface_name, team_id)
             if not userinterface:
                 return {'success': False, 'error': f"User interface '{userinterface_name}' not found"}
@@ -1180,7 +1180,7 @@ class NavigationExecutor:
             userinterface_id = userinterface['id']
             
             # Use the same approach as NavigationEditor - call the working API endpoint
-            from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface, get_full_tree
+            from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface, get_full_tree
             
             # Get the root tree for this user interface (same as navigation page)
             tree = get_root_tree_for_interface(userinterface_id, team_id)
@@ -1312,7 +1312,7 @@ class NavigationExecutor:
             List of tree data dictionaries for the complete hierarchy
         """
         try:
-            from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy
+            from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy
             
             print(f"🔍 [NavigationExecutor] Discovering complete tree hierarchy using enhanced database function...")
             
@@ -1507,7 +1507,7 @@ class NavigationExecutor:
 
     def get_node_sub_trees_with_actions(self, node_id: str, tree_id: str, team_id: str) -> Dict:
         """Get all sub-trees for a node and return their nodes and edges for action checking."""
-        from shared.src.lib.supabase.navigation_trees_db import get_node_sub_trees, get_full_tree
+        from shared.src.lib.database.navigation_trees_db import get_node_sub_trees, get_full_tree
         
         # Get sub-trees for this node
         sub_trees_result = get_node_sub_trees(tree_id, node_id, team_id)
@@ -1615,7 +1615,7 @@ class NavigationExecutor:
             db_edge_id = edge_id.replace('_reverse', '') if edge_id.endswith('_reverse') else edge_id
             
             # Get edge data to fetch action_set KPI configuration
-            from shared.src.lib.supabase.navigation_trees_db import get_edge_by_id, get_node_by_id
+            from shared.src.lib.database.navigation_trees_db import get_edge_by_id, get_node_by_id
             edge_result = get_edge_by_id(edge_tree_id, db_edge_id, team_id)
             
             if not edge_result.get('success'):
@@ -1688,7 +1688,7 @@ class NavigationExecutor:
             timeout_ms = int(timeout_seconds * 1000)
             
             # Record edge execution to get execution_result_id
-            from shared.src.lib.supabase.execution_results_db import record_edge_execution
+            from shared.src.lib.database.execution_results_db import record_edge_execution
             execution_result_id = record_edge_execution(
                 team_id=team_id,
                 tree_id=edge_tree_id,  # ✅ Use edge's tree_id (both forward/reverse use same tree)

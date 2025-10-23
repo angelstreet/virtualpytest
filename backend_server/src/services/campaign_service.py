@@ -6,7 +6,7 @@ This service manages campaign CRUD operations and related functionality.
 """
 
 from typing import Dict, Any, List, Optional
-from shared.src.lib.supabase.campaign_executions_db import get_campaign_results
+from shared.src.lib.database.campaign_executions_db import get_campaign_results
 from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 
 class CampaignService:

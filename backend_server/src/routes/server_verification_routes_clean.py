@@ -64,7 +64,7 @@ def get_verifications():
 def get_all_references():
     """Get all reference images/data."""
     try:
-        from shared.src.lib.supabase.verifications_references_db import get_references
+        from shared.src.lib.database.verifications_references_db import get_references
         
         # Get team_id from query params (standardized pattern like other endpoints)
         team_id = request.args.get('team_id')

@@ -36,6 +36,8 @@ export interface VerificationsListProps {
   referencesLoading: boolean;
   showCollapsible: boolean;
   title: string;
+  passCondition?: 'all' | 'any'; // NEW: Verification pass condition from node data
+  onPassConditionChange?: (condition: 'all' | 'any') => void; // NEW: Callback when condition changes
 }
 
 export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
@@ -53,6 +55,8 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
     referencesLoading,
     showCollapsible,
     title,
+    passCondition: externalPassCondition, // NEW: Accept from props
+    onPassConditionChange, // NEW: Callback for changes
   }) => {
     
     // Auto-resolve reference areas when verifications load (for node panel consistency)
@@ -103,7 +107,19 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
         onVerificationsChange(resolvedVerifications as Verification[]);
       }
     }, [verifications, modelReferences, onVerificationsChange]);
-    const [passCondition, setPassCondition] = useState<'all' | 'any'>('all');
+    
+    // Use external passCondition if provided, otherwise use internal state (defaults to 'all')
+    const [internalPassCondition, setInternalPassCondition] = useState<'all' | 'any'>('all');
+    const passCondition = externalPassCondition !== undefined ? externalPassCondition : internalPassCondition;
+    
+    // Handler that updates both internal state and notifies parent
+    const handlePassConditionChange = useCallback((newCondition: 'all' | 'any') => {
+      setInternalPassCondition(newCondition);
+      if (onPassConditionChange) {
+        onPassConditionChange(newCondition);
+      }
+    }, [onPassConditionChange]);
+    
     const [collapsed, setCollapsed] = useState<boolean>(false);
     const [imageComparisonDialog, setImageComparisonDialog] = useState<{
       open: boolean;
@@ -482,7 +498,7 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
           <FormControl size="small" sx={{ minWidth: 100 }}>
             <Select
               value={passCondition}
-              onChange={(e) => setPassCondition(e.target.value as 'all' | 'any')}
+              onChange={(e) => handlePassConditionChange(e.target.value as 'all' | 'any')}
               size="small"
               sx={{
                 fontSize: '0.75rem',

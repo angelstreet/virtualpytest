@@ -126,8 +126,8 @@ def get_edge_options():
         print(f"[@host_script:get_edge_options] Loading edges for {userinterface_name}")
         
         # Import required modules
-        from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
-        from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+        from shared.src.lib.database.userinterface_db import get_userinterface_by_name
+        from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
         from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
         from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache
         
@@ -153,7 +153,7 @@ def get_edge_options():
         if not cached_graph:
             print(f"[@host_script:get_edge_options] Cache miss - loading and populating cache")
             # Load navigation tree to populate cache
-            from shared.src.lib.supabase.navigation_trees_db import get_full_tree, get_complete_tree_hierarchy
+            from shared.src.lib.database.navigation_trees_db import get_full_tree, get_complete_tree_hierarchy
             tree_data = get_full_tree(tree_id, team_id)
             
             if not tree_data['success']:
@@ -196,7 +196,7 @@ def get_edge_options():
         print(f"[@host_script:get_edge_options] Found {len(edges)} edges from validation sequence")
         
         # Batch fetch all nodes to check verifications when use_verifications_for_kpi is true
-        from shared.src.lib.supabase.navigation_trees_db import get_nodes_batch
+        from shared.src.lib.database.navigation_trees_db import get_nodes_batch
         
         node_ids_to_fetch = set()
         for edge in edges:

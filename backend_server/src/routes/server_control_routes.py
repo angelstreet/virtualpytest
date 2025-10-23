@@ -581,7 +581,7 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             return True
         
         # Load tree data from database
-        from shared.src.lib.supabase.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
+        from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
         
         # Try to load complete hierarchy first (for nested trees)
         hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)

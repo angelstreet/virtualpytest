@@ -150,7 +150,7 @@ SELECT delete_all_alerts();
 
 **Python Usage:**
 ```python
-from shared.src.lib.supabase.alerts_db import delete_all_alerts
+from shared.src.lib.database.alerts_db import delete_all_alerts
 
 result = delete_all_alerts()
 if result['success']:

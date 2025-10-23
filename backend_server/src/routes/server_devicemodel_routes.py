@@ -10,7 +10,7 @@ import time
 import threading
 
 # Import database functions from src/lib/supabase (uses absolute import)
-from shared.src.lib.supabase.device_models_db import (
+from shared.src.lib.database.device_models_db import (
     get_all_device_models,
     get_device_model,
     create_device_model,

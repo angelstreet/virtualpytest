@@ -62,6 +62,7 @@ export interface UINavigationNodeData {
 
   // Verification support (embedded directly - no ID resolution needed)
   verifications?: Verification[]; // Array of embedded verification objects
+  verification_pass_condition?: 'all' | 'any'; // Condition for passing verifications: 'all' = all must pass (default), 'any' = any can pass
 
   // Nested tree properties
   has_subtree?: boolean; // True if this node has associated subtrees
@@ -139,6 +140,7 @@ export interface NavigationNode {
   position_x: number;
   position_y: number;
   verifications: Verification[]; // Embedded verifications
+  verification_pass_condition?: 'all' | 'any'; // Condition for passing verifications
   data: any; // description goes in data.description
   
   // Optional fields
@@ -241,6 +243,7 @@ export interface NodeForm {
 
   // Verifications field (embedded directly)
   verifications?: Verification[];
+  verification_pass_condition?: 'all' | 'any'; // Condition for passing verifications: 'all' = all must pass (default), 'any' = any can pass
 }
 
 // EdgeForm interface for bidirectional edge structure

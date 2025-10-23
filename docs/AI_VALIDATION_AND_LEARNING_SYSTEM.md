@@ -212,7 +212,7 @@ import re
 from difflib import get_close_matches
 from typing import Dict, List, Optional, Tuple
 
-from shared.src.lib.supabase.ai_prompt_disambiguation_db import (
+from shared.src.lib.database.ai_prompt_disambiguation_db import (
     get_learned_mappings_batch,
     save_disambiguation
 )
@@ -471,7 +471,7 @@ Routes for AI prompt pre-processing and disambiguation management.
 
 from flask import Blueprint, request, jsonify, current_app
 from shared.src.lib.executors.ai_prompt_validation import preprocess_prompt
-from shared.src.lib.supabase.ai_prompt_disambiguation_db import (
+from shared.src.lib.database.ai_prompt_disambiguation_db import (
     save_disambiguation,
     get_all_disambiguations,
     delete_disambiguation

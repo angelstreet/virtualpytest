@@ -557,7 +557,7 @@ grep "Processing completed" /tmp/kpi_executor_service.log
 ### Query KPI Results
 
 ```python
-from shared.src.lib.supabase.client import get_supabase
+from shared.src.lib.database.client import get_supabase
 
 supabase = get_supabase()
 

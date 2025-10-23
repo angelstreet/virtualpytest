@@ -6,7 +6,7 @@ These are server-side endpoints that interact directly with the database.
 """
 
 from flask import Blueprint, request, jsonify
-from shared.src.lib.supabase.heatmap_db import get_recent_heatmaps, save_heatmap_to_db
+from shared.src.lib.database.heatmap_db import get_recent_heatmaps, save_heatmap_to_db
 from shared.src.lib.utils.app_utils import check_supabase, get_team_id
 from shared.src.lib.utils.cloudflare_utils import upload_heatmap_html
 from backend_server.src.lib.utils.heatmap_report_utils import generate_comprehensive_heatmap_html

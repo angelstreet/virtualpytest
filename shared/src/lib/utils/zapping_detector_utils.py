@@ -487,7 +487,7 @@ def _store_zapping_event(
         audio_info: Optional audio dropout analysis data (stored in frame JSON, logged here for visibility)
     """
     try:
-        from shared.src.lib.supabase.zap_results_db import record_zap_iteration
+        from shared.src.lib.database.zap_results_db import record_zap_iteration
         from shared.src.lib.utils.storage_path_utils import get_device_info_from_capture_folder
         
         # Get device info for host_name and device_name

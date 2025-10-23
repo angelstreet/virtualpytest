@@ -315,7 +315,7 @@ def list_scripts():
         ai_test_cases_info = []
         
         try:
-            from shared.src.lib.supabase.testcase_db import get_all_test_cases
+            from shared.src.lib.database.testcase_db import get_all_test_cases
             
             all_test_cases = get_all_test_cases(team_id)
             

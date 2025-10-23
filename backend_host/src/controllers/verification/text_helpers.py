@@ -54,7 +54,7 @@ class TextHelpers:
                 print(f"[@text_helpers] Rounded area coordinates: {area}")
             
             # Save reference to database
-            from shared.src.lib.supabase.verifications_references_db import save_reference
+            from shared.src.lib.database.verifications_references_db import save_reference
             
             # Create text data structure and merge with area
             text_data = {

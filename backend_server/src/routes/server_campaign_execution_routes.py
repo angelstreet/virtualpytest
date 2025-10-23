@@ -20,7 +20,7 @@ from  backend_server.src.lib.utils.task_manager import task_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl, buildServerUrl
 
 # Import database functions
-from shared.src.lib.supabase.campaign_executions_db import (
+from shared.src.lib.database.campaign_executions_db import (
     get_campaign_execution_with_scripts,
     get_campaign_results
 )

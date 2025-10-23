@@ -6,7 +6,7 @@ This service manages devices, controllers, and environment profiles.
 """
 
 from typing import Dict, Any, List, Optional
-from shared.src.lib.supabase.devices_db import (
+from shared.src.lib.database.devices_db import (
     get_all_devices, get_device, save_device as create_device, 
     delete_device
 )

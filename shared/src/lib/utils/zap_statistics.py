@@ -186,7 +186,7 @@ class ZapStatistics:
             return  # Skip if no script result ID
         
         try:
-            from shared.src.lib.supabase.zap_results_db import record_zap_iteration
+            from shared.src.lib.database.zap_results_db import record_zap_iteration
             
             # Extract channel info from zapping analysis
             zapping_details = analysis_result.zapping_details or {}

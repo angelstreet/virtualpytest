@@ -12,7 +12,7 @@ The core logic is the same as /server/action/executeBatch but available as a reu
 import time
 import logging
 from typing import Dict, List, Optional, Any
-from shared.src.lib.supabase.execution_results_db import record_edge_execution
+from shared.src.lib.database.execution_results_db import record_edge_execution
 
 # Get capture monitor logger for frame JSON operations
 logger = logging.getLogger('capture_monitor')

@@ -48,8 +48,8 @@ _script_args = [
 def _get_available_edges(context):
     """Get list of all available edges from navigation tree"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-    from shared.src.lib.supabase.userinterface_db import get_userinterface_by_name
-    from shared.src.lib.supabase.navigation_trees_db import get_root_tree_for_interface
+    from shared.src.lib.database.userinterface_db import get_userinterface_by_name
+    from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
     
     device = context.selected_device
     args = context.args
