@@ -26,12 +26,12 @@ def create_verification_card(index: int, verification: dict) -> str:
                 <span>#{index}: {command}</span>
                 <span class="verification-status">{'✓ MATCH' if success else '✗ NO MATCH'}</span>
             </div>
-             <div class="comparison-image">
+            <div class="comparison-grid">
+                <div class="comparison-image">
                     <img src="{src_url}" onclick="openModal(this.src)" alt="Source">
                     <div class="comparison-label">Source (cropped)</div>
                 </div>
-             <div class="comparison-vs">VS</div>
-            <div class="comparison-grid">
+                <div class="comparison-vs">VS</div>
                 <div class="comparison-image">
                     <img src="{ref_url}" onclick="openModal(this.src)" alt="Reference">
                     <div class="comparison-label">Reference (cropped)</div>
@@ -70,6 +70,10 @@ def create_verification_card(index: int, verification: dict) -> str:
                     <div class="param-row">
                         <span class="param-key">Extracted Text:</span>
                         <span class="param-value">"{extracted_text[:100]}"</span>
+                    </div>
+                    <div class="param-row">
+                        <span class="param-key">Language:</span>
+                        <span class="param-value">{language} ({confidence}% confidence)</span>
                     </div>
                 </div>
             </div>
