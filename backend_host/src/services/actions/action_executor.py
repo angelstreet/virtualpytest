@@ -545,6 +545,47 @@ class ActionExecutor:
                     else:
                         response_data = {'success': False, 'error': 'Power controller not available'}
                         status_code = 500
+                elif action_type == 'verification':
+                    # Use verification executor directly
+                    verification_type = action.get('verification_type', 'text')
+                    
+                    # Get verification controller
+                    verification_executor = self.device.verification_executor
+                    if verification_executor:
+                        # Execute single verification
+                        verification_config = {
+                            'command': action.get('command'),
+                            'params': params,
+                            'verification_type': verification_type
+                        }
+                        
+                        # Get userinterface name from device for reference resolution
+                        userinterface_name = self.device.device_model  # Use device model as fallback
+                        if hasattr(self.device, 'get_userinterface_name'):
+                            userinterface_name = self.device.get_userinterface_name()
+                        
+                        # Execute verification using verification_executor's single verification method
+                        # IMPORTANT: Pass context=None to avoid duplicate screenshot capture
+                        # Action executor already captures screenshots, verification executor shouldn't duplicate
+                        result = verification_executor._execute_single_verification(
+                            verification=verification_config,
+                            userinterface_name=userinterface_name,
+                            image_source_url=None,
+                            context=None,  # Prevent duplicate screenshots
+                            team_id=team_id
+                        )
+                        
+                        # Convert verification result to action response format
+                        response_data = {
+                            'success': result.get('success', False),
+                            'message': result.get('message', ''),
+                            'error': result.get('error'),
+                            'verification_type': verification_type
+                        }
+                        status_code = 200 if result.get('success', False) else 500
+                    else:
+                        response_data = {'success': False, 'error': 'Verification executor not available'}
+                        status_code = 500
                 else:
                     # Use remote controller (default for remote actions)
                     remote_controller = self.device._get_controller('remote')
