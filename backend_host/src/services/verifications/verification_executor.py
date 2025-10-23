@@ -557,20 +557,29 @@ class VerificationExecutor:
             return flattened_result
             
         except Exception as e:
-            print(f"[@lib:verification_executor:_execute_single_verification] Verification error: {str(e)}")
+            # EXCEPTION HANDLER: This should only trigger for unexpected crashes, not normal verification failures
+            # Normal failures should return {'success': False} from the controller, not throw exceptions
+            print(f"[@lib:verification_executor:_execute_single_verification] ⚠️ UNEXPECTED EXCEPTION in verification:")
+            print(f"[@lib:verification_executor:_execute_single_verification]   Verification type: {verification.get('verification_type', 'unknown')}")
+            print(f"[@lib:verification_executor:_execute_single_verification]   Command: {verification.get('command', 'unknown')}")
+            print(f"[@lib:verification_executor:_execute_single_verification]   Exception: {str(e)}")
+            print(f"[@lib:verification_executor:_execute_single_verification]   Full traceback:")
             import traceback
             traceback.print_exc()
             
+            # Capture error screenshot but DON'T add to validation context (use context=None)
+            # This screenshot is for debugging the exception, not for the validation report
             from shared.src.lib.utils.device_utils import capture_screenshot
-            screenshot_path = capture_screenshot(self.device, context) or ""
+            screenshot_path = capture_screenshot(self.device, context=None) or ""
             
-            # Add screenshot to collection for report
+            # Add to internal collection for debugging, but it won't appear in validation report
             if screenshot_path:
                 self.verification_screenshots.append(screenshot_path)
+                print(f"[@lib:verification_executor:_execute_single_verification] 📸 Exception screenshot captured (for debugging, not validation report): {screenshot_path}")
             
             return {
                 'success': False,
-                'message': f"Verification execution failed",
+                'message': f"Verification execution failed with exception",
                 'error': str(e),
                 'verification_type': verification.get('verification_type', 'unknown'),
                 'resultType': 'FAIL',
