@@ -1134,15 +1134,27 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           
           // Helper to compare if node has changed
           const hasNodeChanged = (node: any, initialNode: any) => {
-            if (!initialNode) return true; // New node
-            return (
-              node.position?.x !== initialNode.position?.x ||
-              node.position?.y !== initialNode.position?.y ||
-              node.data.label !== initialNode.data.label ||
-              node.data.description !== initialNode.data.description ||
-              node.type !== initialNode.type ||
-              JSON.stringify(node.data.verifications) !== JSON.stringify(initialNode.data.verifications)
-            );
+            if (!initialNode) {
+              console.log(`[@NavigationContext:hasNodeChanged] Node ${node.id} is NEW (not in initial state)`);
+              return true; // New node
+            }
+            const posChanged = node.position?.x !== initialNode.position?.x || node.position?.y !== initialNode.position?.y;
+            const labelChanged = node.data.label !== initialNode.data.label;
+            const descChanged = node.data.description !== initialNode.data.description;
+            const typeChanged = node.type !== initialNode.type;
+            const verificationsChanged = JSON.stringify(node.data.verifications) !== JSON.stringify(initialNode.data.verifications);
+            
+            if (posChanged || labelChanged || descChanged || typeChanged || verificationsChanged) {
+              console.log(`[@NavigationContext:hasNodeChanged] Node ${node.id} CHANGED:`, {
+                position: posChanged ? `(${initialNode.position?.x}, ${initialNode.position?.y}) -> (${node.position?.x}, ${node.position?.y})` : 'unchanged',
+                label: labelChanged,
+                description: descChanged,
+                type: typeChanged,
+                verifications: verificationsChanged
+              });
+              return true;
+            }
+            return false;
           };
           
           // Helper to compare if edge has changed
