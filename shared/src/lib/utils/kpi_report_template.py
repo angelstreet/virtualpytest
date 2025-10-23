@@ -13,7 +13,7 @@ def create_verification_card(index: int, verification: dict) -> str:
     if v_type == 'image':
         ref_url = verification.get('reference_url', '')
         src_url = verification.get('source_url', '')
-        score = verification.get('score', 0.0)
+        score = verification.get('matching_score', 0.0)
         threshold = verification.get('threshold', 0.8)
         area = verification.get('area', {})
         image_filter = verification.get('image_filter', 'none')
