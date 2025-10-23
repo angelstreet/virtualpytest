@@ -624,11 +624,17 @@ class ActionExecutor:
                         print(f"[@lib:action_executor:_execute_single_action] Full response data: {response_data}")
                 
                 # Track iteration results
+                # Provide default message if controller doesn't return one
+                if iteration_success:
+                    message = response_data.get('message') or 'Success'
+                else:
+                    message = response_data.get('error') or 'Failed'
+                
                 iteration_results.append({
                     'iteration': iteration + 1,
                     'success': iteration_success,
                     'execution_time_ms': iteration_execution_time,
-                    'message': response_data.get('message') if iteration_success else response_data.get('error')
+                    'message': message
                 })
                 
                 # If any iteration fails, mark overall action as failed
