@@ -79,15 +79,15 @@ RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && chmod -R 775 /app/backend_server/config/grafana \
     && chmod -R 755 /var/log/grafana
 
-# Copy supervisor configuration (with nginx)
-COPY backend_server/config/supervisor/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
+# Copy supervisor configuration (with nginx) from docker folder
+COPY backend_server/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 
-# Expose nginx port (Render routes to this)
-EXPOSE 80
+# Expose ports for Flask and Grafana
+EXPOSE 5109 3000
 
-# Health check for nginx (which proxies to Flask)
+# Health check for Flask API
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:80/health || exit 1
+  CMD curl -f http://localhost:5109/health || exit 1
 
 # Run supervisor as root (needed for Grafana)
 USER root

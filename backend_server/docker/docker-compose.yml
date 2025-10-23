@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  backend_server:
+    build:
+      context: ../..
+      dockerfile: backend_server/Dockerfile
+    ports:
+      - "5109:5109"  # Flask API
+      - "3000:3000"  # Grafana
+    environment:
+      - SERVER_PORT=5109
+      - FLASK_ENV=production
+      - PYTHONUNBUFFERED=1
+    env_file:
+      - ../../.env
+    volumes:
+      # Mount for live development (optional - remove for production)
+      - ../../shared:/app/shared:ro
+      - ../../backend_host:/app/backend_host:ro
+      - ../src:/app/backend_server/src:ro
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5109/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - vpt_network
+
+networks:
+  vpt_network:
+    driver: bridge
+
