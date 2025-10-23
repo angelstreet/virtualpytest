@@ -497,9 +497,11 @@ def get_thumbnail_path_from_capture(capture_path: str) -> str:
     # Generate thumbnail filename (capture_X.jpg → capture_X_thumbnail.jpg)
     thumb_filename = capture_filename.replace('.jpg', '_thumbnail.jpg')
     
-    # Replace /captures/ with /thumbnails/ in path (handles both hot and cold)
-    if '/captures/' in capture_dir:
-        thumb_dir = capture_dir.replace('/captures/', '/thumbnails/')
+    # Check if capture is in a 'captures' directory
+    dir_basename = os.path.basename(capture_dir)
+    if dir_basename == 'captures':
+        # Replace captures directory with thumbnails directory
+        thumb_dir = os.path.join(os.path.dirname(capture_dir), 'thumbnails')
     else:
         # If not in captures directory (e.g., working directory), use same directory
         thumb_dir = capture_dir
