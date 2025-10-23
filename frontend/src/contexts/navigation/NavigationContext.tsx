@@ -1125,14 +1125,48 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            setIsLoading(true);
            setError(null);
 
-                     // Convert frontend format to normalized format with current canvas positions
+                    // Convert frontend format to normalized format with current canvas positions
           // FILTER OUT parent reference nodes - they should not be saved to database
           const nodesToSave = nodes.filter(node => !node.data.isParentReference);
           const filteredOutCount = nodes.length - nodesToSave.length;
           
           console.log(`[@NavigationContext] Bulk saving tree with ${nodesToSave.length} nodes (filtered out ${filteredOutCount} parent references)`);
           
-          const normalizedNodes = nodesToSave.map(node => {
+          // Helper to compare if node has changed
+          const hasNodeChanged = (node: any, initialNode: any) => {
+            if (!initialNode) return true; // New node
+            return (
+              node.position?.x !== initialNode.position?.x ||
+              node.position?.y !== initialNode.position?.y ||
+              node.data.label !== initialNode.data.label ||
+              node.data.description !== initialNode.data.description ||
+              node.type !== initialNode.type ||
+              JSON.stringify(node.data.verifications) !== JSON.stringify(initialNode.data.verifications)
+            );
+          };
+          
+          // Helper to compare if edge has changed
+          const hasEdgeChanged = (edge: any, initialEdge: any) => {
+            if (!initialEdge) return true; // New edge
+            return (
+              edge.label !== initialEdge.label ||
+              edge.source !== initialEdge.source ||
+              edge.target !== initialEdge.target ||
+              edge.sourceHandle !== initialEdge.sourceHandle ||
+              edge.targetHandle !== initialEdge.targetHandle ||
+              JSON.stringify(edge.data?.action_sets) !== JSON.stringify(initialEdge.data?.action_sets)
+            );
+          };
+          
+          // Create lookup maps for initial state
+          const initialNodesMap = new Map(initialState?.nodes?.map(n => [n.id, n]) || []);
+          const initialEdgesMap = new Map(initialState?.edges?.map(e => [e.id, e]) || []);
+          
+          // Filter to only changed nodes
+          const changedNodes = nodesToSave.filter(node => hasNodeChanged(node, initialNodesMap.get(node.id)));
+          console.log(`[@NavigationContext] Only saving ${changedNodes.length}/${nodesToSave.length} changed nodes`);
+          
+          const normalizedNodes = changedNodes.map(node => {
             const normalized = {
               node_id: node.id,
               label: node.data.label,
@@ -1157,7 +1191,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             return normalized;
           });
 
-                     const normalizedEdges = edges.map(edge => ({
+          // Filter to only changed edges
+          const changedEdges = edges.filter(edge => hasEdgeChanged(edge, initialEdgesMap.get(edge.id)));
+          console.log(`[@NavigationContext] Only saving ${changedEdges.length}/${edges.length} changed edges`);
+          
+                    const normalizedEdges = changedEdges.map(edge => ({
             edge_id: edge.id,
             source_node_id: edge.source,
             target_node_id: edge.target,
