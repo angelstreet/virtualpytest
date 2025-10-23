@@ -722,7 +722,7 @@ class KPIExecutorService:
                 host_name=request.host_name or 'N/A',
                 device_model=request.device_model or 'N/A',
                 tree_id=(request.tree_id[:8] if request.tree_id else 'N/A'),
-                action_set_id=(request.action_set_id[:8] if request.action_set_id else 'N/A'),
+                action_set_id=request.action_set_id or 'N/A',  # Don't truncate - it's a name, not UUID
                 from_node_label=request.from_node_label or 'N/A',
                 to_node_label=request.to_node_label or 'N/A',
                 last_action=request.last_action or 'N/A'
