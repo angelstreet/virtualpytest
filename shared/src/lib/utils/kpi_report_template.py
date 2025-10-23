@@ -78,8 +78,8 @@ def create_kpi_report_template() -> str:
         
         .thumbnails {{
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 20px;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 15px;
             margin-bottom: 20px;
         }}
         
@@ -240,13 +240,18 @@ def create_kpi_report_template() -> str:
             <div class="section">
                 <div class="thumbnails">
                     <div class="thumb-card">
-                        <h3>Action Time</h3>
-                        <img src="{action_thumb}" onclick="openModal(this.src)" alt="Action timestamp">
+                        <h3>Before Action</h3>
+                        <img src="{before_action_thumb}" onclick="openModal(this.src)" alt="Before action pressed">
+                        <div class="timestamp">{action_time}</div>
+                    </div>
+                    <div class="thumb-card">
+                        <h3>After Action</h3>
+                        <img src="{after_action_thumb}" onclick="openModal(this.src)" alt="After action pressed">
                         <div class="timestamp">{action_time}</div>
                     </div>
                     <div class="thumb-card">
                         <h3>Before Match</h3>
-                        <img src="{before_thumb}" onclick="openModal(this.src)" alt="Before match">
+                        <img src="{before_match_thumb}" onclick="openModal(this.src)" alt="Before match">
                         <div class="timestamp">{before_time}</div>
                     </div>
                     <div class="thumb-card match">

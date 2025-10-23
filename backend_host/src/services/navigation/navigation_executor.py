@@ -799,13 +799,15 @@ class NavigationExecutor:
                     # Get actual action completion timestamp from navigation context
                     nav_context = self.device.navigation_context
                     action_completion_timestamp = nav_context.get('last_action_timestamp', step_start_time)
-                    # Get last action screenshot (action_screenshots is always present in result)
+                    # Get action screenshots (before + after)
                     action_screenshots = result.get('action_screenshots', [])
-                    last_action_screenshot = action_screenshots[-1] if action_screenshots else None
+                    before_action_screenshot = action_screenshots[0] if len(action_screenshots) > 0 else None
+                    after_action_screenshot = action_screenshots[-1] if len(action_screenshots) > 0 else None
                     # Store for KPI queueing after final verification
                     nav_context['kpi_step'] = step
                     nav_context['kpi_action_timestamp'] = action_completion_timestamp
-                    nav_context['kpi_action_screenshot'] = last_action_screenshot  # ✅ NEW: Store action screenshot
+                    nav_context['kpi_before_screenshot'] = before_action_screenshot  # ✅ NEW: Before action screenshot
+                    nav_context['kpi_action_screenshot'] = after_action_screenshot  # After action screenshot
                     nav_context['kpi_userinterface_name'] = userinterface_name  # Store for reference resolution
                     print(f"[@navigation_executor:execute_navigation] Main actions succeeded for step {step_num}/{len(navigation_path)} - KPI will be queued after final verification")
                 
@@ -938,7 +940,8 @@ class NavigationExecutor:
             kpi_step = nav_context.get('kpi_step')
             kpi_action_timestamp = nav_context.get('kpi_action_timestamp')
             kpi_userinterface_name = nav_context.get('kpi_userinterface_name')
-            kpi_action_screenshot = nav_context.get('kpi_action_screenshot')  # ✅ NEW: Get action screenshot
+            kpi_before_screenshot = nav_context.get('kpi_before_screenshot')  # ✅ NEW: Before screenshot
+            kpi_action_screenshot = nav_context.get('kpi_action_screenshot')  # After screenshot
             
             if kpi_step and kpi_action_timestamp and kpi_userinterface_name:
                 try:
@@ -954,7 +957,8 @@ class NavigationExecutor:
                         verification_timestamp=verification_timestamp,
                         team_id=team_id,
                         userinterface_name=kpi_userinterface_name,
-                        action_screenshot_path=kpi_action_screenshot  # ✅ NEW: Pass action screenshot
+                        before_action_screenshot_path=kpi_before_screenshot,  # ✅ NEW: Before screenshot
+                        action_screenshot_path=kpi_action_screenshot  # After screenshot
                     )
                 except Exception as e:
                     # KPI queueing failed - log but DO NOT block navigation
@@ -963,7 +967,8 @@ class NavigationExecutor:
                     # Always clear KPI context regardless of success/failure
                     nav_context['kpi_step'] = None
                     nav_context['kpi_action_timestamp'] = None
-                    nav_context['kpi_action_screenshot'] = None  # ✅ NEW: Clear action screenshot
+                    nav_context['kpi_before_screenshot'] = None  # ✅ NEW: Clear before screenshot
+                    nav_context['kpi_action_screenshot'] = None  # Clear after screenshot
                     nav_context['kpi_userinterface_name'] = None
             else:
                 print(f"[@navigation_executor] No KPI to queue (no actions were executed or actions failed)")
@@ -1532,7 +1537,8 @@ class NavigationExecutor:
         verification_timestamp: float,
         team_id: str,
         userinterface_name: str,
-        action_screenshot_path: Optional[str] = None  # ✅ NEW: Action screenshot from action_executor
+        before_action_screenshot_path: Optional[str] = None,  # ✅ NEW: Before action screenshot
+        action_screenshot_path: Optional[str] = None  # After action screenshot
     ):
         """
         Queue KPI measurement for action_set.
@@ -1669,7 +1675,8 @@ class NavigationExecutor:
                 'from_node_label': step.get('from_node_label'),
                 'to_node_label': step.get('to_node_label'),
                 'last_action': step.get('last_action'),  # Last action pressed
-                'action_screenshot_path': action_screenshot_path  # ✅ NEW: Screenshot from action_executor
+                'before_action_screenshot_path': before_action_screenshot_path,  # ✅ NEW: Before screenshot
+                'action_screenshot_path': action_screenshot_path  # After screenshot
             }
             
             # Write to JSON file queue for standalone KPI executor service (atomic write for inotify)

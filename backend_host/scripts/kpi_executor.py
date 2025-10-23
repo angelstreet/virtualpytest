@@ -73,7 +73,8 @@ class KPIMeasurementRequest:
         self.from_node_label = data.get('from_node_label')
         self.to_node_label = data.get('to_node_label')
         self.last_action = data.get('last_action')
-        self.action_screenshot_path = data.get('action_screenshot_path')  # ✅ NEW: Screenshot from action_executor
+        self.before_action_screenshot_path = data.get('before_action_screenshot_path')  # ✅ NEW: Before screenshot
+        self.action_screenshot_path = data.get('action_screenshot_path')  # After screenshot
 
 
 class KPIExecutorService:
@@ -724,31 +725,43 @@ class KPIExecutorService:
             match_thumb_filename = match_capture_filename.replace('.jpg', '_thumbnail.jpg')
             match_thumb = os.path.join(working_dir, match_thumb_filename)  # Thumbnail for display
             
-            # Get before capture (match - 1) - always exists now due to extra frame copied
+            # Get before match capture (match - 1) - frame right before match was found
             before_index = match_index - 1
             if before_index < 0:
-                logger.error(f"❌ Match is at index 0 but no before frame available (should have been copied)")
+                logger.error(f"❌ Match is at index 0 but no before frame available")
                 return None
             
             before_capture = all_captures[before_index]
             before_capture_filename = os.path.basename(before_capture['path'])
             before_thumb_filename = before_capture_filename.replace('.jpg', '_thumbnail.jpg')
-            before_thumb = os.path.join(working_dir, before_thumb_filename)
+            before_match_thumb = os.path.join(working_dir, before_thumb_filename)
+            before_time_ts = before_capture['timestamp']
+            logger.info(f"   • Before Match: {before_thumb_filename} (index {before_index})")
             
-            # Get action thumbnail - use provided screenshot from action_executor if available
-            if request.action_screenshot_path and os.path.exists(request.action_screenshot_path):
-                # Copy the provided action screenshot to working directory
-                action_screenshot_filename = os.path.basename(request.action_screenshot_path)
-                action_thumb = os.path.join(working_dir, action_screenshot_filename)
-                shutil.copy2(request.action_screenshot_path, action_thumb)
-                logger.info(f"   • Action: {action_screenshot_filename} (from action_executor) ✅")
+            # Get before action screenshot - taken BEFORE action pressed
+            if request.before_action_screenshot_path and os.path.exists(request.before_action_screenshot_path):
+                before_action_filename = os.path.basename(request.before_action_screenshot_path)
+                before_action_thumb = os.path.join(working_dir, before_action_filename)
+                shutil.copy2(request.before_action_screenshot_path, before_action_thumb)
+                logger.info(f"   • Before Action: {before_action_filename} (from action_executor) ✅")
             else:
-                # Fallback: Find closest thumbnail by timestamp (old behavior)
-                action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
-                if action_thumb:
-                    logger.info(f"   • Action: {os.path.basename(action_thumb)} (timestamp search - fallback)")
+                before_action_thumb = None
+                logger.warning(f"⚠️  No before-action screenshot provided")
+            
+            # Get after action screenshot - taken AFTER action pressed
+            if request.action_screenshot_path and os.path.exists(request.action_screenshot_path):
+                after_action_filename = os.path.basename(request.action_screenshot_path)
+                after_action_thumb = os.path.join(working_dir, after_action_filename)
+                shutil.copy2(request.action_screenshot_path, after_action_thumb)
+                logger.info(f"   • After Action: {after_action_filename} (from action_executor) ✅")
+            else:
+                # Fallback: Find closest thumbnail by timestamp
+                after_action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
+                if after_action_thumb:
+                    logger.info(f"   • After Action: {os.path.basename(after_action_thumb)} (timestamp search - fallback)")
                 else:
-                    logger.warning(f"⚠️  No action screenshot provided and timestamp search failed")
+                    after_action_thumb = None
+                    logger.warning(f"⚠️  No after-action screenshot provided")
             
             # Verify all thumbnails exist (use full-size as fallback if thumbnail missing)
             if not os.path.exists(match_thumb):
@@ -765,36 +778,35 @@ class KPIExecutorService:
                 logger.error(f"❌ Match original not found: {match_capture_filename}")
                 return None
                     
-            if not os.path.exists(before_thumb):
+            if not os.path.exists(before_match_thumb):
                 # Fallback: Use full-size capture if thumbnail missing
-                before_thumb_fallback = before_thumb.replace('_thumbnail.jpg', '.jpg')
-                if os.path.exists(before_thumb_fallback):
-                    logger.warning(f"⚠️  Before thumbnail not found, using full-size capture as fallback")
-                    before_thumb = before_thumb_fallback
+                before_match_thumb_fallback = before_match_thumb.replace('_thumbnail.jpg', '.jpg')
+                if os.path.exists(before_match_thumb_fallback):
+                    logger.warning(f"⚠️  Before match thumbnail not found, using full-size capture as fallback")
+                    before_match_thumb = before_match_thumb_fallback
                 else:
-                    logger.error(f"❌ Before capture not found: {before_capture_filename}")
+                    logger.error(f"❌ Before match capture not found: {before_capture_filename}")
                     return None
-                    
-            if not action_thumb or not os.path.exists(action_thumb):
-                logger.warning(f"⚠️  Action screenshot not found - report will be incomplete")
-                # Generate report anyway without action thumbnail
-                action_thumb = None
             
-            logger.info(f"✓ Found all 3 thumbnails + 1 original (index-based selection)")
-            logger.info(f"   • Before: {before_thumb_filename} (index {before_index})")
+            # Allow missing action screenshots (not critical for report)
+            
+            logger.info(f"✓ Found 4 thumbnails + 1 original")
+            logger.info(f"   • Before Match: {before_thumb_filename} (index {before_index})")
             logger.info(f"   • Match: {match_thumb_filename} + original (index {match_index})")
             
             # Calculate timestamps for display
             before_time_ts = before_capture['timestamp']
             
-            # Upload thumbnails + match original to R2
+            # Upload 4 thumbnails + match original to R2
             timestamp = datetime.now().strftime('%Y%m%d%H%M%S')
             thumbnails = {}
             
             # Only include thumbnails that exist
-            if action_thumb:
-                thumbnails['action'] = action_thumb
-            thumbnails['before'] = before_thumb
+            if before_action_thumb and os.path.exists(before_action_thumb):
+                thumbnails['before_action'] = before_action_thumb
+            if after_action_thumb and os.path.exists(after_action_thumb):
+                thumbnails['after_action'] = after_action_thumb
+            thumbnails['before_match'] = before_match_thumb
             thumbnails['match'] = match_thumb
             thumbnails['match_original'] = match_image  # Full-size for click zoom
             
@@ -804,25 +816,19 @@ class KPIExecutorService:
                 logger.error(f"❌ Failed to upload thumbnails")
                 return None
             
-            # Ensure all required keys exist after deduplication
-            # Deduplication can remove keys if files are identical
-            if 'before' not in thumb_urls and 'match' in thumb_urls:
-                thumb_urls['before'] = thumb_urls['match']
-            if 'match' not in thumb_urls and 'before' in thumb_urls:
-                thumb_urls['match'] = thumb_urls['before']
-            if 'match_original' not in thumb_urls and 'match' in thumb_urls:
-                thumb_urls['match_original'] = thumb_urls['match']
+            # Ensure required keys exist - use placeholders for missing action screenshots
+            if 'before_action' not in thumb_urls:
+                thumb_urls['before_action'] = thumb_urls.get('before_match') or thumb_urls.get('match')
+            if 'after_action' not in thumb_urls:
+                thumb_urls['after_action'] = thumb_urls.get('before_match') or thumb_urls.get('match')
+            if 'before_match' not in thumb_urls:
+                thumb_urls['before_match'] = thumb_urls.get('match')
+            if 'match' not in thumb_urls:
+                thumb_urls['match'] = thumb_urls.get('before_match')
+            if 'match_original' not in thumb_urls:
+                thumb_urls['match_original'] = thumb_urls.get('match')
             
-            # Ensure all required keys exist (use placeholder for missing action)
-            if 'action' not in thumb_urls:
-                # Action thumbnail missing - use before or match as placeholder
-                thumb_urls['action'] = thumb_urls.get('before') or thumb_urls.get('match')
-                logger.info(f"✓ Uploaded {len(thumb_urls)} unique images to R2 (action missing, using placeholder)")
-            else:
-                if len(thumb_urls) < len(thumbnails):
-                    logger.info(f"✓ Uploaded {len(thumb_urls)} unique images to R2 (some deduplicated)")
-                else:
-                    logger.info(f"✓ Uploaded {len(thumb_urls)} images to R2 (3 thumbnails + 1 original)")
+            logger.info(f"✓ Uploaded {len(thumb_urls)} images to R2 (4 thumbnails + 1 original)")
             
             # Format timestamps for display using actual capture timestamps
             action_time = datetime.fromtimestamp(request.action_timestamp).strftime('%H:%M:%S.%f')[:-3]
@@ -842,10 +848,11 @@ class KPIExecutorService:
                 navigation_path=request.userinterface_name,
                 algorithm=match_result.get('algorithm', 'unknown'),
                 captures_scanned=match_result.get('captures_scanned', 0),
-                action_thumb=thumb_urls['action'],
-                before_thumb=thumb_urls['before'],
+                before_action_thumb=thumb_urls['before_action'],
+                after_action_thumb=thumb_urls['after_action'],
+                before_match_thumb=thumb_urls['before_match'],
                 match_thumb=thumb_urls['match'],
-                match_original=thumb_urls.get('match_original', thumb_urls['match']),  # Fallback to thumb if original missing
+                match_original=thumb_urls.get('match_original', thumb_urls['match']),
                 action_time=action_time,
                 before_time=before_time,
                 match_time=match_time,
@@ -857,7 +864,7 @@ class KPIExecutorService:
                 host_name=request.host_name or 'N/A',
                 device_model=request.device_model or 'N/A',
                 tree_id=(request.tree_id[:8] if request.tree_id else 'N/A'),
-                action_set_id=request.action_set_id or 'N/A',  # Don't truncate - it's a name, not UUID
+                action_set_id=request.action_set_id or 'N/A',
                 from_node_label=request.from_node_label or 'N/A',
                 to_node_label=request.to_node_label or 'N/A',
                 last_action=request.last_action or 'N/A'
