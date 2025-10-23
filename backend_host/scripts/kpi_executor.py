@@ -271,24 +271,60 @@ class KPIExecutorService:
         
         logger.info(f"   • Scan window: {scan_end - scan_start:.2f}s (max {request.timeout_ms}ms)")
         
-        # Copy captures in time window
+        # Copy captures in time window + 1 frame before (for "before" thumbnail)
         pattern = os.path.join(request.capture_dir, "capture_*.jpg")
         copied_captures = 0
         copied_capture_names = []  # Track which captures we copied
         
+        # First pass: find all captures and get the one before scan window
+        all_available_captures = []
+        for source_path in glob.glob(pattern):
+            if "_thumbnail" in source_path:
+                continue
+            try:
+                ts = os.path.getmtime(source_path)
+                filename = os.path.basename(source_path)
+                all_available_captures.append({'path': source_path, 'ts': ts, 'filename': filename})
+            except (OSError, IOError):
+                continue
+        
+        # Sort by timestamp
+        all_available_captures.sort(key=lambda x: x['ts'])
+        
+        # Find first capture in scan window
+        first_in_window_idx = None
+        for i, cap in enumerate(all_available_captures):
+            if scan_start <= cap['ts'] <= scan_end:
+                first_in_window_idx = i
+                break
+        
+        # Copy the frame BEFORE first frame in window (if exists)
+        if first_in_window_idx is not None and first_in_window_idx > 0:
+            before_window_cap = all_available_captures[first_in_window_idx - 1]
+            dest_path = os.path.join(working_dir, before_window_cap['filename'])
+            try:
+                shutil.copy2(before_window_cap['path'], dest_path)
+                copied_captures += 1
+                copied_capture_names.append(before_window_cap['filename'])
+                logger.info(f"📸 Copied 1 extra frame BEFORE scan window: {before_window_cap['filename']}")
+            except (OSError, IOError) as e:
+                logger.warning(f"Could not copy before-window frame: {e}")
+        
+        # Copy all captures in scan window
         for source_path in glob.glob(pattern):
             if "_thumbnail" in source_path:
                 continue
             
             try:
                 ts = os.path.getmtime(source_path)
-                # Copy images in time window: scan_start → scan_end (last N seconds)
+                # Copy images in time window: scan_start → scan_end
                 if scan_start <= ts <= scan_end:
                     filename = os.path.basename(source_path)
-                    dest_path = os.path.join(working_dir, filename)
-                    shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
-                    copied_captures += 1
-                    copied_capture_names.append(filename)  # Track this capture
+                    if filename not in copied_capture_names:  # Don't copy twice
+                        dest_path = os.path.join(working_dir, filename)
+                        shutil.copy2(source_path, dest_path)  # copy2 preserves timestamps
+                        copied_captures += 1
+                        copied_capture_names.append(filename)
             except (OSError, IOError) as e:
                 logger.warning(f"Could not copy {source_path}: {e}")
                 continue
@@ -297,7 +333,7 @@ class KPIExecutorService:
             logger.error(f"❌ No captures copied from {request.capture_dir}")
             return None
         
-        logger.info(f"✅ Copied {copied_captures} captures to /tmp/ (RAM)")
+        logger.info(f"✅ Copied {copied_captures} captures to /tmp/ (RAM) - includes 1 before scan window")
         
         # Copy thumbnails for EACH capture we copied (not by mtime - ensures 1:1 mapping)
         # Use centralized path utilities (no manual path manipulation!)
@@ -688,8 +724,12 @@ class KPIExecutorService:
             match_thumb_filename = match_capture_filename.replace('.jpg', '_thumbnail.jpg')
             match_thumb = os.path.join(working_dir, match_thumb_filename)  # Thumbnail for display
             
-            # Get before capture (match - 1, or match if it's the first frame) - use thumbnail
-            before_index = max(0, match_index - 1)
+            # Get before capture (match - 1) - always exists now due to extra frame copied
+            before_index = match_index - 1
+            if before_index < 0:
+                logger.error(f"❌ Match is at index 0 but no before frame available (should have been copied)")
+                return None
+            
             before_capture = all_captures[before_index]
             before_capture_filename = os.path.basename(before_capture['path'])
             before_thumb_filename = before_capture_filename.replace('.jpg', '_thumbnail.jpg')
@@ -764,15 +804,21 @@ class KPIExecutorService:
                 logger.error(f"❌ Failed to upload thumbnails")
                 return None
             
+            # Ensure all required keys exist after deduplication
+            # Deduplication can remove keys if files are identical
+            if 'before' not in thumb_urls and 'match' in thumb_urls:
+                thumb_urls['before'] = thumb_urls['match']
+            if 'match' not in thumb_urls and 'before' in thumb_urls:
+                thumb_urls['match'] = thumb_urls['before']
+            if 'match_original' not in thumb_urls and 'match' in thumb_urls:
+                thumb_urls['match_original'] = thumb_urls['match']
+            
             # Ensure all required keys exist (use placeholder for missing action)
             if 'action' not in thumb_urls:
                 # Action thumbnail missing - use before or match as placeholder
                 thumb_urls['action'] = thumb_urls.get('before') or thumb_urls.get('match')
-                logger.info(f"✓ Uploaded {len(thumbnails)} images to R2 (action missing, using placeholder)")
+                logger.info(f"✓ Uploaded {len(thumb_urls)} unique images to R2 (action missing, using placeholder)")
             else:
-                # Handle deduplication for very fast KPIs (same image used multiple times)
-                # NOTE: With index-based selection, before and match should NEVER be the same
-                # unless match is at index 0 (first frame)
                 if len(thumb_urls) < len(thumbnails):
                     logger.info(f"✓ Uploaded {len(thumb_urls)} unique images to R2 (some deduplicated)")
                 else:
