@@ -251,8 +251,9 @@ def create_kpi_report_template() -> str:
                     </div>
                     <div class="thumb-card match">
                         <h3>✓ Match Found</h3>
-                        <img src="{match_thumb}" onclick="openModal(this.src)" alt="Match found">
+                        <img src="{match_thumb}" onclick="openModal('{match_original}')" alt="Match found" style="cursor: zoom-in;">
                         <div class="timestamp">{match_time}</div>
+                        <div class="hint" style="font-size: 11px; margin-top: 4px; color: #4CAF50;">Click to view original</div>
                     </div>
                 </div>
             </div>
