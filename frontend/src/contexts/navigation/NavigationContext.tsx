@@ -1178,7 +1178,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           console.log(`[@NavigationContext] Current state has ${nodesToSave.length} nodes and ${edges.length} edges`);
           
           // Filter to only changed nodes
-          const changedNodes = nodesToSave.filter(node => hasNodeChanged(node, initialNodesMap.get(node.id)));
+          const changedNodes = nodesToSave.filter(node => {
+            const initialNode = initialNodesMap.get(node.id);
+            const changed = hasNodeChanged(node, initialNode);
+            // Log every node comparison for debugging
+            if (!changed) {
+              console.log(`[@NavigationContext] Node ${node.id} (${node.data.label}) unchanged - pos: (${node.position?.x}, ${node.position?.y})`);
+            }
+            return changed;
+          });
           console.log(`[@NavigationContext] Only saving ${changedNodes.length}/${nodesToSave.length} changed nodes`);
           
           const normalizedNodes = changedNodes.map(node => {
