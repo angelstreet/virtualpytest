@@ -504,8 +504,8 @@ class VerificationExecutor:
             # Add type-specific evidence
             if verification_type == 'image':
                 verification_evidence.update({
-                    'reference_image_path': details.get('reference_image_path'),  # Local cropped reference
-                    'source_image_path': details.get('source_image_path'),  # Local cropped source
+                    'reference_url': details.get('reference_image_url'),  # R2 URL already exists
+                    'source_image_path': details.get('source_image_path'),
                     'threshold': verification_result.get('threshold', 0.8),
                     'matching_score': verification_result.get('matching_result', 0.0),
                     'search_area': verification.get('params', {}).get('area'),
