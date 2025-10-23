@@ -752,6 +752,7 @@ class KPIExecutorService:
                 logger.info(f"   • Before Match: {before_thumb_filename} (index {before_index})")
             
             # Get before action screenshot - taken BEFORE action pressed
+            before_action_time_ts = None
             if request.before_action_screenshot_path and os.path.exists(request.before_action_screenshot_path):
                 # Get thumbnail path using centralized function
                 from shared.src.lib.utils.storage_path_utils import get_thumbnail_path_from_capture
@@ -760,6 +761,7 @@ class KPIExecutorService:
                 
                 if os.path.exists(before_action_thumb_source):
                     shutil.copy2(before_action_thumb_source, before_action_thumb)
+                    before_action_time_ts = os.path.getmtime(request.before_action_screenshot_path)
                     logger.info(f"   • Before Action: {os.path.basename(before_action_thumb)} (thumbnail) ✅")
                 else:
                     before_action_thumb = None
@@ -769,6 +771,7 @@ class KPIExecutorService:
                 logger.warning(f"⚠️  No before-action screenshot provided")
             
             # Get after action screenshot - taken AFTER action pressed
+            after_action_time_ts = None
             if request.action_screenshot_path and os.path.exists(request.action_screenshot_path):
                 # Get thumbnail path using centralized function
                 after_action_thumb_source = get_thumbnail_path_from_capture(request.action_screenshot_path)
@@ -776,6 +779,7 @@ class KPIExecutorService:
                 
                 if os.path.exists(after_action_thumb_source):
                     shutil.copy2(after_action_thumb_source, after_action_thumb)
+                    after_action_time_ts = os.path.getmtime(request.action_screenshot_path)
                     logger.info(f"   • After Action: {os.path.basename(after_action_thumb)} (thumbnail) ✅")
                 else:
                     after_action_thumb = None
@@ -784,6 +788,7 @@ class KPIExecutorService:
                 # Fallback: Find closest thumbnail by timestamp
                 after_action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
                 if after_action_thumb:
+                    after_action_time_ts = os.path.getmtime(after_action_thumb)
                     logger.info(f"   • After Action: {os.path.basename(after_action_thumb)} (timestamp search - fallback)")
                 else:
                     after_action_thumb = None
@@ -855,7 +860,8 @@ class KPIExecutorService:
             thumb_urls.setdefault('match_original', placeholder)
             
             # Format timestamps for display using actual capture timestamps
-            action_time = datetime.fromtimestamp(request.action_timestamp).strftime('%H:%M:%S.%f')[:-3]
+            before_action_time = datetime.fromtimestamp(before_action_time_ts).strftime('%H:%M:%S.%f')[:-3] if before_action_time_ts else 'N/A'
+            after_action_time = datetime.fromtimestamp(after_action_time_ts).strftime('%H:%M:%S.%f')[:-3] if after_action_time_ts else 'N/A'
             before_time = datetime.fromtimestamp(before_time_ts).strftime('%H:%M:%S.%f')[:-3]
             match_time = datetime.fromtimestamp(match_result['timestamp']).strftime('%H:%M:%S.%f')[:-3]
             action_timestamp_full = datetime.fromtimestamp(request.action_timestamp).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3]
@@ -877,7 +883,8 @@ class KPIExecutorService:
                 before_match_thumb=thumb_urls['before_match'],
                 match_thumb=thumb_urls['match'],
                 match_original=thumb_urls.get('match_original', thumb_urls['match']),
-                action_time=action_time,
+                before_action_time=before_action_time,
+                after_action_time=after_action_time,
                 before_time=before_time,
                 match_time=match_time,
                 execution_result_id=request.execution_result_id[:12],

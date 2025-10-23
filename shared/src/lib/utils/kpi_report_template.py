@@ -242,12 +242,12 @@ def create_kpi_report_template() -> str:
                     <div class="thumb-card">
                         <h3>Before Action</h3>
                         <img src="{before_action_thumb}" onclick="openModal(this.src)" alt="Before action pressed">
-                        <div class="timestamp">{action_time}</div>
+                        <div class="timestamp">{before_action_time}</div>
                     </div>
                     <div class="thumb-card">
                         <h3>After Action</h3>
                         <img src="{after_action_thumb}" onclick="openModal(this.src)" alt="After action pressed">
-                        <div class="timestamp">{action_time}</div>
+                        <div class="timestamp">{after_action_time}</div>
                     </div>
                     <div class="thumb-card">
                         <h3>Before Match</h3>
