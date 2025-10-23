@@ -509,7 +509,7 @@ def create_kpi_report_template() -> str:
             <!-- Action Details Section (Collapsible) -->
             <div class="section">
                 <details class="action-details" open>
-                    <summary>🎬 Last Action Executed</summary>
+                    <summary>Last Action Executed</summary>
                     <div class="action-params">
                         <div class="param-row">
                             <span class="param-key">Command:</span>
@@ -542,7 +542,7 @@ def create_kpi_report_template() -> str:
             <!-- Verification Evidence Section (Collapsible) -->
             <div class="section">
                 <details class="verification-evidence" open>
-                    <summary>🔍 Verification Evidence ({verification_count})</summary>
+                    <summary>Verification ({verification_count})</summary>
                     {verification_cards}
                 </details>
             </div>
@@ -587,7 +587,7 @@ def create_kpi_report_template() -> str:
     </div>
     
     <script>
-        // Format milliseconds to mm:ss:ms
+        // Format milliseconds to smart format (only show non-zero units)
         function formatKPI() {{
             const kpiEl = document.getElementById('kpiDisplay');
             const ms = parseInt(kpiEl.dataset.ms);
@@ -596,11 +596,12 @@ def create_kpi_report_template() -> str:
             const seconds = Math.floor((ms % 60000) / 1000);
             const milliseconds = ms % 1000;
             
-            const formatted = String(minutes).padStart(2, '0') + ':' + 
-                            String(seconds).padStart(2, '0') + ':' + 
-                            String(milliseconds).padStart(3, '0');
+            let parts = [];
+            if (minutes > 0) parts.push(minutes + 'm');
+            if (seconds > 0) parts.push(seconds + 's');
+            if (milliseconds > 0 || parts.length === 0) parts.push(milliseconds + 'ms');
             
-            kpiEl.textContent = formatted;
+            kpiEl.textContent = parts.join(' ');
         }}
         
         // Format on page load
