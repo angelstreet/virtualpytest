@@ -474,114 +474,54 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Handle navigation back to parent tree
     const handleNavigateBack = useCallback(() => {
-      // Get current level to access parentTreeId
-      const currentStackLevel = stack.length > 0 ? stack[stack.length - 1] : null;
-      
-      // Determine target tree ID:
-      // 1. If current level has parentTreeId, use that (it's where the parent node lives)
-      // 2. Otherwise, if there's a previous level, use its treeId
-      // 3. Finally, fall back to rootTreeId
-      let targetTreeId: string | null = null;
-      if (currentStackLevel?.parentTreeId) {
-        targetTreeId = currentStackLevel.parentTreeId;
-      } else if (stack.length > 1) {
-        targetTreeId = stack[stack.length - 2].treeId;
-      } else {
-        targetTreeId = navigation.rootTreeId;
-      }
-      
-      console.log(`[@NavigationEditor] Navigation back - target tree: ${targetTreeId}, stack length: ${stack.length}, rootTreeId: ${navigation.rootTreeId}, parentTreeId: ${currentStackLevel?.parentTreeId}`);
-      
-      if (!targetTreeId) {
-        console.error(`[@NavigationEditor] Cannot navigate back - no target tree ID found. Stack:`, stack, 'RootTreeId:', navigation.rootTreeId);
+      if (navigation.parentChain.length <= 1) {
+        console.log('[@NavigationEditor] Already at root, cannot go back');
         return;
       }
       
-      // Check if target tree is cached
-      const cachedTree = navigation.getCachedTree(targetTreeId);
-      if (cachedTree) {
-        console.log(`[@NavigationEditor] Using cached tree for navigation back: ${targetTreeId}`);
-        
-        // Update navigation stack first
-        popLevel();
-        
-        // Switch to cached parent tree data
-        navigation.switchToTree(targetTreeId);
-        
-        // Update actualTreeId to reflect current tree
-        setActualTreeId(targetTreeId);
-        
-        console.log(`[@NavigationEditor] Navigation back completed - switched to cached tree: ${targetTreeId}`);
-      } else {
-        console.warn(`[@NavigationEditor] Tree ${targetTreeId} not found in cache, cannot navigate back`);
+      navigation.popFromParentChain();
+      popLevel();
+      
+      const parent = navigation.parentChain[navigation.parentChain.length - 2];
+      if (parent) {
+        setActualTreeId(parent.treeId);
       }
-    }, [popLevel, stack, setActualTreeId, navigation]);
+    }, [navigation, popLevel, setActualTreeId]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
       (levelIndex: number) => {
-        // Get target tree from navigation stack or fall back to root
-        const targetLevel = stack[levelIndex];
-        const targetTreeId = targetLevel ? targetLevel.treeId : navigation.rootTreeId;
-        
-        console.log(`[@NavigationEditor] Navigation to level ${levelIndex} - target tree: ${targetTreeId}, stack length: ${stack.length}`);
-        
-        if (!targetTreeId) {
-          console.error(`[@NavigationEditor] Cannot navigate to level ${levelIndex} - no target tree ID found. Stack:`, stack, 'RootTreeId:', navigation.rootTreeId);
+        if (levelIndex >= navigation.parentChain.length) {
+          console.log('[@NavigationEditor] Invalid level index');
           return;
         }
         
-        // Check if target tree is cached
-        const cachedTree = navigation.getCachedTree(targetTreeId);
-        if (cachedTree) {
-          console.log(`[@NavigationEditor] Using cached tree for level navigation: ${targetTreeId}`);
-          
-          // Update navigation stack first
-          jumpToLevel(levelIndex);
-          
-          // Switch to cached tree data
-          navigation.switchToTree(targetTreeId);
-          
-          // Update actualTreeId to reflect current tree
-          setActualTreeId(targetTreeId);
-          
-          console.log(`[@NavigationEditor] Navigation to level ${levelIndex} completed - switched to cached tree: ${targetTreeId}`);
-        } else {
-          console.warn(`[@NavigationEditor] Tree ${targetTreeId} not found in cache, cannot navigate to level ${levelIndex}`);
-        }
+        const newChain = navigation.parentChain.slice(0, levelIndex + 1);
+        const target = newChain[newChain.length - 1];
+        
+        navigation.setNodes(target.nodes);
+        navigation.setEdges(target.edges);
+        navigation.setParentChain(newChain);
+        
+        jumpToLevel(levelIndex);
+        setActualTreeId(target.treeId);
       },
-      [jumpToLevel, stack, setActualTreeId, navigation],
+      [navigation, jumpToLevel, setActualTreeId],
     );
 
     // Handle navigation to root
     const handleNavigateToRoot = useCallback(() => {
-      const rootTreeId = navigation.rootTreeId;
-      console.log(`[@NavigationEditor] Navigation to root - target tree: ${rootTreeId}`);
-      
-      if (!rootTreeId) {
-        console.error(`[@NavigationEditor] Cannot navigate to root - no root tree ID found. RootTreeId:`, navigation.rootTreeId);
+      if (navigation.parentChain.length === 0) {
+        console.log('[@NavigationEditor] No root tree in parent chain');
         return;
       }
       
-      // Check if root tree is cached
-      const cachedTree = navigation.getCachedTree(rootTreeId);
-      if (cachedTree) {
-        console.log(`[@NavigationEditor] Using cached tree for root navigation: ${rootTreeId}`);
-        
-        // Update navigation stack first
-        jumpToRoot();
-        
-        // Switch to cached root tree data
-        navigation.switchToTree(rootTreeId);
-        
-        // Update actualTreeId to reflect root tree
-        setActualTreeId(rootTreeId);
-        
-        console.log(`[@NavigationEditor] Navigation to root completed - switched to cached tree: ${rootTreeId}`);
-      } else {
-        console.warn(`[@NavigationEditor] Root tree ${rootTreeId} not found in cache, cannot navigate to root`);
-      }
-    }, [jumpToRoot, setActualTreeId, navigation]);
+      navigation.resetToRoot();
+      jumpToRoot();
+      
+      const root = navigation.parentChain[0];
+      setActualTreeId(root.treeId);
+    }, [navigation, jumpToRoot, setActualTreeId]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);
@@ -670,26 +610,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           return;
         }
         
-        // CRITICAL: Don't reload if we're navigating back and the tree is already cached
-        const cachedTree = navigation.getCachedTree(userInterface.id);
-        if (cachedTree && isNested) {
-          console.log(`[@component:NavigationEditor] Skipping tree reload - using cached tree for navigation back: ${userInterface.id}`);
-          navigation.switchToTree(userInterface.id);
+        if (isNested && navigation.parentChain.some(t => t.treeId === userInterface.id)) {
+          console.log(`[@component:NavigationEditor] Tree already in parent chain: ${userInterface.id}`);
           lastLoadedTreeId.current = userInterface.id;
           return;
         }
         
         lastLoadedTreeId.current = userInterface.id;
 
-        // STEP 1: Load tree data directly (simplified approach)
         console.log(`[@component:NavigationEditor] Loading tree for userInterface: ${userInterface.id}`);
         loadTreeForUserInterface(userInterface.id).then((result: any) => {
-          // STEP 2: Extract actual tree_id UUID from the loaded tree and set it
-          // (userInterface.id is the interface name, but we need the tree's UUID for cache population)
           if (result?.tree?.id && !isNested && stack.length === 0) {
             const actualTreeUuid = result.tree.id;
-            console.log(`[@component:NavigationEditor] Setting rootTreeId to actual tree UUID: ${actualTreeUuid} (not interface ID: ${userInterface.id})`);
-            navigation.setRootTreeId(actualTreeUuid);
             setActualTreeId(actualTreeUuid);
           }
         }).catch((error: any) => {

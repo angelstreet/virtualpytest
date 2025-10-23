@@ -47,15 +47,11 @@ export interface NavigationContextType {
   currentNodeLabel: string | null;
   setCurrentNodeLabel: (label: string | null) => void;
 
-  // Tree cache management
-  cacheTree: (treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => void;
-  getCachedTree: (treeId: string) => { nodes: UINavigationNode[], edges: UINavigationEdge[] } | null;
-  switchToTree: (treeId: string) => void;
-  cacheAndSwitchToTree: (treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => void;
-  
-  // Root tree tracking for breadcrumb navigation
-  rootTreeId: string | null;
-  setRootTreeId: (treeId: string | null) => void;
+  parentChain: Array<{ treeId: string; treeName: string; nodes: UINavigationNode[]; edges: UINavigationEdge[] }>;
+  setParentChain: (chain: Array<{ treeId: string; treeName: string; nodes: UINavigationNode[]; edges: UINavigationEdge[] }>) => void;
+  addToParentChain: (treeData: { treeId: string; treeName: string; nodes: UINavigationNode[]; edges: UINavigationEdge[] }) => void;
+  popFromParentChain: () => void;
+  resetToRoot: () => void;
   
   // React Flow state - displays active tree from cache
   nodes: UINavigationNode[];
@@ -228,13 +224,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [currentNodeId, setCurrentNodeId] = useState<string | null>(null);
   const [currentNodeLabel, setCurrentNodeLabel] = useState<string | null>(null);
 
-  // Tree cache - stores multiple trees by treeId
-  const [treeCache, setTreeCache] = useState<Map<string, { nodes: UINavigationNode[], edges: UINavigationEdge[] }>>(new Map());
+  const [parentChain, setParentChain] = useState<Array<{ treeId: string; treeName: string; nodes: UINavigationNode[]; edges: UINavigationEdge[] }>>([]);
   
-  // Root tree tracking for breadcrumb navigation
-  const [rootTreeId, setRootTreeId] = useState<string | null>(null);
-  
-  // React Flow state - displays active tree from cache
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
 
@@ -632,41 +623,31 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   }, [reactFlowInstance]);
 
   // Tree cache management functions
-  const cacheTree = useCallback((treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => {
-    console.log(`[@context:NavigationProvider] Caching tree ${treeId} with ${treeData.nodes.length} nodes and ${treeData.edges.length} edges`);
-    setTreeCache(prev => new Map(prev).set(treeId, treeData));
-  }, []);
-
-  const getCachedTree = useCallback((treeId: string) => {
-    const cached = treeCache.get(treeId);
-    console.log(`[@context:NavigationProvider] Getting cached tree ${treeId}:`, cached ? 'found' : 'not found');
-    return cached || null;
-  }, [treeCache]);
-
-  const switchToTree = useCallback((treeId: string) => {
-    console.log(`[@context:NavigationProvider] Switching to tree ${treeId}`);
-    const cachedTree = treeCache.get(treeId);
-    if (cachedTree) {
-      setNodes(cachedTree.nodes);
-      setEdges(cachedTree.edges);
-      console.log(`[@context:NavigationProvider] Switched to cached tree ${treeId} with ${cachedTree.nodes.length} nodes`);
-    } else {
-      console.warn(`[@context:NavigationProvider] Tree ${treeId} not found in cache`);
-    }
-  }, [treeCache, setNodes, setEdges]);
-
-  const cacheAndSwitchToTree = useCallback((treeId: string, treeData: { nodes: UINavigationNode[], edges: UINavigationEdge[] }) => {
-    console.log(`[@context:NavigationProvider] Caching and switching to tree ${treeId} with ${treeData.nodes.length} nodes and ${treeData.edges.length} edges`);
-    
-    // Update cache first
-    setTreeCache(prev => new Map(prev).set(treeId, treeData));
-    
-    // Immediately display the tree data (no cache dependency)
+  const addToParentChain = useCallback((treeData: { treeId: string; treeName: string; nodes: UINavigationNode[]; edges: UINavigationEdge[] }) => {
+    setParentChain(prev => [...prev, treeData]);
     setNodes(treeData.nodes);
     setEdges(treeData.edges);
-    
-    console.log(`[@context:NavigationProvider] Cached and displayed tree ${treeId} with ${treeData.nodes.length} nodes`);
   }, [setNodes, setEdges]);
+
+  const popFromParentChain = useCallback(() => {
+    setParentChain(prev => {
+      if (prev.length <= 1) return prev;
+      const newChain = prev.slice(0, -1);
+      const parent = newChain[newChain.length - 1];
+      setNodes(parent.nodes);
+      setEdges(parent.edges);
+      return newChain;
+    });
+  }, [setNodes, setEdges]);
+
+  const resetToRoot = useCallback(() => {
+    if (parentChain.length > 0) {
+      const root = parentChain[0];
+      setParentChain([root]);
+      setNodes(root.nodes);
+      setEdges(root.edges);
+    }
+  }, [parentChain, setNodes, setEdges]);
 
   const validateNavigationPath = useCallback((path: string[]): boolean => {
     console.log('[@context:NavigationProvider] Validating navigation path:', path);
@@ -735,17 +716,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       currentNodeLabel,
       setCurrentNodeLabel,
 
-      // Tree cache management
-      cacheTree,
-      getCachedTree,
-      switchToTree,
-      cacheAndSwitchToTree,
+      parentChain,
+      setParentChain,
+      addToParentChain,
+      popFromParentChain,
+      resetToRoot,
       
-      // Root tree tracking
-      rootTreeId,
-      setRootTreeId,
-      
-      // React Flow state - displays active tree from cache
       nodes: stableNodes as UINavigationNode[],
       setNodes,
       onNodesChange,
@@ -956,29 +932,30 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             // For parent references, update the original tree cache
             // For regular nodes, update the current tree cache
             if (isParentReference && updatedNodeData.data.originalTreeId) {
-              // Update cache for the original parent tree
-              const originalTreeCache = getCachedTree(updatedNodeData.data.originalTreeId);
-              if (originalTreeCache) {
-                const updatedOriginalNodes = originalTreeCache.nodes.map((node) =>
+              const originalChainIndex = parentChain.findIndex(t => t.treeId === updatedNodeData.data.originalTreeId);
+              if (originalChainIndex !== -1) {
+                const updatedOriginalNodes = parentChain[originalChainIndex].nodes.map((node: UINavigationNode) =>
                   node.id === updatedNodeData.id ? updatedNodeData : node
                 );
-                cacheTree(updatedNodeData.data.originalTreeId, { 
-                  nodes: updatedOriginalNodes, 
-                  edges: originalTreeCache.edges 
-                });
-                console.log('[@NavigationContext] Updated original tree cache after parent reference node save');
+                const newChain = [...parentChain];
+                newChain[originalChainIndex] = {
+                  ...newChain[originalChainIndex],
+                  nodes: updatedOriginalNodes
+                };
+                setParentChain(newChain);
               }
             }
             
-            // Always update current tree cache
-            cacheTree(navigationConfig.actualTreeId, { 
-              nodes: nodes as UINavigationNode[], 
-              edges: edges as UINavigationEdge[] 
-            });
-            console.log('[@NavigationContext] Updated tree cache after node save');
-
-            // Note: Cache refresh removed to prevent tree reload that breaks selectedNode reference
-            // The cache will be refreshed on next navigation operation if needed
+            const currentChainIndex = parentChain.findIndex(t => t.treeId === navigationConfig.actualTreeId);
+            if (currentChainIndex !== -1) {
+              const newChain = [...parentChain];
+              newChain[currentChainIndex] = {
+                ...newChain[currentChainIndex],
+                nodes: nodes as UINavigationNode[],
+                edges: edges as UINavigationEdge[]
+              };
+              setParentChain(newChain);
+            }
            }
 
           setIsNodeDialogOpen(false);
@@ -1101,17 +1078,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                
                console.log('[@NavigationContext] Updated frontend state with server response');
                
-              // UPDATE TREE CACHE: Keep cache synchronized with current state
               if (navigationConfig?.actualTreeId) {
-                cacheTree(navigationConfig.actualTreeId, { 
-                  nodes: nodes as UINavigationNode[], 
-                  edges: updatedEdges as UINavigationEdge[] 
-                });
-                console.log('[@NavigationContext] Updated tree cache after edge save');
+                const currentChainIndex = parentChain.findIndex(t => t.treeId === navigationConfig.actualTreeId);
+                if (currentChainIndex !== -1) {
+                  const newChain = [...parentChain];
+                  newChain[currentChainIndex] = {
+                    ...newChain[currentChainIndex],
+                    nodes: nodes as UINavigationNode[],
+                    edges: updatedEdges as UINavigationEdge[]
+                  };
+                  setParentChain(newChain);
+                }
                 
-                // Invalidate preview cache since edge actions changed
                 invalidateTree(navigationConfig.actualTreeId);
-                console.log('[@NavigationContext] 🗑️ Preview cache invalidated for tree:', navigationConfig.actualTreeId);
               }
              }
 
@@ -1210,7 +1189,6 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            
           // Invalidate preview cache (tree structure changed)
           invalidateTree(treeId);
-          console.log('[@NavigationContext] Invalidated preview cache for tree:', treeId);
           
           setInitialState({ 
             nodes: nodes as UINavigationNode[], 
@@ -1218,9 +1196,16 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           });
           setHasUnsavedChanges(false);
            
-          // UPDATE TREE CACHE: Keep cache synchronized with current state after full tree save
-          cacheTree(treeId, { nodes: nodes as UINavigationNode[], edges: edges as UINavigationEdge[] });
-          console.log('[@NavigationContext] Updated tree cache after tree save');
+          const currentChainIndex = parentChain.findIndex(t => t.treeId === treeId);
+          if (currentChainIndex !== -1) {
+            const newChain = [...parentChain];
+            newChain[currentChainIndex] = {
+              ...newChain[currentChainIndex],
+              nodes: nodes as UINavigationNode[],
+              edges: edges as UINavigationEdge[]
+            };
+            setParentChain(newChain);
+          }
            
           setSuccess('Tree saved successfully');
          } catch (error) {
@@ -1279,22 +1264,23 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            );
 
           if (bothDirectionsEmpty) {
-            // Delete entire edge
             const filteredEdges = edges.filter(e => e.id !== edgeId);
             setEdges(filteredEdges);
             setSelectedEdge(null);
             setHasUnsavedChanges(true);
             
-            // UPDATE TREE CACHE: Keep cache synchronized after edge deletion
             if (navigationConfig?.actualTreeId) {
-              cacheTree(navigationConfig.actualTreeId, { 
-                nodes: nodes as UINavigationNode[], 
-                edges: filteredEdges as UINavigationEdge[] 
-              });
-              console.log('[@NavigationContext] Updated tree cache after edge deletion');
+              const currentChainIndex = parentChain.findIndex(t => t.treeId === navigationConfig.actualTreeId);
+              if (currentChainIndex !== -1) {
+                const newChain = [...parentChain];
+                newChain[currentChainIndex] = {
+                  ...newChain[currentChainIndex],
+                  nodes: nodes as UINavigationNode[],
+                  edges: filteredEdges as UINavigationEdge[]
+                };
+                setParentChain(newChain);
+              }
             }
-            
-            console.log('[@NavigationContext] Deleted entire edge after clearing last direction');
           } else {
              // Update edge and save to database
              const edgeForm = {
@@ -1360,16 +1346,19 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   direction: (edgeForm as any).direction, // Preserve current direction
                 };
                 setEdgeForm(refreshedEdgeForm);
-                console.log('[@NavigationContext] Reloaded edge form after direction deletion');
               }
               
-              // UPDATE TREE CACHE: Keep cache synchronized after edge direction deletion
               if (navigationConfig?.actualTreeId) {
-                cacheTree(navigationConfig.actualTreeId, { 
-                  nodes: nodes as UINavigationNode[], 
-                  edges: updatedEdges as UINavigationEdge[] 
-                });
-                console.log('[@NavigationContext] Updated tree cache after edge direction deletion');
+                const currentChainIndex = parentChain.findIndex(t => t.treeId === navigationConfig.actualTreeId);
+                if (currentChainIndex !== -1) {
+                  const newChain = [...parentChain];
+                  newChain[currentChainIndex] = {
+                    ...newChain[currentChainIndex],
+                    nodes: nodes as UINavigationNode[],
+                    edges: updatedEdges as UINavigationEdge[]
+                  };
+                  setParentChain(newChain);
+                }
               }
              }
 

@@ -139,10 +139,13 @@ export const useNestedNavigation = ({
         // Load breadcrumb for the new tree
         await loadBreadcrumb(primarySubTree.id);
 
-        // Cache nested tree data and switch to it
-        navigation.cacheAndSwitchToTree(primarySubTree.id, { nodes: finalNodes, edges: frontendEdges });
+        navigation.addToParentChain({ 
+          treeId: primarySubTree.id, 
+          treeName: primarySubTree.name,
+          nodes: finalNodes, 
+          edges: frontendEdges 
+        });
         
-        // Set initial state for deletion detection
         navigation.setInitialState({ nodes: [...finalNodes], edges: [...frontendEdges] });
         navigation.setHasUnsavedChanges(false);
         
@@ -232,10 +235,13 @@ export const useNestedNavigation = ({
       // Load breadcrumb
       await loadBreadcrumb(newTree.id);
 
-      // Cache new tree data and switch to it
-      navigation.cacheAndSwitchToTree(newTree.id, { nodes: frontendNodes, edges: [] });
+      navigation.addToParentChain({ 
+        treeId: newTree.id, 
+        treeName: newTree.name,
+        nodes: frontendNodes, 
+        edges: [] 
+      });
       
-      // Focus on the parent node and fit view
       setTimeout(() => {
         if (navigation.reactFlowInstance) {
           navigation.reactFlowInstance.setCenter(frontendNodes[0].position.x, frontendNodes[0].position.y, { zoom: 1 });

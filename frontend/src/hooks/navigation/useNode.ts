@@ -1,6 +1,7 @@
 import { useCallback, useState, useEffect, useMemo, useRef } from 'react';
 
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
+import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { useNavigationPreviewCache } from '../../contexts/navigation/NavigationPreviewCacheContext';
 import { Host } from '../../types/common/Host_Types';
@@ -26,7 +27,7 @@ export const useNode = (props?: UseNodeProps) => {
   console.log('[@useNode] Hook initialized with props:', props);
   
   const { getModelReferences, referencesLoading, currentDeviceId } = useDeviceData();
-  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, rootTreeId, userInterface } =
+  const { currentNodeId, updateCurrentPosition, updateNodesWithMinimapIndicators, nodes, parentChain, userInterface } =
     useNavigation();
   const {
     setNavigationEdgesSuccess,
@@ -36,6 +37,7 @@ export const useNode = (props?: UseNodeProps) => {
     setNodeVerificationFailure,
     resetNodeVerificationColors,
   } = useValidationColors();
+  const navigationConfig = useNavigationConfig();
   const { getCachedPreview, cachePreview } = useNavigationPreviewCache();
 
   // Create a ref for the navigation callback to avoid circular dependency
@@ -268,12 +270,12 @@ export const useNode = (props?: UseNodeProps) => {
         return [];
       }
 
-      // Use current position and root tree from context
-      const startingNodeId = currentNodeId ?? null;
-      const treeId = rootTreeId || props.treeId;
+      // Use only context currentNodeId - no fallbacks
+      const startingNodeId = currentNodeId;
+
+      const pathfindingTreeId = parentChain[0]?.treeId || props.treeId;
       
-      // Check cache first (always use root tree for pathfinding)
-      const cached = getCachedPreview(treeId, startingNodeId, selectedNode.id);
+      const cached = getCachedPreview(pathfindingTreeId, startingNodeId, selectedNode.id);
       if (cached) {
         setNavigationTransitions(cached);
         if (shouldUpdateMinimap) {
@@ -286,7 +288,8 @@ export const useNode = (props?: UseNodeProps) => {
       setNavigationError(null);
 
       try {
-        const baseUrl = buildServerUrl(`/server/navigation/preview/${treeId}/${selectedNode.id}`);
+        // Use buildServerUrl to ensure team_id is automatically included
+        const baseUrl = buildServerUrl(`/server/navigation/preview/${pathfindingTreeId}/${selectedNode.id}`);
         const url = new URL(baseUrl);
 
         // Add required host_name parameter from props (same as execution)
@@ -309,10 +312,12 @@ export const useNode = (props?: UseNodeProps) => {
         const result: NavigationPreviewResponse = await response.json();
 
         if (result.success) {
+          // Use the correct property name from server response
           const transitions = result.transitions || [];
           setNavigationTransitions(transitions);
           
-          cachePreview(treeId, startingNodeId, selectedNode.id, transitions);
+          // Cache the result
+          cachePreview(pathfindingTreeId, startingNodeId, selectedNode.id, transitions);
 
           // Only update minimap indicators if explicitly requested (during execution)
           if (shouldUpdateMinimap) {
@@ -333,7 +338,7 @@ export const useNode = (props?: UseNodeProps) => {
         setIsLoadingPreview(false);
       }
     },
-    [props?.treeId, props?.selectedHost, currentNodeId, updateNodesWithMinimapIndicators, rootTreeId, getCachedPreview, cachePreview],
+    [props?.treeId, props?.selectedHost, currentNodeId, updateNodesWithMinimapIndicators, parentChain, getCachedPreview, cachePreview],
   );
 
   /**
@@ -366,10 +371,10 @@ export const useNode = (props?: UseNodeProps) => {
         resetNodeVerificationColors(currentNodeId);
       }
 
-      const treeId = rootTreeId || props.treeId;
-
       try {
-        const executionUrl = buildServerUrl(`/server/navigation/execute/${treeId}/${selectedNode.id}`);
+        const executionTreeId = parentChain[0]?.treeId || navigationConfig.actualTreeId;
+        
+        const executionUrl = buildServerUrl(`/server/navigation/execute/${executionTreeId}/${selectedNode.id}`);
         
         const result = await fetch(
           executionUrl,
@@ -380,7 +385,7 @@ export const useNode = (props?: UseNodeProps) => {
               host_name: props.selectedHost?.host_name,
               device_id: currentDeviceId,
               current_node_id: currentNodeId,
-              userinterface_name: userInterface?.name,
+              userinterface_name: userInterface?.name,  // MANDATORY for reference resolution
             }),
           },
         );
@@ -437,10 +442,11 @@ export const useNode = (props?: UseNodeProps) => {
       resetNodeVerificationColors,
       setNodeVerificationSuccess,
       setNodeVerificationFailure,
+      navigationConfig.actualTreeId,
       isExecuting,
       userInterface,
       currentDeviceId,
-      rootTreeId,
+      parentChain,
     ],
   );
 

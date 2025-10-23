@@ -145,11 +145,15 @@ export const useNavigationEditor = () => {
           navigation.setInitialState({ nodes: [...frontendNodes], edges: [...frontendEdges] });
           navigation.setHasUnsavedChanges(false);
           
-          // Cache the loaded tree for navigation back functionality
-          navigation.cacheTree(userInterfaceId, { nodes: frontendNodes, edges: frontendEdges });
-          console.log(`[@useNavigationEditor:loadTreeByUserInterface] Cached tree ${userInterfaceId} with ${frontendNodes.length} nodes`);
+          if (navigation.parentChain.length === 0) {
+            navigation.addToParentChain({ 
+              treeId: userInterfaceId, 
+              treeName: result.tree.name || userInterfaceId,
+              nodes: frontendNodes, 
+              edges: frontendEdges 
+            });
+          }
 
-          // If metrics were included in the response, log them
           if (result.metrics) {
             console.log(`[@useNavigationEditor:loadTreeByUserInterface] ✅ Received metrics in combined call - NO separate fetch needed!`, {
               nodeCount: Object.keys(result.metrics.nodes || {}).length,
