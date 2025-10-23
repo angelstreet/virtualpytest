@@ -753,20 +753,33 @@ class KPIExecutorService:
             
             # Get before action screenshot - taken BEFORE action pressed
             if request.before_action_screenshot_path and os.path.exists(request.before_action_screenshot_path):
-                before_action_filename = os.path.basename(request.before_action_screenshot_path)
-                before_action_thumb = os.path.join(working_dir, before_action_filename)
-                shutil.copy2(request.before_action_screenshot_path, before_action_thumb)
-                logger.info(f"   • Before Action: {before_action_filename} (from action_executor) ✅")
+                # Get thumbnail path using centralized function
+                from shared.src.lib.utils.storage_path_utils import get_thumbnail_path_from_capture
+                before_action_thumb_source = get_thumbnail_path_from_capture(request.before_action_screenshot_path)
+                before_action_thumb = os.path.join(working_dir, os.path.basename(before_action_thumb_source))
+                
+                if os.path.exists(before_action_thumb_source):
+                    shutil.copy2(before_action_thumb_source, before_action_thumb)
+                    logger.info(f"   • Before Action: {os.path.basename(before_action_thumb)} (thumbnail) ✅")
+                else:
+                    before_action_thumb = None
+                    logger.warning(f"⚠️  Before action thumbnail not found: {before_action_thumb_source}")
             else:
                 before_action_thumb = None
                 logger.warning(f"⚠️  No before-action screenshot provided")
             
             # Get after action screenshot - taken AFTER action pressed
             if request.action_screenshot_path and os.path.exists(request.action_screenshot_path):
-                after_action_filename = os.path.basename(request.action_screenshot_path)
-                after_action_thumb = os.path.join(working_dir, after_action_filename)
-                shutil.copy2(request.action_screenshot_path, after_action_thumb)
-                logger.info(f"   • After Action: {after_action_filename} (from action_executor) ✅")
+                # Get thumbnail path using centralized function
+                after_action_thumb_source = get_thumbnail_path_from_capture(request.action_screenshot_path)
+                after_action_thumb = os.path.join(working_dir, os.path.basename(after_action_thumb_source))
+                
+                if os.path.exists(after_action_thumb_source):
+                    shutil.copy2(after_action_thumb_source, after_action_thumb)
+                    logger.info(f"   • After Action: {os.path.basename(after_action_thumb)} (thumbnail) ✅")
+                else:
+                    after_action_thumb = None
+                    logger.warning(f"⚠️  After action thumbnail not found: {after_action_thumb_source}")
             else:
                 # Fallback: Find closest thumbnail by timestamp
                 after_action_thumb = self._find_closest_thumbnail(working_dir, request.action_timestamp)
