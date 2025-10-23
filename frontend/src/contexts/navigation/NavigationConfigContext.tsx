@@ -163,6 +163,7 @@ interface NavigationConfigContextType {
 
   // Cache operations
   invalidateTreeCache: (userInterfaceId: string) => void;
+  invalidateAllTreeCache: () => void;
   
   setActualTreeId: (treeId: string | null) => void;
 }
@@ -439,6 +440,14 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     console.log(`[@TreeCache] 🗑️ Invalidated ${keysToDelete.length} cache entries for interface ${userInterfaceId} (across all servers)`);
   }, [scheduleCacheSave]);
 
+  // Cache invalidation by tree ID - clears all cache entries (used after tree save)
+  const invalidateAllTreeCache = useCallback(() => {
+    const cacheSize = treeCache.current.size;
+    treeCache.current.clear();
+    scheduleCacheSave();
+    console.log(`[@TreeCache] 🗑️ CLEARED ALL: Invalidated ${cacheSize} cache entries after tree save`);
+  }, [scheduleCacheSave]);
+
   return (
     <NavigationConfigContext.Provider value={{
       loadTreeMetadata,
@@ -453,6 +462,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       moveSubTree: moveSubtree,
       saveTreeData,
       invalidateTreeCache,
+      invalidateAllTreeCache,
       currentTree,
       isLoading,
       error,

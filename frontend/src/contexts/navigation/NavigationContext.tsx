@@ -1244,6 +1244,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           const viewport = reactFlowInstance?.getViewport();
           await navigationConfig?.saveTreeData(treeId, normalizedNodes, normalizedEdges, deletedNodeIds, deletedEdgeIds, viewport);
            
+          // CRITICAL: Invalidate frontend localStorage cache so refresh loads latest data
+          navigationConfig?.invalidateAllTreeCache();
+          
           // Invalidate preview cache (tree structure changed)
           invalidateTree(treeId);
           
