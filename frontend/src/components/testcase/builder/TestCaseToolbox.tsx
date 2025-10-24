@@ -33,22 +33,22 @@ const DraggableBlock: React.FC<DraggableBlockProps> = ({ type, label, icon, colo
       onDragStart={onDragStart}
       draggable
       sx={{
-        p: 1.5,
-        mb: 1,
+        p: 0.75,
+        mb: 0.5,
         cursor: 'grab',
         display: 'flex',
         alignItems: 'center',
-        gap: 1,
+        gap: 0.75,
         '&:hover': {
           boxShadow: 2,
           transform: 'translateX(4px)',
         },
         transition: 'all 0.2s',
-        borderLeft: `4px solid ${color}`,
+        borderLeft: `3px solid ${color}`,
       }}
     >
       <Box sx={{ color }}>{icon}</Box>
-      <Typography fontSize={13}>{label}</Typography>
+      <Typography fontSize={12}>{label}</Typography>
     </Paper>
   );
 };
@@ -59,30 +59,25 @@ export const TestCaseToolbox: React.FC = () => {
   return (
     <Box
       sx={{
-        width: 250,
-        borderRight: 1,
-        borderColor: 'divider',
-        p: 2,
-        background: actualMode === 'dark' ? '#111827' : '#f9fafb',
+        flex: 1,
+        display: 'flex',
+        flexDirection: 'column',
+        p: 1.5,
         overflowY: 'auto',
-        height: '100%',
       }}
     >
-      <Typography variant="h6" mb={2} fontWeight="bold">
+      <Typography variant="subtitle2" mb={1} fontWeight="bold">
         Toolbox
-      </Typography>
-      <Typography variant="caption" color="text.secondary" mb={2} display="block">
-        Drag blocks to canvas
       </Typography>
 
       {/* Actions */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontSize={14} fontWeight="medium">
+      <Accordion defaultExpanded sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />} sx={{ minHeight: 32, py: 0 }}>
+          <Typography fontSize={13} fontWeight="medium">
             Actions
           </Typography>
         </AccordionSummary>
-        <AccordionDetails sx={{ p: 1 }}>
+        <AccordionDetails sx={{ p: 0.5 }}>
           <DraggableBlock
             type={BlockType.ACTION}
             label="Action"
@@ -93,13 +88,13 @@ export const TestCaseToolbox: React.FC = () => {
       </Accordion>
 
       {/* Verifications */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontSize={14} fontWeight="medium">
+      <Accordion defaultExpanded sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />} sx={{ minHeight: 32, py: 0 }}>
+          <Typography fontSize={13} fontWeight="medium">
             Verifications
           </Typography>
         </AccordionSummary>
-        <AccordionDetails sx={{ p: 1 }}>
+        <AccordionDetails sx={{ p: 0.5 }}>
           <DraggableBlock
             type={BlockType.VERIFICATION}
             label="Verification"
@@ -110,13 +105,13 @@ export const TestCaseToolbox: React.FC = () => {
       </Accordion>
 
       {/* Navigation */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontSize={14} fontWeight="medium">
+      <Accordion defaultExpanded sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />} sx={{ minHeight: 32, py: 0 }}>
+          <Typography fontSize={13} fontWeight="medium">
             Navigation
           </Typography>
         </AccordionSummary>
-        <AccordionDetails sx={{ p: 1 }}>
+        <AccordionDetails sx={{ p: 0.5 }}>
           <DraggableBlock
             type={BlockType.NAVIGATION}
             label="Goto"
@@ -127,13 +122,13 @@ export const TestCaseToolbox: React.FC = () => {
       </Accordion>
 
       {/* Control Flow */}
-      <Accordion defaultExpanded>
-        <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-          <Typography fontSize={14} fontWeight="medium">
+      <Accordion defaultExpanded sx={{ boxShadow: 'none', '&:before': { display: 'none' } }}>
+        <AccordionSummary expandIcon={<ExpandMoreIcon fontSize="small" />} sx={{ minHeight: 32, py: 0 }}>
+          <Typography fontSize={13} fontWeight="medium">
             Control Flow
           </Typography>
         </AccordionSummary>
-        <AccordionDetails sx={{ p: 1 }}>
+        <AccordionDetails sx={{ p: 0.5 }}>
           <DraggableBlock
             type={BlockType.LOOP}
             label="Loop"
@@ -143,20 +138,16 @@ export const TestCaseToolbox: React.FC = () => {
         </AccordionDetails>
       </Accordion>
 
-      {/* Instructions */}
-      <Box sx={{ mt: 3, p: 2, background: actualMode === 'dark' ? '#1f2937' : '#ffffff', borderRadius: 1 }}>
-        <Typography fontSize={11} color="text.secondary">
+      {/* Instructions - Compact */}
+      <Box sx={{ mt: 1.5, p: 1, background: actualMode === 'dark' ? '#1f2937' : '#ffffff', borderRadius: 1 }}>
+        <Typography fontSize={10} color="text.secondary">
           <strong>Instructions:</strong>
           <br />
           • Drag blocks to canvas
           <br />
           • Click to configure
           <br />
-          • Connect outputs to inputs
-          <br />
-          • Green = success path
-          <br />
-          • Red = failure path
+          • Green = success, Red = failure
         </Typography>
       </Box>
     </Box>

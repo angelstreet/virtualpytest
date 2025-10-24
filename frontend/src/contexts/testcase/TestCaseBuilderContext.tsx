@@ -85,23 +85,24 @@ interface TestCaseBuilderProviderProps {
 
 export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = ({ children }) => {
   // Initialize with start, success, and failure blocks
+  // START at top center, SUCCESS at bottom-left, FAILURE at bottom-right
   const [nodes, setNodes] = useState<Node[]>([
     {
       id: 'start',
       type: 'start',
-      position: { x: 100, y: 250 },
+      position: { x: 400, y: 50 },  // Top center
       data: {},
     },
     {
       id: 'success',
       type: 'success',
-      position: { x: 800, y: 200 },
+      position: { x: 150, y: 550 },  // Bottom left
       data: {},
     },
     {
       id: 'failure',
       type: 'failure',
-      position: { x: 800, y: 350 },
+      position: { x: 650, y: 550 },  // Bottom right
       data: {},
     },
   ]);
@@ -275,7 +276,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         description,
         userinterfaceName,
         'default-user',
-        'default-team-id'
+        '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
       );
       
       if (result.success && result.testcase_id) {
@@ -367,19 +368,19 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       {
         id: 'start',
         type: 'start',
-        position: { x: 100, y: 250 },
+        position: { x: 400, y: 50 },  // Top center
         data: {},
       },
       {
         id: 'success',
         type: 'success',
-        position: { x: 800, y: 200 },
+        position: { x: 150, y: 550 },  // Bottom left
         data: {},
       },
       {
         id: 'failure',
         type: 'failure',
-        position: { x: 800, y: 350 },
+        position: { x: 650, y: 550 },  // Bottom right
         data: {},
       },
     ]);

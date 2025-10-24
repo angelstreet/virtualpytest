@@ -38,7 +38,7 @@ export interface ActionCommand {
 export async function getUserInterfaces(teamId: string): Promise<{ success: boolean; userinterfaces: UserInterface[] }> {
   try {
     const response = await apiClient.get<{ success: boolean; userinterfaces: UserInterface[] }>(
-      '/server/userinterface/getUserInterfaces',
+      '/server/userinterface/getAllUserInterfaces',
       { team_id: teamId }
     );
     return response;

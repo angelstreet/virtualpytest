@@ -66,7 +66,7 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
         prompt,
         userinterfaceName,
         'device1',
-        'default-team-id'
+        '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
       );
 
       if (result.needs_disambiguation) {
@@ -113,7 +113,7 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
         selections,
         userinterfaceName,
         'device1',
-        'default-team-id'
+        '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
       );
 
       if (result.success && result.graph) {

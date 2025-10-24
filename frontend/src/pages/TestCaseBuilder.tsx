@@ -34,6 +34,7 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // Components
 import { TestCaseToolbox } from '../components/testcase/builder/TestCaseToolbox';
@@ -119,6 +120,11 @@ const TestCaseBuilderContent: React.FC = () => {
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
+
+  // Mode selection
+  const [creationMode, setCreationMode] = useState<'visual' | 'ai'>('visual');
+  const [aiPrompt, setAiPrompt] = useState('');
+  const [isGenerating, setIsGenerating] = useState(false);
 
   // Dialogs
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -272,6 +278,8 @@ const TestCaseBuilderContent: React.FC = () => {
   const handleNew = useCallback(() => {
     if (window.confirm('Create new test case? Unsaved changes will be lost.')) {
       resetBuilder();
+      setCreationMode('visual');
+      setAiPrompt('');
       setSnackbar({
         open: true,
         message: 'Ready to create new test case',
@@ -279,6 +287,34 @@ const TestCaseBuilderContent: React.FC = () => {
       });
     }
   }, [resetBuilder]);
+
+  // Handle AI generation (placeholder for now)
+  const handleGenerateWithAI = useCallback(async () => {
+    if (!aiPrompt.trim()) {
+      setSnackbar({
+        open: true,
+        message: 'Please enter a prompt',
+        severity: 'error',
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    setSnackbar({
+      open: true,
+      message: 'AI generation coming soon! For now, use visual mode.',
+      severity: 'info',
+    });
+    
+    // TODO: Integrate with AI generation endpoint
+    // const result = await generateTestCaseWithAI(aiPrompt);
+    // if (result.success) {
+    //   setNodes(result.graph.nodes);
+    //   setEdges(result.graph.edges);
+    // }
+    
+    setIsGenerating(false);
+  }, [aiPrompt]);
 
   // MiniMap style
   const miniMapStyle = React.useMemo(
@@ -291,39 +327,42 @@ const TestCaseBuilderContent: React.FC = () => {
 
   return (
     <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Header */}
+      {/* Header - Compact */}
       <Box
         sx={{
-          p: 2,
+          px: 2,
+          py: 0.75,
           borderBottom: 1,
           borderColor: 'divider',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           background: actualMode === 'dark' ? '#111827' : '#ffffff',
+          minHeight: '48px',
         }}
       >
-        <Box>
-          <Typography variant="h5" fontWeight="bold">
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Typography variant="h6" fontWeight="bold">
             TestCase Builder
           </Typography>
           {testcaseName && (
-            <Typography variant="body2" color="text.secondary">
+            <Typography variant="caption" color="text.secondary">
               {testcaseName} {currentTestcaseId ? '(saved)' : '(unsaved)'}
             </Typography>
           )}
         </Box>
-        <Box sx={{ display: 'flex', gap: 1 }}>
-          <Button variant="outlined" startIcon={<AddIcon />} onClick={handleNew}>
+        <Box sx={{ display: 'flex', gap: 0.75 }}>
+          <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleNew}>
             New
           </Button>
-          <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => setLoadDialogOpen(true)}>
+          <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => setLoadDialogOpen(true)}>
             Load
           </Button>
-          <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+          <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
             Save
           </Button>
           <Button
+            size="small"
             variant="contained"
             startIcon={<PlayArrowIcon />}
             onClick={handleExecute}
@@ -336,8 +375,113 @@ const TestCaseBuilderContent: React.FC = () => {
 
       {/* Main Content */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
-        {/* Toolbox */}
-        <TestCaseToolbox />
+        {/* Mode Selector + Toolbox/AI Panel */}
+        <Box sx={{ 
+          width: 220, 
+          borderRight: 1, 
+          borderColor: 'divider',
+          display: 'flex',
+          flexDirection: 'column',
+          background: actualMode === 'dark' ? '#111827' : '#f9fafb',
+        }}>
+          {/* Mode Toggle */}
+          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button
+                size="small"
+                variant={creationMode === 'visual' ? 'contained' : 'outlined'}
+                onClick={() => setCreationMode('visual')}
+                fullWidth
+                sx={{ fontSize: 11, py: 0.5 }}
+              >
+                Visual
+              </Button>
+              <Button
+                size="small"
+                variant={creationMode === 'ai' ? 'contained' : 'outlined'}
+                onClick={() => setCreationMode('ai')}
+                fullWidth
+                startIcon={<AutoAwesomeIcon fontSize="small" />}
+                sx={{ fontSize: 11, py: 0.5 }}
+              >
+                AI
+              </Button>
+            </Box>
+          </Box>
+
+          {/* Visual Mode: Toolbox */}
+          {creationMode === 'visual' && <TestCaseToolbox />}
+
+          {/* AI Mode: Prompt Input */}
+          {creationMode === 'ai' && (
+            <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
+              <Typography variant="subtitle2" fontWeight="bold">
+                AI Test Generator
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                Describe your test in plain English
+              </Typography>
+              <TextField
+                multiline
+                rows={6}
+                placeholder="e.g., Go to live TV and verify audio is playing"
+                value={aiPrompt}
+                onChange={(e) => setAiPrompt(e.target.value)}
+                size="small"
+                fullWidth
+              />
+              <Button
+                variant="contained"
+                startIcon={<AutoAwesomeIcon />}
+                onClick={handleGenerateWithAI}
+                disabled={isGenerating || !aiPrompt.trim()}
+                fullWidth
+                size="small"
+              >
+                {isGenerating ? 'Generating...' : 'Generate'}
+              </Button>
+              
+              {/* Sample prompts */}
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                  Examples:
+                </Typography>
+                {[
+                  'Go to live TV and check audio',
+                  'Navigate to settings',
+                  'Play first recording'
+                ].map((example, idx) => (
+                  <Typography
+                    key={idx}
+                    variant="caption"
+                    sx={{
+                      display: 'block',
+                      mt: 0.5,
+                      cursor: 'pointer',
+                      color: 'primary.main',
+                      '&:hover': { textDecoration: 'underline' }
+                    }}
+                    onClick={() => setAiPrompt(example)}
+                  >
+                    • {example}
+                  </Typography>
+                ))}
+              </Box>
+
+              {/* Instructions */}
+              <Box sx={{ 
+                mt: 'auto', 
+                p: 1, 
+                background: actualMode === 'dark' ? '#1f2937' : '#ffffff', 
+                borderRadius: 1 
+              }}>
+                <Typography fontSize={10} color="text.secondary">
+                  <strong>Note:</strong> After AI generates the test, you can edit it visually.
+                </Typography>
+              </Box>
+            </Box>
+          )}
+        </Box>
 
         {/* Canvas */}
         <Box ref={reactFlowWrapper} sx={{ flex: 1 }} onDrop={onDrop} onDragOver={onDragOver}>
