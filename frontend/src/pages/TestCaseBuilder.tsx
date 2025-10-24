@@ -347,10 +347,23 @@ const TestCaseBuilderContent: React.FC = () => {
       return;
     }
 
+    if (!userinterfaceName) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a user interface',
+        severity: 'error',
+      });
+      return;
+    }
+
     setIsGenerating(true);
     
     try {
-      const result = await generateTestCaseFromPrompt(aiPrompt);
+      const result = await generateTestCaseFromPrompt(
+        aiPrompt, 
+        userinterfaceName,  // Use interface from store
+        'device1'  // Default device
+      );
       
       if (result.success && result.graph) {
         // Load the generated graph into the builder
@@ -406,7 +419,7 @@ const TestCaseBuilderContent: React.FC = () => {
     } finally {
       setIsGenerating(false);
     }
-  }, [aiPrompt, setNodes, setEdges, setTestcaseName, setDescription, setCreationMode]);
+  }, [aiPrompt, userinterfaceName, setNodes, setEdges, setTestcaseName, setDescription, setCreationMode]);
 
   // MiniMap style
   const miniMapStyle = React.useMemo(

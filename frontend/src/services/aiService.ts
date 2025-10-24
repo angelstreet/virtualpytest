@@ -64,12 +64,18 @@ export async function analyzePrompt(prompt: string, teamId: string = TEAM_ID): P
  */
 export async function generateTestCaseFromPrompt(
   prompt: string,
+  userinterfaceName: string,
+  deviceId: string = 'device1',
   teamId: string = TEAM_ID
 ): Promise<AIGenerateGraphResponse> {
   try {
     const response = await apiClient.post<AIGenerateGraphResponse>(
       `/server/testcase/generate-with-ai?team_id=${teamId}`,
-      { prompt }
+      { 
+        prompt,
+        userinterface_name: userinterfaceName,
+        device_id: deviceId
+      }
     );
     return response;
   } catch (error) {
