@@ -36,12 +36,13 @@ Both use the same unified backend route with different flags.
 │     Live AI Modal (Ephemeral)                │
 │  Natural language prompt                     │
 │         ↓                                    │
-│    Backend generates graph                   │
+│    1. Pre-process prompt (validate nodes)    │
+│    2. AI generates graph (nodes/edges)       │
+│    3. Pre-fetch navigation transitions       │
 │         ↓                                    │
-│    Convert graph → steps for display         │
-│    (AIStepDisplay component)                 │
+│    Display in AIStepDisplay component        │
 │         ↓                                    │
-│    Execute (no save)                         │
+│    Execute graph (no save)                   │
 └──────────────────────────────────────────────┘
 
 ┌──────────────────────────────────────────────┐
@@ -51,8 +52,9 @@ Both use the same unified backend route with different flags.
 │  │ (drag-drop)│  (natural language)      │   │
 │  └──────┬─────┴──────────┬───────────────┘   │
 │         │                │                   │
-│         │                │ AI generates      │
-│         │                │ graph directly    │
+│         │                │ 1. Pre-process    │
+│         │                │ 2. AI → graph     │
+│         │                │ 3. Pre-fetch      │
 │         ↓                ↓                   │
 │    React Flow Graph  React Flow Graph       │
 │    (editable after generation)               │
@@ -88,6 +90,42 @@ Both use the same unified backend route with different flags.
 │    - script_type='testcase'                │
 │    - Unified result format                 │
 └────────────────────────────────────────────┘
+```
+
+### AI Generation Pipeline
+
+```
+User Prompt: "Go to live TV"
+         ↓
+┌─────────────────────────────────────────────┐
+│ 1. PRE-PROCESSING (ai_prompt_validation.py) │
+│    - Extract navigation node phrases        │
+│    - Check against available nodes          │
+│    - Apply learned mappings from DB         │
+│    - Auto-fix fuzzy matches                 │
+│    - Return disambiguation if needed        │
+└────────────────┬────────────────────────────┘
+                 ↓ (validated prompt)
+┌─────────────────────────────────────────────┐
+│ 2. AI GENERATION (ai_executor.py)           │
+│    - Call AI with validated context         │
+│    - AI returns graph: {nodes[], edges[]}   │
+│    - No post-validation needed              │
+└────────────────┬────────────────────────────┘
+                 ↓ (graph)
+┌─────────────────────────────────────────────┐
+│ 3. TRANSITION PRE-FETCH                     │
+│    - For each navigation node in graph      │
+│    - Fetch transitions from DB              │
+│    - Embed in graph (no UI fetching later)  │
+└────────────────┬────────────────────────────┘
+                 ↓ (complete graph)
+┌─────────────────────────────────────────────┐
+│ 4. EXECUTION (testcase_executor.py)         │
+│    - Traverse graph nodes/edges             │
+│    - Execute actions/verifications          │
+│    - Use pre-fetched transitions            │
+└─────────────────────────────────────────────┘
 ```
 
 ---
@@ -318,16 +356,20 @@ GET    /server/testcase/:id/history?team_id=xxx
 ### ✅ Phase 1 Complete
 - Database schema with AI metadata columns
 - AI executor generates graphs directly
-- Graph validation updated
+- Clean implementation (no legacy validation)
 - Unified documentation
 - Migration applied
 
-### 🚧 Phase 2: Frontend Integration (In Progress)
+### ✅ Phase 2 Complete (October 2024)
 - API service layer created
 - Save/Load UI implemented
 - Execute functionality added
-- Navigation tree fetching (pending)
-- AI Prompt Mode UI (pending)
+- Navigation tree fetching working
+- AI Prompt Mode integrated
+- Bug fixes:
+  - Fixed Supabase import in ai_plan_generation_db.py
+  - Removed legacy validate_plan (graph validation now in pre-processing)
+  - Clean separation: pre-processing validation vs execution
 
 ### 📋 Phase 3: Future Enhancements
 - Advanced loop configurations
@@ -336,3 +378,88 @@ GET    /server/testcase/:id/history?team_id=xxx
 - Test case versioning
 - A/B test comparison
 - Campaign integration
+
+---
+
+## Technical Implementation Details
+
+### Graph Format (Modern)
+
+AI generates graphs directly with React Flow compatible structure:
+
+```json
+{
+  "graph": {
+    "nodes": [
+      {
+        "id": "start",
+        "type": "start",
+        "position": {"x": 100, "y": 100},
+        "data": {}
+      },
+      {
+        "id": "step1",
+        "type": "navigation",
+        "position": {"x": 100, "y": 200},
+        "data": {
+          "target_node": "live_fullscreen",
+          "target_node_id": "live_fullscreen",
+          "transitions": [...]  // Pre-fetched
+        }
+      },
+      {
+        "id": "success",
+        "type": "success",
+        "position": {"x": 100, "y": 300},
+        "data": {}
+      }
+    ],
+    "edges": [
+      {
+        "id": "e1",
+        "source": "start",
+        "target": "step1",
+        "sourceHandle": "success",
+        "type": "success"
+      },
+      {
+        "id": "e2",
+        "source": "step1",
+        "target": "success",
+        "sourceHandle": "success",
+        "type": "success"
+      }
+    ]
+  }
+}
+```
+
+### Validation Strategy
+
+**Pre-Processing (Before AI):**
+- Extract navigation phrases from prompt
+- Validate against available nodes
+- Apply learned mappings from database
+- Auto-fix fuzzy matches (single match or 90%+ confidence)
+- Return disambiguation modal if ambiguous
+
+**During Generation:**
+- AI only receives validated nodes
+- AI generates graph with valid nodes only
+- Transitions pre-fetched and embedded
+
+**Post-Processing:**
+- ❌ No validation needed (already done in pre-processing)
+- ✅ Graph ready for execution
+
+### Legacy Format Support
+
+For backward compatibility with old cached plans:
+
+```python
+# Convert legacy 'steps' format to modern 'graph' format
+if 'steps' in ai_response and 'graph' not in ai_response:
+    ai_response['graph'] = self._convert_steps_to_graph(ai_response['steps'])
+```
+
+This ensures old cached plans can still be used without breaking the system.
