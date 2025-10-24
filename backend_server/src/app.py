@@ -154,8 +154,6 @@ def register_all_server_routes(app):
         from routes import server_devicemodel_routes
         print("[@backend_server:routes] ✅ server_devicemodel_routes imported successfully")
         
-        # server_remote_routes replaced by auto_proxy
-        
         print("[@backend_server:routes] 🔍 Importing server_ai_routes...")
         from routes import server_ai_routes
         print("[@backend_server:routes] ✅ server_ai_routes imported successfully")
@@ -164,18 +162,7 @@ def register_all_server_routes(app):
         from routes import server_testcase_routes
         print("[@backend_server:routes] ✅ server_testcase_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_ai_testcase_routes...")
-        from routes import server_ai_testcase_routes
-        print("[@backend_server:routes] ✅ server_ai_testcase_routes imported successfully")
-        
-        # server_ai_tools_routes replaced by auto_proxy
-        
-        # server_desktop_bash_routes replaced by auto_proxy
-        
-        # server_power_routes replaced by auto_proxy
-        
-        # server_desktop_pyautogui_routes replaced by auto_proxy
-        
+ 
         print("[@backend_server:routes] 🔍 Importing server_stream_proxy_routes...")
         from routes import server_stream_proxy_routes
         print("[@backend_server:routes] ✅ server_stream_proxy_routes imported successfully")
@@ -195,14 +182,7 @@ def register_all_server_routes(app):
         print("[@backend_server:routes] 🔍 Importing server_userinterface_routes...")
         from routes import server_userinterface_routes
         print("[@backend_server:routes] ✅ server_userinterface_routes imported successfully")
-        
-        
-        # server_av_routes replaced by auto_proxy
-        
-        # server_restart_routes replaced by auto_proxy
-        
-        # server_monitoring_routes replaced by auto_proxy
-        
+       
         print("[@backend_server:routes] 🔍 Importing server_execution_results_routes...")
         from routes import server_execution_results_routes
         print("[@backend_server:routes] ✅ server_execution_results_routes imported successfully")
@@ -271,7 +251,7 @@ def register_all_server_routes(app):
             (server_verification_routes.server_verification_bp, 'Verification operations'),
             (server_devicemodel_routes.server_devicemodel_bp, 'Device model management'),
             (server_ai_routes.server_ai_bp, 'AI operations'),
-            (server_ai_testcase_routes.server_ai_testcase_bp, 'AI test case generation'),
+            # server_ai_testcase_routes DELETED - replaced by unified /server/testcase/execute-from-prompt
             (server_stream_proxy_routes.server_stream_proxy_bp, 'Stream proxy'),
             (server_validation_routes.server_validation_bp, 'Validation operations'),
             (server_campaign_routes.server_campaign_bp, 'Campaign management'),
