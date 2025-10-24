@@ -28,3 +28,7 @@ backend_server/config/grafana/grafana.db-shm
 backend_server/config/grafana/grafana.db-wal
 SSH.md
 backend_server/scripts/backup_grafana_db.sh
+
+# Supabase database backups
+setup/db/backup/*.sql
+setup/db/backup/*.sql.gz

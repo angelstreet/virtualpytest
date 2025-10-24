@@ -1,13 +1,12 @@
--- 012_testcase_definitions.sql
+-- 013_testcase_definitions.sql
 -- TestCase Definitions Table
 -- Stores visual test case graphs created in TestCase Builder
 -- Execution results stored in existing script_results table
 -- Clean implementation with no backward compatibility
 
 -- Drop existing tables and functions if they exist (for clean recreation)
-DROP TRIGGER IF EXISTS testcase_definitions_updated_at ON testcase_definitions;
-DROP FUNCTION IF EXISTS update_testcase_updated_at();
 DROP TABLE IF EXISTS testcase_definitions CASCADE;
+DROP FUNCTION IF EXISTS update_testcase_updated_at();
 
 CREATE TABLE testcase_definitions (
     testcase_id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
