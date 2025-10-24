@@ -34,7 +34,7 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
   const [formData, setFormData] = useState<ActionForm>({
     command: initialData?.command || '',
     params: initialData?.params || {},
-    is Valid: false,
+    isValid: false,
   });
 
   useEffect(() => {

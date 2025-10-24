@@ -192,7 +192,7 @@ def get_testcase_by_name(testcase_name: str, team_id: str) -> Optional[Dict[str,
             testcase['team_id'] = str(testcase['team_id'])
             return testcase
         
-    return None
+        return None
 
     except Exception as e:
         print(f"[@testcase_db] ERROR getting test case by name: {e}")
