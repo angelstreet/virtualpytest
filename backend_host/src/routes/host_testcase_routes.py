@@ -259,7 +259,6 @@ def execute_from_prompt():
     try:
         from shared.src.lib.executors.ai_executor import AIExecutor
         from shared.src.lib.database.testcase_db import create_testcase
-        from backend_host.src.services.device_manager import get_device_manager
         
         print("[@host_testcase] Unified execute-from-prompt")
         
@@ -281,10 +280,10 @@ def execute_from_prompt():
         async_execution = data.get('async_execution', False)
         
         # Validate required
-        if not all([prompt, userinterface_name, device_id, host_name, team_id]):
+        if not all([prompt, userinterface_name, device_id, team_id]):
             return jsonify({
                 'success': False, 
-                'error': 'Missing required fields: prompt, userinterface_name, device_id, host_name, team_id'
+                'error': 'Missing required fields: prompt, userinterface_name, device_id, team_id'
             }), 400
         
         # If save=true, testcase_name is required
@@ -294,12 +293,14 @@ def execute_from_prompt():
                 'error': 'testcase_name is required when save=true'
             }), 400
         
-        # Get device
-        device_manager = get_device_manager()
-        device = device_manager.get_device(host_name, device_id)
+        # Get device from app registry (same as other routes)
+        if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found in host registry'
+            }), 404
         
-        if not device:
-            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        device = current_app.host_devices[device_id]
         
         # Execute prompt using AI executor
         print(f"[@host_testcase] Executing prompt: {prompt[:50]}...")
