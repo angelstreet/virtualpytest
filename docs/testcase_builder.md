@@ -492,3 +492,313 @@ if 'steps' in ai_response and 'graph' not in ai_response:
 ```
 
 This ensures old cached plans can still be used without breaking the system.
+
+---
+
+## Dynamic Toolbox Architecture
+
+### Overview
+
+TestCase Builder uses **dynamic toolbox generation** that reuses the same infrastructure as NavigationEditor. This eliminates code duplication and ensures consistency across the application.
+
+### Key Principle: Reuse, Don't Recreate
+
+Instead of creating new endpoints or fetching data separately, TestCase Builder:
+1. ✅ Uses the same Navigation providers as NavigationEditor
+2. ✅ Calls the same `loadTreeByUserInterface()` method
+3. ✅ Extracts toolbox blocks from loaded navigation data
+4. ✅ Benefits from existing 5-minute caching
+
+### Data Flow
+
+```
+User selects interface in TestCaseBuilder
+          ↓
+Load navigation tree (same as NavigationEditor)
+    /server/userinterface/getTreeByUserInterface
+          ↓
+Returns: nodes, edges, metrics (cached 5 min)
+          ↓
+buildToolboxFromNavigationData()
+   - Extract navigation nodes from tree
+   - Extract actions from edges' action_sets
+   - Extract verifications from nodes' verifications
+          ↓
+Dynamic toolbox rendered
+```
+
+### Implementation
+
+#### 1. Wrap with Navigation Providers
+
+```tsx
+// TestCaseBuilder.tsx
+const TestCaseBuilder: React.FC = () => {
+  return (
+    <ReactFlowProvider>
+      <NavigationConfigProvider>
+        <NavigationEditorProvider>
+          <TestCaseBuilderProvider>
+            <TestCaseBuilderContent />
+          </TestCaseBuilderProvider>
+        </NavigationEditorProvider>
+      </NavigationConfigProvider>
+    </ReactFlowProvider>
+  );
+};
+```
+
+**Why?** This gives access to:
+- `useNavigationEditor()` hook
+- `loadTreeByUserInterface()` method
+- Existing caching infrastructure
+
+#### 2. Load Navigation Tree
+
+```tsx
+// In TestCaseBuilderContent
+const {
+  nodes: navNodes,           // Navigation tree nodes
+  edges: navEdges,           // Edges with action_sets
+  userInterface,             // Interface metadata
+  loadTreeByUserInterface,
+  setUserInterfaceFromProps,
+} = useNavigationEditor();
+
+// Load tree when interface changes
+useEffect(() => {
+  if (userinterfaceName) {
+    const resolvedInterface = await getUserInterfaceByName(userinterfaceName);
+    setUserInterfaceFromProps(resolvedInterface);
+    await loadTreeByUserInterface(resolvedInterface.id);
+  }
+}, [userinterfaceName]);
+```
+
+**What's loaded:**
+- All navigation nodes (with labels, IDs, verifications)
+- All edges (with action_sets containing actions)
+- Metrics (for future use)
+- **Cached for 5 minutes!**
+
+#### 3. Build Dynamic Toolbox
+
+```tsx
+// utils/toolboxBuilder.ts
+export function buildToolboxFromNavigationData(nodes, edges, userInterface) {
+  return {
+    standard: { /* Flow control blocks */ },
+    navigation: {
+      tabName: 'Navigation',
+      groups: [{
+        groupName: 'Navigation Nodes',
+        commands: extractNavigationBlocks(nodes)  // From tree!
+      }]
+    },
+    actions: {
+      tabName: 'Actions',
+      groups: [{
+        groupName: 'Device Actions',
+        commands: extractActionBlocks(edges)  // From action_sets!
+      }]
+    },
+    verifications: {
+      tabName: 'Verify',
+      groups: [{
+        groupName: 'Verifications',
+        commands: extractVerificationBlocks(nodes)  // From node verifications!
+      }]
+    }
+  };
+}
+```
+
+**Extraction Logic:**
+
+**Navigation Nodes:**
+```tsx
+function extractNavigationBlocks(nodes) {
+  return nodes
+    .filter(node => node.type !== 'entry' && node.data?.label)
+    .map(node => ({
+      type: 'navigation',
+      label: node.data.label,
+      defaultData: {
+        target_node: node.data.label,
+        target_node_id: node.id
+      }
+    }));
+}
+```
+
+**Actions (from edges):**
+```tsx
+function extractActionBlocks(edges) {
+  const actionsMap = new Map();
+  
+  edges.forEach(edge => {
+    edge.data?.action_sets?.forEach(actionSet => {
+      actionSet.actions?.forEach(action => {
+        actionsMap.set(action.command, {
+          type: 'action',
+          label: formatLabel(action.command),
+          defaultData: {
+            command: action.command,
+            action_type: action.action_type,
+            params: action.params
+          }
+        });
+      });
+    });
+  });
+  
+  return Array.from(actionsMap.values());
+}
+```
+
+**Verifications (from nodes):**
+```tsx
+function extractVerificationBlocks(nodes) {
+  const verificationsMap = new Map();
+  
+  nodes.forEach(node => {
+    node.data?.verifications?.forEach(verification => {
+      verificationsMap.set(verification.command, {
+        type: 'verification',
+        label: formatLabel(verification.command),
+        defaultData: {
+          command: verification.command,
+          verification_type: verification.verification_type,
+          params: verification.params
+        }
+      });
+    });
+  });
+  
+  return Array.from(verificationsMap.values());
+}
+```
+
+#### 4. Render Dynamic Toolbox
+
+```tsx
+// In TestCaseBuilderContent
+const dynamicToolboxConfig = React.useMemo(() => {
+  return buildToolboxFromNavigationData(navNodes, navEdges, userInterface);
+}, [navNodes, navEdges, userInterface]);
+
+// Render
+{creationMode === 'visual' && (
+  dynamicToolboxConfig ? (
+    <TestCaseToolbox 
+      activeTab={activeToolboxTab}
+      toolboxConfig={dynamicToolboxConfig}  // Dynamic!
+    />
+  ) : (
+    <Typography>Select an interface to load toolbox</Typography>
+  )
+)}
+```
+
+#### 5. UserInterface Selector
+
+```tsx
+// In TestCaseBuilder header
+<UserinterfaceSelector
+  value={userinterfaceName}
+  onChange={setUserinterfaceName}
+  label="Interface"
+  size="small"
+  fullWidth={false}
+  sx={{ minWidth: 200 }}
+/>
+```
+
+- ✅ Reuses existing `UserinterfaceSelector` component
+- ✅ Triggers tree reload when changed
+- ✅ Positioned in header next to Visual/AI toggle
+- ✅ Compact size for better UX
+
+### Benefits
+
+#### ✅ No Code Duplication
+- Reuses `NavigationEditor` infrastructure
+- Same data source
+- Same caching behavior
+
+#### ✅ Consistency
+- Navigation nodes match Navigation Editor
+- Actions/verifications match device capabilities
+- Always in sync with navigation trees
+
+#### ✅ Performance
+- 5-minute backend cache (already exists)
+- Frontend memoization
+- Only loads when interface changes
+
+#### ✅ Maintainability
+- One source of truth
+- Changes to navigation data automatically reflect
+- No need to keep endpoints in sync
+
+### Data Sources
+
+| Toolbox Tab | Data Source | Loaded From |
+|-------------|-------------|-------------|
+| Standard | Static | Hardcoded (start, success, failure, loop) |
+| Navigation | Dynamic | `navNodes` from tree |
+| Actions | Dynamic | `navEdges.action_sets` from tree |
+| Verifications | Dynamic | `navNodes.verifications` from tree |
+
+### Caching Behavior
+
+**Backend Cache (5 minutes):**
+- Endpoint: `/server/userinterface/getTreeByUserInterface`
+- Cached by: `userinterface_id + team_id`
+- TTL: 300 seconds (5 minutes)
+- Shared with: NavigationEditor
+
+**Frontend Memoization:**
+```tsx
+const dynamicToolboxConfig = React.useMemo(() => {
+  return buildToolboxFromNavigationData(navNodes, navEdges, userInterface);
+}, [navNodes, navEdges, userInterface]);
+```
+- Rebuilds only when dependencies change
+- Prevents unnecessary re-renders
+
+### File Structure
+
+```
+frontend/src/
+├── pages/
+│   └── TestCaseBuilder.tsx         # Uses navigation providers
+├── utils/
+│   └── toolboxBuilder.ts           # Extraction logic
+├── components/
+│   └── testcase/
+│       └── builder/
+│           └── TestCaseToolbox.tsx # Accepts dynamic config
+└── contexts/
+    └── navigation/
+        └── NavigationEditorProvider.tsx  # Reused!
+```
+
+### Troubleshooting
+
+**Toolbox not loading?**
+- Check: Is `userinterfaceName` set?
+- Check: Does interface exist in database?
+- Check: Does interface have a navigation tree?
+- Check: Console for errors in `loadTreeByUserInterface`
+
+**Missing nodes/actions?**
+- Check: Are nodes properly labeled in NavigationEditor?
+- Check: Do edges have action_sets with actions?
+- Check: Do nodes have verifications array?
+- Check: Extraction filters in toolboxBuilder.ts
+
+**Performance issues?**
+- Check: Is memoization working? (React DevTools)
+- Check: Is backend cache enabled? (server logs)
+- Check: Are there too many nodes? (consider pagination)
