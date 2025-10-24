@@ -14,6 +14,48 @@ PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
 # Change to project root
 cd "$PROJECT_ROOT"
 
+# Load database credentials from .env if it exists
+if [ -f ".env" ]; then
+    echo "📄 Loading credentials from .env"
+    # Export variables so they're available to child processes
+    set -a
+    source .env
+    set +a
+else
+    echo "⚠️  No .env file found. Please create one from .env.example"
+    echo "   cp .env.example .env"
+    echo ""
+fi
+
+# Set defaults or prompt for credentials if not set
+VIRTUALPYTEST_DB_USER="${VIRTUALPYTEST_DB_USER:-virtualpytest_user}"
+VIRTUALPYTEST_DB_PASSWORD="${VIRTUALPYTEST_DB_PASSWORD:-}"
+GRAFANA_DB_USER="${GRAFANA_DB_USER:-grafana_user}"
+GRAFANA_DB_PASSWORD="${GRAFANA_DB_PASSWORD:-}"
+# Use LOCAL_GRAFANA_ADMIN_PASSWORD if set, otherwise fall back to GRAFANA_ADMIN_PASSWORD
+GRAFANA_ADMIN_PASSWORD="${LOCAL_GRAFANA_ADMIN_PASSWORD:-${GRAFANA_ADMIN_PASSWORD:-}}"
+
+# Prompt for missing credentials
+if [ -z "$VIRTUALPYTEST_DB_PASSWORD" ]; then
+    read -sp "🔒 Enter VirtualPyTest database password (default: virtualpytest_pass): " VIRTUALPYTEST_DB_PASSWORD
+    echo
+    VIRTUALPYTEST_DB_PASSWORD="${VIRTUALPYTEST_DB_PASSWORD:-virtualpytest_pass}"
+fi
+
+if [ -z "$GRAFANA_DB_PASSWORD" ]; then
+    read -sp "🔒 Enter Grafana database password (default: grafana_pass): " GRAFANA_DB_PASSWORD
+    echo
+    GRAFANA_DB_PASSWORD="${GRAFANA_DB_PASSWORD:-grafana_pass}"
+fi
+
+if [ -z "$GRAFANA_ADMIN_PASSWORD" ]; then
+    read -sp "🔒 Enter Grafana admin password (default: admin123): " GRAFANA_ADMIN_PASSWORD
+    echo
+    GRAFANA_ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-admin123}"
+fi
+
+echo "✅ Credentials loaded/set"
+
 # Check if we're in the right directory
 if [ ! -f "README.md" ] || [ ! -d "backend_server" ]; then
     echo "❌ Could not find virtualpytest project root directory"
@@ -129,12 +171,12 @@ setup_postgresql() {
     # Create database and user (handle existing gracefully)
     # On Linux, use sudo to run as postgres user
     sudo -u postgres psql -c "CREATE DATABASE grafana_metrics;" 2>/dev/null || echo "Database grafana_metrics already exists"
-    sudo -u postgres psql -c "CREATE USER grafana_user WITH PASSWORD 'grafana_pass';" 2>/dev/null || echo "User grafana_user already exists"
-    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO grafana_user;" 2>/dev/null || true
-    sudo -u postgres psql -c "ALTER USER grafana_user CREATEDB;" 2>/dev/null || true
+    sudo -u postgres psql -c "CREATE USER $GRAFANA_DB_USER WITH PASSWORD '$GRAFANA_DB_PASSWORD';" 2>/dev/null || echo "User $GRAFANA_DB_USER already exists"
+    sudo -u postgres psql -c "GRANT ALL PRIVILEGES ON DATABASE grafana_metrics TO $GRAFANA_DB_USER;" 2>/dev/null || true
+    sudo -u postgres psql -c "ALTER USER $GRAFANA_DB_USER CREATEDB;" 2>/dev/null || true
     
     # Test the connection
-    if PGPASSWORD=grafana_pass psql -h localhost -U grafana_user -d grafana_metrics -c "SELECT version();" &> /dev/null; then
+    if PGPASSWORD=$GRAFANA_DB_PASSWORD psql -h localhost -U $GRAFANA_DB_USER -d grafana_metrics -c "SELECT version();" &> /dev/null; then
         echo "✅ Grafana database setup successful"
     else
         echo "❌ Failed to connect to Grafana database"
@@ -168,6 +210,11 @@ setup_grafana_config() {
     echo "⚙️ Copying Grafana configuration..."
     sudo cp "$PROJECT_ROOT/grafana/config/grafana.ini" /etc/grafana/
     
+    # Update admin password in grafana.ini
+    echo "🔒 Setting Grafana admin password..."
+    sudo sed -i "s/;admin_password = admin/admin_password = $GRAFANA_ADMIN_PASSWORD/" /etc/grafana/grafana.ini
+    sudo sed -i "s/admin_password = admin$/admin_password = $GRAFANA_ADMIN_PASSWORD/" /etc/grafana/grafana.ini
+    
     # Set up provisioning directories and copy local datasource configuration
     echo "📋 Setting up Grafana provisioning for local databases..."
     sudo mkdir -p /etc/grafana/provisioning/datasources
@@ -176,7 +223,7 @@ setup_grafana_config() {
     
     # Create provisioning configuration files directly
     echo "📋 Creating local datasource configuration..."
-    sudo tee /etc/grafana/provisioning/datasources/local.yml > /dev/null << 'EOF'
+    sudo tee /etc/grafana/provisioning/datasources/local.yml > /dev/null << EOF
 # Local Grafana datasource configuration for VirtualPyTest
 # This file automatically configures Grafana to use local PostgreSQL databases
 apiVersion: 1
@@ -186,7 +233,7 @@ datasources:
   - name: VirtualPyTest Local
     type: postgres
     access: proxy
-    url: postgres://virtualpytest_user:virtualpytest_pass@localhost:5432/virtualpytest
+    url: postgres://${VIRTUALPYTEST_DB_USER}:${VIRTUALPYTEST_DB_PASSWORD}@localhost:5432/virtualpytest
     jsonData:
       sslmode: disable  # Local connection, no SSL needed
       postgresVersion: 1300
@@ -203,7 +250,7 @@ datasources:
   - name: VirtualPyTest Metrics
     type: postgres
     access: proxy
-    url: postgres://grafana_user:grafana_pass@localhost:5432/grafana_metrics
+    url: postgres://${GRAFANA_DB_USER}:${GRAFANA_DB_PASSWORD}@localhost:5432/grafana_metrics
     jsonData:
       sslmode: disable  # Local connection, no SSL needed
       postgresVersion: 1300
@@ -241,14 +288,15 @@ EOF
     sudo sed -i 's|root_url = http://localhost/grafana/|root_url = http://localhost:3000/|' /etc/grafana/grafana.ini
     sudo sed -i 's/serve_from_sub_path = true/serve_from_sub_path = false/' /etc/grafana/grafana.ini
     
-    # Configure security settings for local development with cross-origin support
+    # Configure security settings for local development
     echo "🔒 Configuring security settings for local development..."
     
     # Disable secure cookies for HTTP (local development)
     sudo sed -i 's/cookie_secure = true/cookie_secure = false/' /etc/grafana/grafana.ini
     
-    # Set SameSite to None for cross-origin embedding (required for iframe embedding)
-    sudo sed -i 's/cookie_samesite = lax/cookie_samesite = none/' /etc/grafana/grafana.ini
+    # Set SameSite to Lax for local HTTP access (None requires HTTPS)
+    sudo sed -i 's/cookie_samesite = strict/cookie_samesite = lax/' /etc/grafana/grafana.ini
+    sudo sed -i 's/cookie_samesite = none/cookie_samesite = lax/' /etc/grafana/grafana.ini
     
     # Ensure embedding is allowed (should already be true, but make sure)
     sudo sed -i 's/;allow_embedding = false/allow_embedding = true/' /etc/grafana/grafana.ini
@@ -277,7 +325,7 @@ EOF
 create_launch_script() {
     echo "🚀 Creating Grafana launch script..."
     
-    cat > "$PROJECT_ROOT/setup/local/launch_grafana.sh" << 'EOF'
+    cat > "$PROJECT_ROOT/setup/local/launch_grafana.sh" << EOF
 #!/bin/bash
 
 # VirtualPyTest - Launch Grafana Locally
@@ -288,11 +336,18 @@ set -e
 echo "📊 Starting Grafana for VirtualPyTest local development..."
 
 # Get to project root directory
-SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-PROJECT_ROOT="$(cd "$SCRIPT_DIR/../.." && pwd)"
+SCRIPT_DIR="\$(cd "\$(dirname "\${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_ROOT="\$(cd "\$SCRIPT_DIR/../.." && pwd)"
 
 # Change to project root
-cd "$PROJECT_ROOT"
+cd "\$PROJECT_ROOT"
+
+# Load credentials from .env if it exists
+if [ -f ".env" ]; then
+    set -a
+    source .env
+    set +a
+fi
 
 # Check if Grafana is installed
 if ! command -v grafana-server &> /dev/null; then
@@ -304,8 +359,8 @@ fi
 # Check if Grafana is configured (Linux only)
 GRAFANA_CONF="/etc/grafana/grafana.ini"
 
-if [ ! -f "$GRAFANA_CONF" ]; then
-    echo "❌ Grafana configuration not found at $GRAFANA_CONF"
+if [ ! -f "\$GRAFANA_CONF" ]; then
+    echo "❌ Grafana configuration not found at \$GRAFANA_CONF"
     echo "Please run: ./setup/local/install_grafana.sh"
     exit 1
 fi
@@ -317,25 +372,22 @@ if ! pg_isready &> /dev/null; then
     sleep 3
 fi
 
-# Kill any existing Grafana processes on port 3001
-if lsof -ti:3001 > /dev/null 2>&1; then
+# Kill any existing Grafana processes on port 3000
+if lsof -ti:3000 > /dev/null 2>&1; then
     echo "🛑 Stopping existing Grafana process..."
-    lsof -ti:3001 | xargs kill -9 2>/dev/null || true
+    lsof -ti:3000 | xargs kill -9 2>/dev/null || true
     sleep 2
 fi
 
-# Set environment variables for datasource configuration
-export SUPABASE_DB_URI="${SUPABASE_DB_URI:-postgres://user:pass@localhost:5432/postgres}"
-
 echo "🚀 Starting Grafana server..."
 echo "📊 Grafana will be available at: http://localhost:3000"
-echo "🔑 Login: admin / admin123"
+echo "🔑 Login: admin / (password set during installation)"
 echo "💡 Press Ctrl+C to stop"
 
 # Start Grafana server using system configuration (Linux)
-grafana-server \
-    --config="$GRAFANA_CONF" \
-    --homepath="/usr/share/grafana" \
+grafana-server \\
+    --config="\$GRAFANA_CONF" \\
+    --homepath="/usr/share/grafana" \\
     web
 EOF
 
@@ -357,6 +409,8 @@ main() {
     
     # Setup Grafana configuration and database
     setup_grafana_config
+    
+    # Create launch script
     create_launch_script
     
     # Enable and start Grafana service
@@ -393,23 +447,28 @@ main() {
     echo "🚀 To start Grafana:"
     echo "   ./setup/local/launch_grafana.sh"
     echo ""
-echo "🌐 Access Grafana at:"
-echo "   URL: http://localhost:3000"
-echo "   Login: admin / admin123"
+    echo "🌐 Access Grafana at:"
+    echo "   URL: http://localhost:3000"
+    echo "   Login: admin / (password you set during installation)"
+    echo ""
+    echo "📊 Database credentials:"
+    echo "   VirtualPyTest DB: $VIRTUALPYTEST_DB_USER @ localhost:5432/virtualpytest"
+    echo "   Grafana Metrics DB: $GRAFANA_DB_USER @ localhost:5432/grafana_metrics"
     echo ""
     echo "📊 Configuration files:"
-    echo "   Config: grafana/config/grafana.ini"
-    echo "   Data: grafana/data/"
-    echo "   Logs: grafana/logs/"
+    echo "   Config: /etc/grafana/grafana.ini"
+    echo "   Data: /var/lib/grafana/"
+    echo "   Logs: /var/log/grafana/"
+    echo "   Credentials: .env (root of project)"
     echo ""
     echo "💡 Next steps:"
-    echo "   1. Start Grafana: ./setup/local/launch_grafana.sh"
-    echo "   2. Configure SUPABASE_DB_URI environment variable (optional)"
-    echo "   3. Import existing dashboards from backend_server/config/grafana/dashboards/"
-    echo "   4. Create custom dashboards for your local metrics"
+    echo "   1. Ensure your .env file has the correct credentials"
+    echo "   2. Access Grafana at http://localhost:3000"
+    echo "   3. Login with admin and your password from .env"
+    echo "   4. Check pre-configured datasources and dashboards"
     echo ""
     echo "🔧 If you have CORS issues with Vite frontend:"
-    echo "   Run: ./setup/local/fix_grafana_cors.sh"
+    echo "   The configuration is already set for local development"
 }
 
 # Run main installation

@@ -369,7 +369,22 @@ GET    /server/testcase/:id/history?team_id=xxx
 - Bug fixes:
   - Fixed Supabase import in ai_plan_generation_db.py
   - Removed legacy validate_plan (graph validation now in pre-processing)
+  - Fixed cache behavior: cache miss now falls through to generation (not abort)
   - Clean separation: pre-processing validation vs execution
+
+### Cache Behavior
+
+**`use_cache=True` (Recommended):**
+- Try to find cached plan first
+- If cache **hit**: Execute cached plan immediately (fast!)
+- If cache **miss**: Generate new plan with AI, execute, then cache it for next time
+- Best for repeated tasks - first run generates, subsequent runs use cache
+
+**`use_cache=False`:**
+- Always generate fresh plan with AI
+- Never use cached plans
+- Never store plans in cache
+- Use for one-off tasks or when testing new prompts
 
 ### 📋 Phase 3: Future Enhancements
 - Advanced loop configurations

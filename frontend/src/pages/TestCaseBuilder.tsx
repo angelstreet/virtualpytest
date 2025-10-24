@@ -38,13 +38,10 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // Components
 import { TestCaseToolbox } from '../components/testcase/builder/TestCaseToolbox';
+import { toolboxConfig } from '../components/testcase/builder/toolboxConfig';
 import { StartBlock } from '../components/testcase/blocks/StartBlock';
 import { SuccessBlock } from '../components/testcase/blocks/SuccessBlock';
 import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
-import { ActionBlock } from '../components/testcase/blocks/ActionBlock';
-import { VerificationBlock } from '../components/testcase/blocks/VerificationBlock';
-import { NavigationBlock } from '../components/testcase/blocks/NavigationBlock';
-import { LoopBlock } from '../components/testcase/blocks/LoopBlock';
 import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
@@ -58,7 +55,6 @@ import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialo
 // Context
 import { TestCaseBuilderProvider, useTestCaseBuilder } from '../contexts/testcase/TestCaseBuilderContext';
 import { useTheme } from '../contexts/ThemeContext';
-import { BlockType } from '../types/testcase/TestCase_Types';
 import { generateTestCaseFromPrompt } from '../services/aiService';
 
 // Node types for React Flow
@@ -66,12 +62,7 @@ const nodeTypes = {
   start: StartBlock,
   success: SuccessBlock,
   failure: FailureBlock,
-  // Keep legacy blocks for backward compatibility
-  action: ActionBlock,
-  verification: VerificationBlock,
-  navigation: NavigationBlock,
-  loop: LoopBlock,
-  // New specific command types use UniversalBlock
+  // Specific command types use UniversalBlock
   press_key: UniversalBlock,
   press_sequence: UniversalBlock,
   tap: UniversalBlock,
@@ -88,16 +79,18 @@ const nodeTypes = {
   get_current_time: UniversalBlock,
   generate_random: UniversalBlock,
   http_request: UniversalBlock,
+  loop: UniversalBlock,
+  navigation: UniversalBlock,
 };
 
 // Edge types for React Flow
 const edgeTypes = {
   success: SuccessEdge,
   failure: FailureEdge,
-  true: SuccessEdge,      // Reuse success edge (green)
-  false: FailureEdge,     // Reuse failure edge (red)
-  complete: SuccessEdge,  // Loop complete (green)
-  break: FailureEdge,     // Loop break (red/orange)
+  true: SuccessEdge,
+  false: FailureEdge,
+  complete: SuccessEdge,
+  break: FailureEdge,
 };
 
 // Default edge options
@@ -151,6 +144,7 @@ const TestCaseBuilderContent: React.FC = () => {
   const [creationMode, setCreationMode] = useState<'visual' | 'ai'>('visual');
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
+  const [activeToolboxTab, setActiveToolboxTab] = useState('standard');
 
   // Dialogs
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -186,7 +180,6 @@ const TestCaseBuilderContent: React.FC = () => {
       }
 
       try {
-        // Try parsing as JSON (new format with type + defaultData)
         const dragData = JSON.parse(dragDataStr);
         const { type, defaultData } = dragData;
 
@@ -200,17 +193,9 @@ const TestCaseBuilderContent: React.FC = () => {
           y: event.clientY - (reactFlowBounds?.top || 0),
         });
 
-        // Pass the type and position, addBlock will merge defaultData
         addBlock(type, position, defaultData);
       } catch (error) {
-        // Fallback: if not JSON, treat as plain type string (backward compatibility)
-        const type = dragDataStr as BlockType;
-        const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
-        const position = reactFlowInstance.project({
-          x: event.clientX - (reactFlowBounds?.left || 0),
-          y: event.clientY - (reactFlowBounds?.top || 0),
-        });
-        addBlock(type, position);
+        console.error('Invalid drag data format:', error);
       }
     },
     [reactFlowInstance, addBlock]
@@ -428,21 +413,74 @@ const TestCaseBuilderContent: React.FC = () => {
       <Box
         sx={{
           px: 2,
-          py: 0.75,
+          py: 0,
           borderBottom: 1,
           borderColor: 'divider',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           background: actualMode === 'dark' ? '#111827' : '#ffffff',
-          minHeight: '48px',
+          minHeight: '46px',
           flexShrink: 0,
+          position: 'relative',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6" fontWeight="bold">
             TestCase Builder
           </Typography>
+          
+          {/* Visual/AI Mode Toggle */}
+          <Box sx={{ display: 'flex', gap: 0.5, ml: 2 }}>
+            <Button
+              size="small"
+              variant={creationMode === 'visual' ? 'contained' : 'outlined'}
+              onClick={() => setCreationMode('visual')}
+              sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
+            >
+              Visual
+            </Button>
+            <Button
+              size="small"
+              variant={creationMode === 'ai' ? 'contained' : 'outlined'}
+              onClick={() => setCreationMode('ai')}
+              startIcon={<AutoAwesomeIcon fontSize="small" />}
+              sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
+            >
+              AI
+            </Button>
+          </Box>
+        </Box>
+        
+        {/* Toolbox Tab Navigation - centered - only show in visual mode */}
+        {creationMode === 'visual' && (
+          <Box sx={{ 
+            position: 'absolute',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            display: 'flex', 
+            gap: 0.5
+          }}>
+            {Object.keys(toolboxConfig).map((key) => (
+              <Button
+                key={key}
+                size="small"
+                variant={activeToolboxTab === key ? 'contained' : 'outlined'}
+                onClick={() => setActiveToolboxTab(key)}
+                sx={{ 
+                  fontSize: 10, 
+                  py: 0.5, 
+                  px: 1.5,
+                  minWidth: 'auto'
+                }}
+              >
+                {toolboxConfig[key].tabName.toUpperCase()}
+              </Button>
+            ))}
+          </Box>
+        )}
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           {testcaseName && (
             <Typography variant="caption" color="text.secondary">
               {testcaseName} {currentTestcaseId ? '(saved)' : '(unsaved)'}
@@ -473,7 +511,7 @@ const TestCaseBuilderContent: React.FC = () => {
 
       {/* Main Content */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
-        {/* Mode Selector + Toolbox/AI Panel */}
+        {/* Toolbox/AI Panel */}
         <Box sx={{ 
           width: 220, 
           borderRight: 1, 
@@ -483,99 +521,74 @@ const TestCaseBuilderContent: React.FC = () => {
           background: actualMode === 'dark' ? '#111827' : '#f9fafb',
           overflow: 'hidden',
         }}>
-          {/* Mode Toggle */}
-          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
-            <Box sx={{ display: 'flex', gap: 0.5 }}>
-              <Button
-                size="small"
-                variant={creationMode === 'visual' ? 'contained' : 'outlined'}
-                onClick={() => setCreationMode('visual')}
-                fullWidth
-                sx={{ fontSize: 11, py: 0.5 }}
-              >
-                Visual
-              </Button>
-              <Button
-                size="small"
-                variant={creationMode === 'ai' ? 'contained' : 'outlined'}
-                onClick={() => setCreationMode('ai')}
-                fullWidth
-                startIcon={<AutoAwesomeIcon fontSize="small" />}
-                sx={{ fontSize: 11, py: 0.5 }}
-              >
-                AI
-              </Button>
-            </Box>
-          </Box>
-
           {/* Visual Mode: Toolbox */}
-          {creationMode === 'visual' && <TestCaseToolbox />}
+          {creationMode === 'visual' && <TestCaseToolbox activeTab={activeToolboxTab} />}
 
           {/* AI Mode: Prompt Input */}
           {creationMode === 'ai' && (
-            <Box sx={{ p: 1.5, display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
-              <Typography variant="subtitle2" fontWeight="bold">
-                AI Test Generator
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                Describe your test in plain English
-              </Typography>
-              <TextField
-                multiline
-                rows={6}
-                placeholder="e.g., Go to live TV and verify audio is playing"
-                value={aiPrompt}
-                onChange={(e) => setAiPrompt(e.target.value)}
-                size="small"
-                fullWidth
-              />
-              <Button
-                variant="contained"
-                startIcon={<AutoAwesomeIcon />}
-                onClick={handleGenerateWithAI}
-                disabled={isGenerating || !aiPrompt.trim()}
-                fullWidth
-                size="small"
-              >
-                {isGenerating ? 'Generating...' : 'Generate'}
-              </Button>
-              
-              {/* Sample prompts */}
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="caption" fontWeight="bold" color="text.secondary">
-                  Examples:
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1.5, flex: 1, overflowY: 'auto' }}>
+                <Typography variant="subtitle2" fontWeight="bold">
+                  AI Test Generator
                 </Typography>
-                {[
-                  'Go to live TV and check audio',
-                  'Navigate to settings',
-                  'Play first recording'
-                ].map((example, idx) => (
-                  <Typography
-                    key={idx}
-                    variant="caption"
-                    sx={{
-                      display: 'block',
-                      mt: 0.5,
-                      cursor: 'pointer',
-                      color: 'primary.main',
-                      '&:hover': { textDecoration: 'underline' }
-                    }}
-                    onClick={() => setAiPrompt(example)}
-                  >
-                    • {example}
+                <Typography variant="caption" color="text.secondary">
+                  Describe your test in plain English
+                </Typography>
+                <TextField
+                  multiline
+                  rows={6}
+                  placeholder="e.g., Go to live TV and verify audio is playing"
+                  value={aiPrompt}
+                  onChange={(e) => setAiPrompt(e.target.value)}
+                  size="small"
+                  fullWidth
+                />
+                <Button
+                  variant="contained"
+                  startIcon={<AutoAwesomeIcon />}
+                  onClick={handleGenerateWithAI}
+                  disabled={isGenerating || !aiPrompt.trim()}
+                  fullWidth
+                  size="small"
+                >
+                  {isGenerating ? 'Generating...' : 'Generate'}
+                </Button>
+                
+                {/* Sample prompts */}
+                <Box sx={{ mt: 1 }}>
+                  <Typography variant="caption" fontWeight="bold" color="text.secondary">
+                    Examples:
                   </Typography>
-                ))}
-              </Box>
+                  {[
+                    'Go to live TV and check audio',
+                    'Navigate to settings',
+                    'Play first recording'
+                  ].map((example, idx) => (
+                    <Typography
+                      key={idx}
+                      variant="caption"
+                      sx={{
+                        display: 'block',
+                        mt: 0.5,
+                        cursor: 'pointer',
+                        color: 'primary.main',
+                        '&:hover': { textDecoration: 'underline' }
+                      }}
+                      onClick={() => setAiPrompt(example)}
+                    >
+                      • {example}
+                    </Typography>
+                  ))}
+                </Box>
 
-              {/* Instructions */}
-              <Box sx={{ 
-                mt: 'auto', 
-                p: 1, 
-                background: actualMode === 'dark' ? '#1f2937' : '#ffffff', 
-                borderRadius: 1 
-              }}>
-                <Typography fontSize={10} color="text.secondary">
-                  <strong>Note:</strong> After AI generates the test, you can edit it visually.
+                {/* Instructions */}
+                <Box sx={{ 
+                  mt: 'auto', 
+                  p: 1, 
+                  background: actualMode === 'dark' ? '#1f2937' : '#ffffff', 
+                  borderRadius: 1 
+                }}>
+                  <Typography fontSize={10} color="text.secondary">
+                    <strong>Note:</strong> After AI generates the test, you can edit it visually.
                 </Typography>
               </Box>
             </Box>
@@ -614,7 +627,7 @@ const TestCaseBuilderContent: React.FC = () => {
       </Box>
 
       {/* Configuration Dialogs */}
-      {selectedBlock?.type === BlockType.ACTION && (
+      {selectedBlock?.type === 'press_key' && (
         <ActionConfigDialog
           open={isConfigDialogOpen}
           initialData={selectedBlock.data}
@@ -623,7 +636,7 @@ const TestCaseBuilderContent: React.FC = () => {
         />
       )}
 
-      {selectedBlock?.type === BlockType.VERIFICATION && (
+      {selectedBlock?.type === 'verify_image' && (
         <VerificationConfigDialog
           open={isConfigDialogOpen}
           initialData={selectedBlock.data}
@@ -632,7 +645,7 @@ const TestCaseBuilderContent: React.FC = () => {
         />
       )}
 
-      {selectedBlock?.type === BlockType.NAVIGATION && (
+      {selectedBlock?.type === 'navigation' && (
         <NavigationConfigDialog
           open={isConfigDialogOpen}
           initialData={selectedBlock.data}
@@ -641,7 +654,7 @@ const TestCaseBuilderContent: React.FC = () => {
         />
       )}
 
-      {selectedBlock?.type === BlockType.LOOP && (
+      {selectedBlock?.type === 'loop' && (
         <LoopConfigDialog
           open={isConfigDialogOpen}
           initialData={selectedBlock.data}

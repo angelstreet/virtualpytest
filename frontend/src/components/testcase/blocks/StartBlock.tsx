@@ -13,8 +13,8 @@ export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
   return (
     <Box
       sx={{
-        width: 70,
-        height: 70,
+        width: 40,
+        height: 40,
         borderRadius: '50%',
         background: actualMode === 'dark' ? '#2563eb' : '#3b82f6',
         border: selected ? '3px solid #fbbf24' : 'none',
@@ -30,7 +30,7 @@ export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
         },
       }}
     >
-      <Typography color="white" fontWeight="bold" fontSize={12}>
+      <Typography color="white" fontWeight="bold" fontSize={10}>
         START
       </Typography>
       

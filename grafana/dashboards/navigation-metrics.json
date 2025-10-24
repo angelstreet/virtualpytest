@@ -1,0 +1,2028 @@
+{
+  "dashboard": {
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "panels": [
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "dark-red",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 5,
+          "x": 0,
+          "y": 0
+        },
+        "id": 2,
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "percentChangeColorMode": "standard",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "textMode": "auto",
+          "wideLayout": true
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as value\nFROM execution_results er\nWHERE $__timeFilter(er.executed_at)",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Overall Success rate",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "text",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "fieldMinMax": false,
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "dark-red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 60
+                },
+                {
+                  "color": "dark-green",
+                  "value": 85
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate"
+              },
+              "properties": [
+                {
+                  "id": "displayName",
+                  "value": "${__field.labels.metric}"
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 12,
+          "x": 5,
+          "y": 0
+        },
+        "id": 4,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "vertical",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "User Interface",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  COALESCE(ui.name, 'Unknown Interface') as \"User Interface\",\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Node Success Rate (%)\"\n\nFROM execution_results er\nLEFT JOIN navigation_nodes nn ON (er.node_id = nn.node_id AND er.tree_id = nn.tree_id)\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'verification' \n  AND $__timeFilter(er.executed_at)\nGROUP BY ui.id, ui.name\nHAVING COUNT(*) >= 3\nORDER BY \"Node Success Rate (%)\" DESC",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Node Success by User Interface",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "mappings": [],
+            "max": 100,
+            "min": 0,
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 7,
+          "x": 17,
+          "y": 0
+        },
+        "id": 5,
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "auto",
+          "orientation": "auto",
+          "percentChangeColorMode": "standard",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": true,
+          "textMode": "auto",
+          "wideLayout": true
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  $__timeGroup(executed_at, '1h') as time,\n  COUNT(*) as \"Executions\"\nFROM execution_results\nWHERE $__timeFilter(executed_at)\nGROUP BY time\nORDER BY time",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Execution over time",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 4
+        },
+        "id": 7,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "vertical",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "User Interface",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  -- User Interface name instead of individual node names\n  COALESCE(ui.name, 'Unknown Interface') as \"User Interface\",\n  \n  -- Success Rate\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  \n  -- Volume\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_nodes nn ON (er.node_id = nn.node_id AND er.tree_id = nn.tree_id)\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'verification' \n  AND $__timeFilter(er.executed_at)\nGROUP BY ui.id, ui.name\nHAVING COUNT(*) >= 3  -- Only show interfaces with at least 3 executions\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Node Performance by User Interface",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 8
+        },
+        "id": 9,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "vertical",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Node Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  COALESCE(nn.label, 'Node ' || SUBSTRING(er.node_id, 1, 8)) as \"Node Name\",\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_nodes nn ON (er.node_id = nn.node_id AND er.tree_id = nn.tree_id)\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'verification' \n  AND ui.name = 'horizon_android_tv'\n  AND $__timeFilter(er.executed_at)\nGROUP BY er.node_id, er.tree_id, nn.label\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Node Performance - horizon_android_tv",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 12
+        },
+        "id": 10,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "vertical",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Node Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  COALESCE(nn.label, 'Node ' || SUBSTRING(er.node_id, 1, 8)) as \"Node Name\",\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_nodes nn ON (er.node_id = nn.node_id AND er.tree_id = nn.tree_id)\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'verification' \n  AND ui.name = 'horizon_tv'\n  AND $__timeFilter(er.executed_at)\nGROUP BY er.node_id, er.tree_id, nn.label\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Node Performance - horizon_tv",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 24,
+          "x": 0,
+          "y": 16
+        },
+        "id": 12,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "vertical",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Node Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  COALESCE(nn.label, 'Node ' || SUBSTRING(er.node_id, 1, 8)) as \"Node Name\",\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_nodes nn ON (er.node_id = nn.node_id AND er.tree_id = nn.tree_id)\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'verification' \n  AND ui.name = 'perseus_360_web'\n  AND $__timeFilter(er.executed_at)\nGROUP BY er.node_id, er.tree_id, nn.label\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Node Performance - perseus_360_web",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 8,
+          "w": 24,
+          "x": 0,
+          "y": 20
+        },
+        "id": 13,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "horizontal",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Edge Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  -- Edge name for horizon_tv\n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END as \"Edge Name\",\n  \n  -- Success Rate\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  \n  -- Volume\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'action' \n  AND ui.name = 'horizon_tv'\n  AND $__timeFilter(er.executed_at)\nGROUP BY \n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END,\n  er.edge_id, er.action_set_id\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Edge Performance - horizon_tv",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 24,
+          "x": 0,
+          "y": 28
+        },
+        "id": 11,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "horizontal",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Node Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  -- Edge name for horizon_android_tv\n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END as \"Edge Name\",\n  \n  -- Success Rate\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  \n  -- Volume\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'action' \n  AND ui.name = 'horizon_android_tv'\n  AND $__timeFilter(er.executed_at)\nGROUP BY \n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END,\n  er.edge_id, er.action_set_id\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Edge Performance - horizon_android_tv",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 7,
+          "w": 24,
+          "x": 0,
+          "y": 37
+        },
+        "id": 15,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "horizontal",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Edge Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  -- Edge name for perseus_360_web\n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END as \"Edge Name\",\n  \n  -- Success Rate\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  \n  -- Volume\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'action' \n  AND ui.name = 'perseus_360_web'\n  AND $__timeFilter(er.executed_at)\nGROUP BY \n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END,\n  er.edge_id, er.action_set_id\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Edge Performance - perseus_360_web",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "axisBorderShow": false,
+              "axisCenteredZero": false,
+              "axisColorMode": "series",
+              "axisLabel": "",
+              "axisPlacement": "auto",
+              "fillOpacity": 80,
+              "gradientMode": "none",
+              "hideFrom": {
+                "legend": false,
+                "tooltip": false,
+                "viz": false
+              },
+              "lineWidth": 1,
+              "scaleDistribution": {
+                "type": "linear"
+              },
+              "thresholdsStyle": {
+                "mode": "off"
+              }
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "red",
+                  "value": 0
+                },
+                {
+                  "color": "#EAB839",
+                  "value": 80
+                },
+                {
+                  "color": "green",
+                  "value": 90
+                }
+              ]
+            },
+            "unit": "percent"
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Success Rate (%)"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "left"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Success"
+                },
+                {
+                  "id": "unit",
+                  "value": "percent"
+                },
+                {
+                  "id": "max",
+                  "value": 100
+                }
+              ]
+            },
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Execution Volume"
+              },
+              "properties": [
+                {
+                  "id": "custom.axisPlacement",
+                  "value": "right"
+                },
+                {
+                  "id": "custom.axisLabel",
+                  "value": "Volume"
+                },
+                {
+                  "id": "unit",
+                  "value": "short"
+                },
+                {
+                  "id": "thresholds",
+                  "value": {
+                    "mode": "absolute",
+                    "steps": [
+                      {
+                        "color": "blue",
+                        "value": 0
+                      }
+                    ]
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 9,
+          "w": 24,
+          "x": 0,
+          "y": 44
+        },
+        "id": 14,
+        "options": {
+          "barRadius": 0,
+          "barWidth": 0.97,
+          "fullHighlight": false,
+          "groupWidth": 0.7,
+          "legend": {
+            "calcs": [],
+            "displayMode": "table",
+            "placement": "bottom",
+            "showLegend": false
+          },
+          "orientation": "horizontal",
+          "showValue": "auto",
+          "stacking": "none",
+          "tooltip": {
+            "hideZeros": false,
+            "mode": "single",
+            "sort": "none"
+          },
+          "xField": "Edge Name",
+          "xTickLabelRotation": 0,
+          "xTickLabelSpacing": 0
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  -- Edge name for horizon_android_mobile\n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END as \"Edge Name\",\n  \n  -- Success Rate\n  ROUND(\n    (SUM(CASE WHEN er.success THEN 1 ELSE 0 END)::decimal / COUNT(*)) * 100, 1\n  ) as \"Success Rate (%)\",\n  \n  -- Volume\n  COUNT(*) as \"Execution Volume\"\n\nFROM execution_results er\nLEFT JOIN navigation_trees nt ON er.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\nWHERE er.execution_type = 'action' \n  AND ui.name = 'horizon_android_mobile'\n  AND $__timeFilter(er.executed_at)\nGROUP BY \n  CASE \n    WHEN er.action_set_id IS NOT NULL AND er.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(er.action_set_id, '_to_', 2), '_', ' ')\n    WHEN er.action_set_id IS NOT NULL THEN\n      REPLACE(er.action_set_id, '_', ' ')\n    ELSE\n      'Edge ' || SUBSTRING(er.edge_id, 1, 8)\n  END,\n  er.edge_id, er.action_set_id\nHAVING COUNT(*) >= 3\nORDER BY \"Success Rate (%)\" ASC, \"Execution Volume\" DESC\nLIMIT 15",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "name": "SUM",
+                  "parameters": [
+                    {
+                      "name": "",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 50
+            }
+          }
+        ],
+        "title": "Edge Performance - horizon_android_mobile",
+        "type": "barchart"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "description": "All script excutions",
+        "fieldConfig": {
+          "defaults": {
+            "color": {
+              "mode": "thresholds"
+            },
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "html_report_r2_url"
+              },
+              "properties": [
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "targetBlank": true,
+                      "title": "show report",
+                      "url": "${__value.raw}"
+                    }
+                  ]
+                },
+                {
+                  "id": "mappings",
+                  "value": []
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 12,
+          "w": 24,
+          "x": 0,
+          "y": 53
+        },
+        "id": 1,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": true,
+              "displayName": "created_at"
+            }
+          ]
+        },
+        "pluginVersion": "12.1.0",
+        "targets": [
+          {
+            "datasource": {
+              "type": "grafana-postgresql-datasource",
+              "uid": "ceunuuxwxvy80e"
+            },
+            "editorMode": "code",
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "-- ModelReports.tsx equivalent query for Grafana (FIXED with node names)\nWITH latest_executions AS (\n  -- Get the latest execution for each element (grouped like in transformedResults)\n  SELECT DISTINCT ON (\n    CASE \n      WHEN er.execution_type = 'action' AND er.action_set_id IS NOT NULL THEN \n        er.edge_id || '#' || er.action_set_id\n      WHEN er.execution_type = 'action' THEN \n        COALESCE(er.edge_id, 'unknown')\n      ELSE \n        COALESCE(er.node_id, 'unknown')\n    END\n  )\n    -- Element grouping key\n    CASE \n      WHEN er.execution_type = 'action' AND er.action_set_id IS NOT NULL THEN \n        er.edge_id || '#' || er.action_set_id\n      WHEN er.execution_type = 'action' THEN \n        COALESCE(er.edge_id, 'unknown')\n      ELSE \n        COALESCE(er.node_id, 'unknown')\n    END as element_key,\n    \n    -- Basic info\n    er.execution_type,\n    er.tree_id,\n    er.node_id,\n    er.edge_id,\n    \n    -- IDs for metrics lookup\n    COALESCE(er.edge_id, er.node_id) as element_id,\n    er.action_set_id,\n    er.executed_at,\n    sr.html_report_r2_url\n\n  FROM execution_results er\n  LEFT JOIN script_results sr ON er.script_result_id = sr.id\n  WHERE $__timeFilter(er.executed_at)\n  ORDER BY \n    CASE \n      WHEN er.execution_type = 'action' AND er.action_set_id IS NOT NULL THEN \n        er.edge_id || '#' || er.action_set_id\n      WHEN er.execution_type = 'action' THEN \n        COALESCE(er.edge_id, 'unknown')\n      ELSE \n        COALESCE(er.node_id, 'unknown')\n    END,\n    er.executed_at DESC\n)\n\nSELECT \n  -- Columns matching ModelReports.tsx table exactly\n  CASE WHEN le.execution_type = 'action' THEN 'Edge' ELSE 'Node' END as \"Type\",\n  \n  -- Interface from tree mapping\n  COALESCE(ui.name, 'Unknown') as \"Interface\", \n  \n  -- FIXED: Element name with proper node names from navigation_nodes table\n  CASE \n    WHEN le.execution_type = 'action' AND le.action_set_id IS NOT NULL AND le.action_set_id LIKE '%_to_%' THEN\n      REPLACE(SPLIT_PART(le.action_set_id, '_to_', 1), '_', ' ') || ' \u2192 ' || \n      REPLACE(SPLIT_PART(le.action_set_id, '_to_', 2), '_', ' ')\n    WHEN le.execution_type = 'action' AND le.action_set_id IS NOT NULL THEN\n      REPLACE(le.action_set_id, '_', ' ')\n    WHEN le.execution_type = 'action' THEN\n      'Edge ' || SUBSTRING(le.edge_id, 1, 8)\n    ELSE\n      -- Use actual node label from navigation_nodes table\n      COALESCE(nn.label, 'Node ' || SUBSTRING(COALESCE(le.node_id, 'unknown'), 1, 8))\n  END as \"Name\",\n  \n  -- Action/Verification details column\n  CASE \n    WHEN le.execution_type = 'action' THEN\n      CASE \n        WHEN le.action_set_id LIKE '%home%' THEN 'press_key {key: HOME, wait_time: 1500}'\n        WHEN le.action_set_id LIKE '%back%' THEN 'press_key {key: BACK, wait_time: 2000}'\n        WHEN le.action_set_id LIKE '%up%' THEN 'press_key {key: UP, wait_time: 1000}'\n        WHEN le.action_set_id LIKE '%down%' THEN 'press_key {key: DOWN, wait_time: 1000}'\n        WHEN le.action_set_id LIKE '%ok%' OR le.action_set_id LIKE '%enter%' THEN 'press_key {key: OK, wait_time: 1500}'\n        ELSE 'press_key {key: OK, wait_time: 1500}'\n      END\n    ELSE\n      'waitForElementToAppear Type: adb element: ' || LOWER(REPLACE(COALESCE(nn.label, le.node_id), ' ', '_'))\n  END as \"Action/Verification\",\n  \n  -- Success rate from metrics\n  CASE \n    WHEN le.execution_type = 'action' AND le.action_set_id IS NOT NULL THEN\n      CASE WHEN COALESCE(em.total_executions, 0) = 0 THEN 'N/A'\n           ELSE ROUND(em.success_rate * 100) || '%' END\n    WHEN le.execution_type = 'action' THEN\n      CASE WHEN COALESCE(em_legacy.total_executions, 0) = 0 THEN 'N/A'\n           ELSE ROUND(em_legacy.success_rate * 100) || '%' END\n    ELSE\n      CASE WHEN COALESCE(nm.total_executions, 0) = 0 THEN 'N/A'\n           ELSE ROUND(nm.success_rate * 100) || '%' END\n  END as \"Success\",\n  \n  -- Volume from metrics\n  CASE \n    WHEN le.execution_type = 'action' AND le.action_set_id IS NOT NULL THEN\n      COALESCE(em.total_executions, 0)\n    WHEN le.execution_type = 'action' THEN\n      COALESCE(em_legacy.total_executions, 0)\n    ELSE\n      COALESCE(nm.total_executions, 0)\n  END as \"Volume\",\n  \n  -- Duration from metrics\n  CASE \n    WHEN le.execution_type = 'action' AND le.action_set_id IS NOT NULL THEN\n      CASE WHEN em.avg_execution_time_ms IS NULL THEN 'N/A'\n           WHEN em.avg_execution_time_ms < 1000 THEN ROUND(em.avg_execution_time_ms) || 'ms'\n           WHEN em.avg_execution_time_ms < 60000 THEN ROUND(em.avg_execution_time_ms/1000, 1) || 's'\n           ELSE FLOOR(em.avg_execution_time_ms/60000) || 'm ' || ROUND((em.avg_execution_time_ms % 60000)/1000, 1) || 's'\n      END\n    WHEN le.execution_type = 'action' THEN\n      CASE WHEN em_legacy.avg_execution_time_ms IS NULL THEN 'N/A'\n           WHEN em_legacy.avg_execution_time_ms < 1000 THEN ROUND(em_legacy.avg_execution_time_ms) || 'ms'\n           WHEN em_legacy.avg_execution_time_ms < 60000 THEN ROUND(em_legacy.avg_execution_time_ms/1000, 1) || 's'\n           ELSE FLOOR(em_legacy.avg_execution_time_ms/60000) || 'm ' || ROUND((em_legacy.avg_execution_time_ms % 60000)/1000, 1) || 's'\n      END\n    ELSE\n      CASE WHEN nm.avg_execution_time_ms IS NULL THEN 'N/A'\n           WHEN nm.avg_execution_time_ms < 1000 THEN ROUND(nm.avg_execution_time_ms) || 'ms'\n           WHEN nm.avg_execution_time_ms < 60000 THEN ROUND(nm.avg_execution_time_ms/1000, 1) || 's'\n           ELSE FLOOR(nm.avg_execution_time_ms/60000) || 'm ' || ROUND((nm.avg_execution_time_ms % 60000)/1000, 1) || 's'\n      END\n  END as \"Duration\",\n  \n  -- Confidence\n  CASE \n    WHEN le.execution_type = 'action' AND le.action_set_id IS NOT NULL THEN\n      CASE WHEN COALESCE(em.total_executions, 0) = 0 THEN 'N/A'\n           ELSE ROUND(em.success_rate * 10) || '/10' END\n    WHEN le.execution_type = 'action' THEN\n      CASE WHEN COALESCE(em_legacy.total_executions, 0) = 0 THEN 'N/A'\n           ELSE ROUND(em_legacy.success_rate * 10) || '/10' END\n    ELSE\n      CASE WHEN COALESCE(nm.total_executions, 0) = 0 THEN 'N/A'\n           ELSE ROUND(nm.success_rate * 10) || '/10' END\n  END as \"Confidence\",\n  \n  -- Executed date\n  TO_CHAR(le.executed_at, 'DD/MM/YYYY, HH24:MI:SS') as \"Executed\",\n  \n  -- Report URL\n  le.html_report_r2_url as \"Report URL\"\n\nFROM latest_executions le\n-- Join with navigation trees and user interfaces\nLEFT JOIN navigation_trees nt ON le.tree_id = nt.id\nLEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id\n-- NEW: Join with navigation_nodes to get actual node labels/names\nLEFT JOIN navigation_nodes nn ON (le.node_id = nn.node_id AND le.tree_id = nn.tree_id)\n-- Join with edge metrics for direction-specific actions\nLEFT JOIN edge_metrics em ON (\n  le.execution_type = 'action' \n  AND le.action_set_id IS NOT NULL \n  AND em.edge_id = le.element_id \n  AND em.action_set_id = le.action_set_id\n)\n-- Join with edge metrics for legacy actions\nLEFT JOIN edge_metrics em_legacy ON (\n  le.execution_type = 'action' \n  AND le.action_set_id IS NULL \n  AND em_legacy.edge_id = le.element_id \n  AND em_legacy.action_set_id IS NULL\n)\n-- Join with node metrics for verifications\nLEFT JOIN node_metrics nm ON (\n  le.execution_type = 'verification' \n  AND nm.node_id = le.element_id\n)\n\nORDER BY le.executed_at DESC\nLIMIT 500",
+            "refId": "A",
+            "sql": {
+              "columns": [
+                {
+                  "parameters": [
+                    {
+                      "name": "script_name",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "userinterface_name",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "host_name",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "device_name",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "success",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "started_at",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "completed_at",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "execution_time_ms",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "html_report_r2_url",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                },
+                {
+                  "parameters": [
+                    {
+                      "name": "error_msg",
+                      "type": "functionParameter"
+                    }
+                  ],
+                  "type": "function"
+                }
+              ],
+              "groupBy": [
+                {
+                  "property": {
+                    "type": "string"
+                  },
+                  "type": "groupBy"
+                }
+              ],
+              "limit": 500,
+              "orderBy": {
+                "property": {
+                  "name": "started_at",
+                  "type": "string"
+                },
+                "type": "property"
+              },
+              "orderByDirection": "DESC",
+              "whereJsonTree": {
+                "children1": [],
+                "id": "98b88898-0123-4456-b89a-b1990fc9e432",
+                "type": "group"
+              }
+            },
+            "table": "script_results"
+          }
+        ],
+        "title": "Details",
+        "type": "table"
+      }
+    ],
+    "preload": false,
+    "schemaVersion": 41,
+    "tags": [
+      "navigation",
+      "nodes",
+      "edges"
+    ],
+    "templating": {
+      "list": []
+    },
+    "time": {
+      "from": "now-30d",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "Navigation Metrics",
+    "uid": "9369e579-7f7a-47ec-ae06-f3a49e530b4f",
+    "version": 27,
+    "weekStart": "monday"
+  },
+  "folderUid": "",
+  "overwrite": false
+}

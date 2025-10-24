@@ -1,0 +1,472 @@
+{
+  "dashboard": {
+    "annotations": {
+      "list": [
+        {
+          "builtIn": 1,
+          "datasource": {
+            "type": "grafana",
+            "uid": "-- Grafana --"
+          },
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "type": "dashboard"
+        }
+      ]
+    },
+    "editable": true,
+    "fiscalYearStartMonth": 0,
+    "graphTooltip": 0,
+    "links": [],
+    "panels": [
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "orange",
+                  "value": 100
+                },
+                {
+                  "color": "red",
+                  "value": 200
+                }
+              ]
+            },
+            "unit": "ms"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 8,
+          "x": 0,
+          "y": 0
+        },
+        "id": 11,
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "orientation": "auto",
+          "percentChangeColorMode": "standard",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "textMode": "value",
+          "wideLayout": true
+        },
+        "pluginVersion": "12.1.1",
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  ROUND(MIN((metadata->>'lookup_time_ms')::decimal), 1) as \"Min Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+            "refId": "A"
+          }
+        ],
+        "title": "Min Lookup Time",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "orange",
+                  "value": 100
+                },
+                {
+                  "color": "red",
+                  "value": 200
+                }
+              ]
+            },
+            "unit": "ms"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 8,
+          "x": 8,
+          "y": 0
+        },
+        "id": 12,
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "orientation": "auto",
+          "percentChangeColorMode": "standard",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "textMode": "value",
+          "wideLayout": true
+        },
+        "pluginVersion": "12.1.1",
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  ROUND(AVG((metadata->>'lookup_time_ms')::decimal), 1) as \"Avg Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+            "refId": "A"
+          }
+        ],
+        "title": "Avg Lookup Time",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "yellow",
+                  "value": 50
+                },
+                {
+                  "color": "orange",
+                  "value": 100
+                },
+                {
+                  "color": "red",
+                  "value": 200
+                }
+              ]
+            },
+            "unit": "ms"
+          },
+          "overrides": []
+        },
+        "gridPos": {
+          "h": 4,
+          "w": 8,
+          "x": 16,
+          "y": 0
+        },
+        "id": 13,
+        "options": {
+          "colorMode": "value",
+          "graphMode": "area",
+          "justifyMode": "center",
+          "orientation": "auto",
+          "percentChangeColorMode": "standard",
+          "reduceOptions": {
+            "calcs": [
+              "lastNotNull"
+            ],
+            "fields": "",
+            "values": false
+          },
+          "showPercentChange": false,
+          "textMode": "value",
+          "wideLayout": true
+        },
+        "pluginVersion": "12.1.1",
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  ROUND(MAX((metadata->>'lookup_time_ms')::decimal), 1) as \"Max Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+            "refId": "A"
+          }
+        ],
+        "title": "Max Lookup Time",
+        "type": "stat"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Report"
+              },
+              "properties": [
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "targetBlank": true,
+                      "title": "View Report",
+                      "url": "${__value.raw}"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 6,
+          "w": 24,
+          "x": 0,
+          "y": 4
+        },
+        "id": 1,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": true,
+              "displayName": "Last Lookup"
+            }
+          ]
+        },
+        "pluginVersion": "12.1.1",
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT DISTINCT ON (device_name, metadata->>'domain')\n  device_name as \"Device Name\",\n  host_name as \"Host\",\n  metadata->>'domain' as \"Domain\",\n  metadata->>'lookup_time_ms' || ' ms' as \"Lookup Time\",\n  metadata->>'dns_server' as \"DNS Server\",\n  metadata->>'canonical_name' as \"CNAME\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv4_addresses')), ', ') as \"IPv4 Addresses\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv6_addresses')), ', ') as \"IPv6 Addresses\",\n  started_at as \"Last Lookup\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, metadata->>'domain', started_at DESC",
+            "refId": "A"
+          }
+        ],
+        "title": "Latest DNS Lookups",
+        "type": "table"
+      },
+      {
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "ceunuuxwxvy80e"
+        },
+        "fieldConfig": {
+          "defaults": {
+            "custom": {
+              "align": "auto",
+              "cellOptions": {
+                "type": "auto"
+              },
+              "inspect": false
+            },
+            "mappings": [],
+            "thresholds": {
+              "mode": "absolute",
+              "steps": [
+                {
+                  "color": "green",
+                  "value": 0
+                },
+                {
+                  "color": "red",
+                  "value": 80
+                }
+              ]
+            }
+          },
+          "overrides": [
+            {
+              "matcher": {
+                "id": "byName",
+                "options": "Report"
+              },
+              "properties": [
+                {
+                  "id": "links",
+                  "value": [
+                    {
+                      "targetBlank": true,
+                      "title": "View Report",
+                      "url": "${__value.raw}"
+                    }
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        "gridPos": {
+          "h": 10,
+          "w": 24,
+          "x": 0,
+          "y": 10
+        },
+        "id": 2,
+        "options": {
+          "cellHeight": "sm",
+          "footer": {
+            "countRows": false,
+            "fields": "",
+            "reducer": [
+              "sum"
+            ],
+            "show": false
+          },
+          "showHeader": true,
+          "sortBy": [
+            {
+              "desc": true,
+              "displayName": "Timestamp"
+            }
+          ]
+        },
+        "pluginVersion": "12.1.1",
+        "targets": [
+          {
+            "format": "table",
+            "rawQuery": true,
+            "rawSql": "SELECT \n  device_name as \"Device\",\n  host_name as \"Host\",\n  metadata->>'domain' as \"Domain\",\n  metadata->>'lookup_time_ms' || ' ms' as \"Lookup Time\",\n  metadata->>'dns_server' as \"DNS Server\",\n  metadata->>'dns_server_port' as \"Port\",\n  metadata->>'canonical_name' as \"CNAME\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv4_addresses')), ', ') as \"IPv4\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv6_addresses')), ', ') as \"IPv6\",\n  started_at as \"Timestamp\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Script Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY started_at DESC\nLIMIT 100",
+            "refId": "A"
+          }
+        ],
+        "title": "DNS Lookup History (Last 100)",
+        "type": "table"
+      }
+    ],
+    "preload": false,
+    "schemaVersion": 41,
+    "tags": [
+      "dns",
+      "network",
+      "gw",
+      "dns_lookuptime"
+    ],
+    "templating": {
+      "list": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "includeAll": true,
+          "label": "User Interface",
+          "multi": true,
+          "name": "user_interface",
+          "query": "SELECT DISTINCT userinterface_name FROM script_results WHERE script_name = 'dns_lookuptime' AND userinterface_name IS NOT NULL ORDER BY userinterface_name",
+          "refresh": 1,
+          "sort": 1,
+          "type": "query"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "includeAll": true,
+          "label": "Host",
+          "multi": true,
+          "name": "host",
+          "query": "SELECT DISTINCT host_name FROM script_results WHERE script_name = 'dns_lookuptime' ORDER BY host_name",
+          "refresh": 1,
+          "sort": 1,
+          "type": "query"
+        },
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "includeAll": true,
+          "label": "Device Name",
+          "multi": true,
+          "name": "device_name",
+          "query": "SELECT DISTINCT device_name FROM script_results WHERE script_name = 'dns_lookuptime' ORDER BY device_name",
+          "refresh": 1,
+          "sort": 1,
+          "type": "query"
+        }
+      ]
+    },
+    "time": {
+      "from": "now-7d",
+      "to": "now"
+    },
+    "timepicker": {},
+    "timezone": "browser",
+    "title": "DNS Lookup Time",
+    "uid": "dns-lookup-dashboard",
+    "version": 8
+  },
+  "folderUid": "",
+  "overwrite": false
+}

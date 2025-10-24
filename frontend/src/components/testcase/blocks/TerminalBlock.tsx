@@ -32,7 +32,7 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({ label, color, sele
         },
       }}
     >
-      <Typography color="white" fontWeight="bold" fontSize={14}>
+      <Typography color="white" fontWeight="bold" fontSize={12}>
         {label}
       </Typography>
       

@@ -171,18 +171,15 @@ class AIExecutor:
                             'execution_time': time.time() - start_time
                         }
                 else:
-                    # use_cache=True but no valid cache found - FAIL FAST (no AI generation)
-                    print(f"[@ai_executor] ❌ use_cache=True but no valid cached plan found for prompt: '{prompt}'")
-                    return {
-                        'success': False,
-                        'execution_id': execution_id,
-                        'error': 'No cached plan available. Uncheck "Use Cache" to generate a new plan, or execute this task once to populate the cache.',
-                        'cache_miss': True,
-                        'execution_time': time.time() - start_time
-                    }
+                    # Cache miss - fall through to generate new plan
+                    print(f"[@ai_executor] Cache miss for prompt: '{prompt}' - generating new plan")
             
-            # Generate new plan (only if use_cache=False)
-            print(f"[@ai_executor] Generating new plan (cache disabled)")
+            # Generate new plan (cache miss or use_cache=False)
+            if use_cache:
+                print(f"[@ai_executor] Generating new plan (cache miss - will be cached after successful execution)")
+            else:
+                print(f"[@ai_executor] Generating new plan (cache disabled)")
+            
             plan_dict = self.generate_plan(prompt, context, current_node_id)
             
             if not plan_dict.get('feasible', True):
