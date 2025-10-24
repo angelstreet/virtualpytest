@@ -37,21 +37,6 @@ def generate_plan():
     )
     return jsonify(response_data), status_code
 
-@server_ai_bp.route('/executePrompt', methods=['POST'])
-def execute_prompt():
-    """Execute AI prompt"""
-    data = request.get_json()
-    if not data:
-        return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
-    
-    team_id = request.args.get('team_id')
-    query_params = {'device_id': data.get('device_id'), 'team_id': team_id} if data.get('device_id') else {'team_id': team_id}
-    
-    response_data, status_code = proxy_to_host_with_params(
-        '/host/ai/executePrompt', 'POST', data, query_params
-    )
-    return jsonify(response_data), status_code
-
 @server_ai_bp.route('/getStatus', methods=['POST'])
 def get_status():
     """Get AI execution status"""

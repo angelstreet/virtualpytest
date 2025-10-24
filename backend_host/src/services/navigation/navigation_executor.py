@@ -897,6 +897,60 @@ class NavigationExecutor:
                                 params = action.get('params', {})
                                 print(f"[@navigation_executor:execute_navigation]     {j+1}. {cmd}: {params}")
                     
+                    # CONDITIONAL EDGE RECOVERY: If verification failed after successful action, try sibling edges
+                    if failure_type == "verification" and result.get('success', False):
+                        print(f"[@navigation_executor:execute_navigation] 🔄 Verification failed - checking for conditional edge siblings")
+                        recovery_result = self._try_conditional_edge_siblings(
+                            step=step,
+                            from_node_id=from_node_id,
+                            expected_target_node_id=to_node_id,
+                            target_node_id=target_node_id,  # Final destination
+                            userinterface_name=userinterface_name,
+                            team_id=team_id,
+                            tree_id=tree_id,
+                            context=context,
+                            image_source_url=image_source_url,
+                            max_attempts=3
+                        )
+                        
+                        if recovery_result.get('success'):
+                            # Successfully recovered - update position and continue
+                            actual_node = recovery_result.get('actual_node_id')
+                            print(f"[@navigation_executor:execute_navigation] ✅ Conditional edge recovery succeeded → landed at {actual_node}")
+                            
+                            # Update device position
+                            self.device.current_node_id = actual_node
+                            
+                            # Check if we reached final destination
+                            if actual_node == target_node_id:
+                                print(f"[@navigation_executor:execute_navigation] 🎯 Reached final destination via conditional edge")
+                                transitions_executed += 1
+                                # Exit step loop and continue to final verification
+                                break
+                            else:
+                                # Try to find recovery path from actual_node to target
+                                print(f"[@navigation_executor:execute_navigation] 🔍 Searching recovery path: {actual_node} → {target_node_id}")
+                                recovery_path = self._find_recovery_path(
+                                    current_node_id=actual_node,
+                                    target_node_id=target_node_id,
+                                    tree_id=tree_id,
+                                    team_id=team_id,
+                                    visited_nodes=set([from_node_id])  # Prevent loops
+                                )
+                                
+                                if recovery_path:
+                                    print(f"[@navigation_executor:execute_navigation] ✅ Found recovery path with {len(recovery_path)} steps")
+                                    # Insert recovery steps into navigation path
+                                    navigation_path = navigation_path[:step_num] + recovery_path
+                                    transitions_executed += 1
+                                    continue  # Continue with next step in updated path
+                                else:
+                                    print(f"[@navigation_executor:execute_navigation] ❌ No recovery path found from {actual_node} to {target_node_id}")
+                                    # Fall through to failure handling below
+                        else:
+                            print(f"[@navigation_executor:execute_navigation] ❌ Conditional edge recovery failed: {recovery_result.get('error')}")
+                            # Fall through to failure handling below
+                    
                     # NAVIGATION FUNCTIONS: Stop immediately on ANY step failure (no recovery attempts)
                     print(f"🛑 [@navigation_executor:execute_navigation] STOPPING navigation - navigation functions do not recover from failures")
                     
@@ -1827,6 +1881,161 @@ class NavigationExecutor:
             return node_data.get('label')  # Fallback to node_id if no label
         
         raise ValueError(f"Node with id '{node_id}' not found in navigation graph")
+    
+    def _try_conditional_edge_siblings(
+        self,
+        step: Dict,
+        from_node_id: str,
+        expected_target_node_id: str,
+        target_node_id: str,
+        userinterface_name: str,
+        team_id: str,
+        tree_id: str,
+        context: Any,
+        image_source_url: str,
+        max_attempts: int = 3
+    ) -> Dict[str, Any]:
+        """
+        Try verifying sibling edges (conditional edges with same action_set_id).
+        
+        When a verification fails after successful action execution, this tries to verify
+        alternative target nodes that share the same action (same action_set_id from same source).
+        
+        Args:
+            step: The failed step dict
+            from_node_id: Source node ID
+            expected_target_node_id: The target we expected but failed to verify
+            target_node_id: Final destination node ID
+            userinterface_name: UI name
+            team_id: Team ID
+            tree_id: Tree ID
+            context: Execution context
+            image_source_url: Screenshot source
+            max_attempts: Max sibling attempts (default 3)
+            
+        Returns:
+            Dict with success=True and actual_node_id if found, or success=False
+        """
+        print(f"[@navigation_executor:_try_conditional_edge_siblings] Checking for sibling edges from {from_node_id}")
+        
+        # Get unified graph to find sibling edges
+        if not self.unified_graph:
+            return {'success': False, 'error': 'No unified graph loaded'}
+        
+        # Get all edges from source node
+        sibling_edges = []
+        current_action_set_id = step.get('action_set_id')
+        
+        if not current_action_set_id:
+            print(f"[@navigation_executor:_try_conditional_edge_siblings] No action_set_id in step - cannot find siblings")
+            return {'success': False, 'error': 'No action_set_id'}
+        
+        # Find all edges from source with same action_set_id
+        for edge in self.unified_graph.edges(from_node_id, data=True):
+            _, target, edge_data = edge
+            action_sets = edge_data.get('action_sets', [])
+            
+            # Check if any action set in this edge matches our action_set_id
+            for action_set in action_sets:
+                if action_set.get('id') == current_action_set_id and target != expected_target_node_id:
+                    sibling_edges.append({
+                        'target_node_id': target,
+                        'target_label': edge_data.get('label', target),
+                        'edge_data': edge_data
+                    })
+                    break
+        
+        if not sibling_edges:
+            print(f"[@navigation_executor:_try_conditional_edge_siblings] No sibling edges found")
+            return {'success': False, 'error': 'No conditional siblings'}
+        
+        print(f"[@navigation_executor:_try_conditional_edge_siblings] Found {len(sibling_edges)} sibling edge(s)")
+        
+        # Try verifying each sibling (max attempts)
+        attempts = 0
+        for sibling in sibling_edges:
+            if attempts >= max_attempts:
+                print(f"[@navigation_executor:_try_conditional_edge_siblings] Max attempts ({max_attempts}) reached")
+                break
+            
+            attempts += 1
+            sibling_node_id = sibling['target_node_id']
+            sibling_label = sibling['target_label']
+            
+            print(f"[@navigation_executor:_try_conditional_edge_siblings] Attempt {attempts}/{max_attempts}: Verifying {sibling_label} ({sibling_node_id})")
+            
+            # Verify sibling node
+            verification_result = self.device.verification_executor.verify_node(
+                node_id=sibling_node_id,
+                userinterface_name=userinterface_name,
+                team_id=team_id,
+                tree_id=tree_id,
+                image_source_url=image_source_url
+            )
+            
+            if verification_result.get('success'):
+                print(f"[@navigation_executor:_try_conditional_edge_siblings] ✅ Verification passed for {sibling_label}")
+                return {
+                    'success': True,
+                    'actual_node_id': sibling_node_id,
+                    'actual_node_label': sibling_label,
+                    'attempts': attempts
+                }
+            else:
+                print(f"[@navigation_executor:_try_conditional_edge_siblings] ❌ Verification failed for {sibling_label}")
+        
+        return {'success': False, 'error': f'All {attempts} sibling verification(s) failed'}
+    
+    def _find_recovery_path(
+        self,
+        current_node_id: str,
+        target_node_id: str,
+        tree_id: str,
+        team_id: str,
+        visited_nodes: set = None
+    ) -> Optional[List[Dict]]:
+        """
+        Find recovery path from current position to target after conditional edge recovery.
+        
+        Args:
+            current_node_id: Where we actually landed
+            target_node_id: Where we want to go
+            tree_id: Tree ID
+            team_id: Team ID
+            visited_nodes: Set of already visited nodes to prevent loops
+            
+        Returns:
+            List of navigation steps or None if no path found
+        """
+        if visited_nodes is None:
+            visited_nodes = set()
+        
+        # Prevent infinite loops
+        if current_node_id in visited_nodes:
+            print(f"[@navigation_executor:_find_recovery_path] Loop detected - {current_node_id} already visited")
+            return None
+        
+        visited_nodes.add(current_node_id)
+        
+        try:
+            # Use pathfinding to find route from current to target
+            recovery_path = find_shortest_path(
+                tree_id=tree_id,
+                target_node_id=target_node_id,
+                team_id=team_id,
+                start_node_id=current_node_id
+            )
+            
+            if recovery_path:
+                print(f"[@navigation_executor:_find_recovery_path] Found path with {len(recovery_path)} steps")
+                return recovery_path
+            else:
+                print(f"[@navigation_executor:_find_recovery_path] No path found")
+                return None
+                
+        except Exception as e:
+            print(f"[@navigation_executor:_find_recovery_path] Error finding path: {e}")
+            return None
     
     def update_current_position(self, node_id: str, tree_id: str = None, node_label: str = None) -> Dict[str, Any]:
         """Update current navigation position for this device"""

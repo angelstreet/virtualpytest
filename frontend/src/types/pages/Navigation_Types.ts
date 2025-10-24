@@ -92,6 +92,7 @@ export interface UINavigationEdgeData {
   threshold?: number; // Threshold in milliseconds
   sourceHandle?: string; // ReactFlow source handle
   targetHandle?: string; // ReactFlow target handle
+  is_conditional?: boolean; // Whether this edge is part of a conditional group (multiple edges sharing same action)
   metrics?: {
     volume: number;
     success_rate: number;

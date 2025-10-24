@@ -224,17 +224,40 @@ export const useNavigationEditor = () => {
         return;
       }
 
+      // 🔄 CONDITIONAL EDGE DETECTION: Check for sibling edges from same source+handle
+      const siblingEdges = navigation.edges.filter(
+        (e) => 
+          e.source === connection.source && 
+          e.sourceHandle === connection.sourceHandle &&
+          e.target !== connection.target
+      );
+
+      let conditionalActionSetId: string | null = null;
+      if (siblingEdges.length > 0) {
+        // Found sibling edge(s) - reuse their action_set_id for conditional grouping
+        const firstSibling = siblingEdges[0];
+        const siblingActionSets = firstSibling.data?.action_sets || [];
+        if (siblingActionSets.length > 0) {
+          conditionalActionSetId = siblingActionSets[0].id;
+          console.log(`[@useNavigationEditor:onConnect] 🔗 Conditional edge detected - reusing action_set_id: ${conditionalActionSetId}`);
+          console.log(`[@useNavigationEditor:onConnect] 🔗 ${siblingEdges.length + 1} total edges will share this action`);
+        }
+      }
+
       // Helper function to create bidirectional edge data
-      const createEdgeData = (sourceLabel: string, targetLabel: string) => {
+      const createEdgeData = (sourceLabel: string, targetLabel: string, conditionalSetId?: string | null) => {
         // Clean labels for ID format
         const cleanSourceLabel = sourceLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
         const cleanTargetLabel = targetLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        
+        // Use conditional action_set_id if provided, otherwise generate new
+        const forwardActionSetId = conditionalSetId || `${cleanSourceLabel}_to_${cleanTargetLabel}`;
         
         return {
           label: `${sourceLabel}→${targetLabel}`,
           action_sets: [
             {
-              id: `${cleanSourceLabel}_to_${cleanTargetLabel}`,
+              id: forwardActionSetId,  // ✅ Shared ID for conditional edges
               label: `${sourceLabel} → ${targetLabel}`,
               actions: [],
               retry_actions: [],
@@ -248,8 +271,9 @@ export const useNavigationEditor = () => {
               failure_actions: [],
             }
           ],
-          default_action_set_id: `${cleanSourceLabel}_to_${cleanTargetLabel}`,
+          default_action_set_id: forwardActionSetId,  // ✅ Use conditional ID as default
           final_wait_time: 2000,
+          is_conditional: !!conditionalSetId,  // ✅ Mark as conditional edge
         };
       };
 
@@ -257,7 +281,7 @@ export const useNavigationEditor = () => {
 
       const timestamp = Date.now();
 
-      // Create single bidirectional edge
+      // Create single bidirectional edge (with conditional action_set_id if applicable)
       const newEdge: UINavigationEdge = {
         id: `edge-${connection.source}-${connection.target}-${timestamp}`,
         source: connection.source,
@@ -267,17 +291,46 @@ export const useNavigationEditor = () => {
         type: 'navigation',
         animated: false,
         style: {
-          stroke: '#555',
+          stroke: conditionalActionSetId ? '#ff9800' : '#555',  // 🎨 Orange for conditional, gray for normal
           strokeWidth: 2,
         },
         markerEnd: {
           type: MarkerType.ArrowClosed,
-          color: '#555',
+          color: conditionalActionSetId ? '#ff9800' : '#555',  // 🎨 Match marker color
         },
-        data: createEdgeData(sourceNode?.data?.label || 'unknown', targetNode?.data?.label || 'unknown'),
+        data: createEdgeData(
+          sourceNode?.data?.label || 'unknown', 
+          targetNode?.data?.label || 'unknown',
+          conditionalActionSetId
+        ),
       };
 
-      console.log('[@useNavigationEditor:onConnect] Creating bidirectional edge:', newEdge);
+      console.log('[@useNavigationEditor:onConnect] Creating edge:', newEdge);
+      if (conditionalActionSetId) {
+        console.log('[@useNavigationEditor:onConnect] 🔗 Edge is conditional - will verify all siblings on failure');
+      }
+
+      // 🎨 Update sibling edge colors to orange (conditional)
+      if (siblingEdges.length > 0) {
+        const updatedEdges = navigation.edges.map((edge) => {
+          const isSibling = siblingEdges.some((s) => s.id === edge.id);
+          if (isSibling) {
+            return {
+              ...edge,
+              style: { ...edge.style, stroke: '#ff9800' },  // 🎨 Orange
+              markerEnd: { ...edge.markerEnd, color: '#ff9800' },
+              data: {
+                ...edge.data,
+                is_conditional: true,
+              },
+            };
+          }
+          return edge;
+        });
+        
+        navigation.setEdges(updatedEdges);
+        console.log('[@useNavigationEditor:onConnect] 🎨 Updated sibling edges to orange (conditional)');
+      }
 
       let edgesToAdd = [newEdge];
 

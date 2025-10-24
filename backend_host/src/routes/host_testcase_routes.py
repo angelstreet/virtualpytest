@@ -245,3 +245,136 @@ def testcase_history(testcase_id):
         print(f"[@host_testcase] Error getting history: {e}")
         return jsonify({'success': False, 'error': f'Get history failed: {str(e)}'}), 500
 
+
+@host_testcase_bp.route('/execute-from-prompt', methods=['POST'])
+def execute_from_prompt():
+    """
+    Unified AI execution endpoint - executes prompt with optional save
+    
+    This replaces the old separate /server/ai/executePrompt route.
+    Works for both:
+    - Live AI Modal: save=false (ephemeral execution)
+    - TestCase Builder AI Mode: save=true (save after generation)
+    """
+    try:
+        from shared.src.lib.executors.ai_executor import AIExecutor
+        from shared.src.lib.database.testcase_db import create_testcase
+        from backend_host.src.services.device_manager import get_device_manager
+        
+        print("[@host_testcase] Unified execute-from-prompt")
+        
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        
+        # Required params
+        prompt = data.get('prompt')
+        userinterface_name = data.get('userinterface_name')
+        device_id = data.get('device_id')
+        host_name = data.get('host_name')
+        
+        # Optional params
+        save_testcase = data.get('save', False)  # ← KEY: Optional save flag
+        testcase_name = data.get('testcase_name')  # Required if save=true
+        description = data.get('description')
+        created_by = data.get('created_by')
+        use_cache = data.get('use_cache', True)
+        async_execution = data.get('async_execution', False)
+        
+        # Validate required
+        if not all([prompt, userinterface_name, device_id, host_name, team_id]):
+            return jsonify({
+                'success': False, 
+                'error': 'Missing required fields: prompt, userinterface_name, device_id, host_name, team_id'
+            }), 400
+        
+        # If save=true, testcase_name is required
+        if save_testcase and not testcase_name:
+            return jsonify({
+                'success': False,
+                'error': 'testcase_name is required when save=true'
+            }), 400
+        
+        # Get device
+        device_manager = get_device_manager()
+        device = device_manager.get_device(host_name, device_id)
+        
+        if not device:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        # Execute prompt using AI executor
+        print(f"[@host_testcase] Executing prompt: {prompt[:50]}...")
+        print(f"[@host_testcase] Save mode: {save_testcase}")
+        
+        ai_executor = AIExecutor(device=device)
+        
+        if async_execution:
+            # Async execution with polling (for Live Modal)
+            execution_result = ai_executor.execute_prompt(
+                prompt=prompt,
+                userinterface_name=userinterface_name,
+                team_id=team_id,
+                use_cache=use_cache,
+                async_mode=True
+            )
+            
+            return jsonify({
+                'success': True,
+                'execution_id': execution_result.get('execution_id'),
+                'message': 'Execution started asynchronously'
+            })
+        else:
+            # Synchronous execution
+            execution_result = ai_executor.execute_prompt(
+                prompt=prompt,
+                userinterface_name=userinterface_name,
+                team_id=team_id,
+                use_cache=use_cache,
+                async_mode=False
+            )
+            
+            if not execution_result.get('success'):
+                return jsonify(execution_result), 400
+            
+            # If save=true, save the generated graph to database
+            testcase_id = None
+            if save_testcase:
+                graph = execution_result.get('graph')
+                analysis = execution_result.get('analysis')
+                
+                if graph:
+                    print(f"[@host_testcase] Saving generated test case: {testcase_name}")
+                    
+                    testcase_id = create_testcase(
+                        team_id=team_id,
+                        testcase_name=testcase_name,
+                        graph_json=graph,
+                        description=description or analysis,
+                        userinterface_name=userinterface_name,
+                        created_by=created_by,
+                        creation_method='ai',
+                        ai_prompt=prompt,
+                        ai_analysis=analysis
+                    )
+                    
+                    if testcase_id:
+                        print(f"[@host_testcase] Saved test case: {testcase_name} (ID: {testcase_id})")
+                    else:
+                        print(f"[@host_testcase] Warning: Failed to save test case")
+            
+            # Return execution result
+            response = {
+                'success': True,
+                'result': execution_result,
+                'saved': save_testcase,
+            }
+            
+            if testcase_id:
+                response['testcase_id'] = testcase_id
+            
+            return jsonify(response)
+        
+    except Exception as e:
+        print(f"[@host_testcase] Error in execute-from-prompt: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Execution failed: {str(e)}'}), 500

@@ -107,3 +107,29 @@ def testcase_history(testcase_id):
         f'/host/testcase/{testcase_id}/history', 'GET', None, query_params
     )
     return jsonify(response_data), status_code
+
+
+@server_testcase_bp.route('/execute-from-prompt', methods=['POST'])
+def execute_from_prompt():
+    """
+    Unified AI execution endpoint - proxies to host
+    
+    This replaces the old /server/ai/executePrompt route.
+    Supports optional save flag for both:
+    - Live AI Modal: save=false (ephemeral)
+    - TestCase Builder: save=true (persistent)
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+    
+    team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
+    
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        '/host/testcase/execute-from-prompt', 'POST', data, query_params
+    )
+    return jsonify(response_data), status_code

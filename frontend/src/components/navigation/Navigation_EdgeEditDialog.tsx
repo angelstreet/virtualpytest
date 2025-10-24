@@ -228,6 +228,32 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                   </Typography>
                 </Box>
               )}
+              {/* 🔗 Conditional Edge Indicator */}
+              {_selectedEdge?.data?.is_conditional && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 0.5,
+                    px: 1,
+                    py: 0.3,
+                    borderRadius: 1,
+                    backgroundColor: '#fff3e0',
+                    border: '1px solid #ff9800',
+                  }}
+                >
+                  <Typography
+                    variant="caption"
+                    sx={{
+                      fontSize: '0.7rem',
+                      fontWeight: 'bold',
+                      color: '#ff9800',
+                    }}
+                  >
+                    🔗 CONDITIONAL
+                  </Typography>
+                </Box>
+              )}
             </Box>
             <IconButton onClick={onClose} size="small">
               <CloseIcon />

@@ -227,7 +227,57 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [parentChain, setParentChain] = useState<Array<{ treeId: string; treeName: string; nodes: UINavigationNode[]; edges: UINavigationEdge[] }>>([]);
   
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
-  const [edges, setEdges, onEdgesChange] = useEdgesState([]);
+  const [edges, setEdges, _onEdgesChange] = useEdgesState([]);  // Rename to _onEdgesChange
+
+  // Wrap onEdgesChange to handle conditional edge auto-ungroup
+  const onEdgesChange = useCallback((changes: any[]) => {
+    // First apply the changes using the original handler
+    _onEdgesChange(changes);
+    
+    // Check if any edges were removed
+    const removeChanges = changes.filter((c) => c.type === 'remove');
+    if (removeChanges.length === 0) return;
+    
+    // For each removed edge, check if it was part of a conditional group
+    removeChanges.forEach((removeChange) => {
+      const removedEdgeId = removeChange.id;
+      const removedEdge = edges.find((e) => e.id === removedEdgeId);
+      
+      if (!removedEdge || !removedEdge.data?.is_conditional) return;
+      
+      // Find remaining sibling edges (same source + sourceHandle, different target)
+      const remainingSiblings = edges.filter(
+        (e) => 
+          e.id !== removedEdgeId &&
+          e.source === removedEdge.source && 
+          e.sourceHandle === removedEdge.sourceHandle &&
+          e.data?.action_sets?.[0]?.id === removedEdge.data?.action_sets?.[0]?.id
+      );
+      
+      // If only 1 sibling remains, convert it back to normal (blue)
+      if (remainingSiblings.length === 1) {
+        const lastSibling = remainingSiblings[0];
+        console.log(`[@NavigationContext:onEdgesChange] 🔗→🔵 Auto-ungroup: Last sibling ${lastSibling.id} reverting to normal`);
+        
+        // Update the last sibling to normal style
+        setEdges((currentEdges) => 
+          currentEdges.map((edge) => 
+            edge.id === lastSibling.id
+              ? {
+                  ...edge,
+                  style: { ...edge.style, stroke: '#555' },  // 🔵 Gray (normal)
+                  markerEnd: { ...edge.markerEnd, color: '#555' },
+                  data: {
+                    ...edge.data,
+                    is_conditional: false,
+                  },
+                }
+              : edge
+          )
+        );
+      }
+    });
+  }, [_onEdgesChange, edges, setEdges]);
 
   // Selection state
   const [selectedNode, setSelectedNode] = useState<UINavigationNode | null>(null);

@@ -322,7 +322,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       // Show start notification (only major state changes)
       toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
-      const response = await fetch(buildServerUrl('/server/ai/executePrompt'), {
+      const response = await fetch(buildServerUrl('/server/testcase/execute-from-prompt'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -332,7 +332,8 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           host_name: host.host_name,
           team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
           use_cache: useCache,
-          async_execution: true
+          async_execution: true,
+          save: false  // ← Live AI Modal does NOT save (ephemeral execution)
         })
       });
 
