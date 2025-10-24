@@ -1064,8 +1064,6 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
     
     def generate_plan(self, prompt: str, context: Dict, current_node_id: str = None) -> Dict:
         """Generate test case graph directly"""
-        from shared.src.lib.executors.ai_prompt_validation import validate_graph
-        
         # Add current node to context
         context = context.copy()
         context['current_node_id'] = current_node_id
@@ -1074,47 +1072,22 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         cached_context = self._get_cached_context(context)
         ai_response = self._call_ai(prompt, cached_context)
         
-        # AI now returns 'graph' instead of 'plan'/'steps'
-        # Transform for consistency
+        # AI now returns 'graph' directly (modern format)
+        # Legacy conversion for old cached plans if needed
         if 'plan' in ai_response and 'graph' not in ai_response:
             ai_response['graph'] = ai_response.pop('plan')
         if 'steps' in ai_response and 'graph' not in ai_response:
-            # Convert old format to graph if AI returns steps
+            # Convert old format to graph if AI returns steps (legacy support)
             ai_response['graph'] = self._convert_steps_to_graph(ai_response.pop('steps'))
         
         # Add metadata to AI response
         ai_response['id'] = str(uuid.uuid4())
         ai_response['prompt'] = prompt
         
-        # Validate graph structure
-        if ai_response.get('graph') and ai_response.get('feasible', True):
-            available_nodes = context.get('available_nodes', [])
-            team_id = context.get('team_id')
-            userinterface_name = context.get('userinterface_name')
-            
-            if available_nodes and team_id and userinterface_name:
-                validation_result = validate_graph(
-                    ai_response,
-                    available_nodes,
-                    team_id,
-                    userinterface_name
-                )
-                
-                if validation_result['modified']:
-                    print(f"[@ai_executor:generate_plan] Auto-fixed invalid nodes in AI graph")
-                
-                if not validation_result['valid']:
-                    ai_response['feasible'] = False
-                    ai_response['needs_disambiguation'] = True
-                    ai_response['invalid_nodes'] = validation_result['invalid_nodes']
-                    invalid_count = len(validation_result['invalid_nodes'])
-                    ai_response['error'] = f"Graph contains {invalid_count} invalid navigation node(s)"
-                    print(f"[@ai_executor:generate_plan] Graph validation failed: {invalid_count} invalid nodes")
-                
-                # Use validated/fixed graph
-                ai_response = validation_result['plan']
+        # Graph format validation happens during pre-processing (preprocess_prompt)
+        # No post-validation needed - nodes already verified
         
-        # Pre-fetch transitions for navigation nodes
+        # Pre-fetch transitions for navigation nodes in graph
         if ai_response.get('feasible', True) and ai_response.get('graph'):
             self._prefetch_navigation_transitions_from_graph(ai_response['graph'], context)
         

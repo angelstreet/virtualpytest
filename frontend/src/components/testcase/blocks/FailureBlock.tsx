@@ -11,13 +11,12 @@ export const FailureBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
   return (
     <Box
       sx={{
-        width: 100,
-        height: 100,
-        borderRadius: '50%',
+        width: 120,
+        height: 60,
+        borderRadius: 2,
         background: '#ef4444',
         border: selected ? '3px solid #fbbf24' : 'none',
         display: 'flex',
-        flexDirection: 'column',
         alignItems: 'center',
         justifyContent: 'center',
         boxShadow: 3,
@@ -29,23 +28,22 @@ export const FailureBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
         },
       }}
     >
-      <CancelIcon sx={{ color: 'white', fontSize: 40 }} />
-      <Typography color="white" fontWeight="bold" fontSize={12} mt={0.5}>
-        FAILURE
+      <Typography color="white" fontWeight="bold" fontSize={18}>
+        FAIL
       </Typography>
       
-      {/* Input handle at top */}
+      {/* Input handle at top - circle */}
       <Handle
         type="target"
         position={Position.Top}
         id="input"
         style={{
           background: '#ef4444',
-          width: 40,
-          height: 8,
-          borderRadius: '4px',
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
           border: '2px solid white',
-          top: -4,
+          top: -6,
         }}
       />
     </Box>

@@ -44,8 +44,8 @@ export interface TabConfig {
  * Organized by tabs → groups → specific commands
  */
 export const toolboxConfig: Record<string, TabConfig> = {
-  basic: {
-    tabName: 'Basic',
+  standard: {
+    tabName: 'Standard',
     groups: [
       {
         groupName: 'Control Flow',
@@ -100,6 +100,40 @@ export const toolboxConfig: Record<string, TabConfig> = {
             color: '#6b7280',
             outputs: ['success'],
             description: 'Wait for specified duration'
+          },
+        ]
+      },
+      {
+        groupName: 'Data Operations',
+        commands: [
+          {
+            type: 'get_current_time',
+            label: 'Get Current Time',
+            icon: <AccessTimeIcon fontSize="small" />,
+            color: '#6b7280',
+            outputs: ['success'],
+            description: 'Get current timestamp'
+          },
+          {
+            type: 'generate_random',
+            label: 'Generate Random',
+            icon: <ShuffleIcon fontSize="small" />,
+            color: '#6b7280',
+            outputs: ['success'],
+            description: 'Generate random value'
+          },
+        ]
+      },
+      {
+        groupName: 'Network',
+        commands: [
+          {
+            type: 'http_request',
+            label: 'HTTP Request',
+            icon: <HttpIcon fontSize="small" />,
+            color: '#6b7280',
+            outputs: ['success', 'failure'],
+            description: 'Make HTTP API call'
           },
         ]
       }
@@ -237,46 +271,6 @@ export const toolboxConfig: Record<string, TabConfig> = {
             color: '#10b981',
             outputs: ['success', 'failure'],
             description: 'Navigate to UI node'
-          },
-        ]
-      }
-    ]
-  },
-  
-  utility: {
-    tabName: 'Utility',
-    groups: [
-      {
-        groupName: 'Data Operations',
-        commands: [
-          {
-            type: 'get_current_time',
-            label: 'Get Current Time',
-            icon: <AccessTimeIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success'],
-            description: 'Get current timestamp'
-          },
-          {
-            type: 'generate_random',
-            label: 'Generate Random',
-            icon: <ShuffleIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success'],
-            description: 'Generate random value'
-          },
-        ]
-      },
-      {
-        groupName: 'Network',
-        commands: [
-          {
-            type: 'http_request',
-            label: 'HTTP Request',
-            icon: <HttpIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success', 'failure'],
-            description: 'Make HTTP API call'
           },
         ]
       }

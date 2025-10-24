@@ -79,34 +79,34 @@ export const ActionBlock: React.FC<NodeProps> = ({ data, selected, dragging }) =
         )}
       </Box>
       
-      {/* Input handle at top */}
+      {/* Input handle at top - circle */}
       <Handle
         type="target"
         position={Position.Top}
         id="input"
         style={{
           background: actualMode === 'dark' ? '#3b82f6' : '#2563eb',
-          width: 40,
-          height: 8,
-          borderRadius: '4px',
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
           border: '2px solid white',
-          top: -4,
+          top: -6,
         }}
       />
       
-      {/* Output handles at bottom - success and failure rectangles */}
+      {/* Output handles at bottom - circles */}
       <Handle
         type="source"
         position={Position.Bottom}
         id="success"
         style={{
-          left: '30%',
+          left: '35%',
           background: '#10b981',
-          width: 35,
-          height: 8,
-          borderRadius: '4px',
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
           border: '2px solid white',
-          bottom: -4,
+          bottom: -6,
         }}
       />
       <Handle
@@ -114,13 +114,13 @@ export const ActionBlock: React.FC<NodeProps> = ({ data, selected, dragging }) =
         position={Position.Bottom}
         id="failure"
         style={{
-          left: '70%',
+          left: '65%',
           background: '#ef4444',
-          width: 35,
-          height: 8,
-          borderRadius: '4px',
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
           border: '2px solid white',
-          bottom: -4,
+          bottom: -6,
         }}
       />
     </Box>

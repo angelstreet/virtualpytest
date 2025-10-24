@@ -38,7 +38,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
     }
     
     if (outputs.length === 1) {
-      // Single output - centered at bottom
+      // Single output - centered at bottom, circle
       const output = outputs[0];
       const handleColor = getHandleColor(output);
       
@@ -49,11 +49,11 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           id={output}
           style={{
             background: handleColor,
-            width: 40,
-            height: 8,
-            borderRadius: '4px',
+            width: 12,
+            height: 12,
+            borderRadius: '50%',
             border: '2px solid white',
-            bottom: -4,
+            bottom: -6,
             left: '50%',
             transform: 'translateX(-50%)',
           }}
@@ -61,10 +61,10 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
       );
     }
     
-    // Multiple outputs - positioned left and right
+    // Multiple outputs - positioned left and right, circles
     return outputs.map((output, idx) => {
       const handleColor = getHandleColor(output);
-      const leftPosition = idx === 0 ? '30%' : '70%';
+      const leftPosition = idx === 0 ? '35%' : '65%';
       
       return (
         <Handle
@@ -75,11 +75,11 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           style={{
             left: leftPosition,
             background: handleColor,
-            width: 35,
-            height: 8,
-            borderRadius: '4px',
+            width: 12,
+            height: 12,
+            borderRadius: '50%',
             border: '2px solid white',
-            bottom: -4,
+            bottom: -6,
           }}
         />
       );
@@ -178,22 +178,22 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
         )}
       </Box>
       
-      {/* Input handle at top */}
+      {/* Input handle at top - circle */}
       <Handle
         type="target"
         position={Position.Top}
         id="input"
         style={{
           background: color,
-          width: 40,
-          height: 8,
-          borderRadius: '4px',
+          width: 12,
+          height: 12,
+          borderRadius: '50%',
           border: '2px solid white',
-          top: -4,
+          top: -6,
         }}
       />
       
-      {/* Output handles at bottom */}
+      {/* Output handles at bottom - circles */}
       {renderOutputHandles()}
     </Box>
   );

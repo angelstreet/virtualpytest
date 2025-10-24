@@ -65,7 +65,7 @@ const DraggableCommand: React.FC<DraggableCommandProps> = ({ command }) => {
 
 export const TestCaseToolbox: React.FC = () => {
   const { actualMode } = useTheme();
-  const [activeTab, setActiveTab] = useState('basic');
+  const [activeTab, setActiveTab] = useState('standard');
 
   const tabKeys = Object.keys(toolboxConfig);
   const currentTabConfig = toolboxConfig[activeTab];
@@ -87,9 +87,9 @@ export const TestCaseToolbox: React.FC = () => {
           variant="scrollable"
           scrollButtons={false}
           sx={{
-            minHeight: 36,
+            minHeight: 32,
             '& .MuiTab-root': {
-              minHeight: 36,
+              minHeight: 32,
               fontSize: 10,
               py: 0.5,
               px: 1,
@@ -112,7 +112,7 @@ export const TestCaseToolbox: React.FC = () => {
         sx={{
           flex: 1,
           overflowY: 'auto',
-          p: 1,
+          p: 0.5,
         }}
       >
         {currentTabConfig.groups.map((group, groupIdx) => (
@@ -122,25 +122,25 @@ export const TestCaseToolbox: React.FC = () => {
             sx={{
               boxShadow: 'none',
               '&:before': { display: 'none' },
-              mb: 0.5,
+              mb: 0.25,
             }}
           >
             <AccordionSummary
               expandIcon={<ExpandMoreIcon fontSize="small" />}
               sx={{
-                minHeight: 28,
+                minHeight: 24,
                 py: 0,
-                px: 1,
+                px: 0.75,
                 '& .MuiAccordionSummary-content': {
-                  my: 0.5,
+                  my: 0.25,
                 }
               }}
             >
-              <Typography fontSize={11} fontWeight="medium" color="text.secondary">
+              <Typography fontSize={10} fontWeight="medium" color="text.secondary">
                 {group.groupName}
               </Typography>
             </AccordionSummary>
-            <AccordionDetails sx={{ p: 0.5, pt: 0 }}>
+            <AccordionDetails sx={{ p: 0.25, pt: 0 }}>
               {group.commands.map((command, cmdIdx) => (
                 <DraggableCommand key={cmdIdx} command={command} />
               ))}
@@ -152,7 +152,7 @@ export const TestCaseToolbox: React.FC = () => {
       {/* Instructions - Compact */}
       <Box
         sx={{
-          p: 1,
+          p: 0.75,
           borderTop: 1,
           borderColor: 'divider',
           background: actualMode === 'dark' ? '#1f2937' : '#f9fafb',

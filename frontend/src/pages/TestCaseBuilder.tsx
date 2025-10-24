@@ -416,7 +416,7 @@ const TestCaseBuilderContent: React.FC = () => {
   );
 
   return (
-    <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
       {/* Header - Compact */}
       <Box
         sx={{
@@ -429,6 +429,7 @@ const TestCaseBuilderContent: React.FC = () => {
           justifyContent: 'space-between',
           background: actualMode === 'dark' ? '#111827' : '#ffffff',
           minHeight: '48px',
+          flexShrink: 0,
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
@@ -464,7 +465,7 @@ const TestCaseBuilderContent: React.FC = () => {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', height: 'calc(100vh - 48px)' }}>
+      <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
         {/* Mode Selector + Toolbox/AI Panel */}
         <Box sx={{ 
           width: 220, 
@@ -473,9 +474,10 @@ const TestCaseBuilderContent: React.FC = () => {
           display: 'flex',
           flexDirection: 'column',
           background: actualMode === 'dark' ? '#111827' : '#f9fafb',
+          overflow: 'hidden',
         }}>
           {/* Mode Toggle */}
-          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+          <Box sx={{ p: 1.5, borderBottom: 1, borderColor: 'divider', flexShrink: 0 }}>
             <Box sx={{ display: 'flex', gap: 0.5 }}>
               <Button
                 size="small"
@@ -574,7 +576,7 @@ const TestCaseBuilderContent: React.FC = () => {
         </Box>
 
         {/* Canvas */}
-        <Box ref={reactFlowWrapper} sx={{ flex: 1 }} onDrop={onDrop} onDragOver={onDragOver}>
+        <Box ref={reactFlowWrapper} sx={{ flex: 1, minWidth: 0, minHeight: 0 }} onDrop={onDrop} onDragOver={onDragOver}>
           <ReactFlow
             nodes={nodes}
             edges={edges}
