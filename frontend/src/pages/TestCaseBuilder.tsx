@@ -65,6 +65,7 @@ import { TestCaseBuilderProvider, useTestCaseBuilder } from '../contexts/testcas
 import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
 import { NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
 import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
+import { useDeviceData } from '../contexts/device/DeviceDataContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { generateTestCaseFromPrompt } from '../services/aiService';
 import { buildToolboxFromNavigationData } from '../utils/toolboxBuilder';
@@ -132,6 +133,10 @@ const TestCaseBuilderContent: React.FC = () => {
   }, []);
 
   const { actualMode } = useTheme();
+  
+  // Get available actions from DeviceDataContext (same as Navigation Editor)
+  const { getAvailableActions } = useDeviceData();
+  const availableActions = getAvailableActions();
   
   // Get navigation infrastructure (for compatibility, but we use pre-loaded data)
   const {
@@ -353,23 +358,9 @@ const TestCaseBuilderContent: React.FC = () => {
       }
     }));
     
-    const frontendEdges = treeData.edges.map((edge: any) => ({
-      id: edge.edge_id,
-      source: edge.source_node_id,
-      target: edge.target_node_id,
-      type: 'navigation',
-      label: edge.label,
-      data: {
-        action_sets: edge.action_sets,
-        default_action_set_id: edge.default_action_set_id,
-        final_wait_time: edge.final_wait_time,
-        ...edge.data
-      }
-    }));
-    
-    console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${frontendNodes.length}, edges: ${frontendEdges.length}, interface: ${userinterfaceName}`);
-    return buildToolboxFromNavigationData(frontendNodes, frontendEdges, treeData.interface);
-  }, [userinterfaceName, allInterfacesTreeData]);
+    console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${frontendNodes.length}, actions from controllers: ${Object.values(availableActions).flat().length}, interface: ${userinterfaceName}`);
+    return buildToolboxFromNavigationData(frontendNodes, availableActions, treeData.interface);
+  }, [userinterfaceName, allInterfacesTreeData, availableActions]);
 
   // Load test case list when load dialog opens
   useEffect(() => {

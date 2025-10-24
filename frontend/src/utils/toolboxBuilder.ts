@@ -1,31 +1,27 @@
 /**
- * Toolbox Builder - Extract toolbox configuration from Navigation data
- * Reuses data already loaded by NavigationEditor infrastructure
+ * Toolbox Builder - Build toolbox configuration from navigation data + controller actions
+ * Reuses DeviceDataContext logic for actions/verifications
  */
 
 import NavigationIcon from '@mui/icons-material/Navigation';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import LoopIcon from '@mui/icons-material/Loop';
+import type { Actions } from '../types/controller/Action_Types';
 
 /**
- * Build dynamic toolbox configuration from loaded navigation data
- * This reuses data from NavigationEditor's loadTreeByUserInterface call
+ * Build dynamic toolbox configuration
+ * - Navigation blocks: from tree nodes (screen names)
+ * - Actions/Verifications: from DeviceDataContext (controller capabilities)
  * 
- * Returns structure matching toolboxConfig.tsx format:
- * {
- *   tabName: {
- *     tabName: string,
- *     groups: [{ groupName: string, commands: [...] }]
- *   }
- * }
+ * Returns structure matching toolboxConfig.tsx format
  */
 export function buildToolboxFromNavigationData(
   nodes: any[],
-  edges: any[],
+  availableActions: Actions,
   userInterface: any
 ) {
-  if (!nodes || !edges || !userInterface) {
+  if (!nodes || !availableActions || !userInterface) {
     return null;
   }
 
@@ -54,20 +50,20 @@ export function buildToolboxFromNavigationData(
       ]
     },
     actions: {
-      tabName: 'Action',
+      tabName: 'Actions',
       groups: [
         {
-          groupName: 'Action',
-          commands: extractActionBlocks(edges)
+          groupName: 'Device Actions',
+          commands: extractActionBlocks(availableActions)
         }
       ]
     },
     verifications: {
-      tabName: 'Verifcation',
+      tabName: 'Verify',
       groups: [
         {
-          groupName: 'Verification',
-          commands: extractVerificationBlocks(nodes)
+          groupName: 'Verifications',
+          commands: extractVerificationBlocks(availableActions)
         }
       ]
     }
@@ -102,87 +98,75 @@ function extractNavigationBlocks(nodes: any[]) {
 }
 
 /**
- * Extract action blocks from edges' action_sets
- * Edges contain action_sets with arrays of actions
+ * Extract action blocks from DeviceDataContext availableActions
+ * REUSES the same logic as Navigation Editor (ActionsList.tsx)
  */
-function extractActionBlocks(edges: any[]) {
-  const actionsMap = new Map();
+function extractActionBlocks(availableActions: Actions) {
+  const commands: any[] = [];
 
-  edges.forEach(edge => {
-    edge.data?.action_sets?.forEach((actionSet: any) => {
-      actionSet.actions?.forEach((action: any) => {
-        const key = action.command;
-        if (!actionsMap.has(key)) {
-          // Create human-readable label
-          const label = action.command
-            .replace(/_/g, ' ')
-            .replace(/([A-Z])/g, ' $1')
-            .trim()
-            .split(' ')
-            .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-            .join(' ');
-
-          actionsMap.set(key, {
-            type: 'action',
-            label,
-            icon: TouchAppIcon,
-            color: '#ef4444',
-            outputs: ['success', 'failure'],
-            defaultData: {
-              command: action.command,
-              action_type: action.action_type || 'remote',
-              params: action.params || {}
-            },
-            description: `Execute ${label}`
-          });
-        }
+  // Iterate through all action categories (remote, web, desktop, etc.)
+  Object.entries(availableActions).forEach(([category, actions]) => {
+    if (!Array.isArray(actions)) return;
+    
+    actions.forEach((actionDef: any) => {
+      // Skip verification actions (they go in verifications tab)
+      if (actionDef.action_type === 'verification') return;
+      
+      commands.push({
+        type: 'action',
+        label: actionDef.label,
+        icon: TouchAppIcon,
+        color: '#ef4444',
+        outputs: ['success', 'failure'],
+        defaultData: {
+          command: actionDef.command,
+          action_type: actionDef.action_type,
+          params: { ...actionDef.params },
+          device_model: actionDef.device_model,
+        },
+        description: actionDef.description || `Execute ${actionDef.label}`
       });
     });
   });
 
-  const actions = Array.from(actionsMap.values());
-  console.log(`[@toolboxBuilder] Extracted ${actions.length} unique actions from edges`);
-  return actions;
+  console.log(`[@toolboxBuilder] Extracted ${commands.length} actions from controllers`);
+  return commands;
 }
 
 /**
- * Extract verification blocks from nodes' verifications
- * Nodes contain verification arrays
+ * Extract verification blocks from DeviceDataContext availableActions
+ * REUSES the same logic as Navigation Editor
+ * Verifications are stored in availableActions under 'verification' action_type
  */
-function extractVerificationBlocks(nodes: any[]) {
-  const verificationsMap = new Map();
+function extractVerificationBlocks(availableActions: Actions) {
+  const commands: any[] = [];
 
-  nodes.forEach(node => {
-    node.data?.verifications?.forEach((verification: any) => {
-      const key = verification.command;
-      if (!verificationsMap.has(key)) {
-        // Create human-readable label
-        const label = verification.command
-          .replace(/([A-Z])/g, ' $1')
-          .trim()
-          .split(' ')
-          .map((w: string) => w.charAt(0).toUpperCase() + w.slice(1))
-          .join(' ');
-
-        verificationsMap.set(key, {
+  // Iterate through all action categories and filter for verifications
+  Object.entries(availableActions).forEach(([category, actions]) => {
+    if (!Array.isArray(actions)) return;
+    
+    actions.forEach((actionDef: any) => {
+      // Only include actions with action_type === 'verification'
+      if (actionDef.action_type === 'verification') {
+        commands.push({
           type: 'verification',
-          label,
+          label: actionDef.label,
           icon: VerifiedIcon,
           color: '#10b981',
           outputs: ['success', 'failure'],
           defaultData: {
-            command: verification.command,
-            verification_type: verification.verification_type || 'image',
-            params: verification.params || {}
+            command: actionDef.command,
+            action_type: actionDef.action_type,
+            verification_type: actionDef.verification_type,
+            params: { ...actionDef.params },
+            device_model: actionDef.device_model,
           },
-          description: `Verification ${label}`
+          description: actionDef.description || `Verify ${actionDef.label}`
         });
       }
     });
   });
 
-  const verifications = Array.from(verificationsMap.values());
-  console.log(`[@toolboxBuilder] Extracted ${verifications.length} unique verifications from nodes`);
-  return verifications;
+  console.log(`[@toolboxBuilder] Extracted ${commands.length} verifications from controllers`);
+  return commands;
 }
-
