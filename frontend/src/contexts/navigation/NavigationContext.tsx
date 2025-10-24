@@ -8,7 +8,7 @@ import React, {
   useContext,
 } from 'react';
 import { useParams } from 'react-router-dom';
-import { useNodesState, useEdgesState, ReactFlowInstance } from 'reactflow';
+import { useNodesState, useEdgesState, ReactFlowInstance, Edge } from 'reactflow';
 
 import {
   UINavigationNode,
@@ -261,19 +261,21 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
         
         // Update the last sibling to normal style
         setEdges((currentEdges) => 
-          currentEdges.map((edge) => 
-            edge.id === lastSibling.id
-              ? {
-                  ...edge,
-                  style: { ...edge.style, stroke: '#555' },  // 🔵 Gray (normal)
-                  markerEnd: { ...edge.markerEnd, color: '#555' },
-                  data: {
-                    ...edge.data,
-                    is_conditional: false,
-                  },
-                }
-              : edge
-          )
+          currentEdges.map((edge): Edge => {
+            if (edge.id === lastSibling.id) {
+              const updatedMarkerEnd = typeof edge.markerEnd === 'object' && edge.markerEnd ? { ...edge.markerEnd, color: '#555' } : edge.markerEnd;
+              return {
+                ...edge,
+                style: { ...edge.style, stroke: '#555' },  // 🔵 Gray (normal)
+                markerEnd: updatedMarkerEnd,
+                data: {
+                  ...edge.data,
+                  is_conditional: false,
+                },
+              };
+            }
+            return edge;
+          })
         );
       }
     });

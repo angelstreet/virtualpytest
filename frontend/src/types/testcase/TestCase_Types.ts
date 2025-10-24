@@ -32,6 +32,8 @@ export interface ActionBlockData {
 export interface VerificationBlockData {
   command?: string;
   verification_type?: string;
+  reference?: string;
+  threshold?: number;
   params?: Record<string, any>;
 }
 

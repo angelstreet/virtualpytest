@@ -257,7 +257,6 @@ def execute_from_prompt():
     - TestCase Builder AI Mode: save=true (save after generation)
     """
     try:
-        from shared.src.lib.executors.ai_executor import AIExecutor
         from shared.src.lib.database.testcase_db import create_testcase
         
         print("[@host_testcase] Unified execute-from-prompt")
@@ -302,20 +301,25 @@ def execute_from_prompt():
         
         device = current_app.host_devices[device_id]
         
+        # Use device's existing AI executor (don't create new instance)
+        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have AIExecutor initialized'
+            }), 500
+        
         # Execute prompt using AI executor
         print(f"[@host_testcase] Executing prompt: {prompt[:50]}...")
         print(f"[@host_testcase] Save mode: {save_testcase}")
         
-        ai_executor = AIExecutor(device=device)
-        
         if async_execution:
             # Async execution with polling (for Live Modal)
-            execution_result = ai_executor.execute_prompt(
+            execution_result = device.ai_executor.execute_prompt(
                 prompt=prompt,
                 userinterface_name=userinterface_name,
                 team_id=team_id,
                 use_cache=use_cache,
-                async_mode=True
+                async_execution=True  # ✅ Correct parameter name
             )
             
             return jsonify({
@@ -325,12 +329,12 @@ def execute_from_prompt():
             })
         else:
             # Synchronous execution
-            execution_result = ai_executor.execute_prompt(
+            execution_result = device.ai_executor.execute_prompt(
                 prompt=prompt,
                 userinterface_name=userinterface_name,
                 team_id=team_id,
                 use_cache=use_cache,
-                async_mode=False
+                async_execution=False  # ✅ Correct parameter name
             )
             
             if not execution_result.get('success'):

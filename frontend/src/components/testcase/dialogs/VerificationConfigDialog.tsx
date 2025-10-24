@@ -78,7 +78,7 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
                   label="Verification Type"
                   onChange={(e) => handleTypeChange(e.target.value)}
                 >
-                  {availableVerifications.map((verification) => (
+                  {availableVerifications.map((verification: any) => (
                     <MenuItem key={verification.type} value={verification.type}>
                       {verification.description || verification.type}
                     </MenuItem>

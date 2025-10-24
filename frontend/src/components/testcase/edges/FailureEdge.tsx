@@ -10,7 +10,6 @@ import {
  * Failure Edge - Red connection for failure flow
  */
 export const FailureEdge: React.FC<EdgeProps> = ({
-  id,
   sourceX,
   sourceY,
   targetX,

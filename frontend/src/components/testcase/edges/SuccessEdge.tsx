@@ -10,7 +10,6 @@ import {
  * Success Edge - Green connection for successful flow
  */
 export const SuccessEdge: React.FC<EdgeProps> = ({
-  id,
   sourceX,
   sourceY,
   targetX,

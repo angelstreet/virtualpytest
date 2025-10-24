@@ -44,7 +44,7 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
   }, [formData.command]);
 
   const handleCommandChange = (command: string) => {
-    const selectedAction = availableActions.find((action) => action.command === command);
+    const selectedAction = availableActions.find((action: any) => action.command === command);
     setFormData((prev) => ({
       ...prev,
       command,
@@ -79,7 +79,7 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
                   label="Command"
                   onChange={(e) => handleCommandChange(e.target.value)}
                 >
-                  {availableActions.map((action) => (
+                  {availableActions.map((action: any) => (
                     <MenuItem key={action.command} value={action.command}>
                       {action.description || action.command}
                     </MenuItem>

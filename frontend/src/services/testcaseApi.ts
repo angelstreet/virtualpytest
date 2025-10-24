@@ -60,8 +60,8 @@ export async function saveTestCase(
         description,
         userinterface_name: userinterfaceName,
         created_by: createdBy,
-      },
-      { team_id: teamId }
+        team_id: teamId
+      }
     );
     
     return response;
@@ -153,10 +153,8 @@ export async function getTestCaseHistory(testcaseId: string, teamId: string): Pr
  */
 export async function deleteTestCase(testcaseId: string, teamId: string): Promise<{ success: boolean; error?: string }> {
   try {
-    const response = await apiClient.delete<{ success: boolean; error?: string }>(
-      `/server/testcase/${testcaseId}`,
-      { team_id: teamId }
-    );
+    const url = `/server/testcase/${testcaseId}?team_id=${encodeURIComponent(teamId)}`;
+    const response = await apiClient.delete<{ success: boolean; error?: string }>(url);
     
     return response;
   } catch (error) {
@@ -193,8 +191,8 @@ export async function generateTestCaseFromPrompt(
         prompt,
         userinterface_name: userinterfaceName,
         device_id: deviceId,
-      },
-      { team_id: teamId }
+        team_id: teamId
+      }
     );
     
     if (response.success) {
@@ -263,8 +261,8 @@ export async function saveDisambiguationAndRegenerate(
         prompt,
         selections,
         userinterface_name: userinterfaceName,
-      },
-      { team_id: teamId }
+        team_id: teamId
+      }
     );
     
     // Then regenerate with saved choices

@@ -34,12 +34,9 @@ import AddIcon from '@mui/icons-material/Add';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
-import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
-import GridOnIcon from '@mui/icons-material/GridOn';
 
 // Components
 import { TestCaseToolbox } from '../components/testcase/builder/TestCaseToolbox';
-import { AIPromptMode } from '../components/testcase/builder/AIPromptMode';
 import { StartBlock } from '../components/testcase/blocks/StartBlock';
 import { SuccessBlock } from '../components/testcase/blocks/SuccessBlock';
 import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
@@ -174,7 +171,7 @@ const TestCaseBuilderContent: React.FC = () => {
 
   // Handle block click
   const onNodeClick = useCallback(
-    (event: React.MouseEvent, node: any) => {
+    (_event: React.MouseEvent, node: any) => {
       // Don't open dialog for terminal blocks
       if (node.type === 'start' || node.type === 'success' || node.type === 'failure') {
         setSelectedBlock(node);
@@ -198,35 +195,6 @@ const TestCaseBuilderContent: React.FC = () => {
     [selectedBlock, updateBlock, setIsConfigDialogOpen]
   );
   
-  // Handle AI graph generation
-  const handleAIGraphGenerated = useCallback((graph: any, analysis: string) => {
-    // Convert graph to React Flow format and load
-    if (graph && graph.nodes && graph.edges) {
-      setNodes(graph.nodes);
-      setEdges(graph.edges);
-      setIsAIMode(false); // Switch back to visual mode
-      setSnackbar({
-        open: true,
-        message: `AI generated ${graph.nodes.length} nodes. You can now edit the graph!`,
-        severity: 'success',
-      });
-    }
-  }, [setNodes, setEdges]);
-
-  const handleNew = useCallback(() => {
-    resetBuilder();
-    setLoadDialogOpen(false);
-    setIsAIMode(false);
-  }, [resetBuilder]);
-
-  const handleOpenAIMode = useCallback(() => {
-    setIsAIMode(true);
-  }, []);
-
-  const handleCancelAIMode = useCallback(() => {
-    setIsAIMode(false);
-  }, []);
-
   // Handle save
   const handleSave = useCallback(async () => {
     const result = await saveCurrentTestCase();
@@ -352,16 +320,6 @@ const TestCaseBuilderContent: React.FC = () => {
           <Button variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => setLoadDialogOpen(true)}>
             Load
           </Button>
-          {!isAIMode && (
-            <Button variant="outlined" startIcon={<AutoAwesomeIcon />} onClick={handleOpenAIMode} color="secondary">
-              Generate with AI
-            </Button>
-          )}
-          {isAIMode && (
-            <Button variant="outlined" startIcon={<GridOnIcon />} onClick={handleCancelAIMode}>
-              Back to Visual
-            </Button>
-          )}
           <Button variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
             Save
           </Button>

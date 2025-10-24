@@ -1,7 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
 import { v4 as uuidv4 } from 'uuid';
-import { BlockType, TestCaseBlock, TestCaseConnection, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
+import { BlockType, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
 import { saveTestCase, executeTestCase as executeTestCaseApi, listTestCases, getTestCase, deleteTestCase as deleteTestCaseApi } from '../../services/testcaseApi';
 import type { TestCaseDefinition } from '../../services/testcaseApi';
 import { 
@@ -33,6 +33,13 @@ interface TestCaseBuilderContextType {
   testcaseList: TestCaseDefinition[];
   setTestcaseList: React.Dispatch<React.SetStateAction<TestCaseDefinition[]>>;
   
+  // Available options
+  availableInterfaces: UserInterface[];
+  availableNodes: NavigationNode[];
+  availableActions: ActionCommand[];
+  availableVerifications: any[];
+  isLoadingOptions: boolean;
+  
   // Selected elements
   selectedBlock: Node | null;
   setSelectedBlock: React.Dispatch<React.SetStateAction<Node | null>>;
@@ -60,6 +67,7 @@ interface TestCaseBuilderContextType {
   fetchTestCaseList: () => Promise<void>;
   deleteTestCaseById: (testcase_id: string) => Promise<void>;
   resetBuilder: () => void;
+  fetchNavigationNodes: (interfaceName: string) => Promise<void>;
 }
 
 const TestCaseBuilderContext = createContext<TestCaseBuilderContextType | undefined>(undefined);
@@ -168,6 +176,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       ...connection,
       id: uuidv4(),
       type: edgeType,
+      source: connection.source!,
+      target: connection.target!,
       style: { stroke: edgeColor, strokeWidth: 2 },
     };
     
@@ -251,7 +261,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         source: edge.source,
         target: edge.target,
         sourceHandle: edge.sourceHandle as 'success' | 'failure',
-        type: edge.type as 'success' | 'failure'
+        type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
       }))
     };
     
@@ -260,7 +270,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         testcaseName,
         graph,
         description,
-        userinterfaceName
+        userinterfaceName,
+        'default-user',
+        'default-team-id'
       );
       
       if (result.success && result.testcase_id) {
@@ -278,7 +290,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Load test case
   const loadTestCase = useCallback(async (testcase_id: string) => {
     try {
-      const result = await getTestCase(testcase_id);
+      const result = await getTestCase(testcase_id, 'default-team-id');
       
       if (result.success && result.testcase) {
         const testcase = result.testcase;
@@ -319,7 +331,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Fetch test case list
   const fetchTestCaseList = useCallback(async () => {
     try {
-      const result = await listTestCases();
+      const result = await listTestCases('default-team-id');
       if (result.success && result.testcases) {
         setTestcaseList(result.testcases);
       }
@@ -331,7 +343,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Delete test case
   const deleteTestCaseById = useCallback(async (testcase_id: string) => {
     try {
-      const result = await deleteTestCaseApi(testcase_id);
+      const result = await deleteTestCaseApi(testcase_id, 'default-team-id');
       if (result.success) {
         // Refresh list
         await fetchTestCaseList();

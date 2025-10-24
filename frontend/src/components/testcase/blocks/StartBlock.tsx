@@ -7,7 +7,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
  * Start Block - Entry point for testcase execution
  * Only has output handles (success/failure)
  */
-export const StartBlock: React.FC<NodeProps> = ({ data, selected }) => {
+export const StartBlock: React.FC<NodeProps> = ({ selected }) => {
   const { actualMode } = useTheme();
   
   return (

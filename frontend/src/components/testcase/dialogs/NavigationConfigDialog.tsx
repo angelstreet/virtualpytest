@@ -14,7 +14,7 @@ import {
   CircularProgress,
 } from '@mui/material';
 import { NavigationBlockData, NavigationForm } from '../../../types/testcase/TestCase_Types';
-import { useNavigationConfig } from '../../../contexts/navigation/NavigationConfigContext';
+import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 
 interface NavigationConfigDialogProps {
   open: boolean;
@@ -29,16 +29,15 @@ export const NavigationConfigDialog: React.FC<NavigationConfigDialogProps> = ({
   onSave,
   onCancel,
 }) => {
-  const { treeData } = useNavigationConfig();
+  const { availableNodes, isLoadingOptions } = useTestCaseBuilder();
   const [formData, setFormData] = useState<NavigationForm>({
     target_node_label: initialData?.target_node_label || '',
     target_node_id: initialData?.target_node_id || '',
     isValid: false,
   });
 
-  // Get available nodes from tree data
-  const availableNodes = treeData?.nodes || [];
-  const isLoading = !treeData;
+  // Get available nodes from context
+  const isLoading = isLoadingOptions;
 
   useEffect(() => {
     // Validate form
@@ -47,11 +46,11 @@ export const NavigationConfigDialog: React.FC<NavigationConfigDialogProps> = ({
   }, [formData.target_node_label]);
 
   const handleNodeChange = (nodeId: string) => {
-    const selectedNode = availableNodes.find((node) => node.node_id === nodeId);
+    const selectedNode = availableNodes.find((node: any) => node.node_id === nodeId);
     setFormData((prev) => ({
       ...prev,
       target_node_id: nodeId,
-      target_node_label: selectedNode?.label || selectedNode?.node_name || nodeId,
+      target_node_label: selectedNode?.label || nodeId,
     }));
   };
 
@@ -81,9 +80,9 @@ export const NavigationConfigDialog: React.FC<NavigationConfigDialogProps> = ({
                 label="Target Node"
                 onChange={(e) => handleNodeChange(e.target.value)}
               >
-                {availableNodes.map((node) => (
+                {availableNodes.map((node: any) => (
                   <MenuItem key={node.node_id} value={node.node_id}>
-                    {node.label || node.node_name}
+                    {node.label}
                   </MenuItem>
                 ))}
               </Select>

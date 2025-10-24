@@ -11,14 +11,12 @@ import {
   Alert,
   CircularProgress,
   Paper,
-  Chip,
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   List,
   ListItem,
-  ListItemText,
 } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -45,7 +43,6 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
   // Disambiguation state
   const [needsDisambiguation, setNeedsDisambiguation] = useState(false);
   const [ambiguities, setAmbiguities] = useState<any[]>([]);
-  const [availableNodes, setAvailableNodes] = useState<any[]>([]);
   const [disambiguationSelections, setDisambiguationSelections] = useState<Record<string, string>>({});
 
   const handleGenerate = async () => {
@@ -76,7 +73,6 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
         // Show disambiguation UI
         setNeedsDisambiguation(true);
         setAmbiguities(result.ambiguities || []);
-        setAvailableNodes(result.available_nodes || []);
         setError(null);
       } else if (result.success && result.graph) {
         // Success - show generated graph
@@ -231,7 +227,7 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
             onChange={(e) => setUserinterfaceName(e.target.value)}
             disabled={isGenerating || !!generatedGraph}
           >
-            {availableInterfaces.map((ui) => (
+            {availableInterfaces.map((ui: any) => (
               <MenuItem key={ui.id} value={ui.userinterface_name}>
                 {ui.display_name || ui.userinterface_name}
               </MenuItem>
