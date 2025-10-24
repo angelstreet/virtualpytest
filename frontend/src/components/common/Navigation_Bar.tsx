@@ -35,8 +35,8 @@ const NavigationBar: React.FC = () => {
     {
       sectionLabel: 'Test Plan',
       items: [
-        { label: 'Test Cases', path: '/test-plan/test-cases', icon: <TestIcon fontSize="small" /> },
         { label: 'Builder', path: '/test-plan/testcase-builder', icon: <TreeIcon fontSize="small" /> },
+        { label: 'Test Cases', path: '/test-plan/test-cases', icon: <TestIcon fontSize="small" /> },
         { label: 'Campaigns', path: '/test-plan/campaigns', icon: <CampaignIcon fontSize="small" /> },
         {
           label: 'Collections',
