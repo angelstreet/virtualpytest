@@ -141,7 +141,7 @@ const TestCaseBuilderContent: React.FC = () => {
   } = useNavigationEditor();
   
   // Get userInterface lookup utility
-  const { getUserInterfaceByName } = useUserInterface();
+  const { getUserInterfaceByName, getAllUserInterfaces } = useUserInterface();
   
   const {
     nodes,
@@ -186,6 +186,23 @@ const TestCaseBuilderContent: React.FC = () => {
   // Dialogs
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  
+  // Load all interfaces for selector
+  const [allInterfaceNames, setAllInterfaceNames] = useState<string[]>([]);
+  
+  useEffect(() => {
+    const loadInterfaces = async () => {
+      try {
+        const interfaces = await getAllUserInterfaces();
+        const names = interfaces.map(i => i.name);
+        setAllInterfaceNames(names);
+        console.log(`[@TestCaseBuilder] Loaded ${names.length} interfaces for selector`);
+      } catch (error) {
+        console.error('[@TestCaseBuilder] Failed to load interfaces:', error);
+      }
+    };
+    loadInterfaces();
+  }, [getAllUserInterfaces]);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -492,7 +509,7 @@ const TestCaseBuilderContent: React.FC = () => {
       overflow: 'hidden',
       zIndex: 1,
     }}>
-      {/* Header - Fixed 46px */}
+      {/* Header - Fixed 46px with 4 Sections */}
       <Box
         sx={{
           px: 2,
@@ -507,35 +524,39 @@ const TestCaseBuilderContent: React.FC = () => {
           flexShrink: 0,
         }}
       >
-        {/* Left Section: Title + Mode Toggle + Interface Selector */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 1 auto' }}>
+        {/* SECTION 1: Title */}
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 auto' }}>
           <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
             TestCase Builder
           </Typography>
-          
-          {/* Visual/AI Mode Toggle */}
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            <Button
-              size="small"
-              variant={creationMode === 'visual' ? 'contained' : 'outlined'}
-              onClick={() => setCreationMode('visual')}
-              sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
-            >
-              Visual
-            </Button>
-            <Button
-              size="small"
-              variant={creationMode === 'ai' ? 'contained' : 'outlined'}
-              onClick={() => setCreationMode('ai')}
-              startIcon={<AutoAwesomeIcon fontSize="small" />}
-              sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
-            >
-              AI
-            </Button>
-          </Box>
-          
+        </Box>
+        
+        {/* SECTION 2: Visual/AI Mode Toggle */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: '0 0 auto', ml: 2 }}>
+          <Button
+            size="small"
+            variant={creationMode === 'visual' ? 'contained' : 'outlined'}
+            onClick={() => setCreationMode('visual')}
+            sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
+          >
+            Visual
+          </Button>
+          <Button
+            size="small"
+            variant={creationMode === 'ai' ? 'contained' : 'outlined'}
+            onClick={() => setCreationMode('ai')}
+            startIcon={<AutoAwesomeIcon fontSize="small" />}
+            sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
+          >
+            AI
+          </Button>
+        </Box>
+        
+        {/* SECTION 3: Interface Selector + Toolbox Tabs */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
           {/* Userinterface Selector */}
           <UserinterfaceSelector
+            compatibleInterfaces={allInterfaceNames}
             value={userinterfaceName}
             onChange={setUserinterfaceName}
             label="Interface"
@@ -543,12 +564,10 @@ const TestCaseBuilderContent: React.FC = () => {
             fullWidth={false}
             sx={{ minWidth: 200 }}
           />
-        </Box>
-        
-        {/* Center Section: Toolbox Tab Navigation (only in visual mode) */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: '0 1 auto' }}>
+          
+          {/* Toolbox Tab Navigation (only in visual mode) */}
           {creationMode === 'visual' && (
-            <>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               {Object.keys(dynamicToolboxConfig || toolboxConfig).map((key) => {
                 const config = dynamicToolboxConfig || toolboxConfig;
                 const tabName = (config as any)[key]?.tabName || key;
@@ -569,12 +588,12 @@ const TestCaseBuilderContent: React.FC = () => {
                   </Button>
                 );
               })}
-            </>
+            </Box>
           )}
         </Box>
         
-        {/* Right Section: TestCase Info + Action Buttons */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: '0 1 auto' }}>
+        {/* SECTION 4: TestCase Info + Action Buttons */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
           {testcaseName && (
             <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
               {testcaseName} {currentTestcaseId ? '(saved)' : '(unsaved)'}
