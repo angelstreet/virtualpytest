@@ -345,39 +345,59 @@ const TestCaseBuilderContent: React.FC = () => {
   
   useEffect(() => {
     const loadNavigationTree = async () => {
-      if (!userinterfaceName) return;
+      // Only load tree if BOTH device and interface are selected
+      if (!selectedDeviceId || !userinterfaceName) {
+        console.log(`[@TestCaseBuilder] Skipping tree load - device: ${selectedDeviceId}, interface: ${userinterfaceName}`);
+        setNavNodes([]); // Clear nodes if either is missing
+        return;
+      }
       
       try {
-        console.log(`[@TestCaseBuilder] Loading tree for interface: ${userinterfaceName}`);
+        console.log(`[@TestCaseBuilder] Loading tree for interface: ${userinterfaceName} (device: ${selectedDeviceId})`);
         
         const userInterface = await getUserInterfaceByName(userinterfaceName);
+        console.log(`[@TestCaseBuilder] Got userInterface:`, userInterface);
         
         if (userInterface) {
           // Load tree data through NavigationConfig (uses cache automatically)
           const result = await loadTreeByUserInterface(userInterface.id);
+          console.log(`[@TestCaseBuilder] Tree load result:`, result);
           setUserInterfaceFromProps(userInterface);
           
           // Extract nodes from result
           if (result?.nodes) {
             setNavNodes(result.nodes);
             console.log(`[@TestCaseBuilder] ✅ Loaded tree for ${userinterfaceName} with ${result.nodes.length} nodes`);
+          } else {
+            console.warn(`[@TestCaseBuilder] ⚠️ Tree result has no nodes!`, result);
+            setNavNodes([]);
           }
+        } else {
+          console.warn(`[@TestCaseBuilder] ⚠️ No userInterface found for: ${userinterfaceName}`);
         }
       } catch (error) {
         console.error(`[@TestCaseBuilder] Failed to load tree:`, error);
+        setNavNodes([]); // Clear nodes on error
       }
     };
     
     loadNavigationTree();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userinterfaceName]); // Re-load when interface NAME changes
+  }, [selectedDeviceId, userinterfaceName]); // Re-load when device OR interface changes
 
   // Build dynamic toolbox from navigation data - only if device and interface are selected
   const dynamicToolboxConfig = React.useMemo(() => {
-    if (!selectedDeviceId || !userinterfaceName || navNodes.length === 0) return null;
+    console.log(`[@TestCaseBuilder] Building toolbox - device: ${selectedDeviceId}, interface: ${userinterfaceName}, nodes: ${navNodes.length}, actions: ${Object.values(availableActions).flat().length}`);
     
-    console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${navNodes.length}, actions: ${Object.values(availableActions).flat().length}`);
-    return buildToolboxFromNavigationData(navNodes, availableActions, null);
+    if (!selectedDeviceId || !userinterfaceName || navNodes.length === 0) {
+      console.log(`[@TestCaseBuilder] ⚠️ Cannot build toolbox - missing requirements`);
+      return null;
+    }
+    
+    console.log(`[@TestCaseBuilder] ✅ Building toolbox with ${navNodes.length} nodes and ${Object.values(availableActions).flat().length} actions`);
+    const config = buildToolboxFromNavigationData(navNodes, availableActions, null);
+    console.log(`[@TestCaseBuilder] Toolbox config built:`, config);
+    return config;
   }, [selectedDeviceId, userinterfaceName, navNodes, availableActions]);
 
   // Load test case list when load dialog opens
