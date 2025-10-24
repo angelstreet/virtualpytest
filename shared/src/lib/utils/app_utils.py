@@ -141,8 +141,9 @@ def setup_flask_app(app_name="VirtualPyTest"):
         "https://virtualpytest.com",
         "https://www.virtualpytest.com",
         # Vercel deployments (including specific user-scoped domains)
+        # Matches all Vercel preview and production URLs with any number of dashes
+        # Examples: virtualpytest.vercel.app, virtualpytest-h9f7zer45-angelstreets-projects.vercel.app
         re.compile(r"^https://[a-zA-Z0-9\-]+\.vercel\.app$"),
-        re.compile(r"^https://[a-zA-Z0-9\-]+-[a-zA-Z0-9\-]+-[a-zA-Z0-9\-]+\.vercel\.app$"),
         # Localhost
         re.compile(r"^https?://localhost(:\d+)?$"),
         re.compile(r"^https?://127\.0\.0\.1(:\d+)?$"),
