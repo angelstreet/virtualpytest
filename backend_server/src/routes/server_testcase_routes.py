@@ -5,6 +5,7 @@ This module handles test case CRUD operations using the database layer.
 Execution is proxied to hosts.
 """
 
+import uuid
 from flask import Blueprint, request, jsonify
 from backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 from shared.src.lib.database.testcase_db import (
@@ -208,3 +209,176 @@ def execute_from_prompt():
         '/host/testcase/execute-from-prompt', 'POST', data, query_params
     )
     return jsonify(response_data), status_code
+
+
+@server_testcase_bp.route('/generate-with-ai', methods=['POST'])
+def generate_with_ai():
+    """
+    Generate test case graph from natural language prompt
+    
+    This endpoint:
+    1. Takes a natural language prompt
+    2. Uses AI to analyze and generate a test case graph
+    3. Returns React Flow compatible nodes/edges structure
+    4. Does NOT save - frontend saves later with user input
+    
+    Request body:
+        {
+            "prompt": "Go to live TV and verify audio"
+        }
+    
+    Response:
+        {
+            "success": true,
+            "graph": {
+                "nodes": [...],
+                "edges": [...]
+            },
+            "testcase_name": "AI: Go to live TV",
+            "description": "Generated from AI prompt",
+            "ai_prompt": "Go to live TV and verify audio",
+            "ai_analysis": "Step-by-step breakdown..."
+        }
+    """
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+    
+    prompt = data.get('prompt')
+    if not prompt:
+        return jsonify({'success': False, 'error': 'prompt is required'}), 400
+    
+    team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
+    
+    try:
+        # Step 1: Analyze prompt using AI
+        analyze_response, analyze_status = proxy_to_host_with_params(
+            '/host/ai/analyzePrompt', 'POST', 
+            {'prompt': prompt}, 
+            {'team_id': team_id}
+        )
+        
+        if not analyze_response.get('success'):
+            return jsonify({
+                'success': False,
+                'error': analyze_response.get('error', 'Failed to analyze prompt')
+            }), analyze_status
+        
+        analysis = analyze_response.get('analysis', {})
+        steps = analysis.get('steps', [])
+        
+        # Step 2: Generate graph structure from analysis
+        # Create nodes based on steps
+        nodes = [
+            {
+                'id': 'start',
+                'type': 'start',
+                'position': {'x': 400, 'y': 50},
+                'data': {}
+            }
+        ]
+        
+        edges = []
+        last_node_id = 'start'
+        y_position = 150
+        
+        # Generate nodes for each step
+        for i, step in enumerate(steps):
+            node_id = f'node_{uuid.uuid4().hex[:8]}'
+            action_type = step.get('action_type', 'action')
+            
+            # Determine block type
+            if 'verify' in action_type.lower() or 'check' in action_type.lower():
+                block_type = 'verification'
+            elif 'navigate' in action_type.lower() or 'goto' in action_type.lower():
+                block_type = 'navigation'
+            else:
+                block_type = 'action'
+            
+            nodes.append({
+                'id': node_id,
+                'type': block_type,
+                'position': {'x': 400, 'y': y_position},
+                'data': {
+                    'label': step.get('description', f'Step {i + 1}'),
+                    'command': step.get('params', {}).get('command'),
+                    'target': step.get('target'),
+                    'params': step.get('params', {})
+                }
+            })
+            
+            # Connect to previous node
+            edges.append({
+                'id': f'edge_{uuid.uuid4().hex[:8]}',
+                'source': last_node_id,
+                'target': node_id,
+                'sourceHandle': 'success',
+                'type': 'success'
+            })
+            
+            last_node_id = node_id
+            y_position += 100
+        
+        # Add success and failure terminal nodes
+        success_node_id = 'success'
+        failure_node_id = 'failure'
+        
+        nodes.extend([
+            {
+                'id': success_node_id,
+                'type': 'success',
+                'position': {'x': 150, 'y': y_position + 100},
+                'data': {}
+            },
+            {
+                'id': failure_node_id,
+                'type': 'failure',
+                'position': {'x': 650, 'y': y_position + 100},
+                'data': {}
+            }
+        ])
+        
+        # Connect last step to success
+        if last_node_id != 'start':
+            edges.append({
+                'id': f'edge_{uuid.uuid4().hex[:8]}',
+                'source': last_node_id,
+                'target': success_node_id,
+                'sourceHandle': 'success',
+                'type': 'success'
+            })
+            edges.append({
+                'id': f'edge_{uuid.uuid4().hex[:8]}',
+                'source': last_node_id,
+                'target': failure_node_id,
+                'sourceHandle': 'failure',
+                'type': 'failure'
+            })
+        
+        # Generate suggested name and description
+        testcase_name = f"AI: {prompt[:50]}" if len(prompt) > 50 else f"AI: {prompt}"
+        description = f"Auto-generated test case from AI prompt: {prompt}"
+        
+        return jsonify({
+            'success': True,
+            'graph': {
+                'nodes': nodes,
+                'edges': edges
+            },
+            'testcase_name': testcase_name,
+            'description': description,
+            'ai_prompt': prompt,
+            'ai_analysis': analysis.get('reasoning', 'AI-generated test case')
+        }), 200
+        
+    except Exception as e:
+        print(f"[@server_testcase] Error generating test case with AI: {str(e)}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': f'Failed to generate test case: {str(e)}'
+        }), 500
+

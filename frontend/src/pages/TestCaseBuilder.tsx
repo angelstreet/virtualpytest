@@ -58,6 +58,7 @@ import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialo
 import { TestCaseBuilderProvider, useTestCaseBuilder } from '../contexts/testcase/TestCaseBuilderContext';
 import { useTheme } from '../contexts/ThemeContext';
 import { BlockType } from '../types/testcase/TestCase_Types';
+import { generateTestCaseFromPrompt } from '../services/aiService';
 
 // Node types for React Flow
 const nodeTypes = {
@@ -116,6 +117,8 @@ const TestCaseBuilderContent: React.FC = () => {
     fetchTestCaseList,
     deleteTestCaseById,
     resetBuilder,
+    setNodes,
+    setEdges,
   } = useTestCaseBuilder();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -288,7 +291,7 @@ const TestCaseBuilderContent: React.FC = () => {
     }
   }, [resetBuilder]);
 
-  // Handle AI generation (placeholder for now)
+  // Handle AI generation
   const handleGenerateWithAI = useCallback(async () => {
     if (!aiPrompt.trim()) {
       setSnackbar({
@@ -300,21 +303,65 @@ const TestCaseBuilderContent: React.FC = () => {
     }
 
     setIsGenerating(true);
-    setSnackbar({
-      open: true,
-      message: 'AI generation coming soon! For now, use visual mode.',
-      severity: 'info',
-    });
     
-    // TODO: Integrate with AI generation endpoint
-    // const result = await generateTestCaseWithAI(aiPrompt);
-    // if (result.success) {
-    //   setNodes(result.graph.nodes);
-    //   setEdges(result.graph.edges);
-    // }
-    
-    setIsGenerating(false);
-  }, [aiPrompt]);
+    try {
+      const result = await generateTestCaseFromPrompt(aiPrompt);
+      
+      if (result.success && result.graph) {
+        // Load the generated graph into the builder
+        setNodes(result.graph.nodes.map(node => ({
+          id: node.id,
+          type: node.type as any,
+          position: node.position,
+          data: node.data
+        })));
+        
+        setEdges(result.graph.edges.map(edge => ({
+          id: edge.id,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle,
+          type: edge.type as any,
+          style: { 
+            stroke: edge.type === 'success' ? '#10b981' : '#ef4444',
+            strokeWidth: 2
+          }
+        })));
+        
+        // Pre-fill metadata
+        if (result.testcase_name) {
+          setTestcaseName(result.testcase_name);
+        }
+        if (result.description) {
+          setDescription(result.description);
+        }
+        
+        setSnackbar({
+          open: true,
+          message: 'Test case generated! Review and save when ready.',
+          severity: 'success',
+        });
+        
+        // Switch back to visual mode so user can see the graph
+        setCreationMode('visual');
+      } else {
+        setSnackbar({
+          open: true,
+          message: `Generation failed: ${result.error || 'Unknown error'}`,
+          severity: 'error',
+        });
+      }
+    } catch (error) {
+      console.error('AI generation error:', error);
+      setSnackbar({
+        open: true,
+        message: `Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error',
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [aiPrompt, setNodes, setEdges, setTestcaseName, setDescription, setCreationMode]);
 
   // MiniMap style
   const miniMapStyle = React.useMemo(
