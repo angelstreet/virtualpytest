@@ -10,6 +10,53 @@ from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 
 server_monitoring_bp = Blueprint('server_monitoring', __name__, url_prefix='/server/monitoring')
 
+def _validate_host_ip(host_ip: str) -> bool:
+    """
+    Validate that host_ip is either localhost or in the registered hosts allowlist.
+    Prevents SSRF attacks by restricting requests to known trusted hosts.
+    
+    Args:
+        host_ip: IP address or hostname to validate
+        
+    Returns:
+        True if host is allowed, False otherwise
+    """
+    if not host_ip:
+        return False
+    
+    # Allow localhost
+    localhost_variants = ['localhost', '127.0.0.1', '::1', '0.0.0.0']
+    if host_ip in localhost_variants:
+        return True
+    
+    # Check against registered hosts
+    try:
+        from backend_server.src.lib.utils.server_utils import get_host_manager
+        host_manager = get_host_manager()
+        
+        # Get all registered hosts
+        registered_hosts = host_manager.list_hosts()
+        
+        for host in registered_hosts:
+            # Check if host_ip matches any registered host URL
+            host_url = host.get('host_url', '')
+            host_ip_from_url = host.get('host_ip', '')
+            
+            # Match against host_ip or extract from host_url
+            if host_ip in [host_ip_from_url, host_url]:
+                return True
+            
+            # Also check if host_ip appears in the URL (e.g., "http://192.168.1.100:5000")
+            if host_ip in host_url:
+                return True
+        
+        print(f"[@server_monitoring] Host validation FAILED for {host_ip} - not in allowlist")
+        return False
+        
+    except Exception as e:
+        print(f"[@server_monitoring] Host validation ERROR: {e}")
+        return False
+
 @server_monitoring_bp.route('/listCaptures', methods=['POST'])
 def list_captures():
     """Proxy list captures request to selected host with device_id"""
@@ -81,6 +128,14 @@ def proxy_monitoring_image(filename):
                 'success': False,
                 'error': 'host_ip parameter required'
             }), 400
+        
+        # SECURITY: Validate host_ip against allowlist to prevent SSRF
+        if not _validate_host_ip(host_ip):
+            print(f"[@server_monitoring] BLOCKED proxy request to unauthorized host: {host_ip}")
+            return jsonify({
+                'success': False,
+                'error': 'Host IP not authorized. Only registered hosts are allowed.'
+            }), 403
         
         is_json = filename.endswith('.json')
         

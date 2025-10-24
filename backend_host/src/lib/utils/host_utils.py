@@ -557,10 +557,10 @@ def start_ping_thread():
     def ping_worker():
         while not ping_stop_event.is_set():
             send_ping_to_server()
-            # Align to minute boundaries for synchronized data collection
+            # Align to 5-minute boundaries for synchronized data collection
             current_time = time.time()
-            next_minute = (int(current_time / 60) + 1) * 60
-            wait_time = next_minute - current_time
+            next_interval = (int(current_time / 300) + 1) * 300  # 300 seconds = 5 minutes
+            wait_time = next_interval - current_time
             ping_stop_event.wait(wait_time)
     
     ping_thread = threading.Thread(target=ping_worker, daemon=True)

@@ -67,17 +67,23 @@ RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /usr/share/grafana/data/plugins \
     && mkdir -p /var/lib/grafana/plugins \
+    && mkdir -p /var/log/nginx \
+    && mkdir -p /var/lib/nginx \
     && chown -R vptuser:vptuser /app \
     && chown -R vptuser:vptuser /var/lib/grafana \
     && chown -R vptuser:vptuser /var/log/grafana \
     && chown -R vptuser:vptuser /etc/grafana \
     && chown -R vptuser:vptuser /usr/share/grafana/data/plugins \
     && chown -R vptuser:vptuser /var/lib/grafana/plugins \
+    && chown -R www-data:www-data /var/log/nginx \
+    && chown -R www-data:www-data /var/lib/nginx \
     && chmod -R 755 /usr/share/grafana/data/plugins \
     && chmod -R 755 /var/lib/grafana/plugins \
     && chmod -R 775 /var/lib/grafana \
     && chmod -R 775 /app/backend_server/config/grafana \
-    && chmod -R 755 /var/log/grafana
+    && chmod -R 755 /var/log/grafana \
+    && chmod -R 755 /var/log/nginx \
+    && chmod -R 755 /var/lib/nginx
 
 # Copy supervisor configuration (with nginx) from docker folder
 COPY backend_server/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
@@ -89,7 +95,8 @@ EXPOSE 5109 3000
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
   CMD curl -f http://localhost:5109/health || exit 1
 
-# Run supervisor as root (needed for Grafana)
+# SECURITY NOTE: supervisord runs as root to manage nginx (which needs root)
+# However, Flask and Grafana processes drop privileges to 'vptuser' via supervisord config
 USER root
 
 # Run supervisor to manage nginx, Flask and Grafana

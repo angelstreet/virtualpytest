@@ -588,15 +588,16 @@ class ScriptExecutor:
             full_command = base_command
         
         # Final bash command
-        command = f"bash -c {shlex.quote(full_command)}"
+        # SECURITY: Use shell=False and pass as array to prevent shell injection
+        command_array = ['bash', '-c', full_command]
         
-        print(f"[@script_executor] Executing: {command}")
+        print(f"[@script_executor] Executing: {' '.join(command_array)}")
         print(f"[@script_executor] === SCRIPT OUTPUT START ===")
         
-        # Use streaming subprocess execution
+        # Use streaming subprocess execution with shell=False for security
         process = subprocess.Popen(
-            command,
-            shell=True,
+            command_array,
+            shell=False,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT,  # Merge stderr into stdout for unified streaming
             text=True,

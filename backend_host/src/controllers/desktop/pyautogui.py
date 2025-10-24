@@ -339,8 +339,8 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                         if app_name.lower() in ['notepad', 'calc', 'mspaint']:
                             subprocess.Popen([app_name])
                         else:
-                            # Try to run as command
-                            subprocess.Popen([app_name], shell=True)
+                            # Try to run as command (shell=False is safer)
+                            subprocess.Popen([app_name])
                     else:
                         # Linux/Mac - use which to find the application
                         subprocess.Popen([app_name])
