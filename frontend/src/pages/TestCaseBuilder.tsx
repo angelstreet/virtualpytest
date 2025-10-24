@@ -505,16 +505,16 @@ const TestCaseBuilderContent: React.FC = () => {
           background: actualMode === 'dark' ? '#111827' : '#ffffff',
           height: '46px',
           flexShrink: 0,
-          position: 'relative',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6" fontWeight="bold">
+        {/* Left Section: Title + Mode Toggle + Interface Selector */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 1 auto' }}>
+          <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
             TestCase Builder
           </Typography>
           
           {/* Visual/AI Mode Toggle */}
-          <Box sx={{ display: 'flex', gap: 0.5, ml: 2 }}>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
             <Button
               size="small"
               variant={creationMode === 'visual' ? 'contained' : 'outlined'}
@@ -535,72 +535,72 @@ const TestCaseBuilderContent: React.FC = () => {
           </Box>
           
           {/* Userinterface Selector */}
-          <Box sx={{ ml: 2 }}>
-            <UserinterfaceSelector
-              value={userinterfaceName}
-              onChange={setUserinterfaceName}
-              label="Interface"
-              size="small"
-              fullWidth={false}
-              sx={{ minWidth: 200 }}
-            />
-          </Box>
+          <UserinterfaceSelector
+            value={userinterfaceName}
+            onChange={setUserinterfaceName}
+            label="Interface"
+            size="small"
+            fullWidth={false}
+            sx={{ minWidth: 200 }}
+          />
         </Box>
         
-        {/* Toolbox Tab Navigation - centered - only show in visual mode */}
-        {creationMode === 'visual' && (
-          <Box sx={{ 
-            position: 'absolute',
-            left: '50%',
-            transform: 'translateX(-50%)',
-            display: 'flex', 
-            gap: 0.5
-          }}>
-            {Object.keys(toolboxConfig).map((key) => (
-              <Button
-                key={key}
-                size="small"
-                variant={activeToolboxTab === key ? 'contained' : 'outlined'}
-                onClick={() => setActiveToolboxTab(key)}
-                sx={{ 
-                  fontSize: 10, 
-                  py: 0.5, 
-                  px: 1.5,
-                  minWidth: 'auto'
-                }}
-              >
-                {toolboxConfig[key].tabName.toUpperCase()}
-              </Button>
-            ))}
-          </Box>
-        )}
+        {/* Center Section: Toolbox Tab Navigation (only in visual mode) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: '0 1 auto' }}>
+          {creationMode === 'visual' && (
+            <>
+              {Object.keys(dynamicToolboxConfig || toolboxConfig).map((key) => {
+                const config = dynamicToolboxConfig || toolboxConfig;
+                const tabName = (config as any)[key]?.tabName || key;
+                return (
+                  <Button
+                    key={key}
+                    size="small"
+                    variant={activeToolboxTab === key ? 'contained' : 'outlined'}
+                    onClick={() => setActiveToolboxTab(key)}
+                    sx={{ 
+                      fontSize: 10, 
+                      py: 0.5, 
+                      px: 1.5,
+                      minWidth: 'auto'
+                    }}
+                  >
+                    {tabName.toUpperCase()}
+                  </Button>
+                );
+              })}
+            </>
+          )}
+        </Box>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        {/* Right Section: TestCase Info + Action Buttons */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: '0 1 auto' }}>
           {testcaseName && (
-            <Typography variant="caption" color="text.secondary">
+            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
               {testcaseName} {currentTestcaseId ? '(saved)' : '(unsaved)'}
             </Typography>
           )}
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
-          <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleNew}>
-            New
-          </Button>
-          <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => setLoadDialogOpen(true)}>
-            Load
-          </Button>
-          <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
-            Save
-          </Button>
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<PlayArrowIcon />}
-            onClick={handleExecute}
-            disabled={executionState.isExecuting || !currentTestcaseId}
-          >
-            {executionState.isExecuting ? 'Running...' : 'Run'}
-          </Button>
+          
+          <Box sx={{ display: 'flex', gap: 0.75 }}>
+            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleNew}>
+              New
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => setLoadDialogOpen(true)}>
+              Load
+            </Button>
+            <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+              Save
+            </Button>
+            <Button
+              size="small"
+              variant="contained"
+              startIcon={<PlayArrowIcon />}
+              onClick={handleExecute}
+              disabled={executionState.isExecuting || !currentTestcaseId}
+            >
+              {executionState.isExecuting ? 'Running...' : 'Run'}
+            </Button>
+          </Box>
         </Box>
       </Box>
 

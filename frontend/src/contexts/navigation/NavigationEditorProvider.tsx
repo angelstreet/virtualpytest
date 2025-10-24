@@ -4,6 +4,7 @@ import { DeviceDataProvider } from '../device/DeviceDataContext';
 import { VNCStateProvider } from '../VNCStateContext';
 
 import { NavigationProvider } from './NavigationContext';
+import { NavigationPreviewCacheProvider } from './NavigationPreviewCacheContext';
 
 interface NavigationEditorProviderProps {
   children: React.ReactNode;
@@ -17,7 +18,9 @@ export const NavigationEditorProvider: React.FC<NavigationEditorProviderProps> =
   return (
     <VNCStateProvider>
       <DeviceDataProvider>
-        <NavigationProvider>{children}</NavigationProvider>
+        <NavigationPreviewCacheProvider>
+          <NavigationProvider>{children}</NavigationProvider>
+        </NavigationPreviewCacheProvider>
       </DeviceDataProvider>
     </VNCStateProvider>
   );
