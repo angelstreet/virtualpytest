@@ -45,6 +45,7 @@ import { ActionBlock } from '../components/testcase/blocks/ActionBlock';
 import { VerificationBlock } from '../components/testcase/blocks/VerificationBlock';
 import { NavigationBlock } from '../components/testcase/blocks/NavigationBlock';
 import { LoopBlock } from '../components/testcase/blocks/LoopBlock';
+import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
 
@@ -65,16 +66,38 @@ const nodeTypes = {
   start: StartBlock,
   success: SuccessBlock,
   failure: FailureBlock,
+  // Keep legacy blocks for backward compatibility
   action: ActionBlock,
   verification: VerificationBlock,
   navigation: NavigationBlock,
   loop: LoopBlock,
+  // New specific command types use UniversalBlock
+  press_key: UniversalBlock,
+  press_sequence: UniversalBlock,
+  tap: UniversalBlock,
+  swipe: UniversalBlock,
+  type_text: UniversalBlock,
+  verify_image: UniversalBlock,
+  verify_ocr: UniversalBlock,
+  verify_audio: UniversalBlock,
+  verify_element: UniversalBlock,
+  condition: UniversalBlock,
+  container: UniversalBlock,
+  set_variable: UniversalBlock,
+  sleep: UniversalBlock,
+  get_current_time: UniversalBlock,
+  generate_random: UniversalBlock,
+  http_request: UniversalBlock,
 };
 
 // Edge types for React Flow
 const edgeTypes = {
   success: SuccessEdge,
   failure: FailureEdge,
+  true: SuccessEdge,      // Reuse success edge (green)
+  false: FailureEdge,     // Reuse failure edge (red)
+  complete: SuccessEdge,  // Loop complete (green)
+  break: FailureEdge,     // Loop break (red/orange)
 };
 
 // Default edge options
@@ -156,19 +179,39 @@ const TestCaseBuilderContent: React.FC = () => {
     (event: DragEvent) => {
       event.preventDefault();
 
-      const type = event.dataTransfer.getData('application/reactflow') as BlockType;
-
-      if (typeof type === 'undefined' || !type) {
+      const dragDataStr = event.dataTransfer.getData('application/reactflow');
+      
+      if (!dragDataStr) {
         return;
       }
 
-      const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
-      const position = reactFlowInstance.project({
-        x: event.clientX - (reactFlowBounds?.left || 0),
-        y: event.clientY - (reactFlowBounds?.top || 0),
-      });
+      try {
+        // Try parsing as JSON (new format with type + defaultData)
+        const dragData = JSON.parse(dragDataStr);
+        const { type, defaultData } = dragData;
 
-      addBlock(type, position);
+        if (typeof type === 'undefined' || !type) {
+          return;
+        }
+
+        const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
+        const position = reactFlowInstance.project({
+          x: event.clientX - (reactFlowBounds?.left || 0),
+          y: event.clientY - (reactFlowBounds?.top || 0),
+        });
+
+        // Pass the type and position, addBlock will merge defaultData
+        addBlock(type, position, defaultData);
+      } catch (error) {
+        // Fallback: if not JSON, treat as plain type string (backward compatibility)
+        const type = dragDataStr as BlockType;
+        const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
+        const position = reactFlowInstance.project({
+          x: event.clientX - (reactFlowBounds?.left || 0),
+          y: event.clientY - (reactFlowBounds?.top || 0),
+        });
+        addBlock(type, position);
+      }
     },
     [reactFlowInstance, addBlock]
   );
@@ -421,7 +464,7 @@ const TestCaseBuilderContent: React.FC = () => {
       </Box>
 
       {/* Main Content */}
-      <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
+      <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', height: 'calc(100vh - 48px)' }}>
         {/* Mode Selector + Toolbox/AI Panel */}
         <Box sx={{ 
           width: 220, 

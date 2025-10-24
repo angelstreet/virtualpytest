@@ -9,7 +9,7 @@ import { ActionBlockData } from '../../../types/testcase/TestCase_Types';
  * Action Block - Executes actions (press_key, tap, etc.)
  * Has both success and failure output handles
  */
-export const ActionBlock: React.FC<NodeProps> = ({ data, selected }) => {
+export const ActionBlock: React.FC<NodeProps> = ({ data, selected, dragging }) => {
   const { actualMode } = useTheme();
   const actionData = data as ActionBlockData;
   
@@ -24,10 +24,11 @@ export const ActionBlock: React.FC<NodeProps> = ({ data, selected }) => {
         background: actualMode === 'dark' ? '#1f2937' : '#ffffff',
         boxShadow: 2,
         cursor: 'pointer',
+        opacity: dragging ? 0.5 : (isConfigured ? 1 : 0.6),
+        transition: 'opacity 0.2s',
         '&:hover': {
           boxShadow: 4,
         },
-        opacity: isConfigured ? 1 : 0.6,
       }}
     >
       {/* Header */}
@@ -78,42 +79,48 @@ export const ActionBlock: React.FC<NodeProps> = ({ data, selected }) => {
         )}
       </Box>
       
-      {/* Input handle */}
+      {/* Input handle at top */}
       <Handle
         type="target"
-        position={Position.Left}
+        position={Position.Top}
         id="input"
         style={{
           background: actualMode === 'dark' ? '#3b82f6' : '#2563eb',
-          width: 10,
-          height: 10,
+          width: 40,
+          height: 8,
+          borderRadius: '4px',
           border: '2px solid white',
+          top: -4,
         }}
       />
       
-      {/* Output handles - success and failure */}
+      {/* Output handles at bottom - success and failure rectangles */}
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
         id="success"
         style={{
-          top: '30%',
+          left: '30%',
           background: '#10b981',
-          width: 10,
-          height: 10,
+          width: 35,
+          height: 8,
+          borderRadius: '4px',
           border: '2px solid white',
+          bottom: -4,
         }}
       />
       <Handle
         type="source"
-        position={Position.Right}
+        position={Position.Bottom}
         id="failure"
         style={{
-          top: '70%',
+          left: '70%',
           background: '#ef4444',
-          width: 10,
-          height: 10,
+          width: 35,
+          height: 8,
+          borderRadius: '4px',
           border: '2px solid white',
+          bottom: -4,
         }}
       />
     </Box>

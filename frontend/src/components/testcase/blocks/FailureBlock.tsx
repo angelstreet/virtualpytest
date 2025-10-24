@@ -7,7 +7,7 @@ import CancelIcon from '@mui/icons-material/Cancel';
  * Failure Block - Terminal node for failed testcase
  * Only has input handle (no outputs)
  */
-export const FailureBlock: React.FC<NodeProps> = ({ selected }) => {
+export const FailureBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
   return (
     <Box
       sx={{
@@ -22,6 +22,8 @@ export const FailureBlock: React.FC<NodeProps> = ({ selected }) => {
         justifyContent: 'center',
         boxShadow: 3,
         cursor: 'pointer',
+        opacity: dragging ? 0.5 : 1,
+        transition: 'opacity 0.2s',
         '&:hover': {
           boxShadow: 6,
         },
@@ -32,16 +34,18 @@ export const FailureBlock: React.FC<NodeProps> = ({ selected }) => {
         FAILURE
       </Typography>
       
-      {/* Input handle only */}
+      {/* Input handle at top */}
       <Handle
         type="target"
-        position={Position.Left}
+        position={Position.Top}
         id="input"
         style={{
           background: '#ef4444',
-          width: 12,
-          height: 12,
+          width: 40,
+          height: 8,
+          borderRadius: '4px',
           border: '2px solid white',
+          top: -4,
         }}
       />
     </Box>

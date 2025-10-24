@@ -357,33 +357,12 @@ def execute_from_prompt():
                 async_execution=True
             )
             
-            # Get the generated plan/graph for display
-            plan_dict = execution_result.get('plan_dict', {})
-            graph = plan_dict.get('graph') if plan_dict else None
-            analysis = plan_dict.get('analysis', '')
-            
-            # Convert graph to steps for frontend display (AIStepDisplay)
-            steps = []
-            if graph and graph.get('nodes'):
-                step_num = 1
-                for node in graph['nodes']:
-                    if node['type'] in ['navigation', 'action', 'verification']:
-                        step_data = node.get('data', {})
-                        steps.append({
-                            'step': step_num,
-                            'command': step_data.get('command', node['type']),
-                            'params': step_data.get('params', {}),
-                            'description': step_data.get('label', ''),
-                            'type': node['type']
-                        })
-                        step_num += 1
-            
+            # Plan is already generated and stored in ai_executor._executions[execution_id]['plan']
+            # Frontend will poll /getStatus to get the plan and track execution
             return jsonify({
                 'success': True,
                 'execution_id': execution_result.get('execution_id'),
-                'graph': graph,  # For TestCase Builder
-                'steps': steps,  # For Live Modal display (AIStepDisplay)
-                'analysis': analysis,
+                'plan_steps': execution_result.get('plan_steps', 0),
                 'message': 'Execution started asynchronously'
             })
         else:

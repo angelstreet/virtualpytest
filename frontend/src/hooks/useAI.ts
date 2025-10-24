@@ -312,17 +312,6 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
       if (!response.ok) throw new Error(result.error);
 
       const executionId = result.execution_id;
-      
-      // Store the generated plan/graph and steps for display
-      if (result.graph || result.steps) {
-        setAIPlan({
-          id: executionId,
-          graph: result.graph,
-          steps: result.steps || [],  // Steps converted from graph for display
-          analysis: result.analysis || '',
-          feasible: true
-        });
-      }
 
       // Poll for status with rich updates
       const pollStatus = async () => {

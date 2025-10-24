@@ -52,7 +52,7 @@ interface TestCaseBuilderContextType {
   setExecutionState: React.Dispatch<React.SetStateAction<ExecutionState>>;
   
   // Actions
-  addBlock: (type: BlockType, position: { x: number; y: number }) => void;
+  addBlock: (type: BlockType | string, position: { x: number; y: number }, defaultData?: any) => void;
   updateBlock: (blockId: string, data: any) => void;
   deleteBlock: (blockId: string) => void;
   onNodesChange: (changes: NodeChange[]) => void;
@@ -135,12 +135,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const edgeIdCounter = useRef(1);
 
   // Add a new block to the canvas
-  const addBlock = useCallback((type: BlockType, position: { x: number; y: number }) => {
+  const addBlock = useCallback((type: BlockType | string, position: { x: number; y: number }, defaultData?: any) => {
     const newNode: Node = {
       id: `node_${nodeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
       type,
       position,
-      data: {},
+      data: defaultData || {},
     };
     setNodes((prev) => [...prev, newNode]);
   }, []);
@@ -173,8 +173,26 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Handle connections
   const onConnect = useCallback((connection: Connection) => {
     // Determine edge type and color based on source handle
-    const edgeType = connection.sourceHandle === 'success' ? 'success' : 'failure';
-    const edgeColor = connection.sourceHandle === 'success' ? '#10b981' : '#ef4444';
+    // Support: success, failure, true, false, complete, break
+    const sourceHandle = connection.sourceHandle || 'success';
+    let edgeType = sourceHandle;
+    let edgeColor = '#6b7280'; // default gray
+    
+    // Map handle types to colors
+    switch (sourceHandle) {
+      case 'success':
+      case 'true':
+      case 'complete':
+        edgeColor = '#10b981'; // green
+        break;
+      case 'failure':
+      case 'false':
+        edgeColor = '#ef4444'; // red
+        break;
+      case 'break':
+        edgeColor = '#f59e0b'; // orange/yellow
+        break;
+    }
     
     const newEdge: Edge = {
       ...connection,
