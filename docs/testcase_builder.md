@@ -19,6 +19,12 @@ The **TestCase Builder** is a unified test creation tool that allows users to cr
 
 Both methods produce the same graph structure and execute identically.
 
+**Live AI Modal vs TestCase Builder:**
+- **Live AI Modal**: Generate graph → Convert to steps for display → Execute (no save)
+- **TestCase Builder**: Generate/edit graph → Save → Execute (persistent)
+
+Both use the same unified backend route with different flags.
+
 ---
 
 ## Architecture
@@ -26,6 +32,18 @@ Both methods produce the same graph structure and execute identically.
 ### High-Level Flow
 
 ```
+┌──────────────────────────────────────────────┐
+│     Live AI Modal (Ephemeral)                │
+│  Natural language prompt                     │
+│         ↓                                    │
+│    Backend generates graph                   │
+│         ↓                                    │
+│    Convert graph → steps for display         │
+│    (AIStepDisplay component)                 │
+│         ↓                                    │
+│    Execute (no save)                         │
+└──────────────────────────────────────────────┘
+
 ┌──────────────────────────────────────────────┐
 │        TestCase Builder Page                 │
 │  ┌────────────┬──────────────────────────┐   │
