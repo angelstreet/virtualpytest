@@ -416,7 +416,14 @@ const TestCaseBuilderContent: React.FC = () => {
   );
 
   return (
-    <Box sx={{ width: '100%', height: '100vh', display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+    <Box sx={{ 
+      width: '100vw', 
+      marginLeft: 'calc(50% - 50vw)', 
+      height: '100%', 
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'hidden' 
+    }}>
       {/* Header - Compact */}
       <Box
         sx={{
