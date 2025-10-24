@@ -237,7 +237,8 @@ const TestCaseBuilderContent: React.FC = () => {
     };
     
     loadNavigationTree();
-  }, [userinterfaceName, getUserInterfaceByName, setUserInterfaceFromProps, loadTreeByUserInterface]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userinterfaceName]); // Only re-run when interface NAME changes
 
   // Build dynamic toolbox from loaded navigation data
   const dynamicToolboxConfig = React.useMemo(() => {
