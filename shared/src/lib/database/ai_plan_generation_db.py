@@ -94,7 +94,13 @@ def get_plan_by_fingerprint(fingerprint: str, team_id: str) -> Optional[Dict]:
             return None
             
     except Exception as e:
-        print(f"[@ai_plan_generation_db] Error getting plan by fingerprint: {e}")
+        error_str = str(e)
+        # Check if it's a normal "no rows" response (cache miss - not an error)
+        if 'PGRST116' in error_str or '0 rows' in error_str or 'no rows' in error_str.lower():
+            print(f"[@ai_plan_generation_db] ✓ Cache MISS for fingerprint {fingerprint[:8]}... (normal - no cached plan exists yet)")
+        else:
+            # Actual error (connection, permission, etc.)
+            print(f"[@ai_plan_generation_db] ❌ Database error getting plan: {e}")
         return None
 
 

@@ -138,7 +138,7 @@ class AIExecutor:
                 
                 cached_plan = self.plan_cache.find_cached_plan(prompt, context, team_id)
                 if cached_plan:
-                    print(f"[@ai_executor] Using cached plan: {cached_plan['fingerprint']}")
+                    print(f"[@ai_executor] ✓ Using cached plan (no AI call needed): {cached_plan['fingerprint'][:8]}...")
                     plan_dict = cached_plan['plan']
                     
                     # Execute cached plan
@@ -171,14 +171,14 @@ class AIExecutor:
                             'execution_time': time.time() - start_time
                         }
                 else:
-                    # Cache miss - fall through to generate new plan
-                    print(f"[@ai_executor] Cache miss for prompt: '{prompt}' - generating new plan")
+                    # Cache miss - fall through to generate new plan (this is normal for first executions)
+                    print(f"[@ai_executor] ✓ Cache miss (normal) - Will generate new plan with AI")
             
             # Generate new plan (cache miss or use_cache=False)
             if use_cache:
-                print(f"[@ai_executor] Generating new plan (cache miss - will be cached after successful execution)")
+                print(f"[@ai_executor] 🤖 Generating new plan with AI (will be cached after successful execution for future reuse)")
             else:
-                print(f"[@ai_executor] Generating new plan (cache disabled)")
+                print(f"[@ai_executor] 🤖 Generating new plan with AI (caching disabled - plan will NOT be saved)")
             
             plan_dict = self.generate_plan(prompt, context, current_node_id)
             

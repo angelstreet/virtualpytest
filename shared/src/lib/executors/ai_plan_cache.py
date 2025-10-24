@@ -261,7 +261,10 @@ class AIExecutorCache:
             
             # Try exact match first
             from shared.src.lib.database.ai_plan_generation_db import get_plan_by_fingerprint, delete_plan_by_fingerprint
+            
+            print(f"[@ai_plan_cache] Checking cache for fingerprint: {fingerprint[:8]}... (prompt: '{prompt[:50]}...')")
             exact_match = get_plan_by_fingerprint(fingerprint, team_id)
+            
             if exact_match:
                 # Validate plan format - delete if invalid
                 if not self._is_plan_format_valid(exact_match):
@@ -269,8 +272,10 @@ class AIExecutorCache:
                     delete_plan_by_fingerprint(fingerprint, team_id)
                     exact_match = None  # Force regeneration
                 elif _should_reuse_plan(exact_match, context):
-                    print(f"[@ai_plan_cache] Found exact match for fingerprint: {fingerprint}")
+                    print(f"[@ai_plan_cache] ✓ Cache HIT (exact match)! Using cached plan: {fingerprint[:8]}...")
                     return exact_match
+            else:
+                print(f"[@ai_plan_cache] No exact match found. Trying compatible plans...")
             
             # Try compatible plans
             normalized_prompt = normalize_prompt(prompt)
@@ -292,10 +297,11 @@ class AIExecutorCache:
                     continue  # Skip this plan
                     
                 if _should_reuse_plan(plan, context):
-                    print(f"[@ai_plan_cache] Found compatible plan: {plan['fingerprint']} (success rate: {plan['success_rate']:.2f})")
+                    print(f"[@ai_plan_cache] ✓ Cache HIT (compatible plan)! Fingerprint: {plan['fingerprint'][:8]}... (success rate: {plan['success_rate']:.2f})")
                     return plan
             
-            print(f"[@ai_plan_cache] No cached plan found for prompt: '{prompt}'")
+            print(f"[@ai_plan_cache] ✓ Cache MISS (normal) - No cached plan exists for this prompt+context combination.")
+            print(f"[@ai_plan_cache]   → Will generate NEW plan with AI and cache it after successful execution")
             return None
             
         except Exception as e:
@@ -341,9 +347,9 @@ class AIExecutorCache:
             )
             
             if success:
-                print(f"[@ai_plan_cache] Stored successful plan: {fingerprint}")
+                print(f"[@ai_plan_cache] ✓ Stored successful plan in cache: {fingerprint[:8]}... (will be reused for future identical requests)")
             else:
-                print(f"[@ai_plan_cache] Failed to store plan: {fingerprint}")
+                print(f"[@ai_plan_cache] ❌ Failed to store plan in cache: {fingerprint[:8]}...")
             
             return success
             

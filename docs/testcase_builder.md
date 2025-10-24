@@ -386,6 +386,16 @@ GET    /server/testcase/:id/history?team_id=xxx
 - Never store plans in cache
 - Use for one-off tasks or when testing new prompts
 
+**Understanding Cache Logs:**
+
+The system now provides **explicit, clear logging** to distinguish between normal cache misses and actual errors:
+
+- ✅ `✓ Cache HIT` - Found cached plan, no AI call needed (fast!)
+- ✅ `✓ Cache MISS (normal)` - No cache exists yet, will generate with AI (expected behavior!)
+- ❌ `❌ Database error` - Actual problem (connection, permissions, etc.)
+
+When you see "0 rows returned" in logs, the system now clarifies this is **normal** for first executions. See `docs/dev/ai_cache_logging.md` for detailed log examples and troubleshooting.
+
 ### 📋 Phase 3: Future Enhancements
 - Advanced loop configurations
 - Conditional branching
