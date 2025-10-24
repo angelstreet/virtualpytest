@@ -63,23 +63,27 @@ RUN useradd -m -u 1000 vptuser
 RUN mkdir -p /var/www/html \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /var/run \
+    && mkdir -p /home/vptuser/.android \
     && chown -R vptuser:vptuser /app \
     && chown -R vptuser:vptuser /var/www \
+    && chown -R vptuser:vptuser /home/vptuser \
     && chmod -R 755 /var/www \
     && chmod +x /app/backend_host/scripts/*.sh || true
 
 # Copy supervisor configuration from docker folder
 COPY backend_host/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 
-# Expose ports for Flask and NoVNC
-EXPOSE 6109 6080
+# Expose ports for Flask, NoVNC, and VNC
+EXPOSE 6109 6080 5901
 
-# Set display environment
+# Set display and ADB environment
 ENV DISPLAY=:99
+ENV ANDROID_HOME=/home/vptuser/.android
+ENV ADB_VENDOR_KEYS=/home/vptuser/.android
 
 # Health check for Flask API
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:6109/host/health || exit 1
+  CMD curl -f http://localhost:6109/host/system/health || exit 1
 
 # SECURITY NOTE: supervisord runs as root to manage all services
 # However, all processes drop privileges to 'vptuser' via supervisord config

@@ -237,12 +237,7 @@ def getAllHosts():
         
         host_manager = get_host_manager()
         
-        # Clean up stale hosts (not seen for more than 2 minutes)
-        cleaned_count = host_manager.cleanup_stale_hosts(120)
-        if cleaned_count > 0:
-            print(f"⚠️ [HOSTS] Cleaned up {cleaned_count} stale hosts")
-        
-        # Get all hosts from manager
+        # Get all hosts from manager (no automatic cleanup - hosts are only removed on explicit unregister)
         all_hosts = host_manager.get_all_hosts()
         print(f"🔍 [HOSTS] Raw hosts from manager: {len(all_hosts)} hosts (include_actions={include_actions}, include_system_stats={include_system_stats})")
         for host_name, host_data in all_hosts.items():

@@ -7,12 +7,12 @@ echo "🩺 Testing backend_host health..."
 echo ""
 
 # Test Flask API
-echo "Testing Flask API (http://localhost:6109/host/health)..."
-if curl -f -s http://localhost:6109/host/health > /dev/null; then
+echo "Testing Flask API (http://localhost:6109/host/system/health)..."
+if curl -f -s http://localhost:6109/host/system/health > /dev/null; then
     echo "✅ Flask API is healthy"
     echo ""
     echo "Response:"
-    curl -s http://localhost:6109/host/health | python3 -m json.tool
+    curl -s http://localhost:6109/host/system/health | python3 -m json.tool
 else
     echo "❌ Flask API is not responding"
     exit 1

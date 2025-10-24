@@ -62,7 +62,7 @@ export const useDashboard = (): UseDashboardReturn => {
       // Fetch campaigns, testcases, trees using selected server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch(buildSelectedServerUrl('/server/campaigns/getAllCampaigns', selectedServerRef.current)),
-        fetch(buildSelectedServerUrl('/server/testcases/getAllTestCases', selectedServerRef.current)),
+        fetch(buildSelectedServerUrl('/server/testcase/list', selectedServerRef.current)),
         fetch(buildSelectedServerUrl('/server/navigationTrees', selectedServerRef.current)), // Automatically includes team_id
       ]);
 

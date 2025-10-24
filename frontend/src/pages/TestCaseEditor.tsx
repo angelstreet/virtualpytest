@@ -79,8 +79,8 @@ const TestCaseEditor: React.FC = () => {
 
   const fetchTestCases = async () => {
     try {
-      // Use correct testcases endpoint
-      const response = await fetch(buildServerUrl('/server/testcases/getAllTestCases'));
+      // Use correct testcase endpoint
+      const response = await fetch(buildServerUrl('/server/testcase/list'));
       if (response.ok) {
         const data = await response.json();
         setTestCases(data);
@@ -99,8 +99,8 @@ const TestCaseEditor: React.FC = () => {
 
     try {
       setLoading(true);
-      // Use correct testcases endpoint
-      const response = await fetch(buildServerUrl(`/server/testcases/deleteTestCase/${testCase.test_id}`), {
+      // Use correct testcase endpoint
+      const response = await fetch(buildServerUrl(`/server/testcase/${testCase.test_id}`), {
         method: 'DELETE',
       });
 

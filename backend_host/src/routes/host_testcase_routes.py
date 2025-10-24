@@ -258,6 +258,7 @@ def execute_from_prompt():
     """
     try:
         from shared.src.lib.database.testcase_db import create_testcase
+        from shared.src.lib.executors.ai_prompt_validation import preprocess_prompt
         
         print("[@host_testcase] Unified execute-from-prompt")
         
@@ -277,6 +278,7 @@ def execute_from_prompt():
         created_by = data.get('created_by')
         use_cache = data.get('use_cache', True)
         async_execution = data.get('async_execution', False)
+        skip_validation = data.get('skip_validation', False)  # Skip if already validated
         
         # Validate required
         if not all([prompt, userinterface_name, device_id, team_id]):
@@ -308,7 +310,40 @@ def execute_from_prompt():
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
         
-        # Execute prompt using AI executor
+        # STEP 1: Validate prompt for disambiguation (unless skipped)
+        if not skip_validation:
+            print(f"[@host_testcase] Validating prompt for disambiguation...")
+            
+            # Load context to get available nodes
+            context = device.ai_executor._load_context(userinterface_name, None, team_id)
+            available_nodes = context.get('available_nodes', [])
+            
+            # Validate prompt
+            validation_result = preprocess_prompt(
+                prompt=prompt,
+                available_nodes=available_nodes,
+                team_id=team_id,
+                userinterface_name=userinterface_name
+            )
+            
+            # Check if disambiguation needed
+            if validation_result.get('status') == 'needs_disambiguation':
+                print(f"[@host_testcase] ⚠️ Disambiguation needed")
+                return jsonify({
+                    'success': False,
+                    'needs_disambiguation': True,
+                    'analysis': validation_result,
+                    'available_nodes': available_nodes
+                }), 200  # Not an error, just needs user input
+            
+            # If auto-corrected, use corrected prompt
+            if validation_result.get('status') == 'auto_corrected':
+                corrected_prompt = validation_result.get('corrected_prompt')
+                if corrected_prompt:
+                    print(f"[@host_testcase] ✅ Auto-corrected prompt")
+                    prompt = corrected_prompt
+        
+        # STEP 2: Execute prompt using AI executor
         print(f"[@host_testcase] Executing prompt: {prompt[:50]}...")
         print(f"[@host_testcase] Save mode: {save_testcase}")
         

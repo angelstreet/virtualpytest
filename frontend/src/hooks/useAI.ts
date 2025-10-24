@@ -272,54 +272,12 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
     setIsExecuting(true);
 
     try {
-      // STEP 1: Pre-analyze prompt (unless skipped after disambiguation)
+      // UNIFIED FLOW: One route handles everything
       if (!skipAnalysis) {
-        try {
-          const analysisResponse = await fetch(buildServerUrl('/server/ai/analyzePrompt'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              prompt,
-              userinterface_name,
-              device_id: device.device_id,
-              host_name: host.host_name,
-              team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
-            })
-          });
-
-          const analysisResult = await analysisResponse.json();
-
-          if (analysisResult.success && analysisResult.analysis) {
-            const { analysis } = analysisResult;
-
-            // Handle needs disambiguation
-            if (analysis.status === 'needs_disambiguation') {
-              setIsExecuting(false);
-              setDisambiguationData({
-                ...analysis,
-                available_nodes: analysisResult.available_nodes || []
-              });
-              pendingExecution.current = { userinterface_name, useCache };
-              return; // Pause execution until user resolves
-            }
-
-            // Handle auto-correction
-            if (analysis.status === 'auto_corrected') {
-              toast.showInfo(
-                `✅ Auto-corrected ${analysis.corrections.length} reference(s)`,
-                { duration: 3000 }
-              );
-              // Use corrected prompt for execution
-              prompt = analysis.corrected_prompt;
-            }
-          }
-        } catch (err) {
-          console.warn('[@useAI] Pre-analysis failed, proceeding with execution:', err);
-        }
+        // Validation/disambiguation handled by backend
       }
 
-      // STEP 2: Execute task (existing code)
-      // Show start notification (only major state changes)
+      // Execute task (backend handles validation, disambiguation, generation, execution)
       toast.showInfo(`🤖 Starting AI task`, { duration: AI_CONSTANTS.TOAST_DURATION.INFO });
 
       const response = await fetch(buildServerUrl('/server/testcase/execute-from-prompt'), {
@@ -333,11 +291,24 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
           use_cache: useCache,
           async_execution: true,
-          save: false  // ← Live AI Modal does NOT save (ephemeral execution)
+          save: false,  // Live AI Modal does NOT save
+          skip_validation: skipAnalysis  // Skip if already validated after disambiguation
         })
       });
 
       const result = await response.json();
+      
+      // Handle disambiguation response from unified route
+      if (result.needs_disambiguation) {
+        setIsExecuting(false);
+        setDisambiguationData({
+          ...result.analysis,
+          available_nodes: result.available_nodes || []
+        });
+        pendingExecution.current = { userinterface_name, useCache };
+        return; // Pause execution until user resolves
+      }
+      
       if (!response.ok) throw new Error(result.error);
 
       const executionId = result.execution_id;

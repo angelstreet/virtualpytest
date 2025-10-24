@@ -142,7 +142,7 @@ export const AITestCaseGenerator: React.FC<AITestCaseGeneratorProps> = ({
       if (generatedTestCases.length > 0) {
         // Store test cases in database
         for (const testCase of generatedTestCases) {
-          const storeResponse = await fetch(buildServerUrl('/server/testcases/createTestCase'), {
+          const storeResponse = await fetch(buildServerUrl('/server/testcase/save'), {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(testCase)

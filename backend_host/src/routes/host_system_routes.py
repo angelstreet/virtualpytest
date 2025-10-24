@@ -8,8 +8,34 @@ System control endpoints for host-level operations:
 """
 
 from flask import Blueprint, request, jsonify
+import time
+import os
 
 host_system_bp = Blueprint('host_system', __name__, url_prefix='/host/system')
+
+
+# =====================================================
+# HEALTH CHECK ENDPOINT
+# =====================================================
+
+@host_system_bp.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint with system status"""
+    # Try to get Supabase status
+    try:
+        from shared.src.lib.utils.supabase_utils import get_supabase_client
+        supabase_client = get_supabase_client()
+        supabase_status = "connected" if supabase_client else "disconnected"
+    except Exception:
+        supabase_status = "unavailable"
+    
+    return jsonify({
+        'status': 'ok',
+        'timestamp': time.time(),
+        'mode': 'host',
+        'host_name': os.getenv('HOST_NAME', 'unknown'),
+        'supabase': supabase_status
+    }), 200
 
 
 @host_system_bp.route('/restartHostService', methods=['POST'])
