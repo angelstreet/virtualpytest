@@ -22,8 +22,7 @@ from shared.src.lib.database.userinterface_db import (
 )
 from shared.src.lib.database.navigation_trees_db import (
     get_root_tree_for_interface,
-    get_tree_nodes,
-    get_all_interfaces_with_trees
+    get_tree_nodes
 )
 
 from shared.src.lib.utils.app_utils import check_supabase
@@ -36,7 +35,6 @@ server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix
 # ============================================================================
 _compatible_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
 _interfaces_cache = {}  # {team_id: {'data': [...], 'timestamp': time.time()}}
-_all_interfaces_trees_cache = {}  # {team_id: {'data': {...}, 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
 _cache_ttl = 86400  # 24 hours TTL
 
@@ -47,11 +45,6 @@ def _invalidate_interfaces_cache(team_id):
         if team_id in _interfaces_cache:
             del _interfaces_cache[team_id]
             print(f"[@cache] INVALIDATE: User interfaces for team {team_id}")
-        
-        # Invalidate all interfaces with trees cache
-        if team_id in _all_interfaces_trees_cache:
-            del _all_interfaces_trees_cache[team_id]
-            print(f"[@cache] INVALIDATE: All interfaces with trees for team {team_id}")
         
         # Invalidate all compatible interfaces cache entries for this team
         keys_to_delete = [key for key in _compatible_cache.keys() if key.startswith(f"{team_id}:")]
@@ -179,59 +172,6 @@ def get_userinterfaces():
         return jsonify(enriched_interfaces)
     except Exception as e:
         return jsonify({'error': str(e)}), 500
-
-@server_userinterface_bp.route('/getAllInterfacesWithTrees', methods=['GET'])
-def get_all_interfaces_with_trees_route():
-    """
-    Get ALL user interfaces with their complete tree data in ONE call.
-    Uses materialized view for optimized loading.
-    Cached for 24h - invalidated on interface create/update/delete.
-    """
-    error = check_supabase()
-    if error:
-        return error
-    
-    team_id = request.args.get('team_id')
-    
-    if not team_id:
-        return jsonify({'success': False, 'error': 'team_id parameter required'}), 400
-    
-    # Check cache first
-    with _cache_lock:
-        if team_id in _all_interfaces_trees_cache:
-            cached = _all_interfaces_trees_cache[team_id]
-            age = time.time() - cached['timestamp']
-            if age < _cache_ttl:
-                print(f"[@cache] HIT: All interfaces with trees for team {team_id} (age: {age/3600:.1f}h)")
-                return jsonify(cached['data'])
-            else:
-                del _all_interfaces_trees_cache[team_id]
-    
-    try:
-        print(f"[@userinterface] getAllInterfacesWithTrees - FETCHING from DB for team: {team_id}")
-        result = get_all_interfaces_with_trees(team_id)
-        
-        if result['success']:
-            print(f"[@userinterface] Loaded {result['total_interfaces']} interfaces with {result['total_nodes']} nodes, {result['total_edges']} edges")
-            
-            # Store in cache
-            with _cache_lock:
-                _all_interfaces_trees_cache[team_id] = {
-                    'data': result,
-                    'timestamp': time.time()
-                }
-                print(f"[@cache] SET: All interfaces with trees for team {team_id} (24h TTL)")
-            
-            return jsonify(result)
-        else:
-            print(f"[@userinterface] Error: {result.get('error')}")
-            return jsonify({'success': False, 'error': result.get('error')}), 500
-            
-    except Exception as e:
-        print(f"[@userinterface] Exception: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
 
 @server_userinterface_bp.route('/createUserInterface', methods=['POST'])
 def create_userinterface_route():

@@ -77,9 +77,10 @@ import { useDeviceData } from '../contexts/device/DeviceDataContext';
 import { useHostManager } from '../contexts/index';
 import { useDeviceControl } from '../hooks/useDeviceControl';
 import { useTheme } from '../contexts/ThemeContext';
+import { useNavigationConfig } from '../contexts/navigation/NavigationConfigContext';
+import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { generateTestCaseFromPrompt } from '../services/aiService';
 import { buildToolboxFromNavigationData } from '../utils/toolboxBuilder';
-import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow
 const nodeTypes = {
@@ -253,107 +254,35 @@ const TestCaseBuilderContent: React.FC = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   
-  // Load all interfaces WITH tree data for selector (load once, instant switching)
+  // Load all interfaces for selector
   const [allInterfaceNames, setAllInterfaceNames] = useState<string[]>([]);
-  const [allInterfacesTreeData, setAllInterfacesTreeData] = useState<Map<string, any>>(new Map());
-  const [isLoadingAllData, setIsLoadingAllData] = useState(true);
-  
-  // Frontend cache with 5 min TTL
-  const FRONTEND_CACHE_KEY = 'testcasebuilder_all_interfaces_trees';
-  const FRONTEND_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in ms
+  const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
   
   useEffect(() => {
-    console.log('[@TestCaseBuilder] Loading ALL interfaces with tree data...');
-    const loadAllInterfacesWithTrees = async () => {
+    const loadInterfaces = async () => {
       try {
-        setIsLoadingAllData(true);
+        console.log('[@TestCaseBuilder] Loading interfaces...');
         
-        // Check frontend cache first (localStorage)
-        const cachedData = localStorage.getItem(FRONTEND_CACHE_KEY);
-        if (cachedData) {
-          try {
-            const parsed = JSON.parse(cachedData);
-            const age = Date.now() - parsed.timestamp;
-            if (age < FRONTEND_CACHE_TTL) {
-              console.log(`[@TestCaseBuilder] ⚡ CACHE HIT: Using cached data (age: ${(age/1000).toFixed(0)}s / ${FRONTEND_CACHE_TTL/1000}s TTL)`);
-              
-              const interfaceNames: string[] = [];
-              const treeDataMap = new Map();
-              
-              parsed.data.interfaces.forEach((item: any) => {
-                const interfaceName = item.interface.name;
-                interfaceNames.push(interfaceName);
-                treeDataMap.set(interfaceName, {
-                  interface: item.interface,
-                  tree: item.tree_data.tree,
-                  nodes: item.tree_data.nodes,
-                  edges: item.tree_data.edges
-                });
-              });
-              
-              setAllInterfaceNames(interfaceNames);
-              setAllInterfacesTreeData(treeDataMap);
-              setIsLoadingAllData(false);
-              
-              console.log(`[@TestCaseBuilder] ✅ Loaded ${interfaceNames.length} interfaces from CACHE`);
-              return;
-            } else {
-              console.log(`[@TestCaseBuilder] ❌ CACHE EXPIRED: (age: ${(age/1000).toFixed(0)}s > ${FRONTEND_CACHE_TTL/1000}s TTL)`);
-              localStorage.removeItem(FRONTEND_CACHE_KEY);
-            }
-          } catch (e) {
-            console.error('[@TestCaseBuilder] Error parsing cache:', e);
-            localStorage.removeItem(FRONTEND_CACHE_KEY);
-          }
-        }
+        const interfaces = await getAllUserInterfaces();
         
-        // Call new optimized endpoint that loads everything at once
-        console.log('[@TestCaseBuilder] CACHE MISS - Fetching from server...');
-        const response = await fetch(buildServerUrl('/server/userinterface/getAllInterfacesWithTrees'));
-        const result = await response.json();
+        // Filter interfaces that have navigation trees (root_tree property exists and has nodes)
+        const interfacesWithTrees = interfaces.filter((ui: any) => ui.root_tree);
+        const names = interfacesWithTrees.map((ui: any) => ui.name);
         
-        if (result.success) {
-          const interfaceNames: string[] = [];
-          const treeDataMap = new Map();
-          
-          result.interfaces.forEach((item: any) => {
-            const interfaceName = item.interface.name;
-            interfaceNames.push(interfaceName);
-            treeDataMap.set(interfaceName, {
-              interface: item.interface,
-              tree: item.tree_data.tree,
-              nodes: item.tree_data.nodes,
-              edges: item.tree_data.edges
-            });
-          });
-          
-          setAllInterfaceNames(interfaceNames);
-          setAllInterfacesTreeData(treeDataMap);
-          
-          // Store in frontend cache (localStorage)
-          try {
-            localStorage.setItem(FRONTEND_CACHE_KEY, JSON.stringify({
-              data: result,
-              timestamp: Date.now()
-            }));
-            console.log(`[@TestCaseBuilder] 💾 CACHED: Stored data in localStorage (TTL: 5min)`);
-          } catch (e) {
-            console.warn('[@TestCaseBuilder] Failed to cache data in localStorage:', e);
-          }
-          
-          console.log(`[@TestCaseBuilder] ✅ Loaded ${interfaceNames.length} interfaces with ${result.total_nodes} nodes in ONE call`);
-          console.log(`[@TestCaseBuilder] Interfaces:`, interfaceNames);
-        } else {
-          console.error('[@TestCaseBuilder] Failed to load interfaces:', result.error);
+        setAllInterfaceNames(names);
+        console.log(`[@TestCaseBuilder] Loaded ${names.length} interfaces with trees`);
+        
+        // Auto-select first interface if available
+        if (names.length > 0 && !userinterfaceName) {
+          setUserinterfaceName(names[0]);
         }
       } catch (error) {
-        console.error('[@TestCaseBuilder] Error loading interfaces:', error);
-      } finally {
-        setIsLoadingAllData(false);
+        console.error('[@TestCaseBuilder] Failed to load interfaces:', error);
       }
     };
     
-    loadAllInterfacesWithTrees();
+    loadInterfaces();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); // Load once on mount
   
   // Debug: Log userinterfaceName changes
@@ -372,61 +301,46 @@ const TestCaseBuilderContent: React.FC = () => {
     severity: 'info',
   });
 
-  // Load navigation tree when interface changes - NOW INSTANT (uses pre-loaded data)
+  // Load navigation tree when interface changes - Load from NavigationConfig
+  const { loadTreeByUserInterface } = useNavigationConfig();
+  const [navNodes, setNavNodes] = useState<any[]>([]);
+  
   useEffect(() => {
     const loadNavigationTree = async () => {
       if (!userinterfaceName) return;
       
       try {
-        console.log(`[@TestCaseBuilder] Switching to interface: ${userinterfaceName}`);
+        console.log(`[@TestCaseBuilder] Loading tree for interface: ${userinterfaceName}`);
         
-        // Get pre-loaded data from memory (INSTANT!)
-        const treeData = allInterfacesTreeData.get(userinterfaceName);
+        const userInterface = await getUserInterfaceByName(userinterfaceName);
         
-        if (treeData) {
-          // Data already loaded - just use it!
-          console.log(`[@TestCaseBuilder] ⚡ INSTANT: Using pre-loaded data for ${userinterfaceName}`);
+        if (userInterface) {
+          // Load tree data through NavigationConfig (uses cache automatically)
+          const result = await loadTreeByUserInterface(userInterface.id);
+          setUserInterfaceFromProps(userInterface);
           
-          // Set interface for NavigationEditor infrastructure compatibility
-          setUserInterfaceFromProps(treeData.interface);
-          
-          // Tree data is already available - no loading needed!
-          console.log(`[@TestCaseBuilder] ✅ Interface switched instantly (${treeData.nodes.length} nodes, ${treeData.edges.length} edges)`);
-        } else {
-          console.warn(`[@TestCaseBuilder] ⚠️ Tree data not found for ${userinterfaceName} - shouldn't happen`);
+          // Extract nodes from result
+          if (result?.nodes) {
+            setNavNodes(result.nodes);
+            console.log(`[@TestCaseBuilder] ✅ Loaded tree for ${userinterfaceName} with ${result.nodes.length} nodes`);
+          }
         }
       } catch (error) {
-        console.error(`[@TestCaseBuilder] Failed to switch interface:`, error);
+        console.error(`[@TestCaseBuilder] Failed to load tree:`, error);
       }
     };
     
     loadNavigationTree();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [userinterfaceName]); // Only re-run when interface NAME changes
+  }, [userinterfaceName]); // Re-load when interface NAME changes
 
-  // Build dynamic toolbox from pre-loaded navigation data (INSTANT!)
+  // Build dynamic toolbox from navigation data
   const dynamicToolboxConfig = React.useMemo(() => {
-    if (!userinterfaceName) return null;
+    if (!userinterfaceName || navNodes.length === 0) return null;
     
-    const treeData = allInterfacesTreeData.get(userinterfaceName);
-    if (!treeData) return null;
-    
-    // Convert backend format to frontend format for toolbox builder
-    const frontendNodes = treeData.nodes.map((node: any) => ({
-      id: node.node_id,
-      type: node.node_type || 'screen',
-      position: { x: node.position_x, y: node.position_y },
-      data: {
-        label: node.label,
-        type: node.node_type || 'screen',
-        verifications: node.verifications,
-        ...node.data
-      }
-    }));
-    
-    console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${frontendNodes.length}, actions from controllers: ${Object.values(availableActions).flat().length}, interface: ${userinterfaceName}`);
-    return buildToolboxFromNavigationData(frontendNodes, availableActions, treeData.interface);
-  }, [userinterfaceName, allInterfacesTreeData, availableActions]);
+    console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${navNodes.length}, actions: ${Object.values(availableActions).flat().length}`);
+    return buildToolboxFromNavigationData(navNodes, availableActions, null);
+  }, [userinterfaceName, navNodes, availableActions]);
 
   // Load test case list when load dialog opens
   useEffect(() => {
@@ -858,13 +772,7 @@ const TestCaseBuilderContent: React.FC = () => {
         }}>
           {/* Visual Mode: Toolbox */}
           {creationMode === 'visual' && (
-            isLoadingAllData ? (
-              <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">
-                  Loading all navigation data...
-                </Typography>
-              </Box>
-            ) : dynamicToolboxConfig ? (
+            dynamicToolboxConfig ? (
               <TestCaseToolbox 
                 toolboxConfig={dynamicToolboxConfig}
               />
