@@ -410,10 +410,13 @@ class AIExecutor:
             return
         
         plan_steps = plan_dict.get('steps', [])
+        print(f"[@ai_executor] 🔍 Plan dict keys: {list(plan_dict.keys())}")
+        print(f"[@ai_executor] 🔍 Plan steps count: {len(plan_steps)}")
+        
         AIExecutor._executions[execution_id]['plan'] = plan_dict
         AIExecutor._executions[execution_id]['status'] = 'executing'
         AIExecutor._executions[execution_id]['current_step'] = f"Starting execution with {len(plan_steps)} steps..."
-        print(f"[@ai_executor] Set plan for execution {execution_id} with {len(plan_steps)} steps")
+        print(f"[@ai_executor] ▶️ Set plan for execution {execution_id} with {len(plan_steps)} steps")
     
     def _complete_execution_tracking(self, execution_id: str, result: ExecutionResult):
         """Complete execution tracking - use class variable explicitly"""
@@ -591,7 +594,11 @@ class AIExecutor:
         start_time = time.time()
         step_results = []
         
+        print(f"[@ai_executor] ▶️ Starting execution - plan_dict keys: {list(plan_dict.keys())}")
+        
         plan_steps = plan_dict.get('steps', [])
+        print(f"[@ai_executor] ▶️ Executing {len(plan_steps)} steps")
+        
         for i, step_data in enumerate(plan_steps):
             step_number = step_data.get('step', i + 1)
             
@@ -644,6 +651,8 @@ class AIExecutor:
         
         total_time = int((time.time() - start_time) * 1000)
         success = all(r.get('success', False) for r in step_results)
+        
+        print(f"[@ai_executor] ⏹️ Execution completed - Success: {success}, Steps: {len(step_results)}/{len(plan_steps)}, Time: {total_time}ms")
         
         return ExecutionResult(
             plan_id=plan_dict.get('id', 'unknown'),
@@ -1076,7 +1085,12 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         # Extract steps from graph and pre-fetch transitions
         if ai_response.get('feasible', True) and ai_response.get('graph'):
             self._prefetch_navigation_transitions_from_graph(ai_response['graph'], context)
-            ai_response['plan'] = self._extract_steps_from_graph(ai_response['graph'])
+            steps = self._extract_steps_from_graph(ai_response['graph'])
+            ai_response['steps'] = steps
+            
+            print(f"[@ai_executor] 📊 Graph nodes: {len(ai_response['graph'].get('nodes', []))}")
+            print(f"[@ai_executor] 📊 Extracted steps: {len(steps)}")
+            print(f"[@ai_executor] 📊 Steps: {[s.get('command') for s in steps]}")
         
         return ai_response
     
@@ -1344,11 +1358,7 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
             if 'analysis' not in parsed_json:
                 raise Exception("AI response missing required 'analysis' field")
             if 'feasible' not in parsed_json:
-                print(f"[@ai_executor] ⚠️ Warning: 'feasible' field missing, defaulting to True")
                 parsed_json['feasible'] = True
-            if 'plan' not in parsed_json:
-                print(f"[@ai_executor] ⚠️ Warning: 'plan' field missing, defaulting to empty array")
-                parsed_json['plan'] = []
             
             return parsed_json
             
