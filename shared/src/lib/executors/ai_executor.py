@@ -409,14 +409,18 @@ class AIExecutor:
             print(f"[@ai_executor] ERROR: Execution {execution_id} not found when setting plan")
             return
         
-        plan_steps = plan_dict.get('steps', [])
+        graph = plan_dict.get('graph', {})
+        nodes = graph.get('nodes', [])
+        # Count executable nodes (exclude start, success, failure)
+        executable_nodes = [n for n in nodes if n.get('type') not in ['start', 'success', 'failure']]
+        
         print(f"[@ai_executor] 🔍 Plan dict keys: {list(plan_dict.keys())}")
-        print(f"[@ai_executor] 🔍 Plan steps count: {len(plan_steps)}")
+        print(f"[@ai_executor] 🔍 Graph nodes: {len(nodes)}, executable: {len(executable_nodes)}")
         
         AIExecutor._executions[execution_id]['plan'] = plan_dict
         AIExecutor._executions[execution_id]['status'] = 'executing'
-        AIExecutor._executions[execution_id]['current_step'] = f"Starting execution with {len(plan_steps)} steps..."
-        print(f"[@ai_executor] ▶️ Set plan for execution {execution_id} with {len(plan_steps)} steps")
+        AIExecutor._executions[execution_id]['current_step'] = f"Starting execution with {len(executable_nodes)} nodes..."
+        print(f"[@ai_executor] ▶️ Set plan for execution {execution_id} with {len(executable_nodes)} nodes")
     
     def _complete_execution_tracking(self, execution_id: str, result: ExecutionResult):
         """Complete execution tracking - use class variable explicitly"""
@@ -590,473 +594,56 @@ class AIExecutor:
             print(f"[@ai_executor] NOT storing plan: {', '.join(reasons)}")
     
     def _execute_plan_sync(self, plan_dict: Dict, context: Dict) -> ExecutionResult:
-        """Execute plan synchronously using device's existing executors"""
+        """Execute graph using TestCaseExecutor"""
         start_time = time.time()
-        step_results = []
         
-        print(f"[@ai_executor] ▶️ Starting execution - plan_dict keys: {list(plan_dict.keys())}")
+        print(f"[@ai_executor] ▶️ Starting graph execution - plan_dict keys: {list(plan_dict.keys())}")
         
-        plan_steps = plan_dict.get('steps', [])
-        print(f"[@ai_executor] ▶️ Executing {len(plan_steps)} steps")
+        graph = plan_dict.get('graph')
+        if not graph:
+            return ExecutionResult(
+                plan_id=plan_dict.get('id', 'unknown'),
+                success=False,
+                step_results=[],
+                total_time_ms=0,
+                error="No graph found in plan"
+            )
         
-        for i, step_data in enumerate(plan_steps):
-            step_number = step_data.get('step', i + 1)
-            
-            # Update current step in tracking BEFORE execution (use formatted display)
-            formatted_step = self._format_step_display(step_data)
-            self._update_current_step_tracking(plan_dict.get('id'), step_number, f"Executing step {step_number}: {formatted_step}")
-            
-            step_result = self._execute_step(step_data, context)
-            step_results.append(step_result)
-            
-            # Handle step injection from reassessment
-            if step_result.get('requires_step_injection') and step_result.get('updated_steps'):
-                injected_steps = step_result.get('updated_steps', [])
-                reassessment_analysis = step_result.get('analysis', '')
-                
-                print(f"[@ai_executor] Injecting {len(injected_steps)} steps from reassessment")
-                
-                # Append reassessment analysis to main plan analysis
-                if reassessment_analysis and plan_dict.get('analysis'):
-                    plan_dict['analysis'] += f"\n\n🔍 Reassessment:\n{reassessment_analysis}"
-                    # Update tracking with enhanced analysis - use class variable explicitly
-                    for exec_id, exec_data in AIExecutor._executions.items():
-                        if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
-                            exec_data['plan']['analysis'] = plan_dict['analysis']
-                            break
-                
-                # Insert new steps after current position
-                for j, injected_step in enumerate(injected_steps):
-                    # Adjust step numbers to continue sequence
-                    injected_step['step'] = step_number + j + 1
-                    # Mark as injected for frontend distinction
-                    injected_step['injected'] = True
-                    injected_step['injected_from_step'] = step_number
-                    plan_steps.insert(i + j + 1, injected_step)
-                
-                # Update plan in tracking to include injected steps - use class variable explicitly
-                for exec_id, exec_data in AIExecutor._executions.items():
-                    if exec_data.get('plan', {}).get('id') == plan_dict.get('id'):
-                        exec_data['plan']['steps'] = plan_steps
-                        break
-                
-                print(f"[@ai_executor] Plan now has {len(plan_steps)} total steps")
-            
-            # Update tracking with step result
-            self._update_step_result_tracking(plan_dict.get('id'), step_number, step_result, step_results)
-            
-            # Stop on first failure
-            if not step_result.get('success'):
-                break
+        # Create ScriptExecutionContext for testcase executor
+        from shared.src.lib.executors.script_executor import ScriptExecutionContext
+        execution_context = ScriptExecutionContext("ai_execution")
+        execution_context.team_id = context.get('team_id')
+        execution_context.userinterface_name = context.get('userinterface_name')
+        execution_context.tree_id = context.get('tree_id')
+        execution_context.selected_device = self.device
+        
+        # Get host from device
+        from backend_host.src.controllers.controller_manager import get_host
+        host = get_host(device_ids=[self.device.device_id])
+        execution_context.host = host
+        
+        # Use TestCaseExecutor to execute graph
+        from backend_host.src.services.testcase.testcase_executor import TestCaseExecutor
+        executor = TestCaseExecutor()
+        executor.device = self.device
+        executor.context = execution_context
+        
+        print(f"[@ai_executor] 🎯 Executing graph with {len(graph.get('nodes', []))} nodes via TestCaseExecutor")
+        
+        result = executor._execute_graph(graph, execution_context)
         
         total_time = int((time.time() - start_time) * 1000)
-        success = all(r.get('success', False) for r in step_results)
         
-        print(f"[@ai_executor] ⏹️ Execution completed - Success: {success}, Steps: {len(step_results)}/{len(plan_steps)}, Time: {total_time}ms")
+        print(f"[@ai_executor] ⏹️ Graph execution completed - Success: {result.get('success')}, Time: {total_time}ms")
         
+        # Convert testcase executor result to ExecutionResult
         return ExecutionResult(
             plan_id=plan_dict.get('id', 'unknown'),
-            success=success,
-            step_results=step_results,
+            success=result.get('success', False),
+            step_results=execution_context.step_results,  # From context.record_step_immediately()
             total_time_ms=total_time,
-            error=None if success else "One or more steps failed"
+            error=result.get('error')
         )
-    
-    def _execute_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
-        """Execute a single step by delegating to appropriate executor"""
-        try:
-            step_start_time = time.time()  # Track step timing
-            command = step_data.get('command')
-            step_type = step_data.get('step_type') or self._determine_step_type(command)
-            
-            # Pure orchestration - delegate to appropriate executor
-            if step_type == 'navigation':
-                result = self._execute_navigation_step(step_data, context)
-            elif step_type == 'action':
-                result = self._execute_action_step(step_data, context)
-            elif step_type == 'verification':
-                result = self._execute_verification_step(step_data, context)
-            elif step_type == 'wait':
-                result = self._execute_wait_step(step_data, context)
-            else:
-                result = {
-                    'success': False, 
-                    'error': f'Unknown step type: {step_type}',
-                    'execution_time_ms': 0
-                }
-            
-            # Calculate timing if not provided by executor
-            if 'execution_time_ms' not in result or result.get('execution_time_ms', 0) == 0:
-                result['execution_time_ms'] = int((time.time() - step_start_time) * 1000)
-            
-            step_result = {
-                'step_id': step_data.get('step', 1),
-                'success': result.get('success', False),
-                'message': result.get('message', step_data.get('description', '')),
-                'execution_time_ms': result.get('execution_time_ms', 0)
-            }
-            
-            # Include navigation transitions if available (avoid re-fetching in UI)
-            if result.get('transitions'):
-                step_result['transitions'] = result['transitions']
-            
-            return step_result
-            
-        except Exception as e:
-            # Calculate timing even on error
-            execution_time = int((time.time() - step_start_time) * 1000) if 'step_start_time' in locals() else 0
-            return {
-                'step_id': step_data.get('step', 1),
-                'success': False,
-                'message': str(e),
-                'execution_time_ms': execution_time
-            }
-    
-    def _determine_step_type(self, command: str) -> str:
-        """Determine step type from command - simple classification"""
-        if command == 'execute_navigation':
-            return 'navigation'
-        elif command in ['press_key', 'click_element', 'input_text', 'tap_coordinates']:
-            return 'action'
-        elif command.startswith('verify_') or command.startswith('check_'):
-            return 'verification'
-        elif command == 'wait':
-            return 'wait'
-        else:
-            return 'unknown'
-    
-    def _execute_navigation_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
-        """Execute navigation step via NavigationExecutor"""
-        params = step_data.get('params', {})
-        
-        # Update navigation executor context
-        self.device.navigation_executor.tree_id = context.get('tree_id')
-        
-        # AI generates plans with node labels (e.g., "home_replay"), not IDs
-        # Pass as target_node_label for proper resolution
-        result = self.device.navigation_executor.execute_navigation(
-            tree_id=context.get('tree_id'),
-            userinterface_name=context.get('userinterface_name'),  # MANDATORY parameter
-            target_node_label=params.get('target_node'),  # AI uses labels, not IDs
-            current_node_id=context.get('current_node_id'),
-            team_id=context.get('team_id')
-        )
-        
-        # Convert execution_time (seconds) to execution_time_ms (milliseconds)
-        if 'execution_time' in result and 'execution_time_ms' not in result:
-            result['execution_time_ms'] = int(result['execution_time'] * 1000)
-        
-        # Update context with position changes
-        if result.get('success') and result.get('final_position_node_id'):
-            context['final_position_node_id'] = result.get('final_position_node_id')
-        
-        # Include navigation_path in result for frontend (avoid re-fetching)
-        if result.get('navigation_path'):
-            result['transitions'] = result['navigation_path']  # Rename for frontend clarity
-        
-        # Check if AI flagged this step for reassessment
-        if result.get('success') and step_data.get('requires_reassessment'):
-            reassessment_config = step_data.get('reassessment_config', {})
-            
-            print(f"[@ai_executor] Navigation successful, triggering AI reassessment for '{reassessment_config.get('original_target')}'")
-            
-            # Trigger reassessment to find the original target
-            reassessment_result = self._execute_navigation_reassessment_step(
-                {
-                    'params': {
-                        'original_target': reassessment_config.get('original_target', ''),
-                        'remaining_goal': reassessment_config.get('remaining_goal', '')
-                    }
-                },
-                context
-            )
-            
-            # If reassessment succeeded, inject new steps
-            if reassessment_result.get('requires_step_injection'):
-                result['requires_step_injection'] = True
-                result['updated_steps'] = reassessment_result.get('updated_steps', [])
-                result['analysis'] = reassessment_result.get('analysis', '')
-        
-        return result
-    
-    def _execute_navigation_reassessment_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
-        """Execute navigation reassessment step - take screenshot and find target"""
-        start_time = time.time()
-        
-        try:
-            # Take screenshot using verification executor
-            success, screenshot_b64, error = self.device.verification_executor.take_screenshot()
-            if not success:
-                return {
-                    'success': False, 
-                    'error': f'Screenshot failed: {error}',
-                    'execution_time_ms': int((time.time() - start_time) * 1000)
-                }
-            
-            # Get reassessment parameters
-            params = step_data.get('params', {})
-            original_target = params.get('original_target', '')
-            remaining_goal = params.get('remaining_goal', '')
-            
-            print(f"[@ai_executor] Navigation reassessment: looking for '{original_target}' with goal '{remaining_goal}'")
-            
-            # Call AI with screenshot for navigation reassessment
-            reassessment_result = self._navigation_reassess_with_visual(
-                original_target=original_target,
-                remaining_goal=remaining_goal,
-                screenshot=screenshot_b64,
-                context=context
-            )
-            
-            execution_time_ms = int((time.time() - start_time) * 1000)
-            
-            if not reassessment_result.get('success'):
-                return {
-                    'success': False, 
-                    'error': f'Cannot find {original_target} on current screen: {reassessment_result.get("error", "Visual analysis failed")}',
-                    'execution_time_ms': execution_time_ms,
-                    'reassessment_failed': True
-                }
-            
-            # Get updated steps from reassessment
-            updated_steps = reassessment_result.get('steps', [])
-            
-            return {
-                'success': True,
-                'message': f'Found {original_target} on screen, generated {len(updated_steps)} follow-up steps',
-                'execution_time_ms': execution_time_ms,
-                'updated_steps': updated_steps,
-                'requires_step_injection': True,
-                'analysis': reassessment_result.get('analysis', '')
-            }
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f'Navigation reassessment error: {str(e)}',
-                'execution_time_ms': int((time.time() - start_time) * 1000)
-            }
-    
-    def _navigation_reassess_with_visual(self, original_target: str, remaining_goal: str, 
-                                       screenshot: str, context: Dict) -> Dict[str, Any]:
-        """Call AI with screenshot AND UI dump to find navigation target and generate next steps"""
-        
-        # Get platform-specific prompt with dump
-        prompt = self._build_reassessment_prompt(original_target, remaining_goal)
-
-        from shared.src.lib.utils.ai_utils import call_vision_ai
-        
-        try:
-            result = call_vision_ai(prompt, screenshot, max_tokens=500, temperature=0.0)
-            
-            if not result.get('success'):
-                return {'success': False, 'error': f'AI vision call failed: {result.get("error", "Unknown error")}'}
-            
-            # Parse AI response
-            import json
-            ai_response = json.loads(result['content'].strip())
-            
-            return {
-                'success': ai_response.get('feasible', False),
-                'steps': ai_response.get('steps', []),
-                'analysis': ai_response.get('analysis', ''),
-                'error': None if ai_response.get('feasible', False) else ai_response.get('analysis', 'Target not found')
-            }
-            
-        except json.JSONDecodeError as e:
-            return {'success': False, 'error': f'Invalid AI response format: {str(e)}'}
-        except Exception as e:
-            return {'success': False, 'error': f'Vision analysis error: {str(e)}'}
-    
-    def _get_platform_type(self) -> str:
-        """Detect platform type: mobile, web, or tv"""
-        model_lower = self.device_model.lower()
-        device_type_lower = str(type(self.device)).lower()
-        
-        if 'mobile' in model_lower or 'android' in model_lower:
-            return 'mobile'
-        elif 'web' in model_lower or 'playwright' in device_type_lower:
-            return 'web'
-        else:
-            return 'tv'
-    
-    def _build_reassessment_prompt(self, original_target: str, remaining_goal: str) -> str:
-        """Build platform-specific reassessment prompt with UI dump"""
-        platform = self._get_platform_type()
-        dump_text = self._dump_ui_for_reassessment()
-        
-        # Platform-specific sections
-        if platform == 'mobile':
-            interface_desc = "mobile app interface"
-            dump_instructions = """CRITICAL: Use ONLY the element data above to identify elements:
-- Use resource_id, content_desc, text, bounds from dump
-- DO NOT rely on text visible in the image - use dump data ONLY."""
-            available_actions = """Available actions:
-- click_element: Use element text/resource_id/content_desc from dump
-- tap_coordinates: Use bounds/position from dump  
-- press_key: BACK, HOME
-- swipe_up, swipe_down, swipe_left, swipe_right"""
-        elif platform == 'web':
-            interface_desc = "web interface"
-            dump_instructions = """CRITICAL: Use ONLY the element data above to identify elements:
-- Use CSS selectors, IDs, aria-labels, textContent from dump
-- DO NOT rely on text visible in the image - use dump data ONLY."""
-            available_actions = """Available actions:
-- click_element: Use selector/text/aria-label from dump
-- tap_coordinates: Use position from dump  
-- press_key: BACK, ESCAPE, ENTER"""
-        else:  # tv
-            interface_desc = "TV interface"
-            dump_instructions = """Analyze the screenshot to identify elements."""
-            available_actions = """Available actions:
-- click_element: Click on UI element by text/ID
-- tap_coordinates: Tap at specific screen coordinates  
-- press_key: BACK, HOME, UP, DOWN, LEFT, RIGHT, OK"""
-        
-        # Common prompt structure
-        return f"""You are looking at a screenshot of a {interface_desc}.
-
-Original goal: {remaining_goal}
-Target: "{original_target}"
-Current screen: You've navigated to the closest available node and now need to find "{original_target}".
-
-===== AVAILABLE UI ELEMENTS =====
-{dump_text}
-================================================================
-
-{dump_instructions}
-
-Analyze and:
-1. Find "{original_target}" in the UI dump above
-2. If found, provide exact steps using dump data (IDs, selectors, coordinates from bounds)
-3. If not found in dump, respond with feasible=false
-
-{available_actions}
-
-CRITICAL: Use MINIMAL descriptions (just element names or coordinates, NO verbose text)
-
-Respond with JSON only:
-{{"analysis": "Found in dump...", "feasible": true/false, "steps": [{{"step": 1, "command": "click_element", "params": {{"element_id": "from_dump", "action_type": "remote"}}, "description": "click_element"}}]}}
-
-Good descriptions: "tap(100,200)", "click home_saved", "press BACK"
-Bad descriptions: "Tap on the replay button located at coordinates", "Visually locate and click..."
-
-If feasible=false, the navigation will fail. Only return feasible=true if you can find target in dump."""
-    
-    def _dump_ui_for_reassessment(self) -> str:
-        """Dump UI elements and format for AI consumption"""
-        try:
-            # Determine device type
-            is_mobile = 'mobile' in self.device_model.lower() or 'android' in self.device_model.lower()
-            is_web = 'web' in self.device_model.lower() or 'playwright' in str(type(self.device)).lower()
-            
-            if is_mobile:
-                # Mobile: Use remote controller's dump_ui_elements()
-                if hasattr(self.device, 'remote_controller') and hasattr(self.device.remote_controller, 'dump_ui_elements'):
-                    success, elements, error = self.device.remote_controller.dump_ui_elements()
-                    if success and elements:
-                        return self._format_mobile_dump(elements)
-                    else:
-                        return f"[UI Dump Failed: {error}]"
-                else:
-                    return "[No UI dump capability for this device]"
-                    
-            elif is_web:
-                # Web: Use web controller's dump_elements()
-                if hasattr(self.device, 'web_controller') and hasattr(self.device.web_controller, 'dump_elements'):
-                    result = self.device.web_controller.dump_elements()
-                    if result.get('success') and result.get('elements'):
-                        return self._format_web_dump(result['elements'])
-                    else:
-                        return f"[UI Dump Failed: {result.get('error', 'Unknown')}]"
-                else:
-                    return "[No UI dump capability for this device]"
-            else:
-                return "[Unknown device type - no dump available]"
-                
-        except Exception as e:
-            print(f"[@ai_executor] UI dump error during reassessment: {e}")
-            return f"[UI Dump Error: {str(e)}]"
-    
-    def _format_mobile_dump(self, elements: list) -> str:
-        """Format mobile UI elements for AI"""
-        lines = ["MOBILE UI ELEMENTS:"]
-        for i, element in enumerate(elements[:50], 1):  # Limit to 50 elements
-            # Extract bounds
-            bounds_str = ""
-            if hasattr(element, 'bounds') and element.bounds:
-                match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', element.bounds)
-                if match:
-                    x1, y1, x2, y2 = match.groups()
-                    bounds_str = f"bounds=[{x1},{y1}][{x2},{y2}]"
-            
-            # Format element
-            lines.append(
-                f"{i}. resource_id: {element.resource_id} | text: '{element.text}' | "
-                f"content_desc: '{element.content_desc}' | {bounds_str}"
-            )
-        
-        if len(elements) > 50:
-            lines.append(f"... and {len(elements) - 50} more elements")
-        
-        return "\n".join(lines)
-    
-    def _format_web_dump(self, elements: list) -> str:
-        """Format web UI elements for AI"""
-        lines = ["WEB UI ELEMENTS:"]
-        for i, element in enumerate(elements[:50], 1):  # Limit to 50 elements
-            pos = element.get('position', {})
-            selector = element.get('selector', 'N/A')
-            text = element.get('textContent', '')[:50]  # Truncate long text
-            aria = element.get('attributes', {}).get('aria-label', '')
-            
-            lines.append(
-                f"{i}. selector: {selector} | text: '{text}' | aria-label: '{aria}' | "
-                f"pos: x={pos.get('x',0)}, y={pos.get('y',0)}, w={pos.get('width',0)}, h={pos.get('height',0)}"
-            )
-        
-        if len(elements) > 50:
-            lines.append(f"... and {len(elements) - 50} more elements")
-        
-        return "\n".join(lines)
-    
-    def _execute_action_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
-        """Execute action step via ActionExecutor"""
-        action = {
-            'command': step_data.get('command'),
-            'params': step_data.get('params', {}),
-            'action_type': step_data.get('params', {}).get('action_type', 'remote')
-        }
-        
-        return self.device.action_executor.execute_actions([action], team_id=context.get('team_id'))
-    
-    def _execute_verification_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
-        """Execute verification step via VerificationExecutor"""
-        verification = {
-            'verification_type': step_data.get('params', {}).get('verification_type', 'text'),
-            'command': step_data.get('command'),
-            'params': step_data.get('params', {})
-        }
-        
-        return self.device.verification_executor.execute_verifications(
-            verifications=[verification],
-            userinterface_name=context.get('userinterface_name'),  # MANDATORY parameter
-            team_id=context.get('team_id')
-        )
-    
-    def _execute_wait_step(self, step_data: Dict, context: Dict) -> Dict[str, Any]:
-        """Execute wait step - simple timing operation"""
-        start_wait = time.time()
-        duration_ms = step_data.get('params', {}).get('duration', 1000)
-        
-        time.sleep(duration_ms / 1000.0)
-        actual_wait_ms = int((time.time() - start_wait) * 1000)
-        
-        return {
-            'success': True,
-            'message': f'Waited {duration_ms}ms',
-            'execution_time_ms': actual_wait_ms
-        }
     
     @classmethod
     def clear_all_cache(cls):

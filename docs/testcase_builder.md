@@ -366,11 +366,15 @@ GET    /server/testcase/:id/history?team_id=xxx
 - Execute functionality added
 - Navigation tree fetching working
 - AI Prompt Mode integrated
-- Bug fixes:
+- **Bug fixes and architecture improvements:**
   - Fixed Supabase import in ai_plan_generation_db.py
   - Removed legacy validate_plan (graph validation now in pre-processing)
   - Fixed cache behavior: cache miss now falls through to generation (not abort)
+  - **Unified execution: AI Executor now uses TestCaseExecutor for graph execution**
+  - **Deleted legacy step-by-step execution code (no backward compatibility)**
+  - **Single execution path for all graphs (Live AI Modal + TestCase Builder)**
   - Clean separation: pre-processing validation vs execution
+  - Steps extracted from graph for display only (not execution)
 
 ### Cache Behavior
 

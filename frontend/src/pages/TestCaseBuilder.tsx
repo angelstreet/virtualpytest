@@ -26,6 +26,13 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
+// Hide React Flow attribution
+const styles = `
+  .react-flow__panel.react-flow__attribution {
+    display: none !important;
+  }
+`;
+
 // Icons
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SaveIcon from '@mui/icons-material/Save';
@@ -105,6 +112,16 @@ const defaultEdgeOptions = {
 };
 
 const TestCaseBuilderContent: React.FC = () => {
+  // Inject styles to hide React Flow attribution
+  React.useEffect(() => {
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = styles;
+    document.head.appendChild(styleTag);
+    return () => {
+      document.head.removeChild(styleTag);
+    };
+  }, []);
+
   const { actualMode } = useTheme();
   const {
     nodes,
@@ -402,14 +419,17 @@ const TestCaseBuilderContent: React.FC = () => {
 
   return (
     <Box sx={{ 
-      width: '100vw', 
-      marginLeft: 'calc(50% - 50vw)', 
-      height: '100%', 
+      position: 'fixed',
+      top: 64,
+      left: 0,
+      right: 0,
+      bottom: 32,
       display: 'flex', 
       flexDirection: 'column', 
-      overflow: 'hidden' 
+      overflow: 'hidden',
+      zIndex: 1,
     }}>
-      {/* Header - Compact */}
+      {/* Header - Fixed 46px */}
       <Box
         sx={{
           px: 2,
@@ -420,7 +440,7 @@ const TestCaseBuilderContent: React.FC = () => {
           alignItems: 'center',
           justifyContent: 'space-between',
           background: actualMode === 'dark' ? '#111827' : '#ffffff',
-          minHeight: '46px',
+          height: '46px',
           flexShrink: 0,
           position: 'relative',
         }}
@@ -509,17 +529,24 @@ const TestCaseBuilderContent: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Main Content */}
-      <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden', minHeight: 0 }}>
+      {/* Container - Fills remaining space after header and footer */}
+      <Box sx={{ 
+        flex: 1,
+        display: 'flex', 
+        overflow: 'hidden',
+        minHeight: 0,
+      }}>
         {/* Toolbox/AI Panel */}
         <Box sx={{ 
           width: 220, 
+          height: '100%',
           borderRight: 1, 
           borderColor: 'divider',
           display: 'flex',
           flexDirection: 'column',
           background: actualMode === 'dark' ? '#111827' : '#f9fafb',
           overflow: 'hidden',
+          flexShrink: 0,
         }}>
           {/* Visual Mode: Toolbox */}
           {creationMode === 'visual' && <TestCaseToolbox activeTab={activeToolboxTab} />}
@@ -596,7 +623,17 @@ const TestCaseBuilderContent: React.FC = () => {
         </Box>
 
         {/* Canvas */}
-        <Box ref={reactFlowWrapper} sx={{ flex: 1, minWidth: 0, minHeight: 0 }} onDrop={onDrop} onDragOver={onDragOver}>
+        <Box 
+          ref={reactFlowWrapper} 
+          sx={{ 
+            flex: 1, 
+            height: '100%',
+            minWidth: 0,
+            overflow: 'hidden',
+          }} 
+          onDrop={onDrop} 
+          onDragOver={onDragOver}
+        >
           <ReactFlow
             nodes={nodes}
             edges={edges}
@@ -624,6 +661,33 @@ const TestCaseBuilderContent: React.FC = () => {
             }} />
           </ReactFlow>
         </Box>
+      </Box>
+
+      {/* Footer - Fixed 40px */}
+      <Box
+        sx={{
+          height: '40px',
+          borderTop: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          px: 2,
+          background: actualMode === 'dark' ? '#111827' : '#f9fafb',
+          flexShrink: 0,
+        }}
+      >
+        <Typography variant="caption" color="text.secondary">
+          {nodes.length} blocks • {edges.length} connections
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {executionState.isExecuting && 'Executing...'}
+          {executionState.result && !executionState.isExecuting && (
+            executionState.result.success 
+              ? `✓ Last run: ${executionState.result.execution_time_ms}ms` 
+              : '✗ Last run: Failed'
+          )}
+        </Typography>
       </Box>
 
       {/* Configuration Dialogs */}

@@ -29,24 +29,28 @@ const DraggableCommand: React.FC<DraggableCommandProps> = ({ command }) => {
       onDragStart={onDragStart}
       draggable
       sx={{
-        p: 0.5,
-        mb: 0.25,
+        py: 0.5,
+        px: 0.5,
+        mb: 0.5,
         cursor: 'grab',
         display: 'flex',
         alignItems: 'center',
+        lineHeight: 1.5,
+        minHeight: '0 !important',
+        height: 'auto',
         '&:hover': {
           boxShadow: 1,
-          transform: 'translateX(2px)',
+          transform: 'translateX(12px)',
         },
         '&:active': {
           cursor: 'grabbing',
         },
         transition: 'all 0.15s',
-        borderLeft: `2px solid ${command.color}`,
+        borderLeft: `3px solid ${command.color}`,
       }}
       title={command.description}
     >
-      <Typography fontSize={10} noWrap>
+      <Typography fontSize={13} noWrap sx={{ lineHeight: 1, mb: 0 }}>
         {command.label}
       </Typography>
     </Paper>
@@ -74,7 +78,7 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ activeTab }) =
         sx={{
           flex: 1,
           overflowY: 'auto',
-          p: 0.25,
+          p: 0,
         }}
       >
         {currentTabConfig.groups.map((group, groupIdx) => (
@@ -83,26 +87,44 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ activeTab }) =
             defaultExpanded
             sx={{
               boxShadow: 'none',
-              '&:before': { display: 'none' },
-              mb: 0,
+              '&:before': { display: 'none'},
+              padding: '4px !important',
+              margin: '8px !important',
+              mb: 1.5,
+              '& .MuiAccordionDetails-root': {
+                padding: '4px !important',
+                margin: '8px !important',
+              },
+              '&.Mui-expanded': {
+                padding: '4px !important',
+                margin: '8px !important',
+                minHeight: '0 !important',
+              }
             }}
           >
             <AccordionSummary
               expandIcon={<ExpandMoreIcon sx={{ fontSize: 16 }} />}
               sx={{
-                minHeight: 20,
-                py: 0,
+                minHeight: '20px !important',
+                height: '20px',
+                py: '0 !important',
                 px: 0.5,
                 '& .MuiAccordionSummary-content': {
-                  my: 0.25,
+                  my: '1 !important',
+                  minHeight: '20px !important',
+                },
+                '&.Mui-expanded': {
+                  minHeight: '20px !important',
+                  height: '20px',
+                  my: '1 !important',
                 }
               }}
             >
-              <Typography fontSize={9} fontWeight="medium" color="text.secondary">
+              <Typography fontSize={16} fontWeight="bold" color="text.primary">
                 {group.groupName}
               </Typography>
             </AccordionSummary>
-            <AccordionDetails sx={{ p: 0, px: 0.25, pt: 0 }}>
+            <AccordionDetails sx={{ p: 4}} >
               {group.commands.map((command, cmdIdx) => (
                 <DraggableCommand key={cmdIdx} command={command} />
               ))}
