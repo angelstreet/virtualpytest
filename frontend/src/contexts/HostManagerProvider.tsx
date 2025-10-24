@@ -35,6 +35,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   // Extract hosts from server data, filtering by selected server only
   // This ensures we only show hosts from the currently selected server
   const [selectedServerError, setSelectedServerError] = useState<string | null>(null);
+  const cacheRefreshAttemptedRef = useRef<string | null>(null);
   
   const allHostsFromServers = useMemo(() => {
     if (!selectedServer) return [];
@@ -58,14 +59,25 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       hostCount: selectedServerData.hosts.length
     });
     
-    // Invalidate cache if hostCount is 0 and not loading
-    if (selectedServerData.hosts.length === 0 && !serverLoading) {
-      console.warn('[@HostManagerProvider] hostCount is 0 - invalidating cache and forcing refresh');
+    return selectedServerData.hosts;
+  }, [serverHostsData, selectedServer, serverLoading]);
+  
+  // Invalidate cache if hostCount is 0 (side effect in useEffect, not useMemo)
+  useEffect(() => {
+    // Only attempt refresh once per cache key
+    const cacheKey = `${selectedServer}_${serverHostsData.length}`;
+    
+    if (
+      allHostsFromServers.length === 0 && 
+      !serverLoading && 
+      selectedServer &&
+      cacheRefreshAttemptedRef.current !== cacheKey
+    ) {
+      console.warn('[@HostManagerProvider] hostCount is 0 - invalidating cache and forcing refresh (once)');
+      cacheRefreshAttemptedRef.current = cacheKey;
       refreshServerData();
     }
-    
-    return selectedServerData.hosts;
-  }, [serverHostsData, selectedServer, serverLoading, refreshServerData]);
+  }, [allHostsFromServers.length, serverLoading, selectedServer, serverHostsData.length, refreshServerData]);
 
   // Use hosts from ServerManager instead of fetching separately
   const [availableHosts, setAvailableHosts] = useState<Host[]>([]);
