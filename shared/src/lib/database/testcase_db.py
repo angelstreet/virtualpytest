@@ -6,13 +6,15 @@ Test cases can be created visually (drag-drop) or via AI (prompt).
 Execution results are stored in script_results table (unified tracking).
 """
 
-import psycopg2
-import psycopg2.extras
 import json
 from typing import Dict, List, Optional, Any
-from shared.src.lib.database.database import get_db_connection
+from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+
+def get_supabase():
+    """Get the Supabase client instance."""
+    return get_supabase_client()
 
 
 def create_testcase(
@@ -43,49 +45,41 @@ def create_testcase(
     Returns:
         testcase_id (UUID) or None on failure
     """
-    conn = get_db_connection()
-    if not conn:
-        print("[@testcase_db] ERROR: Failed to get database connection")
+    supabase = get_supabase()
+    if not supabase:
+        print("[@testcase_db] ERROR: Failed to get Supabase client")
         return None
     
     try:
-        cursor = conn.cursor()
+        data = {
+            'team_id': team_id,
+            'testcase_name': testcase_name,
+            'graph_json': graph_json,
+            'description': description,
+            'userinterface_name': userinterface_name,
+            'created_by': created_by,
+            'creation_method': creation_method,
+            'ai_prompt': ai_prompt,
+            'ai_analysis': ai_analysis
+        }
         
-        query = """
-            INSERT INTO testcase_definitions 
-            (team_id, testcase_name, graph_json, description, userinterface_name, created_by, creation_method, ai_prompt, ai_analysis)
-            VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-            RETURNING testcase_id
-        """
+        result = supabase.table('testcase_definitions').insert(data).execute()
         
-        cursor.execute(query, (
-            team_id,
-            testcase_name,
-            json.dumps(graph_json),
-            description,
-            userinterface_name,
-            created_by,
-            creation_method,
-            ai_prompt,
-            ai_analysis
-        ))
+        if result.data and len(result.data) > 0:
+            testcase_id = result.data[0]['testcase_id']
+            print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method})")
+            return str(testcase_id)
+        else:
+            print(f"[@testcase_db] ERROR: No data returned after insert")
+            return None
         
-        testcase_id = cursor.fetchone()[0]
-        conn.commit()
-        
-        print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method})")
-        return str(testcase_id)
-        
-    except psycopg2.IntegrityError as e:
-        conn.rollback()
-        print(f"[@testcase_db] ERROR: Test case name already exists: {testcase_name}")
-        return None
     except Exception as e:
-        conn.rollback()
-        print(f"[@testcase_db] ERROR creating test case: {e}")
+        error_msg = str(e)
+        if 'duplicate key' in error_msg or 'unique constraint' in error_msg:
+            print(f"[@testcase_db] ERROR: Test case name already exists: {testcase_name}")
+        else:
+            print(f"[@testcase_db] ERROR creating test case: {e}")
         return None
-    finally:
-        conn.close()
 
 
 def get_testcase(testcase_id: str, team_id: str = None) -> Optional[Dict[str, Any]]:
@@ -99,44 +93,26 @@ def get_testcase(testcase_id: str, team_id: str = None) -> Optional[Dict[str, An
     Returns:
         Test case dict or None
     """
-    conn = get_db_connection()
-    if not conn:
+    supabase = get_supabase()
+    if not supabase:
         return None
     
     try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
-        query = """
-            SELECT 
-                testcase_id,
-                team_id,
-                testcase_name,
-                description,
-                userinterface_name,
-                graph_json,
-                created_at,
-                updated_at,
-                created_by,
-                is_active
-            FROM testcase_definitions
-            WHERE testcase_id = %s
-        """
-        
-        params = [testcase_id]
+        query = supabase.table('testcase_definitions').select('*').eq('testcase_id', testcase_id)
         
         if team_id:
-            query += " AND team_id = %s"
-            params.append(team_id)
+            query = query.eq('team_id', team_id)
         
-        cursor.execute(query, params)
-        result = cursor.fetchone()
+        result = query.execute()
         
-        if result:
-            # Convert to dict and parse JSON
-            testcase = dict(result)
-            testcase['graph_json'] = json.loads(testcase['graph_json']) if isinstance(testcase['graph_json'], str) else testcase['graph_json']
+        if result.data and len(result.data) > 0:
+            testcase = result.data[0]
+            # Ensure IDs are strings
             testcase['testcase_id'] = str(testcase['testcase_id'])
             testcase['team_id'] = str(testcase['team_id'])
+            # Parse graph_json if it's a string
+            if isinstance(testcase.get('graph_json'), str):
+                testcase['graph_json'] = json.loads(testcase['graph_json'])
             return testcase
         
         return None
@@ -144,8 +120,6 @@ def get_testcase(testcase_id: str, team_id: str = None) -> Optional[Dict[str, An
     except Exception as e:
         print(f"[@testcase_db] ERROR getting test case: {e}")
         return None
-    finally:
-        conn.close()
 
 
 def get_testcase_by_name(testcase_name: str, team_id: str) -> Optional[Dict[str, Any]]:
@@ -159,37 +133,24 @@ def get_testcase_by_name(testcase_name: str, team_id: str) -> Optional[Dict[str,
     Returns:
         Test case dict or None
     """
-    conn = get_db_connection()
-    if not conn:
+    supabase = get_supabase()
+    if not supabase:
         return None
     
     try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
+        result = supabase.table('testcase_definitions')\
+            .select('*')\
+            .eq('testcase_name', testcase_name)\
+            .eq('team_id', team_id)\
+            .execute()
         
-        query = """
-            SELECT 
-                testcase_id,
-                team_id,
-                testcase_name,
-                description,
-                userinterface_name,
-                graph_json,
-                created_at,
-                updated_at,
-                created_by,
-                is_active
-            FROM testcase_definitions
-            WHERE testcase_name = %s AND team_id = %s
-        """
-        
-        cursor.execute(query, (testcase_name, team_id))
-        result = cursor.fetchone()
-        
-        if result:
-            testcase = dict(result)
-            testcase['graph_json'] = json.loads(testcase['graph_json']) if isinstance(testcase['graph_json'], str) else testcase['graph_json']
+        if result.data and len(result.data) > 0:
+            testcase = result.data[0]
             testcase['testcase_id'] = str(testcase['testcase_id'])
             testcase['team_id'] = str(testcase['team_id'])
+            # Parse graph_json if it's a string
+            if isinstance(testcase.get('graph_json'), str):
+                testcase['graph_json'] = json.loads(testcase['graph_json'])
             return testcase
         
         return None
@@ -197,8 +158,6 @@ def get_testcase_by_name(testcase_name: str, team_id: str) -> Optional[Dict[str,
     except Exception as e:
         print(f"[@testcase_db] ERROR getting test case by name: {e}")
         return None
-    finally:
-        conn.close()
 
 
 def update_testcase(
@@ -221,50 +180,35 @@ def update_testcase(
     Returns:
         True on success, False on failure
     """
-    conn = get_db_connection()
-    if not conn:
+    supabase = get_supabase()
+    if not supabase:
         return False
     
     try:
-        cursor = conn.cursor()
-        
-        # Build dynamic update query
-        updates = []
-        params = []
+        # Build update data
+        update_data = {}
         
         if graph_json is not None:
-            updates.append("graph_json = %s")
-            params.append(json.dumps(graph_json))
+            update_data['graph_json'] = graph_json
         
         if description is not None:
-            updates.append("description = %s")
-            params.append(description)
+            update_data['description'] = description
         
         if userinterface_name is not None:
-            updates.append("userinterface_name = %s")
-            params.append(userinterface_name)
+            update_data['userinterface_name'] = userinterface_name
         
-        if not updates:
+        if not update_data:
             print("[@testcase_db] WARNING: No fields to update")
             return True
         
-        query = f"""
-            UPDATE testcase_definitions
-            SET {', '.join(updates)}
-            WHERE testcase_id = %s
-        """
-        params.append(testcase_id)
+        query = supabase.table('testcase_definitions').update(update_data).eq('testcase_id', testcase_id)
         
         if team_id:
-            query += " AND team_id = %s"
-            params.append(team_id)
+            query = query.eq('team_id', team_id)
         
-        cursor.execute(query, params)
-        conn.commit()
+        result = query.execute()
         
-        rows_updated = cursor.rowcount
-        
-        if rows_updated > 0:
+        if result.data and len(result.data) > 0:
             print(f"[@testcase_db] Updated test case: {testcase_id}")
             return True
         else:
@@ -272,11 +216,8 @@ def update_testcase(
             return False
         
     except Exception as e:
-        conn.rollback()
         print(f"[@testcase_db] ERROR updating test case: {e}")
         return False
-    finally:
-        conn.close()
 
 
 def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
@@ -290,30 +231,21 @@ def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
     Returns:
         True on success, False on failure
     """
-    conn = get_db_connection()
-    if not conn:
+    supabase = get_supabase()
+    if not supabase:
         return False
     
     try:
-        cursor = conn.cursor()
-        
-        query = """
-            UPDATE testcase_definitions
-            SET is_active = FALSE
-            WHERE testcase_id = %s
-        """
-        params = [testcase_id]
+        query = supabase.table('testcase_definitions')\
+            .update({'is_active': False})\
+            .eq('testcase_id', testcase_id)
         
         if team_id:
-            query += " AND team_id = %s"
-            params.append(team_id)
+            query = query.eq('team_id', team_id)
         
-        cursor.execute(query, params)
-        conn.commit()
+        result = query.execute()
         
-        rows_updated = cursor.rowcount
-        
-        if rows_updated > 0:
+        if result.data and len(result.data) > 0:
             print(f"[@testcase_db] Deleted test case: {testcase_id}")
             return True
         else:
@@ -321,11 +253,8 @@ def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
             return False
         
     except Exception as e:
-        conn.rollback()
         print(f"[@testcase_db] ERROR deleting test case: {e}")
         return False
-    finally:
-        conn.close()
 
 
 def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
@@ -339,50 +268,43 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
     Returns:
         List of test case dicts (without full graph_json)
     """
-    conn = get_db_connection()
-    if not conn:
+    supabase = get_supabase()
+    if not supabase:
         return []
     
     try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
-        query = """
-            SELECT 
-                testcase_id,
-                team_id,
-                testcase_name,
-                description,
-                userinterface_name,
-                created_at,
-                updated_at,
-                created_by,
-                is_active,
-                (SELECT COUNT(*) FROM script_results 
-                 WHERE script_type = 'testcase' 
-                   AND script_name = testcase_definitions.testcase_name
-                ) as execution_count,
-                (SELECT success FROM script_results 
-                 WHERE script_type = 'testcase' 
-                   AND script_name = testcase_definitions.testcase_name
-                 ORDER BY started_at DESC LIMIT 1
-                ) as last_execution_success
-            FROM testcase_definitions
-            WHERE team_id = %s
-        """
+        # Note: Supabase doesn't support subqueries in select, so we get execution counts separately
+        query = supabase.table('testcase_definitions')\
+            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,is_active')\
+            .eq('team_id', team_id)
         
         if not include_inactive:
-            query += " AND is_active = TRUE"
+            query = query.eq('is_active', True)
         
-        query += " ORDER BY updated_at DESC"
+        query = query.order('updated_at', desc=True)
         
-        cursor.execute(query, (team_id,))
-        results = cursor.fetchall()
+        result = query.execute()
         
         testcases = []
-        for row in results:
-            testcase = dict(row)
+        for testcase in result.data:
             testcase['testcase_id'] = str(testcase['testcase_id'])
             testcase['team_id'] = str(testcase['team_id'])
+            
+            # Get execution count and last success
+            try:
+                exec_result = supabase.table('script_results')\
+                    .select('success')\
+                    .eq('script_type', 'testcase')\
+                    .eq('script_name', testcase['testcase_name'])\
+                    .order('started_at', desc=True)\
+                    .execute()
+                
+                testcase['execution_count'] = len(exec_result.data) if exec_result.data else 0
+                testcase['last_execution_success'] = exec_result.data[0]['success'] if exec_result.data else None
+            except:
+                testcase['execution_count'] = 0
+                testcase['last_execution_success'] = None
+            
             testcases.append(testcase)
         
         return testcases
@@ -390,8 +312,6 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
     except Exception as e:
         print(f"[@testcase_db] ERROR listing test cases: {e}")
         return []
-    finally:
-        conn.close()
 
 
 def get_testcase_execution_history(testcase_name: str, team_id: str, limit: int = 50) -> List[Dict[str, Any]]:
@@ -406,40 +326,22 @@ def get_testcase_execution_history(testcase_name: str, team_id: str, limit: int 
     Returns:
         List of execution records
     """
-    conn = get_db_connection()
-    if not conn:
+    supabase = get_supabase()
+    if not supabase:
         return []
     
     try:
-        cursor = conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
-        
-        query = """
-            SELECT 
-                script_result_id,
-                script_name,
-                started_at,
-                completed_at,
-                execution_time_ms,
-                success,
-                error_msg,
-                host_name,
-                device_name,
-                html_report_r2_url,
-                logs_r2_url
-            FROM script_results
-            WHERE script_type = 'testcase' 
-              AND script_name = %s
-              AND team_id = %s
-            ORDER BY started_at DESC
-            LIMIT %s
-        """
-        
-        cursor.execute(query, (testcase_name, team_id, limit))
-        results = cursor.fetchall()
+        result = supabase.table('script_results')\
+            .select('script_result_id,script_name,started_at,completed_at,execution_time_ms,success,error_msg,host_name,device_name,html_report_r2_url,logs_r2_url')\
+            .eq('script_type', 'testcase')\
+            .eq('script_name', testcase_name)\
+            .eq('team_id', team_id)\
+            .order('started_at', desc=True)\
+            .limit(limit)\
+            .execute()
         
         executions = []
-        for row in results:
-            execution = dict(row)
+        for execution in result.data:
             execution['script_result_id'] = str(execution['script_result_id'])
             executions.append(execution)
         
@@ -448,5 +350,3 @@ def get_testcase_execution_history(testcase_name: str, team_id: str, limit: int 
     except Exception as e:
         print(f"[@testcase_db] ERROR getting execution history: {e}")
         return []
-    finally:
-        conn.close()
