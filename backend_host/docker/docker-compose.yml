@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  backend_host:
+    build:
+      context: ../..
+      dockerfile: backend_host/docker/Dockerfile
+    container_name: virtualpytest-backend-host
+    ports:
+      - "6109:6109"  # Flask API
+      - "6080:6080"  # NoVNC web interface
+    environment:
+      - DISPLAY=:99
+    env_file:
+      - ../../.env
+    volumes:
+      # Development: Mount source for live updates
+      - ../../shared:/app/shared
+      - ../src:/app/backend_host/src
+      - ../scripts:/app/backend_host/scripts
+      # Persistent data
+      - /var/www/html:/var/www/html
+    devices:
+      # Optional: Add hardware devices if needed
+      # - /dev/video0:/dev/video0  # Camera
+      # - /dev/bus/usb:/dev/bus/usb  # USB devices
+    restart: unless-stopped
+    networks:
+      - virtualpytest
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6109/host/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+networks:
+  virtualpytest:
+    driver: bridge
+
