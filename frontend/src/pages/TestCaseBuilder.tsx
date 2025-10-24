@@ -254,36 +254,53 @@ const TestCaseBuilderContent: React.FC = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   
-  // Load all interfaces for selector
-  const [allInterfaceNames, setAllInterfaceNames] = useState<string[]>([]);
+  // Load compatible interfaces based on selected device
+  const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
   const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
   
+  // Load compatible interfaces when device is selected
   useEffect(() => {
-    const loadInterfaces = async () => {
+    const loadCompatibleInterfaces = async () => {
+      if (!selectedDeviceId || !selectedHost) {
+        setCompatibleInterfaceNames([]);
+        setUserinterfaceName(''); // Clear interface when device changes
+        return;
+      }
+      
       try {
-        console.log('[@TestCaseBuilder] Loading interfaces...');
+        console.log('[@TestCaseBuilder] Loading compatible interfaces for device...');
+        
+        const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+        const deviceModel = selectedDevice?.device_model;
         
         const interfaces = await getAllUserInterfaces();
         
-        // Filter interfaces that have navigation trees (root_tree property exists and has nodes)
-        const interfacesWithTrees = interfaces.filter((ui: any) => ui.root_tree);
-        const names = interfacesWithTrees.map((ui: any) => ui.name);
+        // Filter interfaces that:
+        // 1. Have navigation trees (root_tree property exists)
+        // 2. Are compatible with the selected device model
+        const compatibleInterfaces = interfaces.filter((ui: any) => {
+          const hasTree = !!ui.root_tree;
+          const isCompatible = ui.models?.includes(deviceModel);
+          return hasTree && isCompatible;
+        });
         
-        setAllInterfaceNames(names);
-        console.log(`[@TestCaseBuilder] Loaded ${names.length} interfaces with trees`);
+        const names = compatibleInterfaces.map((ui: any) => ui.name);
         
-        // Auto-select first interface if available
-        if (names.length > 0 && !userinterfaceName) {
+        setCompatibleInterfaceNames(names);
+        console.log(`[@TestCaseBuilder] Loaded ${names.length} compatible interfaces for ${deviceModel}`);
+        
+        // Auto-select first compatible interface if available
+        if (names.length > 0 && !names.includes(userinterfaceName)) {
           setUserinterfaceName(names[0]);
         }
       } catch (error) {
-        console.error('[@TestCaseBuilder] Failed to load interfaces:', error);
+        console.error('[@TestCaseBuilder] Failed to load compatible interfaces:', error);
       }
     };
     
-    loadInterfaces();
+    loadCompatibleInterfaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Load once on mount
+  }, [selectedDeviceId, selectedHost]); // Re-load when device changes
   
   // Debug: Log userinterfaceName changes
   useEffect(() => {
@@ -334,13 +351,13 @@ const TestCaseBuilderContent: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userinterfaceName]); // Re-load when interface NAME changes
 
-  // Build dynamic toolbox from navigation data
+  // Build dynamic toolbox from navigation data - only if device and interface are selected
   const dynamicToolboxConfig = React.useMemo(() => {
-    if (!userinterfaceName || navNodes.length === 0) return null;
+    if (!selectedDeviceId || !userinterfaceName || navNodes.length === 0) return null;
     
     console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${navNodes.length}, actions: ${Object.values(availableActions).flat().length}`);
     return buildToolboxFromNavigationData(navNodes, availableActions, null);
-  }, [userinterfaceName, navNodes, availableActions]);
+  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions]);
 
   // Load test case list when load dialog opens
   useEffect(() => {
@@ -675,15 +692,16 @@ const TestCaseBuilderContent: React.FC = () => {
         
         {/* SECTION 3: Interface Selector */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
-          {/* Userinterface Selector */}
+          {/* Userinterface Selector - only enabled if device is selected */}
           <UserinterfaceSelector
-            compatibleInterfaces={allInterfaceNames}
+            compatibleInterfaces={compatibleInterfaceNames}
             value={userinterfaceName}
             onChange={setUserinterfaceName}
             label="Interface"
             size="small"
             fullWidth={false}
             sx={{ minWidth: 200 }}
+            disabled={!selectedDeviceId}
           />
         </Box>
         
@@ -779,7 +797,11 @@ const TestCaseBuilderContent: React.FC = () => {
             ) : (
               <Box sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">
-                  Select an interface to load toolbox
+                  {!selectedDeviceId 
+                    ? 'Select a device first' 
+                    : !userinterfaceName 
+                    ? 'Select an interface to load toolbox'
+                    : 'Loading toolbox...'}
                 </Typography>
               </Box>
             )
@@ -1095,8 +1117,8 @@ const TestCaseBuilderContent: React.FC = () => {
                 flexDirection: 'row',
                 gap: 2,
                 position: 'absolute',
-                right: 20,
-                top: 100,
+                left: 240,
+                top: 120,
                 zIndex: 1000,
                 height: 'auto',
               }}
@@ -1141,8 +1163,8 @@ const TestCaseBuilderContent: React.FC = () => {
                 flexDirection: 'row',
                 gap: 2,
                 position: 'absolute',
-                right: 20,
-                top: 100,
+                right: 10,
+                top: 80,
                 zIndex: 1000,
                 height: 'auto',
               }}
