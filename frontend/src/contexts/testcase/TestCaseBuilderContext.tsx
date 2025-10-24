@@ -1,6 +1,5 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
-import { v4 as uuidv4 } from 'uuid';
 import { BlockType, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
 import { saveTestCase, executeTestCase as executeTestCaseApi, listTestCases, getTestCase, deleteTestCase as deleteTestCaseApi } from '../../services/testcaseApi';
 import type { TestCaseDefinition } from '../../services/testcaseApi';
@@ -130,10 +129,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [availableVerifications, setAvailableVerifications] = useState<any[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false);
 
+  // ID counter for client-side node/edge generation (only used until save - backend assigns real UUIDs)
+  const nodeIdCounter = useRef(1);
+  const edgeIdCounter = useRef(1);
+
   // Add a new block to the canvas
   const addBlock = useCallback((type: BlockType, position: { x: number; y: number }) => {
     const newNode: Node = {
-      id: uuidv4(),
+      id: `node_${nodeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
       type,
       position,
       data: {},
@@ -174,7 +177,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     
     const newEdge: Edge = {
       ...connection,
-      id: uuidv4(),
+      id: `edge_${edgeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
       type: edgeType,
       source: connection.source!,
       target: connection.target!,

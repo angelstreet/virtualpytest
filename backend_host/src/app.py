@@ -210,6 +210,12 @@ def main():
         print("[@backend_host:main] ❌ Core environment validation failed")
         sys.exit(1)
     
+    # Print database URL for verification
+    supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL', 'NOT SET')
+    print(f"[@backend_host:main] 🗄️  Database Configuration:")
+    print(f"[@backend_host:main]    NEXT_PUBLIC_SUPABASE_URL: {supabase_url}")
+    print("[@backend_host:main] ✅ Environment validated")
+    
     # STEP 2: Setup Flask App
     print("[@backend_host:main] Step 2: Setting up Flask application...")
     cleanup_host_ports()

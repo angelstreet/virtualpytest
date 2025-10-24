@@ -68,6 +68,11 @@ def validate_startup_requirements():
         print("❌ CRITICAL: Environment validation failed. Check .env file")
         sys.exit(1)
     
+    # Print database URL for verification
+    supabase_url = os.getenv('NEXT_PUBLIC_SUPABASE_URL', 'NOT SET')
+    print(f"[@backend_server:validate] 🗄️  Database Configuration:")
+    print(f"[@backend_server:validate]    NEXT_PUBLIC_SUPABASE_URL: {supabase_url}")
+    
     print("✅ Startup requirements validated")
 
 def setup_and_cleanup():

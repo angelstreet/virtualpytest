@@ -1,13 +1,20 @@
 """
 Server TestCase Routes - TestCase operations
 
-This module handles test case CRUD operations using direct database access.
+This module handles test case CRUD operations using the database layer.
 Execution is proxied to hosts.
 """
 
 from flask import Blueprint, request, jsonify
 from backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
-from shared.src.lib.utils.supabase_utils import get_supabase_client
+from shared.src.lib.database.testcase_db import (
+    create_testcase,
+    update_testcase,
+    get_testcase,
+    delete_testcase,
+    list_testcases,
+    get_testcase_by_name
+)
 
 server_testcase_bp = Blueprint('server_testcase', __name__, url_prefix='/server/testcase')
 
@@ -24,27 +31,59 @@ def testcase_save():
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
-        supabase = get_supabase_client()
-        if not supabase:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 503
-        
-        # Add team_id to data
-        data['team_id'] = team_id
-        
         # Check if updating existing testcase
-        test_id = data.get('test_id')
+        testcase_id = data.get('testcase_id')
         
-        if test_id:
+        if testcase_id:
             # Update existing testcase
-            result = supabase.table('test_cases').update(data).eq('test_id', test_id).eq('team_id', team_id).execute()
+            success = update_testcase(
+                testcase_id=testcase_id,
+                graph_json=data.get('graph_json'),
+                description=data.get('description'),
+                userinterface_name=data.get('userinterface_name'),
+                team_id=team_id
+            )
+            
+            if success:
+                # Fetch updated testcase
+                testcase = get_testcase(testcase_id, team_id)
+                if testcase:
+                    return jsonify({'success': True, 'testcase': testcase})
+                else:
+                    return jsonify({'success': False, 'error': 'Test case not found after update'}), 404
+            else:
+                return jsonify({'success': False, 'error': 'Failed to update test case'}), 500
         else:
             # Create new testcase
-            result = supabase.table('test_cases').insert(data).execute()
-        
-        if result.data and len(result.data) > 0:
-            return jsonify({'success': True, 'testcase': result.data[0]})
-        else:
-            return jsonify({'success': False, 'error': 'Failed to save test case'}), 500
+            testcase_name = data.get('testcase_name')
+            if not testcase_name:
+                return jsonify({'success': False, 'error': 'testcase_name is required'}), 400
+            
+            graph_json = data.get('graph_json')
+            if not graph_json:
+                return jsonify({'success': False, 'error': 'graph_json is required'}), 400
+            
+            new_testcase_id = create_testcase(
+                team_id=team_id,
+                testcase_name=testcase_name,
+                graph_json=graph_json,
+                description=data.get('description'),
+                userinterface_name=data.get('userinterface_name'),
+                created_by=data.get('created_by'),
+                creation_method=data.get('creation_method', 'visual'),
+                ai_prompt=data.get('ai_prompt'),
+                ai_analysis=data.get('ai_analysis')
+            )
+            
+            if new_testcase_id:
+                # Fetch created testcase
+                testcase = get_testcase(new_testcase_id, team_id)
+                if testcase:
+                    return jsonify({'success': True, 'testcase': testcase})
+                else:
+                    return jsonify({'success': False, 'error': 'Test case not found after creation'}), 404
+            else:
+                return jsonify({'success': False, 'error': 'Failed to create test case'}), 500
             
     except Exception as e:
         print(f"[@server_testcase:save] ERROR: {e}")
@@ -59,25 +98,9 @@ def testcase_list():
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
-        supabase = get_supabase_client()
-        if not supabase:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 503
+        include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
         
-        # Query test_cases table
-        result = supabase.table('test_cases')\
-            .select('*')\
-            .eq('team_id', team_id)\
-            .order('created_at', desc=True)\
-            .execute()
-        
-        testcases = result.data if result.data else []
-        
-        # Ensure IDs are strings
-        for testcase in testcases:
-            if 'test_id' in testcase:
-                testcase['test_id'] = str(testcase['test_id'])
-            if 'team_id' in testcase:
-                testcase['team_id'] = str(testcase['team_id'])
+        testcases = list_testcases(team_id, include_inactive=include_inactive)
         
         return jsonify(testcases)
         
@@ -94,20 +117,9 @@ def testcase_get(testcase_id):
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
-        supabase = get_supabase_client()
-        if not supabase:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 503
+        testcase = get_testcase(testcase_id, team_id)
         
-        result = supabase.table('test_cases')\
-            .select('*')\
-            .eq('test_id', testcase_id)\
-            .eq('team_id', team_id)\
-            .execute()
-        
-        if result.data and len(result.data) > 0:
-            testcase = result.data[0]
-            testcase['test_id'] = str(testcase['test_id'])
-            testcase['team_id'] = str(testcase['team_id'])
+        if testcase:
             return jsonify({'success': True, 'testcase': testcase})
         else:
             return jsonify({'success': False, 'error': 'Test case not found'}), 404
@@ -125,17 +137,9 @@ def testcase_delete(testcase_id):
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
-        supabase = get_supabase_client()
-        if not supabase:
-            return jsonify({'success': False, 'error': 'Database connection failed'}), 503
+        success = delete_testcase(testcase_id, team_id)
         
-        result = supabase.table('test_cases')\
-            .delete()\
-            .eq('test_id', testcase_id)\
-            .eq('team_id', team_id)\
-            .execute()
-        
-        if result.data and len(result.data) > 0:
+        if success:
             return jsonify({'success': True, 'message': 'Test case deleted'})
         else:
             return jsonify({'success': False, 'error': 'Test case not found or already deleted'}), 404
