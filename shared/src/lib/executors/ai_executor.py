@@ -1069,74 +1069,53 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         cached_context = self._get_cached_context(context)
         ai_response = self._call_ai(prompt, cached_context)
         
-        # AI now returns 'graph' directly (modern format)
-        # Legacy conversion for old cached plans if needed
-        if 'plan' in ai_response and 'graph' not in ai_response:
-            ai_response['graph'] = ai_response.pop('plan')
-        if 'steps' in ai_response and 'graph' not in ai_response:
-            # Convert old format to graph if AI returns steps (legacy support)
-            ai_response['graph'] = self._convert_steps_to_graph(ai_response.pop('steps'))
-        
-        # Add metadata to AI response
+        # Add metadata
         ai_response['id'] = str(uuid.uuid4())
         ai_response['prompt'] = prompt
         
-        # Graph format validation happens during pre-processing (preprocess_prompt)
-        # No post-validation needed - nodes already verified
-        
-        # Pre-fetch transitions for navigation nodes in graph
+        # Extract steps from graph and pre-fetch transitions
         if ai_response.get('feasible', True) and ai_response.get('graph'):
             self._prefetch_navigation_transitions_from_graph(ai_response['graph'], context)
+            ai_response['plan'] = self._extract_steps_from_graph(ai_response['graph'])
         
         return ai_response
     
-    def _convert_steps_to_graph(self, steps: List[Dict]) -> Dict:
-        """Convert legacy step format to graph format (fallback)"""
-        nodes = [{"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {}}]
-        edges = []
+    def _extract_steps_from_graph(self, graph: Dict) -> List[Dict]:
+        """Extract executable steps from graph nodes"""
+        steps = []
         
-        y_pos = 200
-        prev_id = "start"
+        for node in graph.get('nodes', []):
+            node_type = node.get('type')
+            if node_type in ['start', 'success', 'failure']:
+                continue
+            
+            data = node.get('data', {})
+            
+            if node_type == 'navigation':
+                steps.append({
+                    'command': 'execute_navigation',
+                    'params': {
+                        'target_node': data.get('target_node'),
+                        'transitions': data.get('transitions', [])
+                    }
+                })
+            elif node_type == 'action':
+                steps.append({
+                    'command': data.get('command'),
+                    'params': {k: v for k, v in data.items() if k != 'command'}
+                })
+            elif node_type == 'verification':
+                steps.append({
+                    'command': f"verify_{data.get('verification_type', 'text')}",
+                    'params': data
+                })
+            elif node_type == 'ai':
+                steps.append({
+                    'command': 'execute_ai',
+                    'params': {'prompt': data.get('prompt', '')}
+                })
         
-        for i, step in enumerate(steps):
-            step_id = f"step{i+1}"
-            command = step.get('command', '')
-            params = step.get('params', {})
-            
-            # Determine block type
-            if command == 'execute_navigation':
-                block_type = 'navigation'
-                data = {"target_node": params.get('target_node'), "target_node_id": params.get('target_node')}
-            elif command.startswith('verify_'):
-                block_type = 'verification'
-                data = {"verification_type": params.get('verification_type', 'text'), **params}
-            else:
-                block_type = 'action'
-                data = {"command": command, **params}
-            
-            nodes.append({
-                "id": step_id,
-                "type": block_type,
-                "position": {"x": 100, "y": y_pos},
-                "data": data
-            })
-            
-            edges.append({
-                "id": f"e{i}",
-                "source": prev_id,
-                "target": step_id,
-                "sourceHandle": "success",
-                "type": "success"
-            })
-            
-            prev_id = step_id
-            y_pos += 100
-        
-        # Add success terminal
-        nodes.append({"id": "success", "type": "success", "position": {"x": 100, "y": y_pos}, "data": {}})
-        edges.append({"id": "e_final", "source": prev_id, "target": "success", "sourceHandle": "success", "type": "success"})
-        
-        return {"nodes": nodes, "edges": edges}
+        return steps
     
     def _prefetch_navigation_transitions_from_graph(self, graph: Dict, context: Dict) -> None:
         """
