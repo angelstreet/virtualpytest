@@ -160,6 +160,10 @@ def register_all_server_routes(app):
         from routes import server_ai_routes
         print("[@backend_server:routes] ✅ server_ai_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_testcase_routes...")
+        from routes import server_testcase_routes
+        print("[@backend_server:routes] ✅ server_testcase_routes imported successfully")
+        
         print("[@backend_server:routes] 🔍 Importing server_ai_testcase_routes...")
         from routes import server_ai_testcase_routes
         print("[@backend_server:routes] ✅ server_ai_testcase_routes imported successfully")

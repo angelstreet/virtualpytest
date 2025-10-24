@@ -1,165 +1,109 @@
 """
-Test Case API Routes
+Server TestCase Routes - TestCase Builder operations proxy
 
-This module contains the test case management endpoints for:
-- Creating test cases
-- Retrieving test cases
-- Updating test cases
-- Deleting test cases
+This module proxies TestCase Builder operations from the server to the appropriate host.
 """
 
-from flask import Blueprint, request, jsonify, current_app
-import time
+from flask import Blueprint, request, jsonify
+from backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 
-# Import utility functions
-from shared.src.lib.utils.app_utils import get_team_id
+server_testcase_bp = Blueprint('server_testcase', __name__, url_prefix='/server/testcase')
 
-# Import database functions from src/lib/supabase (uses absolute import)
-from shared.src.lib.database.testcase_db import (
-    get_all_test_cases, get_test_case, save_test_case, delete_test_case
-)
 
-from shared.src.lib.utils.app_utils import check_supabase
-
-# Create blueprint with abstract server testcases prefix
-server_testcase_bp = Blueprint('server_testcase', __name__, url_prefix='/server/testcases')
-
-# Helper functions (these should be imported from a shared module)
-def get_user_id():
-    '''Get user_id from request headers - FAIL FAST if not provided'''
-    user_id = request.headers.get('X-User-ID')
-    if not user_id:
-        raise ValueError('X-User-ID header is required but not provided')
-    return user_id
-
-# =====================================================
-# TEST CASE ENDPOINTS WITH CONSISTENT NAMING
-# =====================================================
-
-@server_testcase_bp.route('/getAllTestCases', methods=['GET'])
-def get_all_test_cases_route():
-    """Get all test cases for a team"""
-    # Log caller information to identify source
-    user_agent = request.headers.get('User-Agent', 'Unknown')
-    referer = request.headers.get('Referer', 'Unknown')
-    x_requested_with = request.headers.get('X-Requested-With', 'Unknown')
-    origin = request.headers.get('Origin', 'Unknown')
-    accept = request.headers.get('Accept', 'Unknown')
+@server_testcase_bp.route('/save', methods=['POST'])
+def testcase_save():
+    """Save or update test case definition"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
     
-    print(f"[@server_testcase_routes:getAllTestCases] 🔍 DETAILED CALLER INFO:")
-    print(f"  - User-Agent: {user_agent}")
-    print(f"  - Referer: {referer}")
-    print(f"  - Origin: {origin}")
-    print(f"  - Accept: {accept}")
-    print(f"  - X-Requested-With: {x_requested_with}")
-    print(f"  - Remote Address: {request.remote_addr}")
-    print(f"  - Request Method: {request.method}")
-    print(f"  - Request Path: {request.path}")
-    print(f"  - All Headers: {dict(request.headers)}")
-    
-    error = check_supabase()
-    if error:
-        return error
-        
     team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
     
-    try:
-        test_cases = get_all_test_cases(team_id)
-        return jsonify(test_cases)
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        '/host/testcase/save', 'POST', data, query_params
+    )
+    return jsonify(response_data), status_code
 
-@server_testcase_bp.route('/getTestCase/<test_id>', methods=['GET'])
-def get_test_case_route(test_id):
-    """Get a specific test case by ID"""
-    error = check_supabase()
-    if error:
-        return error
-        
+
+@server_testcase_bp.route('/list', methods=['GET'])
+def testcase_list():
+    """List all test cases for a team"""
     team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
     
-    try:
-        test_case = get_test_case(test_id, team_id)
-        return jsonify(test_case if test_case else {})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        '/host/testcase/list', 'GET', None, query_params
+    )
+    return jsonify(response_data), status_code
 
-@server_testcase_bp.route('/createTestCase', methods=['POST'])
-def create_test_case_route():
-    """Create a new test case"""
-    error = check_supabase()
-    if error:
-        return error
-        
+
+@server_testcase_bp.route('/<testcase_id>', methods=['GET'])
+def testcase_get(testcase_id):
+    """Get test case definition by ID"""
     team_id = request.args.get('team_id')
-    user_id = get_user_id()
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
     
-    try:
-        test_case = request.json
-        save_test_case(test_case, team_id, user_id)
-        return jsonify({'status': 'success', 'test_id': test_case['test_id']})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        f'/host/testcase/{testcase_id}', 'GET', None, query_params
+    )
+    return jsonify(response_data), status_code
 
-@server_testcase_bp.route('/updateTestCase/<test_id>', methods=['PUT'])
-def update_test_case_route(test_id):
-    """Update an existing test case"""
-    error = check_supabase()
-    if error:
-        return error
-        
+
+@server_testcase_bp.route('/<testcase_id>', methods=['DELETE'])
+def testcase_delete(testcase_id):
+    """Delete test case"""
     team_id = request.args.get('team_id')
-    user_id = get_user_id()
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
     
-    try:
-        test_case = request.json
-        test_case['test_id'] = test_id
-        save_test_case(test_case, team_id, user_id)
-        return jsonify({'status': 'success'})
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        f'/host/testcase/{testcase_id}', 'DELETE', None, query_params
+    )
+    return jsonify(response_data), status_code
 
-@server_testcase_bp.route('/deleteTestCase/<test_id>', methods=['DELETE'])
-def delete_test_case_route(test_id):
-    """Delete a test case"""
-    error = check_supabase()
-    if error:
-        return error
-        
+
+@server_testcase_bp.route('/<testcase_id>/execute', methods=['POST'])
+def testcase_execute(testcase_id):
+    """Execute test case by ID"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+    
     team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
     
-    try:
-        success = delete_test_case(test_id, team_id)
-        if success:
-            return jsonify({'status': 'success'})
-        else:
-            return jsonify({'error': 'Test case not found'}), 404
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        f'/host/testcase/{testcase_id}/execute', 'POST', data, query_params
+    )
+    return jsonify(response_data), status_code
 
-@server_testcase_bp.route('/executeTestCase', methods=['POST'])
-def execute_test_case():
-    """Execute a test case using abstract controllers"""
-    try:
-        data = request.get_json()
-        test_case_id = data.get('test_case_id')
-        device_id = data.get('device_id')
-        
-        if not test_case_id or not device_id:
-            return jsonify({'error': 'test_case_id and device_id are required'}), 400
-        
-        # TODO: Implement test case execution logic using abstract controllers
-        # This would involve:
-        # 1. Loading the test case from database
-        # 2. Getting the device/host information
-        # 3. Executing the test steps using abstract remote/verification controllers
-        # 4. Returning execution results
-        
-        return jsonify({
-            'success': True,
-            'message': f'Test case {test_case_id} execution started on device {device_name}',
-            'execution_id': f'exec_{test_case_id}_{device_name}_{int(time.time())}'
-        })
-        
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500 
+
+@server_testcase_bp.route('/<testcase_id>/history', methods=['GET'])
+def testcase_history(testcase_id):
+    """Get execution history for a test case"""
+    team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
+    
+    limit = request.args.get('limit', '50')
+    query_params = {'team_id': team_id, 'limit': limit}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        f'/host/testcase/{testcase_id}/history', 'GET', None, query_params
+    )
+    return jsonify(response_data), status_code

@@ -256,54 +256,6 @@ class AIExecutor:
                 'execution_time': time.time() - start_time
             }
     
-    def execute_testcase(self, test_case_id: str, team_id: str) -> Dict[str, Any]:
-        """Execute stored test case"""
-        try:
-            from shared.src.lib.database.testcase_db import get_test_case
-            
-            test_case = get_test_case(test_case_id, team_id)
-            if not test_case:
-                return {
-                    'success': False,
-                    'error': f'Test case {test_case_id} not found'
-                }
-            
-            # Get stored plan
-            stored_plan = test_case.get('ai_plan')
-            if not stored_plan:
-                return {
-                    'success': False,
-                    'error': 'Test case missing ai_plan'
-                }
-            
-            # Execute stored plan synchronously
-            execution_id = str(uuid.uuid4())
-            start_time = time.time()
-            self._init_execution_tracking(execution_id, f"Test case: {test_case_id}", start_time)
-            self._set_execution_plan(execution_id, stored_plan)
-            
-            # Load minimal context for execution
-            userinterface_name = stored_plan.get('userinterface_name', 'horizon_android_mobile')
-            current_node_id = stored_plan.get('current_node_id')
-            context = self._load_context(userinterface_name, current_node_id, team_id)
-            
-            result = self._execute_plan_sync(stored_plan, context)
-            self._complete_execution_tracking(execution_id, result)
-            
-            return {
-                'success': result.success,
-                'execution_id': execution_id,
-                'message': 'Test case executed' if result.success else result.error,
-                'steps_executed': len([r for r in result.step_results if r.get('success')]),
-                'total_steps': len(result.step_results)
-            }
-            
-        except Exception as e:
-            return {
-                'success': False,
-                'error': f'Test case execution error: {str(e)}'
-            }
-    
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         """Get execution status - use class variable explicitly"""
         print(f"[@ai_executor] Looking for execution {execution_id}, available executions: {list(AIExecutor._executions.keys())}")
@@ -1111,8 +1063,8 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
     # ========================================
     
     def generate_plan(self, prompt: str, context: Dict, current_node_id: str = None) -> Dict:
-        """Generate plan dict directly - no object conversion"""
-        from shared.src.lib.executors.ai_prompt_validation import validate_plan
+        """Generate test case graph directly"""
+        from shared.src.lib.executors.ai_prompt_validation import validate_graph
         
         # Add current node to context
         context = context.copy()
@@ -1122,23 +1074,26 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
         cached_context = self._get_cached_context(context)
         ai_response = self._call_ai(prompt, cached_context)
         
-        # Transform plan structure for frontend compatibility
-        if 'plan' in ai_response:
-            ai_response['steps'] = ai_response.pop('plan')  # Rename 'plan' to 'steps'
+        # AI now returns 'graph' instead of 'plan'/'steps'
+        # Transform for consistency
+        if 'plan' in ai_response and 'graph' not in ai_response:
+            ai_response['graph'] = ai_response.pop('plan')
+        if 'steps' in ai_response and 'graph' not in ai_response:
+            # Convert old format to graph if AI returns steps
+            ai_response['graph'] = self._convert_steps_to_graph(ai_response.pop('steps'))
         
         # Add metadata to AI response
         ai_response['id'] = str(uuid.uuid4())
         ai_response['prompt'] = prompt
         
-        # POST-PROCESS: Validate and auto-fix AI-generated plan
-        # This ensures all navigation nodes exist and attempts to auto-correct AI mistakes
-        if ai_response.get('steps') and ai_response.get('feasible', True):
+        # Validate graph structure
+        if ai_response.get('graph') and ai_response.get('feasible', True):
             available_nodes = context.get('available_nodes', [])
             team_id = context.get('team_id')
             userinterface_name = context.get('userinterface_name')
             
             if available_nodes and team_id and userinterface_name:
-                validation_result = validate_plan(
+                validation_result = validate_graph(
                     ai_response,
                     available_nodes,
                     team_id,
@@ -1146,35 +1101,80 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
                 )
                 
                 if validation_result['modified']:
-                    print(f"[@ai_executor:generate_plan] Auto-fixed invalid nodes in AI plan")
+                    print(f"[@ai_executor:generate_plan] Auto-fixed invalid nodes in AI graph")
                 
                 if not validation_result['valid']:
-                    # Mark plan as not feasible if it has invalid nodes after auto-fix attempts
                     ai_response['feasible'] = False
                     ai_response['needs_disambiguation'] = True
                     ai_response['invalid_nodes'] = validation_result['invalid_nodes']
                     invalid_count = len(validation_result['invalid_nodes'])
-                    ai_response['error'] = f"Plan contains {invalid_count} invalid navigation node(s)"
-                    print(f"[@ai_executor:generate_plan] Plan validation failed: {invalid_count} invalid nodes")
+                    ai_response['error'] = f"Graph contains {invalid_count} invalid navigation node(s)"
+                    print(f"[@ai_executor:generate_plan] Graph validation failed: {invalid_count} invalid nodes")
                 
-                # Use validated/fixed plan
+                # Use validated/fixed graph
                 ai_response = validation_result['plan']
         
-        # PRE-FETCH TRANSITIONS: Fetch navigation transitions for each navigation step
-        # This ensures transitions are ALWAYS available in the plan (no UI fetching needed)
-        # Only pre-fetch if plan is feasible
-        if ai_response.get('feasible', True) and ai_response.get('steps'):
-            self._prefetch_navigation_transitions(ai_response['steps'], context)
+        # Pre-fetch transitions for navigation nodes
+        if ai_response.get('feasible', True) and ai_response.get('graph'):
+            self._prefetch_navigation_transitions_from_graph(ai_response['graph'], context)
         
         return ai_response
     
-    def _prefetch_navigation_transitions(self, steps: List[Dict], context: Dict) -> None:
+    def _convert_steps_to_graph(self, steps: List[Dict]) -> Dict:
+        """Convert legacy step format to graph format (fallback)"""
+        nodes = [{"id": "start", "type": "start", "position": {"x": 100, "y": 100}, "data": {}}]
+        edges = []
+        
+        y_pos = 200
+        prev_id = "start"
+        
+        for i, step in enumerate(steps):
+            step_id = f"step{i+1}"
+            command = step.get('command', '')
+            params = step.get('params', {})
+            
+            # Determine block type
+            if command == 'execute_navigation':
+                block_type = 'navigation'
+                data = {"target_node": params.get('target_node'), "target_node_id": params.get('target_node')}
+            elif command.startswith('verify_'):
+                block_type = 'verification'
+                data = {"verification_type": params.get('verification_type', 'text'), **params}
+            else:
+                block_type = 'action'
+                data = {"command": command, **params}
+            
+            nodes.append({
+                "id": step_id,
+                "type": block_type,
+                "position": {"x": 100, "y": y_pos},
+                "data": data
+            })
+            
+            edges.append({
+                "id": f"e{i}",
+                "source": prev_id,
+                "target": step_id,
+                "sourceHandle": "success",
+                "type": "success"
+            })
+            
+            prev_id = step_id
+            y_pos += 100
+        
+        # Add success terminal
+        nodes.append({"id": "success", "type": "success", "position": {"x": 100, "y": y_pos}, "data": {}})
+        edges.append({"id": "e_final", "source": prev_id, "target": "success", "sourceHandle": "success", "type": "success"})
+        
+        return {"nodes": nodes, "edges": edges}
+    
+    def _prefetch_navigation_transitions_from_graph(self, graph: Dict, context: Dict) -> None:
         """
-        Pre-fetch navigation transitions for all navigation steps in the plan.
-        This ensures transitions are embedded in the plan and NO UI fetching is needed.
+        Pre-fetch navigation transitions for all navigation nodes in the graph.
+        This ensures transitions are embedded in the graph and NO UI fetching is needed.
         
         Args:
-            steps: List of plan steps
+            graph: Graph structure with nodes and edges
             context: Execution context with tree_id and team_id
         """
         tree_id = context.get('tree_id')
@@ -1184,9 +1184,10 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
             print(f"[@ai_executor:prefetch] Skipping transition prefetch - missing tree_id or team_id")
             return
         
-        for step in steps:
-            if step.get('command') == 'execute_navigation':
-                target_node = step.get('params', {}).get('target_node')
+        nodes = graph.get('nodes', [])
+        for node in nodes:
+            if node.get('type') == 'navigation':
+                target_node = node.get('data', {}).get('target_node')
                 if not target_node:
                     continue
                 
@@ -1194,21 +1195,20 @@ If feasible=false, the navigation will fail. Only return feasible=true if you ca
                     # Use navigation executor's preview functionality
                     from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
                     
-                    # Get navigation path (same logic as preview)
-                    # Signature: find_shortest_path(tree_id, target_node_id, team_id, start_node_id=None)
+                    # Get navigation path
                     navigation_path = find_shortest_path(tree_id, target_node, team_id, start_node_id=None)
                     
                     if navigation_path:
-                        # Store transitions directly in the step
-                        step['transitions'] = navigation_path
-                        print(f"[@ai_executor:prefetch] Pre-fetched {len(navigation_path)} transitions for step: {target_node}")
+                        # Store transitions directly in the node data
+                        node['data']['transitions'] = navigation_path
+                        print(f"[@ai_executor:prefetch] Pre-fetched {len(navigation_path)} transitions for node: {target_node}")
                     else:
                         print(f"[@ai_executor:prefetch] No path found for: {target_node}")
-                        step['transitions'] = []
+                        node['data']['transitions'] = []
                         
                 except Exception as e:
                     print(f"[@ai_executor:prefetch] Error fetching transitions for {target_node}: {str(e)}")
-                    step['transitions'] = []  # Empty transitions on error
+                    node['data']['transitions'] = []
     
     def _get_cached_context(self, context: Dict) -> Dict:
         """Apply caching logic to context"""
@@ -1256,11 +1256,16 @@ Task: "{prompt}"
 Device: {device_model}
 Current Position: {current_node_label}
 
-Navigation System: Each node in the navigation list is a DIRECT destination you can navigate to in ONE STEP.
-- Node names like "home_replay", "home_movies", "live" are COMPLETE node identifiers, not hierarchical paths
-- To go to "home_replay" → execute_navigation with target_node="home_replay" (NOT "home" then "replay")
-- Each node represents a specific screen/section that can be reached directly through the navigation tree
-- Only use action commands (click/press) if the exact node doesn't exist in the available navigation nodes
+OUTPUT FORMAT: Generate a React Flow graph with nodes and edges.
+
+Node Types:
+- start: Entry point (always first, id="start")
+- navigation: Navigate to UI node
+- action: Execute device action  
+- verification: Check UI state
+- loop: Repeat nested flow
+- success: Test passed (terminal)
+- failure: Test failed (terminal)
 
 {navigation_context}
 
@@ -1269,46 +1274,62 @@ Navigation System: Each node in the navigation list is a DIRECT destination you 
 {verification_context}
 
 Rules:
-- If already at target node, respond with feasible=true, plan=[]
-- If exact node exists → navigate directly: execute_navigation, target_node="X"
-- If exact node NOT exists:
-  1. Check if SIMILAR/RELATED node exists (e.g., "live" for "live fullscreen")
-  2. If similar exists → navigate to similar node + add requires_reassessment metadata
-  3. If NO similar node → set feasible=false (DO NOT guess or invent node names)
-- "click X" → click_element, element_id="X"  
-- "press X" → press_key, key="X"
-- NEVER break down node names (e.g., "home_replay" is ONE node, not "home" + "replay")
+- If already at target node, respond with feasible=true, graph with just start→success
+- If exact node exists → navigate directly: navigation node with target_node="X"
+- If exact node NOT exists → find SIMILAR node + add requires_reassessment metadata
+- If NO similar node → set feasible=false
 - NEVER use node names not in the navigation list
 - PRIORITIZE navigation over manual actions
-- ALWAYS specify action_type in params
-- CRITICAL: When no relevant nodes exist, mark task as NOT FEASIBLE immediately
+- ALWAYS specify action_type in node data
 
-Reassessment Metadata Format:
-When target node doesn't exist, add metadata to navigation step (NO separate reassessment step):
-{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "closest_node", "action_type": "navigation"}}, "description": "closest_node", "requires_reassessment": true, "reassessment_config": {{"original_target": "target_name", "remaining_goal": "find and click target_name"}}}}
+Reassessment Metadata:
+When target node doesn't exist, add to navigation node data:
+{{"requires_reassessment": true, "reassessment_config": {{"original_target": "target_name", "remaining_goal": "find and click target_name"}}}}
 
-CRITICAL: You MUST include an "analysis" field with Goal and Thinking.
+CRITICAL: Include "analysis" field with Goal and Thinking.
 
 Analysis format:
 - Goal: [What needs to be achieved]
 - Thinking: [Brief explanation of approach/reasoning]
 
-DESCRIPTION FIELD RULES:
-- NEVER use verbose AI descriptions like "Navigate directly to X" or "The X node exists..."
-- Keep descriptions minimal: just the target node name for navigation steps
-- For navigation: description should be ONLY the target node name (e.g., "home_replay", "live")
-- For actions: description can be brief command (e.g., "click element", "press key")
+Example Response (direct navigation):
+{{
+  "analysis": "Goal: Navigate to home_replay screen\\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step",
+  "feasible": true,
+  "graph": {{
+    "nodes": [
+      {{"id": "start", "type": "start", "position": {{"x": 100, "y": 100}}, "data": {{}}}},
+      {{"id": "nav1", "type": "navigation", "position": {{"x": 100, "y": 200}}, "data": {{"target_node": "home_replay", "target_node_id": "home_replay", "action_type": "navigation"}}}},
+      {{"id": "success", "type": "success", "position": {{"x": 100, "y": 300}}, "data": {{}}}}
+    ],
+    "edges": [
+      {{"id": "e1", "source": "start", "target": "nav1", "sourceHandle": "success", "type": "success"}},
+      {{"id": "e2", "source": "nav1", "target": "success", "sourceHandle": "success", "type": "success"}}
+    ]
+  }}
+}}
 
-Example response formats:
-
-Direct navigation (exact node exists):
-{{"analysis": "Goal: Navigate to home_replay screen\nThinking: 'home_replay' node exists in navigation list → direct navigation in one step", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}]}}
-
-Navigation with reassessment (exact node doesn't exist):
-{{"analysis": "Goal: Find and access 'replay' element\nThinking: Exact 'replay' node not found → navigate to closest 'home_replay' → use visual reassessment to locate target", "feasible": true, "plan": [{{"step": 1, "command": "execute_navigation", "params": {{"target_node": "home_replay", "action_type": "navigation"}}, "description": "home_replay"}}, {{"step": 2, "command": "navigation_reassessment", "params": {{"original_target": "replay", "remaining_goal": "find and click replay button", "action_type": "navigation"}}, "description": "reassess"}}]}}
+Example (with action):
+{{
+  "analysis": "Goal: Click replay button\\nThinking: Navigate to home_replay then click element",
+  "feasible": true,
+  "graph": {{
+    "nodes": [
+      {{"id": "start", "type": "start", "position": {{"x": 100, "y": 100}}, "data": {{}}}},
+      {{"id": "nav1", "type": "navigation", "position": {{"x": 100, "y": 200}}, "data": {{"target_node": "home_replay", "action_type": "navigation"}}}},
+      {{"id": "act1", "type": "action", "position": {{"x": 100, "y": 300}}, "data": {{"command": "click_element", "element_id": "replay", "action_type": "remote"}}}},
+      {{"id": "success", "type": "success", "position": {{"x": 100, "y": 400}}, "data": {{}}}}
+    ],
+    "edges": [
+      {{"id": "e1", "source": "start", "target": "nav1", "sourceHandle": "success", "type": "success"}},
+      {{"id": "e2", "source": "nav1", "target": "act1", "sourceHandle": "success", "type": "success"}},
+      {{"id": "e3", "source": "act1", "target": "success", "sourceHandle": "success", "type": "success"}}
+    ]
+  }}
+}}
 
 If task is not possible:
-{{"analysis": "Goal: [state goal]\nThinking: Task not feasible → no relevant navigation nodes exist and visual reassessment cannot help", "feasible": false, "plan": []}}
+{{"analysis": "Goal: [state goal]\\nThinking: Task not feasible → no relevant navigation nodes exist", "feasible": false, "graph": {{"nodes": [], "edges": []}}}}
 
 RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."""
 

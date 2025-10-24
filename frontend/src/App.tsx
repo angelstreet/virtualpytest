@@ -35,6 +35,7 @@ const MonitoringIncidents = React.lazy(() => import('./pages/MonitoringIncidents
 const Heatmap = React.lazy(() => import('./pages/Heatmap'));
 const UserInterface = React.lazy(() => import('./pages/UserInterface'));
 const TestCaseEditor = React.lazy(() => import('./pages/TestCaseEditor'));
+const TestCaseBuilder = React.lazy(() => import('./pages/TestCaseBuilder'));
 const NavigationEditor = React.lazy(() => import('./pages/NavigationEditor'));
 const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
 const AIQueueMonitor = React.lazy(() => import('./pages/AIQueueMonitor'));
@@ -172,6 +173,7 @@ const App: React.FC = () => {
 
                   {/* Test Plan Routes */}
                   <Route path="/test-plan/test-cases" element={<TestCaseEditor />} />
+                  <Route path="/test-plan/testcase-builder" element={<TestCaseBuilder />} />
                   <Route path="/test-plan/campaigns" element={<CampaignEditor />} />
                   <Route path="/test-plan/collections" element={<Collections />} />
 
