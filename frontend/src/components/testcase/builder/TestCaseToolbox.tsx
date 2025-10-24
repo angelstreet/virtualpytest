@@ -8,7 +8,7 @@ import {
   AccordionDetails,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { toolboxConfig, CommandConfig } from './toolboxConfig';
+import { toolboxConfig as staticToolboxConfig, CommandConfig } from './toolboxConfig';
 
 interface DraggableCommandProps {
   command: CommandConfig;
@@ -59,9 +59,13 @@ const DraggableCommand: React.FC<DraggableCommandProps> = ({ command }) => {
 
 interface TestCaseToolboxProps {
   activeTab: string;
+  toolboxConfig?: any;  // Optional dynamic config
 }
 
-export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ activeTab }) => {
+export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ 
+  activeTab,
+  toolboxConfig = staticToolboxConfig  // Fallback to static config
+}) => {
   const currentTabConfig = toolboxConfig[activeTab];
 
   return (
@@ -81,7 +85,7 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ activeTab }) =
           p: 0,
         }}
       >
-        {currentTabConfig.groups.map((group, groupIdx) => (
+        {currentTabConfig.groups.map((group: any, groupIdx: number) => (
           <Accordion
             key={groupIdx}
             defaultExpanded
@@ -125,7 +129,7 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ activeTab }) =
               </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 4}} >
-              {group.commands.map((command, cmdIdx) => (
+              {group.commands.map((command: any, cmdIdx: number) => (
                 <DraggableCommand key={cmdIdx} command={command} />
               ))}
             </AccordionDetails>

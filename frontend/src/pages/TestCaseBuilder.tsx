@@ -52,6 +52,7 @@ import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
 import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
+import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 
 // Dialogs
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
@@ -61,8 +62,13 @@ import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialo
 
 // Context
 import { TestCaseBuilderProvider, useTestCaseBuilder } from '../contexts/testcase/TestCaseBuilderContext';
+import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
+import { NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
+import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
+import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { useTheme } from '../contexts/ThemeContext';
 import { generateTestCaseFromPrompt } from '../services/aiService';
+import { buildToolboxFromNavigationData } from '../utils/toolboxBuilder';
 
 // Node types for React Flow
 const nodeTypes = {
@@ -123,6 +129,20 @@ const TestCaseBuilderContent: React.FC = () => {
   }, []);
 
   const { actualMode } = useTheme();
+  
+  // Get navigation data (reuses NavigationEditor infrastructure)
+  const {
+    nodes: navNodes,
+    edges: navEdges,
+    userInterface,
+    loadTreeByUserInterface,
+    setUserInterfaceFromProps,
+    isLoadingInterface,
+  } = useNavigationEditor();
+  
+  // Get userInterface lookup utility
+  const { getUserInterfaceByName } = useUserInterface();
+  
   const {
     nodes,
     edges,
@@ -177,6 +197,36 @@ const TestCaseBuilderContent: React.FC = () => {
     message: '',
     severity: 'info',
   });
+
+  // Load navigation tree when interface changes (reuses NavigationEditor pattern)
+  useEffect(() => {
+    const loadNavigationTree = async () => {
+      if (!userinterfaceName) return;
+      
+      try {
+        console.log(`[@TestCaseBuilder] Loading navigation tree for interface: ${userinterfaceName}`);
+        
+        // Get interface by name (same as NavigationEditor line 588)
+        const resolvedInterface = await getUserInterfaceByName(userinterfaceName);
+        setUserInterfaceFromProps(resolvedInterface);
+        
+        // Load tree with all data (nodes, edges, metrics)
+        await loadTreeByUserInterface(resolvedInterface.id);
+        
+        console.log(`[@TestCaseBuilder] Navigation tree loaded successfully`);
+      } catch (error) {
+        console.error(`[@TestCaseBuilder] Failed to load navigation tree:`, error);
+      }
+    };
+    
+    loadNavigationTree();
+  }, [userinterfaceName, getUserInterfaceByName, setUserInterfaceFromProps, loadTreeByUserInterface]);
+
+  // Build dynamic toolbox from loaded navigation data
+  const dynamicToolboxConfig = React.useMemo(() => {
+    console.log(`[@TestCaseBuilder] Building toolbox - navNodes: ${navNodes?.length}, navEdges: ${navEdges?.length}, interface: ${userInterface?.name}`);
+    return buildToolboxFromNavigationData(navNodes, navEdges, userInterface);
+  }, [navNodes, navEdges, userInterface]);
 
   // Load test case list when load dialog opens
   useEffect(() => {
@@ -483,6 +533,18 @@ const TestCaseBuilderContent: React.FC = () => {
               AI
             </Button>
           </Box>
+          
+          {/* Userinterface Selector */}
+          <Box sx={{ ml: 2 }}>
+            <UserinterfaceSelector
+              value={userinterfaceName}
+              onChange={setUserinterfaceName}
+              label="Interface"
+              size="small"
+              fullWidth={false}
+              sx={{ minWidth: 200 }}
+            />
+          </Box>
         </Box>
         
         {/* Toolbox Tab Navigation - centered - only show in visual mode */}
@@ -562,16 +624,26 @@ const TestCaseBuilderContent: React.FC = () => {
           flexShrink: 0,
         }}>
           {/* Visual Mode: Toolbox */}
-          {creationMode === 'visual' && <TestCaseToolbox activeTab={activeToolboxTab} />}
+          {creationMode === 'visual' && (
+            dynamicToolboxConfig ? (
+              <TestCaseToolbox 
+                activeTab={activeToolboxTab}
+                toolboxConfig={dynamicToolboxConfig}
+              />
+            ) : (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  {isLoadingInterface ? 'Loading...' : 'Select an interface to load toolbox'}
+                </Typography>
+              </Box>
+            )
+          )}
 
           {/* AI Mode: Prompt Input */}
           {creationMode === 'ai' && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1.5, flex: 1, overflowY: 'auto' }}>
                 <Typography variant="subtitle2" fontWeight="bold">
                   AI Test Generator
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  Describe your test in plain English
                 </Typography>
                 <TextField
                   multiline
@@ -619,18 +691,6 @@ const TestCaseBuilderContent: React.FC = () => {
                     </Typography>
                   ))}
                 </Box>
-
-                {/* Instructions */}
-                <Box sx={{ 
-                  mt: 'auto', 
-                  p: 1, 
-                  background: actualMode === 'dark' ? '#1f2937' : '#ffffff', 
-                  borderRadius: 1 
-                }}>
-                  <Typography fontSize={10} color="text.secondary">
-                    <strong>Note:</strong> After AI generates the test, you can edit it visually.
-                </Typography>
-              </Box>
             </Box>
           )}
         </Box>
@@ -853,9 +913,13 @@ const TestCaseBuilderContent: React.FC = () => {
 const TestCaseBuilder: React.FC = () => {
   return (
     <ReactFlowProvider>
-      <TestCaseBuilderProvider>
-        <TestCaseBuilderContent />
-      </TestCaseBuilderProvider>
+      <NavigationConfigProvider>
+        <NavigationEditorProvider>
+          <TestCaseBuilderProvider>
+            <TestCaseBuilderContent />
+          </TestCaseBuilderProvider>
+        </NavigationEditorProvider>
+      </NavigationConfigProvider>
     </ReactFlowProvider>
   );
 };
