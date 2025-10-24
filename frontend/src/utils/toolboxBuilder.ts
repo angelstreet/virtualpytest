@@ -53,13 +53,13 @@ export function buildToolboxFromNavigationData(
       tabName: 'Actions',
       groups: [
         {
-          groupName: 'Device Actions',
+          groupName: 'Actions',
           commands: extractActionBlocks(availableActions)
         }
       ]
     },
     verifications: {
-      tabName: 'Verify',
+      tabName: 'Verifications',
       groups: [
         {
           groupName: 'Verifications',

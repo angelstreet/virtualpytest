@@ -114,8 +114,6 @@ const reactFlowStyle = { width: '100%', height: '100%' };
 
 const nodeOrigin: [number, number] = [0, 0];
 
-// miniMapStyle moved inside component to use theme context
-
 const proOptions = { hideAttribution: true };
 
 // MiniMap nodeColor function - defined outside component to prevent recreation

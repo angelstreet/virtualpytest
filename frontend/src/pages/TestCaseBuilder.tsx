@@ -45,7 +45,6 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
 // Components
 import { TestCaseToolbox } from '../components/testcase/builder/TestCaseToolbox';
-import { toolboxConfig } from '../components/testcase/builder/toolboxConfig';
 import { StartBlock } from '../components/testcase/blocks/StartBlock';
 import { SuccessBlock } from '../components/testcase/blocks/SuccessBlock';
 import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
@@ -53,6 +52,15 @@ import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
+
+// Device Control Components (REUSE from NavigationEditor)
+import { RemotePanel } from '../components/controller/remote/RemotePanel';
+import { DesktopPanel } from '../components/controller/desktop/DesktopPanel';
+import { WebPanel } from '../components/controller/web/WebPanel';
+import { VNCStream } from '../components/controller/av/VNCStream';
+import { HDMIStream } from '../components/controller/av/HDMIStream';
+import { DEFAULT_DEVICE_RESOLUTION } from '../config/deviceResolutions';
+import { NavigationEditorDeviceControls } from '../components/navigation/Navigation_NavigationEditor_DeviceControls';
 
 // Dialogs
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
@@ -66,6 +74,8 @@ import { NavigationEditorProvider } from '../contexts/navigation/NavigationEdito
 import { NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
 import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
 import { useDeviceData } from '../contexts/device/DeviceDataContext';
+import { useHostManager } from '../contexts/index';
+import { useDeviceControl } from '../hooks/useDeviceControl';
 import { useTheme } from '../contexts/ThemeContext';
 import { generateTestCaseFromPrompt } from '../services/aiService';
 import { buildToolboxFromNavigationData } from '../utils/toolboxBuilder';
@@ -134,8 +144,65 @@ const TestCaseBuilderContent: React.FC = () => {
 
   const { actualMode } = useTheme();
   
-  // Get available actions from DeviceDataContext (same as Navigation Editor)
-  const { getAvailableActions } = useDeviceData();
+  // Get host manager for device control (REUSE from NavigationEditor)
+  const {
+    selectedHost,
+    selectedDeviceId,
+    isControlActive,
+    isRemotePanelOpen,
+    showRemotePanel,
+    showAVPanel,
+    availableHosts,
+    handleDeviceSelect,
+    handleControlStateChange,
+    handleToggleRemotePanel,
+    handleDisconnectComplete,
+    isDeviceLocked, // For device locking functionality
+  } = useHostManager();
+  
+  // Get device control hook for control state (REUSE from NavigationEditor lines 86-99)
+  const {
+    isControlLoading,
+    handleTakeControl,
+    handleReleaseControl,
+  } = useDeviceControl({
+    host: selectedHost,
+    device_id: selectedDeviceId || 'device1',
+    sessionId: 'testcase-builder-session',
+    autoCleanup: true,
+  });
+  
+  // Device control handler (REUSE pattern from NavigationEditor lines 115-125)
+  const handleDeviceControl = useCallback(async () => {
+    if (isControlActive) {
+      console.log('[@TestCaseBuilder] Releasing device control');
+      await handleReleaseControl();
+      handleControlStateChange(false);
+    } else {
+      console.log('[@TestCaseBuilder] Taking device control');
+      const success = await handleTakeControl();
+      if (success) {
+        handleControlStateChange(true);
+      }
+    }
+  }, [isControlActive, handleTakeControl, handleReleaseControl, handleControlStateChange]);
+  
+  // Get DeviceDataContext and initialize it with control state (REUSE from NavigationEditor line 530-535)
+  const { setControlState, getAvailableActions } = useDeviceData();
+  
+  // Initialize device data context when control state changes (COPIED from NavigationEditor)
+  useEffect(() => {
+    setControlState(selectedHost, selectedDeviceId, isControlActive);
+    
+    // Log available actions for debugging
+    if (isControlActive && selectedDeviceId) {
+      const actions = getAvailableActions();
+      const actionCount = Object.values(actions).flat().length;
+      console.log(`[@TestCaseBuilder] Device control active - ${actionCount} actions available from controllers`);
+    }
+  }, [selectedHost, selectedDeviceId, isControlActive, setControlState, getAvailableActions]);
+  
+  // Now availableActions will be populated when device is selected!
   const availableActions = getAvailableActions();
   
   // Get navigation infrastructure (for compatibility, but we use pre-loaded data)
@@ -181,7 +248,6 @@ const TestCaseBuilderContent: React.FC = () => {
   const [creationMode, setCreationMode] = useState<'visual' | 'ai'>('visual');
   const [aiPrompt, setAiPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);
-  const [activeToolboxTab, setActiveToolboxTab] = useState('standard');
 
   // Dialogs
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
@@ -642,7 +708,7 @@ const TestCaseBuilderContent: React.FC = () => {
         }}
       >
         {/* SECTION 1: Title */}
-        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 240px' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 190px' }}>
           <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
             TestCase Builder
           </Typography>
@@ -669,7 +735,31 @@ const TestCaseBuilderContent: React.FC = () => {
           </Button>
         </Box>
         
-        {/* SECTION 3: Interface Selector + Toolbox Tabs */}
+        {/* SECTION 2.5: Device Control (REUSE exact same component as NavigationEditor) */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '0 0 auto', ml: 2, borderLeft: 1, borderColor: 'divider', pl: 2 }}>
+          <NavigationEditorDeviceControls
+            selectedHost={selectedHost}
+            selectedDeviceId={selectedDeviceId || null}
+            isControlActive={isControlActive}
+            isControlLoading={isControlLoading}
+            isRemotePanelOpen={isRemotePanelOpen}
+            availableHosts={availableHosts}
+            isDeviceLocked={(deviceKey: string) => {
+              // Parse deviceKey format: "hostname:device_id"
+              const [hostName, deviceId] = deviceKey.includes(':')
+                ? deviceKey.split(':')
+                : [deviceKey, 'device1'];
+              
+              const host = availableHosts.find((h) => h.host_name === hostName);
+              return isDeviceLocked(host || null, deviceId);
+            }}
+            onDeviceSelect={handleDeviceSelect}
+            onTakeControl={handleDeviceControl}
+            onToggleRemotePanel={handleToggleRemotePanel}
+          />
+        </Box>
+        
+        {/* SECTION 3: Interface Selector */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
           {/* Userinterface Selector */}
           <UserinterfaceSelector
@@ -681,63 +771,6 @@ const TestCaseBuilderContent: React.FC = () => {
             fullWidth={false}
             sx={{ minWidth: 200 }}
           />
-          
-          {/* Toolbox Tab Navigation (only in visual mode) */}
-          {creationMode === 'visual' && (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              {Object.keys(dynamicToolboxConfig || toolboxConfig).map((key) => {
-                const config = dynamicToolboxConfig || toolboxConfig;
-                const tabName = (config as any)[key]?.tabName || key;
-                
-                // Define tab colors
-                const tabColors: Record<string, string> = {
-                  'standard': '#3b82f6',    // blue
-                  'navigation': '#8b5cf6',  // purple
-                  'actions': '#ef4444',     // red
-                  'verifications': '#10b981' // green
-                };
-                
-                const tabColor = tabColors[key] || '#6b7280';
-                const isActive = activeToolboxTab === key;
-                
-                return (
-                  <Button
-                    key={key}
-                    size="small"
-                    variant={isActive ? 'contained' : 'outlined'}
-                    onClick={() => setActiveToolboxTab(key)}
-                    sx={{ 
-                      fontSize: 10, 
-                      py: 0.5, 
-                      px: 1.5,
-                      minWidth: 'auto',
-                      // Active: colored background
-                      ...(isActive && {
-                        backgroundColor: tabColor,
-                        borderColor: tabColor,
-                        color: '#ffffff',
-                        '&:hover': {
-                          backgroundColor: tabColor,
-                          opacity: 0.9
-                        }
-                      }),
-                      // Inactive: colored border and text
-                      ...(!isActive && {
-                        borderColor: tabColor,
-                        color: tabColor,
-                        '&:hover': {
-                          borderColor: tabColor,
-                          backgroundColor: `${tabColor}15` // 15% opacity
-                        }
-                      })
-                    }}
-                  >
-                    {tabName.toUpperCase()}
-                  </Button>
-                );
-              })}
-            </Box>
-          )}
         </Box>
         
         {/* SECTION 4: TestCase Info + Action Buttons */}
@@ -749,13 +782,32 @@ const TestCaseBuilderContent: React.FC = () => {
           )}
           
           <Box sx={{ display: 'flex', gap: 0.75 }}>
-            <Button size="small" variant="outlined" startIcon={<AddIcon />} onClick={handleNew}>
+            <Button 
+              size="small" 
+              variant="outlined" 
+              startIcon={<AddIcon />} 
+              onClick={handleNew}
+              disabled={!userinterfaceName}
+              title={!userinterfaceName ? 'Select a userinterface first' : 'Create new test case'}
+            >
               New
             </Button>
-            <Button size="small" variant="outlined" startIcon={<FolderOpenIcon />} onClick={() => setLoadDialogOpen(true)}>
+            <Button 
+              size="small" 
+              variant="outlined" 
+              startIcon={<FolderOpenIcon />} 
+              onClick={() => setLoadDialogOpen(true)}
+            >
               Load
             </Button>
-            <Button size="small" variant="outlined" startIcon={<SaveIcon />} onClick={() => setSaveDialogOpen(true)}>
+            <Button 
+              size="small" 
+              variant="outlined" 
+              startIcon={<SaveIcon />} 
+              onClick={() => setSaveDialogOpen(true)}
+              disabled={!userinterfaceName}
+              title={!userinterfaceName ? 'Select a userinterface first' : 'Save test case'}
+            >
               Save
             </Button>
             <Button
@@ -763,7 +815,21 @@ const TestCaseBuilderContent: React.FC = () => {
               variant="contained"
               startIcon={<PlayArrowIcon />}
               onClick={handleExecute}
-              disabled={executionState.isExecuting || !currentTestcaseId}
+              disabled={
+                executionState.isExecuting || 
+                !currentTestcaseId || 
+                !selectedDeviceId || 
+                !isControlActive || 
+                !userinterfaceName
+              }
+              title={
+                !userinterfaceName ? 'Select a userinterface first' :
+                !selectedDeviceId ? 'Select a device first' :
+                !isControlActive ? 'Take control of device first' :
+                !currentTestcaseId ? 'Save test case first' :
+                executionState.isExecuting ? 'Test is running' :
+                'Run test case on device'
+              }
             >
               {executionState.isExecuting ? 'Running...' : 'Run'}
             </Button>
@@ -800,7 +866,6 @@ const TestCaseBuilderContent: React.FC = () => {
               </Box>
             ) : dynamicToolboxConfig ? (
               <TestCaseToolbox 
-                activeTab={activeToolboxTab}
                 toolboxConfig={dynamicToolboxConfig}
               />
             ) : (
@@ -894,17 +959,21 @@ const TestCaseBuilderContent: React.FC = () => {
             fitView
           >
             <Background variant={BackgroundVariant.Dots} gap={15} size={1} />
-            <Controls />
-            <MiniMap style={miniMapStyle} nodeColor={(node) => {
-              if (node.type === 'success') return '#10b981';
-              if (node.type === 'failure') return '#ef4444';
-              if (node.type === 'start') return '#3b82f6';
-              if (node.type === 'action') return '#3b82f6';
-              if (node.type === 'verification') return '#8b5cf6';
-              if (node.type === 'navigation') return '#10b981';
-              if (node.type === 'loop') return '#f59e0b';
-              return '#6b7280';
-            }} />
+            <Controls position="top-left" />
+            <MiniMap 
+              style={miniMapStyle} 
+              position="top-right"
+              nodeColor={(node) => {
+                if (node.type === 'success') return '#10b981';
+                if (node.type === 'failure') return '#ef4444';
+                if (node.type === 'start') return '#3b82f6';
+                if (node.type === 'action') return '#3b82f6';
+                if (node.type === 'verification') return '#8b5cf6';
+                if (node.type === 'navigation') return '#10b981';
+                if (node.type === 'loop') return '#f59e0b';
+                return '#6b7280';
+              }} 
+            />
           </ReactFlow>
         </Box>
       </Box>
@@ -1079,6 +1148,169 @@ const TestCaseBuilderContent: React.FC = () => {
           {snackbar.message}
         </Alert>
       </Snackbar>
+      
+      {/* Remote/Desktop Panel - REUSE from NavigationEditor lines 996-1121 */}
+      {showRemotePanel && selectedHost && selectedDeviceId && isControlActive && (() => {
+        const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+        const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
+        const remoteCapability = selectedDevice?.device_capabilities?.remote;
+        const hasMultipleRemotes = Array.isArray(remoteCapability) || selectedDevice?.device_model === 'fire_tv';
+        
+        if (isDesktopDevice) {
+          // For desktop devices, render both DesktopPanel and WebPanel together
+          return (
+            <>
+              <DesktopPanel
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={selectedDevice?.device_model || 'host_vnc'}
+                isConnected={isControlActive}
+                onReleaseControl={handleDisconnectComplete}
+                initialCollapsed={true}
+              />
+              <WebPanel
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={selectedDevice?.device_model || 'host_vnc'}
+                isConnected={isControlActive}
+                onReleaseControl={handleDisconnectComplete}
+                initialCollapsed={true}
+              />
+            </>
+          );
+        } else if (hasMultipleRemotes && selectedDevice?.device_model === 'fire_tv') {
+          // For Fire TV devices, render both AndroidTvRemote and InfraredRemote side by side
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'row',
+                gap: 2,
+                position: 'absolute',
+                right: 20,
+                top: 100,
+                zIndex: 1000,
+                height: 'auto',
+              }}
+            >
+              <RemotePanel
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={selectedDevice?.device_model || 'fire_tv'}
+                remoteType="android_tv"
+                isConnected={isControlActive}
+                onReleaseControl={handleDisconnectComplete}
+                deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+                streamCollapsed={true}
+                streamMinimized={false}
+                streamHidden={false}
+                captureMode="stream"
+                initialCollapsed={true}
+              />
+              <RemotePanel
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={selectedDevice?.device_model || 'fire_tv'}
+                remoteType="ir_remote"
+                isConnected={isControlActive}
+                onReleaseControl={handleDisconnectComplete}
+                deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+                streamCollapsed={true}
+                streamMinimized={false}
+                streamHidden={false}
+                captureMode="stream"
+                initialCollapsed={true}
+              />
+            </Box>
+          );
+        } else if (hasMultipleRemotes) {
+          // For other devices with multiple remote controllers - render side by side
+          const remoteTypes = Array.isArray(remoteCapability) ? remoteCapability : [remoteCapability];
+          return (
+            <Box
+              sx={{
+                display: 'flex',
+                flexDirection: 'row',
+                gap: 2,
+                position: 'absolute',
+                right: 20,
+                top: 100,
+                zIndex: 1000,
+                height: 'auto',
+              }}
+            >
+              {remoteTypes.filter(Boolean).map((remoteType: string, index: number) => (
+                <RemotePanel
+                  key={`${selectedDeviceId}-${remoteType}`}
+                  host={selectedHost}
+                  deviceId={selectedDeviceId}
+                  deviceModel={selectedDevice?.device_model || 'unknown'}
+                  remoteType={remoteType}
+                  isConnected={isControlActive}
+                  onReleaseControl={handleDisconnectComplete}
+                  deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+                  streamCollapsed={true}
+                  streamMinimized={false}
+                  captureMode="stream"
+                  initialCollapsed={index > 0}
+                />
+              ))}
+            </Box>
+          );
+        } else {
+          // For single remote devices, render only one RemotePanel
+          return (
+            <RemotePanel
+              host={selectedHost}
+              deviceId={selectedDeviceId}
+              deviceModel={selectedDevice?.device_model || 'unknown'}
+              isConnected={isControlActive}
+              onReleaseControl={handleDisconnectComplete}
+              deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+              streamCollapsed={true}
+              streamMinimized={false}
+              captureMode="stream"
+              isVerificationVisible={false}
+              isNavigationEditorContext={false}
+            />
+          );
+        }
+      })()}
+
+      {/* AV Panel - REUSE from NavigationEditor lines 1124-1156 */}
+      {showAVPanel && selectedHost && selectedDeviceId && (() => {
+        const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+        const deviceModel = selectedDevice?.device_model;
+        
+        if (deviceModel === 'host_vnc') {
+          return (
+            <VNCStream
+              host={selectedHost}
+              deviceId={selectedDeviceId}
+              deviceModel={deviceModel}
+              isControlActive={isControlActive}
+              userinterfaceName={userinterfaceName}
+              onCollapsedChange={() => {}}
+              onMinimizedChange={() => {}}
+              onCaptureModeChange={() => {}}
+            />
+          );
+        } else {
+          return (
+            <HDMIStream
+              host={selectedHost}
+              deviceId={selectedDeviceId}
+              deviceModel={deviceModel}
+              isControlActive={isControlActive}
+              userinterfaceName={userinterfaceName}
+              onCollapsedChange={() => {}}
+              onMinimizedChange={() => {}}
+              onCaptureModeChange={() => {}}
+              deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+            />
+          );
+        }
+      })()}
     </Box>
   );
 };
