@@ -3,15 +3,12 @@ import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import NavigationIcon from '@mui/icons-material/Navigation';
 import LoopIcon from '@mui/icons-material/Loop';
-import SettingsIcon from '@mui/icons-material/Settings';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import SwipeIcon from '@mui/icons-material/Swipe';
 import KeyboardIcon from '@mui/icons-material/Keyboard';
 import ImageIcon from '@mui/icons-material/Image';
 import AudiotrackIcon from '@mui/icons-material/Audiotrack';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import HttpIcon from '@mui/icons-material/Http';
-import ShuffleIcon from '@mui/icons-material/Shuffle';
 import StorageIcon from '@mui/icons-material/Storage';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
@@ -48,38 +45,41 @@ export const toolboxConfig: Record<string, TabConfig> = {
     tabName: 'Standard',
     groups: [
       {
-        groupName: 'Control Flow',
+        groupName: 'Flow Control',
         commands: [
           {
             type: BlockType.LOOP,
             label: 'Loop',
             icon: <LoopIcon fontSize="small" />,
-            color: '#f59e0b',
+            color: '#3b82f6',
             outputs: ['complete', 'break'],
             defaultData: { iterations: 1 },
             description: 'Repeat steps multiple times'
           },
           {
+            type: 'sleep',
+            label: 'Sleep',
+            icon: <AccessTimeIcon fontSize="small" />,
+            color: '#3b82f6',
+            outputs: ['success'],
+            description: 'Wait for specified duration'
+          },
+          {
+            type: 'get_current_time',
+            label: 'Get Current Time',
+            icon: <AccessTimeIcon fontSize="small" />,
+            color: '#3b82f6',
+            outputs: ['success'],
+            description: 'Get current timestamp'
+          },
+          {
             type: 'condition',
             label: 'Evaluate Condition',
             icon: <AccountTreeIcon fontSize="small" />,
-            color: '#8b5cf6',
+            color: '#3b82f6',
             outputs: ['true', 'false'],
             description: 'Conditional branching'
           },
-          {
-            type: 'container',
-            label: 'Container',
-            icon: <SettingsIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success', 'failure'],
-            description: 'Group multiple blocks'
-          },
-        ]
-      },
-      {
-        groupName: 'Variables',
-        commands: [
           {
             type: 'set_variable',
             label: 'Set Variable',
@@ -87,53 +87,6 @@ export const toolboxConfig: Record<string, TabConfig> = {
             color: '#3b82f6',
             outputs: ['success'],
             description: 'Store a value in variable'
-          },
-        ]
-      },
-      {
-        groupName: 'Timing',
-        commands: [
-          {
-            type: 'sleep',
-            label: 'Sleep',
-            icon: <AccessTimeIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success'],
-            description: 'Wait for specified duration'
-          },
-        ]
-      },
-      {
-        groupName: 'Data Operations',
-        commands: [
-          {
-            type: 'get_current_time',
-            label: 'Get Current Time',
-            icon: <AccessTimeIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success'],
-            description: 'Get current timestamp'
-          },
-          {
-            type: 'generate_random',
-            label: 'Generate Random',
-            icon: <ShuffleIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success'],
-            description: 'Generate random value'
-          },
-        ]
-      },
-      {
-        groupName: 'Network',
-        commands: [
-          {
-            type: 'http_request',
-            label: 'HTTP Request',
-            icon: <HttpIcon fontSize="small" />,
-            color: '#6b7280',
-            outputs: ['success', 'failure'],
-            description: 'Make HTTP API call'
           },
         ]
       }
@@ -150,7 +103,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'press_key',
             label: 'Press Key',
             icon: <PlayArrowIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#ef4444',
             outputs: ['success', 'failure'],
             defaultData: { command: 'press_key', action_type: 'remote' },
             description: 'Send IR remote key'
@@ -159,7 +112,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'press_sequence',
             label: 'Press Sequence',
             icon: <PlayArrowIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#ef4444',
             outputs: ['success', 'failure'],
             defaultData: { command: 'press_sequence', action_type: 'remote' },
             description: 'Send multiple IR keys'
@@ -173,7 +126,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'tap',
             label: 'Tap',
             icon: <TouchAppIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#ef4444',
             outputs: ['success', 'failure'],
             defaultData: { command: 'tap', action_type: 'adb' },
             description: 'Tap at coordinates'
@@ -182,7 +135,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'swipe',
             label: 'Swipe',
             icon: <SwipeIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#ef4444',
             outputs: ['success', 'failure'],
             defaultData: { command: 'swipe', action_type: 'adb' },
             description: 'Swipe gesture'
@@ -191,7 +144,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'type_text',
             label: 'Type Text',
             icon: <KeyboardIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#ef4444',
             outputs: ['success', 'failure'],
             defaultData: { command: 'type_text', action_type: 'adb' },
             description: 'Input text via ADB'
@@ -211,7 +164,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_image',
             label: 'Find Template',
             icon: <ImageIcon fontSize="small" />,
-            color: '#8b5cf6',
+            color: '#10b981',
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_image', verification_type: 'image' },
             description: 'Template matching'
@@ -220,7 +173,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_ocr',
             label: 'OCR Text',
             icon: <VerifiedIcon fontSize="small" />,
-            color: '#8b5cf6',
+            color: '#10b981',
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_ocr', verification_type: 'ocr' },
             description: 'Optical character recognition'
@@ -234,7 +187,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_audio',
             label: 'Check Audio',
             icon: <AudiotrackIcon fontSize="small" />,
-            color: '#8b5cf6',
+            color: '#10b981',
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_audio', verification_type: 'audio' },
             description: 'Verify audio is playing'
@@ -248,7 +201,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_element',
             label: 'Element Exists',
             icon: <CheckCircleOutlineIcon fontSize="small" />,
-            color: '#8b5cf6',
+            color: '#10b981',
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_element', verification_type: 'element' },
             description: 'Check if element exists'
@@ -268,7 +221,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: BlockType.NAVIGATION,
             label: 'Goto',
             icon: <NavigationIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#8b5cf6',
             outputs: ['success', 'failure'],
             description: 'Navigate to UI node'
           },

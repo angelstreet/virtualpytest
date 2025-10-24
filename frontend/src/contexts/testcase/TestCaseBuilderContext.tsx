@@ -457,10 +457,13 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   }, []);
   
   // Fetch navigation nodes when userinterface changes
+  // NOTE: Disabled - TestCaseBuilder already loads navigation tree via NavigationEditor infrastructure
+  // The toolbox builder extracts nodes from the loaded tree, making this redundant
   useEffect(() => {
-    if (userinterfaceName) {
-      fetchNavigationNodes(userinterfaceName);
-    }
+    // Commenting out to prevent duplicate API calls and warnings
+    // if (userinterfaceName) {
+    //   fetchNavigationNodes(userinterfaceName);
+    // }
   }, [userinterfaceName, fetchNavigationNodes]);
   
   const value: TestCaseBuilderContextType = {

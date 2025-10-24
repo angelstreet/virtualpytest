@@ -14,22 +14,66 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
   // Get command configuration from toolbox config
   const commandConfig = getCommandConfig(type as string);
   
-  // Fallback values if command not found in config
-  const color = commandConfig?.color || '#6b7280';
-  const label = commandConfig?.label || type;
+  // Determine color based on type category (fallback if not in static config)
+  let color = commandConfig?.color;
+  if (!color) {
+    // Generic types from toolboxBuilder need color assignment
+    if (type === 'navigation') {
+      color = '#8b5cf6'; // purple
+    } else if (type === 'action') {
+      color = '#ef4444'; // red
+    } else if (type === 'verification') {
+      color = '#10b981'; // green
+    } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type as string)) {
+      color = '#3b82f6'; // blue (standard)
+    } else {
+      color = '#6b7280'; // gray fallback
+    }
+  }
+  
+  const categoryLabel = commandConfig?.label || data.command || type;
   const icon = commandConfig?.icon || null;
   const outputs: OutputType[] = commandConfig?.outputs || ['success', 'failure'];
   
-  // Check if block is configured (has command or other required data)
+  // Determine header and content based on block type
+  let headerLabel = categoryLabel;
+  let contentLabel = 'Click to configure';
+  
+  // Check if block is configured
   const isConfigured = Boolean(
     data.command || 
     data.target_node_label || 
     data.iterations ||
-    Object.keys(data).length > 0
+    data.label || // For navigation blocks
+    Object.keys(data).length > 1 // More than just position data
   );
   
-  // Get display label from data or use default
-  const displayLabel = data.command || label;
+  if (isConfigured) {
+    // For navigation blocks: header = "NAVIGATION", content = node name (e.g., "home")
+    if (type === 'navigation' && data.target_node_label) {
+      headerLabel = 'NAVIGATION';
+      contentLabel = data.target_node_label;
+    }
+    // For standard blocks: header = "STANDARD", content = command (e.g., "Sleep")
+    else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type as string)) {
+      headerLabel = 'STANDARD';
+      contentLabel = categoryLabel;
+    }
+    // For generic action blocks from toolboxBuilder: header = "ACTION", content = command label
+    else if (type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string)) {
+      headerLabel = 'ACTION';
+      contentLabel = categoryLabel;
+    }
+    // For generic verification blocks from toolboxBuilder: header = "VERIFICATION", content = command label
+    else if (type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string)) {
+      headerLabel = 'VERIFICATION';
+      contentLabel = categoryLabel;
+    }
+    // Fallback to command or display label
+    else {
+      contentLabel = data.command || data.label || categoryLabel;
+    }
+  }
   
   // Render output handles based on configured outputs
   const renderOutputHandles = () => {
@@ -95,7 +139,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
         background: actualMode === 'dark' ? '#1f2937' : '#ffffff',
         boxShadow: 2,
         cursor: 'pointer',
-        opacity: dragging ? 0.5 : (isConfigured ? 1 : 0.6),
+        opacity: dragging ? 0.5 : 1, // No transparency for configured blocks
         transition: 'opacity 0.2s',
         '&:hover': {
           boxShadow: 4,
@@ -118,7 +162,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           </Box>
         )}
         <Typography color="white" fontWeight="bold" fontSize={13}>
-          {label.toUpperCase()}
+          {headerLabel.toUpperCase()}
         </Typography>
       </Box>
       
@@ -141,7 +185,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
               />
             )}
             <Typography fontSize={14} fontWeight="medium">
-              {displayLabel}
+              {contentLabel}
             </Typography>
             {data.params && Object.keys(data.params).length > 0 && (
               <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
@@ -154,11 +198,6 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
                   />
                 ))}
               </Box>
-            )}
-            {data.target_node_label && (
-              <Typography fontSize={12} color="text.secondary" mt={0.5}>
-                → {data.target_node_label}
-              </Typography>
             )}
             {data.iterations && data.iterations > 1 && (
               <Typography fontSize={11} color="text.secondary" mt={0.5}>

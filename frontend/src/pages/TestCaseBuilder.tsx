@@ -65,16 +65,20 @@ import { TestCaseBuilderProvider, useTestCaseBuilder } from '../contexts/testcas
 import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
 import { NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
 import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
-import { useUserInterface } from '../hooks/pages/useUserInterface';
 import { useTheme } from '../contexts/ThemeContext';
 import { generateTestCaseFromPrompt } from '../services/aiService';
 import { buildToolboxFromNavigationData } from '../utils/toolboxBuilder';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow
 const nodeTypes = {
   start: StartBlock,
   success: SuccessBlock,
   failure: FailureBlock,
+  // Generic types from toolboxBuilder
+  action: UniversalBlock,
+  verification: UniversalBlock,
+  navigation: UniversalBlock,
   // Specific command types use UniversalBlock
   press_key: UniversalBlock,
   press_sequence: UniversalBlock,
@@ -93,7 +97,6 @@ const nodeTypes = {
   generate_random: UniversalBlock,
   http_request: UniversalBlock,
   loop: UniversalBlock,
-  navigation: UniversalBlock,
 };
 
 // Edge types for React Flow
@@ -130,18 +133,10 @@ const TestCaseBuilderContent: React.FC = () => {
 
   const { actualMode } = useTheme();
   
-  // Get navigation data (reuses NavigationEditor infrastructure)
+  // Get navigation infrastructure (for compatibility, but we use pre-loaded data)
   const {
-    nodes: navNodes,
-    edges: navEdges,
-    userInterface,
-    loadTreeByUserInterface,
     setUserInterfaceFromProps,
-    isLoadingInterface,
   } = useNavigationEditor();
-  
-  // Get userInterface lookup utility
-  const { getUserInterfaceByName, getAllUserInterfaces } = useUserInterface();
   
   const {
     nodes,
@@ -187,26 +182,108 @@ const TestCaseBuilderContent: React.FC = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   
-  // Load all interfaces for selector
+  // Load all interfaces WITH tree data for selector (load once, instant switching)
   const [allInterfaceNames, setAllInterfaceNames] = useState<string[]>([]);
+  const [allInterfacesTreeData, setAllInterfacesTreeData] = useState<Map<string, any>>(new Map());
+  const [isLoadingAllData, setIsLoadingAllData] = useState(true);
+  
+  // Frontend cache with 5 min TTL
+  const FRONTEND_CACHE_KEY = 'testcasebuilder_all_interfaces_trees';
+  const FRONTEND_CACHE_TTL = 5 * 60 * 1000; // 5 minutes in ms
   
   useEffect(() => {
-    console.log('[@TestCaseBuilder] useEffect for loading interfaces triggered');
-    const loadInterfaces = async () => {
+    console.log('[@TestCaseBuilder] Loading ALL interfaces with tree data...');
+    const loadAllInterfacesWithTrees = async () => {
       try {
-        console.log('[@TestCaseBuilder] Starting to fetch interfaces...');
-        const interfaces = await getAllUserInterfaces();
-        console.log('[@TestCaseBuilder] Fetched interfaces:', interfaces);
-        const names = interfaces.map(i => i.name);
-        console.log('[@TestCaseBuilder] Extracted names:', names);
-        setAllInterfaceNames(names);
-        console.log(`[@TestCaseBuilder] Loaded ${names.length} interfaces for selector:`, names);
+        setIsLoadingAllData(true);
+        
+        // Check frontend cache first (localStorage)
+        const cachedData = localStorage.getItem(FRONTEND_CACHE_KEY);
+        if (cachedData) {
+          try {
+            const parsed = JSON.parse(cachedData);
+            const age = Date.now() - parsed.timestamp;
+            if (age < FRONTEND_CACHE_TTL) {
+              console.log(`[@TestCaseBuilder] ⚡ CACHE HIT: Using cached data (age: ${(age/1000).toFixed(0)}s / ${FRONTEND_CACHE_TTL/1000}s TTL)`);
+              
+              const interfaceNames: string[] = [];
+              const treeDataMap = new Map();
+              
+              parsed.data.interfaces.forEach((item: any) => {
+                const interfaceName = item.interface.name;
+                interfaceNames.push(interfaceName);
+                treeDataMap.set(interfaceName, {
+                  interface: item.interface,
+                  tree: item.tree_data.tree,
+                  nodes: item.tree_data.nodes,
+                  edges: item.tree_data.edges
+                });
+              });
+              
+              setAllInterfaceNames(interfaceNames);
+              setAllInterfacesTreeData(treeDataMap);
+              setIsLoadingAllData(false);
+              
+              console.log(`[@TestCaseBuilder] ✅ Loaded ${interfaceNames.length} interfaces from CACHE`);
+              return;
+            } else {
+              console.log(`[@TestCaseBuilder] ❌ CACHE EXPIRED: (age: ${(age/1000).toFixed(0)}s > ${FRONTEND_CACHE_TTL/1000}s TTL)`);
+              localStorage.removeItem(FRONTEND_CACHE_KEY);
+            }
+          } catch (e) {
+            console.error('[@TestCaseBuilder] Error parsing cache:', e);
+            localStorage.removeItem(FRONTEND_CACHE_KEY);
+          }
+        }
+        
+        // Call new optimized endpoint that loads everything at once
+        console.log('[@TestCaseBuilder] CACHE MISS - Fetching from server...');
+        const response = await fetch(buildServerUrl('/server/userinterface/getAllInterfacesWithTrees'));
+        const result = await response.json();
+        
+        if (result.success) {
+          const interfaceNames: string[] = [];
+          const treeDataMap = new Map();
+          
+          result.interfaces.forEach((item: any) => {
+            const interfaceName = item.interface.name;
+            interfaceNames.push(interfaceName);
+            treeDataMap.set(interfaceName, {
+              interface: item.interface,
+              tree: item.tree_data.tree,
+              nodes: item.tree_data.nodes,
+              edges: item.tree_data.edges
+            });
+          });
+          
+          setAllInterfaceNames(interfaceNames);
+          setAllInterfacesTreeData(treeDataMap);
+          
+          // Store in frontend cache (localStorage)
+          try {
+            localStorage.setItem(FRONTEND_CACHE_KEY, JSON.stringify({
+              data: result,
+              timestamp: Date.now()
+            }));
+            console.log(`[@TestCaseBuilder] 💾 CACHED: Stored data in localStorage (TTL: 5min)`);
+          } catch (e) {
+            console.warn('[@TestCaseBuilder] Failed to cache data in localStorage:', e);
+          }
+          
+          console.log(`[@TestCaseBuilder] ✅ Loaded ${interfaceNames.length} interfaces with ${result.total_nodes} nodes in ONE call`);
+          console.log(`[@TestCaseBuilder] Interfaces:`, interfaceNames);
+        } else {
+          console.error('[@TestCaseBuilder] Failed to load interfaces:', result.error);
+        }
       } catch (error) {
-        console.error('[@TestCaseBuilder] Failed to load interfaces:', error);
+        console.error('[@TestCaseBuilder] Error loading interfaces:', error);
+      } finally {
+        setIsLoadingAllData(false);
       }
     };
-    loadInterfaces();
-  }, [getAllUserInterfaces]);
+    
+    loadAllInterfacesWithTrees();
+  }, []); // Load once on mount
   
   // Debug: Log userinterfaceName changes
   useEffect(() => {
@@ -224,24 +301,31 @@ const TestCaseBuilderContent: React.FC = () => {
     severity: 'info',
   });
 
-  // Load navigation tree when interface changes (reuses NavigationEditor pattern)
+  // Load navigation tree when interface changes - NOW INSTANT (uses pre-loaded data)
   useEffect(() => {
     const loadNavigationTree = async () => {
       if (!userinterfaceName) return;
       
       try {
-        console.log(`[@TestCaseBuilder] Loading navigation tree for interface: ${userinterfaceName}`);
+        console.log(`[@TestCaseBuilder] Switching to interface: ${userinterfaceName}`);
         
-        // Get interface by name (same as NavigationEditor line 588)
-        const resolvedInterface = await getUserInterfaceByName(userinterfaceName);
-        setUserInterfaceFromProps(resolvedInterface);
+        // Get pre-loaded data from memory (INSTANT!)
+        const treeData = allInterfacesTreeData.get(userinterfaceName);
         
-        // Load tree with all data (nodes, edges, metrics)
-        await loadTreeByUserInterface(resolvedInterface.id);
-        
-        console.log(`[@TestCaseBuilder] Navigation tree loaded successfully`);
+        if (treeData) {
+          // Data already loaded - just use it!
+          console.log(`[@TestCaseBuilder] ⚡ INSTANT: Using pre-loaded data for ${userinterfaceName}`);
+          
+          // Set interface for NavigationEditor infrastructure compatibility
+          setUserInterfaceFromProps(treeData.interface);
+          
+          // Tree data is already available - no loading needed!
+          console.log(`[@TestCaseBuilder] ✅ Interface switched instantly (${treeData.nodes.length} nodes, ${treeData.edges.length} edges)`);
+        } else {
+          console.warn(`[@TestCaseBuilder] ⚠️ Tree data not found for ${userinterfaceName} - shouldn't happen`);
+        }
       } catch (error) {
-        console.error(`[@TestCaseBuilder] Failed to load navigation tree:`, error);
+        console.error(`[@TestCaseBuilder] Failed to switch interface:`, error);
       }
     };
     
@@ -249,11 +333,43 @@ const TestCaseBuilderContent: React.FC = () => {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userinterfaceName]); // Only re-run when interface NAME changes
 
-  // Build dynamic toolbox from loaded navigation data
+  // Build dynamic toolbox from pre-loaded navigation data (INSTANT!)
   const dynamicToolboxConfig = React.useMemo(() => {
-    console.log(`[@TestCaseBuilder] Building toolbox - navNodes: ${navNodes?.length}, navEdges: ${navEdges?.length}, interface: ${userInterface?.name}`);
-    return buildToolboxFromNavigationData(navNodes, navEdges, userInterface);
-  }, [navNodes, navEdges, userInterface]);
+    if (!userinterfaceName) return null;
+    
+    const treeData = allInterfacesTreeData.get(userinterfaceName);
+    if (!treeData) return null;
+    
+    // Convert backend format to frontend format for toolbox builder
+    const frontendNodes = treeData.nodes.map((node: any) => ({
+      id: node.node_id,
+      type: node.node_type || 'screen',
+      position: { x: node.position_x, y: node.position_y },
+      data: {
+        label: node.label,
+        type: node.node_type || 'screen',
+        verifications: node.verifications,
+        ...node.data
+      }
+    }));
+    
+    const frontendEdges = treeData.edges.map((edge: any) => ({
+      id: edge.edge_id,
+      source: edge.source_node_id,
+      target: edge.target_node_id,
+      type: 'navigation',
+      label: edge.label,
+      data: {
+        action_sets: edge.action_sets,
+        default_action_set_id: edge.default_action_set_id,
+        final_wait_time: edge.final_wait_time,
+        ...edge.data
+      }
+    }));
+    
+    console.log(`[@TestCaseBuilder] Building toolbox - nodes: ${frontendNodes.length}, edges: ${frontendEdges.length}, interface: ${userinterfaceName}`);
+    return buildToolboxFromNavigationData(frontendNodes, frontendEdges, treeData.interface);
+  }, [userinterfaceName, allInterfacesTreeData]);
 
   // Load test case list when load dialog opens
   useEffect(() => {
@@ -581,17 +697,48 @@ const TestCaseBuilderContent: React.FC = () => {
               {Object.keys(dynamicToolboxConfig || toolboxConfig).map((key) => {
                 const config = dynamicToolboxConfig || toolboxConfig;
                 const tabName = (config as any)[key]?.tabName || key;
+                
+                // Define tab colors
+                const tabColors: Record<string, string> = {
+                  'standard': '#3b82f6',    // blue
+                  'navigation': '#8b5cf6',  // purple
+                  'actions': '#ef4444',     // red
+                  'verifications': '#10b981' // green
+                };
+                
+                const tabColor = tabColors[key] || '#6b7280';
+                const isActive = activeToolboxTab === key;
+                
                 return (
                   <Button
                     key={key}
                     size="small"
-                    variant={activeToolboxTab === key ? 'contained' : 'outlined'}
+                    variant={isActive ? 'contained' : 'outlined'}
                     onClick={() => setActiveToolboxTab(key)}
                     sx={{ 
                       fontSize: 10, 
                       py: 0.5, 
                       px: 1.5,
-                      minWidth: 'auto'
+                      minWidth: 'auto',
+                      // Active: colored background
+                      ...(isActive && {
+                        backgroundColor: tabColor,
+                        borderColor: tabColor,
+                        color: '#ffffff',
+                        '&:hover': {
+                          backgroundColor: tabColor,
+                          opacity: 0.9
+                        }
+                      }),
+                      // Inactive: colored border and text
+                      ...(!isActive && {
+                        borderColor: tabColor,
+                        color: tabColor,
+                        '&:hover': {
+                          borderColor: tabColor,
+                          backgroundColor: `${tabColor}15` // 15% opacity
+                        }
+                      })
                     }}
                   >
                     {tabName.toUpperCase()}
@@ -654,7 +801,13 @@ const TestCaseBuilderContent: React.FC = () => {
         }}>
           {/* Visual Mode: Toolbox */}
           {creationMode === 'visual' && (
-            dynamicToolboxConfig ? (
+            isLoadingAllData ? (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  Loading all navigation data...
+                </Typography>
+              </Box>
+            ) : dynamicToolboxConfig ? (
               <TestCaseToolbox 
                 activeTab={activeToolboxTab}
                 toolboxConfig={dynamicToolboxConfig}
@@ -662,7 +815,7 @@ const TestCaseBuilderContent: React.FC = () => {
             ) : (
               <Box sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">
-                  {isLoadingInterface ? 'Loading...' : 'Select an interface to load toolbox'}
+                  Select an interface to load toolbox
                 </Typography>
               </Box>
             )

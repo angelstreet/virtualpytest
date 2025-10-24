@@ -3,9 +3,6 @@
  * Reuses data already loaded by NavigationEditor infrastructure
  */
 
-import PlayArrowIcon from '@mui/icons-material/PlayArrow';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import CancelIcon from '@mui/icons-material/Cancel';
 import NavigationIcon from '@mui/icons-material/Navigation';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import VerifiedIcon from '@mui/icons-material/Verified';
@@ -37,12 +34,12 @@ export function buildToolboxFromNavigationData(
       tabName: 'Standard',
       groups: [
         {
-          groupName: 'Flow Control',
+          groupName: 'Standard',
           commands: [
-            { type: 'start', label: 'Start', icon: PlayArrowIcon, color: '#10b981', outputs: ['success'], description: 'Test case start point' },
-            { type: 'success', label: 'Success', icon: CheckCircleIcon, color: '#10b981', outputs: [], description: 'Test case successful end' },
-            { type: 'failure', label: 'Failure', icon: CancelIcon, color: '#ef4444', outputs: [], description: 'Test case failed end' },
-            { type: 'loop', label: 'Loop', icon: LoopIcon, color: '#8b5cf6', outputs: ['complete', 'break'], description: 'Repeat actions' },
+            { type: 'loop', label: 'Loop', icon: LoopIcon, color: '#3b82f6', outputs: ['complete', 'break'], description: 'Repeat actions' },
+            { type: 'sleep', label: 'Sleep', icon: LoopIcon, color: '#3b82f6', outputs: ['success'], description: 'Wait for duration' },
+            { type: 'condition', label: 'Evaluate Condition', icon: LoopIcon, color: '#3b82f6', outputs: ['true', 'false'], description: 'Conditional branch' },
+            { type: 'set_variable', label: 'Common Operation', icon: LoopIcon, color: '#3b82f6', outputs: ['success'], description: 'Set variable' },
           ]
         }
       ]
@@ -51,25 +48,25 @@ export function buildToolboxFromNavigationData(
       tabName: 'Navigation',
       groups: [
         {
-          groupName: 'Navigation Nodes',
+          groupName: 'Navigation',
           commands: extractNavigationBlocks(nodes)
         }
       ]
     },
     actions: {
-      tabName: 'Actions',
+      tabName: 'Action',
       groups: [
         {
-          groupName: 'Device Actions',
+          groupName: 'Action',
           commands: extractActionBlocks(edges)
         }
       ]
     },
     verifications: {
-      tabName: 'Verify',
+      tabName: 'Verifcation',
       groups: [
         {
-          groupName: 'Verifications',
+          groupName: 'Verification',
           commands: extractVerificationBlocks(nodes)
         }
       ]
@@ -88,13 +85,14 @@ function extractNavigationBlocks(nodes: any[]) {
     )
     .map(node => ({
       type: 'navigation',
-      label: node.data.label,
+      label: node.data.label,  // Show node name in toolbox (e.g., "home", "live_tv")
       icon: NavigationIcon,
-      color: '#3b82f6',
+      color: '#8b5cf6',
       outputs: ['success', 'failure'],
       defaultData: {
-        target_node: node.data.label,
-        target_node_id: node.id
+        target_node_label: node.data.label,  // This is what UniversalBlock expects
+        target_node_id: node.id,
+        label: node.data.label  // Also store as 'label' for compatibility
       },
       description: `Navigate to ${node.data.label}`
     }));
@@ -128,7 +126,7 @@ function extractActionBlocks(edges: any[]) {
             type: 'action',
             label,
             icon: TouchAppIcon,
-            color: '#f59e0b',
+            color: '#ef4444',
             outputs: ['success', 'failure'],
             defaultData: {
               command: action.command,
@@ -170,14 +168,14 @@ function extractVerificationBlocks(nodes: any[]) {
           type: 'verification',
           label,
           icon: VerifiedIcon,
-          color: '#8b5cf6',
+          color: '#10b981',
           outputs: ['success', 'failure'],
           defaultData: {
             command: verification.command,
             verification_type: verification.verification_type || 'image',
             params: verification.params || {}
           },
-          description: `Verify ${label}`
+          description: `Verification ${label}`
         });
       }
     });

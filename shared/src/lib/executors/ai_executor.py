@@ -430,6 +430,9 @@ class AIExecutor:
             execution['result'] = result
             execution['end_time'] = time.time()
             
+            # Extract step_results from ExecutionResult for get_execution_status
+            execution['step_results'] = result.step_results if hasattr(result, 'step_results') else []
+            
             # Add completion log entry with error details if failed
             if not result.success:
                 error_message = getattr(result, 'error', 'Unknown error')

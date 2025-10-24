@@ -591,21 +591,21 @@ export function buildToolboxFromNavigationData(nodes, edges, userInterface) {
     navigation: {
       tabName: 'Navigation',
       groups: [{
-        groupName: 'Navigation Nodes',
+        groupName: 'Navigation',
         commands: extractNavigationBlocks(nodes)  // From tree!
       }]
     },
     actions: {
-      tabName: 'Actions',
+      tabName: 'Action',
       groups: [{
-        groupName: 'Device Actions',
+        groupName: 'Action',
         commands: extractActionBlocks(edges)  // From action_sets!
       }]
     },
     verifications: {
-      tabName: 'Verify',
+      tabName: 'Verification',
       groups: [{
-        groupName: 'Verifications',
+        groupName: 'Verification',
         commands: extractVerificationBlocks(nodes)  // From node verifications!
       }]
     }
