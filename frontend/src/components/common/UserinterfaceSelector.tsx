@@ -53,10 +53,14 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
           id: name,
           name: name
         }));
+        console.log('[@UserinterfaceSelector] Setting interfaces from compatibleInterfaces:', options);
+        console.log('[@UserinterfaceSelector] Current value:', value);
         setInterfaces(options);
+        setError(null); // Clear any previous error
         
         // Auto-select first if no value set or value is empty string
         if ((!value || value.trim() === '') && onChange) {
+          console.log('[@UserinterfaceSelector] Auto-selecting first interface:', options[0].name);
           onChange(options[0].name);
         }
         return;
@@ -108,7 +112,10 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
     onChange(event.target.value);
   };
 
+  console.log('[@UserinterfaceSelector] Render state check:', { loading, error, interfacesLength: interfaces.length, value });
+
   if (loading) {
+    console.log('[@UserinterfaceSelector] Rendering LOADING state');
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
         <InputLabel>{label}</InputLabel>
@@ -127,6 +134,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
   if (error || interfaces.length === 0) {
     // Don't show as error if just waiting for device selection
     const isWaitingForDevice = error === 'Select a device first';
+    console.log('[@UserinterfaceSelector] Rendering ERROR/EMPTY state:', { error, interfacesLength: interfaces.length });
     
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
@@ -138,11 +146,13 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
     );
   }
 
+  console.log('[@UserinterfaceSelector] Rendering with value:', value, 'interfaces:', interfaces.map(i => i.name));
+  
   return (
     <FormControl size={size} fullWidth={fullWidth} disabled={disabled} sx={sx}>
       <InputLabel>{label}</InputLabel>
       <Select
-        value={value}
+        value={value || ''}
         onChange={handleChange}
         label={label}
       >

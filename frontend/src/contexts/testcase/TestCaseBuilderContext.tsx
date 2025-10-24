@@ -11,6 +11,8 @@ import {
 } from '../../services/testcaseBuilderApi';
 import type { NavigationNode, UserInterface, ActionCommand } from '../../services/testcaseBuilderApi';
 
+const TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'; // Default team ID
+
 interface TestCaseBuilderContextType {
   // Graph state
   nodes: Node[];
@@ -416,7 +418,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     
     setIsLoadingOptions(true);
     try {
-      const result = await getNavigationNodesForInterface(interfaceName, 'default-team-id');
+      const result = await getNavigationNodesForInterface(interfaceName, TEAM_ID);
       if (result.success) {
         setAvailableNodes(result.nodes);
       }

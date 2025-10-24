@@ -191,18 +191,27 @@ const TestCaseBuilderContent: React.FC = () => {
   const [allInterfaceNames, setAllInterfaceNames] = useState<string[]>([]);
   
   useEffect(() => {
+    console.log('[@TestCaseBuilder] useEffect for loading interfaces triggered');
     const loadInterfaces = async () => {
       try {
+        console.log('[@TestCaseBuilder] Starting to fetch interfaces...');
         const interfaces = await getAllUserInterfaces();
+        console.log('[@TestCaseBuilder] Fetched interfaces:', interfaces);
         const names = interfaces.map(i => i.name);
+        console.log('[@TestCaseBuilder] Extracted names:', names);
         setAllInterfaceNames(names);
-        console.log(`[@TestCaseBuilder] Loaded ${names.length} interfaces for selector`);
+        console.log(`[@TestCaseBuilder] Loaded ${names.length} interfaces for selector:`, names);
       } catch (error) {
         console.error('[@TestCaseBuilder] Failed to load interfaces:', error);
       }
     };
     loadInterfaces();
   }, [getAllUserInterfaces]);
+  
+  // Debug: Log userinterfaceName changes
+  useEffect(() => {
+    console.log('[@TestCaseBuilder] userinterfaceName changed to:', userinterfaceName);
+  }, [userinterfaceName]);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -526,7 +535,7 @@ const TestCaseBuilderContent: React.FC = () => {
         }}
       >
         {/* SECTION 1: Title */}
-        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 auto' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 240px' }}>
           <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
             TestCase Builder
           </Typography>
