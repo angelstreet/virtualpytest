@@ -254,6 +254,12 @@ const TestCaseBuilderContent: React.FC = () => {
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
   
+  // AV Panel coordination (REUSE from NavigationEditor lines 316-325)
+  const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
+  const [isAVPanelMinimized, setIsAVPanelMinimized] = useState(false);
+  const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
+  const isVerificationVisible = captureMode === 'screenshot' || captureMode === 'video';
+  
   // Load compatible interfaces based on selected device
   const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
   const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
@@ -306,6 +312,21 @@ const TestCaseBuilderContent: React.FC = () => {
   useEffect(() => {
     console.log('[@TestCaseBuilder] userinterfaceName changed to:', userinterfaceName);
   }, [userinterfaceName]);
+  
+  // AV Panel handlers (REUSE from NavigationEditor lines 409-423)
+  const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
+    setIsAVPanelCollapsed(isCollapsed);
+  }, []);
+  
+  const handleCaptureModeChange = useCallback((mode: 'stream' | 'screenshot' | 'video') => {
+    setCaptureMode(mode);
+    console.log('[@TestCaseBuilder] Capture mode changed to:', mode);
+  }, []);
+  
+  const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
+    setIsAVPanelMinimized(isMinimized);
+    console.log('[@TestCaseBuilder] AV panel minimized changed to:', isMinimized);
+  }, []);
   
   // Snackbar state
   const [snackbar, setSnackbar] = useState<{
@@ -1117,8 +1138,8 @@ const TestCaseBuilderContent: React.FC = () => {
                 flexDirection: 'row',
                 gap: 2,
                 position: 'absolute',
-                left: 240,
-                top: 120,
+                right: 10,
+                bottom: 20,
                 zIndex: 1000,
                 height: 'auto',
               }}
@@ -1131,10 +1152,10 @@ const TestCaseBuilderContent: React.FC = () => {
                 isConnected={isControlActive}
                 onReleaseControl={handleDisconnectComplete}
                 deviceResolution={DEFAULT_DEVICE_RESOLUTION}
-                streamCollapsed={true}
-                streamMinimized={false}
-                streamHidden={false}
-                captureMode="stream"
+                streamCollapsed={isAVPanelCollapsed}
+                streamMinimized={isAVPanelMinimized}
+                streamHidden={showAVPanel}
+                captureMode={captureMode}
                 initialCollapsed={true}
               />
               <RemotePanel
@@ -1145,10 +1166,10 @@ const TestCaseBuilderContent: React.FC = () => {
                 isConnected={isControlActive}
                 onReleaseControl={handleDisconnectComplete}
                 deviceResolution={DEFAULT_DEVICE_RESOLUTION}
-                streamCollapsed={true}
-                streamMinimized={false}
-                streamHidden={false}
-                captureMode="stream"
+                streamCollapsed={isAVPanelCollapsed}
+                streamMinimized={isAVPanelMinimized}
+                streamHidden={showAVPanel}
+                captureMode={captureMode}
                 initialCollapsed={true}
               />
             </Box>
@@ -1164,7 +1185,7 @@ const TestCaseBuilderContent: React.FC = () => {
                 gap: 2,
                 position: 'absolute',
                 right: 10,
-                top: 80,
+                bottom: 20,
                 zIndex: 1000,
                 height: 'auto',
               }}
@@ -1179,9 +1200,9 @@ const TestCaseBuilderContent: React.FC = () => {
                   isConnected={isControlActive}
                   onReleaseControl={handleDisconnectComplete}
                   deviceResolution={DEFAULT_DEVICE_RESOLUTION}
-                  streamCollapsed={true}
-                  streamMinimized={false}
-                  captureMode="stream"
+                  streamCollapsed={isAVPanelCollapsed}
+                  streamMinimized={isAVPanelMinimized}
+                  captureMode={captureMode}
                   initialCollapsed={index > 0}
                 />
               ))}
@@ -1197,10 +1218,10 @@ const TestCaseBuilderContent: React.FC = () => {
               isConnected={isControlActive}
               onReleaseControl={handleDisconnectComplete}
               deviceResolution={DEFAULT_DEVICE_RESOLUTION}
-              streamCollapsed={true}
-              streamMinimized={false}
-              captureMode="stream"
-              isVerificationVisible={false}
+              streamCollapsed={isAVPanelCollapsed}
+              streamMinimized={isAVPanelMinimized}
+              captureMode={captureMode}
+              isVerificationVisible={isVerificationVisible}
               isNavigationEditorContext={false}
             />
           );
@@ -1212,34 +1233,41 @@ const TestCaseBuilderContent: React.FC = () => {
         const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
         const deviceModel = selectedDevice?.device_model;
         
-        if (deviceModel === 'host_vnc') {
-          return (
-            <VNCStream
-              host={selectedHost}
-              deviceId={selectedDeviceId}
-              deviceModel={deviceModel}
-              isControlActive={isControlActive}
-              userinterfaceName={userinterfaceName}
-              onCollapsedChange={() => {}}
-              onMinimizedChange={() => {}}
-              onCaptureModeChange={() => {}}
-            />
-          );
-        } else {
-          return (
-            <HDMIStream
-              host={selectedHost}
-              deviceId={selectedDeviceId}
-              deviceModel={deviceModel}
-              isControlActive={isControlActive}
-              userinterfaceName={userinterfaceName}
-              onCollapsedChange={() => {}}
-              onMinimizedChange={() => {}}
-              onCaptureModeChange={() => {}}
-              deviceResolution={DEFAULT_DEVICE_RESOLUTION}
-            />
-          );
-        }
+        return (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 240,
+              bottom: 20,
+              zIndex: 999,
+            }}
+          >
+            {deviceModel === 'host_vnc' ? (
+              <VNCStream
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={deviceModel}
+                isControlActive={isControlActive}
+                userinterfaceName={userinterfaceName}
+                onCollapsedChange={handleAVPanelCollapsedChange}
+                onMinimizedChange={handleAVPanelMinimizedChange}
+                onCaptureModeChange={handleCaptureModeChange}
+              />
+            ) : (
+              <HDMIStream
+                host={selectedHost}
+                deviceId={selectedDeviceId}
+                deviceModel={deviceModel}
+                isControlActive={isControlActive}
+                userinterfaceName={userinterfaceName}
+                onCollapsedChange={handleAVPanelCollapsedChange}
+                onMinimizedChange={handleAVPanelMinimizedChange}
+                onCaptureModeChange={handleCaptureModeChange}
+                deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+              />
+            )}
+          </Box>
+        );
       })()}
     </Box>
   );
