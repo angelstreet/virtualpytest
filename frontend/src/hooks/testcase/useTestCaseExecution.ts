@@ -31,20 +31,23 @@ export interface TestCaseExecutionResponse {
 export const useTestCaseExecution = () => {
   
   /**
-   * Execute a test case
+   * Execute a test case directly from graph (no save required)
    */
   const executeTestCase = useCallback(async (
-    testcaseId: string, 
+    graph: any,  // TestCaseGraph
     deviceId: string,
-    hostName: string
+    hostName: string,
+    userinterfaceName?: string
   ): Promise<TestCaseExecutionResponse> => {
     try {
-      const response = await fetch(buildServerUrl(`/server/testcase/${testcaseId}/execute`), {
+      const response = await fetch(buildServerUrl(`/server/testcase/execute`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
+          graph_json: graph,
           device_id: deviceId,
-          host_name: hostName
+          host_name: hostName,
+          userinterface_name: userinterfaceName || ''
         }),
       });
       

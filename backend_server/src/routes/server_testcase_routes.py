@@ -156,6 +156,33 @@ def testcase_delete(testcase_id):
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@server_testcase_bp.route('/execute', methods=['POST'])
+def testcase_execute_direct():
+    """Execute test case directly from graph (no save required)"""
+    data = request.get_json()
+    if not data:
+        return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
+    
+    team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
+    
+    # Validate required fields
+    if 'graph_json' not in data:
+        return jsonify({'success': False, 'error': 'graph_json is required'}), 400
+    if 'device_id' not in data:
+        return jsonify({'success': False, 'error': 'device_id is required'}), 400
+    if 'host_name' not in data:
+        return jsonify({'success': False, 'error': 'host_name is required'}), 400
+    
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        '/host/testcase/execute', 'POST', data, query_params
+    )
+    return jsonify(response_data), status_code
+
+
 @server_testcase_bp.route('/<testcase_id>/execute', methods=['POST'])
 def testcase_execute(testcase_id):
     """Execute test case by ID"""

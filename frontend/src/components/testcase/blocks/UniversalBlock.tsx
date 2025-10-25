@@ -96,7 +96,7 @@ export const UniversalBlock: React.FC<NodeProps & {
     }
   };
   
-  // Execute handler for action/verification blocks
+  // Execute handler for action/verification/navigation blocks
   const handleExecute = async (e: React.MouseEvent) => {
     e.stopPropagation(); // Prevent block selection
     
@@ -106,74 +106,94 @@ export const UniversalBlock: React.FC<NodeProps & {
       return;
     }
     
-    if (!data.command) {
+    // Determine block type
+    const isAction = type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string);
+    const isVerification = type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string);
+    const isNavigation = type === 'navigation';
+    
+    // Validate based on type
+    if (isNavigation) {
+      if (!data.target_node_label) {
+        showError('No target node configured');
+        return;
+      }
+    } else if (!data.command) {
       showError('No command configured');
       return;
     }
     
-    // Determine if action or verification
-    const isAction = type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string);
-    const isVerification = type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string);
-    
-    if (!isAction && !isVerification) {
-      showError('Only actions and verifications can be executed');
+    if (!isAction && !isVerification && !isNavigation) {
+      showError('Only actions, verifications, and navigation can be executed');
       return;
     }
     
     setIsExecuting(true);
     
-    // 🗑️ REMOVED: Custom event dispatch - now using unified execution state from context
-    
     const startTime = Date.now();
     
     try {
-      // Build action payload
-      const actionPayload = {
-        command: data.command,
-        params: data.params || {},
-        action_type: data.action_type,
-        verification_type: data.verification_type,
-        threshold: data.threshold,
-        reference: data.reference,
-      };
+      let response;
       
-      // Execute via API
-      const endpoint = isAction ? '/server/action/execute' : '/server/action/execute'; // Verifications use same endpoint
-      const response = await fetch(buildServerUrl(`${endpoint}?team_id=default-team-id`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          action: actionPayload,
-          host_name: currentHost.host_name,
-          device_id: currentDeviceId || 'device1',
-        }),
-      });
+      if (isNavigation) {
+        // Execute navigation
+        response = await fetch(buildServerUrl(`/server/navigation/execute?team_id=default-team-id`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            target_node_label: data.target_node_label,
+            host_name: currentHost.host_name,
+            device_id: currentDeviceId || 'device1',
+          }),
+        });
+      } else {
+        // Execute action or verification
+        const actionPayload = {
+          command: data.command,
+          params: data.params || {},
+          action_type: data.action_type,
+          verification_type: data.verification_type,
+          threshold: data.threshold,
+          reference: data.reference,
+        };
+        
+        const endpoint = '/server/action/execute'; // Both actions and verifications use same endpoint
+        response = await fetch(buildServerUrl(`${endpoint}?team_id=default-team-id`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: actionPayload,
+            host_name: currentHost.host_name,
+            device_id: currentDeviceId || 'device1',
+          }),
+        });
+      }
       
       const result = await response.json();
       const duration = Date.now() - startTime;
       const durationText = `${(duration / 1000).toFixed(2)}s`;
+      const commandLabel = isNavigation ? `Navigate to ${data.target_node_label}` : data.command;
       
       if (result.success) {
         setAnimateHandle('success');
-        showSuccess(`✓ ${data.command} - ${durationText}`);
+        showSuccess(`✓ ${commandLabel} - ${durationText}`);
         // Clear animation after 2 seconds
         setTimeout(() => setAnimateHandle(null), 2000);
       } else {
         setAnimateHandle('failure');
-        showError(`✗ ${data.command} - ${durationText}\n${result.error || 'Execution failed'}`);
+        showError(`✗ ${commandLabel} - ${durationText}\n${result.error || 'Execution failed'}`);
         // Clear animation after 2 seconds
         setTimeout(() => setAnimateHandle(null), 2000);
       }
     } catch (error) {
       const duration = Date.now() - startTime;
       const durationText = `${(duration / 1000).toFixed(2)}s`;
+      const commandLabel = isNavigation ? `Navigate to ${data.target_node_label}` : data.command;
       setAnimateHandle('failure');
-      showError(`✗ ${data.command} - ${durationText}\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showError(`✗ ${commandLabel} - ${durationText}\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
       // Clear animation after 2 seconds
       setTimeout(() => setAnimateHandle(null), 2000);
     } finally {
       setIsExecuting(false);
-      // 🗑️ REMOVED: Custom event dispatch - now using unified execution state
     }
   };
   
@@ -192,16 +212,26 @@ export const UniversalBlock: React.FC<NodeProps & {
   
   // Determine if this block can be executed
   const canExecute = Boolean(
+    // Actions and verifications
     (type === 'action' || type === 'verification' || 
      ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text', 
       'verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string)) &&
     data.command
+  ) || Boolean(
+    // Navigation blocks
+    type === 'navigation' && data.target_node_label
   );
   
   if (isConfigured) {
-    // For navigation blocks: header = "NAVIGATION", content = node name (e.g., "home")
+    // For navigation blocks: show label:target_node_label in header, target_node_label in content
     if (type === 'navigation' && data.target_node_label) {
-      headerLabel = 'NAVIGATION';
+      // If has custom label (e.g., "navigation_1"), show "navigation_1:home_tvguide"
+      // Otherwise just show "navigation:home_tvguide"
+      if (data.label) {
+        headerLabel = `${data.label}:${data.target_node_label}`;
+      } else {
+        headerLabel = `navigation:${data.target_node_label}`;
+      }
       contentLabel = data.target_node_label;
     }
     // For standard blocks: header = "STANDARD", content = command (e.g., "Sleep")

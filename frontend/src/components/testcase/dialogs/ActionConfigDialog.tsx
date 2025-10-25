@@ -1,21 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import CloseIcon from '@mui/icons-material/Close';
+import React, { useState } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  TextField,
   Box,
   Typography,
-  CircularProgress,
+  IconButton,
 } from '@mui/material';
-import { ActionBlockData, ActionForm } from '../../../types/testcase/TestCase_Types';
-import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
+import { ActionBlockData } from '../../../types/testcase/TestCase_Types';
+import { ActionsList } from '../../actions';
+import { getZIndex } from '../../../utils/zIndexUtils';
 
 interface ActionConfigDialogProps {
   open: boolean;
@@ -30,114 +27,61 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
   onSave,
   onCancel,
 }) => {
-  const { availableActions, isLoadingOptions } = useTestCaseBuilder();
-  const [formData, setFormData] = useState<ActionForm>({
-    command: initialData?.command || '',
-    params: initialData?.params || {},
-    isValid: false,
-  });
-
-  useEffect(() => {
-    // Validate form
-    const isValid = Boolean(formData.command);
-    setFormData((prev) => ({ ...prev, isValid }));
-  }, [formData.command]);
-
-  const handleCommandChange = (command: string) => {
-    const selectedAction = availableActions.find((action: any) => action.command === command);
-    setFormData((prev) => ({
-      ...prev,
-      command,
-      params: selectedAction?.params || {},
-    }));
-  };
+  // Store single action in an array for ActionsList component
+  const [actions, setActions] = useState<any[]>([
+    initialData || { command: '', params: { wait_time: 500 } }
+  ]);
 
   const handleSave = () => {
-    const { isValid, ...dataToSave } = formData;
-    onSave(dataToSave);
+    // Save the first (and only) action
+    if (actions.length > 0 && actions[0].command) {
+      onSave(actions[0]);
+    }
   };
 
+  const isValid = actions.length > 0 && Boolean(actions[0].command);
+
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>Configure Action Block</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Select the action command to execute
-          </Typography>
+    <Dialog 
+      open={open} 
+      onClose={onCancel} 
+      maxWidth="md" 
+      fullWidth
+      sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
+    >
+      <DialogTitle sx={{ pb: 0.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Configure Action</Typography>
+          <IconButton onClick={onCancel} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
 
-          {isLoadingOptions ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress size={24} />
-            </Box>
-          ) : (
-            <>
-              <FormControl fullWidth>
-                <InputLabel>Command</InputLabel>
-                <Select
-                  value={formData.command}
-                  label="Command"
-                  onChange={(e) => handleCommandChange(e.target.value)}
-                >
-                  {availableActions.map((action: any) => (
-                    <MenuItem key={action.command} value={action.command}>
-                      {action.description || action.command}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+      <DialogContent sx={{ py: 0.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Edit the action parameters
+        </Typography>
 
-              {formData.command === 'click_element' && (
-                <TextField
-                  label="Element ID"
-                  value={formData.params?.element_id || ''}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      params: { ...prev.params, element_id: e.target.value },
-                    }))
-                  }
-                  fullWidth
-                />
-              )}
-
-              {formData.command === 'send_text' && (
-                <TextField
-                  label="Text"
-                  value={formData.params?.text || ''}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      params: { ...prev.params, text: e.target.value },
-                    }))
-                  }
-                  fullWidth
-                  multiline
-                  rows={3}
-                />
-              )}
-
-              {formData.command === 'wait' && (
-                <TextField
-                  label="Duration (seconds)"
-                  type="number"
-                  value={formData.params?.seconds || 1}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      params: { ...prev.params, seconds: parseInt(e.target.value) },
-                    }))
-                  }
-                  fullWidth
-                />
-              )}
-            </>
-          )}
+        {/* Reuse ActionsList component from Navigation Editor */}
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 1,
+          }}
+        >
+          <ActionsList
+            actions={actions}
+            onActionsUpdate={setActions}
+          />
         </Box>
       </DialogContent>
-      <DialogActions>
+
+      <DialogActions sx={{ pt: 0.5 }}>
         <Button onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!formData.isValid || isLoadingOptions}>
+        <Button onClick={handleSave} variant="contained" disabled={!isValid}>
           Save
         </Button>
       </DialogActions>

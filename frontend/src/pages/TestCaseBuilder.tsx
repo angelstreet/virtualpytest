@@ -54,7 +54,6 @@ import { ExecutionLog } from '../components/testcase/ExecutionLog';
 // Dialogs
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
 import { VerificationConfigDialog } from '../components/testcase/dialogs/VerificationConfigDialog';
-import { NavigationConfigDialog } from '../components/testcase/dialogs/NavigationConfigDialog';
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
 
 // Context
@@ -183,12 +182,19 @@ const TestCaseBuilderContent: React.FC = () => {
     event.dataTransfer.dropEffect = 'move';
   }, []);
 
-  // Handle block click
+  // Handle block single click - just select
   const onNodeClick = useCallback(
     (_event: React.MouseEvent, node: any) => {
-      // Don't open dialog for terminal blocks
-      if (node.type === 'start' || node.type === 'success' || node.type === 'failure') {
-        hookData.setSelectedBlock(node);
+      hookData.setSelectedBlock(node);
+    },
+    [hookData.setSelectedBlock]
+  );
+
+  // Handle block double click - open configuration dialog
+  const onNodeDoubleClick = useCallback(
+    (_event: React.MouseEvent, node: any) => {
+      // Don't open dialog for terminal blocks or navigation blocks
+      if (node.type === 'start' || node.type === 'success' || node.type === 'failure' || node.type === 'navigation') {
         return;
       }
 
@@ -454,6 +460,7 @@ const TestCaseBuilderContent: React.FC = () => {
             onEdgesChange={hookData.onEdgesChange}
             onConnect={hookData.onConnect}
             onNodeClick={onNodeClick}
+            onNodeDoubleClick={onNodeDoubleClick}
             onInit={setReactFlowInstance}
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
@@ -519,7 +526,7 @@ const TestCaseBuilderContent: React.FC = () => {
       </Box>
 
       {/* Configuration Dialogs */}
-      {hookData.selectedBlock?.type === 'press_key' && (
+      {hookData.selectedBlock?.type === 'action' && (
         <ActionConfigDialog
           open={hookData.isConfigDialogOpen}
           initialData={hookData.selectedBlock.data}
@@ -528,17 +535,8 @@ const TestCaseBuilderContent: React.FC = () => {
         />
       )}
 
-      {hookData.selectedBlock?.type === 'verify_image' && (
+      {hookData.selectedBlock?.type === 'verification' && (
         <VerificationConfigDialog
-          open={hookData.isConfigDialogOpen}
-          initialData={hookData.selectedBlock.data}
-          onSave={handleConfigSave}
-          onCancel={() => hookData.setIsConfigDialogOpen(false)}
-        />
-      )}
-
-      {hookData.selectedBlock?.type === 'navigation' && (
-        <NavigationConfigDialog
           open={hookData.isConfigDialogOpen}
           initialData={hookData.selectedBlock.data}
           onSave={handleConfigSave}

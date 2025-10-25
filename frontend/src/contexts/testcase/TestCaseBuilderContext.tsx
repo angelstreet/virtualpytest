@@ -326,8 +326,6 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
 
   // Execute testcase
   const executeCurrentTestCase = useCallback(async (hostName: string) => {
-    let testcaseIdToExecute = currentTestcaseId;
-    
     // DEBUG: Check nodes state before execution
     console.log('[@TestCaseBuilder] Pre-execution nodes check:', {
       nodesCount: nodes.length,
@@ -341,54 +339,30 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       seenIds.has(node.id) ? { ...node, id: crypto.randomUUID() } : (seenIds.add(node.id), node)
     );
     
-    // If no test case ID, auto-save first
-    if (!testcaseIdToExecute) {
-      console.log('No test case ID, auto-saving before execution...');
-      const autoSaveName = testcaseName || `unsaved_${Date.now()}`;
-      
-      // Convert nodes and edges to TestCaseGraph format (same as saveCurrentTestCase)
-      const graph: TestCaseGraph = {
-        nodes: uniqueNodes.map(node => ({
-          id: node.id,
-          type: node.type as BlockType,
-          position: node.position,
-          data: node.data || {}
-        })),
-        edges: edges.map(edge => ({
-          id: edge.id!,
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle as 'success' | 'failure',
-          type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
-        }))
-      };
-      
-      // DEBUG: Log what we're saving
-      console.log('[@TestCaseBuilder] Saving test case with graph:', {
-        nodes: graph.nodes.length,
-        edges: graph.edges.length,
-        nodeIds: graph.nodes.map(n => n.id),
-        edgeDetails: graph.edges
-      });
-      
-      const saveResult = await saveTestCase(
-        autoSaveName,
-        graph,
-        description || '',
-        userinterfaceName || '',
-        'default-user'
-      );
-      
-      if (saveResult.success && saveResult.testcase_id) {
-        testcaseIdToExecute = saveResult.testcase_id;
-        setCurrentTestcaseId(saveResult.testcase_id);
-        setTestcaseName(autoSaveName);
-        setHasUnsavedChanges(false);
-      } else {
-        console.error('Failed to auto-save test case before execution');
-        return;
-      }
-    }
+    // Build graph from current state - NO SAVE REQUIRED
+    const graph: TestCaseGraph = {
+      nodes: uniqueNodes.map(node => ({
+        id: node.id,
+        type: node.type as BlockType,
+        position: node.position,
+        data: node.data || {}
+      })),
+      edges: edges.map(edge => ({
+        id: edge.id!,
+        source: edge.source,
+        target: edge.target,
+        sourceHandle: edge.sourceHandle as 'success' | 'failure',
+        type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
+      }))
+    };
+    
+    // DEBUG: Log execution graph
+    console.log('[@TestCaseBuilder] Executing with graph:', {
+      nodes: graph.nodes.length,
+      edges: graph.edges.length,
+      nodeIds: graph.nodes.map(n => n.id),
+      edgeDetails: graph.edges
+    });
     
     // 🆕 ADD: Initialize unified execution state
     const blockIds = nodes.filter(n => !['start', 'success', 'failure'].includes(n.type || '')).map(n => n.id);
@@ -402,7 +376,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     });
 
     try {
-      const response = await executeTestCase(testcaseIdToExecute!, 'device1', hostName);
+      // Execute directly with graph - no testcase_id needed
+      const response = await executeTestCase(graph, 'device1', hostName, userinterfaceName);
       
       // 🆕 PROCESS step_results to update blockStates
       // Each step has { block_id, success, error, execution_time_ms }

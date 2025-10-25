@@ -24,6 +24,143 @@ class TestCaseExecutor:
         self.device = None
         self.current_block_id = None
     
+    def execute_testcase_from_graph(
+        self,
+        graph: Dict[str, Any],
+        team_id: str,
+        host_name: str,
+        device_id: str,
+        device_name: str,
+        device_model: str,
+        userinterface_name: str = ''
+    ) -> Dict[str, Any]:
+        """
+        Execute a test case directly from graph JSON (no save required).
+        
+        Args:
+            graph: Graph JSON definition
+            team_id: Team ID
+            host_name: Host name
+            device_id: Device ID
+            device_name: Device name
+            device_model: Device model
+            userinterface_name: Userinterface name (optional)
+        
+        Returns:
+            Execution result with success, report_url, etc.
+        """
+        start_time = time.time()
+        
+        try:
+            # Validate graph structure
+            print(f"[@testcase_executor] Validating graph...")
+            is_valid, errors, warnings = self.validator.validate_graph(graph)
+            
+            if not is_valid:
+                error_msg = '; '.join(errors)
+                print(f"[@testcase_executor] Validation failed: {error_msg}")
+                return {
+                    'success': False,
+                    'error': f'Invalid graph: {error_msg}',
+                    'validation_errors': errors,
+                    'validation_warnings': warnings,
+                    'execution_time_ms': 0
+                }
+            
+            if warnings:
+                print(f"[@testcase_executor] Validation warnings: {'; '.join(warnings)}")
+            
+            # Record execution start in script_results
+            script_result_id = record_script_execution_start(
+                team_id=team_id,
+                script_name='unsaved_testcase',
+                script_type='testcase',
+                userinterface_name=userinterface_name,
+                host_name=host_name,
+                device_name=device_name,
+                metadata={
+                    'device_id': device_id,
+                    'device_model': device_model,
+                    'unsaved': True
+                }
+            )
+            
+            print(f"[@testcase_executor] Script result ID: {script_result_id}")
+            
+            # Create execution context
+            context = ScriptExecutionContext('unsaved_testcase')
+            context.script_result_id = script_result_id
+            context.team_id = team_id
+            context.userinterface_name = userinterface_name
+            
+            # Get device from controller manager
+            from backend_host.src.controllers.controller_manager import get_host
+            host = get_host(device_ids=[device_id])
+            
+            device = next((d for d in host.get_devices() if d.device_id == device_id), None)
+            if not device:
+                raise ValueError(f"Device not found: {device_id}")
+            
+            context.selected_device = device
+            context.host = host
+            
+            # Populate device navigation_context for executor tracking
+            nav_context = device.navigation_context
+            nav_context['script_id'] = script_result_id
+            nav_context['script_name'] = 'unsaved_testcase'
+            nav_context['script_context'] = 'testcase'
+            
+            # Execute the graph
+            print(f"[@testcase_executor] Executing test case from graph...")
+            self.context = context
+            self.device = device
+            
+            execution_result = self._execute_graph(graph, context)
+            
+            # Calculate execution time
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Determine result type for logging
+            result_type = execution_result.get('result_type', 'error')
+            if result_type == 'success':
+                print(f"[@testcase_executor] Execution completed: SUCCESS (reached SUCCESS block)")
+            elif result_type == 'failure':
+                print(f"[@testcase_executor] Execution completed: FAILURE (reached FAILURE block)")
+            else:
+                print(f"[@testcase_executor] Execution completed: ERROR - {execution_result.get('error')}")
+            
+            # Update script_results with final result
+            update_script_execution_result(
+                script_result_id=script_result_id,
+                success=execution_result['success'],
+                execution_time_ms=execution_time_ms,
+                error_msg=execution_result.get('error')
+            )
+            
+            return {
+                'success': execution_result['success'],
+                'result_type': result_type,
+                'execution_time_ms': execution_time_ms,
+                'step_count': len(context.step_results),
+                'error': execution_result.get('error'),
+                'script_result_id': script_result_id,
+                'step_results': context.step_results
+            }
+            
+        except Exception as e:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            error_msg = f"Execution error: {str(e)}"
+            print(f"[@testcase_executor] ERROR: {error_msg}")
+            
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time_ms': execution_time_ms
+            }
+    
     def execute_testcase(
         self,
         testcase_name: str,

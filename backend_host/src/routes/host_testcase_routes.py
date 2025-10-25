@@ -213,6 +213,62 @@ def testcase_execute(testcase_id):
         return jsonify({'success': False, 'error': f'Execution failed: {str(e)}'}), 500
 
 
+@host_testcase_bp.route('/execute', methods=['POST'])
+def testcase_execute_direct():
+    """Execute test case directly from graph (no save required)"""
+    try:
+        from backend_host.src.services.testcase.testcase_executor import TestCaseExecutor
+        
+        print(f"[@host_testcase] Executing test case from graph (no save)")
+        
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        
+        # Extract data
+        graph_json = data.get('graph_json')
+        device_id = data.get('device_id', 'device1')
+        host_name = data.get('host_name')
+        userinterface_name = data.get('userinterface_name', '')
+        
+        # Validate
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        if not graph_json:
+            return jsonify({'success': False, 'error': 'graph_json is required'}), 400
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name is required'}), 400
+        
+        # Get device info from registry
+        if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        device_name = device.device_name
+        device_model = device.device_model
+        
+        # Execute test case directly with graph
+        executor = TestCaseExecutor()
+        result = executor.execute_testcase_from_graph(
+            graph=graph_json,
+            team_id=team_id,
+            host_name=host_name,
+            device_id=device_id,
+            device_name=device_name,
+            device_model=device_model,
+            userinterface_name=userinterface_name
+        )
+        
+        print(f"[@host_testcase] Execution result: success={result.get('success')}")
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@host_testcase] Error executing test case: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': f'Execution failed: {str(e)}'}), 500
+
+
 @host_testcase_bp.route('/<testcase_id>/history', methods=['GET'])
 def testcase_history(testcase_id):
     """Get execution history for a test case"""

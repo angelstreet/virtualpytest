@@ -1,20 +1,18 @@
-import React, { useState, useEffect } from 'react';
+import CloseIcon from '@mui/icons-material/Close';
+import React, { useState, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
   Button,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  TextField,
   Box,
   Typography,
-  CircularProgress,
+  IconButton,
 } from '@mui/material';
-import { VerificationBlockData, VerificationForm } from '../../../types/testcase/TestCase_Types';
+import { VerificationBlockData } from '../../../types/testcase/TestCase_Types';
+import { VerificationsList } from '../../verification/VerificationsList';
+import { getZIndex } from '../../../utils/zIndexUtils';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 
 interface VerificationConfigDialogProps {
@@ -30,98 +28,89 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
   onSave,
   onCancel,
 }) => {
-  const { availableVerifications, isLoadingOptions } = useTestCaseBuilder();
-  const [formData, setFormData] = useState<VerificationForm>({
-    verification_type: initialData?.verification_type || '',
-    reference: initialData?.reference || '',
-    threshold: initialData?.threshold || 0.8,
-    isValid: false,
-  });
+  const { availableVerifications } = useTestCaseBuilder();
+  
+  // Store single verification in an array for VerificationsList component
+  const [verifications, setVerifications] = useState<any[]>([
+    initialData || { command: '', params: {} }
+  ]);
 
-  useEffect(() => {
-    // Validate form
-    const isValid = Boolean(formData.verification_type);
-    setFormData((prev) => ({ ...prev, isValid }));
-  }, [formData.verification_type]);
-
-  const handleTypeChange = (type: string) => {
-    setFormData((prev) => ({
-      ...prev,
-      verification_type: type,
-    }));
-  };
+  // Transform availableVerifications array to the format expected by VerificationsList
+  const availableVerificationsFormatted = useMemo(() => {
+    const formatted: Record<string, any[]> = {};
+    
+    availableVerifications.forEach((verification: any) => {
+      const category = verification.category || 'General';
+      if (!formatted[category]) {
+        formatted[category] = [];
+      }
+      formatted[category].push(verification);
+    });
+    
+    return formatted;
+  }, [availableVerifications]);
 
   const handleSave = () => {
-    const { isValid, ...dataToSave } = formData;
-    onSave(dataToSave);
+    // Save the first (and only) verification
+    if (verifications.length > 0 && verifications[0].command) {
+      onSave(verifications[0]);
+    }
   };
 
+  const isValid = verifications.length > 0 && Boolean(verifications[0].command);
+
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>Configure Verification Block</DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
-          <Typography variant="body2" color="text.secondary">
-            Select the verification type to perform
-          </Typography>
+    <Dialog 
+      open={open} 
+      onClose={onCancel} 
+      maxWidth="md" 
+      fullWidth
+      sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
+    >
+      <DialogTitle sx={{ pb: 0.5 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Configure Verification</Typography>
+          <IconButton onClick={onCancel} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
 
-          {isLoadingOptions ? (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 3 }}>
-              <CircularProgress size={24} />
-            </Box>
-          ) : (
-            <>
-              <FormControl fullWidth>
-                <InputLabel>Verification Type</InputLabel>
-                <Select
-                  value={formData.verification_type}
-                  label="Verification Type"
-                  onChange={(e) => handleTypeChange(e.target.value)}
-                >
-                  {availableVerifications.map((verification: any) => (
-                    <MenuItem key={verification.type} value={verification.type}>
-                      {verification.description || verification.type}
-                    </MenuItem>
-                  ))}
-                </Select>
-              </FormControl>
+      <DialogContent sx={{ py: 0.5 }}>
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+          Edit the verification parameters
+        </Typography>
 
-              {(formData.verification_type === 'text' || formData.verification_type === 'image') && (
-                <TextField
-                  label={formData.verification_type === 'text' ? 'Text to Verify' : 'Image Reference'}
-                  value={formData.reference || ''}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      reference: e.target.value,
-                    }))
-                  }
-                  fullWidth
-                  required
-                />
-              )}
-
-              <TextField
-                label="Threshold (0-1)"
-                type="number"
-                inputProps={{ min: 0, max: 1, step: 0.1 }}
-                value={formData.threshold}
-                onChange={(e) =>
-                  setFormData((prev) => ({
-                    ...prev,
-                    threshold: parseFloat(e.target.value),
-                  }))
-                }
-                fullWidth
-                helperText="Similarity threshold for verification (0 = any, 1 = exact)"
-              />
-            </>
-          )}
+        {/* Reuse VerificationsList component from Navigation Editor */}
+        <Box
+          sx={{
+            border: '1px solid',
+            borderColor: 'divider',
+            borderRadius: 1,
+            p: 1,
+          }}
+        >
+          <VerificationsList
+            verifications={verifications}
+            availableVerifications={availableVerificationsFormatted}
+            onVerificationsChange={setVerifications}
+            loading={false}
+            model="android_mobile"
+            selectedHost={undefined}
+            testResults={[]}
+            onReferenceSelected={() => {}}
+            modelReferences={{}}
+            referencesLoading={false}
+            showCollapsible={false}
+            title=""
+            onTest={undefined}
+          />
         </Box>
       </DialogContent>
-      <DialogActions>
+
+      <DialogActions sx={{ pt: 0.5 }}>
         <Button onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained" disabled={!formData.isValid || isLoadingOptions}>
+        <Button onClick={handleSave} variant="contained" disabled={!isValid}>
           Save
         </Button>
       </DialogActions>
