@@ -45,6 +45,7 @@ interface TestCaseBuilderHeaderProps {
   
   // Execution State
   isExecuting: boolean;
+  isExecutable: boolean;
 }
 
 export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
@@ -71,6 +72,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   setSaveDialogOpen,
   handleExecute,
   isExecuting,
+  isExecutable,
 }) => {
   return (
     <Box
@@ -228,12 +230,14 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
               isExecuting || 
               !selectedDeviceId || 
               !isControlActive || 
-              !userinterfaceName
+              !userinterfaceName ||
+              !isExecutable
             }
             title={
               !userinterfaceName ? 'Select a userinterface first' :
               !selectedDeviceId ? 'Select a device first' :
               !isControlActive ? 'Take control of device first' :
+              !isExecutable ? 'Connect START block to at least one action' :
               isExecuting ? 'Test is running' :
               'Run test case on device'
             }

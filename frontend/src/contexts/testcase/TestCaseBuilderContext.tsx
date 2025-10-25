@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
+import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef, useMemo } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
 import { BlockType, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
 import { 
@@ -53,6 +53,9 @@ interface TestCaseBuilderContextType {
   // Execution state
   executionState: ExecutionState;
   setExecutionState: React.Dispatch<React.SetStateAction<ExecutionState>>;
+  
+  // Validation
+  isExecutable: boolean;
   
   // Actions
   addBlock: (type: BlockType | string, position: { x: number; y: number }, defaultData?: any) => void;
@@ -148,17 +151,65 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [availableVerifications, setAvailableVerifications] = useState<any[]>([]);
   const [isLoadingOptions, setIsLoadingOptions] = useState<boolean>(false);
 
+  // Validation: Check if START is connected to any executable blocks
+  const isExecutable = useMemo(() => {
+    // Find the START node
+    const startNode = nodes.find(n => n.type === 'start');
+    if (!startNode) return false;
+    
+    // Check if START has any outgoing edges
+    const startEdges = edges.filter(e => e.source === startNode.id);
+    if (startEdges.length === 0) return false;
+    
+    // Check if any edge connects to an executable block (not SUCCESS/FAILURE)
+    const hasExecutableConnection = startEdges.some(edge => {
+      const targetNode = nodes.find(n => n.id === edge.target);
+      return targetNode && !['success', 'failure', 'start'].includes(targetNode.type || '');
+    });
+    
+    return hasExecutableConnection;
+  }, [nodes, edges]);
+
   // ID counter for client-side node/edge generation (only used until save - backend assigns real UUIDs)
   const nodeIdCounter = useRef(1);
   const edgeIdCounter = useRef(1);
+  
+  // Block counters for auto-labeling (tracks count per type)
+  const blockCounters = useRef<Record<string, number>>({});
 
   // Add a new block to the canvas
   const addBlock = useCallback((type: BlockType | string, position: { x: number; y: number }, defaultData?: any) => {
+    // Determine the group/category for labeling
+    let labelGroup = type;
+    
+    // Map specific types to their category for consistent labeling
+    if (['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type)) {
+      labelGroup = 'action';
+    } else if (['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type)) {
+      labelGroup = 'verification';
+    } else if (type === 'navigation') {
+      labelGroup = 'navigation';
+    } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type)) {
+      labelGroup = 'standard';
+    }
+    
+    // Increment counter for this group
+    if (!blockCounters.current[labelGroup]) {
+      blockCounters.current[labelGroup] = 0;
+    }
+    blockCounters.current[labelGroup]++;
+    
+    // Generate auto-label (e.g., "action_1", "verification_2", "navigation_3")
+    const autoLabel = `${labelGroup}_${blockCounters.current[labelGroup]}`;
+    
     const newNode: Node = {
       id: `node_${nodeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
       type,
       position,
-      data: defaultData || {},
+      data: {
+        ...defaultData,
+        label: autoLabel, // Add auto-generated label
+      },
     };
     setNodes((prev) => [...prev, newNode]);
     setHasUnsavedChanges(true);
@@ -307,7 +358,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     });
 
     try {
-      const response = await executeTestCase(testcaseIdToExecute, 'device1', hostName);
+      const response = await executeTestCase(testcaseIdToExecute!, 'device1', hostName);
       
       if (response.success) {
         setExecutionState({
@@ -443,6 +494,22 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           }
         })));
         
+        // Recalculate block counters from loaded nodes
+        blockCounters.current = {};
+        graph.nodes.forEach((node: any) => {
+          if (node.data?.label && !['start', 'success', 'failure'].includes(node.type)) {
+            // Extract group from label (e.g., "action_5" -> group "action", count 5)
+            const match = node.data.label.match(/^([a-zA-Z_]+)_(\d+)$/);
+            if (match) {
+              const [, group, count] = match;
+              blockCounters.current[group] = Math.max(
+                blockCounters.current[group] || 0,
+                parseInt(count, 10)
+              );
+            }
+          }
+        });
+        
         setHasUnsavedChanges(false); // Reset after load
         console.log('Test case loaded:', testcase.testcase_name);
       }
@@ -513,6 +580,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setCurrentTestcaseId(null);
     setSelectedBlock(null);
     setHasUnsavedChanges(false); // Reset on new test case
+    blockCounters.current = {}; // Reset block counters
   }, []);
 
   // Fetch navigation nodes when userinterface changes
@@ -602,6 +670,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setIsConfigDialogOpen,
     executionState,
     setExecutionState,
+    isExecutable,
     addBlock,
     updateBlock,
     deleteBlock,

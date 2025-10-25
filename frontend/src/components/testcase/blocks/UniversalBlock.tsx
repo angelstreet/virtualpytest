@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, CircularProgress } from '@mui/material';
+import { Box, Typography, Chip, IconButton, CircularProgress, TextField } from '@mui/material';
 import { Handle, Position, NodeProps } from 'reactflow';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
+import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
 
@@ -14,12 +16,15 @@ import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
  * Universal Block - Renders any command type with appropriate handles
  * Handles are generated based on command configuration
  */
-export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, type }) => {
+export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, type, id }) => {
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
+  const { updateBlock } = useTestCaseBuilder();
   const [isExecuting, setIsExecuting] = useState(false);
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
+  const [isEditingLabel, setIsEditingLabel] = useState(false);
+  const [editedLabel, setEditedLabel] = useState(data.label || '');
   
   // Get command configuration from toolbox config
   const commandConfig = getCommandConfig(type as string);
@@ -44,6 +49,43 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
   const categoryLabel = commandConfig?.label || data.command || type;
   const icon = commandConfig?.icon || null;
   const outputs: OutputType[] = commandConfig?.outputs || ['success', 'failure'];
+  
+  // Label editing handlers
+  const handleLabelEdit = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setIsEditingLabel(true);
+    setEditedLabel(data.label || '');
+  };
+  
+  const handleLabelSave = () => {
+    // Validate label: max 20 chars, only alphanumeric, -, and _
+    const sanitizedLabel = editedLabel
+      .replace(/[^a-zA-Z0-9\-_]/g, '') // Remove invalid chars
+      .substring(0, 20); // Max 20 chars
+    
+    if (sanitizedLabel.length === 0) {
+      showError('Label cannot be empty');
+      return;
+    }
+    
+    // Update block data with new label
+    updateBlock(id as string, { label: sanitizedLabel });
+    setEditedLabel(sanitizedLabel);
+    setIsEditingLabel(false);
+  };
+  
+  const handleLabelCancel = () => {
+    setIsEditingLabel(false);
+    setEditedLabel(data.label || '');
+  };
+  
+  const handleLabelKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === 'Enter') {
+      handleLabelSave();
+    } else if (e.key === 'Escape') {
+      handleLabelCancel();
+    }
+  };
   
   // Execute handler for action/verification blocks
   const handleExecute = async (e: React.MouseEvent) => {
@@ -338,15 +380,60 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           justifyContent: 'space-between',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
           {icon && (
             <Box sx={{ color: 'white', display: 'flex', alignItems: 'center' }}>
               {icon}
             </Box>
           )}
-          <Typography color="white" fontWeight="bold" fontSize={13}>
-            {headerLabel.toUpperCase()}
-          </Typography>
+          {isEditingLabel ? (
+            <TextField
+              value={editedLabel}
+              onChange={(e) => setEditedLabel(e.target.value)}
+              onKeyDown={handleLabelKeyDown}
+              onBlur={handleLabelSave}
+              autoFocus
+              size="small"
+              inputProps={{
+                maxLength: 20,
+                style: { color: 'white', fontSize: 13, fontWeight: 'bold', padding: '2px 4px' }
+              }}
+              sx={{
+                '& .MuiOutlinedInput-root': {
+                  '& fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.5)',
+                  },
+                  '&:hover fieldset': {
+                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                  },
+                  '&.Mui-focused fieldset': {
+                    borderColor: 'white',
+                  },
+                },
+                flex: 1,
+                maxWidth: '150px',
+              }}
+            />
+          ) : (
+            <>
+              <Typography color="white" fontWeight="bold" fontSize={13}>
+                {(data.label || headerLabel).toUpperCase()}
+              </Typography>
+              <IconButton
+                size="small"
+                onClick={handleLabelEdit}
+                sx={{
+                  color: 'white',
+                  padding: '2px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  },
+                }}
+              >
+                <EditIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </>
+          )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
           {(data.action_type || data.verification_type) && (

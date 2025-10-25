@@ -294,8 +294,8 @@ class TestCaseExecutor:
             next_node_id = self._find_next_node(current_node_id, edge_type, edges)
             
             if not next_node_id:
-                # No connection found - incomplete graph
-                error_msg = f"Block {current_node_id} ({node_type}) has no {edge_type} connection"
+                # Block executed but has no outgoing connection for this result
+                error_msg = f"Block {current_node_id} ({node_type}) executed with {edge_type} but has no {edge_type} connection"
                 print(f"[@testcase_executor] ERROR: {error_msg}")
                 context.overall_success = False
                 return {'success': False, 'result_type': 'error', 'error': error_msg}

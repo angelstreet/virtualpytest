@@ -114,6 +114,7 @@ export interface UseTestCaseBuilderPageReturn {
   isConfigDialogOpen: boolean;
   setIsConfigDialogOpen: (open: boolean) => void;
   executionState: any;
+  isExecutable: boolean;
   addBlock: (type: string, position: any, defaultData?: any) => void;
   updateBlock: (id: string, data: any) => void;
   onNodesChange: (changes: any) => void;
@@ -298,6 +299,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     isConfigDialogOpen,
     setIsConfigDialogOpen,
     executionState,
+    isExecutable,
     testcaseName,
     setTestcaseName,
     description,
@@ -635,6 +637,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     isConfigDialogOpen,
     setIsConfigDialogOpen,
     executionState,
+    isExecutable,
     addBlock,
     updateBlock,
     onNodesChange,

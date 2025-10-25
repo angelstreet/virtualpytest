@@ -275,6 +275,7 @@ const TestCaseBuilderContent: React.FC = () => {
         setSaveDialogOpen={hookData.setSaveDialogOpen}
         handleExecute={hookData.handleExecute}
         isExecuting={hookData.executionState.isExecuting}
+        isExecutable={hookData.isExecutable}
       />
 
       {/* Main Container */}
