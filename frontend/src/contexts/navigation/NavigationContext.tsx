@@ -735,9 +735,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   useEffect(() => {
     const focusNodes = nodes
       .filter(node => {
-        // Filter out entry nodes (case-insensitive)
+        // Filter out entry nodes (case-insensitive) - check type, label, and id
         const nodeType = (node.type || '').toLowerCase();
-        return nodeType !== 'entry';
+        const nodeLabel = (node.data?.label || '').toLowerCase();
+        const nodeId = (node.id || '').toLowerCase();
+        
+        // Filter out if type, label, or id is "entry" or contains "entry"
+        if (nodeType === 'entry' || nodeLabel === 'entry' || nodeId === 'entry' || nodeId.includes('entry')) {
+          return false;
+        }
+        
+        return true;
       })
       .map(node => ({
         id: node.id,

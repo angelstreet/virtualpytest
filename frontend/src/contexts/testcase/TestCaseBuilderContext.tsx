@@ -693,7 +693,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         const filteredNodes = result.nodes.filter(node => {
           const nodeType = (node.type || '').toLowerCase();
           const nodeLabel = (node.label || '').toLowerCase();
-          const nodeId = (node.id || node.node_id || '').toLowerCase();
+          const nodeId = ((node as any).node_id || node.id || '').toLowerCase();
           
           // Filter out if type, label, or id is "entry" or contains "entry"
           if (nodeType === 'entry' || nodeLabel === 'entry' || nodeId === 'entry' || nodeId.includes('entry')) {

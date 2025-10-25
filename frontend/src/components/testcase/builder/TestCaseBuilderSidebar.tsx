@@ -64,6 +64,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
               sx={{
                 px: 2,
                 py: 1.5,
+                height: '40px',
                 borderBottom: 1,
                 borderColor: 'divider',
                 display: 'flex',

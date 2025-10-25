@@ -53,12 +53,12 @@ export function buildToolboxFromNavigationData(
       groups: [
         {
           groupName: 'Standard',
-          commands: [
+          commands: sortCommands([
             { type: 'loop', label: 'Loop', icon: LoopIcon, color: '#3b82f6', outputs: ['complete', 'break'], description: 'Repeat actions' },
             { type: 'sleep', label: 'Sleep', icon: LoopIcon, color: '#3b82f6', outputs: ['success'], description: 'Wait for duration' },
             { type: 'condition', label: 'Evaluate Condition', icon: LoopIcon, color: '#3b82f6', outputs: ['true', 'false'], description: 'Conditional branch' },
             { type: 'set_variable', label: 'Common Operation', icon: LoopIcon, color: '#3b82f6', outputs: ['success'], description: 'Set variable' },
-          ]
+          ])
         }
       ]
     },
@@ -208,7 +208,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
 
     groups.push({
       groupName: formatGroupName(verificationType),
-      commands
+      commands: sortCommands(commands)
     });
   });
 

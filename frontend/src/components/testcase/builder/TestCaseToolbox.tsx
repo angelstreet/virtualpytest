@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
@@ -6,8 +6,13 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  TextField,
+  InputAdornment,
+  IconButton,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import SearchIcon from '@mui/icons-material/Search';
+import ClearIcon from '@mui/icons-material/Clear';
 import { toolboxConfig as staticToolboxConfig, CommandConfig } from './toolboxConfig';
 
 interface DraggableCommandProps {
@@ -70,6 +75,8 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
   toolboxConfig = staticToolboxConfig,  // Fallback to static config
   onCloseProgressBar
 }) => {
+  const [searchTerm, setSearchTerm] = useState('');
+
   // Define tab colors (matching block type colors)
   const tabColors: Record<string, string> = {
     'standard': '#6b7280',    // grey - neutral for standard operations
@@ -83,6 +90,39 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     return null;
   }
 
+  // Filter toolbox config based on search term
+  const filteredToolboxConfig = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return toolboxConfig;
+    }
+
+    const searchLower = searchTerm.toLowerCase().trim();
+    const filtered: any = {};
+
+    Object.keys(toolboxConfig).forEach((tabKey) => {
+      const tabConfig = toolboxConfig[tabKey];
+      const filteredGroups = tabConfig.groups
+        .map((group: any) => ({
+          ...group,
+          commands: group.commands.filter((command: any) => 
+            (command.label || '').toLowerCase().includes(searchLower) ||
+            (command.description || '').toLowerCase().includes(searchLower) ||
+            (command.type || '').toLowerCase().includes(searchLower)
+          )
+        }))
+        .filter((group: any) => group.commands.length > 0);
+
+      if (filteredGroups.length > 0) {
+        filtered[tabKey] = {
+          ...tabConfig,
+          groups: filteredGroups
+        };
+      }
+    });
+
+    return filtered;
+  }, [toolboxConfig, searchTerm]);
+
   return (
     <Box
       sx={{
@@ -92,6 +132,43 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         overflow: 'hidden',
       }}
     >
+      {/* Filter/Search Box */}
+      <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Search commands..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
+          InputProps={{
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+            endAdornment: searchTerm && (
+              <InputAdornment position="end">
+                <IconButton
+                  size="small"
+                  onClick={() => setSearchTerm('')}
+                  edge="end"
+                >
+                  <ClearIcon fontSize="small" />
+                </IconButton>
+              </InputAdornment>
+            ),
+            sx: { fontSize: '0.875rem' }
+          }}
+          sx={{
+            '& .MuiOutlinedInput-root': {
+              '&:hover fieldset': {
+                borderColor: 'primary.main',
+              },
+            },
+          }}
+        />
+      </Box>
+
       {/* All Tabs - Scrollable */}
       <Box
         sx={{
@@ -100,16 +177,25 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
           p: 0.5,
         }}
       >
-        {/* Iterate through all tabs */}
-        {Object.keys(toolboxConfig).map((tabKey) => {
-          const tabConfig = toolboxConfig[tabKey];
-          const tabColor = tabColors[tabKey] || '#6b7280';
-          const tabName = tabConfig.tabName || tabKey;
+        {/* Show message if no results */}
+        {Object.keys(filteredToolboxConfig).length === 0 ? (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="caption" color="text.secondary">
+              No commands found for "{searchTerm}"
+            </Typography>
+          </Box>
+        ) : (
+          <>
+            {/* Iterate through filtered tabs */}
+            {Object.keys(filteredToolboxConfig).map((tabKey) => {
+              const tabConfig = filteredToolboxConfig[tabKey];
+              const tabColor = tabColors[tabKey] || '#6b7280';
+              const tabName = tabConfig.tabName || tabKey;
 
           return (
             <Accordion
               key={tabKey}
-              defaultExpanded={false} // Collapsed by default
+              defaultExpanded={searchTerm.trim() !== ''} // Auto-expand when searching
               sx={{
                 boxShadow: 'none',
                 '&:before': { display: 'none'},
@@ -162,11 +248,11 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 1 }}>
-                {/* Render each group with collapsible header - ALWAYS show accordion */}
+                {/* Render each group with collapsible header */}
                 {tabConfig.groups.map((group: any, groupIdx: number) => (
                   <Accordion
                     key={`${tabKey}-group-${groupIdx}`}
-                    defaultExpanded={true}
+                    defaultExpanded={true} // Always expanded
                     sx={{
                       boxShadow: 'none',
                       '&:before': { display: 'none'},
@@ -210,7 +296,7 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
                           opacity: 0.8
                         }}
                       >
-                        {group.groupName}
+                        {group.groupName} ({group.commands.length})
                       </Typography>
                     </AccordionSummary>
                     <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
@@ -228,6 +314,8 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
             </Accordion>
           );
         })}
+          </>
+        )}
       </Box>
 
     </Box>
