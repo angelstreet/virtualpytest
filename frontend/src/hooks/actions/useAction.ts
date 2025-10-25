@@ -150,6 +150,7 @@ export const useAction = () => {
             ...batchPayload,
             // Include navigation context for proper metrics recording
             ...(navigationContext || {}),
+            async_execution: true,  // Enable async execution
           }),
         });
 
@@ -161,30 +162,68 @@ export const useAction = () => {
           throw new Error(`HTTP error! status: ${response.status}`);
         }
 
-        const result = await response.json();
-        console.log('[useAction] Batch execution result:', result);
+        const startResponse = await response.json();
+        console.log('[useAction] Batch execution start response:', startResponse);
 
-        if (result.success !== undefined) {
-          setExecutionResults(result.results || []);
-          console.log('[useAction] Execution results set:', result.results);
-
-          const passedCount = result.passed_count || 0;
-          const totalCount = result.total_count || 0;
-          const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
-          setSuccessMessage(summaryMessage);
-
-          return {
-            success: result.success,
-            message: summaryMessage,
-            results: result.results,
-            passed_count: passedCount,
-            total_count: totalCount,
-          };
-        } else {
-          const errorMsg = result.error || 'Action execution failed';
-          setError(errorMsg);
-          return { success: false, message: errorMsg, error: errorMsg };
+        if (!startResponse.success) {
+          throw new Error(startResponse.error || 'Failed to start action execution');
         }
+
+        const executionId = startResponse.execution_id;
+        console.log('[useAction] ✅ Async execution started:', executionId);
+
+        // Poll for completion
+        const statusUrl = buildServerUrl(`/server/action/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId}`);
+        
+        let attempts = 0;
+        const maxAttempts = 30; // 30 * 1000ms = 30 seconds max (actions are typically faster than navigation)
+        
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
+          attempts++;
+          
+          const statusResult = await fetch(statusUrl);
+          const statusResponse = await statusResult.json();
+          
+          if (!statusResponse.success) {
+            throw new Error(statusResponse.error || 'Failed to get execution status');
+          }
+          
+          if (statusResponse.status === 'completed') {
+            const result = statusResponse.result;
+            
+            if (result.success !== undefined) {
+              setExecutionResults(result.results || []);
+              console.log('[useAction] Execution results set:', result.results);
+
+              const passedCount = result.passed_count || 0;
+              const totalCount = result.total_count || 0;
+              const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
+              setSuccessMessage(summaryMessage);
+
+              return {
+                success: result.success,
+                message: summaryMessage,
+                results: result.results,
+                passed_count: passedCount,
+                total_count: totalCount,
+              };
+            } else {
+              const errorMsg = result.error || 'Action execution failed';
+              setError(errorMsg);
+              return { success: false, message: errorMsg, error: errorMsg };
+            }
+          } else if (statusResponse.status === 'error') {
+            throw new Error(statusResponse.error || 'Action execution failed');
+          }
+        }
+        
+        if (attempts >= maxAttempts) {
+          throw new Error('Action execution timeout - took too long');
+        }
+        
+        // This should never be reached, but TypeScript needs it
+        return { success: false, message: 'Unexpected error', error: 'Unexpected error' };
       } catch (error) {
         console.error('[useAction] Error during action execution:', error);
         const errorMsg =

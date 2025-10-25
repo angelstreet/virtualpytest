@@ -10,6 +10,8 @@ The core logic is the same as /server/action/executeBatch but available as a reu
 """
 
 import time
+import threading
+import uuid
 import logging
 from typing import Dict, List, Optional, Any
 from shared.src.lib.database.execution_results_db import record_edge_execution
@@ -115,6 +117,10 @@ class ActionExecutor:
         
         # Cache for action type detection to avoid repeated controller lookups
         self._action_type_cache = {}
+        
+        # Async execution tracking (for action polling)
+        self._executions: Dict[str, Dict[str, Any]] = {}  # execution_id -> execution state
+        self._lock = threading.Lock()
     
     def get_available_context(self, userinterface_name: str = None) -> Dict[str, Any]:
         """
@@ -345,6 +351,136 @@ class ActionExecutor:
             'execution_time_ms': total_execution_time,
             'main_actions_succeeded': not main_actions_failed
         }
+    
+    # ========================================
+    # ASYNC EXECUTION METHODS (for polling support)
+    # ========================================
+    
+    def execute_actions_async(
+        self,
+        actions: List[Dict[str, Any]],
+        retry_actions: Optional[List[Dict[str, Any]]] = None,
+        failure_actions: Optional[List[Dict[str, Any]]] = None,
+        team_id: str = None
+    ) -> Dict[str, Any]:
+        """
+        Start async action execution.
+        Returns immediately with execution_id for polling.
+        
+        Returns:
+            {
+                'success': True,
+                'execution_id': str,
+                'message': 'Execution started'
+            }
+        """
+        execution_id = str(uuid.uuid4())
+        
+        # Initialize execution state
+        with self._lock:
+            self._executions[execution_id] = {
+                'execution_id': execution_id,
+                'status': 'running',
+                'result': None,
+                'error': None,
+                'start_time': time.time(),
+                'progress': 0,
+                'message': 'Action execution starting...'
+            }
+        
+        # Start execution in background thread
+        thread = threading.Thread(
+            target=self._execute_actions_with_tracking,
+            args=(execution_id, actions, retry_actions, failure_actions, team_id),
+            daemon=True
+        )
+        thread.start()
+        
+        return {
+            'success': True,
+            'execution_id': execution_id,
+            'message': 'Action execution started'
+        }
+    
+    def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
+        """
+        Get status of async action execution.
+        
+        Returns:
+            {
+                'success': bool,
+                'execution_id': str,
+                'status': 'running' | 'completed' | 'error',
+                'result': dict (if completed),
+                'error': str (if error),
+                'progress': int,
+                'message': str
+            }
+        """
+        with self._lock:
+            if execution_id not in self._executions:
+                return {
+                    'success': False,
+                    'error': f'Execution {execution_id} not found'
+                }
+            
+            execution = self._executions[execution_id].copy()
+        
+        return {
+            'success': True,
+            'execution_id': execution['execution_id'],
+            'status': execution['status'],
+            'result': execution.get('result'),
+            'error': execution.get('error'),
+            'progress': execution.get('progress', 0),
+            'message': execution.get('message', ''),
+            'elapsed_time_ms': int((time.time() - execution['start_time']) * 1000)
+        }
+    
+    def _execute_actions_with_tracking(
+        self,
+        execution_id: str,
+        actions: List[Dict[str, Any]],
+        retry_actions: Optional[List[Dict[str, Any]]],
+        failure_actions: Optional[List[Dict[str, Any]]],
+        team_id: str
+    ):
+        """Execute actions in background thread with progress tracking"""
+        try:
+            # Update status
+            with self._lock:
+                self._executions[execution_id]['message'] = 'Executing actions...'
+                self._executions[execution_id]['progress'] = 50
+            
+            # Execute actions (synchronous call)
+            result = self.execute_actions(
+                actions=actions,
+                retry_actions=retry_actions,
+                failure_actions=failure_actions,
+                team_id=team_id
+            )
+            
+            # Update with result
+            with self._lock:
+                if result.get('success'):
+                    self._executions[execution_id]['status'] = 'completed'
+                    self._executions[execution_id]['result'] = result
+                    self._executions[execution_id]['progress'] = 100
+                    self._executions[execution_id]['message'] = 'Action execution completed'
+                else:
+                    self._executions[execution_id]['status'] = 'error'
+                    self._executions[execution_id]['error'] = result.get('error', 'Action execution failed')
+                    self._executions[execution_id]['result'] = result
+                    self._executions[execution_id]['progress'] = 100
+                    self._executions[execution_id]['message'] = 'Action execution failed'
+        
+        except Exception as e:
+            # Update with error
+            with self._lock:
+                self._executions[execution_id]['status'] = 'error'
+                self._executions[execution_id]['error'] = str(e)
+                self._executions[execution_id]['progress'] = 100
+                self._executions[execution_id]['message'] = f'Action execution error: {str(e)}'
     
     def _filter_valid_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter out invalid actions"""

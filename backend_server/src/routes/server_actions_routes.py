@@ -131,7 +131,8 @@ def action_execute_batch():
                 'edge_id': edge_id,
                 'action_set_id': action_set_id,
                 'skip_db_recording': skip_db_recording,
-                'team_id': team_id
+                'team_id': team_id,
+                'async_execution': data.get('async_execution', True)  # Default to async to prevent timeouts
             }
             
             # Extract parameters for query string
@@ -141,13 +142,16 @@ def action_execute_batch():
             if team_id:
                 query_params['team_id'] = team_id
             
+            # Use shorter timeout for async (only for initial response), longer for sync
+            timeout = 10 if execution_payload['async_execution'] else 30
+            
             # Proxy to host action execution endpoint with parameters
             response_data, status_code = proxy_to_host_with_params(
                 '/host/action/executeBatch', 
                 'POST', 
                 execution_payload, 
                 query_params, 
-                timeout=30
+                timeout=timeout
             )
             
             print(f"[@route:server_actions:action_execute_batch] Execution completed: success={response_data.get('success')}")
@@ -168,6 +172,52 @@ def action_execute_batch():
         return jsonify({
             'success': False,
             'error': f'Server error during batch action execution: {str(e)}'
+        }), 500
+
+
+@server_actions_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def get_action_execution_status(execution_id):
+    """
+    Get status of async action execution
+    
+    Query parameters:
+    - device_id: Device ID
+    - host_name: Host name (required)
+    """
+    try:
+        print(f"[@route:server_actions:get_status] Getting status for execution {execution_id}")
+        
+        device_id = request.args.get('device_id')
+        host_name = request.args.get('host_name')
+        
+        # Validate required parameters
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name query parameter is required'
+            }), 400
+        
+        # Proxy to host status endpoint
+        query_params = {}
+        if device_id:
+            query_params['device_id'] = device_id
+        
+        from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
+        response_data, status_code = proxy_to_host_with_params(
+            f'/host/action/execution/{execution_id}/status',
+            'GET',
+            None,
+            query_params,
+            timeout=5
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_actions:get_status] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get execution status: {str(e)}'
         }), 500
 
 @server_actions_bp.route('/execute', methods=['POST'])

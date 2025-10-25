@@ -12,7 +12,7 @@ host_actions_bp = Blueprint('host_actions', __name__, url_prefix='/host/action')
 
 @host_actions_bp.route('/executeBatch', methods=['POST'])
 def action_execute_batch():
-    """Execute batch of actions using device's ActionExecutor"""
+    """Execute batch of actions using device's ActionExecutor - supports async execution"""
     try:
         print("[@route:host_actions:action_execute_batch] Starting batch action execution")
         
@@ -26,8 +26,10 @@ def action_execute_batch():
         edge_id = data.get('edge_id')
         action_set_id = data.get('action_set_id')
         skip_db_recording = data.get('skip_db_recording', False)
+        async_execution = data.get('async_execution', True)  # Default to async to prevent timeouts
         
         print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} actions for device: {device_id}, team: {team_id}")
+        print(f"[@route:host_actions:action_execute_batch] Async Execution: {async_execution}")
         
         # Validate
         if not actions:
@@ -74,14 +76,23 @@ def action_execute_batch():
         
         print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}, skip_db_recording={skip_db_recording}")
         
-        # Execute actions using device's ActionExecutor
-        result = device.action_executor.execute_actions(
-            actions=actions,
-            retry_actions=retry_actions,
-            team_id=team_id
-        )
-        
-        print(f"[@route:host_actions:action_execute_batch] Execution completed: success={result.get('success')}")
+        # Execute actions: async or sync
+        if async_execution:
+            # Async execution - returns immediately with execution_id
+            result = device.action_executor.execute_actions_async(
+                actions=actions,
+                retry_actions=retry_actions,
+                team_id=team_id
+            )
+            print(f"[@route:host_actions:action_execute_batch] Async execution started: {result.get('execution_id')}")
+        else:
+            # Sync execution - waits for completion (may timeout)
+            result = device.action_executor.execute_actions(
+                actions=actions,
+                retry_actions=retry_actions,
+                team_id=team_id
+            )
+            print(f"[@route:host_actions:action_execute_batch] Sync execution completed: success={result.get('success')}")
         
         return jsonify(result)
         
@@ -90,6 +101,42 @@ def action_execute_batch():
         return jsonify({
             'success': False,
             'error': f'Host action execution failed: {str(e)}'
+        }), 500
+
+
+@host_actions_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def action_execution_status(execution_id):
+    """Get status of async action execution"""
+    try:
+        # Get query parameters
+        device_id = request.args.get('device_id', 'device1')
+        
+        # Get host device registry from app context
+        host_devices = getattr(current_app, 'host_devices', {})
+        if device_id not in host_devices:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found in host'
+            }), 404
+        
+        device = host_devices[device_id]
+        
+        # Check if device has action_executor
+        if not hasattr(device, 'action_executor') or not device.action_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have ActionExecutor initialized'
+            }), 500
+        
+        # Get execution status
+        status = device.action_executor.get_execution_status(execution_id)
+        return jsonify(status)
+        
+    except Exception as e:
+        print(f"[@route:host_actions:execution_status] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get execution status: {str(e)}'
         }), 500
 
 @host_actions_bp.route('/health', methods=['GET'])
