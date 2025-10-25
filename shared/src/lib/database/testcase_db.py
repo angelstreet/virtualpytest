@@ -280,7 +280,7 @@ def get_next_version_number(testcase_id: str, team_id: str) -> int:
 
 def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
     """
-    Soft delete test case (set is_active = false).
+    Delete test case permanently.
     
     Args:
         testcase_id: Test case UUID
@@ -295,7 +295,7 @@ def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
     
     try:
         query = supabase.table('testcase_definitions')\
-            .update({'is_active': False})\
+            .delete()\
             .eq('testcase_id', testcase_id)
         
         if team_id:
@@ -321,7 +321,7 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
     
     Args:
         team_id: Team ID
-        include_inactive: Include soft-deleted test cases
+        include_inactive: (Deprecated - kept for backward compatibility)
     
     Returns:
         List of test case dicts (without full graph_json)
@@ -333,13 +333,9 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
     try:
         # Note: Supabase doesn't support subqueries in select, so we get execution counts separately
         query = supabase.table('testcase_definitions')\
-            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,is_active,graph_json')\
-            .eq('team_id', team_id)
-        
-        if not include_inactive:
-            query = query.eq('is_active', True)
-        
-        query = query.order('updated_at', desc=True)
+            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,graph_json')\
+            .eq('team_id', team_id)\
+            .order('updated_at', desc=True)
         
         result = query.execute()
         

@@ -589,14 +589,18 @@ class TestCaseExecutor:
         try:
             navigation_executor = self.device.navigation_executor
             
+            target_node_label = data.get('target_node_label')
             target_node = data.get('target_node')
             target_node_id = data.get('target_node_id')
             
-            # Use target_node_id if available, otherwise use target_node label
-            if target_node_id:
-                target = target_node_id
+            # PRIORITY: Use label (stable identifier) over UUID (can become stale)
+            # This matches individual block execution behavior from UniversalBlock.tsx
+            if target_node_label:
+                target = target_node_label
             elif target_node:
                 target = target_node
+            elif target_node_id:
+                target = target_node_id
             else:
                 return {
                     'success': False,

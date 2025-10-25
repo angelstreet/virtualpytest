@@ -14,12 +14,14 @@ class TestCaseValidator:
         self.errors = []
         self.warnings = []
     
-    def validate_graph(self, graph: Dict[str, Any]) -> Tuple[bool, List[str], List[str]]:
+    def validate_graph(self, graph: Dict[str, Any], userinterface_name: str = None, team_id: str = None) -> Tuple[bool, List[str], List[str]]:
         """
         Validate complete graph structure.
         
         Args:
             graph: {nodes: [...], edges: [...]}
+            userinterface_name: Optional userinterface name for validation context
+            team_id: Optional team ID for validation context
         
         Returns:
             (is_valid, errors, warnings)

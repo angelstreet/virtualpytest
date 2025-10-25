@@ -18,7 +18,6 @@ CREATE TABLE testcase_definitions (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by VARCHAR(255),
-    is_active BOOLEAN DEFAULT TRUE,
     
     -- Creation metadata
     creation_method VARCHAR(10) DEFAULT 'visual' CHECK (creation_method IN ('visual', 'ai')),
@@ -32,7 +31,6 @@ CREATE TABLE testcase_definitions (
 -- Indexes for performance
 CREATE INDEX idx_testcase_team ON testcase_definitions(team_id);
 CREATE INDEX idx_testcase_name ON testcase_definitions(testcase_name);
-CREATE INDEX idx_testcase_active ON testcase_definitions(is_active) WHERE is_active = TRUE;
 CREATE INDEX idx_testcase_ui ON testcase_definitions(userinterface_name);
 
 -- Updated timestamp trigger function
