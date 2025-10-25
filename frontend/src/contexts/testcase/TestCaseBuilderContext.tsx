@@ -30,6 +30,10 @@ interface TestCaseBuilderContextType {
   currentTestcaseId: string | null;
   setCurrentTestcaseId: React.Dispatch<React.SetStateAction<string | null>>;
   
+  // Unsaved changes tracking
+  hasUnsavedChanges: boolean;
+  setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
+  
   // Test case list
   testcaseList: TestCaseDefinition[];
   setTestcaseList: React.Dispatch<React.SetStateAction<TestCaseDefinition[]>>;
@@ -94,18 +98,21 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       type: 'start',
       position: { x: 400, y: 50 },  // Top center
       data: {},
+      deletable: false,  // Cannot be deleted
     },
     {
       id: 'success',
       type: 'success',
       position: { x: 150, y: 550 },  // Bottom left
       data: {},
+      deletable: false,  // Cannot be deleted
     },
     {
       id: 'failure',
       type: 'failure',
       position: { x: 650, y: 550 },  // Bottom right
       data: {},
+      deletable: false,  // Cannot be deleted
     },
   ]);
   
@@ -124,6 +131,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [userinterfaceName, setUserinterfaceName] = useState<string>('');
   const [currentTestcaseId, setCurrentTestcaseId] = useState<string | null>(null);
   const [testcaseList, setTestcaseList] = useState<TestCaseDefinition[]>([]);
+  
+  // Unsaved changes tracking
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Available options for dropdowns
   const [availableInterfaces, setAvailableInterfaces] = useState<UserInterface[]>([]);
@@ -145,6 +155,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       data: defaultData || {},
     };
     setNodes((prev) => [...prev, newNode]);
+    setHasUnsavedChanges(true);
   }, []);
 
   // Update block data
@@ -154,22 +165,38 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         node.id === blockId ? { ...node, data: { ...node.data, ...data } } : node
       )
     );
+    setHasUnsavedChanges(true);
   }, []);
 
   // Delete a block
   const deleteBlock = useCallback((blockId: string) => {
     setNodes((prev) => prev.filter((node) => node.id !== blockId));
     setEdges((prev) => prev.filter((edge) => edge.source !== blockId && edge.target !== blockId));
+    setHasUnsavedChanges(true);
   }, []);
 
   // Handle node changes (drag, select, etc.)
   const onNodesChange = useCallback((changes: NodeChange[]) => {
     setNodes((prev) => applyNodeChanges(changes, prev));
+    
+    // Track position changes as unsaved changes (when drag completes)
+    const hasPositionChange = changes.some((change: any) => 
+      change.type === 'position' && change.dragging === false
+    );
+    if (hasPositionChange) {
+      setHasUnsavedChanges(true);
+    }
   }, []);
 
   // Handle edge changes
   const onEdgesChange = useCallback((changes: EdgeChange[]) => {
     setEdges((prev) => applyEdgeChanges(changes, prev));
+    
+    // Track edge removal as unsaved changes
+    const hasRemoval = changes.some((change: any) => change.type === 'remove');
+    if (hasRemoval) {
+      setHasUnsavedChanges(true);
+    }
   }, []);
 
   // Handle connections
@@ -206,6 +233,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     };
     
     setEdges((prev) => addEdge(newEdge, prev));
+    setHasUnsavedChanges(true);
   }, []);
 
   // Execute testcase
@@ -301,6 +329,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       
       if (result.success && result.testcase_id) {
         setCurrentTestcaseId(result.testcase_id);
+        setHasUnsavedChanges(false); // Reset after successful save
         console.log(`Test case ${result.action}: ${result.testcase_id}`);
         return { success: true };
       }
@@ -331,7 +360,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           id: node.id,
           type: node.type,
           position: node.position,
-          data: node.data
+          data: node.data,
+          // Ensure START, SUCCESS, and FAILURE blocks are not deletable
+          deletable: !['start', 'success', 'failure'].includes(node.type)
         })));
         setEdges(graph.edges.map(edge => ({
           id: edge.id,
@@ -345,6 +376,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           }
         })));
         
+        setHasUnsavedChanges(false); // Reset after load
         console.log('Test case loaded:', testcase.testcase_name);
       }
     } catch (error) {
@@ -390,18 +422,21 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         type: 'start',
         position: { x: 400, y: 50 },  // Top center
         data: {},
+        deletable: false,  // Cannot be deleted
       },
       {
         id: 'success',
         type: 'success',
         position: { x: 150, y: 550 },  // Bottom left
         data: {},
+        deletable: false,  // Cannot be deleted
       },
       {
         id: 'failure',
         type: 'failure',
         position: { x: 650, y: 550 },  // Bottom right
         data: {},
+        deletable: false,  // Cannot be deleted
       },
     ]);
     setEdges([]);
@@ -410,6 +445,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setUserinterfaceName('');
     setCurrentTestcaseId(null);
     setSelectedBlock(null);
+    setHasUnsavedChanges(false); // Reset on new test case
   }, []);
 
   // Fetch navigation nodes when userinterface changes
@@ -420,7 +456,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     try {
       const result = await getNavigationNodesForInterface(interfaceName, TEAM_ID);
       if (result.success) {
-        setAvailableNodes(result.nodes);
+        // Filter out ENTRY nodes (case-insensitive)
+        const filteredNodes = result.nodes.filter(node => {
+          const nodeType = (node.type || '').toLowerCase();
+          return nodeType !== 'entry';
+        });
+        setAvailableNodes(filteredNodes);
       }
     } catch (error) {
       console.error('Error fetching navigation nodes:', error);
@@ -479,6 +520,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setUserinterfaceName,
     currentTestcaseId,
     setCurrentTestcaseId,
+    hasUnsavedChanges,
+    setHasUnsavedChanges,
     testcaseList,
     setTestcaseList,
     availableInterfaces,

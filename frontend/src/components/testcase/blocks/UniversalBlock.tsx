@@ -1,7 +1,13 @@
-import React from 'react';
-import { Box, Typography, Chip } from '@mui/material';
+import React, { useState } from 'react';
+import { Box, Typography, Chip, IconButton, CircularProgress } from '@mui/material';
 import { Handle, Position, NodeProps } from 'reactflow';
+import PlayArrowIcon from '@mui/icons-material/PlayArrow';
+import CheckIcon from '@mui/icons-material/Check';
+import CloseIcon from '@mui/icons-material/Close';
 import { useTheme } from '../../../contexts/ThemeContext';
+import { useToastContext } from '../../../contexts/ToastContext';
+import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
+import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
 
 /**
@@ -10,6 +16,10 @@ import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
  */
 export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, type }) => {
   const { actualMode } = useTheme();
+  const { showSuccess, showError } = useToastContext();
+  const { currentHost, currentDeviceId } = useDeviceData();
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   
   // Get command configuration from toolbox config
   const commandConfig = getCommandConfig(type as string);
@@ -21,11 +31,11 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
     if (type === 'navigation') {
       color = '#8b5cf6'; // purple
     } else if (type === 'action') {
-      color = '#ef4444'; // red
+      color = '#f97316'; // orange - distinguishable from failure (red)
     } else if (type === 'verification') {
-      color = '#10b981'; // green
+      color = '#3b82f6'; // blue - distinguishable from success (green)
     } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type as string)) {
-      color = '#3b82f6'; // blue (standard)
+      color = '#6b7280'; // grey (standard)
     } else {
       color = '#6b7280'; // gray fallback
     }
@@ -34,6 +44,94 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
   const categoryLabel = commandConfig?.label || data.command || type;
   const icon = commandConfig?.icon || null;
   const outputs: OutputType[] = commandConfig?.outputs || ['success', 'failure'];
+  
+  // Execute handler for action/verification blocks
+  const handleExecute = async (e: React.MouseEvent) => {
+    e.stopPropagation(); // Prevent block selection
+    
+    // Validate
+    if (!currentHost) {
+      showError('No host selected');
+      return;
+    }
+    
+    if (!data.command) {
+      showError('No command configured');
+      return;
+    }
+    
+    // Determine if action or verification
+    const isAction = type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string);
+    const isVerification = type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string);
+    
+    if (!isAction && !isVerification) {
+      showError('Only actions and verifications can be executed');
+      return;
+    }
+    
+    setIsExecuting(true);
+    
+    // Dispatch custom event to trigger overlay
+    window.dispatchEvent(new CustomEvent('blockExecutionStart', {
+      detail: {
+        command: data.command,
+        params: data.params,
+      }
+    }));
+    
+    const startTime = Date.now();
+    
+    try {
+      // Build action payload
+      const actionPayload = {
+        command: data.command,
+        params: data.params || {},
+        action_type: data.action_type,
+        verification_type: data.verification_type,
+        threshold: data.threshold,
+        reference: data.reference,
+      };
+      
+      // Execute via API
+      const endpoint = isAction ? '/server/action/execute' : '/server/action/execute'; // Verifications use same endpoint
+      const response = await fetch(buildServerUrl(`${endpoint}?team_id=default-team-id`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: actionPayload,
+          host_name: currentHost.host_name,
+          device_id: currentDeviceId || 'device1',
+        }),
+      });
+      
+      const result = await response.json();
+      const duration = Date.now() - startTime;
+      const durationText = `${(duration / 1000).toFixed(2)}s`;
+      
+      if (result.success) {
+        setAnimateHandle('success');
+        showSuccess(`✓ ${data.command} - ${durationText}`);
+        // Clear animation after 2 seconds
+        setTimeout(() => setAnimateHandle(null), 2000);
+      } else {
+        setAnimateHandle('failure');
+        showError(`✗ ${data.command} - ${durationText}\n${result.error || 'Execution failed'}`);
+        // Clear animation after 2 seconds
+        setTimeout(() => setAnimateHandle(null), 2000);
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const durationText = `${(duration / 1000).toFixed(2)}s`;
+      setAnimateHandle('failure');
+      showError(`✗ ${data.command} - ${durationText}\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      // Clear animation after 2 seconds
+      setTimeout(() => setAnimateHandle(null), 2000);
+    } finally {
+      setIsExecuting(false);
+      // Dispatch custom event to clear overlay
+      window.dispatchEvent(new CustomEvent('blockExecutionEnd'));
+    }
+  };
   
   // Determine header and content based on block type
   let headerLabel = categoryLabel;
@@ -46,6 +144,14 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
     data.iterations ||
     data.label || // For navigation blocks
     Object.keys(data).length > 1 // More than just position data
+  );
+  
+  // Determine if this block can be executed
+  const canExecute = Boolean(
+    (type === 'action' || type === 'verification' || 
+     ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text', 
+      'verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string)) &&
+    data.command
   );
   
   if (isConfigured) {
@@ -82,33 +188,82 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
     }
     
     if (outputs.length === 1) {
-      // Single output - centered at bottom, circle
+      // Single output - centered at bottom, rectangle
       const output = outputs[0];
       const handleColor = getHandleColor(output);
+      const isAnimating = animateHandle === output;
+      
+      let content;
+      if (output === 'success' || output === 'true' || output === 'complete') {
+        content = <CheckIcon />;
+      } else if (output === 'failure' || output === 'false') {
+        content = <CloseIcon />;
+      } else if (output === 'break') {
+        content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
+      } else {
+        content = null;
+      }
       
       return (
-        <Handle
-          type="source"
-          position={Position.Bottom}
-          id={output}
-          style={{
-            background: handleColor,
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
-            border: '2px solid white',
-            bottom: -6,
-            left: '50%',
-            transform: 'translateX(-50%)',
-          }}
-        />
+        <>
+          <Handle
+            type="source"
+            position={Position.Bottom}
+            id={output}
+            style={{
+              background: handleColor,
+              width: 80,
+              height: 32,
+              borderRadius: 4,
+              border: '2px solid white',
+              bottom: -36,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: 12,
+              cursor: 'pointer',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                animation: isAnimating ? 'pulse 0.5s ease-in-out 3' : 'none',
+                '@keyframes pulse': {
+                  '0%, 100%': { transform: 'scale(1)' },
+                  '50%': { transform: 'scale(1.2)' },
+                },
+              }}
+            >
+              {content}
+            </Box>
+          </Handle>
+        </>
       );
     }
     
-    // Multiple outputs - positioned left and right, circles
+    // Multiple outputs - positioned left and right, rectangles with icons
     return outputs.map((output, idx) => {
       const handleColor = getHandleColor(output);
-      const leftPosition = idx === 0 ? '35%' : '65%';
+      const leftPosition = idx === 0 ? '25%' : '75%';
+      const isAnimating = animateHandle === output;
+      
+      // Determine icon/text based on output type
+      let content;
+      if (output === 'success' || output === 'true' || output === 'complete') {
+        content = <CheckIcon fontSize="small" />;
+      } else if (output === 'failure' || output === 'false') {
+        content = <CloseIcon fontSize="small" />;
+      } else if (output === 'break') {
+        content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
+      } else {
+        content = null;
+      }
       
       return (
         <Handle
@@ -119,13 +274,36 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           style={{
             left: leftPosition,
             background: handleColor,
-            width: 12,
-            height: 12,
-            borderRadius: '50%',
+            width: 70,
+            height: 28,
+            borderRadius: 4,
             border: '2px solid white',
-            bottom: -6,
+            bottom: -32,
+            transform: 'translateX(-50%)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: 'white',
+            fontWeight: 'bold',
+            fontSize: 11,
+            cursor: 'pointer',
           }}
-        />
+        >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              animation: isAnimating ? 'pulse 0.5s ease-in-out 3' : 'none',
+              '@keyframes pulse': {
+                '0%, 100%': { transform: 'scale(1)' },
+                '50%': { transform: 'scale(1.2)' },
+              },
+            }}
+          >
+            {content}
+          </Box>
+        </Handle>
       );
     });
   };
@@ -133,16 +311,17 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
   return (
     <Box
       sx={{
-        minWidth: 180,
+        minWidth: 240,
         border: selected ? '3px solid #fbbf24' : `2px solid ${color}`,
         borderRadius: 2,
         background: actualMode === 'dark' ? '#1f2937' : '#ffffff',
         boxShadow: 2,
         cursor: 'pointer',
-        opacity: dragging ? 0.5 : 1, // No transparency for configured blocks
+        opacity: dragging ? 0.5 : (isExecuting ? 0.7 : 1),
         transition: 'opacity 0.2s',
+        pointerEvents: isExecuting ? 'none' : 'auto', // Disable interaction during execution
         '&:hover': {
-          boxShadow: 4,
+          boxShadow: isExecuting ? 2 : 4,
         },
       }}
     >
@@ -154,36 +333,58 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           display: 'flex',
           alignItems: 'center',
           gap: 1,
+          justifyContent: 'space-between',
         }}
       >
-        {icon && (
-          <Box sx={{ color: 'white', display: 'flex', alignItems: 'center' }}>
-            {icon}
-          </Box>
-        )}
-        <Typography color="white" fontWeight="bold" fontSize={13}>
-          {headerLabel.toUpperCase()}
-        </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {icon && (
+            <Box sx={{ color: 'white', display: 'flex', alignItems: 'center' }}>
+              {icon}
+            </Box>
+          )}
+          <Typography color="white" fontWeight="bold" fontSize={13}>
+            {headerLabel.toUpperCase()}
+          </Typography>
+        </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          {(data.action_type || data.verification_type) && (
+            <Chip
+              label={data.action_type || data.verification_type}
+              size="small"
+              sx={{ 
+                fontSize: 10, 
+                height: 20,
+                backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                color: 'white',
+              }}
+            />
+          )}
+          {canExecute && (
+            <IconButton
+              size="small"
+              onClick={handleExecute}
+              disabled={isExecuting}
+              sx={{
+                color: 'white',
+                padding: '4px',
+                '&:hover': {
+                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                },
+                '&.Mui-disabled': {
+                  color: 'rgba(255, 255, 255, 0.5)',
+                },
+              }}
+            >
+              {isExecuting ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <PlayArrowIcon fontSize="small" />}
+            </IconButton>
+          )}
+        </Box>
       </Box>
       
       {/* Content */}
       <Box sx={{ p: 1.5 }}>
         {isConfigured ? (
           <>
-            {data.action_type && (
-              <Chip
-                label={data.action_type}
-                size="small"
-                sx={{ fontSize: 10, height: 20, mb: 0.5 }}
-              />
-            )}
-            {data.verification_type && (
-              <Chip
-                label={data.verification_type}
-                size="small"
-                sx={{ fontSize: 10, height: 20, mb: 0.5 }}
-              />
-            )}
             <Typography fontSize={14} fontWeight="medium">
               {contentLabel}
             </Typography>
@@ -232,7 +433,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
         }}
       />
       
-      {/* Output handles at bottom - circles */}
+      {/* Output handles at bottom - rectangles with icons */}
       {renderOutputHandles()}
     </Box>
   );
@@ -254,7 +455,7 @@ const getHandleColor = (outputType: OutputType): string => {
     case 'complete':
       return '#10b981'; // green
     case 'break':
-      return '#f59e0b'; // orange/yellow
+      return '#eab308'; // yellow - distinguishable from orange actions
     default:
       return '#6b7280'; // gray
   }

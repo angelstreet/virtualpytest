@@ -64,12 +64,12 @@ interface TestCaseToolboxProps {
 export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ 
   toolboxConfig = staticToolboxConfig  // Fallback to static config
 }) => {
-  // Define tab colors (same as header tabs before)
+  // Define tab colors (matching block type colors)
   const tabColors: Record<string, string> = {
-    'standard': '#3b82f6',    // blue
-    'navigation': '#8b5cf6',  // purple
-    'actions': '#ef4444',     // red
-    'verifications': '#10b981' // green
+    'standard': '#6b7280',    // grey - neutral for standard operations
+    'navigation': '#8b5cf6',  // purple - unchanged
+    'actions': '#f97316',     // orange - distinguishable from failure (red)
+    'verifications': '#3b82f6' // blue - distinguishable from success (green)
   };
 
   return (

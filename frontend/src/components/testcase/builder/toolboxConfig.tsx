@@ -51,7 +51,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: BlockType.LOOP,
             label: 'Loop',
             icon: <LoopIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#6b7280', // grey - standard operations
             outputs: ['complete', 'break'],
             defaultData: { iterations: 1 },
             description: 'Repeat steps multiple times'
@@ -60,7 +60,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'sleep',
             label: 'Sleep',
             icon: <AccessTimeIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#6b7280', // grey - standard operations
             outputs: ['success'],
             description: 'Wait for specified duration'
           },
@@ -68,7 +68,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'get_current_time',
             label: 'Get Current Time',
             icon: <AccessTimeIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#6b7280', // grey - standard operations
             outputs: ['success'],
             description: 'Get current timestamp'
           },
@@ -76,7 +76,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'condition',
             label: 'Evaluate Condition',
             icon: <AccountTreeIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#6b7280', // grey - standard operations
             outputs: ['true', 'false'],
             description: 'Conditional branching'
           },
@@ -84,7 +84,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'set_variable',
             label: 'Set Variable',
             icon: <StorageIcon fontSize="small" />,
-            color: '#3b82f6',
+            color: '#6b7280', // grey - standard operations
             outputs: ['success'],
             description: 'Store a value in variable'
           },
@@ -103,7 +103,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'press_key',
             label: 'Press Key',
             icon: <PlayArrowIcon fontSize="small" />,
-            color: '#ef4444',
+            color: '#f97316', // orange - distinguishable from failure (red)
             outputs: ['success', 'failure'],
             defaultData: { command: 'press_key', action_type: 'remote' },
             description: 'Send IR remote key'
@@ -112,7 +112,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'press_sequence',
             label: 'Press Sequence',
             icon: <PlayArrowIcon fontSize="small" />,
-            color: '#ef4444',
+            color: '#f97316', // orange - distinguishable from failure (red)
             outputs: ['success', 'failure'],
             defaultData: { command: 'press_sequence', action_type: 'remote' },
             description: 'Send multiple IR keys'
@@ -126,7 +126,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'tap',
             label: 'Tap',
             icon: <TouchAppIcon fontSize="small" />,
-            color: '#ef4444',
+            color: '#f97316', // orange - distinguishable from failure (red)
             outputs: ['success', 'failure'],
             defaultData: { command: 'tap', action_type: 'adb' },
             description: 'Tap at coordinates'
@@ -135,7 +135,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'swipe',
             label: 'Swipe',
             icon: <SwipeIcon fontSize="small" />,
-            color: '#ef4444',
+            color: '#f97316', // orange - distinguishable from failure (red)
             outputs: ['success', 'failure'],
             defaultData: { command: 'swipe', action_type: 'adb' },
             description: 'Swipe gesture'
@@ -144,7 +144,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'type_text',
             label: 'Type Text',
             icon: <KeyboardIcon fontSize="small" />,
-            color: '#ef4444',
+            color: '#f97316', // orange - distinguishable from failure (red)
             outputs: ['success', 'failure'],
             defaultData: { command: 'type_text', action_type: 'adb' },
             description: 'Input text via ADB'
@@ -164,7 +164,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_image',
             label: 'Find Template',
             icon: <ImageIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#3b82f6', // blue - distinguishable from success (green)
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_image', verification_type: 'image' },
             description: 'Template matching'
@@ -173,7 +173,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_ocr',
             label: 'OCR Text',
             icon: <VerifiedIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#3b82f6', // blue - distinguishable from success (green)
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_ocr', verification_type: 'ocr' },
             description: 'Optical character recognition'
@@ -187,7 +187,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_audio',
             label: 'Check Audio',
             icon: <AudiotrackIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#3b82f6', // blue - distinguishable from success (green)
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_audio', verification_type: 'audio' },
             description: 'Verify audio is playing'
@@ -201,7 +201,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             type: 'verify_element',
             label: 'Element Exists',
             icon: <CheckCircleOutlineIcon fontSize="small" />,
-            color: '#10b981',
+            color: '#3b82f6', // blue - distinguishable from success (green)
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_element', verification_type: 'element' },
             description: 'Check if element exists'

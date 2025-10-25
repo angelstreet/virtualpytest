@@ -52,8 +52,9 @@ import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
+import { ExecutionOverlay } from '../components/testcase/ExecutionOverlay';
 
-// Device Control Components (REUSE from NavigationEditor)
+// Device Control Components
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
 import { DesktopPanel } from '../components/controller/desktop/DesktopPanel';
 import { WebPanel } from '../components/controller/web/WebPanel';
@@ -69,18 +70,13 @@ import { NavigationConfigDialog } from '../components/testcase/dialogs/Navigatio
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
 
 // Context
-import { TestCaseBuilderProvider, useTestCaseBuilder } from '../contexts/testcase/TestCaseBuilderContext';
+import { TestCaseBuilderProvider } from '../contexts/testcase/TestCaseBuilderContext';
 import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
 import { NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
-import { useNavigationEditor } from '../hooks/navigation/useNavigationEditor';
-import { useDeviceData } from '../contexts/device/DeviceDataContext';
-import { useHostManager } from '../contexts/index';
-import { useDeviceControl } from '../hooks/useDeviceControl';
 import { useTheme } from '../contexts/ThemeContext';
-import { useNavigationConfig } from '../contexts/navigation/NavigationConfigContext';
-import { useUserInterface } from '../hooks/pages/useUserInterface';
-import { generateTestCaseFromPrompt } from '../services/aiService';
-import { buildToolboxFromNavigationData } from '../utils/toolboxBuilder';
+
+// Hook
+import { useTestCaseBuilderPage } from '../hooks/pages/useTestCaseBuilderPage';
 
 // Node types for React Flow
 const nodeTypes = {
@@ -143,87 +139,108 @@ const TestCaseBuilderContent: React.FC = () => {
     };
   }, []);
 
+  // Execution overlay state
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionDetails, setExecutionDetails] = useState<{ command?: string; params?: Record<string, any> }>({});
+
+  // Listen for execution events
+  useEffect(() => {
+    const handleExecutionStart = (event: CustomEvent) => {
+      setIsExecuting(true);
+      setExecutionDetails(event.detail);
+    };
+
+    const handleExecutionEnd = () => {
+      setIsExecuting(false);
+      setExecutionDetails({});
+    };
+
+    window.addEventListener('blockExecutionStart' as any, handleExecutionStart);
+    window.addEventListener('blockExecutionEnd' as any, handleExecutionEnd);
+
+    return () => {
+      window.removeEventListener('blockExecutionStart' as any, handleExecutionStart);
+      window.removeEventListener('blockExecutionEnd' as any, handleExecutionEnd);
+    };
+  }, []);
+
   const { actualMode } = useTheme();
   
-  // Get host manager for device control (REUSE from NavigationEditor)
+  // Use the consolidated hook for all business logic
   const {
+    // Device & Host
     selectedHost,
     selectedDeviceId,
     isControlActive,
+    isControlLoading,
     isRemotePanelOpen,
     showRemotePanel,
     showAVPanel,
     availableHosts,
     handleDeviceSelect,
-    handleControlStateChange,
+    handleDeviceControl,
     handleToggleRemotePanel,
     handleDisconnectComplete,
-    isDeviceLocked, // For device locking functionality
-  } = useHostManager();
-  
-  // Get device control hook for control state (REUSE from NavigationEditor lines 86-99)
-  const {
-    isControlLoading,
-    handleTakeControl,
-    handleReleaseControl,
-  } = useDeviceControl({
-    host: selectedHost,
-    device_id: selectedDeviceId || 'device1',
-    sessionId: 'testcase-builder-session',
-    autoCleanup: true,
-  });
-  
-  // Device control handler
-  const handleDeviceControl = useCallback(async () => {
-    if (isControlActive) {
-      await handleReleaseControl();
-      handleControlStateChange(false);
-    } else {
-      const success = await handleTakeControl();
-      if (success) {
-        handleControlStateChange(true);
-      }
-    }
-  }, [isControlActive, handleTakeControl, handleReleaseControl, handleControlStateChange]);
-  
-  // Get DeviceDataContext and initialize it with control state
-  const { 
-    setControlState, 
-    getAvailableActions,
-    getAvailableVerificationTypes,
-    availableActionsLoading,
-    fetchAvailableActions,
-  } = useDeviceData();
-  
-  // Initialize device data context when control state changes
-  useEffect(() => {
-    setControlState(selectedHost, selectedDeviceId, isControlActive);
-  }, [selectedHost, selectedDeviceId, isControlActive, setControlState]);
-  
-  // Refetch actions after schemas are loaded by HostManagerProvider
-  useEffect(() => {
-    if (!isControlActive || !selectedHost || !selectedDeviceId) return;
+    isDeviceLocked,
     
-    const timer = setTimeout(async () => {
-      await fetchAvailableActions(true);
-    }, 1000);
-
-    return () => clearTimeout(timer);
-  }, [isControlActive, selectedHost, selectedDeviceId, fetchAvailableActions]);
-  
-  // Get latest actions on-demand (like NavigationEditor does)
-  const availableActions = getAvailableActions();
-  const availableVerifications = getAvailableVerificationTypes();
-  
-  // Track when actions are loaded (not loading and has actions)
-  const areActionsLoaded = isControlActive && !availableActionsLoading && Object.values(availableActions || {}).flat().length > 0;
-  
-  // Get navigation infrastructure (for compatibility, but we use pre-loaded data)
-  const {
-    setUserInterfaceFromProps,
-  } = useNavigationEditor();
-  
-  const {
+    // Interface & Navigation
+    compatibleInterfaceNames,
+    userinterfaceName,
+    setUserinterfaceName,
+    
+    // Toolbox
+    dynamicToolboxConfig,
+    areActionsLoaded,
+    
+    // AI Generation
+    creationMode,
+    setCreationMode,
+    aiPrompt,
+    setAiPrompt,
+    isGenerating,
+    handleGenerateWithAI,
+    
+    // Test Case Operations
+    testcaseName,
+    setTestcaseName,
+    description,
+    setDescription,
+    currentTestcaseId,
+    testcaseList,
+    hasUnsavedChanges,
+    handleSave,
+    handleLoad,
+    handleDelete,
+    handleExecute,
+    handleNew,
+    
+    // Dialogs
+    saveDialogOpen,
+    setSaveDialogOpen,
+    loadDialogOpen,
+    setLoadDialogOpen,
+    deleteConfirmOpen,
+    setDeleteConfirmOpen,
+    deleteTargetTestCase,
+    newConfirmOpen,
+    setNewConfirmOpen,
+    handleConfirmDelete,
+    handleConfirmNew,
+    
+    // AV Panel
+    isAVPanelCollapsed,
+    isAVPanelMinimized,
+    captureMode,
+    isVerificationVisible,
+    handleAVPanelCollapsedChange,
+    handleCaptureModeChange,
+    handleAVPanelMinimizedChange,
+    
+    // Snackbar
+    snackbar,
+    setSnackbar,
+    
+    // TestCase Builder Context
     nodes,
     edges,
     selectedBlock,
@@ -231,159 +248,15 @@ const TestCaseBuilderContent: React.FC = () => {
     isConfigDialogOpen,
     setIsConfigDialogOpen,
     executionState,
-    testcaseName,
-    setTestcaseName,
-    description,
-    setDescription,
-    userinterfaceName,
-    setUserinterfaceName,
-    currentTestcaseId,
-    testcaseList,
     addBlock,
     updateBlock,
     onNodesChange,
     onEdgesChange,
     onConnect,
-    saveCurrentTestCase,
-    loadTestCase,
-    executeCurrentTestCase,
-    fetchTestCaseList,
-    deleteTestCaseById,
-    resetBuilder,
-    setNodes,
-    setEdges,
-  } = useTestCaseBuilder();
+  } = useTestCaseBuilderPage();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
-
-  // Mode selection
-  const [creationMode, setCreationMode] = useState<'visual' | 'ai'>('visual');
-  const [aiPrompt, setAiPrompt] = useState('');
-  const [isGenerating, setIsGenerating] = useState(false);
-
-  // Dialogs
-  const [saveDialogOpen, setSaveDialogOpen] = useState(false);
-  const [loadDialogOpen, setLoadDialogOpen] = useState(false);
-  
-  // AV Panel coordination (REUSE from NavigationEditor lines 316-325)
-  const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
-  const [isAVPanelMinimized, setIsAVPanelMinimized] = useState(false);
-  const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
-  const isVerificationVisible = captureMode === 'screenshot' || captureMode === 'video';
-  
-  // Load compatible interfaces based on selected device
-  const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
-  const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
-  
-  // Load compatible interfaces when device is selected AND control is taken
-  useEffect(() => {
-    const loadCompatibleInterfaces = async () => {
-      if (!selectedDeviceId || !selectedHost || !isControlActive) {
-        setCompatibleInterfaceNames([]);
-        setUserinterfaceName('');
-        return;
-      }
-      
-      try {
-        const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
-        const deviceModel = selectedDevice?.device_model;
-        
-        const interfaces = await getAllUserInterfaces();
-        
-        const compatibleInterfaces = interfaces.filter((ui: any) => {
-          const hasTree = !!ui.root_tree;
-          const isCompatible = ui.models?.includes(deviceModel);
-          return hasTree && isCompatible;
-        });
-        
-        const names = compatibleInterfaces.map((ui: any) => ui.name);
-        
-        setCompatibleInterfaceNames(names);
-        
-        // Auto-select first compatible interface if available
-        if (names.length > 0 && !names.includes(userinterfaceName)) {
-          setUserinterfaceName(names[0]);
-        }
-      } catch (error) {
-        console.error('[@TestCaseBuilder] Failed to load compatible interfaces:', error);
-      }
-    };
-    
-    loadCompatibleInterfaces();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeviceId, selectedHost, isControlActive]);
-  
-  // AV Panel handlers (REUSE from NavigationEditor lines 409-423)
-  const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
-    setIsAVPanelCollapsed(isCollapsed);
-  }, []);
-  
-  const handleCaptureModeChange = useCallback((mode: 'stream' | 'screenshot' | 'video') => {
-    setCaptureMode(mode);
-  }, []);
-  
-  const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
-    setIsAVPanelMinimized(isMinimized);
-  }, []);
-  
-  // Snackbar state
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
-
-  // Load navigation tree when interface changes - Load from NavigationConfig
-  const { loadTreeByUserInterface } = useNavigationConfig();
-  const [navNodes, setNavNodes] = useState<any[]>([]);
-  
-  useEffect(() => {
-    const loadNavigationTree = async () => {
-      if (!selectedDeviceId || !userinterfaceName) {
-        setNavNodes([]);
-        return;
-      }
-      
-      try {
-        const userInterface = await getUserInterfaceByName(userinterfaceName);
-        
-        if (userInterface) {
-          const result = await loadTreeByUserInterface(userInterface.id);
-          setUserInterfaceFromProps(userInterface);
-          
-          const nodes = result?.tree?.metadata?.nodes || result?.nodes || [];
-          setNavNodes(nodes);
-        }
-      } catch (error) {
-        console.error('[@TestCaseBuilder] Failed to load tree:', error);
-        setNavNodes([]);
-      }
-    };
-    
-    loadNavigationTree();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeviceId, userinterfaceName]);
-
-  // Build dynamic toolbox from navigation data
-  const dynamicToolboxConfig = React.useMemo(() => {
-    if (!selectedDeviceId || !userinterfaceName || navNodes.length === 0) {
-      return null;
-    }
-    
-    return buildToolboxFromNavigationData(navNodes, availableActions, availableVerifications);
-  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions, availableVerifications]);
-
-  // Load test case list when load dialog opens
-  useEffect(() => {
-    if (loadDialogOpen) {
-      fetchTestCaseList();
-    }
-  }, [loadDialogOpen, fetchTestCaseList]);
 
   // Handle drop from toolbox
   const onDrop = useCallback(
@@ -449,178 +322,6 @@ const TestCaseBuilderContent: React.FC = () => {
     [selectedBlock, updateBlock, setIsConfigDialogOpen]
   );
   
-  // Handle save
-  const handleSave = useCallback(async () => {
-    const result = await saveCurrentTestCase();
-    if (result.success) {
-      setSnackbar({
-        open: true,
-        message: `Test case "${testcaseName}" saved successfully!`,
-        severity: 'success',
-      });
-      setSaveDialogOpen(false);
-    } else {
-      setSnackbar({
-        open: true,
-        message: `Save failed: ${result.error}`,
-        severity: 'error',
-      });
-    }
-  }, [saveCurrentTestCase, testcaseName]);
-  
-  // Handle load
-  const handleLoad = useCallback(async (testcaseId: string) => {
-    await loadTestCase(testcaseId);
-    setLoadDialogOpen(false);
-    setSnackbar({
-      open: true,
-      message: 'Test case loaded successfully!',
-      severity: 'success',
-    });
-  }, [loadTestCase]);
-  
-  // Handle delete
-  const handleDelete = useCallback(async (testcaseId: string, testcaseName: string) => {
-    if (window.confirm(`Are you sure you want to delete "${testcaseName}"?`)) {
-      await deleteTestCaseById(testcaseId);
-      setSnackbar({
-        open: true,
-        message: `Test case "${testcaseName}" deleted!`,
-        severity: 'info',
-      });
-    }
-  }, [deleteTestCaseById]);
-  
-  // Handle execute
-  const handleExecute = useCallback(async () => {
-    if (!currentTestcaseId) {
-      setSnackbar({
-        open: true,
-        message: 'Please save the test case before executing',
-        severity: 'error',
-      });
-      return;
-    }
-    
-    await executeCurrentTestCase();
-    
-    // Show result after execution
-    if (executionState.result) {
-      if (executionState.result.success) {
-        setSnackbar({
-          open: true,
-          message: `Execution completed successfully in ${executionState.result.execution_time_ms}ms`,
-          severity: 'success',
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'Execution failed',
-          severity: 'error',
-        });
-      }
-    }
-  }, [currentTestcaseId, executeCurrentTestCase, executionState]);
-  
-  // Handle new test case
-  const handleNew = useCallback(() => {
-    if (window.confirm('Create new test case? Unsaved changes will be lost.')) {
-      resetBuilder();
-      setCreationMode('visual');
-      setAiPrompt('');
-      setSnackbar({
-        open: true,
-        message: 'Ready to create new test case',
-        severity: 'info',
-      });
-    }
-  }, [resetBuilder]);
-
-  // Handle AI generation
-  const handleGenerateWithAI = useCallback(async () => {
-    if (!aiPrompt.trim()) {
-      setSnackbar({
-        open: true,
-        message: 'Please enter a prompt',
-        severity: 'error',
-      });
-      return;
-    }
-
-    if (!userinterfaceName) {
-      setSnackbar({
-        open: true,
-        message: 'Please select a user interface',
-        severity: 'error',
-      });
-      return;
-    }
-
-    setIsGenerating(true);
-    
-    try {
-      const result = await generateTestCaseFromPrompt(
-        aiPrompt, 
-        userinterfaceName,  // Use interface from store
-        'device1'  // Default device
-      );
-      
-      if (result.success && result.graph) {
-        // Load the generated graph into the builder
-        setNodes(result.graph.nodes.map(node => ({
-          id: node.id,
-          type: node.type as any,
-          position: node.position,
-          data: node.data
-        })));
-        
-        setEdges(result.graph.edges.map(edge => ({
-          id: edge.id,
-          source: edge.source,
-          target: edge.target,
-          sourceHandle: edge.sourceHandle,
-          type: edge.type as any,
-          style: { 
-            stroke: edge.type === 'success' ? '#10b981' : '#ef4444',
-            strokeWidth: 2
-          }
-        })));
-        
-        // Pre-fill metadata
-        if (result.testcase_name) {
-          setTestcaseName(result.testcase_name);
-        }
-        if (result.description) {
-          setDescription(result.description);
-        }
-        
-        setSnackbar({
-          open: true,
-          message: 'Test case generated! Review and save when ready.',
-          severity: 'success',
-        });
-        
-        // Switch back to visual mode so user can see the graph
-        setCreationMode('visual');
-      } else {
-        setSnackbar({
-          open: true,
-          message: `Generation failed: ${result.error || 'Unknown error'}`,
-          severity: 'error',
-        });
-      }
-    } catch (error) {
-      console.error('AI generation error:', error);
-      setSnackbar({
-        open: true,
-        message: `Generation failed: ${error instanceof Error ? error.message : 'Unknown error'}`,
-        severity: 'error',
-      });
-    } finally {
-      setIsGenerating(false);
-    }
-  }, [aiPrompt, userinterfaceName, setNodes, setEdges, setTestcaseName, setDescription, setCreationMode]);
-
   // MiniMap style
   const miniMapStyle = React.useMemo(
     () => ({
@@ -695,13 +396,7 @@ const TestCaseBuilderContent: React.FC = () => {
             isRemotePanelOpen={isRemotePanelOpen}
             availableHosts={availableHosts}
             isDeviceLocked={(deviceKey: string) => {
-              // Parse deviceKey format: "hostname:device_id"
-              const [hostName, deviceId] = deviceKey.includes(':')
-                ? deviceKey.split(':')
-                : [deviceKey, 'device1'];
-              
-              const host = availableHosts.find((h) => h.host_name === hostName);
-              return isDeviceLocked(host || null, deviceId);
+              return isDeviceLocked(deviceKey);
             }}
             onDeviceSelect={handleDeviceSelect}
             onTakeControl={handleDeviceControl}
@@ -728,7 +423,7 @@ const TestCaseBuilderContent: React.FC = () => {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
           {testcaseName && (
             <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-              {testcaseName} {currentTestcaseId ? '(saved)' : '(unsaved)'}
+              {testcaseName}{hasUnsavedChanges ? ' *' : ''} {currentTestcaseId ? '(saved)' : '(unsaved)'}
             </Typography>
           )}
           
@@ -756,8 +451,12 @@ const TestCaseBuilderContent: React.FC = () => {
               variant="outlined" 
               startIcon={<SaveIcon />} 
               onClick={() => setSaveDialogOpen(true)}
-              disabled={!userinterfaceName}
-              title={!userinterfaceName ? 'Select a userinterface first' : 'Save test case'}
+              disabled={!userinterfaceName || !hasUnsavedChanges}
+              title={
+                !userinterfaceName ? 'Select a userinterface first' : 
+                !hasUnsavedChanges ? 'No unsaved changes' :
+                'Save test case'
+              }
             >
               Save
             </Button>
@@ -815,11 +514,11 @@ const TestCaseBuilderContent: React.FC = () => {
               />
             ) : (
               <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="caption" color="text.secondary">
+                <Typography fontSize={14} variant="caption" color="text.secondary">
                   {!selectedDeviceId 
-                    ? '1. Select a device first' 
+                    ? '1. Select a device' 
                     : !isControlActive
-                    ? '2. Take control of device'
+                    ? '2. Take control'
                     : !areActionsLoaded
                     ? '3. Loading device capabilities...'
                     : !userinterfaceName 
@@ -996,9 +695,22 @@ const TestCaseBuilderContent: React.FC = () => {
       )}
       
       {/* Save Dialog */}
-      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Save Test Case</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={saveDialogOpen} 
+        onClose={() => setSaveDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          Save Test Case
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
           <TextField
             autoFocus
             margin="dense"
@@ -1031,8 +743,10 @@ const TestCaseBuilderContent: React.FC = () => {
             placeholder="e.g., horizon_android_mobile"
           />
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button onClick={() => setSaveDialogOpen(false)} variant="outlined">
+            Cancel
+          </Button>
           <Button onClick={handleSave} variant="contained" disabled={!testcaseName}>
             Save
           </Button>
@@ -1040,9 +754,22 @@ const TestCaseBuilderContent: React.FC = () => {
       </Dialog>
       
       {/* Load Dialog */}
-      <Dialog open={loadDialogOpen} onClose={() => setLoadDialogOpen(false)} maxWidth="md" fullWidth>
-        <DialogTitle>Load Test Case</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={loadDialogOpen} 
+        onClose={() => setLoadDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          Load Test Case
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
           {testcaseList.length === 0 ? (
             <Alert severity="info">No test cases found. Create one first!</Alert>
           ) : (
@@ -1081,8 +808,88 @@ const TestCaseBuilderContent: React.FC = () => {
             </List>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLoadDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button onClick={() => setLoadDialogOpen(false)} variant="outlined">
+            Cancel
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Delete Confirmation Dialog */}
+      <Dialog 
+        open={deleteConfirmOpen} 
+        onClose={() => setDeleteConfirmOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          Delete Test Case
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, pb: 3 }}>
+          <Typography sx={{ mt: 1 }}>
+            Are you sure you want to delete "{deleteTargetTestCase?.name}"?
+          </Typography>
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 1 }}>
+            This action cannot be undone.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button 
+            onClick={() => setDeleteConfirmOpen(false)}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmDelete} 
+            color="error" 
+            variant="contained"
+          >
+            Delete
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* New Test Case Confirmation Dialog */}
+      <Dialog 
+        open={newConfirmOpen} 
+        onClose={() => setNewConfirmOpen(false)}
+        maxWidth="sm"
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          Create New Test Case
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3, pb: 3 }}>
+          <Typography sx={{ mt: 1 }}>
+            Create new test case? {hasUnsavedChanges ? 'Unsaved changes will be lost.' : 'Current test case will be cleared.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button 
+            onClick={() => setNewConfirmOpen(false)}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleConfirmNew} 
+            variant="contained"
+          >
+            OK
+          </Button>
         </DialogActions>
       </Dialog>
       
@@ -1104,7 +911,7 @@ const TestCaseBuilderContent: React.FC = () => {
       
       {/* Remote/Desktop Panel - REUSE from NavigationEditor lines 996-1121 */}
       {showRemotePanel && selectedHost && selectedDeviceId && isControlActive && (() => {
-        const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+        const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
         const isDesktopDevice = selectedDevice?.device_model === 'host_vnc';
         const remoteCapability = selectedDevice?.device_capabilities?.remote;
         const hasMultipleRemotes = Array.isArray(remoteCapability) || selectedDevice?.device_model === 'fire_tv';
@@ -1232,7 +1039,7 @@ const TestCaseBuilderContent: React.FC = () => {
 
       {/* AV Panel - REUSE from NavigationEditor lines 1124-1156 */}
       {showAVPanel && selectedHost && selectedDeviceId && (() => {
-        const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+        const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
         const deviceModel = selectedDevice?.device_model;
         
         return (
@@ -1271,6 +1078,13 @@ const TestCaseBuilderContent: React.FC = () => {
           </Box>
         );
       })()}
+      
+      {/* Execution Overlay */}
+      <ExecutionOverlay
+        isExecuting={isExecuting}
+        command={executionDetails.command}
+        params={executionDetails.params}
+      />
     </Box>
   );
 };

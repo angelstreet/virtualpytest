@@ -69,10 +69,14 @@ export function buildToolboxFromNavigationData(
  */
 function extractNavigationBlocks(nodes: any[]) {
   const navigationNodes = nodes
-    .filter(node => 
-      node.type !== 'entry' &&  // Skip entry nodes
-      (node.label || node.data?.label)  // Must have a label (root or data.label)
-    )
+    .filter(node => {
+      // Skip entry nodes (case-insensitive)
+      const nodeType = (node.type || '').toLowerCase();
+      if (nodeType === 'entry') return false;
+      
+      // Must have a label (root or data.label)
+      return (node.label || node.data?.label);
+    })
     .map(node => {
       // Support both API structure (label at root) and ReactFlow structure (data.label)
       const label = node.label || node.data?.label;
@@ -121,7 +125,7 @@ function extractActionGroups(availableActions: Actions) {
         type: 'action',
         label: actionDef.label,
         icon: TouchAppIcon,
-        color: '#ef4444',
+        color: '#f97316', // orange - distinguishable from failure (red)
         outputs: ['success', 'failure'],
         defaultData: {
           command: actionDef.command,
@@ -166,7 +170,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
       type: 'verification',
       label: verificationDef.description || verificationDef.command,
       icon: VerifiedIcon,
-      color: '#10b981',
+      color: '#3b82f6', // blue - distinguishable from success (green)
       outputs: ['success', 'failure'],
       defaultData: {
         command: verificationDef.command,
