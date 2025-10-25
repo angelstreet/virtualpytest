@@ -5,6 +5,7 @@ import {
   useTestCaseSave, 
   useTestCaseExecution,
   useTestCaseBuilder as useTestCaseBuilderHook,
+  useExecutionState, // 🆕 ADD
   type NavigationNode,
   type UserInterface,
   type ActionCommand
@@ -54,6 +55,9 @@ interface TestCaseBuilderContextType {
   executionState: ExecutionState;
   setExecutionState: React.Dispatch<React.SetStateAction<ExecutionState>>;
   
+  // 🆕 ADD: Unified execution state
+  unifiedExecution: ReturnType<typeof useExecutionState>;
+  
   // Validation
   isExecutable: boolean;
   
@@ -99,6 +103,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     getAvailableActions, 
     getAvailableVerifications 
   } = useTestCaseBuilderHook();
+  
+  // 🆕 ADD: Unified execution state management
+  const unifiedExecution = useExecutionState();
+  
   // Initialize with start, success, and failure blocks
   // START at top center, SUCCESS at bottom-left, FAILURE at bottom-right
   const [nodes, setNodes] = useState<Node[]>([
@@ -199,8 +207,18 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     }
     blockCounters.current[labelGroup]++;
     
-    // Generate auto-label (e.g., "action_1", "verification_2", "navigation_3")
-    const autoLabel = `${labelGroup}_${blockCounters.current[labelGroup]}`;
+    // Extract first 3 words from command/type for the label
+    const commandName = defaultData?.command || type;
+    const words = commandName
+      .split(/[_\s]+/) // Split by underscore or space
+      .filter(Boolean) // Remove empty strings
+      .slice(0, 3) // Take first 3 words
+      .join('_'); // Join with underscore
+    
+    // Generate auto-label (e.g., "action_1:swipe_up", "verification_2:verify_ocr")
+    const autoLabel = words 
+      ? `${labelGroup}_${blockCounters.current[labelGroup]}:${words}`
+      : `${labelGroup}_${blockCounters.current[labelGroup]}`;
     
     const newNode: Node = {
       id: `node_${nodeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
@@ -351,6 +369,11 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       }
     }
     
+    // 🆕 ADD: Initialize unified execution state
+    const blockIds = nodes.filter(n => !['start', 'success', 'failure'].includes(n.type || '')).map(n => n.id);
+    unifiedExecution.startExecution('test_case', blockIds);
+    
+    // ✅ KEEP: Legacy execution state (for backwards compatibility)
     setExecutionState({
       isExecuting: true,
       currentBlockId: 'start',
@@ -360,6 +383,16 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     try {
       const response = await executeTestCase(testcaseIdToExecute!, 'device1', hostName);
       
+      // 🆕 ADD: Complete unified execution
+      unifiedExecution.completeExecution({
+        success: response.success,
+        result_type: response.result_type || (response.success ? 'success' : 'error'),
+        execution_time_ms: response.execution_time_ms || 0,
+        error: response.error,
+        step_count: response.step_count,
+      });
+      
+      // ✅ KEEP: Legacy state updates
       if (response.success) {
         setExecutionState({
           isExecuting: false,
@@ -386,12 +419,22 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
             total_steps: response.step_count || 0,
             step_results: response.step_results || [],
             execution_time_ms: response.execution_time_ms || 0,
-            error: response.error, // ✅ Pass the error message!
+            error: response.error,
           },
         });
       }
     } catch (error) {
       console.error('Error executing test case:', error);
+      
+      // 🆕 ADD: Update unified execution on error
+      unifiedExecution.completeExecution({
+        success: false,
+        result_type: 'error',
+        execution_time_ms: 0,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
+      
+      // ✅ KEEP: Legacy error handling
       setExecutionState({
         isExecuting: false,
         currentBlockId: null,
@@ -406,7 +449,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         },
       });
     }
-  }, [currentTestcaseId, testcaseName, nodes, edges, description, userinterfaceName]);
+  }, [currentTestcaseId, testcaseName, nodes, edges, description, userinterfaceName, unifiedExecution, saveTestCase, executeTestCase]);
   
   // Save current test case
   const saveCurrentTestCase = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
@@ -498,8 +541,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         blockCounters.current = {};
         graph.nodes.forEach((node: any) => {
           if (node.data?.label && !['start', 'success', 'failure'].includes(node.type)) {
-            // Extract group from label (e.g., "action_5" -> group "action", count 5)
-            const match = node.data.label.match(/^([a-zA-Z_]+)_(\d+)$/);
+            // Extract group and count from label (e.g., "action_5_swipe_up" -> group "action", count 5)
+            const match = node.data.label.match(/^([a-zA-Z_]+)_(\d+)/);
             if (match) {
               const [, group, count] = match;
               blockCounters.current[group] = Math.max(
@@ -684,6 +727,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     deleteTestCaseById,
     resetBuilder,
     fetchNavigationNodes,
+    // 🆕 ADD: Unified execution state
+    unifiedExecution,
   };
 
   return (

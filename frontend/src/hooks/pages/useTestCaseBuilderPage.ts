@@ -86,6 +86,9 @@ export interface UseTestCaseBuilderPageReturn {
   handleConfirmDelete: () => Promise<void>;
   handleConfirmNew: () => void;
   
+  // Execution (NEW: Unified execution state)
+  unifiedExecution: ReturnType<typeof useTestCaseBuilder>['unifiedExecution'];
+  
   // AV Panel
   isAVPanelCollapsed: boolean;
   setIsAVPanelCollapsed: (collapsed: boolean) => void;
@@ -320,6 +323,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     resetBuilder,
     setNodes,
     setEdges,
+    unifiedExecution, // 🆕 ADD: Extract unifiedExecution from context
   } = useTestCaseBuilder();
   
   // ==================== AI GENERATION ====================
@@ -645,6 +649,9 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     onConnect,
     setNodes,
     setEdges,
+    
+    // 🆕 NEW: Unified execution state
+    unifiedExecution,
   };
 }
 

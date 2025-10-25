@@ -119,6 +119,19 @@ export interface ExecutionState {
   result: ExecutionResult | null;
 }
 
+// Block-level execution state (for unified execution tracking)
+export interface BlockExecutionState {
+  status: 'idle' | 'pending' | 'executing' | 'success' | 'failure' | 'error';
+  startTime?: number;
+  endTime?: number;
+  duration?: number;
+  error?: string;
+  result?: any;
+}
+
+// Execution mode
+export type ExecutionMode = 'idle' | 'single_block' | 'test_case';
+
 // Form data for block configuration
 export interface ActionForm extends ActionBlockData {
   isValid: boolean;

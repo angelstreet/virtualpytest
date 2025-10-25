@@ -11,12 +11,21 @@ import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
+import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 
 /**
  * Universal Block - Renders any command type with appropriate handles
  * Handles are generated based on command configuration
+ * 
+ * Now supports execution state visualization:
+ * - executing: Blue glow + pulse animation
+ * - success: Green border
+ * - failure: Red border
+ * - error: Orange border
  */
-export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, type, id }) => {
+export const UniversalBlock: React.FC<NodeProps & { 
+  executionState?: BlockExecutionState // Optional - for unified execution tracking
+}> = ({ data, selected, dragging, type, id, executionState }) => {
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
@@ -58,9 +67,9 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
   };
   
   const handleLabelSave = () => {
-    // Validate label: max 20 chars, only alphanumeric, -, and _
+    // Validate label: max 20 chars, only alphanumeric, -, _, and :
     const sanitizedLabel = editedLabel
-      .replace(/[^a-zA-Z0-9\-_]/g, '') // Remove invalid chars
+      .replace(/[^a-zA-Z0-9\-_:]/g, '') // Remove invalid chars (keep : - _)
       .substring(0, 20); // Max 20 chars
     
     if (sanitizedLabel.length === 0) {
@@ -113,13 +122,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
     
     setIsExecuting(true);
     
-    // Dispatch custom event to trigger overlay
-    window.dispatchEvent(new CustomEvent('blockExecutionStart', {
-      detail: {
-        command: data.command,
-        params: data.params,
-      }
-    }));
+    // 🗑️ REMOVED: Custom event dispatch - now using unified execution state from context
     
     const startTime = Date.now();
     
@@ -170,8 +173,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
       setTimeout(() => setAnimateHandle(null), 2000);
     } finally {
       setIsExecuting(false);
-      // Dispatch custom event to clear overlay
-      window.dispatchEvent(new CustomEvent('blockExecutionEnd'));
+      // 🗑️ REMOVED: Custom event dispatch - now using unified execution state
     }
   };
   
@@ -352,23 +354,112 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
     });
   };
   
+  // Get execution state styling
+  const getExecutionStyling = () => {
+    // Priority: executionState > isExecuting (local)
+    const state = executionState || (isExecuting ? { status: 'executing' as const } : null);
+    
+    if (!state) return {};
+    
+    switch (state.status) {
+      case 'executing':
+        return {
+          border: '3px solid #3b82f6',
+          boxShadow: '0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3)',
+          animation: 'executePulse 1.5s ease-in-out infinite',
+          '@keyframes executePulse': {
+            '0%, 100%': { 
+              boxShadow: '0 0 20px rgba(59, 130, 246, 0.6), 0 0 40px rgba(59, 130, 246, 0.3)',
+            },
+            '50%': { 
+              boxShadow: '0 0 30px rgba(59, 130, 246, 0.8), 0 0 60px rgba(59, 130, 246, 0.4)',
+            },
+          },
+        };
+      case 'success':
+        return {
+          border: '2px solid #10b981',
+          backgroundColor: actualMode === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)',
+          boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)',
+        };
+      case 'failure':
+        return {
+          border: '2px solid #ef4444',
+          backgroundColor: actualMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
+          boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+        };
+      case 'error':
+        return {
+          border: '2px solid #f59e0b',
+          backgroundColor: actualMode === 'dark' ? 'rgba(245, 158, 11, 0.1)' : 'rgba(245, 158, 11, 0.05)',
+          boxShadow: '0 0 10px rgba(245, 158, 11, 0.3)',
+        };
+      case 'pending':
+        return {
+          opacity: 0.6,
+          filter: 'grayscale(0.3)',
+        };
+      default:
+        return {};
+    }
+  };
+  
   return (
     <Box
       sx={{
         minWidth: 240,
         border: selected ? '3px solid #fbbf24' : `2px solid ${color}`,
+        ...getExecutionStyling(), // Apply execution styling
         borderRadius: 2,
         background: actualMode === 'dark' ? '#1f2937' : '#ffffff',
         boxShadow: 2,
         cursor: 'pointer',
         opacity: dragging ? 0.5 : (isExecuting ? 0.7 : 1),
-        transition: 'opacity 0.2s',
+        transition: 'all 0.3s ease',
         pointerEvents: isExecuting ? 'none' : 'auto', // Disable interaction during execution
+        position: 'relative',
         '&:hover': {
           boxShadow: isExecuting ? 2 : 4,
         },
       }}
     >
+      {/* Execution Status Badge */}
+      {executionState?.status === 'executing' && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            zIndex: 10,
+          }}
+        >
+          <CircularProgress size={16} sx={{ color: '#3b82f6' }} />
+        </Box>
+      )}
+      
+      {executionState?.duration && ['success', 'failure', 'error'].includes(executionState.status) && (
+        <Box
+          sx={{
+            position: 'absolute',
+            top: 4,
+            right: 4,
+            zIndex: 10,
+            backgroundColor: 
+              executionState.status === 'success' ? '#10b981' :
+              executionState.status === 'failure' ? '#ef4444' : '#f59e0b',
+            color: 'white',
+            borderRadius: 1,
+            px: 0.5,
+            py: 0.25,
+            fontSize: 9,
+            fontWeight: 'bold',
+            fontFamily: 'monospace',
+          }}
+        >
+          {(executionState.duration / 1000).toFixed(2)}s
+        </Box>
+      )}
+      
       {/* Header */}
       <Box
         sx={{
@@ -417,7 +508,7 @@ export const UniversalBlock: React.FC<NodeProps> = ({ data, selected, dragging, 
           ) : (
             <>
               <Typography color="white" fontWeight="bold" fontSize={13}>
-                {(data.label || headerLabel).toUpperCase()}
+                {data.label || headerLabel}
               </Typography>
               <IconButton
                 size="small"

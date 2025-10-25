@@ -6,25 +6,19 @@ import {
   BackgroundVariant,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
-import { ExecutionOverlay } from '../ExecutionOverlay';
+
+// 🗑️ REMOVED: ExecutionOverlay import - replaced by ExecutionProgressBar + ExecutionLog
 
 interface TestCaseBuilderCanvasProps {
   actualMode: 'light' | 'dark';
   isSidebarOpen: boolean;
   
-  // Execution Overlay
-  isExecuting: boolean;
-  executionDetails: {
-    command?: string;
-    params?: Record<string, any>;
-  };
+  // 🗑️ REMOVED: Execution Overlay props - no longer needed
 }
 
 export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
   actualMode,
   isSidebarOpen,
-  isExecuting,
-  executionDetails,
 }) => {
   return (
     <>
@@ -69,14 +63,7 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
         position="top-right"
       />
       
-      {/* Execution Overlay */}
-      {isExecuting && (
-        <ExecutionOverlay
-          isExecuting={isExecuting}
-          command={executionDetails.command}
-          params={executionDetails.params}
-        />
-      )}
+      {/* 🗑️ REMOVED: ExecutionOverlay - replaced by ExecutionProgressBar + ExecutionLog */}
     </>
   );
 };

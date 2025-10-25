@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, DragEvent, useState, useEffect } from 'react';
+import React, { useCallback, useRef, DragEvent, useState } from 'react';
 import { 
   Box, 
   Button, 
@@ -45,7 +45,9 @@ import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
 import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
-import { ExecutionOverlay } from '../components/testcase/ExecutionOverlay';
+// 🆕 NEW: Execution components
+import { ExecutionProgressBar } from '../components/testcase/builder/ExecutionProgressBar';
+import { ExecutionLog } from '../components/testcase/ExecutionLog';
 
 // Dialogs
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
@@ -130,30 +132,7 @@ const TestCaseBuilderContent: React.FC = () => {
 
   const { actualMode } = useTheme();
   
-  // Execution overlay state
-  const [isExecuting, setIsExecuting] = useState(false);
-  const [executionDetails, setExecutionDetails] = useState<{ command?: string; params?: Record<string, any> }>({});
-
-  // Listen for execution events
-  useEffect(() => {
-    const handleExecutionStart = (event: CustomEvent) => {
-      setIsExecuting(true);
-      setExecutionDetails(event.detail);
-    };
-
-    const handleExecutionEnd = () => {
-      setIsExecuting(false);
-      setExecutionDetails({});
-    };
-
-    window.addEventListener('blockExecutionStart' as any, handleExecutionStart);
-    window.addEventListener('blockExecutionEnd' as any, handleExecutionEnd);
-
-    return () => {
-      window.removeEventListener('blockExecutionStart' as any, handleExecutionStart);
-      window.removeEventListener('blockExecutionEnd' as any, handleExecutionEnd);
-    };
-  }, []);
+  // 🗑️ REMOVED: Local execution overlay state - now using unifiedExecution from context
   
   // Use the consolidated hook for all business logic
   const hookData = useTestCaseBuilderPage();
@@ -286,6 +265,18 @@ const TestCaseBuilderContent: React.FC = () => {
         minHeight: 0,
         position: 'relative',
       }}>
+        {/* 🆕 NEW: Execution Progress Bar (floating, non-blocking) */}
+        {hookData.unifiedExecution.state.isExecuting && (
+          <ExecutionProgressBar
+            currentBlockId={hookData.unifiedExecution.state.currentBlockId}
+            blockStates={hookData.unifiedExecution.state.blockStates}
+            onStop={() => {
+              // TODO: Implement stop execution
+              console.log('Stop execution requested');
+            }}
+          />
+        )}
+        
         {/* Sidebar */}
         <TestCaseBuilderSidebar
           actualMode={actualMode}
@@ -312,7 +303,14 @@ const TestCaseBuilderContent: React.FC = () => {
           onDragOver={onDragOver}
         >
           <ReactFlow
-            nodes={hookData.nodes}
+            nodes={hookData.nodes.map(node => ({
+              ...node,
+              // 🆕 ADD: Pass execution state to each node
+              data: {
+                ...node.data,
+                executionState: hookData.unifiedExecution.state.blockStates.get(node.id),
+              },
+            }))}
             edges={hookData.edges}
             onNodesChange={hookData.onNodesChange}
             onEdgesChange={hookData.onEdgesChange}
@@ -333,11 +331,16 @@ const TestCaseBuilderContent: React.FC = () => {
             <TestCaseBuilderCanvas
               actualMode={actualMode}
               isSidebarOpen={isSidebarOpen}
-              isExecuting={isExecuting}
-              executionDetails={executionDetails}
+              // 🗑️ REMOVED: isExecuting, executionDetails - no longer needed
             />
           </ReactFlow>
         </Box>
+        
+        {/* 🆕 NEW: Execution Log (collapsible side panel) */}
+        <ExecutionLog
+          blockStates={hookData.unifiedExecution.state.blockStates}
+          nodes={hookData.nodes}
+        />
       </Box>
 
       {/* Footer */}
@@ -665,12 +668,7 @@ const TestCaseBuilderContent: React.FC = () => {
         handleCaptureModeChange={hookData.handleCaptureModeChange}
       />
       
-      {/* Execution Overlay */}
-      <ExecutionOverlay
-        isExecuting={isExecuting}
-        command={executionDetails.command}
-        params={executionDetails.params}
-      />
+      {/* 🗑️ REMOVED: ExecutionOverlay - replaced by ExecutionProgressBar + ExecutionLog */}
     </Box>
   );
 };

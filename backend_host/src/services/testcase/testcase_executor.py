@@ -279,6 +279,14 @@ class TestCaseExecutor:
                 print(f"[@testcase_executor] ERROR: {error_msg}")
                 return {'success': False, 'result_type': 'error', 'error': error_msg}
             
+            # Show execution result
+            result_status = "SUCCESS" if block_result['success'] else "FAILURE"
+            print(f"[@testcase_executor] Block {current_node_id} executed: {result_status}")
+            if block_result.get('message'):
+                print(f"[@testcase_executor]   Message: {block_result['message']}")
+            if block_result.get('error'):
+                print(f"[@testcase_executor]   Error: {block_result['error']}")
+            
             # Record step
             context.record_step_immediately({
                 'block_id': current_node_id,
@@ -289,16 +297,19 @@ class TestCaseExecutor:
                 'step_category': 'testcase_block'
             })
             
-            # Find next node based on success/failure
+            # Find next node based on success/failure result
             edge_type = 'success' if block_result['success'] else 'failure'
+            print(f"[@testcase_executor] Looking for {edge_type} edge from block {current_node_id}...")
             next_node_id = self._find_next_node(current_node_id, edge_type, edges)
             
             if not next_node_id:
                 # Block executed but has no outgoing connection for this result
-                error_msg = f"Block {current_node_id} ({node_type}) executed with {edge_type} but has no {edge_type} connection"
+                error_msg = f"No {edge_type} connection found from block {current_node_id}"
                 print(f"[@testcase_executor] ERROR: {error_msg}")
                 context.overall_success = False
                 return {'success': False, 'result_type': 'error', 'error': error_msg}
+            
+            print(f"[@testcase_executor] Following {edge_type} edge to block: {next_node_id}")
             
             current_node_id = next_node_id
         
@@ -349,12 +360,18 @@ class TestCaseExecutor:
             retry_actions = data.get('retry_actions', [])
             failure_actions = data.get('failure_actions', [])
             
-            # Execute action
-            result = action_executor.execute_action(
-                command=command,
-                params=params,
+            # Build actions array from single action
+            actions = [{
+                'command': command,
+                'params': params
+            }]
+            
+            # Execute actions using same method as single block execution
+            result = action_executor.execute_actions(
+                actions=actions,
                 retry_actions=retry_actions,
                 failure_actions=failure_actions,
+                team_id=context.team_id,
                 context=context
             )
             
