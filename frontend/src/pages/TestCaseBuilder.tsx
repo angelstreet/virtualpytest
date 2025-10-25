@@ -269,7 +269,7 @@ const TestCaseBuilderContent: React.FC = () => {
         } finally {
           setIsLoadingVersion(false);
         }
-      } else if (!hookData.saveDialogOpen) {
+      } else {
         // Reset state when dialog closes
         setNextVersionNumber(null);
         setIsSaveSuccess(false);
@@ -277,19 +277,24 @@ const TestCaseBuilderContent: React.FC = () => {
     };
     
     fetchNextVersion();
-  }, [hookData.saveDialogOpen, hookData.currentTestcaseId, hookData.testcaseName]);
+    // Only depend on saveDialogOpen to avoid infinite loops
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hookData.saveDialogOpen]);
   
   // Handle save with success state
   const handleSaveWithSuccess = async () => {
-    await hookData.handleSave();
+    const result = await hookData.handleSave();
     
-    // Show success state with green tick
-    setIsSaveSuccess(true);
-    
-    // Auto-dismiss after 1.5 seconds
-    setTimeout(() => {
-      hookData.setSaveDialogOpen(false);
-    }, 1500);
+    if (result.success) {
+      // Show success state with green tick
+      setIsSaveSuccess(true);
+      
+      // Auto-dismiss after 1.5 seconds
+      setTimeout(() => {
+        hookData.setSaveDialogOpen(false);
+      }, 1500);
+    }
+    // If failed, error toast is already shown by the hook
   };
 
   // Fit view when ReactFlow instance is ready
@@ -335,7 +340,8 @@ const TestCaseBuilderContent: React.FC = () => {
         testcaseName={hookData.testcaseName}
         hasUnsavedChanges={hookData.hasUnsavedChanges}
         handleNew={hookData.handleNew}
-        setLoadDialogOpen={hookData.setLoadDialogOpen}
+        handleLoadClick={hookData.handleLoadClick}
+        isLoadingTestCases={hookData.isLoadingTestCases}
         setSaveDialogOpen={hookData.setSaveDialogOpen}
         handleExecute={hookData.handleExecute}
         isExecuting={hookData.executionState.isExecuting}

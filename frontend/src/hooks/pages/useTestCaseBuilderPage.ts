@@ -78,6 +78,8 @@ export interface UseTestCaseBuilderPageReturn {
   setSaveDialogOpen: (open: boolean) => void;
   loadDialogOpen: boolean;
   setLoadDialogOpen: (open: boolean) => void;
+  isLoadingTestCases: boolean;
+  handleLoadClick: () => Promise<void>;
   deleteConfirmOpen: boolean;
   setDeleteConfirmOpen: (open: boolean) => void;
   deleteTargetTestCase: { id: string; name: string } | null;
@@ -336,15 +338,25 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   // ==================== DIALOGS ====================
   const [saveDialogOpen, setSaveDialogOpen] = useState(false);
   const [loadDialogOpen, setLoadDialogOpen] = useState(false);
+  const [isLoadingTestCases, setIsLoadingTestCases] = useState(false);
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetTestCase, setDeleteTargetTestCase] = useState<{ id: string; name: string } | null>(null);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
   
-  useEffect(() => {
-    if (loadDialogOpen) {
-      fetchTestCaseList();
-    }
-  }, [loadDialogOpen, fetchTestCaseList]);
+  // Handle Load button click - fetch data first, then open dialog
+  const handleLoadClick = useCallback(async () => {
+    setIsLoadingTestCases(true);
+    await fetchTestCaseList();
+    setIsLoadingTestCases(false);
+    setLoadDialogOpen(true);
+  }, [fetchTestCaseList]);
+  
+  // Remove the useEffect that fetches when dialog opens since we fetch before opening now
+  // useEffect(() => {
+  //   if (loadDialogOpen) {
+  //     fetchTestCaseList();
+  //   }
+  // }, [loadDialogOpen, fetchTestCaseList]);
   
   // ==================== AV PANEL ====================
   const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
@@ -380,7 +392,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     const result = await saveCurrentTestCase();
     if (result.success) {
       // Don't show toast - success is shown in dialog with green tick
-      setSaveDialogOpen(false);
+      // Don't close dialog here - let the caller handle it
       return result;
     } else {
       setSnackbar({
@@ -594,6 +606,8 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setSaveDialogOpen,
     loadDialogOpen,
     setLoadDialogOpen,
+    isLoadingTestCases,
+    handleLoadClick,
     deleteConfirmOpen,
     setDeleteConfirmOpen,
     deleteTargetTestCase,

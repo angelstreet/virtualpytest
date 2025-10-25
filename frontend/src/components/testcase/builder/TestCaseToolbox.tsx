@@ -156,73 +156,63 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
                 </Typography>
               </AccordionSummary>
               <AccordionDetails sx={{ p: 1 }}>
-                {/* Render each group with collapsible header */}
+                {/* Render each group with collapsible header - ALWAYS show accordion */}
                 {tabConfig.groups.map((group: any, groupIdx: number) => (
-                  tabConfig.groups.length > 1 ? (
-                    // Multiple groups - make them collapsible
-                    <Accordion
-                      key={`${tabKey}-group-${groupIdx}`}
-                      defaultExpanded={true}
-                      sx={{
-                        boxShadow: 'none',
-                        '&:before': { display: 'none'},
+                  <Accordion
+                    key={`${tabKey}-group-${groupIdx}`}
+                    defaultExpanded={true}
+                    sx={{
+                      boxShadow: 'none',
+                      '&:before': { display: 'none'},
+                      margin: '0 !important',
+                      marginBottom: '2px !important',
+                      padding: '0 !important',
+                      backgroundColor: 'transparent',
+                      '&.Mui-expanded': {
                         margin: '0 !important',
                         marginBottom: '2px !important',
-                        padding: '0 !important',
-                        backgroundColor: 'transparent',
-                        '&.Mui-expanded': {
+                        minHeight: '0 !important',
+                      }
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon sx={{ fontSize: 14 }} />}
+                      sx={{
+                        minHeight: '20px !important',
+                        height: '20px',
+                        padding: '0 4px !important',
+                        margin: '0 !important',
+                        '& .MuiAccordionSummary-content': {
                           margin: '0 !important',
-                          marginBottom: '2px !important',
-                          minHeight: '0 !important',
+                          minHeight: '20px !important',
+                        },
+                        '&.Mui-expanded': {
+                          minHeight: '20px !important',
+                          height: '20px',
+                          margin: '0 !important',
                         }
                       }}
                     >
-                      <AccordionSummary
-                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 14 }} />}
-                        sx={{
-                          minHeight: '20px !important',
-                          height: '20px',
-                          padding: '0 4px !important',
-                          margin: '0 !important',
-                          '& .MuiAccordionSummary-content': {
-                            margin: '0 !important',
-                            minHeight: '20px !important',
-                          },
-                          '&.Mui-expanded': {
-                            minHeight: '20px !important',
-                            height: '20px',
-                            margin: '0 !important',
-                          }
+                      <Typography 
+                        fontSize={12} 
+                        fontWeight="bold" 
+                        padding={0.5}
+                        sx={{ 
+                          color: 'text.secondary',
+                          textTransform: 'uppercase',
+                          letterSpacing: '0.5px',
+                          opacity: 0.8
                         }}
                       >
-                        <Typography 
-                          fontSize={12} 
-                          fontWeight="bold" 
-                          padding={0.5}
-                          sx={{ 
-                            color: 'text.secondary',
-                            textTransform: 'uppercase',
-                            letterSpacing: '0.5px',
-                            opacity: 0.8
-                          }}
-                        >
-                          {group.groupName}
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
-                        {group.commands.map((command: any, cmdIdx: number) => (
-                          <DraggableCommand key={`${group.groupName}-${cmdIdx}`} command={command} />
-                        ))}
-                      </AccordionDetails>
-                    </Accordion>
-                  ) : (
-                    // Single group - no collapsing needed
-                    <Box key={`${tabKey}-group-${groupIdx}`}>
+                        {group.groupName}
+                      </Typography>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
                       {group.commands.map((command: any, cmdIdx: number) => (
                         <DraggableCommand key={`${group.groupName}-${cmdIdx}`} command={command} />
                       ))}
-                    </Box>
-                  )
+                    </AccordionDetails>
+                  </Accordion>
                 ))}
               </AccordionDetails>
             </Accordion>

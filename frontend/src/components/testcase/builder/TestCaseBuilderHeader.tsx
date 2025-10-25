@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Typography } from '@mui/material';
+import { Box, Button, Typography, CircularProgress } from '@mui/material';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import SaveIcon from '@mui/icons-material/Save';
 import FolderOpenIcon from '@mui/icons-material/FolderOpen';
@@ -39,7 +39,8 @@ interface TestCaseBuilderHeaderProps {
   
   // Actions
   handleNew: () => void;
-  setLoadDialogOpen: (open: boolean) => void;
+  handleLoadClick: () => Promise<void>;
+  isLoadingTestCases: boolean;
   setSaveDialogOpen: (open: boolean) => void;
   handleExecute: () => void;
   
@@ -68,7 +69,8 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   testcaseName,
   hasUnsavedChanges,
   handleNew,
-  setLoadDialogOpen,
+  handleLoadClick,
+  isLoadingTestCases,
   setSaveDialogOpen,
   handleExecute,
   isExecuting,
@@ -196,16 +198,17 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
           <Button 
             size="small" 
             variant="outlined" 
-            startIcon={<FolderOpenIcon />} 
-            onClick={() => setLoadDialogOpen(true)}
-            disabled={!selectedDeviceId || !isControlActive}
+            startIcon={isLoadingTestCases ? <CircularProgress size={16} /> : <FolderOpenIcon />} 
+            onClick={handleLoadClick}
+            disabled={!selectedDeviceId || !isControlActive || isLoadingTestCases}
             title={
               !selectedDeviceId ? 'Select a device first' :
               !isControlActive ? 'Take control of device first' :
+              isLoadingTestCases ? 'Loading test cases...' :
               'Load saved test case'
             }
           >
-            Load
+            {isLoadingTestCases ? 'Loading...' : 'Load'}
           </Button>
           <Button 
             size="small" 
