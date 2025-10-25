@@ -7,6 +7,9 @@ Consolidates all navigation functionality without external dependencies.
 
 import os
 import time
+import threading
+import uuid
+import json
 from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
@@ -14,9 +17,23 @@ from  backend_host.src.services.navigation.navigation_pathfinding import find_sh
 from  backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
 from  backend_host.src.lib.utils.navigation_cache import populate_unified_cache
 
-# KPI measurement - now uses JSON file queue
-import json
-import uuid
+# Helper functions (extracted for maintainability)
+from backend_host.src.services.navigation.navigation_executor_helpers import (
+    find_node_by_label,
+    find_edges_from_node,
+    find_edge_by_target_label,
+    find_edge_with_action_command,
+    get_node_sub_trees_with_actions,
+    find_action_in_nested_trees
+)
+
+# Tree management functions (extracted for maintainability)
+from backend_host.src.services.navigation.navigation_executor_tree_manager import (
+    load_navigation_tree as tree_manager_load_navigation_tree,
+    discover_complete_hierarchy as tree_manager_discover_complete_hierarchy,
+    format_tree_for_hierarchy as tree_manager_format_tree_for_hierarchy,
+    build_unified_tree_data as tree_manager_build_unified_tree_data
+)
 
 
 class NavigationExecutor:
@@ -77,6 +94,10 @@ class NavigationExecutor:
         self.unified_graph = None
         # Preview cache: (tree_id, current_node, target_node) -> preview_result
         self._preview_cache = {}
+        
+        # Async execution tracking (for navigation polling)
+        self._executions: Dict[str, Dict[str, Any]] = {}  # execution_id -> execution state
+        self._lock = threading.Lock()
       
     def clear_preview_cache(self, tree_id: str = None):
         """Clear preview cache for a specific tree or all trees"""
@@ -1147,6 +1168,145 @@ class NavigationExecutor:
                 unified_pathfinding_used=True
             )
     
+    # ========================================
+    # ASYNC EXECUTION METHODS (for polling support)
+    # ========================================
+    
+    def execute_navigation_async(
+        self,
+        tree_id: str,
+        target_node_id: str,
+        current_node_id: Optional[str] = None,
+        target_node_label: Optional[str] = None,
+        team_id: Optional[str] = None
+    ) -> Dict[str, Any]:
+        """
+        Start async navigation execution.
+        Returns immediately with execution_id for polling.
+        
+        Returns:
+            {
+                'success': True,
+                'execution_id': str,
+                'message': 'Navigation started'
+            }
+        """
+        execution_id = str(uuid.uuid4())
+        
+        # Initialize execution state
+        with self._lock:
+            self._executions[execution_id] = {
+                'execution_id': execution_id,
+                'status': 'running',
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'target_node_label': target_node_label,
+                'result': None,
+                'error': None,
+                'start_time': time.time(),
+                'progress': 0,
+                'message': 'Navigation starting...'
+            }
+        
+        # Start execution in background thread
+        thread = threading.Thread(
+            target=self._execute_navigation_with_tracking,
+            args=(execution_id, tree_id, target_node_id, current_node_id, target_node_label, team_id),
+            daemon=True
+        )
+        thread.start()
+        
+        return {
+            'success': True,
+            'execution_id': execution_id,
+            'message': 'Navigation started'
+        }
+    
+    def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
+        """
+        Get status of async navigation execution.
+        
+        Returns:
+            {
+                'success': bool,
+                'execution_id': str,
+                'status': 'running' | 'completed' | 'error',
+                'result': dict (if completed),
+                'error': str (if error),
+                'progress': int,
+                'message': str
+            }
+        """
+        with self._lock:
+            if execution_id not in self._executions:
+                return {
+                    'success': False,
+                    'error': f'Execution {execution_id} not found'
+                }
+            
+            execution = self._executions[execution_id].copy()
+        
+        return {
+            'success': True,
+            'execution_id': execution['execution_id'],
+            'status': execution['status'],
+            'result': execution.get('result'),
+            'error': execution.get('error'),
+            'progress': execution.get('progress', 0),
+            'message': execution.get('message', ''),
+            'tree_id': execution.get('tree_id'),
+            'target_node_id': execution.get('target_node_id'),
+            'elapsed_time_ms': int((time.time() - execution['start_time']) * 1000)
+        }
+    
+    def _execute_navigation_with_tracking(
+        self,
+        execution_id: str,
+        tree_id: str,
+        target_node_id: str,
+        current_node_id: Optional[str],
+        target_node_label: Optional[str],
+        team_id: Optional[str]
+    ):
+        """Execute navigation in background thread with progress tracking"""
+        try:
+            # Update status
+            with self._lock:
+                self._executions[execution_id]['message'] = 'Executing navigation...'
+                self._executions[execution_id]['progress'] = 50
+            
+            # Execute navigation (synchronous call)
+            result = self.execute_navigation(
+                tree_id=tree_id,
+                target_node_id=target_node_id,
+                current_node_id=current_node_id,
+                target_node_label=target_node_label,
+                team_id=team_id
+            )
+            
+            # Update with result
+            with self._lock:
+                if result.get('success'):
+                    self._executions[execution_id]['status'] = 'completed'
+                    self._executions[execution_id]['result'] = result
+                    self._executions[execution_id]['progress'] = 100
+                    self._executions[execution_id]['message'] = 'Navigation completed'
+                else:
+                    self._executions[execution_id]['status'] = 'error'
+                    self._executions[execution_id]['error'] = result.get('error', 'Navigation failed')
+                    self._executions[execution_id]['result'] = result
+                    self._executions[execution_id]['progress'] = 100
+                    self._executions[execution_id]['message'] = 'Navigation failed'
+        
+        except Exception as e:
+            # Update with error
+            with self._lock:
+                self._executions[execution_id]['status'] = 'error'
+                self._executions[execution_id]['error'] = str(e)
+                self._executions[execution_id]['progress'] = 100
+                self._executions[execution_id]['message'] = f'Navigation error: {str(e)}'
+    
     def get_navigation_preview(self, tree_id: str, target_node_id: str, 
                              current_node_id: Optional[str] = None, team_id: str = None) -> Dict[str, Any]:
         """Get navigation preview without executing - expects unified cache to be pre-populated"""
@@ -1215,481 +1375,61 @@ class NavigationExecutor:
     
     # ========================================
     # NAVIGATION TREE MANAGEMENT METHODS
+    # Note: Core tree management moved to navigation_executor_tree_manager.py for maintainability
+    # These wrapper methods maintain backward compatibility with existing code
     # ========================================
     
     def load_navigation_tree(self, userinterface_name: str, team_id: str) -> Dict[str, Any]:
-        """
-        Load navigation tree and populate unified cache.
-        This is the unified function that always works for both simple and nested trees.
-        
-        Args:
-            userinterface_name: Interface name (e.g., 'horizon_android_mobile')
-            team_id: Team ID (required)
-            
-        Returns:
-            Dictionary with success status and tree data
-            
-        Raises:
-            NavigationTreeError: If any part of the loading fails
-        """
-        try:
-            print(f"🗺️ [NavigationExecutor] Loading navigation tree for '{userinterface_name}'")
-            
-            # 1. Get root tree ID to check cache
-            from shared.src.lib.database.userinterface_db import get_userinterface_by_name
-            userinterface = get_userinterface_by_name(userinterface_name, team_id)
-            if not userinterface:
-                return {'success': False, 'error': f"User interface '{userinterface_name}' not found"}
-            
-            userinterface_id = userinterface['id']
-            
-            # Use the same approach as NavigationEditor - call the working API endpoint
-            from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface, get_full_tree
-            
-            # Get the root tree for this user interface (same as navigation page)
-            tree = get_root_tree_for_interface(userinterface_id, team_id)
-            
-            if not tree:
-                return {'success': False, 'error': f"No root tree found for interface: {userinterface_id}"}
-            
-            root_tree_id = tree['id']
-            
-            # 2. CHECK CACHE FIRST before loading from database
-            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
-            cached_graph = get_cached_unified_graph(root_tree_id, team_id)
-            
-            if cached_graph:
-                print(f"✅ [NavigationExecutor] Using cached unified graph: {len(cached_graph.nodes)} nodes, {len(cached_graph.edges)} edges")
-                self.unified_graph = cached_graph
-                
-                # Return minimal result - graph is already in memory
-                return {
-                    'success': True,
-                    'tree_id': root_tree_id,
-                    'tree': {
-                        'id': root_tree_id,
-                        'name': tree.get('name', ''),
-                    },
-                    'userinterface_id': userinterface_id,
-                    'from_cache': True,
-                    'unified_graph_nodes': len(cached_graph.nodes),
-                    'unified_graph_edges': len(cached_graph.edges)
-                }
-            
-            # 3. CACHE MISS - Load full tree data from database
-            print(f"🔄 [NavigationExecutor] Cache miss - loading from database...")
-            
-            # Get full tree data with nodes and edges (same as navigation page)
-            tree_data = get_full_tree(root_tree_id, team_id)
-            
-            if not tree_data['success']:
-                return {'success': False, 'error': f"Failed to load tree data: {tree_data.get('error', 'Unknown error')}"}
-            
-            nodes = tree_data['nodes']
-            edges = tree_data['edges']
-            
-            # Create root tree result for hierarchy processing
-            root_tree_result = {
-                'success': True,
-                'tree': {
-                    'id': root_tree_id,
-                    'name': tree.get('name', ''),
-                    'metadata': {
-                        'nodes': nodes,
-                        'edges': edges
-                    }
-                },
-                'tree_id': root_tree_id,
-                'userinterface_id': userinterface_id,
-                'nodes': nodes,
-                'edges': edges
-            }
-            
-            print(f"✅ [NavigationExecutor] Root tree loaded: {root_tree_id}")
-            
-            # 4. Discover complete tree hierarchy
-            hierarchy_data = self.discover_complete_hierarchy(root_tree_id, team_id)
-            if not hierarchy_data:
-                # If no nested trees, create single-tree hierarchy
-                hierarchy_data = [self.format_tree_for_hierarchy(root_tree_result, is_root=True)]
-                print(f"📋 [NavigationExecutor] No nested trees found, using single root tree")
-            else:
-                print(f"📋 [NavigationExecutor] Found {len(hierarchy_data)} trees in hierarchy")
-            
-            # 5. Build unified tree data structure
-            all_trees_data = self.build_unified_tree_data(hierarchy_data, team_id)
-            if not all_trees_data:
-                raise NavigationTreeError("Failed to build unified tree data structure")
-            
-            # 6. Populate unified cache (MANDATORY)
-            print(f"🔄 [NavigationExecutor] Populating unified cache...")
-            from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
-            unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
-            if not unified_graph:
-                raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
-            
-            print(f"✅ [NavigationExecutor] Unified cache populated: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
-            
-            # Store unified graph for direct access
-            self.unified_graph = unified_graph
-            
-            # 7. Return result compatible with script executor expectations
-            return {
-                'success': True,
-                'tree_id': root_tree_id,
-                'tree': {
-                    'id': root_tree_id,
-                    'name': tree.get('name', ''),
-                    'metadata': {
-                        'nodes': nodes,
-                        'edges': edges
-                    }
-                },
-                'userinterface_id': userinterface_id,
-                'nodes': nodes,
-                'edges': edges,
-                'from_cache': False,
-                # Additional hierarchy info for advanced use cases
-                'hierarchy': hierarchy_data,
-                'unified_graph_nodes': len(unified_graph.nodes),
-                'unified_graph_edges': len(unified_graph.edges),
-                'cross_tree_capabilities': len(hierarchy_data) > 1
-            }
-            
-        except Exception as e:
-            # Re-raise navigation-specific errors (already imported at top)
-            if isinstance(e, (NavigationTreeError, UnifiedCacheError)):
-                raise e
-            else:
-                # FAIL EARLY - no fallback
-                return {'success': False, 'error': f"Navigation tree loading failed: {str(e)}"}
+        """Wrapper for tree manager function - maintains backward compatibility"""
+        # Use tree manager and store unified_graph in self
+        storage = {}
+        result = tree_manager_load_navigation_tree(userinterface_name, team_id, storage)
+        if 'graph' in storage:
+            self.unified_graph = storage['graph']
+        return result
 
     def discover_complete_hierarchy(self, root_tree_id: str, team_id: str) -> List[Dict]:
-        """
-        Discover all nested trees in hierarchy using enhanced database functions.
-        
-        Args:
-            root_tree_id: Root tree ID
-            team_id: Team ID
-            
-        Returns:
-            List of tree data dictionaries for the complete hierarchy
-        """
-        try:
-            from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy
-            
-            print(f"🔍 [NavigationExecutor] Discovering complete tree hierarchy using enhanced database function...")
-            
-            # Use the new enhanced database function
-            hierarchy_result = get_complete_tree_hierarchy(root_tree_id, team_id)
-            if not hierarchy_result['success']:
-                print(f"⚠️ [NavigationExecutor] Failed to get complete hierarchy: {hierarchy_result.get('error', 'Unknown error')}")
-                return []
-            
-            hierarchy_data = hierarchy_result['hierarchy']
-            if not hierarchy_data:
-                print(f"📋 [NavigationExecutor] Empty hierarchy returned from database")
-                return []
-            
-            total_trees = hierarchy_result.get('total_trees', len(hierarchy_data))
-            max_depth = hierarchy_result.get('max_depth', 0)
-            has_nested = hierarchy_result.get('has_nested_trees', False)
-            
-            print(f"✅ [NavigationExecutor] Complete hierarchy discovered:")
-            print(f"   • Total trees: {total_trees}")
-            print(f"   • Maximum depth: {max_depth}")
-            print(f"   • Has nested trees: {has_nested}")
-            
-            # The data is already in the correct format from the database function
-            return hierarchy_data
-            
-        except Exception as e:
-            print(f"❌ [NavigationExecutor] Error discovering hierarchy: {str(e)}")
-            return []
+        """Wrapper for tree manager function - maintains backward compatibility"""
+        return tree_manager_discover_complete_hierarchy(root_tree_id, team_id)
 
     def format_tree_for_hierarchy(self, tree_data: Dict, tree_info: Dict = None, is_root: bool = False) -> Dict:
-        """
-        Format tree data for unified hierarchy structure.
-        
-        Args:
-            tree_data: Tree data from database
-            tree_info: Optional hierarchy metadata
-            is_root: Whether this is the root tree
-            
-        Returns:
-            Formatted tree data for unified processing
-        """
-        if is_root:
-            # Root tree from load_navigation_tree
-            return {
-                'tree_id': tree_data['tree_id'],
-                'tree_info': {
-                    'name': tree_data['tree']['name'],
-                    'is_root_tree': True,
-                    'tree_depth': 0,
-                    'parent_tree_id': None,
-                    'parent_node_id': None
-                },
-                'nodes': tree_data['nodes'],
-                'edges': tree_data['edges']
-            }
-        else:
-            # Nested tree from hierarchy
-            return {
-                'tree_id': tree_info['tree_id'],
-                'tree_info': {
-                    'name': tree_info.get('tree_name', ''),
-                    'is_root_tree': tree_info.get('depth', 0) == 0,
-                    'tree_depth': tree_info.get('depth', 0),
-                    'parent_tree_id': tree_info.get('parent_tree_id'),
-                    'parent_node_id': tree_info.get('parent_node_id')
-                },
-                'nodes': tree_data['nodes'],
-                'edges': tree_data['edges']
-            }
+        """Wrapper for tree manager function - maintains backward compatibility"""
+        return tree_manager_format_tree_for_hierarchy(tree_data, tree_info, is_root)
 
     def build_unified_tree_data(self, hierarchy_data: List[Dict], team_id: str) -> List[Dict]:
-        """
-        Build unified data structure for cache population.
-        
-        Args:
-            hierarchy_data: List of formatted tree data
-            team_id: Team ID for fetching any missing subtrees referenced by nodes
-            
-        Returns:
-            Data structure ready for create_unified_networkx_graph()
-        """
-        try:
-            if not hierarchy_data:
-                print(f"⚠️ [NavigationExecutor] No hierarchy data to build unified structure")
-                return []
-            
-            print(f"🔧 [NavigationExecutor] Building unified data structure from {len(hierarchy_data)} trees")
-            
-            # The hierarchy_data is already in the correct format for create_unified_networkx_graph
-            # Validate first
-            for tree_data in hierarchy_data:
-                required_keys = ['tree_id', 'tree_info', 'nodes', 'edges']
-                for key in required_keys:
-                    if key not in tree_data:
-                        raise NavigationTreeError(f"Missing required key '{key}' in tree data")
-
-            # Augment: ensure all child trees referenced by nodes are included
-            # Build quick lookup and queue for BFS across child_tree_id references
-            trees_by_id: Dict[str, Dict] = {t['tree_id']: t for t in hierarchy_data}
-            initial_tree_ids = list(trees_by_id.keys())
-
-            added_count = 0
-            from shared.src.lib.database.navigation_trees_db import get_full_tree
-
-            # For each known tree, scan nodes for child_tree_id references and add missing trees
-            scan_queue = initial_tree_ids.copy()
-            while scan_queue:
-                current_tree_id = scan_queue.pop(0)
-                current_tree = trees_by_id[current_tree_id]
-                current_depth = current_tree.get('tree_info', {}).get('tree_depth', 0)
-
-                for node in current_tree.get('nodes', []):
-                    # child_tree_id may be directly on node or inside node['data'] depending on DB format
-                    node_data = node.get('data', {}) if isinstance(node.get('data'), dict) else {}
-                    child_tree_id = node.get('child_tree_id') or node_data.get('child_tree_id')
-                    if not child_tree_id or child_tree_id in trees_by_id:
-                        continue
-
-                    # Fetch full data for the missing child tree
-                    child_full = get_full_tree(child_tree_id, team_id)
-                    if not child_full.get('success'):
-                        print(f"⚠️ [NavigationExecutor] Failed to load child tree '{child_tree_id}' referenced by node '{node.get('node_id')}'")
-                        continue
-
-                    # Compose tree_info linking back to the parent node
-                    child_tree_info = {
-                        'name': child_full['tree'].get('name', ''),
-                        'is_root_tree': False,
-                        'tree_depth': current_depth + 1,
-                        'parent_tree_id': current_tree_id,
-                        'parent_node_id': node.get('node_id')
-                    }
-
-                    trees_by_id[child_tree_id] = {
-                        'tree_id': child_tree_id,
-                        'tree_info': child_tree_info,
-                        'nodes': child_full.get('nodes', []),
-                        'edges': child_full.get('edges', [])
-                    }
-                    scan_queue.append(child_tree_id)
-                    added_count += 1
-
-            if added_count:
-                print(f"✅ [NavigationExecutor] Augmented hierarchy with {added_count} child trees discovered via node references")
-
-            unified_list = list(trees_by_id.values())
-            print(f"✅ [NavigationExecutor] Unified data structure validated (total trees: {len(unified_list)})")
-            return unified_list
-            
-        except Exception as e:
-            print(f"❌ [NavigationExecutor] Error building unified data: {str(e)}")
-            return []
+        """Wrapper for tree manager function - maintains backward compatibility"""
+        return tree_manager_build_unified_tree_data(hierarchy_data, team_id)
 
 
     # ========================================
     # NODE AND EDGE FINDING METHODS
+    # Note: Core finder methods moved to navigation_executor_helpers.py for maintainability
+    # These wrapper methods maintain backward compatibility with existing code
     # ========================================
 
     def find_node_by_label(self, nodes: List[Dict], label: str) -> Dict:
-        """
-        Find node by its label in a generic way.
-        
-        Args:
-            nodes: List of node dictionaries
-            label: Node label to search for
-            
-        Returns:
-            Node dictionary with the matching label, or None if not found
-        """
-        for node in nodes:
-            if node.get('label') == label:
-                return node
-        return None
+        """Wrapper for helper function - maintains backward compatibility"""
+        return find_node_by_label(nodes, label)
 
     def find_edges_from_node(self, source_node_id: str, edges: List[Dict]) -> List[Dict]:
-        """
-        Find all edges originating from a specific node (generic version).
-        
-        Args:
-            source_node_id: Source node ID
-            edges: List of edge dictionaries
-            
-        Returns:
-            List of edges originating from the specified node
-        """
-        return [edge for edge in edges if edge.get('source_node_id') == source_node_id]
+        """Wrapper for helper function - maintains backward compatibility"""
+        return find_edges_from_node(source_node_id, edges)
 
     def find_edge_by_target_label(self, source_node_id: str, edges: List[Dict], nodes: List[Dict], target_label: str) -> Dict:
-        """
-        Find edge from source node to a target node with specific label.
-        This is the proper generic way to find action edges.
-        
-        Args:
-            source_node_id: Source node ID
-            edges: List of edge dictionaries
-            nodes: List of node dictionaries  
-            target_label: Label of target node to find
-            
-        Returns:
-            Edge dictionary going to target node with specified label, or None if not found
-        """
-        # First find the target node by label
-        target_node = self.find_node_by_label(nodes, target_label)
-        if not target_node:
-            return None
-        
-        target_node_id = target_node.get('node_id')
-        if not target_node_id:
-            return None
-        
-        # Find edge from source to target
-        source_edges = self.find_edges_from_node(source_node_id, edges)
-        for edge in source_edges:
-            if edge.get('target_node_id') == target_node_id:
-                return edge
-        
-        return None
+        """Wrapper for helper function - maintains backward compatibility"""
+        return find_edge_by_target_label(source_node_id, edges, nodes, target_label)
 
     def find_edge_with_action_command(self, node_id: str, edges: List[Dict], action_command: str) -> Dict:
-        """
-        Find edge from node_id that contains the specified action command in its action sets.
-        
-        Args:
-            node_id: Source node ID
-            edges: List of edge dictionaries 
-            action_command: Action command to search for (e.g., 'tap_coordinates', 'press_key')
-            
-        Returns:
-            Edge dictionary containing the action, or None if not found
-        """
-        source_edges = self.find_edges_from_node(node_id, edges)
-        
-        for edge in source_edges:
-            action_sets = edge.get('action_sets', [])
-            for action_set in action_sets:
-                actions = action_set.get('actions', [])
-                for action in actions:
-                    if action.get('command') == action_command:
-                        return edge
-        
-        return None
+        """Wrapper for helper function - maintains backward compatibility"""
+        return find_edge_with_action_command(node_id, edges, action_command)
 
     def get_node_sub_trees_with_actions(self, node_id: str, tree_id: str, team_id: str) -> Dict:
-        """Get all sub-trees for a node and return their nodes and edges for action checking."""
-        from shared.src.lib.database.navigation_trees_db import get_node_sub_trees, get_full_tree
-        
-        # Get sub-trees for this node
-        sub_trees_result = get_node_sub_trees(tree_id, node_id, team_id)
-        if not sub_trees_result.get('success'):
-            return {'success': False, 'error': sub_trees_result.get('error'), 'sub_trees': [], 'all_nodes': [], 'all_edges': []}
-        
-        sub_trees = sub_trees_result.get('sub_trees', [])
-        all_nodes = []
-        all_edges = []
-        
-        # Load nodes and edges from all sub-trees
-        for sub_tree in sub_trees:
-            sub_tree_id = sub_tree.get('id')
-            if sub_tree_id:
-                tree_data = get_full_tree(sub_tree_id, team_id)
-                if tree_data.get('success'):
-                    all_nodes.extend(tree_data.get('nodes', []))
-                    all_edges.extend(tree_data.get('edges', []))
-        
-        return {
-            'success': True,
-            'sub_trees': sub_trees,
-            'all_nodes': all_nodes,
-            'all_edges': all_edges
-        }
+        """Wrapper for helper function - maintains backward compatibility"""
+        return get_node_sub_trees_with_actions(node_id, tree_id, team_id)
 
     def find_action_in_nested_trees(self, source_node_id: str, tree_id: str, nodes: List[Dict], edges: List[Dict], action_command: str, team_id: str) -> Dict:
-        """Find action in main tree and sub-trees of the specific source node only."""
-        
-        # First check in the main tree
-        action_edge = self.find_edge_by_target_label(source_node_id, edges, nodes, action_command)
-        if action_edge:
-            return {'success': True, 'edge': action_edge, 'tree_type': 'main', 'tree_id': tree_id}
-        
-        action_edge = self.find_edge_with_action_command(source_node_id, edges, action_command)
-        if action_edge:
-            return {'success': True, 'edge': action_edge, 'tree_type': 'main', 'tree_id': tree_id}
-        
-        # Check sub-trees for this specific node only
-        print(f"🔍 [navigation_executor] Checking sub-trees for node: {source_node_id}")
-        sub_trees_data = self.get_node_sub_trees_with_actions(source_node_id, tree_id, team_id)
-        
-        if not sub_trees_data.get('success') or not sub_trees_data.get('sub_trees'):
-            print(f"🔍 [navigation_executor] Node {source_node_id} has no sub-trees")
-            return {'success': False, 'error': f"Action '{action_command}' not found in main tree and node has no sub-trees"}
-        
-        sub_nodes = sub_trees_data.get('all_nodes', [])
-        sub_edges = sub_trees_data.get('all_edges', [])
-        sub_trees = sub_trees_data.get('sub_trees', [])
-        
-        print(f"🔍 [navigation_executor] Found {len(sub_trees)} sub-trees with {len(sub_nodes)} nodes and {len(sub_edges)} edges")
-        
-        # Simple search: try to find action in any sub-tree node
-        for node in sub_nodes:
-            node_id = node.get('node_id')
-            if node_id:
-                # Check by target label
-                sub_action_edge = self.find_edge_by_target_label(node_id, sub_edges, sub_nodes, action_command)
-                if sub_action_edge:
-                    return {'success': True, 'edge': sub_action_edge, 'tree_type': 'sub', 'tree_id': sub_trees[0].get('id'), 'source_node_id': node_id}
-                
-                # Check by action command
-                sub_action_edge = self.find_edge_with_action_command(node_id, sub_edges, action_command)
-                if sub_action_edge:
-                    return {'success': True, 'edge': sub_action_edge, 'tree_type': 'sub', 'tree_id': sub_trees[0].get('id'), 'source_node_id': node_id}
-        
-        return {'success': False, 'error': f"Action '{action_command}' not found in main tree or sub-trees"}
+        """Wrapper for helper function - maintains backward compatibility"""
+        return find_action_in_nested_trees(source_node_id, tree_id, nodes, edges, action_command, team_id)
 
     # ========================================
     # KPI MEASUREMENT METHODS

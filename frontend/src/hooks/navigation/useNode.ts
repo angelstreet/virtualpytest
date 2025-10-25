@@ -387,7 +387,8 @@ export const useNode = (props?: UseNodeProps) => {
         
         const executionUrl = buildServerUrl(`/server/navigation/execute/${executionTreeId}/${selectedNode.id}`);
         
-        const result = await fetch(
+        // Start async execution
+        const startResult = await fetch(
           executionUrl,
           {
             method: 'POST',
@@ -397,36 +398,79 @@ export const useNode = (props?: UseNodeProps) => {
               device_id: currentDeviceId,
               current_node_id: currentNodeId,
               userinterface_name: userInterface?.name,  // MANDATORY for reference resolution
+              async_execution: true,  // Enable async execution
             }),
           },
         );
 
-        const response: NavigationExecuteResponse = await result.json();
+        const startResponse = await startResult.json();
 
-        if (!response.success) {
-          throw new Error(response.error || 'Navigation execution failed');
+        if (!startResponse.success) {
+          throw new Error(startResponse.error || 'Failed to start navigation');
         }
 
-        setExecutionMessage(`Navigation to ${selectedNode.data.label} completed successfully`);
-        setIsExecuting(false);
+        const executionId = startResponse.execution_id;
+        console.log('[@useNode:executeNavigation] ✅ Async execution started:', executionId);
+        setExecutionMessage('Navigating to ' + selectedNode.data.label + '...');
 
-        // Update current position using centralized method
-        const finalPositionNodeId = response.final_position_node_id || selectedNode.id;
-        updateCurrentPosition(finalPositionNodeId, selectedNode.data.label);
+        // Poll for completion
+        const statusUrl = buildServerUrl(`/server/navigation/execution/${executionId}/status?host_name=${props.selectedHost?.host_name}&device_id=${currentDeviceId}`);
+        
+        let attempts = 0;
+        const maxAttempts = 60; // 60 * 1000ms = 60 seconds max
+        
+        while (attempts < maxAttempts) {
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
+          attempts++;
+          
+          const statusResult = await fetch(statusUrl);
+          const statusResponse = await statusResult.json();
+          
+          if (!statusResponse.success) {
+            throw new Error(statusResponse.error || 'Failed to get execution status');
+          }
+          
+          if (statusResponse.status === 'completed') {
+            const response: NavigationExecuteResponse = statusResponse.result;
+            
+            if (!response.success) {
+              throw new Error(response.error || 'Navigation execution failed');
+            }
 
-        // Handle verification results
-        if (response.verification_results && response.verification_results.length > 0) {
-          const verificationSuccess = response.verification_results.every((vr: any) => vr.success);
-          if (verificationSuccess) {
-            setNodeVerificationSuccess(selectedNode.id);
-          } else {
-            setNodeVerificationFailure(selectedNode.id);
+            setExecutionMessage(`Navigation to ${selectedNode.data.label} completed successfully`);
+            setIsExecuting(false);
+
+            // Update current position using centralized method
+            const finalPositionNodeId = response.final_position_node_id || selectedNode.id;
+            updateCurrentPosition(finalPositionNodeId, selectedNode.data.label);
+
+            // Handle verification results
+            if (response.verification_results && response.verification_results.length > 0) {
+              const verificationSuccess = response.verification_results.every((vr: any) => vr.success);
+              if (verificationSuccess) {
+                setNodeVerificationSuccess(selectedNode.id);
+              } else {
+                setNodeVerificationFailure(selectedNode.id);
+              }
+            }
+
+            // Set edges to green for successful navigation
+            if (navigationTransitions && navigationTransitions.length > 0) {
+              setNavigationEdgesSuccess(navigationTransitions);
+            }
+            break;
+          } else if (statusResponse.status === 'error') {
+            throw new Error(statusResponse.error || 'Navigation execution failed');
+          }
+          
+          // Update progress message
+          if (statusResponse.message) {
+            setExecutionMessage(statusResponse.message);
           }
         }
-
-        // Set edges to green for successful navigation
-        if (navigationTransitions && navigationTransitions.length > 0) {
-          setNavigationEdgesSuccess(navigationTransitions);
+        
+        if (attempts >= maxAttempts) {
+          throw new Error('Navigation timeout - execution took too long');
         }
       } catch (error: any) {
         console.error(`[@hook:useNode:executeNavigation] Navigation failed:`, error);

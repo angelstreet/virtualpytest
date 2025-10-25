@@ -1,5 +1,6 @@
 import React, { createContext, useContext, useCallback, useRef, useEffect } from 'react';
 import { NavigationStep } from '../../types/pages/Navigation_Types';
+import { CACHE_CONFIG } from '../../config/constants';
 
 interface NavigationPreviewCacheContextType {
   getCachedPreview: (treeId: string, currentNodeId: string | null, targetNodeId: string) => NavigationStep[] | null;
@@ -15,7 +16,6 @@ interface CacheEntry {
 const NavigationPreviewCacheContext = createContext<NavigationPreviewCacheContextType | null>(null);
 
 const CACHE_STORAGE_KEY = 'nav_preview_cache';
-const CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
 
 // Load cache from localStorage
 const loadCacheFromStorage = (): Map<string, CacheEntry> => {
@@ -32,7 +32,7 @@ const loadCacheFromStorage = (): Map<string, CacheEntry> => {
       
       Object.entries(parsed).forEach(([key, entry]: [string, any]) => {
         const age = now - entry.timestamp;
-        if (age < CACHE_TTL_MS) {
+        if (age < CACHE_CONFIG.MEDIUM_TTL) {
           cache.set(key, entry as CacheEntry);
           validCount++;
         } else {
@@ -93,7 +93,7 @@ export const NavigationPreviewCacheProvider: React.FC<{ children: React.ReactNod
     
     if (cached) {
       const age = Date.now() - cached.timestamp;
-      if (age < CACHE_TTL_MS) {
+      if (age < CACHE_CONFIG.MEDIUM_TTL) {
         const ageSeconds = Math.floor(age / 1000);
         console.log(`[@PreviewCache] ✅ HIT: ${targetNodeId} (age: ${ageSeconds}s)`);
         return cached.steps;

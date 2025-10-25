@@ -12,7 +12,7 @@ host_navigation_bp = Blueprint('host_navigation', __name__, url_prefix='/host/na
 
 @host_navigation_bp.route('/execute/<tree_id>/<target_node_id>', methods=['POST'])
 def navigation_execute(tree_id, target_node_id):
-    """Execute navigation using device's NavigationExecutor"""
+    """Execute navigation using device's NavigationExecutor - supports async execution"""
     try:
         print(f"\n{'='*80}")
         print(f"[@route:host_navigation:navigation_execute] 🚀 NAVIGATION EXECUTION STARTED")
@@ -28,6 +28,7 @@ def navigation_execute(tree_id, target_node_id):
         current_node_id = data.get('current_node_id') if frontend_sent_position else None
         image_source_url = data.get('image_source_url')
         userinterface_name = data.get('userinterface_name')  # MANDATORY for reference resolution
+        async_execution = data.get('async_execution', True)  # Default to async to prevent timeouts
         
         print(f"[@route:host_navigation:navigation_execute]   → Tree ID: {tree_id}")
         print(f"[@route:host_navigation:navigation_execute]   → Device ID: {device_id}")
@@ -35,6 +36,7 @@ def navigation_execute(tree_id, target_node_id):
         print(f"[@route:host_navigation:navigation_execute]   → UserInterface: {userinterface_name}")
         print(f"[@route:host_navigation:navigation_execute]   → Current Node ID: {current_node_id if frontend_sent_position else 'Not provided (will use device position)'}")
         print(f"[@route:host_navigation:navigation_execute]   → Frontend Sent Position: {frontend_sent_position}")
+        print(f"[@route:host_navigation:navigation_execute]   → Async Execution: {async_execution}")
         print(f"{'='*80}\n")
         
         # Validate
@@ -64,18 +66,28 @@ def navigation_execute(tree_id, target_node_id):
                 'error': f'Device {device_id} does not have NavigationExecutor initialized'
             }), 500
         
-        # Execute navigation using device's NavigationExecutor
-        result = device.navigation_executor.execute_navigation(
-            tree_id=tree_id,
-            userinterface_name=userinterface_name,  # MANDATORY parameter
-            target_node_id=target_node_id,
-            current_node_id=current_node_id,
-            frontend_sent_position=frontend_sent_position,  # NEW: Tell executor if frontend sent position
-            image_source_url=image_source_url,
-            team_id=team_id
-        )
-        
-        print(f"[@route:host_navigation:navigation_execute] Execution completed: success={result.get('success')}")
+        # Execute navigation: async or sync
+        if async_execution:
+            # Async execution - returns immediately with execution_id
+            result = device.navigation_executor.execute_navigation_async(
+                tree_id=tree_id,
+                target_node_id=target_node_id,
+                current_node_id=current_node_id,
+                team_id=team_id
+            )
+            print(f"[@route:host_navigation:navigation_execute] Async execution started: {result.get('execution_id')}")
+        else:
+            # Sync execution - waits for completion (may timeout)
+            result = device.navigation_executor.execute_navigation(
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                target_node_id=target_node_id,
+                current_node_id=current_node_id,
+                frontend_sent_position=frontend_sent_position,
+                image_source_url=image_source_url,
+                team_id=team_id
+            )
+            print(f"[@route:host_navigation:navigation_execute] Sync execution completed: success={result.get('success')}")
         
         return jsonify(result)
         
@@ -84,6 +96,42 @@ def navigation_execute(tree_id, target_node_id):
         return jsonify({
             'success': False,
             'error': f'Host navigation execution failed: {str(e)}'
+        }), 500
+
+
+@host_navigation_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def navigation_execution_status(execution_id):
+    """Get status of async navigation execution"""
+    try:
+        # Get query parameters
+        device_id = request.args.get('device_id', 'device1')
+        
+        # Get host device registry from app context
+        host_devices = getattr(current_app, 'host_devices', {})
+        if device_id not in host_devices:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found in host'
+            }), 404
+        
+        device = host_devices[device_id]
+        
+        # Check if device has navigation_executor
+        if not hasattr(device, 'navigation_executor') or not device.navigation_executor:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} does not have NavigationExecutor initialized'
+            }), 500
+        
+        # Get execution status
+        status = device.navigation_executor.get_execution_status(execution_id)
+        return jsonify(status)
+        
+    except Exception as e:
+        print(f"[@route:host_navigation:execution_status] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get execution status: {str(e)}'
         }), 500
 
 @host_navigation_bp.route('/preview/<tree_id>/<target_node_id>', methods=['GET'])

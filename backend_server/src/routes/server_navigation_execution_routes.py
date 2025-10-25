@@ -93,7 +93,8 @@ def execute_navigation(tree_id, node_id):
             'current_node_id': current_node_id,
             'image_source_url': image_source_url,
             'host_name': host_name,
-            'userinterface_name': userinterface_name  # MANDATORY for reference resolution
+            'userinterface_name': userinterface_name,  # MANDATORY for reference resolution
+            'async_execution': data.get('async_execution', True)  # Default to async to prevent timeouts
         }
         
         # Pass team_id as query parameter to host
@@ -101,7 +102,9 @@ def execute_navigation(tree_id, node_id):
         if team_id:
             query_params['team_id'] = team_id
         
-        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, query_params, timeout=180)
+        # Use shorter timeout for async (only for initial response), longer for sync
+        timeout = 10 if execution_payload['async_execution'] else 180
+        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, query_params, timeout=timeout)
         
         print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={response_data.get('success')}")
         
@@ -112,6 +115,51 @@ def execute_navigation(tree_id, node_id):
         return jsonify({
             'success': False,
             'error': f'Navigation execution error: {str(e)}'
+        }), 500
+
+
+@server_navigation_execution_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def get_navigation_execution_status(execution_id):
+    """
+    Get status of async navigation execution
+    
+    Query parameters:
+    - device_id: Device ID
+    - host_name: Host name (required)
+    """
+    try:
+        print(f"[@route:navigation_execution:get_status] Getting status for execution {execution_id}")
+        
+        device_id = request.args.get('device_id')
+        host_name = request.args.get('host_name')
+        
+        # Validate required parameters
+        if not host_name:
+            return jsonify({
+                'success': False,
+                'error': 'host_name query parameter is required'
+            }), 400
+        
+        # Proxy to host status endpoint
+        query_params = {}
+        if device_id:
+            query_params['device_id'] = device_id
+        
+        response_data, status_code = proxy_to_host_with_params(
+            f'/host/navigation/execution/{execution_id}/status',
+            'GET',
+            None,
+            query_params,
+            timeout=5
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:navigation_execution:get_status] Error: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': f'Failed to get execution status: {str(e)}'
         }), 500
 
 
