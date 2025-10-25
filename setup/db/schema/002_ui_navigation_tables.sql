@@ -619,9 +619,10 @@ RETURNS JSON
 LANGUAGE sql
 STABLE
 SECURITY DEFINER
+SET search_path = ''
 AS $$
     SELECT full_tree_data
-    FROM mv_full_navigation_trees
+    FROM public.mv_full_navigation_trees
     WHERE tree_id = p_tree_id
     AND team_id = p_team_id;
 $$;
@@ -629,7 +630,7 @@ $$;
 COMMENT ON FUNCTION get_full_tree_from_mv(UUID, UUID) IS 
 'Read pre-computed tree data from materialized view. 
 Extremely fast (~10ms) because data is pre-aggregated.
-Falls back to get_full_navigation_tree() if view is empty.';
+Uses fully qualified table names to work with empty search_path security setting.';
 
 -- Grant permissions
 GRANT SELECT ON mv_full_navigation_trees TO authenticated;

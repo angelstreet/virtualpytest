@@ -759,82 +759,40 @@ def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: 
 
 def get_full_tree(tree_id: str, team_id: str) -> Dict:
     """
-    Get complete tree data (metadata + nodes + edges) - ULTRA-OPTIMIZED VERSION.
+    Get complete tree data (metadata + nodes + edges) from materialized view.
     
     Uses materialized view for instant reads (~10ms) with automatic refresh on writes.
-    Falls back to Supabase function if view is empty, then to legacy method.
+    FAILS EARLY if materialized view is unavailable - no fallbacks to avoid hiding issues.
     
-    Performance hierarchy (fastest to slowest):
-    1. Materialized view: ~10ms (50x faster) ⚡⚡⚡
-    2. Supabase function: ~500ms (3x faster) ⚡
-    3. Legacy 3 queries: ~1400ms (baseline)
+    Performance: ~10ms reads (50x faster than function calls)
     """
     try:
         supabase = get_supabase()
         
-        # Try materialized view first (fastest - pre-computed data)
-        try:
-            result = supabase.rpc(
-                'get_full_tree_from_mv',
-                {'p_tree_id': tree_id, 'p_team_id': team_id}
-            ).execute()
+        # Use materialized view - fail fast if it doesn't work
+        result = supabase.rpc(
+            'get_full_tree_from_mv',
+            {'p_tree_id': tree_id, 'p_team_id': team_id}
+        ).execute()
+        
+        if result.data:
+            tree_data = result.data
+            print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
             
-            if result.data:
-                tree_data = result.data
-                print(f"[@db:navigation_trees:get_full_tree] ⚡⚡⚡ MATERIALIZED VIEW: Retrieved tree {tree_id} in ~10ms")
-                
-                return {
-                    'success': tree_data.get('success', True),
-                    'tree': tree_data.get('tree'),
-                    'nodes': tree_data.get('nodes', []),
-                    'edges': tree_data.get('edges', [])
-                }
-        except Exception as mv_error:
-            print(f"[@db:navigation_trees:get_full_tree] Materialized view failed: {mv_error}, trying function...")
-        
-        # Fallback to Supabase function (still optimized - 1 query instead of 3)
-        try:
-            result = supabase.rpc(
-                'get_full_navigation_tree',
-                {'p_tree_id': tree_id, 'p_team_id': team_id}
-            ).execute()
-            
-            if result.data:
-                tree_data = result.data
-                print(f"[@db:navigation_trees:get_full_tree] ⚡ FUNCTION: Retrieved tree {tree_id} in single query")
-                
-                return {
-                    'success': tree_data.get('success', True),
-                    'tree': tree_data.get('tree'),
-                    'nodes': tree_data.get('nodes', []),
-                    'edges': tree_data.get('edges', [])
-                }
-        except Exception as func_error:
-            print(f"[@db:navigation_trees:get_full_tree] Function failed: {func_error}, trying legacy method...")
-        
-        # Last resort: Legacy 3-query method
-        print(f"[@db:navigation_trees:get_full_tree] Using legacy 3-query method")
-        tree_result = get_tree_metadata(tree_id, team_id)
-        if not tree_result['success']:
-            return tree_result
-        
-        nodes_result = get_tree_nodes(tree_id, team_id, page=0, limit=1000)
-        if not nodes_result['success']:
-            return nodes_result
-        
-        edges_result = get_tree_edges(tree_id, team_id)
-        if not edges_result['success']:
-            return edges_result
-        
-        return {
-            'success': True,
-            'tree': tree_result['tree'],
-            'nodes': nodes_result['nodes'],
-            'edges': edges_result['edges']
-        }
+            return {
+                'success': tree_data.get('success', True),
+                'tree': tree_data.get('tree'),
+                'nodes': tree_data.get('nodes', []),
+                'edges': tree_data.get('edges', [])
+            }
+        else:
+            print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
+            return {'success': False, 'error': 'Tree not found'}
             
     except Exception as e:
-        print(f"[@db:navigation_trees:get_full_tree] All methods failed: {e}")
+        print(f"[@db:navigation_trees:get_full_tree] CRITICAL ERROR: Materialized view failed: {e}")
+        import traceback
+        traceback.print_exc()
         return {'success': False, 'error': str(e)}
 
  

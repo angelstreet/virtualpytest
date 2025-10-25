@@ -193,24 +193,47 @@ const TestCaseBuilderContent: React.FC = () => {
     setControlState, 
     getAvailableActions, // ← Use getter function like NavigationEditor does
     availableActionsLoading,
+    fetchAvailableActions, // Add direct access to force refetch
   } = useDeviceData();
   
   // Initialize device data context when control state changes (COPIED from NavigationEditor)
+  // This watches for selectedHost reference changes, which happens when HostManagerProvider loads schemas
   useEffect(() => {
     console.log(`[@TestCaseBuilder] setControlState called - host: ${selectedHost?.host_name}, device: ${selectedDeviceId}, active: ${isControlActive}`);
+    
+    // Check if device has schemas loaded
+    if (selectedHost && selectedDeviceId && isControlActive) {
+      const device = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
+      const hasSchemas = device?.device_action_types && Object.keys(device.device_action_types).length > 0;
+      console.log(`[@TestCaseBuilder] Device schemas status - hasSchemas: ${hasSchemas}, categories: ${hasSchemas ? Object.keys(device.device_action_types).length : 0}`);
+    }
+    
     setControlState(selectedHost, selectedDeviceId, isControlActive);
   }, [selectedHost, selectedDeviceId, isControlActive, setControlState]);
+  
+  // Manually refetch after schemas are loaded by HostManagerProvider
+  useEffect(() => {
+    if (!isControlActive || !selectedHost || !selectedDeviceId) return;
+    
+    const timer = setTimeout(async () => {
+      console.log('[@TestCaseBuilder] Manual refetch trigger after schema load delay');
+      // Force refetch to get schemas that were loaded by HostManagerProvider
+      await fetchAvailableActions(true); // Force=true to bypass cache
+    }, 1000); // 1 second delay to allow HostManagerProvider to update
+
+    return () => clearTimeout(timer);
+  }, [isControlActive, selectedHost, selectedDeviceId, fetchAvailableActions]);
   
   // Get latest actions on-demand (like NavigationEditor does)
   const availableActions = getAvailableActions();
   
   // Track when actions are loaded (not loading and has actions)
-  const areActionsLoaded = isControlActive && !availableActionsLoading && Object.values(availableActions).flat().length > 0;
+  const areActionsLoaded = isControlActive && !availableActionsLoading && Object.values(availableActions || {}).flat().length > 0;
   
   // Debug log - simplified
   useEffect(() => {
-    const actionCount = Object.values(availableActions).flat().length;
-    const categories = Object.keys(availableActions);
+    const actionCount = Object.values(availableActions || {}).flat().length;
+    const categories = Object.keys(availableActions || {});
     
     console.log(`[@TestCaseBuilder] Actions loaded - device: ${selectedDeviceId}, control: ${isControlActive}, loading: ${availableActionsLoading}, count: ${actionCount}, categories: [${categories.join(', ')}]`);
     
