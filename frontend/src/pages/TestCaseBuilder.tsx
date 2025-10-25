@@ -105,10 +105,15 @@ const edgeTypes = {
 const defaultEdgeOptions = {
   type: 'success',
   animated: false,
+  style: {
+    stroke: '#94a3b8', // grey
+    strokeWidth: 2,
+  },
   markerEnd: {
     type: MarkerType.ArrowClosed,
     width: 20,
     height: 20,
+    color: '#94a3b8', // grey to match edge
   },
 };
 

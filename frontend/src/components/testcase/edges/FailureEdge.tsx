@@ -1,13 +1,12 @@
 import React from 'react';
 import {
   BaseEdge,
-  EdgeLabelRenderer,
   EdgeProps,
   getBezierPath,
 } from 'reactflow';
 
 /**
- * Failure Edge - Red connection for failure flow
+ * Failure Edge - Simple grey connection for flow
  */
 export const FailureEdge: React.FC<EdgeProps> = ({
   sourceX,
@@ -20,7 +19,7 @@ export const FailureEdge: React.FC<EdgeProps> = ({
   markerEnd,
   selected,
 }) => {
-  const [edgePath, labelX, labelY] = getBezierPath({
+  const [edgePath] = getBezierPath({
     sourceX,
     sourceY,
     sourcePosition,
@@ -30,36 +29,15 @@ export const FailureEdge: React.FC<EdgeProps> = ({
   });
 
   return (
-    <>
-      <BaseEdge
-        path={edgePath}
-        markerEnd={markerEnd}
-        style={{
-          ...style,
-          stroke: selected ? '#f87171' : '#ef4444',
-          strokeWidth: selected ? 3 : 2,
-        }}
-      />
-      <EdgeLabelRenderer>
-        <div
-          style={{
-            position: 'absolute',
-            transform: `translate(-50%, -50%) translate(${labelX}px,${labelY}px)`,
-            fontSize: 10,
-            fontWeight: 600,
-            color: '#ef4444',
-            background: 'white',
-            padding: '2px 6px',
-            borderRadius: 4,
-            border: '1px solid #ef4444',
-            pointerEvents: 'all',
-          }}
-          className="nodrag nopan"
-        >
-          ✗
-        </div>
-      </EdgeLabelRenderer>
-    </>
+    <BaseEdge
+      path={edgePath}
+      markerEnd={markerEnd}
+      style={{
+        ...style,
+        stroke: selected ? '#64748b' : '#94a3b8',
+        strokeWidth: selected ? 3 : 2,
+      }}
+    />
   );
 };
 
