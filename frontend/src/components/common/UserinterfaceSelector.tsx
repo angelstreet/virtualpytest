@@ -112,10 +112,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
     onChange(event.target.value);
   };
 
-  console.log('[@UserinterfaceSelector] Render state check:', { loading, error, interfacesLength: interfaces.length, value });
-
   if (loading) {
-    console.log('[@UserinterfaceSelector] Rendering LOADING state');
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
         <InputLabel>{label}</InputLabel>
@@ -134,10 +131,6 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
   if (error || interfaces.length === 0) {
     // Don't show as error if just waiting for device selection
     const isWaitingForDevice = error === 'Select a device first';
-    // Debug log only when there's an actual error (not when just empty)
-    if (error) {
-      console.log('[@UserinterfaceSelector] Rendering with error:', error);
-    }
     
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
@@ -148,8 +141,6 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
       </FormControl>
     );
   }
-
-  console.log('[@UserinterfaceSelector] Rendering with value:', value, 'interfaces:', interfaces.map(i => i.name));
   
   return (
     <FormControl size={size} fullWidth={fullWidth} disabled={disabled} sx={sx}>

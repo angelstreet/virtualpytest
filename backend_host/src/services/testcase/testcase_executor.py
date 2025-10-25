@@ -941,6 +941,9 @@ class TestCaseExecutor:
             
             execution_time_ms = int((time.time() - start_time) * 1000)
             
+            # Get the target for the message
+            target = data.get('target_node_label') or data.get('target_node') or data.get('target_node_id') or 'unknown'
+            
             return {
                 'success': result['success'],
                 'execution_time_ms': execution_time_ms,
