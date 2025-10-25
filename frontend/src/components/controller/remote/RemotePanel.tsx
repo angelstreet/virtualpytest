@@ -406,6 +406,9 @@ export const RemotePanel = React.memo(
       streamHidden,
       captureMode,
       stableStreamContainerDimensions,
+      // Ensure overlay re-renders when sidebar-driven positions change
+      streamPositionLeft,
+      streamPositionBottom,
     ]);
 
     return (
@@ -543,6 +546,9 @@ export const RemotePanel = React.memo(
       JSON.stringify(nextProps.streamContainerDimensions);
     const disableResizeChanged = prevProps.disableResize !== nextProps.disableResize;
     const useAbsolutePositioningChanged = prevProps.useAbsolutePositioning !== nextProps.useAbsolutePositioning;
+    // Track dynamic stream alignment props so overlay moves when sidebar toggles
+    const streamPositionLeftChanged = prevProps.streamPositionLeft !== nextProps.streamPositionLeft;
+    const streamPositionBottomChanged = prevProps.streamPositionBottom !== nextProps.streamPositionBottom;
 
     // Return true if props are equal (don't re-render), false if they changed (re-render)
     const shouldSkipRender =
@@ -557,7 +563,9 @@ export const RemotePanel = React.memo(
       !onReleaseControlChanged &&
       !streamContainerDimensionsChanged &&
       !disableResizeChanged &&
-      !useAbsolutePositioningChanged;
+      !useAbsolutePositioningChanged &&
+      !streamPositionLeftChanged &&
+      !streamPositionBottomChanged;
 
     if (!shouldSkipRender) {
       console.log(`[@component:RemotePanel] Re-rendering due to prop changes:`, {
@@ -572,7 +580,9 @@ export const RemotePanel = React.memo(
         onReleaseControlChanged,
         streamContainerDimensionsChanged,
         disableResizeChanged,
-        useAbsolutePositioningChanged,
+          useAbsolutePositioningChanged,
+          streamPositionLeftChanged,
+          streamPositionBottomChanged,
       });
     }
 

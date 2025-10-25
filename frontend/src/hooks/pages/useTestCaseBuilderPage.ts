@@ -65,8 +65,9 @@ export interface UseTestCaseBuilderPageReturn {
   setDescription: (desc: string) => void;
   currentTestcaseId: string | null;
   testcaseList: any[];
+  isLoadingTestCaseList: boolean;
   hasUnsavedChanges: boolean;
-  handleSave: () => Promise<void>;
+  handleSave: () => Promise<{ success: boolean; error?: string }>;
   handleLoad: (testcaseId: string) => Promise<void>;
   handleDelete: (testcaseId: string, testcaseName: string) => Promise<void>;
   handleExecute: () => Promise<void>;
@@ -309,6 +310,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setDescription,
     currentTestcaseId,
     testcaseList,
+    isLoadingTestCaseList,
     hasUnsavedChanges,
     addBlock,
     updateBlock,
@@ -374,23 +376,21 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   });
   
   // ==================== TEST CASE OPERATIONS ====================
-  const handleSave = useCallback(async () => {
+  const handleSave = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
     const result = await saveCurrentTestCase();
     if (result.success) {
-      setSnackbar({
-        open: true,
-        message: `Test case "${testcaseName}" saved successfully`,
-        severity: 'success',
-      });
+      // Don't show toast - success is shown in dialog with green tick
       setSaveDialogOpen(false);
+      return result;
     } else {
       setSnackbar({
         open: true,
         message: `Save failed: ${result.error}`,
         severity: 'error',
       });
+      return result;
     }
-  }, [saveCurrentTestCase, testcaseName]);
+  }, [saveCurrentTestCase]);
   
   const handleLoad = useCallback(async (testcaseId: string) => {
     await loadTestCase(testcaseId);
@@ -430,24 +430,9 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       return;
     }
     
+    // Execute without showing toast - ExecutionProgressBar shows the status
     await executeCurrentTestCase(selectedHost.host_name);
-    
-    if (executionState.result) {
-      if (executionState.result.success) {
-        setSnackbar({
-          open: true,
-          message: `Execution completed successfully in ${executionState.result.execution_time_ms}ms`,
-          severity: 'success',
-        });
-      } else {
-        setSnackbar({
-          open: true,
-          message: 'Execution failed',
-          severity: 'error',
-        });
-      }
-    }
-  }, [selectedHost, executeCurrentTestCase, executionState]);
+  }, [selectedHost, executeCurrentTestCase]);
   
   const handleNew = useCallback(() => {
     setNewConfirmOpen(true);
@@ -596,6 +581,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setDescription,
     currentTestcaseId,
     testcaseList,
+    isLoadingTestCaseList,
     hasUnsavedChanges,
     handleSave,
     handleLoad,

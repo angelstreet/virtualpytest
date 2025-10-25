@@ -35,6 +35,7 @@ interface TestCaseBuilderContextType {
   // Test case list
   testcaseList: any[];
   setTestcaseList: React.Dispatch<React.SetStateAction<any[]>>;
+  isLoadingTestCaseList: boolean;
   
   // Available options
   availableInterfaces: UserInterface[];
@@ -148,6 +149,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [userinterfaceName, setUserinterfaceName] = useState<string>('');
   const [currentTestcaseId, setCurrentTestcaseId] = useState<string | null>(null);
   const [testcaseList, setTestcaseList] = useState<any[]>([]);
+  const [isLoadingTestCaseList, setIsLoadingTestCaseList] = useState(false);
   
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -178,9 +180,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     return hasExecutableConnection;
   }, [nodes, edges]);
 
-  // ID counter for client-side node/edge generation (only used until save - backend assigns real UUIDs)
-  const nodeIdCounter = useRef(1);
-  const edgeIdCounter = useRef(1);
+  // ID generation now uses crypto.randomUUID for nodes and edges
   
   // Block counters for auto-labeling (tracks count per type)
   const blockCounters = useRef<Record<string, number>>({});
@@ -221,7 +221,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       : `${labelGroup}_${blockCounters.current[labelGroup]}`;
     
     const newNode: Node = {
-      id: `node_${nodeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
+      id: crypto.randomUUID(),
       type,
       position,
       data: {
@@ -310,7 +310,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       
       const newEdge: Edge = {
         ...connection,
-        id: `edge_${edgeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
+        id: crypto.randomUUID(),
         type: edgeType,
         source: connection.source!,
         target: connection.target!,
@@ -328,6 +328,19 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const executeCurrentTestCase = useCallback(async (hostName: string) => {
     let testcaseIdToExecute = currentTestcaseId;
     
+    // DEBUG: Check nodes state before execution
+    console.log('[@TestCaseBuilder] Pre-execution nodes check:', {
+      nodesCount: nodes.length,
+      nodeIds: nodes.map(n => n.id),
+      duplicates: nodes.map(n => n.id).filter((id, index, arr) => arr.indexOf(id) !== index)
+    });
+    
+    // 🛡️ SAFEGUARD: Rename duplicate nodes with new UUIDs
+    const seenIds = new Set<string>();
+    const uniqueNodes = nodes.map(node => 
+      seenIds.has(node.id) ? { ...node, id: crypto.randomUUID() } : (seenIds.add(node.id), node)
+    );
+    
     // If no test case ID, auto-save first
     if (!testcaseIdToExecute) {
       console.log('No test case ID, auto-saving before execution...');
@@ -335,7 +348,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       
       // Convert nodes and edges to TestCaseGraph format (same as saveCurrentTestCase)
       const graph: TestCaseGraph = {
-        nodes: nodes.map(node => ({
+        nodes: uniqueNodes.map(node => ({
           id: node.id,
           type: node.type as BlockType,
           position: node.position,
@@ -349,6 +362,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
         }))
       };
+      
+      // DEBUG: Log what we're saving
+      console.log('[@TestCaseBuilder] Saving test case with graph:', {
+        nodes: graph.nodes.length,
+        edges: graph.edges.length,
+        nodeIds: graph.nodes.map(n => n.id),
+        edgeDetails: graph.edges
+      });
       
       const saveResult = await saveTestCase(
         autoSaveName,
@@ -461,9 +482,15 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       return { success: false, error: 'User interface is required' };
     }
     
+    // 🛡️ SAFEGUARD: Rename duplicate nodes with new UUIDs
+    const seenIds = new Set<string>();
+    const uniqueNodes = nodes.map(node => 
+      seenIds.has(node.id) ? { ...node, id: crypto.randomUUID() } : (seenIds.add(node.id), node)
+    );
+    
     // Convert nodes and edges to TestCaseGraph format
     const graph: TestCaseGraph = {
-      nodes: nodes.map(node => ({
+      nodes: uniqueNodes.map(node => ({
         id: node.id,
         type: node.type as BlockType,
         position: node.position,
@@ -477,6 +504,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
       }))
     };
+    
+    // DEBUG: Log what we're saving
+    console.log('[@TestCaseBuilder] Manual save with graph:', {
+      nodes: graph.nodes.length,
+      edges: graph.edges.length,
+      nodeIds: graph.nodes.map(n => n.id),
+      edgeDetails: graph.edges
+    });
     
     try {
       const result = await saveTestCase(
@@ -563,6 +598,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   
   // Fetch test case list
   const fetchTestCaseList = useCallback(async () => {
+    setIsLoadingTestCaseList(true);
     try {
       const result = await listTestCases();
       if (result.success && result.testcases) {
@@ -570,6 +606,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       }
     } catch (error) {
       console.error('Error fetching test case list:', error);
+    } finally {
+      setIsLoadingTestCaseList(false);
     }
   }, [listTestCases]);
   
@@ -702,6 +740,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setHasUnsavedChanges,
     testcaseList,
     setTestcaseList,
+    isLoadingTestCaseList,
     availableInterfaces,
     availableNodes,
     availableActions,

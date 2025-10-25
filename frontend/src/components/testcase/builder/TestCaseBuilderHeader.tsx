@@ -242,7 +242,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
               'Run test case on device'
             }
           >
-            {isExecuting ? 'Running...' : 'Run'}
+            {isExecuting ? 'Run' : 'Run'}
           </Button>
         </Box>
       </Box>

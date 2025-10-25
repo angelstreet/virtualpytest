@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, DragEvent, useState } from 'react';
+import React, { useCallback, useRef, DragEvent, useState, useEffect } from 'react';
 import { 
   Box, 
   Button, 
@@ -14,7 +14,9 @@ import {
   ListItemText,
   IconButton,
   Alert,
-  Snackbar
+  Snackbar,
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import ReactFlow, {
   ReactFlowProvider,
@@ -63,6 +65,9 @@ import { useTheme } from '../contexts/ThemeContext';
 
 // Hook
 import { useTestCaseBuilderPage } from '../hooks/pages/useTestCaseBuilderPage';
+
+// Constants
+import { TOAST_POSITION } from '../constants/toastConfig';
 
 // Node types for React Flow
 const nodeTypes = {
@@ -206,6 +211,86 @@ const TestCaseBuilderContent: React.FC = () => {
   
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // Save dialog state
+  const [nextVersionNumber, setNextVersionNumber] = useState<number | null>(null);
+  const [isSaveSuccess, setIsSaveSuccess] = useState(false);
+  const [isLoadingVersion, setIsLoadingVersion] = useState(false);
+  
+  // Fetch next version number when save dialog opens
+  useEffect(() => {
+    const fetchNextVersion = async () => {
+      if (hookData.saveDialogOpen) {
+        setIsLoadingVersion(true);
+        try {
+          const teamId = localStorage.getItem('team_id') || '7fdeb4bb-3639-4ec3-959f-b54769a219ce';
+          
+          // Try to get version by ID first, then by name
+          if (hookData.currentTestcaseId) {
+            const response = await fetch(
+              `/server/testcase/${hookData.currentTestcaseId}/next-version?team_id=${teamId}`
+            );
+            const data = await response.json();
+            if (data.success) {
+              setNextVersionNumber(data.next_version);
+            }
+          } else if (hookData.testcaseName) {
+            // Check if test case exists by name (for unsaved changes to existing test case)
+            const listResponse = await fetch(`/server/testcase/list?team_id=${teamId}`);
+            const listData = await listResponse.json();
+            if (listData.success) {
+              const existingTestCase = listData.testcases.find(
+                (tc: any) => tc.testcase_name === hookData.testcaseName
+              );
+              if (existingTestCase) {
+                // Existing test case found by name, get its next version
+                const versionResponse = await fetch(
+                  `/server/testcase/${existingTestCase.testcase_id}/next-version?team_id=${teamId}`
+                );
+                const versionData = await versionResponse.json();
+                if (versionData.success) {
+                  setNextVersionNumber(versionData.next_version);
+                } else {
+                  // Default to 1 for new test case
+                  setNextVersionNumber(1);
+                }
+              } else {
+                // New test case
+                setNextVersionNumber(1);
+              }
+            }
+          } else {
+            // No ID and no name, default to 1
+            setNextVersionNumber(1);
+          }
+        } catch (error) {
+          console.error('Failed to fetch next version:', error);
+          setNextVersionNumber(1); // Default to 1 on error
+        } finally {
+          setIsLoadingVersion(false);
+        }
+      } else if (!hookData.saveDialogOpen) {
+        // Reset state when dialog closes
+        setNextVersionNumber(null);
+        setIsSaveSuccess(false);
+      }
+    };
+    
+    fetchNextVersion();
+  }, [hookData.saveDialogOpen, hookData.currentTestcaseId, hookData.testcaseName]);
+  
+  // Handle save with success state
+  const handleSaveWithSuccess = async () => {
+    await hookData.handleSave();
+    
+    // Show success state with green tick
+    setIsSaveSuccess(true);
+    
+    // Auto-dismiss after 1.5 seconds
+    setTimeout(() => {
+      hookData.setSaveDialogOpen(false);
+    }, 1500);
+  };
 
   // Fit view when ReactFlow instance is ready
   React.useEffect(() => {
@@ -266,13 +351,20 @@ const TestCaseBuilderContent: React.FC = () => {
         position: 'relative',
       }}>
         {/* 🆕 NEW: Execution Progress Bar (floating, non-blocking) */}
-        {hookData.unifiedExecution.state.isExecuting && (
+        {(hookData.unifiedExecution.state.isExecuting || hookData.unifiedExecution.state.blockStates.size > 0) && (
           <ExecutionProgressBar
             currentBlockId={hookData.unifiedExecution.state.currentBlockId}
             blockStates={hookData.unifiedExecution.state.blockStates}
+            isExecuting={hookData.unifiedExecution.state.isExecuting}
+            nodes={hookData.nodes}
+            executionResult={hookData.unifiedExecution.state.result}
             onStop={() => {
               // TODO: Implement stop execution
               console.log('Stop execution requested');
+            }}
+            onClose={() => {
+              // User manually closes the progress bar
+              hookData.unifiedExecution.resetExecution();
             }}
           />
         )}
@@ -340,6 +432,9 @@ const TestCaseBuilderContent: React.FC = () => {
         <ExecutionLog
           blockStates={hookData.unifiedExecution.state.blockStates}
           nodes={hookData.nodes}
+          onClose={() => {
+            // Optional: Add close handler if needed
+          }}
         />
       </Box>
 
@@ -417,18 +512,45 @@ const TestCaseBuilderContent: React.FC = () => {
       {/* Save Dialog */}
       <Dialog 
         open={hookData.saveDialogOpen} 
-        onClose={() => hookData.setSaveDialogOpen(false)} 
+        onClose={() => !isSaveSuccess && hookData.setSaveDialogOpen(false)} 
         maxWidth="sm" 
         fullWidth
         PaperProps={{
           sx: {
             border: 2,
-            borderColor: 'divider',
+            borderColor: isSaveSuccess ? '#10b981' : 'divider',
+            transition: 'border-color 0.3s ease',
           }
         }}
       >
-        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
-          Save Test Case
+        <DialogTitle sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          pb: 2,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            Save Test Case
+            {isSaveSuccess && (
+              <CheckCircleIcon sx={{ color: '#10b981', fontSize: 24 }} />
+            )}
+          </Box>
+          <Chip 
+            label={isLoadingVersion ? (
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                <CircularProgress size={12} />
+                <span>Loading...</span>
+              </Box>
+            ) : (
+              `Version ${nextVersionNumber || 1}`
+            )}
+            size="small"
+            color={isSaveSuccess ? "success" : "primary"}
+            variant="outlined"
+            sx={{ fontWeight: 'bold' }}
+          />
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
           <TextField
@@ -441,6 +563,7 @@ const TestCaseBuilderContent: React.FC = () => {
             value={hookData.testcaseName}
             onChange={(e) => hookData.setTestcaseName(e.target.value)}
             placeholder="e.g., login_test"
+            disabled={isSaveSuccess}
           />
           <TextField
             margin="dense"
@@ -452,6 +575,7 @@ const TestCaseBuilderContent: React.FC = () => {
             value={hookData.description}
             onChange={(e) => hookData.setDescription(e.target.value)}
             placeholder="Describe what this test case does"
+            disabled={isSaveSuccess}
           />
           <TextField
             margin="dense"
@@ -461,14 +585,30 @@ const TestCaseBuilderContent: React.FC = () => {
             value={hookData.userinterfaceName}
             onChange={(e) => hookData.setUserinterfaceName(e.target.value)}
             placeholder="e.g., horizon_android_mobile"
+            disabled={isSaveSuccess}
           />
         </DialogContent>
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
-          <Button onClick={() => hookData.setSaveDialogOpen(false)} variant="outlined">
+          <Button 
+            onClick={() => hookData.setSaveDialogOpen(false)} 
+            variant="outlined"
+            disabled={isSaveSuccess}
+          >
             Cancel
           </Button>
-          <Button onClick={hookData.handleSave} variant="contained" disabled={!hookData.testcaseName}>
-            Save
+          <Button 
+            onClick={handleSaveWithSuccess} 
+            variant="contained" 
+            disabled={!hookData.testcaseName || isSaveSuccess}
+            startIcon={isSaveSuccess ? <CheckCircleIcon /> : null}
+            sx={{
+              backgroundColor: isSaveSuccess ? '#10b981' : undefined,
+              '&:hover': {
+                backgroundColor: isSaveSuccess ? '#059669' : undefined,
+              },
+            }}
+          >
+            {isSaveSuccess ? 'Saved!' : 'Save'}
           </Button>
         </DialogActions>
       </Dialog>
@@ -511,6 +651,13 @@ const TestCaseBuilderContent: React.FC = () => {
                           <Typography variant="subtitle1" fontWeight="bold">
                             {tc.testcase_name}
                           </Typography>
+                          <Chip 
+                            label={`v${tc.current_version || 1}`}
+                            size="small"
+                            color="primary"
+                            variant="outlined"
+                            sx={{ fontWeight: 'bold', height: 20, fontSize: '0.7rem' }}
+                          />
                           <Typography variant="caption" color="text.secondary">
                             (Created: {new Date(tc.created_at).toLocaleDateString()} - Modified: {new Date(tc.updated_at).toLocaleDateString()})
                           </Typography>
@@ -632,12 +779,13 @@ const TestCaseBuilderContent: React.FC = () => {
         </DialogActions>
       </Dialog>
       
-      {/* Snackbar for notifications */}
+      {/* Snackbar for notifications - using centralized positioning */}
       <Snackbar
         open={hookData.snackbar.open}
         autoHideDuration={4000}
         onClose={() => hookData.setSnackbar({ ...hookData.snackbar, open: false })}
-        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        anchorOrigin={TOAST_POSITION.anchorOrigin}
+        sx={TOAST_POSITION.sx}
       >
         <Alert
           onClose={() => hookData.setSnackbar({ ...hookData.snackbar, open: false })}

@@ -241,6 +241,43 @@ def update_testcase(
         return False
 
 
+def get_next_version_number(testcase_id: str, team_id: str) -> int:
+    """
+    Get the next version number for a test case.
+    Returns 1 for new test cases (no history), or MAX(version_number) + 1 for existing ones.
+    
+    Args:
+        testcase_id: Test case UUID
+        team_id: Team ID for security check
+    
+    Returns:
+        Next version number (1 for new, or incremented from history)
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return 1
+    
+    try:
+        # Check if this test case exists and has history
+        result = supabase.table('testcase_definitions_history')\
+            .select('version_number')\
+            .eq('testcase_id', testcase_id)\
+            .eq('team_id', team_id)\
+            .order('version_number', desc=True)\
+            .limit(1)\
+            .execute()
+        
+        if result.data and len(result.data) > 0:
+            # Has history, return next version
+            return result.data[0]['version_number'] + 1
+        else:
+            # No history, this will be version 1 (trigger will save current as v1)
+            return 1
+    except Exception as e:
+        print(f"[@testcase_db] ERROR getting next version number: {e}")
+        return 1
+
+
 def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
     """
     Soft delete test case (set is_active = false).
@@ -310,6 +347,22 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
         for testcase in result.data:
             testcase['testcase_id'] = str(testcase['testcase_id'])
             testcase['team_id'] = str(testcase['team_id'])
+            
+            # Get current version number from history
+            try:
+                version_result = supabase.table('testcase_definitions_history')\
+                    .select('version_number')\
+                    .eq('testcase_id', testcase['testcase_id'])\
+                    .eq('team_id', team_id)\
+                    .order('version_number', desc=True)\
+                    .limit(1)\
+                    .execute()
+                
+                # If there's history, the current version is MAX(version_number)
+                # If no history, this is version 1 (not yet updated)
+                testcase['current_version'] = version_result.data[0]['version_number'] if version_result.data else 1
+            except:
+                testcase['current_version'] = 1
             
             # Get execution count and last success
             try:

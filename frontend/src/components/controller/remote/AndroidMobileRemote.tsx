@@ -213,6 +213,7 @@ export const AndroidMobileRemote = React.memo(
       deviceResolution,
       streamCollapsed,
       streamContainerDimensions,
+      // Include dynamic stream offsets so overlay follows sidebar
       streamPositionLeft,
       streamPositionBottom,
     ]);
@@ -671,6 +672,8 @@ export const AndroidMobileRemote = React.memo(
     const streamContainerDimensionsChanged =
       JSON.stringify(prevProps.streamContainerDimensions) !==
       JSON.stringify(nextProps.streamContainerDimensions);
+    const streamPositionLeftChanged = prevProps.streamPositionLeft !== nextProps.streamPositionLeft;
+    const streamPositionBottomChanged = prevProps.streamPositionBottom !== nextProps.streamPositionBottom;
 
     // Return true if props are equal (don't re-render), false if they changed (re-render)
     const shouldSkipRender =
@@ -685,7 +688,9 @@ export const AndroidMobileRemote = React.memo(
       !captureModeChanged &&
       !isVerificationVisibleChanged &&
       !onDisconnectCompleteChanged &&
-      !streamContainerDimensionsChanged;
+      !streamContainerDimensionsChanged &&
+      !streamPositionLeftChanged &&
+      !streamPositionBottomChanged;
 
     // Log only significant re-renders for debugging
     // if (!shouldSkipRender) {

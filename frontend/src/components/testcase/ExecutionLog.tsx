@@ -5,10 +5,11 @@
  * Displays block execution results with timing and status.
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Typography, IconButton, Collapse, Chip } from '@mui/material';
 import ChevronLeftIcon from '@mui/icons-material/ChevronLeft';
 import ChevronRightIcon from '@mui/icons-material/ChevronRight';
+import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import CancelIcon from '@mui/icons-material/Cancel';
 import ErrorIcon from '@mui/icons-material/Error';
@@ -20,16 +21,23 @@ import { Node } from 'reactflow';
 interface ExecutionLogProps {
   blockStates: Map<string, BlockExecutionState>;
   nodes: Node[];
-  isExecuting?: boolean;
+  onClose: () => void; // NEW: Manual close
 }
 
 export const ExecutionLog: React.FC<ExecutionLogProps> = ({
   blockStates,
   nodes,
-  isExecuting = false,
+  onClose,
 }) => {
   const { actualMode } = useTheme();
   const [isCollapsed, setIsCollapsed] = useState(true);
+  
+  // Auto-open when execution starts
+  useEffect(() => {
+    if (blockStates.size > 0) {
+      setIsCollapsed(false);
+    }
+  }, [blockStates.size]);
 
   // Get block label from node
   const getBlockLabel = (blockId: string): string => {
@@ -65,8 +73,9 @@ export const ExecutionLog: React.FC<ExecutionLogProps> = ({
     .filter(([_, state]) => state.status !== 'idle' && state.status !== 'pending')
     .sort((a, b) => (a[1].startTime || 0) - (b[1].startTime || 0));
 
-  if (logEntries.length === 0 && !isExecuting) {
-    return null; // Don't show if no execution
+  // Don't show if no execution has ever occurred
+  if (logEntries.length === 0) {
+    return null;
   }
 
   return (
@@ -103,15 +112,28 @@ export const ExecutionLog: React.FC<ExecutionLogProps> = ({
             EXECUTION LOG
           </Typography>
         )}
-        <IconButton
-          size="small"
-          onClick={() => setIsCollapsed(!isCollapsed)}
-          sx={{
-            color: 'text.secondary',
-          }}
-        >
-          {isCollapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />}
-        </IconButton>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {!isCollapsed && (
+            <IconButton
+              size="small"
+              onClick={onClose}
+              sx={{
+                color: 'text.secondary',
+              }}
+            >
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          )}
+          <IconButton
+            size="small"
+            onClick={() => setIsCollapsed(!isCollapsed)}
+            sx={{
+              color: 'text.secondary',
+            }}
+          >
+            {isCollapsed ? <ChevronLeftIcon /> : <ChevronRightIcon />}
+          </IconButton>
+        </Box>
       </Box>
 
       {/* Log Content */}

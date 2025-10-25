@@ -14,7 +14,8 @@ from shared.src.lib.database.testcase_db import (
     get_testcase,
     delete_testcase,
     list_testcases,
-    get_testcase_by_name
+    get_testcase_by_name,
+    get_next_version_number
 )
 
 server_testcase_bp = Blueprint('server_testcase', __name__, url_prefix='/server/testcase')
@@ -172,6 +173,23 @@ def testcase_execute(testcase_id):
         f'/host/testcase/{testcase_id}/execute', 'POST', data, query_params
     )
     return jsonify(response_data), status_code
+
+
+@server_testcase_bp.route('/<testcase_id>/next-version', methods=['GET'])
+def testcase_get_next_version(testcase_id):
+    """Get next version number for a test case"""
+    try:
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        next_version = get_next_version_number(testcase_id, team_id)
+        
+        return jsonify({'success': True, 'next_version': next_version})
+            
+    except Exception as e:
+        print(f"[@server_testcase:get_next_version] ERROR: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @server_testcase_bp.route('/<testcase_id>/history', methods=['GET'])
