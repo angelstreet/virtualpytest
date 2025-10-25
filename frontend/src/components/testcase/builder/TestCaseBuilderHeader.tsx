@@ -90,14 +90,14 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       }}
     >
       {/* SECTION 1: Title */}
-      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 190px' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 240px' }}>
         <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
           TestCase Builder
         </Typography>
       </Box>
       
       {/* SECTION 2: Visual/AI Mode Toggle */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: '0 0 auto', ml: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '0 0 auto', ml: 2 }}>
         <Button
           size="small"
           variant={creationMode === 'visual' ? 'contained' : 'outlined'}
@@ -134,7 +134,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       </Box>
       
       {/* SECTION 3: Interface Selector */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flex: '0 1 auto', ml: 0, justifyContent: 'center' }}>
         <UserinterfaceSelector
           compatibleInterfaces={compatibleInterfaceNames}
           value={userinterfaceName}
@@ -148,14 +148,14 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       </Box>
       
       {/* SECTION 4: TestCase Info + Action Buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
         {testcaseName && (
           <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
             {testcaseName}{hasUnsavedChanges ? ' *' : ''} {currentTestcaseId ? '(saved)' : '(unsaved)'}
           </Typography>
         )}
         
-        <Box sx={{ display: 'flex', gap: 0.75 }}>
+        <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Button 
             size="small" 
             variant="outlined" 

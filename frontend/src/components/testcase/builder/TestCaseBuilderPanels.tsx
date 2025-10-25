@@ -24,6 +24,10 @@ interface TestCaseBuilderPanelsProps {
   captureMode: string;
   isVerificationVisible: boolean;
   
+  // Layout Control
+  isSidebarOpen: boolean;
+  footerHeight?: number;
+  
   // Handlers
   handleDisconnectComplete: () => void;
   handleAVPanelCollapsedChange: (collapsed: boolean) => void;
@@ -42,6 +46,8 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
   isAVPanelMinimized,
   captureMode,
   isVerificationVisible,
+  isSidebarOpen,
+  footerHeight = 40,
   handleDisconnectComplete,
   handleAVPanelCollapsedChange,
   handleAVPanelMinimizedChange,
@@ -52,6 +58,10 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
   const remoteCapability = selectedDevice?.device_capabilities?.remote;
   const hasMultipleRemotes = Array.isArray(remoteCapability) || deviceModel === 'fire_tv';
   const isDesktopDevice = deviceModel === 'host_vnc';
+
+  // Calculate stream position based on sidebar state
+  const sidebarWidth = 280; // Width of the sidebar when open (from TestCaseBuilderSidebar.tsx)
+  const streamLeftPosition = isSidebarOpen ? `${sidebarWidth + 10}px` : '10px'; // sidebar width + margin
 
   return (
     <>
@@ -105,6 +115,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
                 streamHidden={showAVPanel}
                 captureMode={captureMode}
                 initialCollapsed={true}
+                useAbsolutePositioning={true}
               />
               <RemotePanel
                 host={selectedHost}
@@ -119,6 +130,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
                 streamHidden={showAVPanel}
                 captureMode={captureMode}
                 initialCollapsed={true}
+                useAbsolutePositioning={true}
               />
             </Box>
           ) : hasMultipleRemotes ? (
@@ -151,6 +163,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
                     streamMinimized={isAVPanelMinimized}
                     captureMode={captureMode}
                     initialCollapsed={index > 0}
+                    useAbsolutePositioning={true}
                   />
                 ))}
             </Box>
@@ -168,6 +181,9 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               captureMode={captureMode}
               isVerificationVisible={isVerificationVisible}
               isNavigationEditorContext={false}
+              useAbsolutePositioning={true}
+              positionRight="10px"
+              positionBottom={`${footerHeight + 10}px`}
             />
           )}
         </>
@@ -175,14 +191,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
 
       {/* AV Panel */}
       {showAVPanel && selectedHost && selectedDeviceId && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 240,
-            bottom: 20,
-            zIndex: 999,
-          }}
-        >
+        <>
           {deviceModel === 'host_vnc' ? (
             <VNCStream
               host={selectedHost}
@@ -193,6 +202,9 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               onCollapsedChange={handleAVPanelCollapsedChange}
               onMinimizedChange={handleAVPanelMinimizedChange}
               onCaptureModeChange={handleCaptureModeChange}
+              useAbsolutePositioning={true}
+              positionLeft={streamLeftPosition}
+              positionBottom={`${footerHeight + 10}px`}
             />
           ) : (
             <HDMIStream
@@ -205,9 +217,12 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               onMinimizedChange={handleAVPanelMinimizedChange}
               onCaptureModeChange={handleCaptureModeChange}
               deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+              useAbsolutePositioning={true}
+              positionLeft={streamLeftPosition}
+              positionBottom={`${footerHeight + 10}px`}
             />
           )}
-        </Box>
+        </>
       )}
     </>
   );

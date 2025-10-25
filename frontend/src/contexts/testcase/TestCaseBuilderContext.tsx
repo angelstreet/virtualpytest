@@ -103,14 +103,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     {
       id: 'success',
       type: 'success',
-      position: { x: 150, y: 550 },  // Bottom left
+      position: { x: 250, y: 550 },  // Bottom left (shifted 50px right)
       data: {},
       deletable: false,  // Cannot be deleted
     },
     {
       id: 'failure',
       type: 'failure',
-      position: { x: 650, y: 550 },  // Bottom right
+      position: { x: 550, y: 550 },  // Bottom right (shifted 50px left)
       data: {},
       deletable: false,  // Cannot be deleted
     },
@@ -427,14 +427,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       {
         id: 'success',
         type: 'success',
-        position: { x: 150, y: 550 },  // Bottom left
+        position: { x: 200, y: 550 },  // Bottom left (shifted 50px right)
         data: {},
         deletable: false,  // Cannot be deleted
       },
       {
         id: 'failure',
         type: 'failure',
-        position: { x: 650, y: 550 },  // Bottom right
+        position: { x: 600, y: 550 },  // Bottom right (shifted 50px left)
         data: {},
         deletable: false,  // Cannot be deleted
       },

@@ -12,14 +12,14 @@ interface TestCaseBuilderSidebarProps {
   toggleSidebar: () => void;
   
   // Toolbox Props
-  categoryTabs: any[];
-  currentTab: string;
-  setCurrentTab: (tab: string) => void;
-  currentSubTab: string;
-  setCurrentSubTab: (subTab: string) => void;
-  toolboxSearchQuery: string;
-  setToolboxSearchQuery: (query: string) => void;
-  onDragStart: (event: React.DragEvent<HTMLDivElement>, nodeType: string, data: any) => void;
+  categoryTabs?: any[];
+  toolboxConfig?: any;
+  
+  // State props for showing helpful messages
+  selectedDeviceId?: string | null;
+  isControlActive?: boolean;
+  areActionsLoaded?: boolean;
+  userinterfaceName?: string;
 }
 
 export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
@@ -27,20 +27,21 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
   creationMode,
   isSidebarOpen,
   toggleSidebar,
-  categoryTabs,
-  currentTab,
-  setCurrentTab,
-  currentSubTab,
-  setCurrentSubTab,
-  toolboxSearchQuery,
-  setToolboxSearchQuery,
-  onDragStart,
+  toolboxConfig,
+  selectedDeviceId,
+  isControlActive,
+  areActionsLoaded,
+  userinterfaceName,
 }) => {
   return (
     <>
       {/* Sidebar (Toolbox or AI Mode Panel) */}
       <Box
         sx={{
+          position: 'absolute',
+          left: 0,
+          top: 0,
+          bottom: 0,
           width: isSidebarOpen ? '280px' : '0px',
           transition: 'width 0.3s ease',
           overflow: 'hidden',
@@ -49,7 +50,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
           display: 'flex',
           flexDirection: 'column',
           background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa',
-          position: 'relative',
+          zIndex: 5,
         }}
       >
         {isSidebarOpen && (
@@ -85,16 +86,23 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
             {/* Sidebar Content */}
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {creationMode === 'visual' ? (
-                <TestCaseToolbox
-                  categoryTabs={categoryTabs}
-                  currentTab={currentTab}
-                  setCurrentTab={setCurrentTab}
-                  currentSubTab={currentSubTab}
-                  setCurrentSubTab={setCurrentSubTab}
-                  searchQuery={toolboxSearchQuery}
-                  setSearchQuery={setToolboxSearchQuery}
-                  onDragStart={onDragStart}
-                />
+                toolboxConfig ? (
+                  <TestCaseToolbox toolboxConfig={toolboxConfig} />
+                ) : (
+                  <Box sx={{ p: 2, textAlign: 'center' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {!selectedDeviceId 
+                        ? '1. Select a device first' 
+                        : !isControlActive
+                        ? '2. Take control of device'
+                        : !areActionsLoaded
+                        ? '3. Loading device capabilities...'
+                        : !userinterfaceName 
+                        ? '4. Select an interface'
+                        : 'Loading toolbox...'}
+                    </Typography>
+                  </Box>
+                )
               ) : (
                 <AIModePanel />
               )}
@@ -109,8 +117,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
           sx={{
             position: 'absolute',
             left: 0,
-            top: '50%',
-            transform: 'translateY(-50%)',
+            top: '160px',
             zIndex: 10,
           }}
         >

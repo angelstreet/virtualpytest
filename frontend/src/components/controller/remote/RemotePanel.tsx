@@ -51,6 +51,10 @@ interface RemotePanelProps {
   };
   // NEW: Disable resize controls (for recording modal)
   disableResize?: boolean;
+  useAbsolutePositioning?: boolean;
+  positionLeft?: string;
+  positionBottom?: string;
+  positionRight?: string;
 }
 
 export const RemotePanel = React.memo(
@@ -70,6 +74,10 @@ export const RemotePanel = React.memo(
     isVerificationVisible = false,
     streamContainerDimensions,
     disableResize = false,
+    useAbsolutePositioning = false,
+    positionLeft,
+    positionBottom,
+    positionRight,
   }: RemotePanelProps) {
     console.log(`[@component:RemotePanel] Props debug:`, {
       deviceId,
@@ -215,12 +223,21 @@ export const RemotePanel = React.memo(
           height: '100%',
         }
       : {
-          // Floating panel context: use fixed positioning
-          position: 'fixed',
+          // Floating panel context: use fixed or absolute based on prop
+          position: useAbsolutePositioning ? 'absolute' : 'fixed',
           zIndex: panelLayout.zIndex,
-          // Always anchor at bottom-right (collapsed position)
-          bottom: panelLayout.collapsed.position.bottom || '20px',
-          right: panelLayout.collapsed.position.right || '20px',
+          // Use provided position props or fall back to config values
+          ...(useAbsolutePositioning
+            ? {
+                bottom: positionBottom || '50px',
+                right: positionRight || '10px',
+                ...(positionLeft && { left: positionLeft, right: 'auto' }),
+              }
+            : {
+                bottom: panelLayout.collapsed.position.bottom || '20px',
+                right: panelLayout.collapsed.position.right || '20px',
+              }),
+          transition: 'left 0.3s ease, right 0.3s ease, bottom 0.3s ease',
         };
 
     // Simple device model detection - no loading, no fallback, no validation
@@ -518,6 +535,7 @@ export const RemotePanel = React.memo(
       JSON.stringify(prevProps.streamContainerDimensions) !==
       JSON.stringify(nextProps.streamContainerDimensions);
     const disableResizeChanged = prevProps.disableResize !== nextProps.disableResize;
+    const useAbsolutePositioningChanged = prevProps.useAbsolutePositioning !== nextProps.useAbsolutePositioning;
 
     // Return true if props are equal (don't re-render), false if they changed (re-render)
     const shouldSkipRender =
@@ -531,7 +549,8 @@ export const RemotePanel = React.memo(
       !captureModeChanged &&
       !onReleaseControlChanged &&
       !streamContainerDimensionsChanged &&
-      !disableResizeChanged;
+      !disableResizeChanged &&
+      !useAbsolutePositioningChanged;
 
     if (!shouldSkipRender) {
       console.log(`[@component:RemotePanel] Re-rendering due to prop changes:`, {
@@ -546,6 +565,7 @@ export const RemotePanel = React.memo(
         onReleaseControlChanged,
         streamContainerDimensionsChanged,
         disableResizeChanged,
+        useAbsolutePositioningChanged,
       });
     }
 

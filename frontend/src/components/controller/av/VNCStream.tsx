@@ -34,6 +34,9 @@ interface VNCStreamProps {
   onExpandedChange?: (isExpanded: boolean) => void;
   onMinimizedChange?: (isMinimized: boolean) => void;
   onCaptureModeChange?: (mode: 'stream' | 'screenshot' | 'video') => void;
+  useAbsolutePositioning?: boolean;
+  positionLeft?: string;
+  positionBottom?: string;
   sx?: any;
 }
 
@@ -136,6 +139,9 @@ export const VNCStream = React.memo(
     onCollapsedChange,
     onMinimizedChange,
     onCaptureModeChange,
+    useAbsolutePositioning = false,
+    positionLeft,
+    positionBottom,
     sx = {},
   }: VNCStreamProps) {
     // VNC state from context
@@ -332,10 +338,19 @@ export const VNCStream = React.memo(
 
     // Position styles
     const positionStyles: any = {
-      position: 'fixed',
+      position: useAbsolutePositioning ? 'absolute' : 'fixed',
       zIndex: getZIndex('VNC_STREAM'),
-      bottom: panelLayout.collapsed.position.bottom || '20px',
-      left: panelLayout.collapsed.position.left || '20px', // Same as HDMI - far left position
+      // Use provided position props or fall back to config values
+      ...(useAbsolutePositioning
+        ? {
+            bottom: positionBottom || '50px',
+            left: positionLeft || '10px',
+          }
+        : {
+            bottom: panelLayout.collapsed.position.bottom || '20px',
+            left: panelLayout.collapsed.position.left || '20px',
+          }),
+      transition: 'left 0.3s ease, bottom 0.3s ease',
       ...sx,
     };
 
@@ -635,13 +650,19 @@ export const VNCStream = React.memo(
     const onMinimizedChangeChanged = prevProps.onMinimizedChange !== nextProps.onMinimizedChange;
     const onCaptureModeChangeChanged =
       prevProps.onCaptureModeChange !== nextProps.onCaptureModeChange;
+    const useAbsolutePositioningChanged = prevProps.useAbsolutePositioning !== nextProps.useAbsolutePositioning;
+    const positionLeftChanged = prevProps.positionLeft !== nextProps.positionLeft;
+    const positionBottomChanged = prevProps.positionBottom !== nextProps.positionBottom;
 
     const shouldRerender =
       hostChanged ||
       sxChanged ||
       onCollapsedChangeChanged ||
       onMinimizedChangeChanged ||
-      onCaptureModeChangeChanged;
+      onCaptureModeChangeChanged ||
+      useAbsolutePositioningChanged ||
+      positionLeftChanged ||
+      positionBottomChanged;
 
     if (shouldRerender) {
       console.log('[@component:VNCStream] Props changed, re-rendering:', {
@@ -650,6 +671,9 @@ export const VNCStream = React.memo(
         onCollapsedChangeChanged,
         onMinimizedChangeChanged,
         onCaptureModeChangeChanged,
+        useAbsolutePositioningChanged,
+        positionLeftChanged,
+        positionBottomChanged,
       });
     }
 

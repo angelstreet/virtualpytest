@@ -220,23 +220,18 @@ const TestCaseBuilderContent: React.FC = () => {
     [hookData.selectedBlock, hookData.updateBlock, hookData.setIsConfigDialogOpen]
   );
   
-  // Toolbox drag handler
-  const handleToolboxDragStart = useCallback(
-    (event: React.DragEvent<HTMLDivElement>, nodeType: string, data: any) => {
-      event.dataTransfer.setData(
-        'application/reactflow',
-        JSON.stringify({ type: nodeType, defaultData: data })
-      );
-      event.dataTransfer.effectAllowed = 'move';
-    },
-    []
-  );
-  
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  const [currentTab, setCurrentTab] = useState('standard');
-  const [currentSubTab, setCurrentSubTab] = useState('');
-  const [toolboxSearchQuery, setToolboxSearchQuery] = useState('');
+
+  // Fit view when ReactFlow instance is ready
+  React.useEffect(() => {
+    if (reactFlowInstance) {
+      // Small delay to ensure canvas is fully rendered
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 200 });
+      }, 100);
+    }
+  }, [reactFlowInstance]);
 
   return (
     <Box sx={{ 
@@ -292,14 +287,11 @@ const TestCaseBuilderContent: React.FC = () => {
           creationMode={hookData.creationMode}
           isSidebarOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-          categoryTabs={hookData.dynamicToolboxConfig?.categoryTabs || []}
-          currentTab={currentTab}
-          setCurrentTab={setCurrentTab}
-          currentSubTab={currentSubTab}
-          setCurrentSubTab={setCurrentSubTab}
-          toolboxSearchQuery={toolboxSearchQuery}
-          setToolboxSearchQuery={setToolboxSearchQuery}
-          onDragStart={handleToolboxDragStart}
+          toolboxConfig={hookData.dynamicToolboxConfig}
+          selectedDeviceId={hookData.selectedDeviceId}
+          isControlActive={hookData.isControlActive}
+          areActionsLoaded={hookData.areActionsLoaded}
+          userinterfaceName={hookData.userinterfaceName}
         />
 
         {/* Canvas */}
@@ -339,6 +331,7 @@ const TestCaseBuilderContent: React.FC = () => {
               onDrop={onDrop}
               onDragOver={onDragOver}
               reactFlowWrapper={reactFlowWrapper}
+              isSidebarOpen={isSidebarOpen}
               isExecuting={isExecuting}
               executionDetails={executionDetails}
             />
@@ -637,6 +630,8 @@ const TestCaseBuilderContent: React.FC = () => {
         isAVPanelMinimized={hookData.isAVPanelMinimized}
         captureMode={hookData.captureMode}
         isVerificationVisible={hookData.isVerificationVisible}
+        isSidebarOpen={isSidebarOpen}
+        footerHeight={40}
         handleDisconnectComplete={hookData.handleDisconnectComplete}
         handleAVPanelCollapsedChange={hookData.handleAVPanelCollapsedChange}
         handleAVPanelMinimizedChange={hookData.handleAVPanelMinimizedChange}

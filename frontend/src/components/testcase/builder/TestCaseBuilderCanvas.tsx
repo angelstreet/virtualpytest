@@ -23,6 +23,7 @@ interface TestCaseBuilderCanvasProps {
   onDrop: any;
   onDragOver: any;
   reactFlowWrapper: React.RefObject<HTMLDivElement>;
+  isSidebarOpen: boolean;  // Add this
   
   // Execution Overlay
   isExecuting: boolean;
@@ -44,6 +45,7 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
   onDrop,
   onDragOver,
   reactFlowWrapper,
+  isSidebarOpen,
   isExecuting,
   executionDetails,
 }) => {
@@ -53,6 +55,8 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
       sx={{
         flex: 1,
         position: 'relative',
+        width: '100%',
+        height: '100%',
         background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa',
       }}
     >
@@ -76,6 +80,7 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
           animated: false,
         }}
         proOptions={{ hideAttribution: true }}
+        style={{ width: '100%', height: '100%' }}
       >
         <Background
           variant={BackgroundVariant.Dots}
@@ -85,11 +90,13 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
         />
         <Controls
           showInteractive={false}
-          position="bottom-right"
+          position="top-left"
           style={{
             background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
             border: `1px solid ${actualMode === 'dark' ? '#334155' : '#e2e8f0'}`,
             borderRadius: '8px',
+            left: isSidebarOpen ? '290px' : '10px',
+            transition: 'left 0.3s ease',
           }}
         />
         <MiniMap
@@ -113,7 +120,7 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
             border: `1px solid ${actualMode === 'dark' ? '#334155' : '#e2e8f0'}`,
             borderRadius: '8px',
           }}
-          position="bottom-left"
+          position="top-right"
         />
       </ReactFlow>
       

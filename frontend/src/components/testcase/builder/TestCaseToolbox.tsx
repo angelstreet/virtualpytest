@@ -72,6 +72,11 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     'verifications': '#3b82f6' // blue - distinguishable from success (green)
   };
 
+  // Handle null/undefined toolboxConfig (should be rare since parent handles it)
+  if (!toolboxConfig || typeof toolboxConfig !== 'object') {
+    return null;
+  }
+
   return (
     <Box
       sx={{
@@ -123,16 +128,18 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
                 sx={{
                   minHeight: '28px !important',
                   height: '28px',
-                  py: '0 !important',
+                  py: '20px !important',
                   px: 1,
                   '& .MuiAccordionSummary-content': {
                     my: '0 !important',
                     minHeight: '28px !important',
+                    py: '20px !important',
                   },
                   '&.Mui-expanded': {
                     minHeight: '28px !important',
                     height: '28px',
                     my: '0 !important',
+                    py: '20px !important',
                   }
                 }}
               >

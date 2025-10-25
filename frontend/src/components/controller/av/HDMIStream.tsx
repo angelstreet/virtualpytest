@@ -34,6 +34,9 @@ interface HDMIStreamProps {
   onMinimizedChange?: (isMinimized: boolean) => void;
   onCaptureModeChange?: (mode: 'stream' | 'screenshot' | 'video') => void;
   deviceResolution?: { width: number; height: number };
+  useAbsolutePositioning?: boolean;
+  positionLeft?: string;
+  positionBottom?: string;
   sx?: any;
 }
 
@@ -47,6 +50,9 @@ export const HDMIStream = React.memo(
     onCollapsedChange,
     onMinimizedChange,
     onCaptureModeChange,
+    useAbsolutePositioning = false,
+    positionLeft,
+    positionBottom,
     sx = {},
   }: HDMIStreamProps) {
     // Stream state
@@ -253,12 +259,19 @@ export const HDMIStream = React.memo(
 
     // Build position styles - simple container without scaling
     const positionStyles: any = {
-      position: 'fixed',
+      position: useAbsolutePositioning ? 'absolute' : 'fixed',
       zIndex: getZIndex('HDMI_STREAM'),
-      // Always anchor at bottom-left (collapsed position)
-      bottom: panelLayout.collapsed.position.bottom || '20px',
-      left: panelLayout.collapsed.position.left || '20px',
-      // Remove scaling - we'll animate the inner container instead
+      // Use provided position props or fall back to config values
+      ...(useAbsolutePositioning
+        ? {
+            bottom: positionBottom || '50px',
+            left: positionLeft || '10px',
+          }
+        : {
+            bottom: panelLayout.collapsed.position.bottom || '20px',
+            left: panelLayout.collapsed.position.left || '20px',
+          }),
+      transition: 'left 0.3s ease, bottom 0.3s ease',
       ...sx,
     };
 
@@ -571,6 +584,9 @@ export const HDMIStream = React.memo(
     const onMinimizedChangeChanged = prevProps.onMinimizedChange !== nextProps.onMinimizedChange;
     const onCaptureModeChangeChanged =
       prevProps.onCaptureModeChange !== nextProps.onCaptureModeChange;
+    const useAbsolutePositioningChanged = prevProps.useAbsolutePositioning !== nextProps.useAbsolutePositioning;
+    const positionLeftChanged = prevProps.positionLeft !== nextProps.positionLeft;
+    const positionBottomChanged = prevProps.positionBottom !== nextProps.positionBottom;
 
     // Only re-render if meaningful props have changed
     const shouldRerender =
@@ -578,7 +594,10 @@ export const HDMIStream = React.memo(
       sxChanged ||
       onCollapsedChangeChanged ||
       onMinimizedChangeChanged ||
-      onCaptureModeChangeChanged;
+      onCaptureModeChangeChanged ||
+      useAbsolutePositioningChanged ||
+      positionLeftChanged ||
+      positionBottomChanged;
 
     if (shouldRerender) {
       console.log('[@component:HDMIStream] Props changed, re-rendering:', {
@@ -587,6 +606,9 @@ export const HDMIStream = React.memo(
         onCollapsedChangeChanged,
         onMinimizedChangeChanged,
         onCaptureModeChangeChanged,
+        useAbsolutePositioningChanged,
+        positionLeftChanged,
+        positionBottomChanged,
       });
     }
 

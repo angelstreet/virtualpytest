@@ -134,7 +134,10 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
   if (error || interfaces.length === 0) {
     // Don't show as error if just waiting for device selection
     const isWaitingForDevice = error === 'Select a device first';
-    console.log('[@UserinterfaceSelector] Rendering ERROR/EMPTY state:', { error, interfacesLength: interfaces.length });
+    // Debug log only when there's an actual error (not when just empty)
+    if (error) {
+      console.log('[@UserinterfaceSelector] Rendering with error:', error);
+    }
     
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
