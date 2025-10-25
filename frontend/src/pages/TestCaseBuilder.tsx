@@ -317,20 +317,16 @@ const TestCaseBuilderContent: React.FC = () => {
             nodeTypes={nodeTypes}
             edgeTypes={edgeTypes}
             defaultEdgeOptions={defaultEdgeOptions}
+            nodesDraggable={true}
+            nodesConnectable={true}
+            elementsSelectable={true}
+            panOnDrag={true}
+            zoomOnScroll={true}
+            zoomOnPinch={true}
             fitView
           >
             <TestCaseBuilderCanvas
               actualMode={actualMode}
-              nodes={hookData.nodes}
-              edges={hookData.edges}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              onNodesChange={hookData.onNodesChange}
-              onEdgesChange={hookData.onEdgesChange}
-              onConnect={hookData.onConnect}
-              onDrop={onDrop}
-              onDragOver={onDragOver}
-              reactFlowWrapper={reactFlowWrapper}
               isSidebarOpen={isSidebarOpen}
               isExecuting={isExecuting}
               executionDetails={executionDetails}

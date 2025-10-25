@@ -184,6 +184,8 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               useAbsolutePositioning={true}
               positionRight="10px"
               positionBottom={`${footerHeight + 10}px`}
+              streamPositionLeft={streamLeftPosition}
+              streamPositionBottom={`${footerHeight + 10}px`}
             />
           )}
         </>

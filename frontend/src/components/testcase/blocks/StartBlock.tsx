@@ -34,18 +34,35 @@ export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
         START
       </Typography>
       
-      {/* Output handle at bottom - circle, blue to match START */}
+      {/* Transparent larger handle for better grabbing */}
+      <Handle
+        type="source"
+        position={Position.Bottom}
+        id="success-hitarea"
+        style={{
+          background: 'transparent',
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          border: 'none',
+          bottom: -16,
+          pointerEvents: 'all',
+        }}
+      />
+      
+      {/* Visible output handle at bottom - circle, blue to match START */}
       <Handle
         type="source"
         position={Position.Bottom}
         id="success"
         style={{
           background: '#3b82f6',
-          width: 12,
-          height: 12,
+          width: 14,
+          height: 14,
           borderRadius: '50%',
           border: '2px solid white',
-          bottom: -6,
+          bottom: -8,
+          pointerEvents: 'none',
         }}
       />
     </Box>

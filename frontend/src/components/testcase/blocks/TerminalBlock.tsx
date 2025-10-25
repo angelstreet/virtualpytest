@@ -36,18 +36,35 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({ label, color, sele
         {label}
       </Typography>
       
-      {/* Input handle at top - circle */}
+      {/* Transparent larger handle for better grabbing */}
+      <Handle
+        type="target"
+        position={Position.Top}
+        id="input-hitarea"
+        style={{
+          background: 'transparent',
+          width: 32,
+          height: 32,
+          borderRadius: '50%',
+          border: 'none',
+          top: -16,
+          pointerEvents: 'all',
+        }}
+      />
+      
+      {/* Visible input handle at top - circle */}
       <Handle
         type="target"
         position={Position.Top}
         id="input"
         style={{
           background: color,
-          width: 12,
-          height: 12,
+          width: 14,
+          height: 14,
           borderRadius: '50%',
           border: '2px solid white',
-          top: -6,
+          top: -8,
+          pointerEvents: 'none',
         }}
       />
     </Box>

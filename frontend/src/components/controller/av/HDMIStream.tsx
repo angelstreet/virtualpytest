@@ -331,8 +331,8 @@ export const HDMIStream = React.memo(
                 color: '#ffffff',
               }}
             >
-              {/* Left side: Action buttons (only visible when expanded) */}
-              {isExpanded && (
+              {/* Left side: Action buttons (only visible when expanded and not minimized) */}
+              {isExpanded && !isMinimized && (
                 <Box sx={{ display: 'flex', gap: 0.5 }}>
                   <Tooltip title="Take Screenshot">
                     <IconButton

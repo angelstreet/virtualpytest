@@ -356,7 +356,7 @@ export const AndroidMobileOverlay = React.memo(
         {/* Base transparent tap layer - Only covers actual content area (contain scaling) */}
         <div
           style={{
-            position: 'fixed',
+            position: 'absolute',
             left: `${panelInfo.position.x + horizontalOffset}px`,
             top: `${panelInfo.position.y + verticalOffset}px`,
             width: `${actualContentWidth}px`,
@@ -365,7 +365,7 @@ export const AndroidMobileOverlay = React.memo(
             contain: 'layout style size',
             willChange: 'transform',
             pointerEvents: 'auto', // Allow tapping on base layer
-            border: '1px solid rgba(0, 255, 0, 0.3)', // Subtle border for tap area
+            border: '1px solid rgba(255, 208, 0, 0.18)', // Subtle border for tap area
             cursor: 'crosshair', // Crosshair cursor within actual content area
           }}
           onClick={handleBaseTap}
@@ -375,7 +375,7 @@ export const AndroidMobileOverlay = React.memo(
         {scaledElements.length > 0 && (
           <div
             style={{
-              position: 'fixed',
+              position: 'absolute',
               left: `${panelInfo.position.x}px`,
               top: `${panelInfo.position.y + 0}px`,
               width: `${panelInfo.size.width}px`,
@@ -432,7 +432,7 @@ export const AndroidMobileOverlay = React.memo(
             <div
               key={clickAnimation.id}
               style={{
-                position: 'fixed',
+                position: 'absolute',
                 left: `${panelInfo.position.x + horizontalOffset + clickAnimation.x - 15}px`, // Use content coordinates with offset
                 top: `${panelInfo.position.y + verticalOffset + clickAnimation.y - 15 + 0}px`,
                 width: '30px',
@@ -454,7 +454,7 @@ export const AndroidMobileOverlay = React.memo(
           <div
             key={coordinateDisplay.id}
             style={{
-              position: 'fixed',
+              position: 'absolute',
               left: `${panelInfo.position.x + horizontalOffset + coordinateDisplay.x + 0}px`, // Use content coordinates with offset
               top: `${panelInfo.position.y + verticalOffset + coordinateDisplay.y - 15 + 0}px`, // Use content coordinates with offset
               backgroundColor: 'rgba(0, 0, 0, 0.8)',

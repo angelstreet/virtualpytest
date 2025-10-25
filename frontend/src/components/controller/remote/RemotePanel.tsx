@@ -55,6 +55,9 @@ interface RemotePanelProps {
   positionLeft?: string;
   positionBottom?: string;
   positionRight?: string;
+  // NEW: Dynamic stream position for overlay alignment
+  streamPositionLeft?: string;
+  streamPositionBottom?: string;
 }
 
 export const RemotePanel = React.memo(
@@ -78,6 +81,8 @@ export const RemotePanel = React.memo(
     positionLeft,
     positionBottom,
     positionRight,
+    streamPositionLeft,
+    streamPositionBottom,
   }: RemotePanelProps) {
     console.log(`[@component:RemotePanel] Props debug:`, {
       deviceId,
@@ -288,6 +293,8 @@ export const RemotePanel = React.memo(
               captureMode={captureMode}
               isVerificationVisible={isVerificationVisible}
               streamContainerDimensions={stableStreamContainerDimensions}
+              streamPositionLeft={streamPositionLeft}
+              streamPositionBottom={streamPositionBottom}
               sx={{
                 height: '100%',
                 '& .MuiButton-root': {

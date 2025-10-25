@@ -47,6 +47,9 @@ interface AndroidMobileRemoteProps {
     x: number;
     y: number;
   };
+  // NEW: Dynamic stream position for overlay alignment
+  streamPositionLeft?: string;
+  streamPositionBottom?: string;
 }
 
 export const AndroidMobileRemote = React.memo(
@@ -64,6 +67,8 @@ export const AndroidMobileRemote = React.memo(
     captureMode = 'stream',
     isVerificationVisible = false,
     streamContainerDimensions,
+    streamPositionLeft,
+    streamPositionBottom,
   }: AndroidMobileRemoteProps) {
     const hookResult = useAndroidMobile(host, deviceId);
 
@@ -143,7 +148,7 @@ export const AndroidMobileRemote = React.memo(
       const streamConfig = hdmiStreamMobileConfig.panel_layout;
       const currentStreamConfig = streamCollapsed ? streamConfig.collapsed : streamConfig.expanded;
 
-      // Parse dimensions from config
+      // Parse dimensions from config or props
       const parsePixels = (value: string) => parseInt(value.replace('px', ''), 10);
 
       // Use stream panel dimensions from config, not remote panel dimensions
@@ -160,25 +165,38 @@ export const AndroidMobileRemote = React.memo(
       const deviceAspectRatio = DEFAULT_DEVICE_RESOLUTION.width / DEFAULT_DEVICE_RESOLUTION.height; // 16:9 = 1.777...
       const streamContentWidth = streamContentHeight / deviceAspectRatio;
 
-      // Calculate stream position - centered in panel
-      const panelX =
-        'left' in currentStreamConfig.position
-          ? parsePixels(currentStreamConfig.position.left)
-          : 20;
-      const panelY =
-        window.innerHeight -
-        parsePixels(currentStreamConfig.position.bottom || '20px') -
-        streamPanelHeight;
+      // Calculate stream position - use dynamic props if available, otherwise fall back to config
+      let panelX: number;
+      let panelY: number;
+
+      if (streamPositionLeft && streamPositionBottom) {
+        // Use dynamic positioning from props
+        panelX = parsePixels(streamPositionLeft);
+        panelY = window.innerHeight - parsePixels(streamPositionBottom) - streamPanelHeight;
+      } else {
+        // Fall back to config
+        panelX =
+          'left' in currentStreamConfig.position
+            ? parsePixels(currentStreamConfig.position.left)
+            : 20;
+        panelY =
+          window.innerHeight -
+          parsePixels(currentStreamConfig.position.bottom || '20px') -
+          streamPanelHeight;
+      }
 
       // Calculate content position (accounting for header)
+      // Add Y offset when using dynamic positioning (TestCaseBuilder context)
+      const yOffset =  -30;
+      
       const streamActualPosition = {
         x: panelX + (streamPanelWidth - streamContentWidth) / 2, // Center horizontally
-        y: panelY + headerHeight, // Position below header
+        y: panelY + headerHeight + yOffset, // Position below header + offset adjustment
       };
 
       const streamActualSize = {
         width: Math.round(streamContentWidth),
-        height: Math.round(streamContentHeight),
+        height: Math.round(streamContentHeight-2),
       };
 
       const info = {
@@ -195,6 +213,8 @@ export const AndroidMobileRemote = React.memo(
       deviceResolution,
       streamCollapsed,
       streamContainerDimensions,
+      streamPositionLeft,
+      streamPositionBottom,
     ]);
 
 
