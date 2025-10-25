@@ -24,6 +24,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import WarningIcon from '@mui/icons-material/Warning';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { useTestCaseAI } from '../../../hooks/testcase';
+import { APP_CONFIG } from '../../../config/constants';
 import type { TestCaseGraph } from '../../../types/testcase/TestCase_Types';
 
 interface AIPromptModeProps {
@@ -66,8 +67,8 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
       const result = await generateTestCaseFromPrompt(
         prompt,
         userinterfaceName,
-        'device1',
-        '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+        APP_CONFIG.DEFAULT_DEVICE_ID,
+        APP_CONFIG.DEFAULT_TEAM_ID
       );
 
       if (result.needs_disambiguation) {
@@ -113,8 +114,8 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
         prompt,
         selections,
         userinterfaceName,
-        'device1',
-        '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+        APP_CONFIG.DEFAULT_DEVICE_ID,
+        APP_CONFIG.DEFAULT_TEAM_ID
       );
 
       if (result.success && result.graph) {

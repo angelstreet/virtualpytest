@@ -21,6 +21,7 @@ import { useNavigationConfig } from './NavigationConfigContext';
 import { useNavigationPreviewCache } from './NavigationPreviewCacheContext';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { APP_CONFIG } from '../../config/constants';
 // ========================================
 // TYPES
 // ========================================
@@ -1153,7 +1154,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
                     tree_id: navigationConfig?.actualTreeId || 'unknown',
-                    team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce' // Use actual default team ID
+                    team_id: APP_CONFIG.DEFAULT_TEAM_ID
                   })
                 });
               } catch (cacheError) {

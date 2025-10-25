@@ -17,7 +17,7 @@ import { useNavigationEditor } from '../navigation/useNavigationEditor';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useUserInterface } from './useUserInterface';
 import { useTestCaseBuilder } from '../../contexts/testcase/TestCaseBuilderContext';
-import { generateTestCaseFromPrompt } from '../../services/aiService';
+import { useTestCaseAI } from '../testcase';
 import { buildToolboxFromNavigationData } from '../../utils/toolboxBuilder';
 
 export interface UseTestCaseBuilderPageReturn {
@@ -207,6 +207,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   const { setUserInterfaceFromProps } = useNavigationEditor();
   const { loadTreeByUserInterface } = useNavigationConfig();
   const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
+  const { generateTestCaseFromPrompt } = useTestCaseAI();
   
   const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
   const [navNodes, setNavNodes] = useState<any[]>([]);
@@ -489,14 +490,14 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       );
       
       if (result.success && result.graph) {
-        setNodes(result.graph.nodes.map(node => ({
+        setNodes(result.graph.nodes.map((node: any) => ({
           id: node.id,
           type: node.type as any,
           position: node.position,
           data: node.data
         })));
         
-        setEdges(result.graph.edges.map(edge => ({
+        setEdges(result.graph.edges.map((edge: any) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
@@ -507,13 +508,6 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
             strokeWidth: 2
           }
         })));
-        
-        if (result.testcase_name) {
-          setTestcaseName(result.testcase_name);
-        }
-        if (result.description) {
-          setDescription(result.description);
-        }
         
         setSnackbar({
           open: true,

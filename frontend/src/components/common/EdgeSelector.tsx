@@ -8,9 +8,7 @@
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Autocomplete, TextField, CircularProgress, Box, Typography } from '@mui/material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-
-// Hardcoded team_id (same as used throughout the app)
-const TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce';
+import { APP_CONFIG } from '../../config/constants';
 
 interface EdgeOption {
   label: string;
@@ -82,7 +80,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
       return;
     }
 
-    const fetchKey = `${userinterfaceName}-${hostName}-${TEAM_ID}`;
+    const fetchKey = `${userinterfaceName}-${hostName}-${APP_CONFIG.DEFAULT_TEAM_ID}`;
     
     // Prevent duplicate requests
     if (fetchInProgress.current && lastFetchKey.current === fetchKey) {
@@ -96,7 +94,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
     setError(null);
 
     try {
-      console.log('[EdgeSelector] Fetching edges for:', { userinterfaceName, hostName, team_id: TEAM_ID, disabled });
+      console.log('[EdgeSelector] Fetching edges for:', { userinterfaceName, hostName, team_id: APP_CONFIG.DEFAULT_TEAM_ID, disabled });
       
       const response = await fetch(buildServerUrl('/server/script/get_edge_options'), {
         method: 'POST',
@@ -105,7 +103,7 @@ export const EdgeSelector: React.FC<EdgeSelectorProps> = ({
         },
         body: JSON.stringify({
           userinterface_name: userinterfaceName,
-          team_id: TEAM_ID,
+          team_id: APP_CONFIG.DEFAULT_TEAM_ID,
           host_name: hostName,
         }),
       });

@@ -17,6 +17,8 @@
  * 4. Stream URLs - Live video streams (buildStreamUrl)
  */
 
+import { APP_CONFIG, SERVER_CONFIG, STORAGE_KEYS } from '../config/constants';
+
 // =====================================================
 // SERVER URL BUILDING (Frontend to Backend Server)
 // =====================================================
@@ -26,19 +28,18 @@ export const buildServerUrl = (endpoint: string): string => {
   // Try to get selected server from localStorage first, fallback to env variable
   let serverUrl: string;
   try {
-    const selectedServer = localStorage.getItem('selectedServer');
-    serverUrl = selectedServer || (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
+    const selectedServer = localStorage.getItem(STORAGE_KEYS.SELECTED_SERVER);
+    serverUrl = selectedServer || SERVER_CONFIG.DEFAULT_URL;
   } catch {
     // Fallback if localStorage is not available
-    serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
+    serverUrl = SERVER_CONFIG.DEFAULT_URL;
   }
   
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `${serverUrl}/${cleanEndpoint}`;
   
   // Always add team_id to all server URLs
-  const teamId = "7fdeb4bb-3639-4ec3-959f-b54769a219ce";
-  return `${url}${url.includes('?') ? '&' : '?'}team_id=${teamId}`;
+  return `${url}${url.includes('?') ? '&' : '?'}team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`;
 };
 
 /**
@@ -73,9 +74,9 @@ export const getAllServerUrls = (): string[] => {
     }
   }
   
-  // Fallback to localhost if no URLs configured
+  // Fallback to default server if no URLs configured
   if (urls.length === 0) {
-    urls.push('http://localhost:5109');
+    urls.push(SERVER_CONFIG.DEFAULT_URL);
   }
   
   console.log('getAllServerUrls:', urls);
@@ -93,8 +94,7 @@ export const buildServerUrlForServer = (serverUrl: string, endpoint: string): st
   const url = `${serverUrl}/${cleanEndpoint}`;
   
   // Always add team_id to all server URLs
-  const teamId = "7fdeb4bb-3639-4ec3-959f-b54769a219ce";
-  return `${url}${url.includes('?') ? '&' : '?'}team_id=${teamId}`;
+  return `${url}${url.includes('?') ? '&' : '?'}team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`;
 };
 
 /**

@@ -1,4 +1,5 @@
 import { useState, useCallback } from 'react';
+import { APP_CONFIG } from '../config/constants';
 
 // Singleton session data to prevent multiple instances
 let globalSessionData: { userId: string; sessionId: string } | null = null;
@@ -16,8 +17,7 @@ export const useUserSession = () => {
     }
 
     // Use hardcoded default user ID for demo mode (no browser-user fallback)
-    const DEFAULT_USER_ID = 'eb6cfd93-44ab-4783-bd0c-129b734640f3';
-    let userId = DEFAULT_USER_ID;
+    let userId = APP_CONFIG.DEFAULT_USER_ID;
 
     // Try to get user ID from browser storage if available (optional enhancement)
     if (typeof window !== 'undefined') {

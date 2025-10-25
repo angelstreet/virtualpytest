@@ -73,62 +73,14 @@ TO service_role
 USING (true)
 WITH CHECK (true);
 
--- Policy 2: authenticated users can view testcase_definitions for their team
-CREATE POLICY "users_select_own_team_testcase_definitions"
+-- Policy 2: Public access policy (allows backend with anon key to access)
+-- Matches the pattern used in navigation_trees for consistency
+CREATE POLICY "testcase_definitions_access_policy"
 ON testcase_definitions
-FOR SELECT
-TO authenticated
+FOR ALL
+TO public
 USING (
-  team_id IN (
-    SELECT team_id 
-    FROM teams 
-    WHERE id = team_id
-  )
+  (auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true
 );
 
--- Policy 3: authenticated users can insert testcase_definitions for their team
-CREATE POLICY "users_insert_own_team_testcase_definitions"
-ON testcase_definitions
-FOR INSERT
-TO authenticated
-WITH CHECK (
-  team_id IN (
-    SELECT team_id 
-    FROM teams 
-    WHERE id = team_id
-  )
-);
-
--- Policy 4: authenticated users can update testcase_definitions for their team
-CREATE POLICY "users_update_own_team_testcase_definitions"
-ON testcase_definitions
-FOR UPDATE
-TO authenticated
-USING (
-  team_id IN (
-    SELECT team_id 
-    FROM teams 
-    WHERE id = team_id
-  )
-)
-WITH CHECK (
-  team_id IN (
-    SELECT team_id 
-    FROM teams 
-    WHERE id = team_id
-  )
-);
-
--- Policy 5: authenticated users can delete testcase_definitions for their team
-CREATE POLICY "users_delete_own_team_testcase_definitions"
-ON testcase_definitions
-FOR DELETE
-TO authenticated
-USING (
-  team_id IN (
-    SELECT team_id 
-    FROM teams 
-    WHERE id = team_id
-  )
-);
 

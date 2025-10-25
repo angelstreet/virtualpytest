@@ -145,6 +145,24 @@ CREATE TABLE test_cases (
     device_adaptations jsonb DEFAULT '{}'::jsonb
 );
 
+-- TestCase Definitions table (from TestCase Builder)
+CREATE TABLE testcase_definitions (
+    testcase_id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
+    team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
+    testcase_name character varying(255) NOT NULL,
+    description text,
+    userinterface_name character varying(255),
+    graph_json jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now(),
+    updated_at timestamp with time zone DEFAULT now(),
+    created_by character varying(255),
+    is_active boolean DEFAULT true,
+    creation_method character varying(10) DEFAULT 'visual'::character varying CHECK (creation_method IN ('visual', 'ai')),
+    ai_prompt text,
+    ai_analysis text,
+    CONSTRAINT unique_testcase_per_team UNIQUE (team_id, testcase_name)
+);
+
 -- Test executions table
 CREATE TABLE test_executions (
     id uuid DEFAULT uuid_generate_v4() PRIMARY KEY,
@@ -433,6 +451,10 @@ CREATE TABLE zap_results (
 CREATE INDEX idx_device_models_team_id ON device_models(team_id);
 CREATE INDEX idx_device_team_id ON device(team_id);
 CREATE INDEX idx_environment_profiles_team_id ON environment_profiles(team_id);
+CREATE INDEX idx_testcase_team ON testcase_definitions(team_id);
+CREATE INDEX idx_testcase_name ON testcase_definitions(testcase_name);
+CREATE INDEX idx_testcase_active ON testcase_definitions(is_active) WHERE is_active = TRUE;
+CREATE INDEX idx_testcase_ui ON testcase_definitions(userinterface_name);
 CREATE INDEX idx_campaign_executions_team_id ON campaign_executions(team_id);
 CREATE INDEX idx_campaign_executions_campaign_name ON campaign_executions(campaign_name);
 CREATE INDEX idx_campaign_executions_host_name ON campaign_executions(host_name);
@@ -512,6 +534,15 @@ CREATE INDEX idx_edge_metrics_tree_id ON edge_metrics(tree_id);
 -- =============================================================================
 -- FUNCTIONS
 -- =============================================================================
+
+-- Function to update updated_at timestamp for testcase_definitions
+CREATE OR REPLACE FUNCTION update_testcase_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+    NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
 
 -- Function to append script to campaign execution
 CREATE OR REPLACE FUNCTION array_append_campaign_script(campaign_id uuid, script_id uuid)
@@ -930,6 +961,12 @@ CREATE TRIGGER metrics_trigger
     FOR EACH ROW 
     EXECUTE FUNCTION update_metrics();
 
+-- Trigger to update updated_at timestamp for testcase_definitions
+CREATE TRIGGER testcase_definitions_updated_at
+    BEFORE UPDATE ON testcase_definitions
+    FOR EACH ROW
+    EXECUTE FUNCTION update_testcase_updated_at();
+
 -- Trigger to auto-set edge label on insert
 CREATE TRIGGER trigger_auto_set_edge_label_on_insert 
     BEFORE INSERT ON navigation_edges 
@@ -1108,6 +1145,16 @@ CREATE POLICY "zap_results_access_policy" ON zap_results
 FOR ALL TO public
 USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
+-- TestCase Definitions policies
+CREATE POLICY "service_role_all_testcase_definitions" ON testcase_definitions
+FOR ALL TO service_role
+USING (true)
+WITH CHECK (true);
+
+CREATE POLICY "testcase_definitions_access_policy" ON testcase_definitions
+FOR ALL TO public
+USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
+
 -- =============================================================================
 -- COMMENTS
 -- =============================================================================
@@ -1122,6 +1169,7 @@ COMMENT ON TABLE navigation_edges IS 'Navigation edges connecting nodes with emb
 COMMENT ON TABLE navigation_trees_history IS 'Version history for navigation trees';
 COMMENT ON TABLE environment_profiles IS 'Test environment configurations';
 COMMENT ON TABLE test_cases IS 'Test case definitions and configurations';
+COMMENT ON TABLE testcase_definitions IS 'Test case definitions from TestCase Builder (visual or AI-generated)';
 COMMENT ON TABLE test_executions IS 'Test execution tracking records';
 COMMENT ON TABLE test_results IS 'Test execution results and outcomes';
 COMMENT ON TABLE verifications_references IS 'Reference data for verifications (screenshots, elements, etc.)';
@@ -1166,6 +1214,13 @@ COMMENT ON COLUMN test_cases.ai_analysis IS 'AI analysis results including feasi
 COMMENT ON COLUMN test_cases.compatible_devices IS 'Array of compatible device models or ["all"]';
 COMMENT ON COLUMN test_cases.compatible_userinterfaces IS 'Array of compatible userinterface names or ["all"]';
 COMMENT ON COLUMN test_cases.device_adaptations IS 'Device-specific adaptations (e.g., mobile->live_fullscreen)';
+
+COMMENT ON COLUMN testcase_definitions.graph_json IS 'React Flow graph: {nodes: [...], edges: [...]}';
+COMMENT ON COLUMN testcase_definitions.testcase_name IS 'Used as script_name in script_results for unified tracking';
+COMMENT ON COLUMN testcase_definitions.creation_method IS 'How test case was created: visual (drag-drop) or ai (prompt)';
+COMMENT ON COLUMN testcase_definitions.ai_prompt IS 'Original natural language prompt if AI-generated';
+COMMENT ON COLUMN testcase_definitions.ai_analysis IS 'AI reasoning and analysis if AI-generated';
+
 
 COMMENT ON COLUMN execution_results.action_set_id IS 'ID of the specific action set executed for bidirectional edges (e.g., "home_to_live" or "live_to_home")';
 COMMENT ON COLUMN execution_results.device_name IS 'Device name (unique identifier) for filtering results by specific device instance';

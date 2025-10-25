@@ -10,6 +10,7 @@ import {
   AI_CONSTANTS 
 } from '../types/aiagent/AIAgent_Types';
 import type { DisambiguationData } from '../types/aiagent/AIDisambiguation_Types';
+import { APP_CONFIG } from '../config/constants';
 
 interface UseAIProps {
   host: Host;
@@ -288,7 +289,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           userinterface_name,
           device_id: device.device_id,
           host_name: host.host_name,
-          team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
+          team_id: APP_CONFIG.DEFAULT_TEAM_ID,
           use_cache: useCache,
           async_execution: true,
           save: false,  // Live AI Modal does NOT save
@@ -554,7 +555,7 @@ export const useAI = ({ host, device, mode: _mode }: UseAIProps) => {
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             host_name: host.host_name,
-            team_id: '7fdeb4bb-3639-4ec3-959f-b54769a219ce',
+            team_id: APP_CONFIG.DEFAULT_TEAM_ID,
             userinterface_name: pending.userinterface_name,
             selections: selectionsArray
           })

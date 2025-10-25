@@ -1,16 +1,14 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
 import { BlockType, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
-import { useTestCaseSave, useTestCaseExecution } from '../../hooks/testcase';
 import { 
-  getUserInterfaces, 
-  getNavigationNodesForInterface, 
-  getAvailableActions, 
-  getAvailableVerifications 
-} from '../../services/testcaseBuilderApi';
-import type { NavigationNode, UserInterface, ActionCommand } from '../../services/testcaseBuilderApi';
-
-const TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'; // Default team ID
+  useTestCaseSave, 
+  useTestCaseExecution,
+  useTestCaseBuilder as useTestCaseBuilderHook,
+  type NavigationNode,
+  type UserInterface,
+  type ActionCommand
+} from '../../hooks/testcase';
 
 interface TestCaseBuilderContextType {
   // Graph state
@@ -92,6 +90,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Use testcase hooks (following Navigation pattern)
   const { saveTestCase, listTestCases, getTestCase, deleteTestCase } = useTestCaseSave();
   const { executeTestCase } = useTestCaseExecution();
+  const { 
+    getUserInterfaces, 
+    getNavigationNodesForInterface, 
+    getAvailableActions, 
+    getAvailableVerifications 
+  } = useTestCaseBuilderHook();
   // Initialize with start, success, and failure blocks
   // START at top center, SUCCESS at bottom-left, FAILURE at bottom-right
   const [nodes, setNodes] = useState<Node[]>([
@@ -493,7 +497,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     
     setIsLoadingOptions(true);
     try {
-      const result = await getNavigationNodesForInterface(interfaceName, TEAM_ID);
+      const result = await getNavigationNodesForInterface(interfaceName);
       if (result.success) {
         // Filter out ENTRY nodes (case-insensitive)
         const filteredNodes = result.nodes.filter(node => {
@@ -507,14 +511,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     } finally {
       setIsLoadingOptions(false);
     }
-  }, []);
+  }, [getNavigationNodesForInterface]);
   
   // Fetch user interfaces on mount
   useEffect(() => {
     const fetchInitialData = async () => {
       try {
         const [interfacesRes, actionsRes, verificationsRes] = await Promise.all([
-          getUserInterfaces('default-team-id'),
+          getUserInterfaces(),
           getAvailableActions(),
           getAvailableVerifications(),
         ]);

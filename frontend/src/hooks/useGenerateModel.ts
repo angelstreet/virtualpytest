@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { apiClient } from '../services/apiClient';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 interface UseGenerateModelProps {
   treeId: string;
@@ -110,17 +110,19 @@ export const useGenerateModel = ({
     if (!explorationId || !selectedHost) return;
 
     try {
-      const response = await apiClient.get(
-        `/server/ai-generation/exploration-status/${explorationId}`,
-        {
-          params: {
-            host_ip: selectedHost.host_ip
-          }
-        }
+      const response = await fetch(
+        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}`, {
+          host_ip: selectedHost.host_ip
+        })
       );
 
-      if (response.data.success) {
-        const data = response.data;
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
         setStatus(data.status);
         setCurrentStep(data.current_step || '');
         setProgress(data.progress || progress);
@@ -139,7 +141,7 @@ export const useGenerateModel = ({
           setIsExploring(false);
         }
       } else {
-        setError(response.data.error || 'Failed to get exploration status');
+        setError(data.error || 'Failed to get exploration status');
         setIsExploring(false);
       }
     } catch (err: any) {
@@ -168,19 +170,29 @@ export const useGenerateModel = ({
         exploration_depth: depth
       });
 
-      const response = await apiClient.post('/server/ai-generation/start-exploration', {
-        tree_id: treeId,
-        host_ip: selectedHost.host_ip,
-        device_id: selectedDeviceId,
-        exploration_depth: depth
+      const response = await fetch(buildServerUrl('/server/ai-generation/start-exploration'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tree_id: treeId,
+          host_ip: selectedHost.host_ip,
+          device_id: selectedDeviceId,
+          exploration_depth: depth
+        })
       });
 
-      if (response.data.success) {
-        setExplorationId(response.data.exploration_id);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setExplorationId(data.exploration_id);
         setCurrentStep('Exploration started successfully');
-        console.log('[@useGenerateModel:startExploration] Exploration started:', response.data.exploration_id);
+        console.log('[@useGenerateModel:startExploration] Exploration started:', data.exploration_id);
       } else {
-        throw new Error(response.data.error || 'Failed to start exploration');
+        throw new Error(data.error || 'Failed to start exploration');
       }
     } catch (err: any) {
       console.error('[@useGenerateModel:startExploration] Error:', err);
@@ -196,9 +208,13 @@ export const useGenerateModel = ({
     try {
       console.log('[@useGenerateModel:cancelExploration] Cancelling exploration:', explorationId);
       
-      await apiClient.post('/server/ai-generation/cancel-exploration', {
-        exploration_id: explorationId,
-        host_ip: selectedHost.host_ip
+      await fetch(buildServerUrl('/server/ai-generation/cancel-exploration'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exploration_id: explorationId,
+          host_ip: selectedHost.host_ip
+        })
       });
 
       resetState();
@@ -225,25 +241,35 @@ export const useGenerateModel = ({
         treeId
       });
 
-      const response = await apiClient.post('/server/ai-generation/approve-generation', {
-        exploration_id: explorationId,
-        tree_id: treeId,
-        host_ip: selectedHost.host_ip,
-        approved_nodes: nodeIds,
-        approved_edges: edgeIds
+      const response = await fetch(buildServerUrl('/server/ai-generation/approve-generation'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exploration_id: explorationId,
+          tree_id: treeId,
+          host_ip: selectedHost.host_ip,
+          approved_nodes: nodeIds,
+          approved_edges: edgeIds
+        })
       });
 
-      if (response.data.success) {
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
         console.log('[@useGenerateModel:approveGeneration] Generation completed:', {
-          nodes_created: response.data.nodes_created,
-          edges_created: response.data.edges_created
+          nodes_created: data.nodes_created,
+          edges_created: data.edges_created
         });
         
         // Reset state after successful generation
         resetState();
-        return response.data;
+        return data;
       } else {
-        throw new Error(response.data.error || 'Failed to approve generation');
+        throw new Error(data.error || 'Failed to approve generation');
       }
     } catch (err: any) {
       console.error('[@useGenerateModel:approveGeneration] Error:', err);
