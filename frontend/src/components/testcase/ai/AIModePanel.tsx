@@ -2,14 +2,14 @@ import React from 'react';
 import { Box, Typography, TextField, Button } from '@mui/material';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 
-interface AIModePanel Props {
+interface AIModePanelProps {
   aiPrompt?: string;
   setAiPrompt?: (prompt: string) => void;
   isGenerating?: boolean;
   handleGenerateWithAI?: () => void;
 }
 
-export const AIModePanel: React.FC<AIModePanel Props> = ({
+export const AIModePanel: React.FC<AIModePanelProps> = ({
   aiPrompt = '',
   setAiPrompt = () => {},
   isGenerating = false,
