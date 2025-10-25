@@ -308,7 +308,12 @@ AS $$
         FROM navigation_trees nt
         INNER JOIN tree_hierarchy th ON nt.parent_tree_id = th.id
     )
-    SELECT id, name, tree_depth, parent_tree_id, parent_node_id 
+    SELECT 
+        id AS tree_id, 
+        name AS tree_name, 
+        tree_depth AS depth, 
+        parent_tree_id, 
+        parent_node_id 
     FROM tree_hierarchy;
 $$;
 

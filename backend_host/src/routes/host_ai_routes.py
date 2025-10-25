@@ -22,8 +22,9 @@ def ai_generate_plan():
         device_id = data.get('device_id', 'device1')
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         current_node_id = data.get('current_node_id')
+        team_id = request.args.get('team_id')
         
-        print(f"[@host_ai] Generating plan for device: {device_id}")
+        print(f"[@host_ai] Generating plan for device: {device_id}, team: {team_id}")
         print(f"[@host_ai] Prompt: {prompt[:100]}...")
         
         # Validate
@@ -31,6 +32,12 @@ def ai_generate_plan():
             return jsonify({
                 'success': False,
                 'error': 'Prompt is required'
+            }), 400
+        
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
             }), 400
         
         # Get device from app registry
@@ -54,6 +61,7 @@ def ai_generate_plan():
             prompt=prompt,
             userinterface_name=userinterface_name,
             current_node_id=current_node_id,
+            team_id=team_id,
             async_execution=False  # Synchronous for plan generation
         )
         

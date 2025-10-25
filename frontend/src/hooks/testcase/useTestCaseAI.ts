@@ -18,7 +18,7 @@ export const useTestCaseAI = () => {
     prompt: string,
     userinterfaceName: string,
     deviceId: string,
-    teamId: string
+    hostName: string
   ): Promise<{ 
     success: boolean; 
     graph?: TestCaseGraph;
@@ -36,7 +36,7 @@ export const useTestCaseAI = () => {
           prompt,
           userinterface_name: userinterfaceName,
           device_id: deviceId,
-          team_id: teamId
+          host_name: hostName
         }),
       });
       
@@ -101,7 +101,7 @@ export const useTestCaseAI = () => {
     selections: Array<{ phrase: string; resolved: string }>,
     userinterfaceName: string,
     deviceId: string,
-    teamId: string
+    hostName: string
   ): Promise<{ 
     success: boolean; 
     graph?: TestCaseGraph;
@@ -117,12 +117,12 @@ export const useTestCaseAI = () => {
           prompt,
           selections,
           userinterface_name: userinterfaceName,
-          team_id: teamId
+          host_name: hostName
         }),
       });
       
       // Then regenerate with saved choices
-      return await generateTestCaseFromPrompt(prompt, userinterfaceName, deviceId, teamId);
+      return await generateTestCaseFromPrompt(prompt, userinterfaceName, deviceId, hostName);
     } catch (error) {
       console.error('[useTestCaseAI] Error saving disambiguation:', error);
       return {

@@ -338,8 +338,40 @@ class NavigationExecutor:
                     print(f"[@navigation_executor:execute_navigation] Starting from entry (frontend doesn't know position)")
             else:
                 # Frontend didn't send position → trust backend (set by previous navigation in script)
+                # BUT verify if position is stale (>30s old)
                 if nav_context.get('current_node_id'):
-                    print(f"[@navigation_executor:execute_navigation] Starting from backend position: {nav_context['current_node_id']} ({nav_context.get('current_node_label', 'unknown')})")
+                    position_timestamp = nav_context.get('position_timestamp', 0)
+                    time_since_position = time.time() - position_timestamp if position_timestamp else 999
+                    
+                    if time_since_position > 30:
+                        # Position is stale (>30s old) - verify before trusting
+                        print(f"[@navigation_executor:execute_navigation] ⏰ Backend position is {int(time_since_position)}s old - verifying before use")
+                        stale_node_id = nav_context['current_node_id']
+                        stale_node_label = nav_context.get('current_node_label', 'unknown')
+                        
+                        verification_result = self.device.verification_executor.verify_node(
+                            node_id=stale_node_id,
+                            userinterface_name=userinterface_name,
+                            team_id=team_id,
+                            tree_id=tree_id
+                        )
+                        
+                        if verification_result.get('success') and verification_result.get('has_verifications', True):
+                            print(f"[@navigation_executor:execute_navigation] ✅ Stale position verified - still at {stale_node_label}")
+                            # Update timestamp to mark as fresh
+                            nav_context['position_timestamp'] = time.time()
+                            nav_context['last_verified_timestamp'] = time.time()
+                        else:
+                            print(f"[@navigation_executor:execute_navigation] ❌ Stale position verification failed - clearing position (was: {stale_node_label})")
+                            # Clear stale position - we're not there anymore
+                            nav_context['current_node_id'] = None
+                            nav_context['current_node_label'] = None
+                            nav_context['current_tree_id'] = None
+                            nav_context['position_timestamp'] = 0
+                            nav_context['last_verified_timestamp'] = 0
+                            print(f"[@navigation_executor:execute_navigation] Starting from entry (stale position cleared)")
+                    else:
+                        print(f"[@navigation_executor:execute_navigation] Starting from backend position: {nav_context['current_node_id']} ({nav_context.get('current_node_label', 'unknown')}) [{int(time_since_position)}s old]")
                 else:
                     print(f"[@navigation_executor:execute_navigation] Starting from entry (no position tracked)")
             
@@ -1862,6 +1894,8 @@ class NavigationExecutor:
         nav_context['current_node_id'] = node_id
         nav_context['current_tree_id'] = tree_id
         nav_context['current_node_label'] = node_label
+        # Track when position was set for staleness checks
+        nav_context['position_timestamp'] = time.time()
         
         # Only log position updates when called directly (not from navigation completion)
         # Navigation completion already logs the final position
@@ -1890,6 +1924,7 @@ class NavigationExecutor:
         nav_context['current_node_id'] = None
         nav_context['current_tree_id'] = None
         nav_context['current_node_label'] = None
+        nav_context['position_timestamp'] = 0
         nav_context['last_verified_timestamp'] = 0
         
         print(f"[@navigation_executor] Cleared position for {self.device_id} (was: {old_position['node_id']})")
