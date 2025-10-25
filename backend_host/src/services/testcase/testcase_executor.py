@@ -132,6 +132,15 @@ class TestCaseExecutor:
             # Calculate execution time
             execution_time_ms = int((time.time() - start_time) * 1000)
             
+            # Determine result type for logging
+            result_type = execution_result.get('result_type', 'error')
+            if result_type == 'success':
+                print(f"[@testcase_executor] Execution completed: SUCCESS (reached SUCCESS block)")
+            elif result_type == 'failure':
+                print(f"[@testcase_executor] Execution completed: FAILURE (reached FAILURE block)")
+            else:
+                print(f"[@testcase_executor] Execution completed: ERROR - {execution_result.get('error')}")
+            
             # Update script_results with final result
             update_script_execution_result(
                 script_result_id=script_result_id,
@@ -140,10 +149,9 @@ class TestCaseExecutor:
                 error_msg=execution_result.get('error')
             )
             
-            print(f"[@testcase_executor] Execution completed: {'SUCCESS' if execution_result['success'] else 'FAILED'}")
-            
             return {
                 'success': execution_result['success'],
+                'result_type': result_type,
                 'execution_time_ms': execution_time_ms,
                 'step_count': len(context.step_results),
                 'error': execution_result.get('error'),
@@ -174,7 +182,11 @@ class TestCaseExecutor:
             context: Execution context
         
         Returns:
-            {success: bool, error: str}
+            {
+                success: bool (True only if reached SUCCESS terminal block),
+                result_type: 'success' | 'failure' | 'error',
+                error: str (if error occurred)
+            }
         """
         nodes = {node['id']: node for node in graph['nodes']}
         edges = graph['edges']
@@ -205,12 +217,12 @@ class TestCaseExecutor:
             if node_type == 'success':
                 context.overall_success = True
                 print(f"[@testcase_executor] Reached SUCCESS block")
-                return {'success': True}
+                return {'success': True, 'result_type': 'success'}
             
             if node_type == 'failure':
                 context.overall_success = False
                 print(f"[@testcase_executor] Reached FAILURE block")
-                return {'success': False, 'error': 'Test case reached FAILURE block'}
+                return {'success': False, 'result_type': 'failure', 'error': 'Test case reached FAILURE block'}
             
             # Execute block
             try:
@@ -218,7 +230,7 @@ class TestCaseExecutor:
             except Exception as e:
                 error_msg = f"Block {current_node_id} execution error: {str(e)}"
                 print(f"[@testcase_executor] ERROR: {error_msg}")
-                return {'success': False, 'error': error_msg}
+                return {'success': False, 'result_type': 'error', 'error': error_msg}
             
             # Record step
             context.record_step_immediately({
@@ -235,23 +247,26 @@ class TestCaseExecutor:
             next_node_id = self._find_next_node(current_node_id, edge_type, edges)
             
             if not next_node_id:
-                # No connection found - default behavior
-                if block_result['success']:
-                    # Success with no connection - end as success
+                # No connection found
+                # For START block: if it has no connection and succeeds, treat as successful completion
+                if node_type == 'start' and block_result['success']:
                     context.overall_success = True
-                    return {'success': True}
-                else:
-                    # Failure with no connection - end as failure
-                    context.overall_success = False
-                    return {'success': False, 'error': block_result.get('error', 'Block failed')}
+                    print(f"[@testcase_executor] START block with no connections - treating as successful completion")
+                    return {'success': True, 'result_type': 'success'}
+                
+                # For other blocks: no connection is an error (incomplete graph)
+                error_msg = f"Block {current_node_id} ({node_type}) has no {edge_type} connection"
+                print(f"[@testcase_executor] ERROR: {error_msg}")
+                context.overall_success = False
+                return {'success': False, 'result_type': 'error', 'error': error_msg}
             
             current_node_id = next_node_id
         
         # Max iterations reached - treat as error
         if iteration_count >= max_iterations:
-            return {'success': False, 'error': 'Max iterations reached (possible infinite loop)'}
+            return {'success': False, 'result_type': 'error', 'error': 'Max iterations reached (possible infinite loop)'}
         
-        return {'success': False, 'error': 'Graph execution ended unexpectedly'}
+        return {'success': False, 'result_type': 'error', 'error': 'Graph execution ended unexpectedly'}
     
     def _execute_block(self, node: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """
@@ -264,7 +279,8 @@ class TestCaseExecutor:
         data = node.get('data', {})
         
         if node_type == 'start':
-            # START block - no-op
+            # START block - always succeeds, it's just an entry point
+            # No execution needed, just marks the beginning of the flow
             return {'success': True, 'execution_time_ms': 0, 'message': 'Test started'}
         
         elif node_type == 'action':

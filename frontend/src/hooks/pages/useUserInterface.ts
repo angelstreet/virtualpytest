@@ -9,6 +9,7 @@ import { useMemo } from 'react';
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { CACHE_CONFIG } from '../../config/constants';
 
 // 24-hour cache for userinterfaces
 const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();

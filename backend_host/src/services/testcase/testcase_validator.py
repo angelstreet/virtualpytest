@@ -172,9 +172,10 @@ class TestCaseValidator:
             node_id = node['id']
             node_type = node.get('type')
             
-            # START must have outgoing
-            if node_type == 'start' and not outgoing[node_id]:
-                self.errors.append(f"START block has no outgoing connections")
+            # START doesn't require outgoing connection - it's valid on its own
+            # (allows for minimal test cases that just check if system can start)
+            # if node_type == 'start' and not outgoing[node_id]:
+            #     self.errors.append(f"START block has no outgoing connections")
             
             # Terminal blocks should have incoming but no outgoing
             if node_type in ['success', 'failure']:

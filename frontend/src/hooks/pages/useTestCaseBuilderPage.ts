@@ -373,7 +373,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     if (result.success) {
       setSnackbar({
         open: true,
-        message: `Test case "${testcaseName}" saved successfully!`,
+        message: `Test case "${testcaseName}" saved successfully`,
         severity: 'success',
       });
       setSaveDialogOpen(false);
@@ -391,10 +391,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setLoadDialogOpen(false);
     setSnackbar({
       open: true,
-      message: 'Test case loaded successfully!',
+      message: `Test case "${testcaseName}" loaded successfully`,
       severity: 'success',
     });
-  }, [loadTestCase]);
+  }, [loadTestCase, testcaseName]);
   
   const handleDelete = useCallback(async (testcaseId: string, testcaseName: string): Promise<void> => {
     setDeleteTargetTestCase({ id: testcaseId, name: testcaseName });
@@ -415,7 +415,16 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   }, [deleteTargetTestCase, deleteTestCaseById]);
   
   const handleExecute = useCallback(async () => {
-    await executeCurrentTestCase();
+    if (!selectedHost?.host_name) {
+      setSnackbar({
+        open: true,
+        message: 'Please select a host first',
+        severity: 'error',
+      });
+      return;
+    }
+    
+    await executeCurrentTestCase(selectedHost.host_name);
     
     if (executionState.result) {
       if (executionState.result.success) {
@@ -432,7 +441,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
         });
       }
     }
-  }, [executeCurrentTestCase, executionState]);
+  }, [selectedHost, executeCurrentTestCase, executionState]);
   
   const handleNew = useCallback(() => {
     setNewConfirmOpen(true);

@@ -65,7 +65,7 @@ interface TestCaseBuilderContextType {
   // API Actions
   saveCurrentTestCase: () => Promise<{ success: boolean; error?: string }>;
   loadTestCase: (testcase_id: string) => Promise<void>;
-  executeCurrentTestCase: () => Promise<void>;
+  executeCurrentTestCase: (hostName: string) => Promise<void>;
   fetchTestCaseList: () => Promise<void>;
   deleteTestCaseById: (testcase_id: string) => Promise<void>;
   resetBuilder: () => void;
@@ -207,43 +207,56 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
 
   // Handle connections
   const onConnect = useCallback((connection: Connection) => {
-    // Determine edge type and color based on source handle
-    // Support: success, failure, true, false, complete, break
-    const sourceHandle = connection.sourceHandle || 'success';
-    let edgeType = sourceHandle;
-    let edgeColor = '#6b7280'; // default gray
+    // RULE: Each source handle can only have ONE outgoing connection
+    // If a connection from the same source handle exists, remove it first
+    const sourceNodeId = connection.source;
+    const sourceHandleId = connection.sourceHandle || 'success';
     
-    // Map handle types to colors
-    switch (sourceHandle) {
-      case 'success':
-      case 'true':
-      case 'complete':
-        edgeColor = '#10b981'; // green
-        break;
-      case 'failure':
-      case 'false':
-        edgeColor = '#ef4444'; // red
-        break;
-      case 'break':
-        edgeColor = '#f59e0b'; // orange/yellow
-        break;
-    }
+    // Remove any existing edge from the same source handle
+    setEdges((prev) => {
+      const filteredEdges = prev.filter(edge => 
+        !(edge.source === sourceNodeId && edge.sourceHandle === sourceHandleId)
+      );
+      
+      // Determine edge type and color based on source handle
+      // Support: success, failure, true, false, complete, break
+      let edgeType = sourceHandleId;
+      let edgeColor = '#6b7280'; // default gray
+      
+      // Map handle types to colors
+      switch (sourceHandleId) {
+        case 'success':
+        case 'true':
+        case 'complete':
+          edgeColor = '#10b981'; // green
+          break;
+        case 'failure':
+        case 'false':
+          edgeColor = '#ef4444'; // red
+          break;
+        case 'break':
+          edgeColor = '#f59e0b'; // orange/yellow
+          break;
+      }
+      
+      const newEdge: Edge = {
+        ...connection,
+        id: `edge_${edgeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
+        type: edgeType,
+        source: connection.source!,
+        target: connection.target!,
+        sourceHandle: sourceHandleId,
+        style: { stroke: edgeColor, strokeWidth: 2 },
+      };
+      
+      return addEdge(newEdge, filteredEdges);
+    });
     
-    const newEdge: Edge = {
-      ...connection,
-      id: `edge_${edgeIdCounter.current++}`, // Temporary ID - backend assigns real UUID on save
-      type: edgeType,
-      source: connection.source!,
-      target: connection.target!,
-      style: { stroke: edgeColor, strokeWidth: 2 },
-    };
-    
-    setEdges((prev) => addEdge(newEdge, prev));
     setHasUnsavedChanges(true);
   }, []);
 
   // Execute testcase
-  const executeCurrentTestCase = useCallback(async () => {
+  const executeCurrentTestCase = useCallback(async (hostName: string) => {
     let testcaseIdToExecute = currentTestcaseId;
     
     // If no test case ID, auto-save first
@@ -294,19 +307,21 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     });
 
     try {
-      const response = await executeTestCase(testcaseIdToExecute, 'device1');
+      const response = await executeTestCase(testcaseIdToExecute, 'device1', hostName);
       
-      if (response.success && response.result) {
+      if (response.success) {
         setExecutionState({
           isExecuting: false,
           currentBlockId: null,
           result: {
-            success: response.result.success,
-            current_step: response.result.step_count,
-            total_steps: response.result.step_count,
-            step_results: response.result.step_results || [],
-            execution_time_ms: response.result.execution_time_ms,
-            report_url: response.result.script_result_id ? `/script-results/${response.result.script_result_id}` : undefined
+            success: response.success,
+            result_type: response.result_type || 'success',
+            current_step: response.step_count || 0,
+            total_steps: response.step_count || 0,
+            step_results: response.step_results || [],
+            execution_time_ms: response.execution_time_ms || 0,
+            error: response.error,
+            report_url: response.script_result_id ? `/script-results/${response.script_result_id}` : undefined
           },
         });
       } else {
@@ -315,10 +330,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           currentBlockId: null,
           result: {
             success: false,
-            current_step: 0,
-            total_steps: 0,
-            step_results: [],
-            execution_time_ms: 0,
+            result_type: response.result_type || 'error',
+            current_step: response.step_count || 0,
+            total_steps: response.step_count || 0,
+            step_results: response.step_results || [],
+            execution_time_ms: response.execution_time_ms || 0,
+            error: response.error, // ✅ Pass the error message!
           },
         });
       }
@@ -329,10 +346,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         currentBlockId: null,
         result: {
           success: false,
+          result_type: 'error',
           current_step: 0,
           total_steps: 0,
           step_results: [],
           execution_time_ms: 0,
+          error: error instanceof Error ? error.message : 'Unknown error',
         },
       });
     }
@@ -442,7 +461,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     } catch (error) {
       console.error('Error fetching test case list:', error);
     }
-  }, []);
+  }, [listTestCases]);
   
   // Delete test case
   const deleteTestCaseById = useCallback(async (testcase_id: string) => {

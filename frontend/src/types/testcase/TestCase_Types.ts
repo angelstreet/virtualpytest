@@ -88,6 +88,8 @@ export interface SavedTestCase {
 }
 
 // Execution-related types
+export type ExecutionResultType = 'success' | 'failure' | 'error';
+
 export interface StepResult {
   step_number: number;
   block_id: string;
@@ -102,6 +104,7 @@ export interface StepResult {
 
 export interface ExecutionResult {
   success: boolean;
+  result_type?: ExecutionResultType; // success = reached SUCCESS block, failure = reached FAILURE block, error = execution problems
   current_step: number;
   total_steps: number;
   step_results: StepResult[];

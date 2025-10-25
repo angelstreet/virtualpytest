@@ -36,7 +36,6 @@ interface TestCaseBuilderHeaderProps {
   // Test Case
   testcaseName: string;
   hasUnsavedChanges: boolean;
-  currentTestcaseId: string | null;
   
   // Actions
   handleNew: () => void;
@@ -67,7 +66,6 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   setUserinterfaceName,
   testcaseName,
   hasUnsavedChanges,
-  currentTestcaseId,
   handleNew,
   setLoadDialogOpen,
   setSaveDialogOpen,
@@ -89,11 +87,44 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
         flexShrink: 0,
       }}
     >
-      {/* SECTION 1: Title */}
-      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 240px' }}>
+      {/* SECTION 1: Title with Test Case Name */}
+      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 auto', gap: 1 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
           TestCase Builder
         </Typography>
+        {testcaseName && (
+          <>
+            <Typography variant="h6" sx={{ color: 'text.disabled' }}>
+              •
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              {hasUnsavedChanges && (
+                <Typography 
+                  variant="h6" 
+                  sx={{ 
+                    color: '#f97316', // orange
+                    fontWeight: 700,
+                  }}
+                >
+                  *
+                </Typography>
+              )}
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: hasUnsavedChanges ? 700 : 600,
+                  color: hasUnsavedChanges ? '#f97316' : 'primary.main',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 200,
+                }}
+              >
+                {testcaseName}
+              </Typography>
+            </Box>
+          </>
+        )}
       </Box>
       
       {/* SECTION 2: Visual/AI Mode Toggle */}
@@ -127,8 +158,8 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
           isRemotePanelOpen={isRemotePanelOpen}
           availableHosts={availableHosts}
           isDeviceLocked={isDeviceLocked}
-          onDeviceSelect={handleDeviceSelect}
-          onTakeControl={handleDeviceControl}
+          onDeviceSelect={handleDeviceSelect as any}
+          onTakeControl={handleDeviceControl as any}
           onToggleRemotePanel={handleToggleRemotePanel}
         />
       </Box>
@@ -147,14 +178,8 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
         />
       </Box>
       
-      {/* SECTION 4: TestCase Info + Action Buttons */}
+      {/* SECTION 4: Action Buttons */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
-        {testcaseName && (
-          <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
-            {testcaseName}{hasUnsavedChanges ? ' *' : ''} {currentTestcaseId ? '(saved)' : '(unsaved)'}
-          </Typography>
-        )}
-        
         <Box sx={{ display: 'flex', gap: 1.5 }}>
           <Button 
             size="small" 

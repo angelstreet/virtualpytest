@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Host } from '../../types/common/Host_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { CACHE_CONFIG } from '../../config/constants';
 
 // ============================================================================
 // 24-HOUR CACHE FOR STREAM URLs

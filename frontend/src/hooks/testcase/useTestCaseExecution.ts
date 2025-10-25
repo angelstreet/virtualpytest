@@ -10,9 +10,20 @@ import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 export interface TestCaseExecutionResult {
   success: boolean;
+  result_type?: 'success' | 'failure' | 'error';
   execution_time_ms: number;
   step_count: number;
   script_result_id: string;
+  error?: string;
+  step_results?: any[];
+}
+
+export interface TestCaseExecutionResponse {
+  success: boolean;
+  result_type?: 'success' | 'failure' | 'error';
+  execution_time_ms?: number;
+  step_count?: number;
+  script_result_id?: string;
   error?: string;
   step_results?: any[];
 }
@@ -24,13 +35,17 @@ export const useTestCaseExecution = () => {
    */
   const executeTestCase = useCallback(async (
     testcaseId: string, 
-    deviceId: string
-  ): Promise<{ success: boolean; result?: TestCaseExecutionResult; error?: string }> => {
+    deviceId: string,
+    hostName: string
+  ): Promise<TestCaseExecutionResponse> => {
     try {
       const response = await fetch(buildServerUrl(`/server/testcase/${testcaseId}/execute`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ device_id: deviceId }),
+        body: JSON.stringify({ 
+          device_id: deviceId,
+          host_name: hostName
+        }),
       });
       
       if (!response.ok) {

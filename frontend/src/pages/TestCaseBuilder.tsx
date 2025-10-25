@@ -270,7 +270,6 @@ const TestCaseBuilderContent: React.FC = () => {
         setUserinterfaceName={hookData.setUserinterfaceName}
         testcaseName={hookData.testcaseName}
         hasUnsavedChanges={hookData.hasUnsavedChanges}
-        currentTestcaseId={hookData.currentTestcaseId}
         handleNew={hookData.handleNew}
         setLoadDialogOpen={hookData.setLoadDialogOpen}
         setSaveDialogOpen={hookData.setSaveDialogOpen}
@@ -355,15 +354,22 @@ const TestCaseBuilderContent: React.FC = () => {
         }}
       >
         <Typography variant="caption" color="text.secondary">
-          {hookData.nodes.length} blocks • {hookData.edges.length} connections
+          {hookData.nodes.filter(n => !['start', 'success', 'failure'].includes(n.type)).length} blocks • {hookData.edges.length} connections
         </Typography>
         <Typography variant="caption" color="text.secondary">
           {hookData.executionState.isExecuting && 'Executing...'}
-          {hookData.executionState.result && !hookData.executionState.isExecuting && (
-            hookData.executionState.result.success 
-              ? `✓ Last run: ${hookData.executionState.result.execution_time_ms}ms` 
-              : '✗ Last run: Failed'
-          )}
+          {hookData.executionState.result && !hookData.executionState.isExecuting && (() => {
+            const result = hookData.executionState.result;
+            const resultType = result.result_type || (result.success ? 'success' : 'error');
+            
+            if (resultType === 'success') {
+              return `✓ Last run: SUCCESS (${result.execution_time_ms}ms)`;
+            } else if (resultType === 'failure') {
+              return `✗ Last run: FAILURE (${result.execution_time_ms}ms)`;
+            } else {
+              return `⚠ Last run: ERROR - ${result.error || 'Unknown error'}`;
+            }
+          })()}
         </Typography>
       </Box>
 
@@ -496,20 +502,39 @@ const TestCaseBuilderContent: React.FC = () => {
                 >
                   <ListItemButton onClick={() => hookData.handleLoad(tc.testcase_id)}>
                     <ListItemText
-                      primary={tc.testcase_name}
+                      primary={
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          <Typography variant="subtitle1" fontWeight="bold">
+                            {tc.testcase_name}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            (Created: {new Date(tc.created_at).toLocaleDateString()} - Modified: {new Date(tc.updated_at).toLocaleDateString()})
+                          </Typography>
+                        </Box>
+                      }
                       secondary={
-                        <>
-                          {tc.description && <span>{tc.description}<br /></span>}
-                          {tc.userinterface_name && <span>UI: {tc.userinterface_name}<br /></span>}
-                          {tc.last_execution_success !== undefined && (
-                            <span>
-                              Last run: {tc.last_execution_success ? 
-                                <CheckCircleIcon fontSize="small" style={{ color: '#10b981', verticalAlign: 'middle' }} /> : 
-                                <ErrorIcon fontSize="small" style={{ color: '#ef4444', verticalAlign: 'middle' }} />
-                              } ({tc.execution_count || 0} executions)
-                            </span>
+                        <Box component="span" sx={{ display: 'block' }}>
+                          {tc.description && (
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              {tc.description}
+                            </Typography>
                           )}
-                        </>
+                          <Typography variant="body2" color="text.secondary">
+                            UI: {tc.userinterface_name || 'Not specified'} - {tc.graph_json?.nodes?.length || 0} blocks
+                          </Typography>
+                          {tc.execution_count > 0 ? (
+                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                              Last run: {tc.last_execution_success ? 
+                                <CheckCircleIcon fontSize="small" style={{ color: '#10b981' }} /> : 
+                                <ErrorIcon fontSize="small" style={{ color: '#ef4444' }} />
+                              } {tc.execution_count} execution{tc.execution_count > 1 ? 's' : ''}
+                            </Typography>
+                          ) : (
+                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                              Last run: Never executed
+                            </Typography>
+                          )}
+                        </Box>
                       }
                     />
                   </ListItemButton>
@@ -608,7 +633,7 @@ const TestCaseBuilderContent: React.FC = () => {
         open={hookData.snackbar.open}
         autoHideDuration={4000}
         onClose={() => hookData.setSnackbar({ ...hookData.snackbar, open: false })}
-        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
       >
         <Alert
           onClose={() => hookData.setSnackbar({ ...hookData.snackbar, open: false })}
