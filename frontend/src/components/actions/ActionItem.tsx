@@ -1162,18 +1162,17 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'waitForElementToAppear':
       case 'waitForElementToDisappear':
         // Debug verification action properties
-        console.log('[ActionItem] Element verification action debug:', {
+        console.log('[ActionItem] Web element verification action debug:', {
           command: action.command,
           action_type: action.action_type,
           verification_type: action.verification_type,
           full_action: action
         });
         
-        // Check if this is a verification action with adb, appium, or web type
-        if (action.action_type === 'verification' && 
-            (action.verification_type === 'adb' || action.verification_type === 'appium' || action.verification_type === 'web')) {
-          console.log(`[ActionItem] Rendering ${action.verification_type.toUpperCase()} element verification UI`);
-          // Simple text input for search term (consistent across ADB, Appium, and Web)
+        // Check if this is a verification action with appium type (web automation)
+        if (action.action_type === 'verification' && action.verification_type === 'appium') {
+          console.log('[ActionItem] Rendering web element verification UI (text input like ADB)');
+          // Simple text input for search term (like ADB verifications - consistent parameter name)
           fields.push(
             <TextField
               key="search_term"
@@ -1192,7 +1191,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             />,
           );
         } else {
-          console.log('[ActionItem] NOT rendering element verification UI - check failed');
+          console.log('[ActionItem] NOT rendering web element verification UI - check failed');
         }
         break;
 
