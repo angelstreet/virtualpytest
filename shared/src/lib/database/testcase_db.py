@@ -27,7 +27,8 @@ def create_testcase(
     creation_method: str = 'visual',
     ai_prompt: str = None,
     ai_analysis: str = None,
-    overwrite: bool = False
+    overwrite: bool = False,
+    environment: str = 'dev'
 ) -> Optional[str]:
     """
     Create a new test case definition, or update if it exists and overwrite=True.
@@ -43,6 +44,7 @@ def create_testcase(
         ai_prompt: Original prompt if AI-generated
         ai_analysis: AI reasoning if AI-generated
         overwrite: If True, update existing test case with same name
+        environment: Environment ('dev', 'test', 'prod') - defaults to 'dev'
     
     Returns:
         testcase_id (UUID) or None on failure
@@ -53,9 +55,9 @@ def create_testcase(
         return None
     
     try:
-        # Check if test case with this name already exists
+        # Check if test case with this name already exists in this environment
         if overwrite:
-            existing = get_testcase_by_name(testcase_name, team_id)
+            existing = get_testcase_by_name(testcase_name, team_id, environment)
             if existing:
                 # Update existing test case
                 success = update_testcase(
@@ -80,14 +82,15 @@ def create_testcase(
             'created_by': created_by,
             'creation_method': creation_method,
             'ai_prompt': ai_prompt,
-            'ai_analysis': ai_analysis
+            'ai_analysis': ai_analysis,
+            'environment': environment
         }
         
         result = supabase.table('testcase_definitions').insert(data).execute()
         
         if result.data and len(result.data) > 0:
             testcase_id = result.data[0]['testcase_id']
-            print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method})")
+            print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method}, env: {environment})")
             return str(testcase_id)
         else:
             print(f"[@testcase_db] ERROR: No data returned after insert")
@@ -96,7 +99,7 @@ def create_testcase(
     except Exception as e:
         error_msg = str(e)
         if 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
-            print(f"[@testcase_db] ERROR: Test case name already exists: {testcase_name}")
+            print(f"[@testcase_db] ERROR: Test case name already exists: {testcase_name} in {environment}")
             return 'DUPLICATE_NAME'  # Return special value to indicate duplicate
         else:
             print(f"[@testcase_db] ERROR creating test case: {e}")
@@ -143,13 +146,14 @@ def get_testcase(testcase_id: str, team_id: str = None) -> Optional[Dict[str, An
         return None
 
 
-def get_testcase_by_name(testcase_name: str, team_id: str) -> Optional[Dict[str, Any]]:
+def get_testcase_by_name(testcase_name: str, team_id: str, environment: str = 'dev') -> Optional[Dict[str, Any]]:
     """
-    Get test case definition by name.
+    Get test case definition by name and environment.
     
     Args:
         testcase_name: Test case name
         team_id: Team ID
+        environment: Environment ('dev', 'test', 'prod') - defaults to 'dev'
     
     Returns:
         Test case dict or None
@@ -163,6 +167,7 @@ def get_testcase_by_name(testcase_name: str, team_id: str) -> Optional[Dict[str,
             .select('*')\
             .eq('testcase_name', testcase_name)\
             .eq('team_id', team_id)\
+            .eq('environment', environment)\
             .execute()
         
         if result.data and len(result.data) > 0:
@@ -315,13 +320,14 @@ def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
         return False
 
 
-def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[str, Any]]:
+def list_testcases(team_id: str, include_inactive: bool = False, environment: str = None) -> List[Dict[str, Any]]:
     """
     List all test cases for a team.
     
     Args:
         team_id: Team ID
         include_inactive: (Deprecated - kept for backward compatibility)
+        environment: Filter by environment ('dev', 'test', 'prod') - None returns all
     
     Returns:
         List of test case dicts (without full graph_json)
@@ -333,9 +339,14 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
     try:
         # Note: Supabase doesn't support subqueries in select, so we get execution counts separately
         query = supabase.table('testcase_definitions')\
-            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,graph_json')\
-            .eq('team_id', team_id)\
-            .order('updated_at', desc=True)
+            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,environment,graph_json')\
+            .eq('team_id', team_id)
+        
+        # Filter by environment if specified
+        if environment:
+            query = query.eq('environment', environment)
+        
+        query = query.order('updated_at', desc=True)
         
         result = query.execute()
         
@@ -420,3 +431,46 @@ def get_testcase_execution_history(testcase_name: str, team_id: str, limit: int 
     except Exception as e:
         print(f"[@testcase_db] ERROR getting execution history: {e}")
         return []
+
+
+def migrate_testcase_environment(testcase_id: str, team_id: str, target_environment: str) -> bool:
+    """
+    Migrate a testcase to a different environment (dev -> test -> prod).
+    
+    Args:
+        testcase_id: Test case UUID
+        team_id: Team ID for security
+        target_environment: Target environment ('dev', 'test', 'prod')
+    
+    Returns:
+        True on success, False on failure
+    """
+    if target_environment not in ['dev', 'test', 'prod']:
+        print(f"[@testcase_db] ERROR: Invalid environment: {target_environment}")
+        return False
+    
+    supabase = get_supabase()
+    if not supabase:
+        return False
+    
+    try:
+        query = supabase.table('testcase_definitions')\
+            .update({'environment': target_environment})\
+            .eq('testcase_id', testcase_id)
+        
+        if team_id:
+            query = query.eq('team_id', team_id)
+        
+        result = query.execute()
+        
+        if result.data and len(result.data) > 0:
+            testcase_name = result.data[0].get('testcase_name', testcase_id)
+            print(f"[@testcase_db] Migrated test case '{testcase_name}' to environment: {target_environment}")
+            return True
+        else:
+            print(f"[@testcase_db] WARNING: No test case migrated (ID: {testcase_id})")
+            return False
+        
+    except Exception as e:
+        print(f"[@testcase_db] ERROR migrating test case: {e}")
+        return False

@@ -1,4 +1,4 @@
-import React, { useCallback, useRef, DragEvent, useState, useEffect } from 'react';
+import React, { useCallback, useRef, DragEvent, useState } from 'react';
 import { 
   Box, 
   Button, 
@@ -7,16 +7,8 @@ import {
   DialogTitle, 
   DialogContent, 
   DialogActions,
-  TextField,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  IconButton,
   Alert,
-  Snackbar,
-  Chip,
-  CircularProgress
+  Snackbar
 } from '@mui/material';
 import ReactFlow, {
   ReactFlowProvider,
@@ -30,11 +22,6 @@ const styles = `
     display: none !important;
   }
 `;
-
-// Icons
-import DeleteIcon from '@mui/icons-material/Delete';
-import CheckCircleIcon from '@mui/icons-material/CheckCircle';
-import ErrorIcon from '@mui/icons-material/Error';
 
 // Components
 import { TestCaseBuilderHeader } from '../components/testcase/builder/TestCaseBuilderHeader';
@@ -54,6 +41,7 @@ import { ExecutionProgressBar } from '../components/testcase/builder/ExecutionPr
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
 import { VerificationConfigDialog } from '../components/testcase/dialogs/VerificationConfigDialog';
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
+import { TestCaseBuilderDialogs } from '../components/testcase/builder/TestCaseBuilderDialogs';
 
 // Context
 import { TestCaseBuilderProvider } from '../contexts/testcase/TestCaseBuilderContext';
@@ -216,91 +204,6 @@ const TestCaseBuilderContent: React.FC = () => {
   
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
-  
-  // Save dialog state
-  const [nextVersionNumber, setNextVersionNumber] = useState<number | null>(null);
-  const [isSaveSuccess, setIsSaveSuccess] = useState(false);
-  const [isLoadingVersion, setIsLoadingVersion] = useState(false);
-  
-  // Fetch next version number when save dialog opens
-  useEffect(() => {
-    const fetchNextVersion = async () => {
-      if (hookData.saveDialogOpen) {
-        setIsLoadingVersion(true);
-        try {
-          const teamId = localStorage.getItem('team_id') || '7fdeb4bb-3639-4ec3-959f-b54769a219ce';
-          
-          // Try to get version by ID first, then by name
-          if (hookData.currentTestcaseId) {
-            const response = await fetch(
-              `/server/testcase/${hookData.currentTestcaseId}/next-version?team_id=${teamId}`
-            );
-            const data = await response.json();
-            if (data.success) {
-              setNextVersionNumber(data.next_version);
-            }
-          } else if (hookData.testcaseName) {
-            // Check if test case exists by name (for unsaved changes to existing test case)
-            const listResponse = await fetch(`/server/testcase/list?team_id=${teamId}`);
-            const listData = await listResponse.json();
-            if (listData.success) {
-              const existingTestCase = listData.testcases.find(
-                (tc: any) => tc.testcase_name === hookData.testcaseName
-              );
-              if (existingTestCase) {
-                // Existing test case found by name, get its next version
-                const versionResponse = await fetch(
-                  `/server/testcase/${existingTestCase.testcase_id}/next-version?team_id=${teamId}`
-                );
-                const versionData = await versionResponse.json();
-                if (versionData.success) {
-                  setNextVersionNumber(versionData.next_version);
-                } else {
-                  // Default to 1 for new test case
-                  setNextVersionNumber(1);
-                }
-              } else {
-                // New test case
-                setNextVersionNumber(1);
-              }
-            }
-          } else {
-            // No ID and no name, default to 1
-            setNextVersionNumber(1);
-          }
-        } catch (error) {
-          console.error('Failed to fetch next version:', error);
-          setNextVersionNumber(1); // Default to 1 on error
-        } finally {
-          setIsLoadingVersion(false);
-        }
-      } else {
-        // Reset state when dialog closes
-        setNextVersionNumber(null);
-        setIsSaveSuccess(false);
-      }
-    };
-    
-    fetchNextVersion();
-    // Only depend on saveDialogOpen to avoid infinite loops
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [hookData.saveDialogOpen]);
-  
-  // Handle save with success state
-  const handleSaveWithSuccess = async () => {
-    const result = await hookData.handleSave();
-    
-    if (result.success) {
-      // Show success state with green tick
-      setIsSaveSuccess(true);
-      
-      // Auto-dismiss after 1.5 seconds
-      setTimeout(() => {
-        hookData.setSaveDialogOpen(false);
-      }, 1500);
-    }
-    // If failed, error toast is already shown by the hook
-  };
 
   // Fit view when ReactFlow instance is ready
   React.useEffect(() => {
@@ -563,197 +466,35 @@ const TestCaseBuilderContent: React.FC = () => {
         />
       )}
       
-      {/* Save Dialog */}
-      <Dialog 
-        open={hookData.saveDialogOpen} 
-        onClose={() => !isSaveSuccess && hookData.setSaveDialogOpen(false)} 
-        maxWidth="sm" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            border: 2,
-            borderColor: isSaveSuccess ? '#10b981' : 'divider',
-            transition: 'border-color 0.3s ease',
-          }
-        }}
-      >
-        <DialogTitle sx={{ 
-          borderBottom: 1, 
-          borderColor: 'divider', 
-          pb: 2,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between'
-        }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-            Save Test Case
-            {isSaveSuccess && (
-              <CheckCircleIcon sx={{ color: '#10b981', fontSize: 24 }} />
-            )}
-          </Box>
-          <Chip 
-            label={isLoadingVersion ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <CircularProgress size={12} />
-                <span>Loading...</span>
-              </Box>
-            ) : (
-              `Version ${nextVersionNumber || 1}`
-            )}
-            size="small"
-            color={isSaveSuccess ? "success" : "primary"}
-            variant="outlined"
-            sx={{ fontWeight: 'bold' }}
-          />
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          <TextField
-            autoFocus
-            margin="dense"
-            label="Test Case Name"
-            type="text"
-            fullWidth
-            required
-            value={hookData.testcaseName}
-            onChange={(e) => hookData.setTestcaseName(e.target.value)}
-            placeholder="e.g., login_test"
-            disabled={isSaveSuccess}
-          />
-          <TextField
-            margin="dense"
-            label="Description"
-            type="text"
-            fullWidth
-            multiline
-            rows={3}
-            value={hookData.description}
-            onChange={(e) => hookData.setDescription(e.target.value)}
-            placeholder="Describe what this test case does"
-            disabled={isSaveSuccess}
-          />
-          <TextField
-            margin="dense"
-            label="User Interface"
-            type="text"
-            fullWidth
-            value={hookData.userinterfaceName}
-            onChange={(e) => hookData.setUserinterfaceName(e.target.value)}
-            placeholder="e.g., horizon_android_mobile"
-            disabled={isSaveSuccess}
-          />
-        </DialogContent>
-        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
-          <Button 
-            onClick={() => hookData.setSaveDialogOpen(false)} 
-            variant="outlined"
-            disabled={isSaveSuccess}
-          >
-            Cancel
-          </Button>
-          <Button 
-            onClick={handleSaveWithSuccess} 
-            variant="contained" 
-            disabled={!hookData.testcaseName || isSaveSuccess}
-            startIcon={isSaveSuccess ? <CheckCircleIcon /> : null}
-            sx={{
-              backgroundColor: isSaveSuccess ? '#10b981' : undefined,
-              '&:hover': {
-                backgroundColor: isSaveSuccess ? '#059669' : undefined,
-              },
-            }}
-          >
-            {isSaveSuccess ? 'Saved!' : 'Save'}
-          </Button>
-        </DialogActions>
-      </Dialog>
-      
-      {/* Load Dialog */}
-      <Dialog 
-        open={hookData.loadDialogOpen} 
-        onClose={() => hookData.setLoadDialogOpen(false)} 
-        maxWidth="md" 
-        fullWidth
-        PaperProps={{
-          sx: {
-            border: 2,
-            borderColor: 'divider',
-          }
-        }}
-      >
-        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
-          Load Test Case
-        </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
-          {hookData.testcaseList.length === 0 ? (
-            <Alert severity="info">No test cases found. Create one first!</Alert>
-          ) : (
-            <List>
-              {hookData.testcaseList.map((tc) => (
-                <ListItem
-                  key={tc.testcase_id}
-                  secondaryAction={
-                    <IconButton edge="end" onClick={() => hookData.handleDelete(tc.testcase_id, tc.testcase_name)}>
-                      <DeleteIcon />
-                    </IconButton>
-                  }
-                  disablePadding
-                >
-                  <ListItemButton onClick={() => hookData.handleLoad(tc.testcase_id)}>
-                    <ListItemText
-                      primary={
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          <Typography variant="subtitle1" fontWeight="bold">
-                            {tc.testcase_name}
-                          </Typography>
-                          <Chip 
-                            label={`v${tc.current_version || 1}`}
-                            size="small"
-                            color="primary"
-                            variant="outlined"
-                            sx={{ fontWeight: 'bold', height: 20, fontSize: '0.7rem' }}
-                          />
-                          <Typography variant="caption" color="text.secondary">
-                            (Created: {new Date(tc.created_at).toLocaleDateString()} - Modified: {new Date(tc.updated_at).toLocaleDateString()})
-                          </Typography>
-                        </Box>
-                      }
-                      secondary={
-                        <Box component="span" sx={{ display: 'block' }}>
-                          {tc.description && (
-                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                              {tc.description}
-                            </Typography>
-                          )}
-                          <Typography variant="body2" color="text.secondary">
-                            UI: {tc.userinterface_name || 'Not specified'} - {tc.graph_json?.nodes?.length || 0} blocks
-                          </Typography>
-                          {tc.execution_count > 0 ? (
-                            <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                              Last run: {tc.last_execution_success ? 
-                                <CheckCircleIcon fontSize="small" style={{ color: '#10b981' }} /> : 
-                                <ErrorIcon fontSize="small" style={{ color: '#ef4444' }} />
-                              } {tc.execution_count} execution{tc.execution_count > 1 ? 's' : ''}
-                            </Typography>
-                          ) : (
-                            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                              Last run: Never executed
-                            </Typography>
-                          )}
-                        </Box>
-                      }
-                    />
-                  </ListItemButton>
-                </ListItem>
-              ))}
-            </List>
-          )}
-        </DialogContent>
-        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
-          <Button onClick={() => hookData.setLoadDialogOpen(false)} variant="outlined">
-            Cancel
-          </Button>
-        </DialogActions>
-      </Dialog>
+      {/* All Dialogs - using TestCaseBuilderDialogs component */}
+      <TestCaseBuilderDialogs
+        saveDialogOpen={hookData.saveDialogOpen}
+        setSaveDialogOpen={hookData.setSaveDialogOpen}
+        testcaseName={hookData.testcaseName}
+        setTestcaseName={hookData.setTestcaseName}
+        testcaseDescription={hookData.description}
+        setTestcaseDescription={hookData.setDescription}
+        testcaseEnvironment="dev"
+        setTestcaseEnvironment={() => {}}
+        currentTestcaseId={hookData.currentTestcaseId}
+        currentVersion={
+          hookData.currentTestcaseId 
+            ? hookData.testcaseList.find(tc => tc.testcase_id === hookData.currentTestcaseId)?.current_version 
+            : null
+        }
+        handleSave={hookData.handleSave}
+        loadDialogOpen={hookData.loadDialogOpen}
+        setLoadDialogOpen={hookData.setLoadDialogOpen}
+        availableTestcases={hookData.testcaseList}
+        handleLoad={hookData.handleLoad}
+        handleDelete={hookData.handleDelete}
+        editDialogOpen={false}
+        setEditDialogOpen={() => {}}
+        editingNode={null}
+        editFormData={{}}
+        setEditFormData={() => {}}
+        handleSaveEdit={() => {}}
+      />
       
       {/* Delete Confirmation Dialog */}
       <Dialog 

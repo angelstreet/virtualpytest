@@ -1,7 +1,7 @@
 /**
  * useTestCaseExecution Hook
  * 
- * Handles test case execution operations.
+ * Handles test case execution operations with async polling support.
  * Follows Navigation architecture pattern with buildServerUrl + fetch directly.
  */
 
@@ -20,26 +20,47 @@ export interface TestCaseExecutionResult {
 
 export interface TestCaseExecutionResponse {
   success: boolean;
+  execution_id?: string;  // For async execution
   result_type?: 'success' | 'failure' | 'error';
   execution_time_ms?: number;
   step_count?: number;
   script_result_id?: string;
   error?: string;
   step_results?: any[];
+  message?: string;
+}
+
+export interface ExecutionStatus {
+  execution_id: string;
+  status: 'running' | 'completed' | 'failed';
+  current_block_id: string | null;
+  block_states: {
+    [blockId: string]: {
+      status: 'success' | 'failure';
+      duration: number;
+      error?: string;
+      message?: string;
+    };
+  };
+  result: TestCaseExecutionResult | null;
+  error: string | null;
+  elapsed_time_ms: number;
 }
 
 export const useTestCaseExecution = () => {
   
   /**
-   * Execute a test case directly from graph (no save required)
+   * Execute a test case directly from graph with async polling
    */
   const executeTestCase = useCallback(async (
     graph: any,  // TestCaseGraph
     deviceId: string,
     hostName: string,
-    userinterfaceName?: string
+    userinterfaceName?: string,
+    onProgress?: (status: ExecutionStatus) => void  // Real-time progress callback
   ): Promise<TestCaseExecutionResponse> => {
     try {
+      // Step 1: Start async execution
       const response = await fetch(buildServerUrl(`/server/testcase/execute`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -47,7 +68,8 @@ export const useTestCaseExecution = () => {
           graph_json: graph,
           device_id: deviceId,
           host_name: hostName,
-          userinterface_name: userinterfaceName || ''
+          userinterface_name: userinterfaceName || '',
+          async_execution: true  // Always use async to prevent timeouts
         }),
       });
       
@@ -56,13 +78,124 @@ export const useTestCaseExecution = () => {
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      return await response.json();
+      const startData = await response.json();
+      
+      if (!startData.success) {
+        throw new Error(startData.error || 'Failed to start execution');
+      }
+      
+      const executionId = startData.execution_id;
+      
+      if (!executionId) {
+        throw new Error('No execution_id returned');
+      }
+      
+      console.log(`[useTestCaseExecution] Started async execution: ${executionId}`);
+      
+      // Step 2: Poll for status until completion
+      return await pollExecutionStatus(executionId, onProgress);
+      
     } catch (error) {
       console.error('[useTestCaseExecution] Error executing test case:', error);
       return {
         success: false,
         error: error instanceof Error ? error.message : 'Unknown error',
       };
+    }
+  }, []);
+
+  /**
+   * Poll execution status until completion
+   */
+  const pollExecutionStatus = async (
+    executionId: string,
+    onProgress?: (status: ExecutionStatus) => void
+  ): Promise<TestCaseExecutionResponse> => {
+    const maxAttempts = 300;  // 5 minutes max (300 * 1000ms)
+    const pollInterval = 1000;  // Poll every 1 second
+    
+    for (let attempt = 0; attempt < maxAttempts; attempt++) {
+      try {
+        const statusResponse = await fetch(buildServerUrl(`/server/testcase/execution/${executionId}/status`));
+        
+        if (!statusResponse.ok) {
+          throw new Error(`HTTP ${statusResponse.status}`);
+        }
+        
+        const statusData = await statusResponse.json();
+        
+        if (!statusData.success) {
+          throw new Error(statusData.error || 'Failed to get status');
+        }
+        
+        const status: ExecutionStatus = statusData.status;
+        
+        // Call progress callback with current status
+        if (onProgress) {
+          onProgress(status);
+        }
+        
+        // Check if execution is complete
+        if (status.status === 'completed' || status.status === 'failed') {
+          console.log(`[useTestCaseExecution] Execution ${executionId} ${status.status}`);
+          
+          if (status.result) {
+            // Return final result
+            return {
+              success: status.result.success,
+              result_type: status.result.result_type,
+              execution_time_ms: status.result.execution_time_ms,
+              step_count: status.result.step_count,
+              script_result_id: status.result.script_result_id,
+              error: status.result.error,
+              step_results: status.result.step_results
+            };
+          } else {
+            // Execution failed before producing result
+            return {
+              success: false,
+              error: status.error || 'Execution failed'
+            };
+          }
+        }
+        
+        // Still running - wait before next poll
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+        
+      } catch (error) {
+        console.error('[useTestCaseExecution] Error polling status:', error);
+        // Continue polling unless we've hit max attempts
+        if (attempt >= maxAttempts - 1) {
+          return {
+            success: false,
+            error: 'Polling timeout: execution status unavailable'
+          };
+        }
+        await new Promise(resolve => setTimeout(resolve, pollInterval));
+      }
+    }
+    
+    return {
+      success: false,
+      error: 'Execution timeout: maximum polling attempts reached'
+    };
+  };
+
+  /**
+   * Get execution status (single poll)
+   */
+  const getExecutionStatus = useCallback(async (executionId: string): Promise<{ success: boolean; status?: ExecutionStatus; error?: string }> => {
+    try {
+      const response = await fetch(buildServerUrl(`/server/testcase/execution/${executionId}/status`));
+      
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      
+      return await response.json();
+    } catch (error) {
+      console.error('[useTestCaseExecution] Error getting status:', error);
+      return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
     }
   }, []);
 
@@ -86,7 +219,7 @@ export const useTestCaseExecution = () => {
 
   return {
     executeTestCase,
+    getExecutionStatus,
     getTestCaseHistory,
   };
 };
-

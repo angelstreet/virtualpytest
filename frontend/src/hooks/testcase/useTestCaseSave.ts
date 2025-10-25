@@ -22,6 +22,7 @@ export const useTestCaseSave = () => {
     description: string,
     userinterfaceName: string,
     createdBy: string,
+    environment: string = 'dev',
     overwrite: boolean = false
   ): Promise<{ success: boolean; action?: string; error?: string; testcase?: any }> => {
     try {
@@ -34,6 +35,7 @@ export const useTestCaseSave = () => {
           description,
           userinterface_name: userinterfaceName,
           created_by: createdBy,
+          environment,
           overwrite,
         }),
       });

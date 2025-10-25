@@ -23,6 +23,8 @@ interface TestCaseBuilderContextType {
   setTestcaseName: React.Dispatch<React.SetStateAction<string>>;
   description: string;
   setDescription: React.Dispatch<React.SetStateAction<string>>;
+  testcaseEnvironment: string;
+  setTestcaseEnvironment: React.Dispatch<React.SetStateAction<string>>;
   userinterfaceName: string;
   setUserinterfaceName: React.Dispatch<React.SetStateAction<string>>;
   currentTestcaseId: string | null;
@@ -146,6 +148,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Test case metadata
   const [testcaseName, setTestcaseName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
+  const [testcaseEnvironment, setTestcaseEnvironment] = useState<string>('dev');
   const [userinterfaceName, setUserinterfaceName] = useState<string>('');
   const [currentTestcaseId, setCurrentTestcaseId] = useState<string | null>(null);
   const [testcaseList, setTestcaseList] = useState<any[]>([]);
@@ -382,10 +385,37 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     });
 
     try {
-      // Execute directly with graph - no testcase_id needed
-      const response = await executeTestCase(graph, 'device1', hostName, userinterfaceName);
+      // Execute with async polling and real-time progress updates
+      const response = await executeTestCase(
+        graph,
+        'device1',
+        hostName,
+        userinterfaceName,
+        // Real-time progress callback
+        (status) => {
+          // Update current block ID
+          if (status.current_block_id) {
+            setExecutionState(prev => ({
+              ...prev,
+              currentBlockId: status.current_block_id
+            }));
+          }
+          
+          // Update block states in real-time
+          Object.entries(status.block_states).forEach(([blockId, blockState]) => {
+            unifiedExecution.updateBlockState(blockId, {
+              status: blockState.status,
+              duration: blockState.duration,
+              error: blockState.error,
+              result: blockState
+            });
+          });
+          
+          console.log(`[TestCaseBuilder] Progress: ${status.status}, block: ${status.current_block_id}, elapsed: ${status.elapsed_time_ms}ms`);
+        }
+      );
       
-      // 🆕 PROCESS step_results to update blockStates
+      // 🆕 PROCESS step_results to update blockStates (final update)
       // Each step has { block_id, success, error, execution_time_ms }
       if (response.step_results && Array.isArray(response.step_results)) {
         response.step_results.forEach((step: any) => {
@@ -519,6 +549,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         description,
         userinterfaceName,
         'default-user',
+        testcaseEnvironment,
         true  // Always overwrite - maintains history automatically via trigger
       );
       
@@ -534,7 +565,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     } catch (error: any) {
       return { success: false, error: error.message };
     }
-  }, [testcaseName, description, userinterfaceName, nodes, edges, saveTestCase]);
+  }, [testcaseName, description, testcaseEnvironment, userinterfaceName, nodes, edges, saveTestCase]);
   
   // Load test case
   const loadTestCase = useCallback(async (testcase_id: string) => {
@@ -547,6 +578,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         // Set metadata
         setTestcaseName(testcase.testcase_name);
         setDescription(testcase.description || '');
+        setTestcaseEnvironment(testcase.environment || 'dev');
         setUserinterfaceName(testcase.userinterface_name || '');
         setCurrentTestcaseId(testcase.testcase_id);
         
@@ -740,6 +772,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setTestcaseName,
     description,
     setDescription,
+    testcaseEnvironment,
+    setTestcaseEnvironment,
     userinterfaceName,
     setUserinterfaceName,
     currentTestcaseId,

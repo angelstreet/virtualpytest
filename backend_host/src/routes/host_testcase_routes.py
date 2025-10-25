@@ -27,6 +27,7 @@ def testcase_save():
         description = data.get('description')
         userinterface_name = data.get('userinterface_name')
         created_by = data.get('created_by')
+        environment = data.get('environment', 'dev')
         
         # Validate
         if not team_id:
@@ -37,7 +38,7 @@ def testcase_save():
             return jsonify({'success': False, 'error': 'graph_json is required'}), 400
         
         # Check if test case already exists (update vs create)
-        existing = get_testcase_by_name(testcase_name, team_id)
+        existing = get_testcase_by_name(testcase_name, team_id, environment)
         
         if existing:
             # Update existing
@@ -66,7 +67,8 @@ def testcase_save():
                 graph_json=graph_json,
                 description=description,
                 userinterface_name=userinterface_name,
-                created_by=created_by
+                created_by=created_by,
+                environment=environment
             )
             
             if testcase_id:
@@ -229,6 +231,7 @@ def testcase_execute_direct():
         device_id = data.get('device_id', 'device1')
         host_name = data.get('host_name')
         userinterface_name = data.get('userinterface_name', '')
+        async_execution = data.get('async_execution', True)  # Default to async to prevent timeouts
         
         # Validate
         if not team_id:
@@ -246,19 +249,36 @@ def testcase_execute_direct():
         device_name = device.device_name
         device_model = device.device_model
         
-        # Execute test case directly with graph
-        executor = TestCaseExecutor()
-        result = executor.execute_testcase_from_graph(
-            graph=graph_json,
-            team_id=team_id,
-            host_name=host_name,
-            device_id=device_id,
-            device_name=device_name,
-            device_model=device_model,
-            userinterface_name=userinterface_name
-        )
+        # Get or create global executor instance for async execution tracking
+        if not hasattr(current_app, 'testcase_executor'):
+            current_app.testcase_executor = TestCaseExecutor()
         
-        print(f"[@host_testcase] Execution result: success={result.get('success')}")
+        executor = current_app.testcase_executor
+        
+        if async_execution:
+            # Async execution - return immediately with execution_id
+            result = executor.execute_testcase_from_graph_async(
+                graph=graph_json,
+                team_id=team_id,
+                host_name=host_name,
+                device_id=device_id,
+                device_name=device_name,
+                device_model=device_model,
+                userinterface_name=userinterface_name
+            )
+            print(f"[@host_testcase] Async execution started: {result.get('execution_id')}")
+        else:
+            # Synchronous execution - wait for completion (may timeout for long tests)
+            result = executor.execute_testcase_from_graph(
+                graph=graph_json,
+                team_id=team_id,
+                host_name=host_name,
+                device_id=device_id,
+                device_name=device_name,
+                device_model=device_model,
+                userinterface_name=userinterface_name
+            )
+            print(f"[@host_testcase] Execution result: success={result.get('success')}")
         
         return jsonify(result)
         
@@ -267,6 +287,30 @@ def testcase_execute_direct():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': f'Execution failed: {str(e)}'}), 500
+
+
+@host_testcase_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def testcase_execution_status(execution_id):
+    """Get status of async test case execution"""
+    try:
+        from backend_host.src.services.testcase.testcase_executor import TestCaseExecutor
+        
+        # Get global executor instance (we need a singleton pattern here)
+        # For now, we'll use a module-level executor
+        if not hasattr(current_app, 'testcase_executor'):
+            current_app.testcase_executor = TestCaseExecutor()
+        
+        executor = current_app.testcase_executor
+        status = executor.get_execution_status(execution_id)
+        
+        if status is None:
+            return jsonify({'success': False, 'error': 'Execution not found'}), 404
+        
+        return jsonify({'success': True, 'status': status})
+        
+    except Exception as e:
+        print(f"[@host_testcase] Error getting execution status: {e}")
+        return jsonify({'success': False, 'error': f'Status check failed: {str(e)}'}), 500
 
 
 @host_testcase_bp.route('/<testcase_id>/history', methods=['GET'])

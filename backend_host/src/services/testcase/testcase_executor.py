@@ -3,9 +3,12 @@ TestCase Executor
 
 Executes visual test cases created in TestCase Builder.
 Integrates with existing executors and ScriptExecutionContext.
+Supports async execution with real-time progress tracking.
 """
 
 import time
+import threading
+import uuid
 from typing import Dict, List, Any, Optional
 from shared.src.lib.executors.script_executor import ScriptExecutionContext
 from shared.src.lib.database.testcase_db import get_testcase_by_name, get_testcase
@@ -16,6 +19,7 @@ from .testcase_validator import TestCaseValidator
 class TestCaseExecutor:
     """
     Executes test case graphs by traversing nodes and delegating to existing executors.
+    Supports async execution with real-time progress tracking.
     """
     
     def __init__(self):
@@ -23,6 +27,10 @@ class TestCaseExecutor:
         self.context = None
         self.device = None
         self.current_block_id = None
+        
+        # Async execution tracking
+        self._executions: Dict[str, Dict[str, Any]] = {}  # execution_id -> execution state
+        self._lock = threading.Lock()
     
     def execute_testcase_from_graph(
         self,
@@ -318,6 +326,316 @@ class TestCaseExecutor:
                 'execution_time_ms': execution_time_ms
             }
     
+    def execute_testcase_from_graph_async(
+        self,
+        graph: Dict[str, Any],
+        team_id: str,
+        host_name: str,
+        device_id: str,
+        device_name: str,
+        device_model: str,
+        userinterface_name: str = ''
+    ) -> Dict[str, Any]:
+        """
+        Start async execution of test case from graph.
+        Returns immediately with execution_id for polling.
+        
+        Returns:
+            {
+                'success': True,
+                'execution_id': str,
+                'message': 'Execution started'
+            }
+        """
+        execution_id = str(uuid.uuid4())
+        
+        # Initialize execution state
+        with self._lock:
+            self._executions[execution_id] = {
+                'execution_id': execution_id,
+                'status': 'running',
+                'start_time': time.time(),
+                'current_block_id': None,
+                'block_states': {},  # block_id -> {status, duration, error, message}
+                'result': None,
+                'error': None
+            }
+        
+        # Start execution in background thread
+        thread = threading.Thread(
+            target=self._execute_testcase_async_worker,
+            args=(execution_id, graph, team_id, host_name, device_id, device_name, device_model, userinterface_name)
+        )
+        thread.daemon = True
+        thread.start()
+        
+        print(f"[@testcase_executor] Started async execution: {execution_id}")
+        
+        return {
+            'success': True,
+            'execution_id': execution_id,
+            'message': 'Execution started asynchronously'
+        }
+    
+    def _execute_testcase_async_worker(
+        self,
+        execution_id: str,
+        graph: Dict[str, Any],
+        team_id: str,
+        host_name: str,
+        device_id: str,
+        device_name: str,
+        device_model: str,
+        userinterface_name: str
+    ):
+        """Background worker for async execution"""
+        start_time = time.time()
+        
+        try:
+            # Validate graph
+            print(f"[@testcase_executor:{execution_id}] Validating graph...")
+            is_valid, errors, warnings = self.validator.validate_graph(
+                graph,
+                userinterface_name=userinterface_name,
+                team_id=team_id
+            )
+            
+            if not is_valid:
+                error_msg = '; '.join(errors)
+                print(f"[@testcase_executor:{execution_id}] Validation failed: {error_msg}")
+                with self._lock:
+                    self._executions[execution_id]['status'] = 'failed'
+                    self._executions[execution_id]['error'] = f'Invalid graph: {error_msg}'
+                    self._executions[execution_id]['result'] = {
+                        'success': False,
+                        'error': f'Invalid graph: {error_msg}',
+                        'validation_errors': errors,
+                        'execution_time_ms': 0
+                    }
+                return
+            
+            # Record execution start
+            script_result_id = record_script_execution_start(
+                team_id=team_id,
+                script_name='unsaved_testcase',
+                script_type='testcase',
+                userinterface_name=userinterface_name,
+                host_name=host_name,
+                device_name=device_name,
+                metadata={
+                    'device_id': device_id,
+                    'device_model': device_model,
+                    'unsaved': True,
+                    'execution_id': execution_id
+                }
+            )
+            
+            print(f"[@testcase_executor:{execution_id}] Script result ID: {script_result_id}")
+            
+            # Create execution context
+            context = ScriptExecutionContext('unsaved_testcase')
+            context.script_result_id = script_result_id
+            context.team_id = team_id
+            context.userinterface_name = userinterface_name
+            
+            # Get device
+            from backend_host.src.controllers.controller_manager import get_host
+            host = get_host(device_ids=[device_id])
+            device = next((d for d in host.get_devices() if d.device_id == device_id), None)
+            
+            if not device:
+                raise ValueError(f"Device not found: {device_id}")
+            
+            context.selected_device = device
+            context.host = host
+            
+            # Populate device navigation_context
+            nav_context = device.navigation_context
+            nav_context['script_id'] = script_result_id
+            nav_context['script_name'] = 'unsaved_testcase'
+            nav_context['script_context'] = 'testcase'
+            
+            # Store context for block execution callbacks
+            self.context = context
+            self.device = device
+            
+            # Execute graph with progress tracking
+            print(f"[@testcase_executor:{execution_id}] Executing test case...")
+            execution_result = self._execute_graph_with_tracking(graph, context, execution_id)
+            
+            # Calculate execution time
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Update script_results
+            update_script_execution_result(
+                script_result_id=script_result_id,
+                success=execution_result['success'],
+                execution_time_ms=execution_time_ms,
+                error_msg=execution_result.get('error')
+            )
+            
+            # Update execution state
+            with self._lock:
+                self._executions[execution_id]['status'] = 'completed'
+                self._executions[execution_id]['result'] = {
+                    'success': execution_result['success'],
+                    'result_type': execution_result.get('result_type', 'error'),
+                    'execution_time_ms': execution_time_ms,
+                    'step_count': len(context.step_results),
+                    'error': execution_result.get('error'),
+                    'script_result_id': script_result_id,
+                    'step_results': context.step_results
+                }
+            
+            print(f"[@testcase_executor:{execution_id}] Execution completed: {execution_result.get('result_type')}")
+            
+        except Exception as e:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            error_msg = f"Execution error: {str(e)}"
+            print(f"[@testcase_executor:{execution_id}] ERROR: {error_msg}")
+            
+            import traceback
+            traceback.print_exc()
+            
+            with self._lock:
+                self._executions[execution_id]['status'] = 'failed'
+                self._executions[execution_id]['error'] = error_msg
+                self._executions[execution_id]['result'] = {
+                    'success': False,
+                    'error': error_msg,
+                    'execution_time_ms': execution_time_ms
+                }
+    
+    def get_execution_status(self, execution_id: str) -> Optional[Dict[str, Any]]:
+        """
+        Get current status of async execution.
+        
+        Returns:
+            {
+                'execution_id': str,
+                'status': 'running' | 'completed' | 'failed',
+                'current_block_id': str | None,
+                'block_states': {},
+                'result': {} | None,
+                'error': str | None,
+                'elapsed_time_ms': int
+            }
+        """
+        with self._lock:
+            if execution_id not in self._executions:
+                return None
+            
+            execution = self._executions[execution_id].copy()
+            
+            # Calculate elapsed time
+            start_time = execution.get('start_time', time.time())
+            execution['elapsed_time_ms'] = int((time.time() - start_time) * 1000)
+            
+            # Don't include start_time in response
+            execution.pop('start_time', None)
+            
+            return execution
+    
+    def _execute_graph_with_tracking(self, graph: Dict[str, Any], context: ScriptExecutionContext, execution_id: str) -> Dict[str, Any]:
+        """
+        Execute graph with real-time progress tracking for async execution.
+        Updates execution state as blocks are processed.
+        """
+        nodes = {node['id']: node for node in graph['nodes']}
+        edges = graph['edges']
+        
+        # Find START block
+        start_node = next((node for node in graph['nodes'] if node['type'] == 'start'), None)
+        if not start_node:
+            return {'success': False, 'error': 'No START block found'}
+        
+        start_node_id = start_node['id']
+        current_node_id = self._find_next_node(start_node_id, 'success', edges)
+        
+        if not current_node_id:
+            executable_blocks = [n for n in graph['nodes'] if n['type'] not in ['start', 'success', 'failure']]
+            if executable_blocks:
+                return {'success': False, 'error': 'START block is not connected to any executable block'}
+            else:
+                context.overall_success = True
+                return {'success': True, 'result_type': 'success'}
+        
+        max_iterations = 1000
+        iteration_count = 0
+        
+        while current_node_id and iteration_count < max_iterations:
+            iteration_count += 1
+            
+            # Update current block ID in execution state
+            with self._lock:
+                if execution_id in self._executions:
+                    self._executions[execution_id]['current_block_id'] = current_node_id
+            
+            current_node = nodes.get(current_node_id)
+            if not current_node:
+                return {'success': False, 'error': f'Node not found: {current_node_id}'}
+            
+            node_type = current_node['type']
+            
+            # Terminal blocks
+            if node_type == 'success':
+                context.overall_success = True
+                return {'success': True, 'result_type': 'success'}
+            
+            if node_type == 'failure':
+                context.overall_success = False
+                return {'success': False, 'result_type': 'failure', 'error': 'Test case reached FAILURE block'}
+            
+            # Execute block
+            block_start_time = time.time()
+            try:
+                block_result = self._execute_block(current_node, context)
+            except Exception as e:
+                error_msg = f"Block {current_node_id} execution error: {str(e)}"
+                return {'success': False, 'result_type': 'error', 'error': error_msg}
+            
+            block_duration_ms = int((time.time() - block_start_time) * 1000)
+            
+            # Update block state in execution tracking
+            with self._lock:
+                if execution_id in self._executions:
+                    self._executions[execution_id]['block_states'][current_node_id] = {
+                        'status': 'success' if block_result['success'] else 'failure',
+                        'duration': block_duration_ms,
+                        'error': block_result.get('error'),
+                        'message': block_result.get('message')
+                    }
+            
+            # Record step
+            context.record_step_immediately({
+                'block_id': current_node_id,
+                'block_type': node_type,
+                'success': block_result['success'],
+                'execution_time_ms': block_result.get('execution_time_ms', 0),
+                'message': block_result.get('message', ''),
+                'error': block_result.get('error'),
+                'step_category': 'testcase_block'
+            })
+            
+            # Find next node
+            edge_type = 'success' if block_result['success'] else 'failure'
+            next_node_id = self._find_next_node(current_node_id, edge_type, edges)
+            
+            if not next_node_id:
+                if edge_type == 'failure':
+                    context.overall_success = False
+                    return {'success': False, 'result_type': 'failure', 'error': f'Block {current_node_id} failed with no failure handler'}
+                else:
+                    context.overall_success = False
+                    return {'success': False, 'result_type': 'error', 'error': f'No {edge_type} connection from block {current_node_id}'}
+            
+            current_node_id = next_node_id
+        
+        if iteration_count >= max_iterations:
+            return {'success': False, 'result_type': 'error', 'error': 'Max iterations reached (possible infinite loop)'}
+        
+        return {'success': False, 'result_type': 'error', 'error': 'Graph execution ended unexpectedly'}
+    
     def _execute_graph(self, graph: Dict[str, Any], context: ScriptExecutionContext) -> Dict[str, Any]:
         """
         Execute a test case graph by traversing nodes.
@@ -589,25 +907,6 @@ class TestCaseExecutor:
         try:
             navigation_executor = self.device.navigation_executor
             
-            target_node_label = data.get('target_node_label')
-            target_node = data.get('target_node')
-            target_node_id = data.get('target_node_id')
-            
-            # PRIORITY: Use label (stable identifier) over UUID (can become stale)
-            # This matches individual block execution behavior from UniversalBlock.tsx
-            if target_node_label:
-                target = target_node_label
-            elif target_node:
-                target = target_node
-            elif target_node_id:
-                target = target_node_id
-            else:
-                return {
-                    'success': False,
-                    'execution_time_ms': 0,
-                    'error': 'No target node specified'
-                }
-            
             # Load navigation tree if not already loaded
             if not context.tree_id:
                 nav_result = navigation_executor.load_navigation_tree(
@@ -622,11 +921,20 @@ class TestCaseExecutor:
                     }
                 context.tree_id = nav_result['tree_id']
             
-            # Execute navigation
+            # DEBUG: Check navigation context before execution
+            nav_context = self.device.navigation_context
+            print(f"[@testcase_executor:_execute_navigation_block] 🔍 NAVIGATION CONTEXT CHECK:")
+            print(f"[@testcase_executor:_execute_navigation_block]   → current_node_id: {nav_context.get('current_node_id')}")
+            print(f"[@testcase_executor:_execute_navigation_block]   → current_node_label: {nav_context.get('current_node_label')}")
+            print(f"[@testcase_executor:_execute_navigation_block]   → target_node_label: {data.get('target_node_label')}")
+            print(f"[@testcase_executor:_execute_navigation_block]   → target_node_id: {data.get('target_node_id')}")
+            
+            # Call navigation_executor directly - it handles label resolution internally
             result = navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
                 userinterface_name=context.userinterface_name,
-                target_node_id=target,
+                target_node_id=data.get('target_node_id'),
+                target_node_label=data.get('target_node_label') or data.get('target_node'),
                 team_id=context.team_id,
                 context=context
             )

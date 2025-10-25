@@ -71,7 +71,11 @@ export const useDashboard = (): UseDashboardReturn => {
       let trees: Tree[] = [];
 
       if (testCasesResponse.ok) {
-        testCases = await testCasesResponse.json();
+        const testCasesData = await testCasesResponse.json();
+        // API returns { success: true, testcases: [...] }
+        if (testCasesData.success && testCasesData.testcases) {
+          testCases = testCasesData.testcases;
+        }
       }
 
       if (campaignsResponse.ok) {

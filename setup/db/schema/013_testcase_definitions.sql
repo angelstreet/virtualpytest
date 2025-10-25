@@ -19,19 +19,23 @@ CREATE TABLE testcase_definitions (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
     created_by VARCHAR(255),
     
+    -- Environment management
+    environment VARCHAR(10) DEFAULT 'dev' CHECK (environment IN ('dev', 'test', 'prod')),
+    
     -- Creation metadata
     creation_method VARCHAR(10) DEFAULT 'visual' CHECK (creation_method IN ('visual', 'ai')),
     ai_prompt TEXT,  -- Original prompt if AI-generated
     ai_analysis TEXT,  -- AI reasoning if AI-generated
     
-    -- Unique constraint: One test case name per team
-    CONSTRAINT unique_testcase_per_team UNIQUE (team_id, testcase_name)
+    -- Unique constraint: One test case name per team per environment
+    CONSTRAINT unique_testcase_per_team_env UNIQUE (team_id, testcase_name, environment)
 );
 
 -- Indexes for performance
 CREATE INDEX idx_testcase_team ON testcase_definitions(team_id);
 CREATE INDEX idx_testcase_name ON testcase_definitions(testcase_name);
 CREATE INDEX idx_testcase_ui ON testcase_definitions(userinterface_name);
+CREATE INDEX idx_testcase_environment ON testcase_definitions(environment);
 
 -- Updated timestamp trigger function
 CREATE OR REPLACE FUNCTION update_testcase_updated_at()
@@ -52,6 +56,7 @@ CREATE TRIGGER testcase_definitions_updated_at
 COMMENT ON TABLE testcase_definitions IS 'Test case definitions from TestCase Builder (visual or AI-generated)';
 COMMENT ON COLUMN testcase_definitions.graph_json IS 'React Flow graph: {nodes: [...], edges: [...]}';
 COMMENT ON COLUMN testcase_definitions.testcase_name IS 'Used as script_name in script_results for unified tracking';
+COMMENT ON COLUMN testcase_definitions.environment IS 'Deployment environment: dev (default), test, or prod';
 COMMENT ON COLUMN testcase_definitions.creation_method IS 'How test case was created: visual (drag-drop) or ai (prompt)';
 COMMENT ON COLUMN testcase_definitions.ai_prompt IS 'Original natural language prompt if AI-generated';
 COMMENT ON COLUMN testcase_definitions.ai_analysis IS 'AI reasoning and analysis if AI-generated';

@@ -7,12 +7,20 @@ import {
   TextField, 
   Button, 
   List, 
-  ListItemButton, 
-  ListItemText,
+  ListItem,
   Box,
   Typography,
-  Alert
+  Alert,
+  FormControl,
+  InputLabel,
+  Select,
+  MenuItem,
+  Chip,
+  IconButton
 } from '@mui/material';
+import DeleteIcon from '@mui/icons-material/Delete';
+import CheckCircleIcon from '@mui/icons-material/CheckCircle';
+import ErrorIcon from '@mui/icons-material/Error';
 
 interface TestCaseBuilderDialogsProps {
   // Save Dialog
@@ -22,14 +30,18 @@ interface TestCaseBuilderDialogsProps {
   setTestcaseName: (name: string) => void;
   testcaseDescription: string;
   setTestcaseDescription: (desc: string) => void;
+  testcaseEnvironment: string;
+  setTestcaseEnvironment: (env: string) => void;
   currentTestcaseId: string | null;
+  currentVersion?: number | null;
   handleSave: () => void;
   
   // Load Dialog
   loadDialogOpen: boolean;
   setLoadDialogOpen: (open: boolean) => void;
   availableTestcases: any[];
-  handleLoad: (testcase: any) => void;
+  handleLoad: (testcaseId: string) => void;
+  handleDelete?: (testcaseId: string, testcaseName: string) => void;
   
   // Edit Dialog
   editDialogOpen: boolean;
@@ -47,12 +59,16 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   setTestcaseName,
   testcaseDescription,
   setTestcaseDescription,
+  testcaseEnvironment,
+  setTestcaseEnvironment,
   currentTestcaseId,
+  currentVersion,
   handleSave,
   loadDialogOpen,
   setLoadDialogOpen,
   availableTestcases,
   handleLoad,
+  handleDelete,
   editDialogOpen,
   setEditDialogOpen,
   editingNode,
@@ -60,12 +76,59 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   setEditFormData,
   handleSaveEdit,
 }) => {
+  // Get environment color for chips
+  const getEnvironmentColor = (env: string) => {
+    switch (env) {
+      case 'prod': return 'error';
+      case 'test': return 'warning';
+      case 'dev': return 'success';
+      default: return 'default';
+    }
+  };
+
   return (
     <>
       {/* Save Dialog */}
-      <Dialog open={saveDialogOpen} onClose={() => setSaveDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>{currentTestcaseId ? 'Update Test Case' : 'Save Test Case'}</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={saveDialogOpen} 
+        onClose={() => setSaveDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          pb: 2,
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <Typography variant="h6">
+            {currentTestcaseId ? 'Update Test Case' : 'Save Test Case'}
+          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Chip 
+              label={(testcaseEnvironment || 'dev').toUpperCase()} 
+              color={getEnvironmentColor(testcaseEnvironment || 'dev')} 
+              size="small" 
+              sx={{ fontWeight: 'bold' }}
+            />
+            <Chip 
+              label={`Version ${currentVersion || 1}`} 
+              color="primary" 
+              size="small" 
+              variant="outlined"
+              sx={{ fontWeight: 'bold' }}
+            />
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
           <TextField
             autoFocus
             margin="dense"
@@ -83,10 +146,40 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             rows={3}
             value={testcaseDescription}
             onChange={(e) => setTestcaseDescription(e.target.value)}
+            sx={{ mb: 2 }}
           />
+          <FormControl fullWidth margin="dense">
+            <InputLabel>Environment</InputLabel>
+            <Select
+              value={testcaseEnvironment}
+              label="Environment"
+              onChange={(e) => setTestcaseEnvironment(e.target.value)}
+            >
+              <MenuItem value="dev">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip label="DEV" color="success" size="small" />
+                  <Typography variant="body2">Development (default)</Typography>
+                </Box>
+              </MenuItem>
+              <MenuItem value="test">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip label="TEST" color="warning" size="small" />
+                  <Typography variant="body2">Testing</Typography>
+                </Box>
+              </MenuItem>
+              <MenuItem value="prod">
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip label="PROD" color="error" size="small" />
+                  <Typography variant="body2">Production</Typography>
+                </Box>
+              </MenuItem>
+            </Select>
+          </FormControl>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setSaveDialogOpen(false)}>Cancel</Button>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button onClick={() => setSaveDialogOpen(false)} variant="outlined">
+            Cancel
+          </Button>
           <Button onClick={handleSave} variant="contained" disabled={!testcaseName.trim()}>
             {currentTestcaseId ? 'Update' : 'Save'}
           </Button>
@@ -94,44 +187,143 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
       </Dialog>
       
       {/* Load Dialog */}
-      <Dialog open={loadDialogOpen} onClose={() => setLoadDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Load Test Case</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={loadDialogOpen} 
+        onClose={() => setLoadDialogOpen(false)} 
+        maxWidth="md" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          Load Test Case
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
           {availableTestcases.length === 0 ? (
-            <Alert severity="info">No saved test cases available</Alert>
+            <Alert severity="info">No test cases found. Create one first!</Alert>
           ) : (
             <List>
               {availableTestcases.map((tc) => (
-                <ListItemButton key={tc.id} onClick={() => handleLoad(tc)}>
-                  <ListItemText
-                    primary={tc.name}
-                    secondary={
-                      <Box>
-                        <Typography variant="caption" component="div">
-                          {tc.description || 'No description'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          Updated: {new Date(tc.updated_at).toLocaleString()}
-                        </Typography>
-                      </Box>
+                <ListItem
+                  key={tc.testcase_id}
+                  sx={{ 
+                    display: 'flex',
+                    flexDirection: 'column',
+                    alignItems: 'stretch',
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    borderRadius: 1,
+                    mb: 1,
+                    p: 0,
+                    '&:hover': {
+                      bgcolor: 'action.hover'
                     }
-                  />
-                </ListItemButton>
+                  }}
+                >
+                  {/* Header Row: Name and Chips + Delete Button */}
+                  <Box sx={{ 
+                    display: 'flex', 
+                    justifyContent: 'space-between', 
+                    alignItems: 'center',
+                    p: 2,
+                    pb: 1,
+                    cursor: 'pointer'
+                  }}
+                  onClick={() => handleLoad(tc.testcase_id)}
+                  >
+                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
+                      {tc.testcase_name}
+                    </Typography>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, ml: 2 }}>
+                      <Chip 
+                        label={(tc.environment || 'dev').toUpperCase()} 
+                        color={getEnvironmentColor(tc.environment || 'dev')} 
+                        size="small" 
+                        sx={{ fontWeight: 'bold' }}
+                      />
+                      <Chip 
+                        label={`Version ${tc.current_version || 1}`} 
+                        color="primary" 
+                        size="small" 
+                        variant="outlined"
+                        sx={{ fontWeight: 'bold' }}
+                      />
+                      {handleDelete && (
+                        <IconButton 
+                          size="small" 
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            handleDelete(tc.testcase_id, tc.testcase_name);
+                          }}
+                          sx={{ ml: 0.5 }}
+                        >
+                          <DeleteIcon fontSize="small" />
+                        </IconButton>
+                      )}
+                    </Box>
+                  </Box>
+                  
+                  {/* Content: Description, UI, and Execution Info */}
+                  <Box sx={{ px: 2, pb: 2, cursor: 'pointer' }} onClick={() => handleLoad(tc.testcase_id)}>
+                    {tc.description && (
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                        {tc.description}
+                      </Typography>
+                    )}
+                    <Typography variant="body2" color="text.secondary">
+                      UI: {tc.userinterface_name || 'Not specified'} - {tc.graph_json?.nodes?.length || 0} blocks
+                    </Typography>
+                    {tc.execution_count > 0 ? (
+                      <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
+                        Last run: {tc.last_execution_success ? 
+                          <CheckCircleIcon fontSize="small" style={{ color: '#10b981' }} /> : 
+                          <ErrorIcon fontSize="small" style={{ color: '#ef4444' }} />
+                        } {tc.execution_count} execution{tc.execution_count > 1 ? 's' : ''}
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                        Last run: Never executed
+                      </Typography>
+                    )}
+                    <Typography variant="caption" color="text.secondary">
+                      Created: {new Date(tc.created_at).toLocaleDateString()} - Modified: {new Date(tc.updated_at).toLocaleDateString()}
+                    </Typography>
+                  </Box>
+                </ListItem>
               ))}
             </List>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setLoadDialogOpen(false)}>Close</Button>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button onClick={() => setLoadDialogOpen(false)} variant="outlined">
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
       
       {/* Edit Node Dialog */}
-      <Dialog open={editDialogOpen} onClose={() => setEditDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Edit {editingNode?.type || 'Node'}</DialogTitle>
-        <DialogContent>
+      <Dialog 
+        open={editDialogOpen} 
+        onClose={() => setEditDialogOpen(false)} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          Edit {editingNode?.type || 'Node'}
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
           {editingNode && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               {Object.entries(editFormData).map(([key, value]) => (
                 <TextField
                   key={key}
@@ -146,9 +338,13 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             </Box>
           )}
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setEditDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSaveEdit} variant="contained">Save</Button>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button onClick={() => setEditDialogOpen(false)} variant="outlined">
+            Cancel
+          </Button>
+          <Button onClick={handleSaveEdit} variant="contained">
+            Save
+          </Button>
         </DialogActions>
       </Dialog>
     </>

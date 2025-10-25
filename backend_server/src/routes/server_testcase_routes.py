@@ -158,7 +158,7 @@ def testcase_delete(testcase_id):
 
 @server_testcase_bp.route('/execute', methods=['POST'])
 def testcase_execute_direct():
-    """Execute test case directly from graph (no save required)"""
+    """Execute test case directly from graph (no save required) - supports async execution"""
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
@@ -175,10 +175,28 @@ def testcase_execute_direct():
     if 'host_name' not in data:
         return jsonify({'success': False, 'error': 'host_name is required'}), 400
     
+    # async_execution defaults to True on the host side to prevent timeouts
+    # Frontend can override by passing async_execution: false
+    
     query_params = {'team_id': team_id}
     
     response_data, status_code = proxy_to_host_with_params(
         '/host/testcase/execute', 'POST', data, query_params
+    )
+    return jsonify(response_data), status_code
+
+
+@server_testcase_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def testcase_execution_status(execution_id):
+    """Get status of async test case execution"""
+    team_id = request.args.get('team_id')
+    if not team_id:
+        return jsonify({'success': False, 'error': 'team_id is required'}), 400
+    
+    query_params = {'team_id': team_id}
+    
+    response_data, status_code = proxy_to_host_with_params(
+        f'/host/testcase/execution/{execution_id}/status', 'GET', None, query_params
     )
     return jsonify(response_data), status_code
 
