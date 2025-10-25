@@ -54,7 +54,11 @@ class TestCaseExecutor:
         try:
             # Validate graph structure
             print(f"[@testcase_executor] Validating graph...")
-            is_valid, errors, warnings = self.validator.validate_graph(graph)
+            is_valid, errors, warnings = self.validator.validate_graph(
+                graph,
+                userinterface_name=userinterface_name,
+                team_id=team_id
+            )
             
             if not is_valid:
                 error_msg = '; '.join(errors)
@@ -203,7 +207,11 @@ class TestCaseExecutor:
             
             # Validate graph structure
             print(f"[@testcase_executor] Validating graph...")
-            is_valid, errors, warnings = self.validator.validate_graph(graph)
+            is_valid, errors, warnings = self.validator.validate_graph(
+                graph,
+                userinterface_name=userinterface_name,
+                team_id=team_id
+            )
             
             if not is_valid:
                 error_msg = '; '.join(errors)
@@ -442,10 +450,17 @@ class TestCaseExecutor:
             
             if not next_node_id:
                 # Block executed but has no outgoing connection for this result
-                error_msg = f"No {edge_type} connection found from block {current_node_id}"
-                print(f"[@testcase_executor] ERROR: {error_msg}")
-                context.overall_success = False
-                return {'success': False, 'result_type': 'error', 'error': error_msg}
+                if edge_type == 'failure':
+                    # IMPLICIT FAILURE ROUTING: Unconnected failure edges automatically route to FAILURE terminal
+                    print(f"[@testcase_executor] No failure edge found from block {current_node_id} - implicitly routing to FAILURE terminal")
+                    context.overall_success = False
+                    return {'success': False, 'result_type': 'failure', 'error': f'Block {current_node_id} failed with no failure handler (implicit FAILURE terminal)'}
+                else:
+                    # Success edge must be connected - this is an error in graph structure
+                    error_msg = f"No {edge_type} connection found from block {current_node_id}"
+                    print(f"[@testcase_executor] ERROR: {error_msg}")
+                    context.overall_success = False
+                    return {'success': False, 'result_type': 'error', 'error': error_msg}
             
             print(f"[@testcase_executor] Following {edge_type} edge to block: {next_node_id}")
             

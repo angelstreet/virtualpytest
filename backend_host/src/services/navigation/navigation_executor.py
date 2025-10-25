@@ -655,6 +655,8 @@ class NavigationExecutor:
                 step_num = i + 1
                 from_node = step.get('from_node_label', 'unknown')
                 to_node = step.get('to_node_label', 'unknown')
+                from_node_id = step.get('from_node_id')  # UUID
+                to_node_id = step.get('to_node_id')  # UUID
                 
                 print(f"[@navigation_executor:execute_navigation] Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
                 
@@ -943,7 +945,7 @@ class NavigationExecutor:
                                     target_node_id=target_node_id,
                                     tree_id=tree_id,
                                     team_id=team_id,
-                                    visited_nodes=set([from_node_id])  # Prevent loops
+                                    visited_nodes=set([from_node_id, actual_node])  # Prevent loops - track both source and actual landing
                                 )
                                 
                                 if recovery_path:
@@ -1315,7 +1317,7 @@ class NavigationExecutor:
                 print(f"📋 [NavigationExecutor] Found {len(hierarchy_data)} trees in hierarchy")
             
             # 5. Build unified tree data structure
-            all_trees_data = self.build_unified_tree_data(hierarchy_data)
+            all_trees_data = self.build_unified_tree_data(hierarchy_data, team_id)
             if not all_trees_data:
                 raise NavigationTreeError("Failed to build unified tree data structure")
             
@@ -1446,12 +1448,13 @@ class NavigationExecutor:
                 'edges': tree_data['edges']
             }
 
-    def build_unified_tree_data(self, hierarchy_data: List[Dict]) -> List[Dict]:
+    def build_unified_tree_data(self, hierarchy_data: List[Dict], team_id: str) -> List[Dict]:
         """
         Build unified data structure for cache population.
         
         Args:
             hierarchy_data: List of formatted tree data
+            team_id: Team ID for fetching any missing subtrees referenced by nodes
             
         Returns:
             Data structure ready for create_unified_networkx_graph()
@@ -1464,15 +1467,65 @@ class NavigationExecutor:
             print(f"🔧 [NavigationExecutor] Building unified data structure from {len(hierarchy_data)} trees")
             
             # The hierarchy_data is already in the correct format for create_unified_networkx_graph
-            # Just validate and return
+            # Validate first
             for tree_data in hierarchy_data:
                 required_keys = ['tree_id', 'tree_info', 'nodes', 'edges']
                 for key in required_keys:
                     if key not in tree_data:
                         raise NavigationTreeError(f"Missing required key '{key}' in tree data")
-            
-            print(f"✅ [NavigationExecutor] Unified data structure validated")
-            return hierarchy_data
+
+            # Augment: ensure all child trees referenced by nodes are included
+            # Build quick lookup and queue for BFS across child_tree_id references
+            trees_by_id: Dict[str, Dict] = {t['tree_id']: t for t in hierarchy_data}
+            initial_tree_ids = list(trees_by_id.keys())
+
+            added_count = 0
+            from shared.src.lib.database.navigation_trees_db import get_full_tree
+
+            # For each known tree, scan nodes for child_tree_id references and add missing trees
+            scan_queue = initial_tree_ids.copy()
+            while scan_queue:
+                current_tree_id = scan_queue.pop(0)
+                current_tree = trees_by_id[current_tree_id]
+                current_depth = current_tree.get('tree_info', {}).get('tree_depth', 0)
+
+                for node in current_tree.get('nodes', []):
+                    # child_tree_id may be directly on node or inside node['data'] depending on DB format
+                    node_data = node.get('data', {}) if isinstance(node.get('data'), dict) else {}
+                    child_tree_id = node.get('child_tree_id') or node_data.get('child_tree_id')
+                    if not child_tree_id or child_tree_id in trees_by_id:
+                        continue
+
+                    # Fetch full data for the missing child tree
+                    child_full = get_full_tree(child_tree_id, team_id)
+                    if not child_full.get('success'):
+                        print(f"⚠️ [NavigationExecutor] Failed to load child tree '{child_tree_id}' referenced by node '{node.get('node_id')}'")
+                        continue
+
+                    # Compose tree_info linking back to the parent node
+                    child_tree_info = {
+                        'name': child_full['tree'].get('name', ''),
+                        'is_root_tree': False,
+                        'tree_depth': current_depth + 1,
+                        'parent_tree_id': current_tree_id,
+                        'parent_node_id': node.get('node_id')
+                    }
+
+                    trees_by_id[child_tree_id] = {
+                        'tree_id': child_tree_id,
+                        'tree_info': child_tree_info,
+                        'nodes': child_full.get('nodes', []),
+                        'edges': child_full.get('edges', [])
+                    }
+                    scan_queue.append(child_tree_id)
+                    added_count += 1
+
+            if added_count:
+                print(f"✅ [NavigationExecutor] Augmented hierarchy with {added_count} child trees discovered via node references")
+
+            unified_list = list(trees_by_id.values())
+            print(f"✅ [NavigationExecutor] Unified data structure validated (total trees: {len(unified_list)})")
+            return unified_list
             
         except Exception as e:
             print(f"❌ [NavigationExecutor] Error building unified data: {str(e)}")

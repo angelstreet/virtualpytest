@@ -156,15 +156,17 @@ class TestCaseValidator:
         """Validate graph connectivity"""
         node_ids = {node['id'] for node in nodes}
         
-        # Build adjacency map
-        outgoing = {node_id: [] for node_id in node_ids}
+        # Build adjacency map by edge type
+        outgoing = {node_id: {'success': [], 'failure': []} for node_id in node_ids}
         incoming = {node_id: [] for node_id in node_ids}
         
         for edge in edges:
             source = edge.get('source')
             target = edge.get('target')
+            edge_type = edge.get('type') or edge.get('sourceHandle', 'success')
             if source and target:
-                outgoing[source].append(target)
+                if edge_type in ['success', 'failure']:
+                    outgoing[source][edge_type].append(target)
                 incoming[target].append(source)
         
         # Check for orphaned nodes (except terminal blocks)
@@ -179,17 +181,25 @@ class TestCaseValidator:
             
             # Terminal blocks should have incoming but no outgoing
             if node_type in ['success', 'failure']:
-                if not incoming[node_id]:
+                if not incoming[node_id] and node_type == 'failure':
+                    # FAILURE blocks without incoming edges are OK - they serve as implicit failure handlers
+                    pass
+                elif not incoming[node_id]:
                     self.warnings.append(f"{node_type.upper()} block has no incoming connections")
-                if outgoing[node_id]:
+                if outgoing[node_id]['success'] or outgoing[node_id]['failure']:
                     self.warnings.append(f"{node_type.upper()} block should not have outgoing connections")
             
             # Non-terminal blocks should have both incoming and outgoing
             if node_type not in ['start', 'success', 'failure']:
                 if not incoming[node_id]:
                     self.warnings.append(f"Block {node_id} ({node_type}) has no incoming connections")
-                if not outgoing[node_id]:
-                    self.warnings.append(f"Block {node_id} ({node_type}) has no outgoing connections")
+                # Check success edge (required)
+                if not outgoing[node_id]['success']:
+                    self.warnings.append(f"Block {node_id} ({node_type}) has no success edge (graph may end prematurely)")
+                # Check failure edge (optional - will implicitly route to FAILURE terminal if missing)
+                if not outgoing[node_id]['failure']:
+                    # This is informational only - failure edges are optional
+                    pass
     
     def _validate_loop_blocks(self, nodes: List[Dict]):
         """Validate nested graphs in loop blocks"""

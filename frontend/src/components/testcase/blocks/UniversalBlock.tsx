@@ -32,7 +32,7 @@ export const UniversalBlock: React.FC<NodeProps & {
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
-  const { updateBlock, userinterfaceName } = useTestCaseBuilder();
+  const { updateBlock, userinterfaceName, unifiedExecution } = useTestCaseBuilder();
   const { actualTreeId } = useNavigationConfig();
   const [isExecuting, setIsExecuting] = useState(false);
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
@@ -133,6 +133,10 @@ export const UniversalBlock: React.FC<NodeProps & {
     
     setIsExecuting(true);
     
+    // 🆕 START: Unified execution for single block
+    unifiedExecution.startExecution('single_block', [id]);
+    unifiedExecution.startBlockExecution(id);
+    
     const startTime = Date.now();
     
     try {
@@ -192,24 +196,61 @@ export const UniversalBlock: React.FC<NodeProps & {
       const commandLabel = isNavigation ? `Navigate to ${data.target_node_label}` : data.command;
       
       if (result.success) {
+        // 🆕 Complete block execution with success
+        unifiedExecution.completeBlockExecution(id, true, undefined, result);
+        
         setAnimateHandle('success');
         showSuccess(`✓ ${commandLabel} - ${durationText}`);
         // Clear animation after 2 seconds
         setTimeout(() => setAnimateHandle(null), 2000);
+        
+        // 🆕 Complete overall execution with success (reached SUCCESS terminal)
+        unifiedExecution.completeExecution({
+          success: true,
+          result_type: 'success',
+          execution_time_ms: duration,
+          step_count: 1,
+        });
       } else {
+        // 🆕 Complete block execution with failure
+        unifiedExecution.completeBlockExecution(id, false, result.error || 'Action failed', result);
+        
         setAnimateHandle('failure');
         showError(`✗ ${commandLabel} - ${durationText}\n${result.error || 'Execution failed'}`);
         // Clear animation after 2 seconds
         setTimeout(() => setAnimateHandle(null), 2000);
+        
+        // 🆕 Complete overall execution with failure (reached FAILURE terminal)
+        unifiedExecution.completeExecution({
+          success: false,
+          result_type: 'failure',
+          execution_time_ms: duration,
+          error: result.error || 'Action failed',
+          step_count: 1,
+        });
       }
     } catch (error) {
       const duration = Date.now() - startTime;
       const durationText = `${(duration / 1000).toFixed(2)}s`;
       const commandLabel = isNavigation ? `Navigate to ${data.target_node_label}` : data.command;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      
+      // 🆕 Complete block execution with error
+      unifiedExecution.completeBlockExecution(id, false, errorMessage, undefined);
+      
       setAnimateHandle('failure');
-      showError(`✗ ${commandLabel} - ${durationText}\nError: ${error instanceof Error ? error.message : 'Unknown error'}`);
+      showError(`✗ ${commandLabel} - ${durationText}\nError: ${errorMessage}`);
       // Clear animation after 2 seconds
       setTimeout(() => setAnimateHandle(null), 2000);
+      
+      // 🆕 Complete overall execution with error
+      unifiedExecution.completeExecution({
+        success: false,
+        result_type: 'error',
+        execution_time_ms: duration,
+        error: errorMessage,
+        step_count: 1,
+      });
     } finally {
       setIsExecuting(false);
     }
@@ -279,17 +320,33 @@ export const UniversalBlock: React.FC<NodeProps & {
       return null; // No output handles (shouldn't happen but safe)
     }
     
+    // Check if this handle was the execution result
+    const isHandleActive = (output: OutputType) => {
+      if (!executionState || !['success', 'failure', 'error'].includes(executionState.status)) {
+        return false;
+      }
+      // Map execution status to handle output type
+      if (executionState.status === 'success' && (output === 'success' || output === 'true' || output === 'complete')) {
+        return true;
+      }
+      if ((executionState.status === 'failure' || executionState.status === 'error') && (output === 'failure' || output === 'false')) {
+        return true;
+      }
+      return false;
+    };
+    
     if (outputs.length === 1) {
       // Single output - centered at bottom, rectangle
       const output = outputs[0];
       const handleColor = getHandleColor(output);
       const isAnimating = animateHandle === output;
+      const isActive = isHandleActive(output);
       
       let content;
       if (output === 'success' || output === 'true' || output === 'complete') {
-        content = <CheckIcon />;
+        content = <CheckIcon sx={{ fontSize: isActive ? 28 : 20, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'failure' || output === 'false') {
-        content = <CloseIcon />;
+        content = <CloseIcon sx={{ fontSize: isActive ? 28 : 20, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'break') {
         content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
       } else {
@@ -304,11 +361,11 @@ export const UniversalBlock: React.FC<NodeProps & {
             id={output}
             style={{
               background: handleColor,
-              width: 80,
-              height: 32,
+              width: isActive ? 90 : 80,
+              height: isActive ? 38 : 32,
               borderRadius: 4,
-              border: '2px solid white',
-              bottom: -36,
+              border: isActive ? '4px solid white' : '2px solid white',
+              bottom: isActive ? -40 : -36,
               left: '50%',
               transform: 'translateX(-50%)',
               display: 'flex',
@@ -318,6 +375,8 @@ export const UniversalBlock: React.FC<NodeProps & {
               fontWeight: 'bold',
               fontSize: 12,
               cursor: 'pointer',
+              boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
+              transition: 'all 0.3s ease',
             }}
           >
             <Box
@@ -345,13 +404,14 @@ export const UniversalBlock: React.FC<NodeProps & {
       const handleColor = getHandleColor(output);
       const leftPosition = idx === 0 ? '25%' : '75%';
       const isAnimating = animateHandle === output;
+      const isActive = isHandleActive(output);
       
       // Determine icon/text based on output type
       let content;
       if (output === 'success' || output === 'true' || output === 'complete') {
-        content = <CheckIcon fontSize="small" />;
+        content = <CheckIcon sx={{ fontSize: isActive ? 26 : 18, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'failure' || output === 'false') {
-        content = <CloseIcon fontSize="small" />;
+        content = <CloseIcon sx={{ fontSize: isActive ? 26 : 18, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'break') {
         content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
       } else {
@@ -367,11 +427,11 @@ export const UniversalBlock: React.FC<NodeProps & {
           style={{
             left: leftPosition,
             background: handleColor,
-            width: 70,
-            height: 28,
+            width: isActive ? 80 : 70,
+            height: isActive ? 34 : 28,
             borderRadius: 4,
-            border: '2px solid white',
-            bottom: -32,
+            border: isActive ? '4px solid white' : '2px solid white',
+            bottom: isActive ? -36 : -32,
             transform: 'translateX(-50%)',
             display: 'flex',
             alignItems: 'center',
@@ -380,6 +440,8 @@ export const UniversalBlock: React.FC<NodeProps & {
             fontWeight: 'bold',
             fontSize: 11,
             cursor: 'pointer',
+            boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
+            transition: 'all 0.3s ease',
           }}
         >
           <Box
@@ -426,15 +488,15 @@ export const UniversalBlock: React.FC<NodeProps & {
         };
       case 'success':
         return {
-          border: '2px solid #10b981',
+          border: '4px solid #10b981',
           backgroundColor: actualMode === 'dark' ? 'rgba(16, 185, 129, 0.1)' : 'rgba(16, 185, 129, 0.05)',
-          boxShadow: '0 0 10px rgba(16, 185, 129, 0.3)',
+          boxShadow: '0 0 15px rgba(16, 185, 129, 0.5)',
         };
       case 'failure':
         return {
-          border: '2px solid #ef4444',
+          border: '4px solid #ef4444',
           backgroundColor: actualMode === 'dark' ? 'rgba(239, 68, 68, 0.1)' : 'rgba(239, 68, 68, 0.05)',
-          boxShadow: '0 0 10px rgba(239, 68, 68, 0.3)',
+          boxShadow: '0 0 15px rgba(239, 68, 68, 0.5)',
         };
       case 'error':
         return {
@@ -471,37 +533,26 @@ export const UniversalBlock: React.FC<NodeProps & {
         },
       }}
     >
-      {/* Execution Status Badge */}
-      {executionState?.status === 'executing' && (
-        <Box
-          sx={{
-            position: 'absolute',
-            top: 4,
-            right: 4,
-            zIndex: 10,
-          }}
-        >
-          <CircularProgress size={16} sx={{ color: '#3b82f6' }} />
-        </Box>
-      )}
-      
+      {/* Duration Badge - Above Block */}
       {executionState?.duration && ['success', 'failure', 'error'].includes(executionState.status) && (
         <Box
           sx={{
             position: 'absolute',
-            top: 4,
-            right: 4,
+            top: -28,
+            right: 0,
+            transform: 'translateX(-50%)',
             zIndex: 10,
             backgroundColor: 
               executionState.status === 'success' ? '#10b981' :
               executionState.status === 'failure' ? '#ef4444' : '#f59e0b',
             color: 'white',
             borderRadius: 1,
-            px: 0.5,
-            py: 0.25,
-            fontSize: 9,
+            px: 1,
+            py: 0.5,
+            fontSize: 11,
             fontWeight: 'bold',
             fontFamily: 'monospace',
+            boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
           }}
         >
           {(executionState.duration / 1000).toFixed(2)}s
