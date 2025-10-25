@@ -177,6 +177,10 @@ class TestCaseExecutor:
         """
         Execute a test case graph by traversing nodes.
         
+        START block is never executed - it's only an entry point marker.
+        SUCCESS/FAILURE blocks are terminal - they end execution immediately.
+        Execution begins at the first executable block connected to START.
+        
         Args:
             graph: {nodes: [...], edges: [...]}
             context: Execution context
@@ -191,15 +195,57 @@ class TestCaseExecutor:
         nodes = {node['id']: node for node in graph['nodes']}
         edges = graph['edges']
         
-        # Find START block
+        # Debug: Print raw graph structure
+        print(f"[@testcase_executor] === RAW GRAPH DEBUG ===")
+        print(f"[@testcase_executor] Total nodes: {len(graph['nodes'])}")
+        for node in graph['nodes']:
+            print(f"[@testcase_executor]   Node: {node['id']} (type: {node['type']})")
+        
+        print(f"[@testcase_executor] Total edges: {len(edges)}")
+        for edge in edges:
+            edge_type = edge.get('sourceHandle') or edge.get('type', 'unknown')
+            print(f"[@testcase_executor]   Edge: {edge['source']} --[{edge_type}]--> {edge['target']}")
+        print(f"[@testcase_executor] === END RAW GRAPH DEBUG ===")
+        
+        # Find START block - it's the entry point but never executed
         start_node = next((node for node in graph['nodes'] if node['type'] == 'start'), None)
         if not start_node:
             return {'success': False, 'error': 'No START block found'}
         
-        current_node_id = start_node['id']
+        # Skip START and find the first executable block
+        # START is only a marker - execution begins at the first connected block
+        start_node_id = start_node['id']
+        print(f"[@testcase_executor] START node ID: {start_node_id}")
+        print(f"[@testcase_executor] Looking for 'success' edge from START...")
+        current_node_id = self._find_next_node(start_node_id, 'success', edges)
+        
+        if current_node_id:
+            print(f"[@testcase_executor] Found first executable block: {current_node_id}")
+        else:
+            print(f"[@testcase_executor] No block connected to START via 'success' edge")
+        
+        # If START has no connection, check if graph has other blocks
+        if not current_node_id:
+            # Count executable blocks (exclude START, SUCCESS, FAILURE)
+            executable_blocks = [n for n in graph['nodes'] if n['type'] not in ['start', 'success', 'failure']]
+            
+            if executable_blocks:
+                # Graph has blocks but START is not connected - this is an error
+                return {
+                    'success': False,
+                    'error': f'START block is not connected to any executable block. Found {len(executable_blocks)} disconnected block(s).'
+                }
+            else:
+                # No executable blocks - minimal test case (just validates setup)
+                print(f"[@testcase_executor] No executable blocks - minimal test case, treating as success")
+                context.overall_success = True
+                return {'success': True, 'result_type': 'success'}
+        
         visited_blocks = set()
         max_iterations = 1000  # Prevent infinite loops
         iteration_count = 0
+        
+        print(f"[@testcase_executor] Skipping START block, beginning execution at first connected block: {current_node_id}")
         
         while current_node_id and iteration_count < max_iterations:
             iteration_count += 1
@@ -211,17 +257,18 @@ class TestCaseExecutor:
             
             node_type = current_node['type']
             
-            print(f"[@testcase_executor] Executing block: {current_node_id} (type: {node_type})")
+            print(f"[@testcase_executor] Processing block: {current_node_id} (type: {node_type})")
             
-            # Check if we reached a terminal block
+            # SUCCESS and FAILURE are terminal blocks - they end execution immediately
+            # They are not executed, just signal the final test result
             if node_type == 'success':
                 context.overall_success = True
-                print(f"[@testcase_executor] Reached SUCCESS block")
+                print(f"[@testcase_executor] Reached SUCCESS terminal block - test passed")
                 return {'success': True, 'result_type': 'success'}
             
             if node_type == 'failure':
                 context.overall_success = False
-                print(f"[@testcase_executor] Reached FAILURE block")
+                print(f"[@testcase_executor] Reached FAILURE terminal block - test failed")
                 return {'success': False, 'result_type': 'failure', 'error': 'Test case reached FAILURE block'}
             
             # Execute block
@@ -247,14 +294,7 @@ class TestCaseExecutor:
             next_node_id = self._find_next_node(current_node_id, edge_type, edges)
             
             if not next_node_id:
-                # No connection found
-                # For START block: if it has no connection and succeeds, treat as successful completion
-                if node_type == 'start' and block_result['success']:
-                    context.overall_success = True
-                    print(f"[@testcase_executor] START block with no connections - treating as successful completion")
-                    return {'success': True, 'result_type': 'success'}
-                
-                # For other blocks: no connection is an error (incomplete graph)
+                # No connection found - incomplete graph
                 error_msg = f"Block {current_node_id} ({node_type}) has no {edge_type} connection"
                 print(f"[@testcase_executor] ERROR: {error_msg}")
                 context.overall_success = False
@@ -278,12 +318,11 @@ class TestCaseExecutor:
         node_type = node['type']
         data = node.get('data', {})
         
+        # START block should never reach here - it's skipped in _execute_graph
         if node_type == 'start':
-            # START block - always succeeds, it's just an entry point
-            # No execution needed, just marks the beginning of the flow
-            return {'success': True, 'execution_time_ms': 0, 'message': 'Test started'}
+            raise Exception('START block should not be executed - it is only an entry point marker')
         
-        elif node_type == 'action':
+        if node_type == 'action':
             return self._execute_action_block(data, context)
         
         elif node_type == 'verification':
@@ -504,7 +543,11 @@ class TestCaseExecutor:
             if edge['source'] == current_node_id:
                 # Check edge type (can be in 'type' or 'sourceHandle')
                 edge_handle = edge.get('sourceHandle') or edge.get('type')
-                if edge_handle == edge_type:
+                
+                # React Flow adds suffixes like '-hitarea' to handle names
+                # Match if edge_handle starts with the edge_type we're looking for
+                if edge_handle and edge_handle.startswith(edge_type):
+                    print(f"[@testcase_executor] Found edge: {current_node_id} --[{edge_handle}]--> {edge['target']}")
                     return edge['target']
         
         return None
