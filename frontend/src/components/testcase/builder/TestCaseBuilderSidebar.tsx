@@ -20,6 +20,9 @@ interface TestCaseBuilderSidebarProps {
   isControlActive?: boolean;
   areActionsLoaded?: boolean;
   userinterfaceName?: string;
+  
+  // Progress Bar Control
+  onCloseProgressBar?: () => void;
 }
 
 export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
@@ -32,6 +35,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
   isControlActive,
   areActionsLoaded,
   userinterfaceName,
+  onCloseProgressBar,
 }) => {
   return (
     <>
@@ -87,7 +91,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
             <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
               {creationMode === 'visual' ? (
                 toolboxConfig ? (
-                  <TestCaseToolbox toolboxConfig={toolboxConfig} />
+                  <TestCaseToolbox toolboxConfig={toolboxConfig} onCloseProgressBar={onCloseProgressBar} />
                 ) : (
                   <Box sx={{ p: 2, textAlign: 'center'}}>
                     <Typography variant="caption" fontSize={16} fontWeight="bold" color="text.secondary">

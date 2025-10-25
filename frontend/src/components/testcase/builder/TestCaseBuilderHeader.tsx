@@ -47,6 +47,9 @@ interface TestCaseBuilderHeaderProps {
   // Execution State
   isExecuting: boolean;
   isExecutable: boolean;
+  
+  // Progress Bar Control
+  onCloseProgressBar?: () => void;
 }
 
 export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
@@ -75,6 +78,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   handleExecute,
   isExecuting,
   isExecutable,
+  onCloseProgressBar,
 }) => {
   return (
     <Box
@@ -136,7 +140,10 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
         <Button
           size="small"
           variant={creationMode === 'visual' ? 'contained' : 'outlined'}
-          onClick={() => setCreationMode('visual')}
+          onClick={() => {
+            onCloseProgressBar?.();
+            setCreationMode('visual');
+          }}
           sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
         >
           Visual
@@ -144,7 +151,10 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
         <Button
           size="small"
           variant={creationMode === 'ai' ? 'contained' : 'outlined'}
-          onClick={() => setCreationMode('ai')}
+          onClick={() => {
+            onCloseProgressBar?.();
+            setCreationMode('ai');
+          }}
           startIcon={<AutoAwesomeIcon fontSize="small" />}
           sx={{ fontSize: 11, py: 0.5, px: 1.5 }}
         >
@@ -189,7 +199,10 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
             size="small" 
             variant="outlined" 
             startIcon={<AddIcon />} 
-            onClick={handleNew}
+            onClick={() => {
+              onCloseProgressBar?.();
+              handleNew();
+            }}
             disabled={!userinterfaceName}
             title={!userinterfaceName ? 'Select a userinterface first' : 'Create new test case'}
           >
@@ -199,7 +212,10 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
             size="small" 
             variant="outlined" 
             startIcon={isLoadingTestCases ? <CircularProgress size={16} /> : <FolderOpenIcon />} 
-            onClick={handleLoadClick}
+            onClick={async () => {
+              onCloseProgressBar?.();
+              await handleLoadClick();
+            }}
             disabled={!selectedDeviceId || !isControlActive || isLoadingTestCases}
             title={
               !selectedDeviceId ? 'Select a device first' :
@@ -214,7 +230,10 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
             size="small" 
             variant="outlined" 
             startIcon={<SaveIcon />} 
-            onClick={() => setSaveDialogOpen(true)}
+            onClick={() => {
+              onCloseProgressBar?.();
+              setSaveDialogOpen(true);
+            }}
             disabled={!userinterfaceName || !hasUnsavedChanges}
             title={
               !userinterfaceName ? 'Select a userinterface first' : 
@@ -228,7 +247,10 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
             size="small"
             variant="contained"
             startIcon={<PlayArrowIcon />}
-            onClick={handleExecute}
+            onClick={() => {
+              onCloseProgressBar?.();
+              handleExecute();
+            }}
             disabled={
               isExecuting || 
               !selectedDeviceId || 

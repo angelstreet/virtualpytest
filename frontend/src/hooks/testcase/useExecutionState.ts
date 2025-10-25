@@ -25,7 +25,9 @@ export interface UnifiedExecutionState {
   mode: 'idle' | 'single_block' | 'test_case';
   isExecuting: boolean;
   currentBlockId: string | null;
+  previousBlockId: string | null; // 🆕 Track previous block for edge animations
   blockStates: Map<string, BlockExecutionState>;
+  edgeStates: Map<string, 'idle' | 'active' | 'success' | 'failure'>; // 🆕 Track edge execution states
   result: {
     success: boolean;
     result_type?: ExecutionResultType;
@@ -41,7 +43,9 @@ export const useExecutionState = () => {
     mode: 'idle',
     isExecuting: false,
     currentBlockId: null,
+    previousBlockId: null,
     blockStates: new Map(),
+    edgeStates: new Map(),
     result: null,
   });
 
@@ -63,7 +67,9 @@ export const useExecutionState = () => {
       mode,
       isExecuting: true,
       currentBlockId: blockIds?.[0] || null,
+      previousBlockId: null,
       blockStates: newBlockStates,
+      edgeStates: new Map(), // Reset edge states
       result: null,
       startTime: Date.now(),
     });
@@ -111,6 +117,7 @@ export const useExecutionState = () => {
 
       return {
         ...prev,
+        previousBlockId: prev.currentBlockId, // Track previous for edge animation
         currentBlockId: blockId,
         blockStates: newBlockStates,
       };
@@ -140,9 +147,18 @@ export const useExecutionState = () => {
         result,
       });
 
+      // 🆕 Update edge state for edges connected to this block
+      // Mark outgoing edges based on block result
+      const newEdgeStates = new Map(prev.edgeStates);
+      const edgeState = success ? 'success' : 'failure';
+      
+      // Note: Edge keys will be set by TestCaseBuilder based on graph structure
+      // Here we just maintain the state, actual edge key generation happens in TestCaseBuilder
+
       return {
         ...prev,
         blockStates: newBlockStates,
+        edgeStates: newEdgeStates,
       };
     });
   }, []);
@@ -151,7 +167,11 @@ export const useExecutionState = () => {
    * Set the current executing block
    */
   const setCurrentBlock = useCallback((blockId: string | null) => {
-    setState(prev => ({ ...prev, currentBlockId: blockId }));
+    setState(prev => ({ 
+      ...prev, 
+      previousBlockId: prev.currentBlockId,
+      currentBlockId: blockId 
+    }));
   }, []);
 
   /**
@@ -162,6 +182,7 @@ export const useExecutionState = () => {
       ...prev,
       isExecuting: false,
       currentBlockId: null,
+      previousBlockId: null,
       result,
     }));
   }, []);
@@ -174,7 +195,9 @@ export const useExecutionState = () => {
       mode: 'idle',
       isExecuting: false,
       currentBlockId: null,
+      previousBlockId: null,
       blockStates: new Map(),
+      edgeStates: new Map(),
       result: null,
     });
   }, []);
@@ -194,6 +217,23 @@ export const useExecutionState = () => {
   }, [state.blockStates]);
 
   /**
+   * Update edge execution state
+   */
+  const updateEdgeState = useCallback((
+    edgeId: string,
+    state: 'idle' | 'active' | 'success' | 'failure'
+  ) => {
+    setState(prev => {
+      const newEdgeStates = new Map(prev.edgeStates);
+      newEdgeStates.set(edgeId, state);
+      return {
+        ...prev,
+        edgeStates: newEdgeStates,
+      };
+    });
+  }, []);
+
+  /**
    * Get elapsed time in seconds
    */
   const getElapsedTime = useCallback((): number => {
@@ -210,6 +250,7 @@ export const useExecutionState = () => {
     setCurrentBlock,
     completeExecution,
     resetExecution,
+    updateEdgeState, // 🆕 New method for updating edge states
     getProgress,
     getElapsedTime,
   };

@@ -404,7 +404,24 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     try {
       const response = await executeTestCase(testcaseIdToExecute!, 'device1', hostName);
       
-      // 🆕 ADD: Complete unified execution
+      // 🆕 PROCESS step_results to update blockStates
+      // Each step has { block_id, success, error, execution_time_ms }
+      if (response.step_results && Array.isArray(response.step_results)) {
+        response.step_results.forEach((step: any) => {
+          if (step.block_id) {
+            unifiedExecution.completeBlockExecution(
+              step.block_id,
+              step.success,
+              step.error,
+              step
+            );
+          }
+        });
+      }
+      
+      // 🆕 ADD: Complete unified execution with final result
+      // IMPORTANT: success is based on result_type ('success' = reached SUCCESS terminal)
+      // NOT on whether individual blocks succeeded
       unifiedExecution.completeExecution({
         success: response.success,
         result_type: response.result_type || (response.success ? 'success' : 'error'),
@@ -672,10 +689,18 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     try {
       const result = await getNavigationNodesForInterface(interfaceName);
       if (result.success) {
-        // Filter out ENTRY nodes (case-insensitive)
+        // Filter out ENTRY nodes (case-insensitive) - check type, label, and id
         const filteredNodes = result.nodes.filter(node => {
           const nodeType = (node.type || '').toLowerCase();
-          return nodeType !== 'entry';
+          const nodeLabel = (node.label || '').toLowerCase();
+          const nodeId = (node.id || node.node_id || '').toLowerCase();
+          
+          // Filter out if type, label, or id is "entry" or contains "entry"
+          if (nodeType === 'entry' || nodeLabel === 'entry' || nodeId === 'entry' || nodeId.includes('entry')) {
+            return false;
+          }
+          
+          return true;
         });
         setAvailableNodes(filteredNodes);
       }

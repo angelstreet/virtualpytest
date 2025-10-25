@@ -11,6 +11,24 @@ import type { Actions } from '../types/controller/Action_Types';
 import type { Verifications } from '../types/verification/Verification_Types';
 
 /**
+ * Sort commands alphabetically, with shorter names appearing before longer ones
+ * Example: "home" before "home_tvguide", "home_movies", etc.
+ */
+function sortCommands(commands: any[]): any[] {
+  return commands.sort((a, b) => {
+    const labelA = (a.label || '').toLowerCase();
+    const labelB = (b.label || '').toLowerCase();
+    
+    // If one label starts with the other, shorter one comes first
+    if (labelA.startsWith(labelB)) return 1;
+    if (labelB.startsWith(labelA)) return -1;
+    
+    // Otherwise, alphabetical sort
+    return labelA.localeCompare(labelB);
+  });
+}
+
+/**
  * Build dynamic toolbox configuration
  * - Navigation blocks: from tree nodes (screen names)
  * - Actions: from DeviceDataContext availableActions
@@ -70,9 +88,15 @@ export function buildToolboxFromNavigationData(
 function extractNavigationBlocks(nodes: any[]) {
   const navigationNodes = nodes
     .filter(node => {
-      // Skip entry nodes (case-insensitive)
+      // Skip entry nodes (case-insensitive) - check type, label, and id
       const nodeType = (node.type || '').toLowerCase();
-      if (nodeType === 'entry') return false;
+      const nodeLabel = (node.label || node.data?.label || '').toLowerCase();
+      const nodeId = (node.id || node.node_id || '').toLowerCase();
+      
+      // Filter out if type, label, or id contains "entry"
+      if (nodeType === 'entry' || nodeLabel === 'entry' || nodeId === 'entry' || nodeId.includes('entry')) {
+        return false;
+      }
       
       // Must have a label (root or data.label)
       return (node.label || node.data?.label);
@@ -97,7 +121,9 @@ function extractNavigationBlocks(nodes: any[]) {
     });
 
   console.log(`[@toolboxBuilder] Extracted ${navigationNodes.length} navigation nodes`);
-  return navigationNodes;
+  
+  // Sort alphabetically with shorter names first
+  return sortCommands(navigationNodes);
 }
 
 /**
@@ -138,10 +164,10 @@ function extractActionGroups(availableActions: Actions) {
     });
   });
 
-  // Convert groupMap to array of groups with formatted names
+  // Convert groupMap to array of groups with formatted names and sort commands in each group
   const groups = Object.entries(groupMap).map(([actionType, commands]) => ({
     groupName: formatGroupName(actionType),
-    commands
+    commands: sortCommands(commands)
   }));
 
   const totalActions = groups.reduce((sum, g) => sum + g.commands.length, 0);

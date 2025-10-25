@@ -728,6 +728,27 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   );
 
   // ========================================
+  // EFFECTS
+  // ========================================
+
+  // Update availableFocusNodes when nodes change - filter out entry nodes
+  useEffect(() => {
+    const focusNodes = nodes
+      .filter(node => {
+        // Filter out entry nodes (case-insensitive)
+        const nodeType = (node.type || '').toLowerCase();
+        return nodeType !== 'entry';
+      })
+      .map(node => ({
+        id: node.id,
+        label: node.data?.label || node.id,
+        depth: node.data?.depth || 0
+      }));
+    
+    setAvailableFocusNodes(focusNodes);
+  }, [nodes]);
+
+  // ========================================
   // MEMOIZED VALUES
   // ========================================
 

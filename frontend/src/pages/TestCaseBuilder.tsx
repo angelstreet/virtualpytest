@@ -346,6 +346,7 @@ const TestCaseBuilderContent: React.FC = () => {
         handleExecute={hookData.handleExecute}
         isExecuting={hookData.executionState.isExecuting}
         isExecutable={hookData.isExecutable}
+        onCloseProgressBar={() => hookData.unifiedExecution.resetExecution()}
       />
 
       {/* Main Container */}
@@ -386,6 +387,7 @@ const TestCaseBuilderContent: React.FC = () => {
           isControlActive={hookData.isControlActive}
           areActionsLoaded={hookData.areActionsLoaded}
           userinterfaceName={hookData.userinterfaceName}
+          onCloseProgressBar={() => hookData.unifiedExecution.resetExecution()}
         />
 
         {/* Canvas */}
@@ -409,7 +411,45 @@ const TestCaseBuilderContent: React.FC = () => {
                 executionState: hookData.unifiedExecution.state.blockStates.get(node.id),
               },
             }))}
-            edges={hookData.edges}
+            edges={hookData.edges.map(edge => {
+              // 🆕 ADD: Calculate edge execution state based on source/target blocks
+              const sourceBlockState = hookData.unifiedExecution.state.blockStates.get(edge.source);
+              const targetBlockState = hookData.unifiedExecution.state.blockStates.get(edge.target);
+              const currentBlockId = hookData.unifiedExecution.state.currentBlockId;
+              const previousBlockId = hookData.unifiedExecution.state.previousBlockId;
+              
+              // Determine edge execution state
+              let edgeExecutionState: 'idle' | 'active' | 'success' | 'failure' = 'idle';
+              
+              // Active: Edge is currently being traversed (from previous to current block)
+              if (hookData.unifiedExecution.state.isExecuting && 
+                  previousBlockId === edge.source && 
+                  currentBlockId === edge.target) {
+                edgeExecutionState = 'active';
+              }
+              // Success/Failure: Edge was traversed after source block completed
+              else if (sourceBlockState && 
+                       (sourceBlockState.status === 'success' || sourceBlockState.status === 'failure') &&
+                       targetBlockState &&
+                       targetBlockState.status !== 'pending') {
+                // Check if this edge was actually taken based on the handle type
+                const handleType = edge.sourceHandle || 'success';
+                const blockSucceeded = sourceBlockState.status === 'success';
+                
+                if ((blockSucceeded && handleType === 'success') || 
+                    (!blockSucceeded && handleType === 'failure')) {
+                  edgeExecutionState = sourceBlockState.status;
+                }
+              }
+              
+              return {
+                ...edge,
+                data: {
+                  ...edge.data,
+                  executionState: edgeExecutionState,
+                },
+              };
+            })}
             onNodesChange={hookData.onNodesChange}
             onEdgesChange={hookData.onEdgesChange}
             onConnect={hookData.onConnect}

@@ -12,10 +12,14 @@ import { toolboxConfig as staticToolboxConfig, CommandConfig } from './toolboxCo
 
 interface DraggableCommandProps {
   command: CommandConfig;
+  onCloseProgressBar?: () => void;
 }
 
-const DraggableCommand: React.FC<DraggableCommandProps> = ({ command }) => {
+const DraggableCommand: React.FC<DraggableCommandProps> = ({ command, onCloseProgressBar }) => {
   const onDragStart = (event: React.DragEvent) => {
+    // Close progress bar when starting to drag a command
+    onCloseProgressBar?.();
+    
     const dragData = JSON.stringify({
       type: command.type,
       defaultData: command.defaultData || {}
@@ -59,10 +63,12 @@ const DraggableCommand: React.FC<DraggableCommandProps> = ({ command }) => {
 
 interface TestCaseToolboxProps {
   toolboxConfig?: any;  // Optional dynamic config
+  onCloseProgressBar?: () => void;
 }
 
 export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ 
-  toolboxConfig = staticToolboxConfig  // Fallback to static config
+  toolboxConfig = staticToolboxConfig,  // Fallback to static config
+  onCloseProgressBar
 }) => {
   // Define tab colors (matching block type colors)
   const tabColors: Record<string, string> = {
@@ -209,7 +215,11 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
                     </AccordionSummary>
                     <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
                       {group.commands.map((command: any, cmdIdx: number) => (
-                        <DraggableCommand key={`${group.groupName}-${cmdIdx}`} command={command} />
+                        <DraggableCommand 
+                          key={`${group.groupName}-${cmdIdx}`} 
+                          command={command}
+                          onCloseProgressBar={onCloseProgressBar}
+                        />
                       ))}
                     </AccordionDetails>
                   </Accordion>

@@ -287,13 +287,14 @@ class TestCaseExecutor:
             if block_result.get('error'):
                 print(f"[@testcase_executor]   Error: {block_result['error']}")
             
-            # Record step
+            # Record step with block ID for frontend tracking
             context.record_step_immediately({
                 'block_id': current_node_id,
                 'block_type': node_type,
                 'success': block_result['success'],
                 'execution_time_ms': block_result.get('execution_time_ms', 0),
                 'message': block_result.get('message', ''),
+                'error': block_result.get('error'),
                 'step_category': 'testcase_block'
             })
             

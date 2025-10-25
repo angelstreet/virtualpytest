@@ -6,12 +6,19 @@ import {
 } from 'reactflow';
 
 /**
- * Failure Edge - Grey connection with optional animated flow
- * Shows animated dots flowing when edge is part of execution path
+ * Failure Edge - Animated connection showing execution flow
+ * 
+ * States:
+ * - idle: Default grey (no execution)
+ * - active: Blue with pulsing animation (currently executing)
+ * - success: Green (successfully traversed)
+ * - failure: Red (traversed but source block failed)
  */
 export const FailureEdge: React.FC<EdgeProps & { 
-  animated?: boolean; // For execution flow visualization
-  executionState?: 'active' | 'traversed' | 'idle';
+  animated?: boolean;
+  data?: {
+    executionState?: 'idle' | 'active' | 'success' | 'failure';
+  };
 }> = ({
   sourceX,
   sourceY,
@@ -23,7 +30,7 @@ export const FailureEdge: React.FC<EdgeProps & {
   markerEnd,
   selected,
   animated,
-  executionState = 'idle',
+  data,
 }) => {
   const [edgePath] = getBezierPath({
     sourceX,
@@ -34,16 +41,47 @@ export const FailureEdge: React.FC<EdgeProps & {
     targetPosition,
   });
 
-  // Determine edge color based on execution state
-  const getEdgeColor = () => {
-    if (executionState === 'active') return '#3b82f6'; // Blue for active execution
-    if (executionState === 'traversed') return '#ef4444'; // Red for failure path traversed
-    if (selected) return '#64748b';
-    return '#94a3b8'; // Default grey
+  const executionState = data?.executionState || 'idle';
+
+  // Determine edge color and style based on execution state
+  const getEdgeStyle = () => {
+    switch (executionState) {
+      case 'active':
+        return {
+          stroke: '#3b82f6', // Blue
+          strokeWidth: 4,
+          opacity: 1,
+          animation: 'edgePulse 1.5s ease-in-out infinite, flowDots 1s linear infinite',
+          strokeDasharray: '8, 4',
+          filter: 'drop-shadow(0 0 6px #3b82f6)',
+        };
+      case 'success':
+        return {
+          stroke: '#10b981', // Green
+          strokeWidth: 3,
+          opacity: 1,
+          strokeDasharray: undefined,
+          filter: 'drop-shadow(0 0 4px #10b981)',
+        };
+      case 'failure':
+        return {
+          stroke: '#ef4444', // Red
+          strokeWidth: 3,
+          opacity: 1,
+          strokeDasharray: undefined,
+          filter: 'drop-shadow(0 0 4px #ef4444)',
+        };
+      default: // idle
+        return {
+          stroke: selected ? '#64748b' : '#94a3b8',
+          strokeWidth: selected ? 2.5 : 2,
+          opacity: 0.6,
+          strokeDasharray: undefined,
+        };
+    }
   };
 
-  const edgeColor = getEdgeColor();
-  const strokeWidth = executionState !== 'idle' ? 3 : (selected ? 3 : 2);
+  const edgeStyle = getEdgeStyle();
 
   return (
     <>
@@ -52,18 +90,26 @@ export const FailureEdge: React.FC<EdgeProps & {
         markerEnd={markerEnd}
         style={{
           ...style,
-          stroke: edgeColor,
-          strokeWidth,
-          strokeDasharray: animated || executionState === 'active' ? '5, 5' : undefined,
-          animation: animated || executionState === 'active' ? 'flowDots 1s linear infinite' : undefined,
+          ...edgeStyle,
         }}
       />
       
-      {/* Add keyframes for flow animation */}
+      {/* Global CSS for edge animations */}
       <style>{`
         @keyframes flowDots {
           to {
-            stroke-dashoffset: -10;
+            stroke-dashoffset: -12;
+          }
+        }
+        
+        @keyframes edgePulse {
+          0%, 100% {
+            stroke-width: 4;
+            opacity: 1;
+          }
+          50% {
+            stroke-width: 5;
+            opacity: 0.8;
           }
         }
       `}</style>
