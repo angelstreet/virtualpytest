@@ -619,7 +619,7 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             {
                 'team_id': team_id,
                 'all_trees_data': all_trees_data,
-                'force_repopulate': False
+                'force_repopulate': True
             }
         )
         

@@ -248,7 +248,7 @@ export const UniversalBlock: React.FC<NodeProps & {
       // If has custom block_label (e.g., "navigation_1"), show "navigation_1:home"
       // Otherwise just show "navigation:home"
       if (data.block_label) {
-        headerLabel = `${data.block_label}:${data.target_node_label}`;
+        headerLabel = `${data.block_label}`;
       } else {
         headerLabel = `navigation:${data.target_node_label}`;
       }
