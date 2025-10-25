@@ -189,22 +189,35 @@ const TestCaseBuilderContent: React.FC = () => {
   }, [isControlActive, handleTakeControl, handleReleaseControl, handleControlStateChange]);
   
   // Get DeviceDataContext and initialize it with control state (REUSE from NavigationEditor line 530-535)
-  const { setControlState, getAvailableActions } = useDeviceData();
+  const { 
+    setControlState, 
+    getAvailableActions, // ← Use getter function like NavigationEditor does
+    availableActionsLoading,
+  } = useDeviceData();
   
   // Initialize device data context when control state changes (COPIED from NavigationEditor)
   useEffect(() => {
+    console.log(`[@TestCaseBuilder] setControlState called - host: ${selectedHost?.host_name}, device: ${selectedDeviceId}, active: ${isControlActive}`);
     setControlState(selectedHost, selectedDeviceId, isControlActive);
-    
-    // Log available actions for debugging
-    if (isControlActive && selectedDeviceId) {
-      const actions = getAvailableActions();
-      const actionCount = Object.values(actions).flat().length;
-      console.log(`[@TestCaseBuilder] Device control active - ${actionCount} actions available from controllers`);
-    }
-  }, [selectedHost, selectedDeviceId, isControlActive, setControlState, getAvailableActions]);
+  }, [selectedHost, selectedDeviceId, isControlActive, setControlState]);
   
-  // Now availableActions will be populated when device is selected!
+  // Get latest actions on-demand (like NavigationEditor does)
   const availableActions = getAvailableActions();
+  
+  // Track when actions are loaded (not loading and has actions)
+  const areActionsLoaded = isControlActive && !availableActionsLoading && Object.values(availableActions).flat().length > 0;
+  
+  // Debug log - simplified
+  useEffect(() => {
+    const actionCount = Object.values(availableActions).flat().length;
+    const categories = Object.keys(availableActions);
+    
+    console.log(`[@TestCaseBuilder] Actions loaded - device: ${selectedDeviceId}, control: ${isControlActive}, loading: ${availableActionsLoading}, count: ${actionCount}, categories: [${categories.join(', ')}]`);
+    
+    if (actionCount > 0) {
+      console.log(`[@TestCaseBuilder] ✅ Actions by category:`, Object.keys(availableActions).map(k => `${k}: ${availableActions[k].length}`));
+    }
+  }, [selectedDeviceId, isControlActive, availableActionsLoading, availableActions]);
   
   // Get navigation infrastructure (for compatibility, but we use pre-loaded data)
   const {
@@ -264,10 +277,10 @@ const TestCaseBuilderContent: React.FC = () => {
   const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
   const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
   
-  // Load compatible interfaces when device is selected
+  // Load compatible interfaces when device is selected AND control is taken
   useEffect(() => {
     const loadCompatibleInterfaces = async () => {
-      if (!selectedDeviceId || !selectedHost) {
+      if (!selectedDeviceId || !selectedHost || !isControlActive) {
         setCompatibleInterfaceNames([]);
         setUserinterfaceName(''); // Clear interface when device changes
         return;
@@ -306,7 +319,7 @@ const TestCaseBuilderContent: React.FC = () => {
     
     loadCompatibleInterfaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeviceId, selectedHost]); // Re-load when device changes
+  }, [selectedDeviceId, selectedHost, isControlActive]); // Re-load when device or control state changes
   
   // Debug: Log userinterfaceName changes
   useEffect(() => {
@@ -364,13 +377,15 @@ const TestCaseBuilderContent: React.FC = () => {
           console.log(`[@TestCaseBuilder] Tree load result:`, result);
           setUserInterfaceFromProps(userInterface);
           
-          // Extract nodes from result
-          if (result?.nodes) {
-            setNavNodes(result.nodes);
-            console.log(`[@TestCaseBuilder] ✅ Loaded tree for ${userinterfaceName} with ${result.nodes.length} nodes`);
+          // Extract nodes from result (API structure: result.tree.metadata.nodes)
+          const nodes = result?.tree?.metadata?.nodes || result?.nodes || [];
+          console.log(`[@TestCaseBuilder] 🔍 Raw nodes sample:`, nodes[0]); // DEBUG: See node structure
+          setNavNodes(nodes);
+          
+          if (nodes.length > 0) {
+            console.log(`[@TestCaseBuilder] ✅ Loaded tree for ${userinterfaceName} with ${nodes.length} nodes`);
           } else {
             console.warn(`[@TestCaseBuilder] ⚠️ Tree result has no nodes!`, result);
-            setNavNodes([]);
           }
         } else {
           console.warn(`[@TestCaseBuilder] ⚠️ No userInterface found for: ${userinterfaceName}`);
@@ -733,7 +748,7 @@ const TestCaseBuilderContent: React.FC = () => {
         
         {/* SECTION 3: Interface Selector */}
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
-          {/* Userinterface Selector - only enabled if device is selected */}
+          {/* Userinterface Selector - enabled when device + control */}
           <UserinterfaceSelector
             compatibleInterfaces={compatibleInterfaceNames}
             value={userinterfaceName}
@@ -742,7 +757,7 @@ const TestCaseBuilderContent: React.FC = () => {
             size="small"
             fullWidth={false}
             sx={{ minWidth: 200 }}
-            disabled={!selectedDeviceId}
+            disabled={!selectedDeviceId || !isControlActive}
           />
         </Box>
         
@@ -839,9 +854,13 @@ const TestCaseBuilderContent: React.FC = () => {
               <Box sx={{ p: 2, textAlign: 'center' }}>
                 <Typography variant="caption" color="text.secondary">
                   {!selectedDeviceId 
-                    ? 'Select a device first' 
+                    ? '1. Select a device first' 
+                    : !isControlActive
+                    ? '2. Take control of device'
+                    : !areActionsLoaded
+                    ? '3. Loading device capabilities...'
                     : !userinterfaceName 
-                    ? 'Select an interface to load toolbox'
+                    ? '4. Select an interface'
                     : 'Loading toolbox...'}
                 </Typography>
               </Box>

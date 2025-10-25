@@ -20,7 +20,7 @@ host_control_bp = Blueprint('host_control', __name__, url_prefix='/host')
 
 @host_control_bp.route('/takeControl', methods=['POST'])
 def take_control():
-    """Host-side take control - Check controllers for the requested device"""
+    """Host-side take control - Check controllers for the requested device (always succeeds, even without controllers)"""
     try:
         data = request.get_json() or {}
         device_id = data.get('device_id', 'default')
@@ -38,10 +38,10 @@ def take_control():
                 print(f"[@route:take_control] AV controller status: {av_status}")
                 av_available = av_status.get('success', False)
             else:
-                print(f"[@route:take_control] No AV controller found for device {device_id}")
+                print(f"[@route:take_control] ⚠️ WARNING: No AV controller found for device {device_id}")
             
         except Exception as e:
-            print(f"[@route:take_control] AV controller error: {e}")
+            print(f"[@route:take_control] ⚠️ WARNING: AV controller error: {e}")
         
         # Check remote controller
         remote_available = False
@@ -71,25 +71,22 @@ def take_control():
                         print(f"[@route:take_control] Remote controller status: {remote_status}")
                         remote_available = remote_status.get('success', False)
             else:
-                print(f"[@route:take_control] No remote controller found for device {device_id}")
+                print(f"[@route:take_control] ⚠️ WARNING: No remote controller found for device {device_id}")
                     
         except Exception as e:
-            print(f"[@route:take_control] Remote controller error: {e}")
+            print(f"[@route:take_control] ⚠️ WARNING: Remote controller error: {e}")
         
-        # Check if AV controller is available (remote is optional)
-        if not av_available:
-            return jsonify({
-                'success': False,
-                'error': f'AV controller not available for device {device_id}. Cannot stream video.'
-            })
-        
-        # Controllers are ready
+        # Build list of available controllers
         available_controllers = []
         if av_available:
             available_controllers.append('av')
         if remote_available:
             available_controllers.append('remote')
-            
+        
+        # ALWAYS succeed - just warn if no controllers available (needed for localhost testing)
+        if not av_available and not remote_available:
+            print(f"[@route:take_control] ⚠️ WARNING: No controllers available for device {device_id}, but allowing control for localhost testing")
+        
         print(f"[@route:take_control] SUCCESS: Take control succeeded for device: {device_id} with controllers: {available_controllers}")
         return jsonify({
             'success': True,

@@ -21,7 +21,9 @@ export function buildToolboxFromNavigationData(
   availableActions: Actions,
   userInterface: any
 ) {
-  if (!nodes || !availableActions || !userInterface) {
+  // Note: userInterface is optional - only nodes and availableActions are required
+  if (!nodes || nodes.length === 0) {
+    console.log('[@toolboxBuilder] Cannot build toolbox - no nodes provided');
     return null;
   }
 
@@ -77,21 +79,26 @@ function extractNavigationBlocks(nodes: any[]) {
   const navigationNodes = nodes
     .filter(node => 
       node.type !== 'entry' &&  // Skip entry nodes
-      node.data?.label  // Must have a label
+      (node.label || node.data?.label)  // Must have a label (root or data.label)
     )
-    .map(node => ({
-      type: 'navigation',
-      label: node.data.label,  // Show node name in toolbox (e.g., "home", "live_tv")
-      icon: NavigationIcon,
-      color: '#8b5cf6',
-      outputs: ['success', 'failure'],
-      defaultData: {
-        target_node_label: node.data.label,  // This is what UniversalBlock expects
-        target_node_id: node.id,
-        label: node.data.label  // Also store as 'label' for compatibility
-      },
-      description: `Navigate to ${node.data.label}`
-    }));
+    .map(node => {
+      // Support both API structure (label at root) and ReactFlow structure (data.label)
+      const label = node.label || node.data?.label;
+      
+      return {
+        type: 'navigation',
+        label: label,  // Show node name in toolbox (e.g., "Home", "Live TV")
+        icon: NavigationIcon,
+        color: '#8b5cf6',
+        outputs: ['success', 'failure'],
+        defaultData: {
+          target_node_label: label,  // This is what UniversalBlock expects
+          target_node_id: node.id,
+          label: label  // Also store as 'label' for compatibility
+        },
+        description: `Navigate to ${label}`
+      };
+    });
 
   console.log(`[@toolboxBuilder] Extracted ${navigationNodes.length} navigation nodes`);
   return navigationNodes;
