@@ -217,7 +217,7 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
           multiline
           rows={4}
           sx={{ mb: 3 }}
-          disabled={isGenerating || !!generatedGraph}
+          disabled={isGenerating}
         />
 
         {/* User Interface Selection */}
@@ -227,7 +227,7 @@ export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, on
             value={userinterfaceName}
             label="User Interface"
             onChange={(e) => setUserinterfaceName(e.target.value)}
-            disabled={isGenerating || !!generatedGraph}
+            disabled={isGenerating}
           >
             {availableInterfaces.map((ui: any) => (
               <MenuItem key={ui.id} value={ui.userinterface_name}>

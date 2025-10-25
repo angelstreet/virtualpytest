@@ -72,6 +72,7 @@ def navigation_execute(tree_id, target_node_id):
             result = device.navigation_executor.execute_navigation_async(
                 tree_id=tree_id,
                 target_node_id=target_node_id,
+                userinterface_name=userinterface_name,
                 current_node_id=current_node_id,
                 team_id=team_id
             )

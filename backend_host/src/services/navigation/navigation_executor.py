@@ -1176,6 +1176,7 @@ class NavigationExecutor:
         self,
         tree_id: str,
         target_node_id: str,
+        userinterface_name: str,
         current_node_id: Optional[str] = None,
         target_node_label: Optional[str] = None,
         team_id: Optional[str] = None
@@ -1183,6 +1184,14 @@ class NavigationExecutor:
         """
         Start async navigation execution.
         Returns immediately with execution_id for polling.
+        
+        Args:
+            tree_id: Tree ID
+            target_node_id: Target node ID
+            userinterface_name: User interface name (MANDATORY for reference resolution)
+            current_node_id: Current node ID (optional)
+            target_node_label: Target node label (optional)
+            team_id: Team ID (optional)
         
         Returns:
             {
@@ -1202,6 +1211,7 @@ class NavigationExecutor:
                 'target_node_id': target_node_id,
                 'current_node_id': current_node_id,
                 'target_node_label': target_node_label,
+                'userinterface_name': userinterface_name,
                 'result': None,
                 'error': None,
                 'start_time': time.time(),
@@ -1212,7 +1222,7 @@ class NavigationExecutor:
         # Start execution in background thread
         thread = threading.Thread(
             target=self._execute_navigation_with_tracking,
-            args=(execution_id, tree_id, target_node_id, current_node_id, target_node_label, team_id),
+            args=(execution_id, tree_id, target_node_id, userinterface_name, current_node_id, target_node_label, team_id),
             daemon=True
         )
         thread.start()
@@ -1265,6 +1275,7 @@ class NavigationExecutor:
         execution_id: str,
         tree_id: str,
         target_node_id: str,
+        userinterface_name: str,
         current_node_id: Optional[str],
         target_node_label: Optional[str],
         team_id: Optional[str]
@@ -1279,6 +1290,7 @@ class NavigationExecutor:
             # Execute navigation (synchronous call)
             result = self.execute_navigation(
                 tree_id=tree_id,
+                userinterface_name=userinterface_name,
                 target_node_id=target_node_id,
                 current_node_id=current_node_id,
                 target_node_label=target_node_label,

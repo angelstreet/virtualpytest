@@ -23,6 +23,12 @@ interface TestCaseBuilderSidebarProps {
   
   // Progress Bar Control
   onCloseProgressBar?: () => void;
+
+  // AI Panel wiring
+  aiPrompt?: string;
+  setAiPrompt?: (prompt: string) => void;
+  isGenerating?: boolean;
+  handleGenerateWithAI?: () => void;
 }
 
 export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
@@ -36,6 +42,10 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
   areActionsLoaded,
   userinterfaceName,
   onCloseProgressBar,
+  aiPrompt,
+  setAiPrompt,
+  isGenerating,
+  handleGenerateWithAI,
 }) => {
   return (
     <>
@@ -109,7 +119,12 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
                   </Box>
                 )
               ) : (
-                <AIModePanel />
+                <AIModePanel 
+                  aiPrompt={aiPrompt}
+                  setAiPrompt={setAiPrompt}
+                  isGenerating={isGenerating}
+                  handleGenerateWithAI={handleGenerateWithAI}
+                />
               )}
             </Box>
           </>

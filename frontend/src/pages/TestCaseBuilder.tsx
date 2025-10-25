@@ -296,6 +296,10 @@ const TestCaseBuilderContent: React.FC = () => {
           areActionsLoaded={hookData.areActionsLoaded}
           userinterfaceName={hookData.userinterfaceName}
           onCloseProgressBar={() => hookData.unifiedExecution.resetExecution()}
+          aiPrompt={hookData.aiPrompt}
+          setAiPrompt={hookData.setAiPrompt}
+          isGenerating={hookData.isGenerating}
+          handleGenerateWithAI={hookData.handleGenerateWithAI}
         />
 
         {/* Canvas */}
