@@ -14,7 +14,6 @@ interface StreamUrlCache {
 }
 
 const streamUrlCache = new Map<string, StreamUrlCache>();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 function getCachedStreamUrl(host_name: string, device_id: string): string | null {
   const cacheKey = `${host_name}:${device_id}`;

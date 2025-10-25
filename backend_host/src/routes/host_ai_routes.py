@@ -57,15 +57,16 @@ def ai_generate_plan():
                 'success': False,
                 'error': f'Device {device_id} does not have AIExecutor initialized'
             }), 500
-        result = device.ai_executor.execute_prompt(
+        
+        # Use generate_graph_only() to get the visual graph WITHOUT execution
+        result = device.ai_executor.generate_graph_only(
             prompt=prompt,
             userinterface_name=userinterface_name,
-            current_node_id=current_node_id,
             team_id=team_id,
-            async_execution=False  # Synchronous for plan generation
+            current_node_id=current_node_id
         )
         
-        print(f"[@host_ai] Plan generation result: success={result.get('success')}")
+        print(f"[@host_ai] Graph generation result: success={result.get('success')}")
         
         return jsonify(result)
         

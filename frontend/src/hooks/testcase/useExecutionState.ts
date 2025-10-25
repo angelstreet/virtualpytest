@@ -150,7 +150,6 @@ export const useExecutionState = () => {
       // 🆕 Update edge state for edges connected to this block
       // Mark outgoing edges based on block result
       const newEdgeStates = new Map(prev.edgeStates);
-      const edgeState = success ? 'success' : 'failure';
       
       // Note: Edge keys will be set by TestCaseBuilder based on graph structure
       // Here we just maintain the state, actual edge key generation happens in TestCaseBuilder

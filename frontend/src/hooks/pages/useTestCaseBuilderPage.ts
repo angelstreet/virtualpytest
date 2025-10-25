@@ -88,6 +88,9 @@ export interface UseTestCaseBuilderPageReturn {
   setNewConfirmOpen: (open: boolean) => void;
   handleConfirmDelete: () => Promise<void>;
   handleConfirmNew: () => void;
+  aiGenerateConfirmOpen: boolean;
+  setAiGenerateConfirmOpen: (open: boolean) => void;
+  handleConfirmAIGenerate: () => void;
   
   // Execution (NEW: Unified execution state)
   unifiedExecution: ReturnType<typeof useTestCaseBuilder>['unifiedExecution'];
@@ -342,6 +345,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false);
   const [deleteTargetTestCase, setDeleteTargetTestCase] = useState<{ id: string; name: string } | null>(null);
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
+  const [aiGenerateConfirmOpen, setAiGenerateConfirmOpen] = useState(false);
   
   // Handle Load button click - fetch data first, then open dialog
   const handleLoadClick = useCallback(async () => {
@@ -491,6 +495,19 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       return;
     }
 
+    // Check for unsaved changes or existing nodes
+    const hasExistingGraph = nodes.length > 2; // More than START and SUCCESS nodes
+    if (hasUnsavedChanges || hasExistingGraph) {
+      // Show confirmation dialog
+      setAiGenerateConfirmOpen(true);
+      return;
+    }
+
+    // Proceed with generation
+    await performAIGeneration();
+  }, [aiPrompt, userinterfaceName, selectedHost, hasUnsavedChanges, nodes.length]);
+
+  const performAIGeneration = useCallback(async () => {
     setIsGenerating(true);
     
     try {
@@ -498,7 +515,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
         aiPrompt, 
         userinterfaceName,
         selectedDeviceId || 'device1',
-        selectedHost.host_name
+        selectedHost!.host_name
       );
       
       if (result.success && result.graph) {
@@ -544,8 +561,13 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       });
     } finally {
       setIsGenerating(false);
+      setAiGenerateConfirmOpen(false); // Close dialog after generation
     }
-  }, [aiPrompt, userinterfaceName, selectedHost, selectedDeviceId, setNodes, setEdges, setTestcaseName, setDescription]);
+  }, [aiPrompt, userinterfaceName, selectedHost, selectedDeviceId, setNodes, setEdges, setTestcaseName, setDescription, generateTestCaseFromPrompt, setCreationMode]);
+  
+  const handleConfirmAIGenerate = useCallback(() => {
+    performAIGeneration();
+  }, [performAIGeneration]);
   
   // ==================== RETURN ====================
   return {
@@ -616,6 +638,9 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setNewConfirmOpen,
     handleConfirmDelete,
     handleConfirmNew,
+    aiGenerateConfirmOpen,
+    setAiGenerateConfirmOpen,
+    handleConfirmAIGenerate,
     
     // AV Panel
     isAVPanelCollapsed,

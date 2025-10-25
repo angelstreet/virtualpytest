@@ -21,7 +21,7 @@ interface TestCaseBuilderPanelsProps {
   // AV Panel State
   isAVPanelCollapsed: boolean;
   isAVPanelMinimized: boolean;
-  captureMode: string;
+  captureMode: 'stream' | 'screenshot' | 'video';
   isVerificationVisible: boolean;
   
   // Layout Control

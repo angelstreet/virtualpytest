@@ -9,8 +9,6 @@ import { useCallback } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { TestCaseGraph } from '../../types/testcase/TestCase_Types';
 
-const TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce';
-
 export const useTestCaseSave = () => {
   
   /**

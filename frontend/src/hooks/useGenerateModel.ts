@@ -111,9 +111,7 @@ export const useGenerateModel = ({
 
     try {
       const response = await fetch(
-        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}`, {
-          host_ip: selectedHost.host_ip
-        })
+        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}?host_ip=${selectedHost.host_ip}`)
       );
 
       if (!response.ok) {

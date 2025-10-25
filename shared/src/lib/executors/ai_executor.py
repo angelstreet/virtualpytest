@@ -253,6 +253,65 @@ class AIExecutor:
                 'execution_time': time.time() - start_time
             }
     
+    def generate_graph_only(self, 
+                           prompt: str, 
+                           userinterface_name: str,
+                           team_id: str,
+                           current_node_id: Optional[str] = None) -> Dict[str, Any]:
+        """
+        Generate visual graph for TestCase Builder WITHOUT execution.
+        This returns the graph structure for display in the builder UI.
+        
+        Args:
+            prompt: User prompt
+            userinterface_name: Interface name
+            team_id: Team ID
+            current_node_id: Current navigation position
+        
+        Returns:
+            Dict with 'success', 'graph', 'analysis', etc.
+        """
+        start_time = time.time()
+        
+        try:
+            # Get current position if not provided
+            if current_node_id is None:
+                position = self.device.navigation_executor.get_current_position()
+                current_node_id = position.get('current_node_id')
+            
+            # Load context using device's existing executors
+            context = self._load_context(userinterface_name, current_node_id, team_id)
+            
+            # Generate plan (which includes graph)
+            print(f"[@ai_executor] 🎨 Generating graph only (no execution) for prompt: {prompt}")
+            plan_dict = self.generate_plan(prompt, context, current_node_id)
+            
+            if not plan_dict.get('feasible', True):
+                return {
+                    'success': False,
+                    'error': 'Task not feasible',
+                    'analysis': plan_dict.get('analysis', ''),
+                    'execution_time': time.time() - start_time
+                }
+            
+            # Return graph structure without execution
+            return {
+                'success': True,
+                'graph': plan_dict.get('graph', {}),
+                'analysis': plan_dict.get('analysis', ''),
+                'plan_id': plan_dict.get('id'),
+                'execution_time': time.time() - start_time,
+                'message': 'Graph generated successfully (not executed)'
+            }
+                
+        except Exception as e:
+            print(f"[@ai_executor] Graph generation failed: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Graph generation error: {str(e)}',
+                'execution_time': time.time() - start_time
+            }
+    
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         """Get execution status - use class variable explicitly"""
         print(f"[@ai_executor] Looking for execution {execution_id}, available executions: {list(AIExecutor._executions.keys())}")

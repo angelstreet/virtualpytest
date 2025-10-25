@@ -498,6 +498,9 @@ const TestCaseBuilderContent: React.FC = () => {
         editFormData={{}}
         setEditFormData={() => {}}
         handleSaveEdit={() => {}}
+        aiGenerateConfirmOpen={hookData.aiGenerateConfirmOpen}
+        setAiGenerateConfirmOpen={hookData.setAiGenerateConfirmOpen}
+        handleConfirmAIGenerate={hookData.handleConfirmAIGenerate}
       />
       
       {/* Delete Confirmation Dialog */}

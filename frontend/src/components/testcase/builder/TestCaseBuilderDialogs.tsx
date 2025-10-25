@@ -50,6 +50,11 @@ interface TestCaseBuilderDialogsProps {
   editFormData: Record<string, any>;
   setEditFormData: (data: Record<string, any>) => void;
   handleSaveEdit: () => void;
+  
+  // AI Generate Confirmation Dialog
+  aiGenerateConfirmOpen?: boolean;
+  setAiGenerateConfirmOpen?: (open: boolean) => void;
+  handleConfirmAIGenerate?: () => void;
 }
 
 export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
@@ -75,6 +80,9 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   editFormData,
   setEditFormData,
   handleSaveEdit,
+  aiGenerateConfirmOpen,
+  setAiGenerateConfirmOpen,
+  handleConfirmAIGenerate,
 }) => {
   // Get environment color for chips
   const getEnvironmentColor = (env: string) => {
@@ -347,6 +355,63 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           </Button>
         </DialogActions>
       </Dialog>
+      
+      {/* AI Generate Confirmation Dialog */}
+      {aiGenerateConfirmOpen !== undefined && setAiGenerateConfirmOpen && handleConfirmAIGenerate && (
+        <Dialog 
+          open={aiGenerateConfirmOpen} 
+          onClose={() => setAiGenerateConfirmOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{
+            sx: {
+              border: 2,
+              borderColor: 'warning.main',
+            }
+          }}
+        >
+          <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <ErrorIcon color="warning" />
+              <Typography variant="h6">Unsaved Changes</Typography>
+            </Box>
+          </DialogTitle>
+          <DialogContent sx={{ pt: 3 }}>
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <Typography variant="body2">
+                You have an existing test case with unsaved changes. 
+                Generating a new AI test case will <strong>replace</strong> the current graph.
+              </Typography>
+            </Alert>
+            <Typography variant="body2" color="text.secondary">
+              <strong>Options:</strong>
+            </Typography>
+            <Box component="ul" sx={{ mt: 1, ml: 2 }}>
+              <Typography component="li" variant="body2" color="text.secondary">
+                <strong>Cancel</strong> - Save your current work first
+              </Typography>
+              <Typography component="li" variant="body2" color="text.secondary">
+                <strong>Continue</strong> - Replace current graph (changes will be lost)
+              </Typography>
+            </Box>
+          </DialogContent>
+          <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+            <Button 
+              onClick={() => setAiGenerateConfirmOpen(false)} 
+              variant="outlined"
+            >
+              Cancel
+            </Button>
+            <Button 
+              onClick={handleConfirmAIGenerate} 
+              variant="contained" 
+              color="warning"
+            >
+              Continue & Replace
+            </Button>
+          </DialogActions>
+        </Dialog>
+      )}
     </>
   );
 };
