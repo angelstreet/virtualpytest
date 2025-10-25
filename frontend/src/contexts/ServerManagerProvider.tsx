@@ -2,14 +2,11 @@ import React, { useState, useCallback, useEffect, useMemo, useRef } from 'react'
 import { ServerManagerContext } from './ServerManagerContext';
 import { ServerHostData } from '../types/common/Server_Types';
 import { getAllServerUrls, buildServerUrlForServer } from '../utils/buildUrlUtils';
+import { CACHE_CONFIG, STORAGE_KEYS } from '../config/constants';
 
 interface ServerManagerProviderProps {
   children: React.ReactNode;
 }
-
-// Cache configuration
-const CACHE_KEY = 'serverHostsData_cache';
-const CACHE_TTL = 2 * 60 * 1000; // 2 minutes in milliseconds
 
 interface CachedData {
   data: ServerHostData[];
@@ -49,11 +46,11 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   // Server data state - Initialize from cache if available and valid
   const [serverHostsData, setServerHostsData] = useState<ServerHostData[]>(() => {
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
+      const cached = localStorage.getItem(STORAGE_KEYS.SERVER_HOSTS_CACHE);
       if (cached) {
         const { data, timestamp }: CachedData = JSON.parse(cached);
         const age = Date.now() - timestamp;
-        if (age < CACHE_TTL) {
+        if (age < CACHE_CONFIG.SHORT_TTL) {
           console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000 / 60)}min)`);
           return data;
         }
@@ -67,11 +64,11 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   // Check if we have cached data on initial load
   const hasCachedData = useMemo(() => {
     try {
-      const cached = localStorage.getItem(CACHE_KEY);
+      const cached = localStorage.getItem(STORAGE_KEYS.SERVER_HOSTS_CACHE);
       if (cached) {
         const { timestamp }: CachedData = JSON.parse(cached);
         const age = Date.now() - timestamp;
-        return age < CACHE_TTL;
+        return age < CACHE_CONFIG.SHORT_TTL;
       }
     } catch {
       return false;
@@ -114,11 +111,11 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     // Check cache first (unless force refresh)
     if (!forceRefresh) {
       try {
-        const cached = localStorage.getItem(CACHE_KEY);
+        const cached = localStorage.getItem(STORAGE_KEYS.SERVER_HOSTS_CACHE);
         if (cached) {
           const { data, timestamp }: CachedData = JSON.parse(cached);
           const age = Date.now() - timestamp;
-          if (age < CACHE_TTL) {
+          if (age < CACHE_CONFIG.SHORT_TTL) {
             console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000 / 60)}min)`);
             setServerHostsData(data);
             setIsLoading(false);
@@ -214,7 +211,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
           data: allServerData,
           timestamp: Date.now()
         };
-        localStorage.setItem(CACHE_KEY, JSON.stringify(cacheData));
+        localStorage.setItem(STORAGE_KEYS.SERVER_HOSTS_CACHE, JSON.stringify(cacheData));
         console.log('[@ServerManager] Data cached successfully');
       } catch (error) {
         console.warn('[@ServerManager] Failed to cache data:', error);

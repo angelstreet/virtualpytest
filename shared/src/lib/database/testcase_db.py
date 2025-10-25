@@ -26,10 +26,11 @@ def create_testcase(
     created_by: str = None,
     creation_method: str = 'visual',
     ai_prompt: str = None,
-    ai_analysis: str = None
+    ai_analysis: str = None,
+    overwrite: bool = False
 ) -> Optional[str]:
     """
-    Create a new test case definition.
+    Create a new test case definition, or update if it exists and overwrite=True.
     
     Args:
         team_id: Team ID
@@ -41,6 +42,7 @@ def create_testcase(
         creation_method: 'visual' (drag-drop) or 'ai' (prompt)
         ai_prompt: Original prompt if AI-generated
         ai_analysis: AI reasoning if AI-generated
+        overwrite: If True, update existing test case with same name
     
     Returns:
         testcase_id (UUID) or None on failure
@@ -51,6 +53,24 @@ def create_testcase(
         return None
     
     try:
+        # Check if test case with this name already exists
+        if overwrite:
+            existing = get_testcase_by_name(testcase_name, team_id)
+            if existing:
+                # Update existing test case
+                success = update_testcase(
+                    testcase_id=existing['testcase_id'],
+                    graph_json=graph_json,
+                    description=description,
+                    userinterface_name=userinterface_name,
+                    team_id=team_id
+                )
+                if success:
+                    print(f"[@testcase_db] Updated test case: {testcase_name} (overwrite mode)")
+                    return existing['testcase_id']
+                else:
+                    return None
+        
         data = {
             'team_id': team_id,
             'testcase_name': testcase_name,
@@ -75,8 +95,9 @@ def create_testcase(
         
     except Exception as e:
         error_msg = str(e)
-        if 'duplicate key' in error_msg or 'unique constraint' in error_msg:
+        if 'duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower():
             print(f"[@testcase_db] ERROR: Test case name already exists: {testcase_name}")
+            return 'DUPLICATE_NAME'  # Return special value to indicate duplicate
         else:
             print(f"[@testcase_db] ERROR creating test case: {e}")
         return None

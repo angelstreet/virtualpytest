@@ -89,17 +89,17 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
                 toolboxConfig ? (
                   <TestCaseToolbox toolboxConfig={toolboxConfig} />
                 ) : (
-                  <Box sx={{ p: 2, textAlign: 'center' }}>
-                    <Typography variant="caption" color="text.secondary">
+                  <Box sx={{ p: 2, textAlign: 'center'}}>
+                    <Typography variant="caption" fontSize={16} fontWeight="bold" color="text.secondary">
                       {!selectedDeviceId 
-                        ? '1. Select a device first' 
+                        ? '1. Select a device' 
                         : !isControlActive
-                        ? '2. Take control of device'
+                        ? '2. Take control'
                         : !areActionsLoaded
                         ? '3. Loading device capabilities...'
                         : !userinterfaceName 
                         ? '4. Select an interface'
-                        : 'Loading toolbox...'}
+                        : '5. Loading toolbox...'}
                     </Typography>
                   </Box>
                 )

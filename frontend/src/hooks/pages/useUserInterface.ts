@@ -57,7 +57,7 @@ export const useUserInterface = () => {
   const getAllUserInterfaces = useMemo(
     () => async (): Promise<UserInterface[]> => {
       // Check 24-hour cache first
-      if (allInterfacesCache.data && (Date.now() - allInterfacesCache.timestamp) < CACHE_TTL) {
+      if (allInterfacesCache.data && (Date.now() - allInterfacesCache.timestamp) < CACHE_CONFIG.LONG_TTL) {
         console.log(
           `[@hook:useUserInterface:getAllUserInterfaces] Using 24h cached data (age: ${((Date.now() - allInterfacesCache.timestamp) / (1000 * 60 * 60)).toFixed(1)}h)`,
         );

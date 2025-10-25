@@ -64,6 +64,8 @@ def testcase_save():
             if not graph_json:
                 return jsonify({'success': False, 'error': 'graph_json is required'}), 400
             
+            overwrite = data.get('overwrite', False)  # Allow overwriting existing test case
+            
             new_testcase_id = create_testcase(
                 team_id=team_id,
                 testcase_name=testcase_name,
@@ -73,14 +75,17 @@ def testcase_save():
                 created_by=data.get('created_by'),
                 creation_method=data.get('creation_method', 'visual'),
                 ai_prompt=data.get('ai_prompt'),
-                ai_analysis=data.get('ai_analysis')
+                ai_analysis=data.get('ai_analysis'),
+                overwrite=overwrite
             )
             
-            if new_testcase_id:
+            if new_testcase_id == 'DUPLICATE_NAME':
+                return jsonify({'success': False, 'error': f'Test case name "{testcase_name}" already exists. Please choose a different name or enable overwrite.'}), 409
+            elif new_testcase_id:
                 # Fetch created testcase
                 testcase = get_testcase(new_testcase_id, team_id)
                 if testcase:
-                    return jsonify({'success': True, 'testcase': testcase})
+                    return jsonify({'success': True, 'testcase': testcase, 'action': 'updated' if overwrite else 'created'})
                 else:
                     return jsonify({'success': False, 'error': 'Test case not found after creation'}), 404
             else:
@@ -103,7 +108,7 @@ def testcase_list():
         
         testcases = list_testcases(team_id, include_inactive=include_inactive)
         
-        return jsonify(testcases)
+        return jsonify({'success': True, 'testcases': testcases})
         
     except Exception as e:
         print(f"[@server_testcase:list] ERROR: {e}")

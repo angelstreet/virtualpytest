@@ -18,7 +18,7 @@ const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 function getCachedStreamUrl(host_name: string, device_id: string): string | null {
   const cacheKey = `${host_name}:${device_id}`;
   const cached = streamUrlCache.get(cacheKey);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+  if (cached && (Date.now() - cached.timestamp) < CACHE_CONFIG.LONG_TTL) {
     return cached.url;
   }
   if (cached) {

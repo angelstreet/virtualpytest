@@ -21,7 +21,8 @@ export const useTestCaseSave = () => {
     graphJson: TestCaseGraph,
     description: string,
     userinterfaceName: string,
-    createdBy: string
+    createdBy: string,
+    overwrite: boolean = false
   ): Promise<{ success: boolean; testcase_id?: string; action?: string; error?: string }> => {
     try {
       const response = await fetch(buildServerUrl('/server/testcase/save'), {
@@ -33,6 +34,7 @@ export const useTestCaseSave = () => {
           description,
           userinterface_name: userinterfaceName,
           created_by: createdBy,
+          overwrite,
         }),
       });
       

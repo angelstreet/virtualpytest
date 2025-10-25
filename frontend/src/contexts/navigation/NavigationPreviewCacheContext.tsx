@@ -32,7 +32,7 @@ const loadCacheFromStorage = (): Map<string, CacheEntry> => {
       
       Object.entries(parsed).forEach(([key, entry]: [string, any]) => {
         const age = now - entry.timestamp;
-        if (age < CACHE_TTL_MS) {
+        if (age < CACHE_CONFIG.MEDIUM_TTL) {
           cache.set(key, entry as CacheEntry);
           validCount++;
         } else {
@@ -93,7 +93,7 @@ export const NavigationPreviewCacheProvider: React.FC<{ children: React.ReactNod
     
     if (cached) {
       const age = Date.now() - cached.timestamp;
-      if (age < CACHE_TTL_MS) {
+      if (age < CACHE_CONFIG.MEDIUM_TTL) {
         const ageSeconds = Math.floor(age / 1000);
         console.log(`[@PreviewCache] ✅ HIT: ${targetNodeId} (age: ${ageSeconds}s)`);
         return cached.steps;

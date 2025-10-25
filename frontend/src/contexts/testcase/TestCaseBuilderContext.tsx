@@ -340,8 +340,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   
   // Save current test case
   const saveCurrentTestCase = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
-    if (!testcaseName) {
+    if (!testcaseName || testcaseName.trim() === '') {
       return { success: false, error: 'Test case name is required' };
+    }
+    
+    if (!userinterfaceName) {
+      return { success: false, error: 'User interface is required' };
     }
     
     // Convert nodes and edges to TestCaseGraph format
@@ -367,7 +371,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         graph,
         description,
         userinterfaceName,
-        'default-user'
+        'default-user',
+        true  // Always overwrite - maintains history automatically via trigger
       );
       
       if (result.success && result.testcase_id) {
@@ -381,7 +386,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     } catch (error: any) {
       return { success: false, error: error.message };
     }
-  }, [testcaseName, description, userinterfaceName, nodes, edges]);
+  }, [testcaseName, description, userinterfaceName, nodes, edges, saveTestCase]);
   
   // Load test case
   const loadTestCase = useCallback(async (testcase_id: string) => {

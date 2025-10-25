@@ -1,6 +1,7 @@
 import React, { createContext, useContext, useState, useRef, useCallback, useEffect } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { CACHE_CONFIG, STORAGE_KEYS } from '../../config/constants';
 
 // Types for nested tree operations
 export interface NavigationTree {
@@ -83,8 +84,7 @@ interface TreeCacheEntry {
   timestamp: number;
 }
 
-const TREE_CACHE_STORAGE_KEY = 'nav_tree_cache';
-const TREE_CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes in milliseconds
+const TREE_CACHE_STORAGE_KEY = STORAGE_KEYS.NAVIGATION_TREE_CACHE_PREFIX + 'data';
 
 // Load tree cache from localStorage
 const loadTreeCacheFromStorage = (): Map<string, TreeCacheEntry> => {
@@ -101,7 +101,7 @@ const loadTreeCacheFromStorage = (): Map<string, TreeCacheEntry> => {
       
       Object.entries(parsed).forEach(([key, entry]: [string, any]) => {
         const age = now - entry.timestamp;
-        if (age < TREE_CACHE_TTL_MS) {
+        if (age < CACHE_CONFIG.MEDIUM_TTL) {
           cache.set(key, entry as TreeCacheEntry);
           validCount++;
         } else {
@@ -253,7 +253,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     const cached = treeCache.current.get(cacheKey);
     if (cached) {
       const age = Date.now() - cached.timestamp;
-      if (age < TREE_CACHE_TTL_MS) {
+      if (age < CACHE_CONFIG.MEDIUM_TTL) {
         const ageSeconds = Math.floor(age / 1000);
         console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} from ${selectedServer} (age: ${ageSeconds}s, metrics: ${includeMetrics})`);
         

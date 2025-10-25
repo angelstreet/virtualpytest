@@ -171,6 +171,12 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
             variant="outlined" 
             startIcon={<FolderOpenIcon />} 
             onClick={() => setLoadDialogOpen(true)}
+            disabled={!selectedDeviceId || !isControlActive}
+            title={
+              !selectedDeviceId ? 'Select a device first' :
+              !isControlActive ? 'Take control of device first' :
+              'Load saved test case'
+            }
           >
             Load
           </Button>
