@@ -77,7 +77,7 @@ class HDMIStreamController(FFmpegCaptureController):
                 ['sudo', 'systemctl', 'show', 'stream', '--property=ActiveState,SubState'],
                 capture_output=True,
                 text=True,
-                timeout=10
+                timeout=2
             )
             
             if result.returncode == 0:

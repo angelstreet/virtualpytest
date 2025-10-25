@@ -311,6 +311,16 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         // Check if device has action types (they might be stripped for performance)
         const deviceActionTypes = currentDevice.device_action_types;
         
+        // STEP 2: Check what DeviceDataContext sees
+        console.log('[DeviceDataContext:fetchAvailableActions] STEP 2 - Current device data:', {
+          currentDevice_id: currentDevice?.device_id,
+          hasActionTypes: !!deviceActionTypes,
+          actionTypesKeys: deviceActionTypes ? Object.keys(deviceActionTypes) : [],
+          state_currentHost_name: state.currentHost?.host_name,
+          state_currentDeviceId: state.currentDeviceId,
+          deviceActionTypes_sample: deviceActionTypes ? Object.entries(deviceActionTypes).slice(0, 2) : []
+        });
+        
         if (!deviceActionTypes || Object.keys(deviceActionTypes).length === 0) {
           // Schemas not loaded (performance optimization) - this is expected behavior
           setState((prev) => ({

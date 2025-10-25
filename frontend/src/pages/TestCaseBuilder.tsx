@@ -173,14 +173,12 @@ const TestCaseBuilderContent: React.FC = () => {
     autoCleanup: true,
   });
   
-  // Device control handler (REUSE pattern from NavigationEditor lines 115-125)
+  // Device control handler
   const handleDeviceControl = useCallback(async () => {
     if (isControlActive) {
-      console.log('[@TestCaseBuilder] Releasing device control');
       await handleReleaseControl();
       handleControlStateChange(false);
     } else {
-      console.log('[@TestCaseBuilder] Taking device control');
       const success = await handleTakeControl();
       if (success) {
         handleControlStateChange(true);
@@ -188,59 +186,37 @@ const TestCaseBuilderContent: React.FC = () => {
     }
   }, [isControlActive, handleTakeControl, handleReleaseControl, handleControlStateChange]);
   
-  // Get DeviceDataContext and initialize it with control state (REUSE from NavigationEditor line 530-535)
+  // Get DeviceDataContext and initialize it with control state
   const { 
     setControlState, 
-    getAvailableActions, // ← Use getter function like NavigationEditor does
+    getAvailableActions,
+    getAvailableVerificationTypes,
     availableActionsLoading,
-    fetchAvailableActions, // Add direct access to force refetch
+    fetchAvailableActions,
   } = useDeviceData();
   
-  // Initialize device data context when control state changes (COPIED from NavigationEditor)
-  // This watches for selectedHost reference changes, which happens when HostManagerProvider loads schemas
+  // Initialize device data context when control state changes
   useEffect(() => {
-    console.log(`[@TestCaseBuilder] setControlState called - host: ${selectedHost?.host_name}, device: ${selectedDeviceId}, active: ${isControlActive}`);
-    
-    // Check if device has schemas loaded
-    if (selectedHost && selectedDeviceId && isControlActive) {
-      const device = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
-      const hasSchemas = device?.device_action_types && Object.keys(device.device_action_types).length > 0;
-      console.log(`[@TestCaseBuilder] Device schemas status - hasSchemas: ${hasSchemas}, categories: ${hasSchemas ? Object.keys(device.device_action_types).length : 0}`);
-    }
-    
     setControlState(selectedHost, selectedDeviceId, isControlActive);
   }, [selectedHost, selectedDeviceId, isControlActive, setControlState]);
   
-  // Manually refetch after schemas are loaded by HostManagerProvider
+  // Refetch actions after schemas are loaded by HostManagerProvider
   useEffect(() => {
     if (!isControlActive || !selectedHost || !selectedDeviceId) return;
     
     const timer = setTimeout(async () => {
-      console.log('[@TestCaseBuilder] Manual refetch trigger after schema load delay');
-      // Force refetch to get schemas that were loaded by HostManagerProvider
-      await fetchAvailableActions(true); // Force=true to bypass cache
-    }, 1000); // 1 second delay to allow HostManagerProvider to update
+      await fetchAvailableActions(true);
+    }, 1000);
 
     return () => clearTimeout(timer);
   }, [isControlActive, selectedHost, selectedDeviceId, fetchAvailableActions]);
   
   // Get latest actions on-demand (like NavigationEditor does)
   const availableActions = getAvailableActions();
+  const availableVerifications = getAvailableVerificationTypes();
   
   // Track when actions are loaded (not loading and has actions)
   const areActionsLoaded = isControlActive && !availableActionsLoading && Object.values(availableActions || {}).flat().length > 0;
-  
-  // Debug log - simplified
-  useEffect(() => {
-    const actionCount = Object.values(availableActions || {}).flat().length;
-    const categories = Object.keys(availableActions || {});
-    
-    console.log(`[@TestCaseBuilder] Actions loaded - device: ${selectedDeviceId}, control: ${isControlActive}, loading: ${availableActionsLoading}, count: ${actionCount}, categories: [${categories.join(', ')}]`);
-    
-    if (actionCount > 0) {
-      console.log(`[@TestCaseBuilder] ✅ Actions by category:`, Object.keys(availableActions).map(k => `${k}: ${availableActions[k].length}`));
-    }
-  }, [selectedDeviceId, isControlActive, availableActionsLoading, availableActions]);
   
   // Get navigation infrastructure (for compatibility, but we use pre-loaded data)
   const {
@@ -305,21 +281,16 @@ const TestCaseBuilderContent: React.FC = () => {
     const loadCompatibleInterfaces = async () => {
       if (!selectedDeviceId || !selectedHost || !isControlActive) {
         setCompatibleInterfaceNames([]);
-        setUserinterfaceName(''); // Clear interface when device changes
+        setUserinterfaceName('');
         return;
       }
       
       try {
-        console.log('[@TestCaseBuilder] Loading compatible interfaces for device...');
-        
         const selectedDevice = selectedHost.devices?.find((d) => d.device_id === selectedDeviceId);
         const deviceModel = selectedDevice?.device_model;
         
         const interfaces = await getAllUserInterfaces();
         
-        // Filter interfaces that:
-        // 1. Have navigation trees (root_tree property exists)
-        // 2. Are compatible with the selected device model
         const compatibleInterfaces = interfaces.filter((ui: any) => {
           const hasTree = !!ui.root_tree;
           const isCompatible = ui.models?.includes(deviceModel);
@@ -329,7 +300,6 @@ const TestCaseBuilderContent: React.FC = () => {
         const names = compatibleInterfaces.map((ui: any) => ui.name);
         
         setCompatibleInterfaceNames(names);
-        console.log(`[@TestCaseBuilder] Loaded ${names.length} compatible interfaces for ${deviceModel}`);
         
         // Auto-select first compatible interface if available
         if (names.length > 0 && !names.includes(userinterfaceName)) {
@@ -342,12 +312,7 @@ const TestCaseBuilderContent: React.FC = () => {
     
     loadCompatibleInterfaces();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeviceId, selectedHost, isControlActive]); // Re-load when device or control state changes
-  
-  // Debug: Log userinterfaceName changes
-  useEffect(() => {
-    console.log('[@TestCaseBuilder] userinterfaceName changed to:', userinterfaceName);
-  }, [userinterfaceName]);
+  }, [selectedDeviceId, selectedHost, isControlActive]);
   
   // AV Panel handlers (REUSE from NavigationEditor lines 409-423)
   const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
@@ -356,12 +321,10 @@ const TestCaseBuilderContent: React.FC = () => {
   
   const handleCaptureModeChange = useCallback((mode: 'stream' | 'screenshot' | 'video') => {
     setCaptureMode(mode);
-    console.log('[@TestCaseBuilder] Capture mode changed to:', mode);
   }, []);
   
   const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
     setIsAVPanelMinimized(isMinimized);
-    console.log('[@TestCaseBuilder] AV panel minimized changed to:', isMinimized);
   }, []);
   
   // Snackbar state
@@ -381,62 +344,39 @@ const TestCaseBuilderContent: React.FC = () => {
   
   useEffect(() => {
     const loadNavigationTree = async () => {
-      // Only load tree if BOTH device and interface are selected
       if (!selectedDeviceId || !userinterfaceName) {
-        console.log(`[@TestCaseBuilder] Skipping tree load - device: ${selectedDeviceId}, interface: ${userinterfaceName}`);
-        setNavNodes([]); // Clear nodes if either is missing
+        setNavNodes([]);
         return;
       }
       
       try {
-        console.log(`[@TestCaseBuilder] Loading tree for interface: ${userinterfaceName} (device: ${selectedDeviceId})`);
-        
         const userInterface = await getUserInterfaceByName(userinterfaceName);
-        console.log(`[@TestCaseBuilder] Got userInterface:`, userInterface);
         
         if (userInterface) {
-          // Load tree data through NavigationConfig (uses cache automatically)
           const result = await loadTreeByUserInterface(userInterface.id);
-          console.log(`[@TestCaseBuilder] Tree load result:`, result);
           setUserInterfaceFromProps(userInterface);
           
-          // Extract nodes from result (API structure: result.tree.metadata.nodes)
           const nodes = result?.tree?.metadata?.nodes || result?.nodes || [];
-          console.log(`[@TestCaseBuilder] 🔍 Raw nodes sample:`, nodes[0]); // DEBUG: See node structure
           setNavNodes(nodes);
-          
-          if (nodes.length > 0) {
-            console.log(`[@TestCaseBuilder] ✅ Loaded tree for ${userinterfaceName} with ${nodes.length} nodes`);
-          } else {
-            console.warn(`[@TestCaseBuilder] ⚠️ Tree result has no nodes!`, result);
-          }
-        } else {
-          console.warn(`[@TestCaseBuilder] ⚠️ No userInterface found for: ${userinterfaceName}`);
         }
       } catch (error) {
-        console.error(`[@TestCaseBuilder] Failed to load tree:`, error);
-        setNavNodes([]); // Clear nodes on error
+        console.error('[@TestCaseBuilder] Failed to load tree:', error);
+        setNavNodes([]);
       }
     };
     
     loadNavigationTree();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedDeviceId, userinterfaceName]); // Re-load when device OR interface changes
+  }, [selectedDeviceId, userinterfaceName]);
 
-  // Build dynamic toolbox from navigation data - only if device and interface are selected
+  // Build dynamic toolbox from navigation data
   const dynamicToolboxConfig = React.useMemo(() => {
-    console.log(`[@TestCaseBuilder] Building toolbox - device: ${selectedDeviceId}, interface: ${userinterfaceName}, nodes: ${navNodes.length}, actions: ${Object.values(availableActions).flat().length}`);
-    
     if (!selectedDeviceId || !userinterfaceName || navNodes.length === 0) {
-      console.log(`[@TestCaseBuilder] ⚠️ Cannot build toolbox - missing requirements`);
       return null;
     }
     
-    console.log(`[@TestCaseBuilder] ✅ Building toolbox with ${navNodes.length} nodes and ${Object.values(availableActions).flat().length} actions`);
-    const config = buildToolboxFromNavigationData(navNodes, availableActions, null);
-    console.log(`[@TestCaseBuilder] Toolbox config built:`, config);
-    return config;
-  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions]);
+    return buildToolboxFromNavigationData(navNodes, availableActions, availableVerifications);
+  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions, availableVerifications]);
 
   // Load test case list when load dialog opens
   useEffect(() => {
@@ -770,7 +710,7 @@ const TestCaseBuilderContent: React.FC = () => {
         </Box>
         
         {/* SECTION 3: Interface Selector */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '1 1 auto', ml: 2, justifyContent: 'center' }}>
           {/* Userinterface Selector - enabled when device + control */}
           <UserinterfaceSelector
             compatibleInterfaces={compatibleInterfaceNames}
@@ -779,7 +719,7 @@ const TestCaseBuilderContent: React.FC = () => {
             label="Interface"
             size="small"
             fullWidth={false}
-            sx={{ minWidth: 200 }}
+            sx={{ minWidth: 180}}
             disabled={!selectedDeviceId || !isControlActive}
           />
         </Box>

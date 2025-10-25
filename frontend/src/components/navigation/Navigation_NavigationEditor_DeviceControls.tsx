@@ -94,10 +94,10 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
           value={selectedDeviceKey}
           onChange={(e) => handleDeviceChange(e.target.value)}
           label="Device"
-          disabled={isControlLoading}
+          disabled={isControlLoading || isControlActive}
           sx={{ height: 32, fontSize: '0.75rem' }}
         >
-          {availableHosts.flatMap((host) => {
+          {availableHosts.flatMap((host, hostIndex) => {
             const devices = host.devices || [];
 
             // Skip hosts with no devices
@@ -105,10 +105,12 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
               return [];
             }
 
-            // Show all devices in a flat list without host grouping
-            return devices.map((device) => {
+            // Show all devices in a flat list with visual gaps between host groups
+            return devices.map((device, deviceIndex) => {
               const deviceKey = createDeviceKey(host.host_name, device.device_id);
               const deviceIsLocked = isDeviceLocked(deviceKey);
+              const isLastDeviceInHost = deviceIndex === devices.length - 1;
+              const isNotLastHost = hostIndex < availableHosts.length - 1;
 
               return (
                 <MenuItem
@@ -120,6 +122,10 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
                     alignItems: 'center',
                     gap: 1,
                     opacity: deviceIsLocked ? 0.6 : 1,
+                    borderBottom: isLastDeviceInHost && isNotLastHost ? '1px solid' : 'none',
+                    borderColor: 'divider',
+                    mb: isLastDeviceInHost && isNotLastHost ? 0.5 : 0,
+                    pb: isLastDeviceInHost && isNotLastHost ? 0.5 : undefined,
                   }}
                 >
                   {deviceIsLocked && (

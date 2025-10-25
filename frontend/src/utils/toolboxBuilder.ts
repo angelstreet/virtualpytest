@@ -8,18 +8,20 @@ import TouchAppIcon from '@mui/icons-material/TouchApp';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import LoopIcon from '@mui/icons-material/Loop';
 import type { Actions } from '../types/controller/Action_Types';
+import type { Verifications } from '../types/verification/Verification_Types';
 
 /**
  * Build dynamic toolbox configuration
  * - Navigation blocks: from tree nodes (screen names)
- * - Actions/Verifications: from DeviceDataContext (controller capabilities)
+ * - Actions: from DeviceDataContext availableActions
+ * - Verifications: from DeviceDataContext availableVerificationTypes
  * 
  * Returns structure matching toolboxConfig.tsx format
  */
 export function buildToolboxFromNavigationData(
   nodes: any[],
   availableActions: Actions,
-  userInterface: any
+  availableVerifications: Verifications
 ) {
   // Note: userInterface is optional - only nodes and availableActions are required
   if (!nodes || nodes.length === 0) {
@@ -53,21 +55,11 @@ export function buildToolboxFromNavigationData(
     },
     actions: {
       tabName: 'Actions',
-      groups: [
-        {
-          groupName: 'Actions',
-          commands: extractActionBlocks(availableActions)
-        }
-      ]
+      groups: extractActionGroups(availableActions)
     },
     verifications: {
       tabName: 'Verifications',
-      groups: [
-        {
-          groupName: 'Verifications',
-          commands: extractVerificationBlocks(availableActions)
-        }
-      ]
+      groups: extractVerificationGroups(availableVerifications)
     }
   };
 }
@@ -105,11 +97,11 @@ function extractNavigationBlocks(nodes: any[]) {
 }
 
 /**
- * Extract action blocks from DeviceDataContext availableActions
- * REUSES the same logic as Navigation Editor (ActionsList.tsx)
+ * Extract action groups from DeviceDataContext availableActions
+ * Groups actions by action_type (remote, web, desktop, av, power, etc.)
  */
-function extractActionBlocks(availableActions: Actions) {
-  const commands: any[] = [];
+function extractActionGroups(availableActions: Actions) {
+  const groupMap: Record<string, any[]> = {};
 
   // Iterate through all action categories (remote, web, desktop, etc.)
   Object.entries(availableActions).forEach(([category, actions]) => {
@@ -119,7 +111,13 @@ function extractActionBlocks(availableActions: Actions) {
       // Skip verification actions (they go in verifications tab)
       if (actionDef.action_type === 'verification') return;
       
-      commands.push({
+      const actionType = actionDef.action_type || category;
+      
+      if (!groupMap[actionType]) {
+        groupMap[actionType] = [];
+      }
+      
+      groupMap[actionType].push({
         type: 'action',
         label: actionDef.label,
         icon: TouchAppIcon,
@@ -136,44 +134,66 @@ function extractActionBlocks(availableActions: Actions) {
     });
   });
 
-  console.log(`[@toolboxBuilder] Extracted ${commands.length} actions from controllers`);
-  return commands;
+  // Convert groupMap to array of groups with formatted names
+  const groups = Object.entries(groupMap).map(([actionType, commands]) => ({
+    groupName: formatGroupName(actionType),
+    commands
+  }));
+
+  const totalActions = groups.reduce((sum, g) => sum + g.commands.length, 0);
+  console.log(`[@toolboxBuilder] Extracted ${totalActions} actions in ${groups.length} groups`);
+  
+  return groups;
 }
 
 /**
- * Extract verification blocks from DeviceDataContext availableActions
- * REUSES the same logic as Navigation Editor
- * Verifications are stored in availableActions under 'verification' action_type
+ * Extract verification groups from DeviceDataContext availableVerificationTypes
+ * Groups verifications by verification_type (audio, video, image, text, etc.)
  */
-function extractVerificationBlocks(availableActions: Actions) {
-  const commands: any[] = [];
+function extractVerificationGroups(availableVerifications: Verifications) {
+  const groups: any[] = [];
 
-  // Iterate through all action categories and filter for verifications
-  Object.entries(availableActions).forEach(([category, actions]) => {
-    if (!Array.isArray(actions)) return;
+  if (!availableVerifications) {
+    console.log(`[@toolboxBuilder] No verifications provided`);
+    return groups;
+  }
+
+  // Each verification type becomes a group
+  Object.entries(availableVerifications).forEach(([verificationType, verifications]) => {
+    if (!Array.isArray(verifications) || verifications.length === 0) return;
     
-    actions.forEach((actionDef: any) => {
-      // Only include actions with action_type === 'verification'
-      if (actionDef.action_type === 'verification') {
-        commands.push({
-          type: 'verification',
-          label: actionDef.label,
-          icon: VerifiedIcon,
-          color: '#10b981',
-          outputs: ['success', 'failure'],
-          defaultData: {
-            command: actionDef.command,
-            action_type: actionDef.action_type,
-            verification_type: actionDef.verification_type,
-            params: { ...actionDef.params },
-            device_model: actionDef.device_model,
-          },
-          description: actionDef.description || `Verify ${actionDef.label}`
-        });
-      }
+    const commands = verifications.map((verificationDef: any) => ({
+      type: 'verification',
+      label: verificationDef.description || verificationDef.command,
+      icon: VerifiedIcon,
+      color: '#10b981',
+      outputs: ['success', 'failure'],
+      defaultData: {
+        command: verificationDef.command,
+        verification_type: verificationDef.verification_type || verificationType,
+        params: { ...verificationDef.params },
+      },
+      description: verificationDef.description || `Verify ${verificationDef.command}`
+    }));
+
+    groups.push({
+      groupName: formatGroupName(verificationType),
+      commands
     });
   });
 
-  console.log(`[@toolboxBuilder] Extracted ${commands.length} verifications from controllers`);
-  return commands;
+  const totalVerifications = groups.reduce((sum, g) => sum + g.commands.length, 0);
+  console.log(`[@toolboxBuilder] Extracted ${totalVerifications} verifications in ${groups.length} groups`);
+  
+  return groups;
+}
+
+/**
+ * Format group name for display (convert snake_case to Title Case)
+ */
+function formatGroupName(name: string): string {
+  return name
+    .split('_')
+    .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
+    .join(' ');
 }

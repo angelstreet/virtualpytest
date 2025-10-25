@@ -578,15 +578,15 @@ BEGIN
     -- Note: REFRESH MATERIALIZED VIEW CONCURRENTLY requires unique index
     IF TG_OP = 'DELETE' THEN
         -- For DELETE operations, use OLD
-        REFRESH MATERIALIZED VIEW CONCURRENTLY mv_full_navigation_trees;
+        REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_full_navigation_trees;
         RETURN OLD;
     ELSE
         -- For INSERT/UPDATE operations, use NEW
-        REFRESH MATERIALIZED VIEW CONCURRENTLY mv_full_navigation_trees;
+        REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_full_navigation_trees;
         RETURN NEW;
     END IF;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path = '';
 
 -- Trigger on navigation_trees changes
 CREATE TRIGGER trigger_refresh_mv_on_tree_change
