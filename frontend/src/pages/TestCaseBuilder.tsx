@@ -445,7 +445,7 @@ const TestCaseBuilderContent: React.FC = () => {
           />
           <TextField
             margin="dense"
-            label="Navigation Tree (UI Name)"
+            label="User Interface"
             type="text"
             fullWidth
             value={hookData.userinterfaceName}

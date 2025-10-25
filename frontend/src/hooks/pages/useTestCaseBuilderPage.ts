@@ -414,15 +414,6 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   }, [deleteTargetTestCase, deleteTestCaseById]);
   
   const handleExecute = useCallback(async () => {
-    if (!currentTestcaseId) {
-      setSnackbar({
-        open: true,
-        message: 'Please save the test case before executing',
-        severity: 'error',
-      });
-      return;
-    }
-    
     await executeCurrentTestCase();
     
     if (executionState.result) {
@@ -440,7 +431,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
         });
       }
     }
-  }, [currentTestcaseId, executeCurrentTestCase, executionState]);
+  }, [executeCurrentTestCase, executionState]);
   
   const handleNew = useCallback(() => {
     setNewConfirmOpen(true);

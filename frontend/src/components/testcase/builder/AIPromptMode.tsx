@@ -23,7 +23,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import WarningIcon from '@mui/icons-material/Warning';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
-import { generateTestCaseFromPrompt, saveDisambiguationAndRegenerate } from '../../../services/testcaseApi';
+import { useTestCaseAI } from '../../../hooks/testcase';
 import type { TestCaseGraph } from '../../../types/testcase/TestCase_Types';
 
 interface AIPromptModeProps {
@@ -33,6 +33,7 @@ interface AIPromptModeProps {
 
 export const AIPromptMode: React.FC<AIPromptModeProps> = ({ onGraphGenerated, onCancel }) => {
   const { availableInterfaces, userinterfaceName, setUserinterfaceName } = useTestCaseBuilder();
+  const { generateTestCaseFromPrompt, saveDisambiguationAndRegenerate } = useTestCaseAI();
   
   const [prompt, setPrompt] = useState('');
   const [isGenerating, setIsGenerating] = useState(false);

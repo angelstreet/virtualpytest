@@ -1,8 +1,7 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
 import { BlockType, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
-import { saveTestCase, executeTestCase as executeTestCaseApi, listTestCases, getTestCase, deleteTestCase as deleteTestCaseApi } from '../../services/testcaseApi';
-import type { TestCaseDefinition } from '../../services/testcaseApi';
+import { useTestCaseSave, useTestCaseExecution } from '../../hooks/testcase';
 import { 
   getUserInterfaces, 
   getNavigationNodesForInterface, 
@@ -35,8 +34,8 @@ interface TestCaseBuilderContextType {
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   
   // Test case list
-  testcaseList: TestCaseDefinition[];
-  setTestcaseList: React.Dispatch<React.SetStateAction<TestCaseDefinition[]>>;
+  testcaseList: any[];
+  setTestcaseList: React.Dispatch<React.SetStateAction<any[]>>;
   
   // Available options
   availableInterfaces: UserInterface[];
@@ -90,6 +89,9 @@ interface TestCaseBuilderProviderProps {
 }
 
 export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = ({ children }) => {
+  // Use testcase hooks (following Navigation pattern)
+  const { saveTestCase, listTestCases, getTestCase, deleteTestCase } = useTestCaseSave();
+  const { executeTestCase } = useTestCaseExecution();
   // Initialize with start, success, and failure blocks
   // START at top center, SUCCESS at bottom-left, FAILURE at bottom-right
   const [nodes, setNodes] = useState<Node[]>([
@@ -130,7 +132,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [description, setDescription] = useState<string>('');
   const [userinterfaceName, setUserinterfaceName] = useState<string>('');
   const [currentTestcaseId, setCurrentTestcaseId] = useState<string | null>(null);
-  const [testcaseList, setTestcaseList] = useState<TestCaseDefinition[]>([]);
+  const [testcaseList, setTestcaseList] = useState<any[]>([]);
   
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
@@ -238,9 +240,47 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
 
   // Execute testcase
   const executeCurrentTestCase = useCallback(async () => {
-    if (!currentTestcaseId) {
-      console.error('No test case ID available for execution');
-      return;
+    let testcaseIdToExecute = currentTestcaseId;
+    
+    // If no test case ID, auto-save first
+    if (!testcaseIdToExecute) {
+      console.log('No test case ID, auto-saving before execution...');
+      const autoSaveName = testcaseName || `unsaved_${Date.now()}`;
+      
+      // Convert nodes and edges to TestCaseGraph format (same as saveCurrentTestCase)
+      const graph: TestCaseGraph = {
+        nodes: nodes.map(node => ({
+          id: node.id,
+          type: node.type as BlockType,
+          position: node.position,
+          data: node.data || {}
+        })),
+        edges: edges.map(edge => ({
+          id: edge.id!,
+          source: edge.source,
+          target: edge.target,
+          sourceHandle: edge.sourceHandle as 'success' | 'failure',
+          type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
+        }))
+      };
+      
+      const saveResult = await saveTestCase(
+        autoSaveName,
+        graph,
+        description || '',
+        userinterfaceName || '',
+        'default-user'
+      );
+      
+      if (saveResult.success && saveResult.testcase_id) {
+        testcaseIdToExecute = saveResult.testcase_id;
+        setCurrentTestcaseId(saveResult.testcase_id);
+        setTestcaseName(autoSaveName);
+        setHasUnsavedChanges(false);
+      } else {
+        console.error('Failed to auto-save test case before execution');
+        return;
+      }
     }
     
     setExecutionState({
@@ -250,7 +290,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     });
 
     try {
-      const response = await executeTestCaseApi(currentTestcaseId, 'device1');
+      const response = await executeTestCase(testcaseIdToExecute, 'device1');
       
       if (response.success && response.result) {
         setExecutionState({
@@ -292,7 +332,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         },
       });
     }
-  }, [currentTestcaseId]);
+  }, [currentTestcaseId, testcaseName, nodes, edges, description, userinterfaceName]);
   
   // Save current test case
   const saveCurrentTestCase = useCallback(async (): Promise<{ success: boolean; error?: string }> => {
@@ -323,8 +363,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         graph,
         description,
         userinterfaceName,
-        'default-user',
-        '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
+        'default-user'
       );
       
       if (result.success && result.testcase_id) {
@@ -343,7 +382,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Load test case
   const loadTestCase = useCallback(async (testcase_id: string) => {
     try {
-      const result = await getTestCase(testcase_id, 'default-team-id');
+      const result = await getTestCase(testcase_id);
       
       if (result.success && result.testcase) {
         const testcase = result.testcase;
@@ -356,7 +395,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         
         // Load graph
         const graph = testcase.graph_json;
-        setNodes(graph.nodes.map(node => ({
+        setNodes(graph.nodes.map((node: any) => ({
           id: node.id,
           type: node.type,
           position: node.position,
@@ -364,7 +403,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           // Ensure START, SUCCESS, and FAILURE blocks are not deletable
           deletable: !['start', 'success', 'failure'].includes(node.type)
         })));
-        setEdges(graph.edges.map(edge => ({
+        setEdges(graph.edges.map((edge: any) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
@@ -387,7 +426,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Fetch test case list
   const fetchTestCaseList = useCallback(async () => {
     try {
-      const result = await listTestCases('default-team-id');
+      const result = await listTestCases();
       if (result.success && result.testcases) {
         setTestcaseList(result.testcases);
       }
@@ -399,7 +438,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Delete test case
   const deleteTestCaseById = useCallback(async (testcase_id: string) => {
     try {
-      const result = await deleteTestCaseApi(testcase_id, 'default-team-id');
+      const result = await deleteTestCase(testcase_id);
       if (result.success) {
         // Refresh list
         await fetchTestCaseList();

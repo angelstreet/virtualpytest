@@ -195,7 +195,6 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
             onClick={handleExecute}
             disabled={
               isExecuting || 
-              !currentTestcaseId || 
               !selectedDeviceId || 
               !isControlActive || 
               !userinterfaceName
@@ -204,7 +203,6 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
               !userinterfaceName ? 'Select a userinterface first' :
               !selectedDeviceId ? 'Select a device first' :
               !isControlActive ? 'Take control of device first' :
-              !currentTestcaseId ? 'Save test case first' :
               isExecuting ? 'Test is running' :
               'Run test case on device'
             }
