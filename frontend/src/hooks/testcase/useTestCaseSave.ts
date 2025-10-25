@@ -23,7 +23,7 @@ export const useTestCaseSave = () => {
     userinterfaceName: string,
     createdBy: string,
     overwrite: boolean = false
-  ): Promise<{ success: boolean; testcase_id?: string; action?: string; error?: string }> => {
+  ): Promise<{ success: boolean; action?: string; error?: string; testcase?: any }> => {
     try {
       const response = await fetch(buildServerUrl('/server/testcase/save'), {
         method: 'POST',

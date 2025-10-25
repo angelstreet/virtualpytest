@@ -522,10 +522,11 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         true  // Always overwrite - maintains history automatically via trigger
       );
       
-      if (result.success && result.testcase_id) {
-        setCurrentTestcaseId(result.testcase_id);
+      if (result.success && (result as any).testcase?.testcase_id) {
+        const savedId = (result as any).testcase.testcase_id as string;
+        setCurrentTestcaseId(savedId);
         setHasUnsavedChanges(false); // Reset after successful save
-        console.log(`Test case ${result.action}: ${result.testcase_id}`);
+        console.log(`Test case ${result.action}: ${savedId}`);
         return { success: true };
       }
       

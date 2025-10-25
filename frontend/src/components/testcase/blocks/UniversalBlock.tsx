@@ -9,6 +9,7 @@ import { useTheme } from '../../../contexts/ThemeContext';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
+import { useNavigationConfig } from '../../../contexts/navigation/NavigationConfigContext';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
@@ -31,7 +32,8 @@ export const UniversalBlock: React.FC<NodeProps & {
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
-  const { updateBlock } = useTestCaseBuilder();
+  const { updateBlock, userinterfaceName } = useTestCaseBuilder();
+  const { actualTreeId } = useNavigationConfig();
   const [isExecuting, setIsExecuting] = useState(false);
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
@@ -138,31 +140,27 @@ export const UniversalBlock: React.FC<NodeProps & {
       
       if (isNavigation) {
         // Execute navigation using target_node_label
-        // The backend will resolve the label to a node ID and find the path
-        // We need tree_id which comes from the userinterface
-        const userinterfaceName = data.userinterface_name || 'horizon_android_mobile'; // TODO: Get from context
-        
-        // Get tree_id for the userinterface
-        const treeResponse = await fetch(buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId?userinterface_name=${userinterfaceName}`));
-        if (!treeResponse.ok) {
-          throw new Error(`Failed to get tree for userinterface: ${userinterfaceName}`);
-        }
-        const treeData = await treeResponse.json();
-        const tree_id = treeData.tree?.id;
+        // Use tree_id and userinterface from context (already loaded!)
+        const tree_id = actualTreeId;
+        const interfaceName = data.userinterface_name || userinterfaceName;
         
         if (!tree_id) {
-          throw new Error(`No tree found for userinterface: ${userinterfaceName}`);
+          throw new Error(`No navigation tree loaded. Please select a userinterface first.`);
+        }
+        
+        if (!interfaceName) {
+          throw new Error(`No userinterface selected. Please select a userinterface first.`);
         }
         
         // Use the proper navigation execution endpoint with tree_id and target_node_label
-        // The backend's pathfinding supports label resolution
+        // The backend's pathfinding supports label resolution - NO API CALLS TO GET TREE!
         response = await fetch(buildServerUrl(`/server/navigation/execute/${tree_id}/${data.target_node_label}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             host_name: currentHost.host_name,
             device_id: currentDeviceId || 'device1',
-            userinterface_name: userinterfaceName,
+            userinterface_name: interfaceName,
           }),
         });
       } else {
