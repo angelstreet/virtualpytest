@@ -333,7 +333,7 @@ def list_testcases(team_id: str, include_inactive: bool = False) -> List[Dict[st
     try:
         # Note: Supabase doesn't support subqueries in select, so we get execution counts separately
         query = supabase.table('testcase_definitions')\
-            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,is_active')\
+            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,is_active,graph_json')\
             .eq('team_id', team_id)
         
         if not include_inactive:
