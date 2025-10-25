@@ -14,7 +14,10 @@ host_navigation_bp = Blueprint('host_navigation', __name__, url_prefix='/host/na
 def navigation_execute(tree_id, target_node_id):
     """Execute navigation using device's NavigationExecutor"""
     try:
-        print(f"[@route:host_navigation:navigation_execute] Starting navigation to {target_node_id}")
+        print(f"\n{'='*80}")
+        print(f"[@route:host_navigation:navigation_execute] 🚀 NAVIGATION EXECUTION STARTED")
+        print(f"{'='*80}")
+        print(f"[@route:host_navigation:navigation_execute]   → Target Node ID: {target_node_id}")
         
         # Get request data
         data = request.get_json() or {}
@@ -26,9 +29,13 @@ def navigation_execute(tree_id, target_node_id):
         image_source_url = data.get('image_source_url')
         userinterface_name = data.get('userinterface_name')  # MANDATORY for reference resolution
         
-        print(f"[@route:host_navigation:navigation_execute] Device: {device_id}, Tree: {tree_id}, Team: {team_id}, Userinterface: {userinterface_name}")
-        if frontend_sent_position:
-            print(f"[@route:host_navigation:navigation_execute] Frontend sent current_node_id: {current_node_id}")
+        print(f"[@route:host_navigation:navigation_execute]   → Tree ID: {tree_id}")
+        print(f"[@route:host_navigation:navigation_execute]   → Device ID: {device_id}")
+        print(f"[@route:host_navigation:navigation_execute]   → Team ID: {team_id}")
+        print(f"[@route:host_navigation:navigation_execute]   → UserInterface: {userinterface_name}")
+        print(f"[@route:host_navigation:navigation_execute]   → Current Node ID: {current_node_id if frontend_sent_position else 'Not provided (will use device position)'}")
+        print(f"[@route:host_navigation:navigation_execute]   → Frontend Sent Position: {frontend_sent_position}")
+        print(f"{'='*80}\n")
         
         # Validate
         if not device_id:

@@ -202,6 +202,14 @@ class NavigationExecutor:
                           image_source_url: Optional[str] = None,
                           team_id: str = None,
                           context=None) -> Dict[str, Any]:
+        
+        print(f"\n[@navigation_executor:execute_navigation] 🎯 EXECUTE NAVIGATION CALLED:")
+        print(f"[@navigation_executor:execute_navigation]   → tree_id: {tree_id}")
+        print(f"[@navigation_executor:execute_navigation]   → target_node_id: {target_node_id}")
+        print(f"[@navigation_executor:execute_navigation]   → target_node_label: {target_node_label}")
+        print(f"[@navigation_executor:execute_navigation]   → current_node_id: {current_node_id}")
+        print(f"[@navigation_executor:execute_navigation]   → frontend_sent_position: {frontend_sent_position}")
+        print(f"[@navigation_executor:execute_navigation]   → userinterface_name: {userinterface_name}\n")
         """
         Execute navigation to target node using ONLY unified pathfinding with nested tree support.
         Enhanced with all capabilities from old goto_node method.

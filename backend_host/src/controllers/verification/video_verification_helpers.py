@@ -492,7 +492,7 @@ class VideoVerificationHelpers:
                     'timeout': 10.0             # Default timeout
                 },
                 'verification_type': 'video',
-                'description': 'Wait for video motion to appear'
+                'description': 'Wait for video to appear'
             },
             {
                 'command': 'WaitForVideoToDisappear',
@@ -502,7 +502,7 @@ class VideoVerificationHelpers:
                     'timeout': 10.0             # Default timeout
                 },
                 'verification_type': 'video',
-                'description': 'Wait for video motion to disappear'
+                'description': 'Wait for video to disappear'
             },
             {
                 'command': 'DetectMotion',
@@ -511,7 +511,7 @@ class VideoVerificationHelpers:
                     'threshold': 5.0            # Default threshold
                 },
                 'verification_type': 'video',
-                'description': 'Detect motion in video stream'
+                'description': 'Detect motion'
             },
             {
                 'command': 'DetectMotionFromJson',
@@ -520,42 +520,7 @@ class VideoVerificationHelpers:
                     'strict_mode': False        # Default to lenient mode
                 },
                 'verification_type': 'video',
-                'description': 'Detect motion by analyzing recent JSON analysis files'
-            },
-            {
-                'command': 'WaitForVideoChange',
-                'params': {
-                    'timeout': 10.0,            # Default timeout
-                    'threshold': 10.0           # Default threshold
-                },
-                'verification_type': 'video',
-                'description': 'Wait for video content to change'
-            },
-            {
-                'command': 'VerifyColorPresent',
-                'params': {
-                    'color': '',                # Empty string for user input
-                    'tolerance': 10.0           # Default tolerance
-                },
-                'verification_type': 'video',
-                'description': 'Verify specific color is present in video'
-            },
-            {
-                'command': 'VerifyScreenState',
-                'params': {
-                    'expected_state': '',       # Empty string for user input
-                    'timeout': 5.0              # Default timeout
-                },
-                'verification_type': 'video',
-                'description': 'Verify screen is in expected state'
-            },
-            {
-                'command': 'DetectBlackscreen',
-                'params': {
-                    'threshold': 10             # Default pixel threshold
-                },
-                'verification_type': 'video',
-                'description': 'Detect blackscreen in video'
+                'description': 'Detect motion from JSON'
             },
             {
                 'command': 'DetectFreeze',
@@ -563,7 +528,7 @@ class VideoVerificationHelpers:
                     'freeze_threshold': 1.0     # Default freeze threshold
                 },
                 'verification_type': 'video',
-                'description': 'Detect video freeze or static content'
+                'description': 'Detect freeze'
             },
             {
                 'command': 'DetectSubtitles',
@@ -571,7 +536,7 @@ class VideoVerificationHelpers:
                     'extract_text': True        # Default to extract text
                 },
                 'verification_type': 'video',
-                'description': 'Detect subtitles in video using OCR'
+                'description': 'Detect subtitles OCR'
             },
             {
                 'command': 'DetectSubtitlesAI',
@@ -579,16 +544,7 @@ class VideoVerificationHelpers:
                     'extract_text': True        # Default to extract text
                 },
                 'verification_type': 'video',
-                'description': 'Detect subtitles in video using AI'
-            },
-            {
-                'command': 'DetectMotionFromJson',
-                'params': {
-                    'json_count': 5,            # Number of JSON files to analyze
-                    'strict_mode': True         # Strict mode (all files must be clean)
-                },
-                'verification_type': 'video',
-                'description': 'Detect motion from JSON analysis files'
+                'description': 'Detect subtitles AI'
             },
             {
                 'command': 'DetectZapping',
@@ -599,7 +555,7 @@ class VideoVerificationHelpers:
                     'max_images': 10                # Maximum images to analyze
                 },
                 'verification_type': 'video',
-                'description': 'Detect channel zapping sequence'
+                'description': 'Detect zapping'
             }
         ]
 

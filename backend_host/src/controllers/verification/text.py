@@ -487,7 +487,7 @@ class TextVerificationController:
                     "area": None            # Optional area
                 },
                 "verification_type": "text",
-                "description": "Wait for text to appear on screen using OCR"
+                "description": "Wait for text to appear"
             },
             {
                 "command": "waitForTextToDisappear",
@@ -497,7 +497,7 @@ class TextVerificationController:
                     "area": None            # Optional area
                 },
                 "verification_type": "text",
-                "description": "Wait for text to disappear from screen using OCR"
+                "description": "Wait for text to disappear"
             }
         ] 
 

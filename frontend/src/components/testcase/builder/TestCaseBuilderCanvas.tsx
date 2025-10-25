@@ -7,8 +7,6 @@ import {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
-// 🗑️ REMOVED: ExecutionOverlay import - replaced by ExecutionProgressBar + ExecutionLog
-
 interface TestCaseBuilderCanvasProps {
   actualMode: 'light' | 'dark';
   isSidebarOpen: boolean;
@@ -62,8 +60,6 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
         }}
         position="top-right"
       />
-      
-      {/* 🗑️ REMOVED: ExecutionOverlay - replaced by ExecutionProgressBar + ExecutionLog */}
     </>
   );
 };

@@ -463,7 +463,7 @@ class ADBVerificationController(VerificationControllerInterface):
                     'timeout': 0.0,         # Default: single check, no polling
                 },
                 'verification_type': 'adb',
-                'description': 'Wait for UI element to appear using ADB'
+                'description': 'Wait for element to appear'
             },
             {
                 'command': 'waitForElementToDisappear',
@@ -472,7 +472,7 @@ class ADBVerificationController(VerificationControllerInterface):
                     'timeout': 0.0,         # Default: single check, no polling
                 },
                 'verification_type': 'adb',
-                'description': 'Wait for UI element to disappear using ADB'
+                'description': 'Wait for element to disappear'
             }
         ]
 

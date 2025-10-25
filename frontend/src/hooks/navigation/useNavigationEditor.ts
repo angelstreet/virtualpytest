@@ -46,6 +46,11 @@ export const useNavigationEditor = () => {
           }
         }));
 
+        console.log(`[@useNavigationEditor:loadTreeData] 📋 Loaded ${frontendNodes.length} nodes from database:`);
+        frontendNodes.forEach((node: any) => {
+          console.log(`[@useNavigationEditor:loadTreeData]   • ${node.id} (label: '${node.data.label}', type: '${node.type}')`);
+        });
+
         const frontendEdges = treeData.edges.map((edge: any) => ({
           id: edge.edge_id,
           source: edge.source_node_id,

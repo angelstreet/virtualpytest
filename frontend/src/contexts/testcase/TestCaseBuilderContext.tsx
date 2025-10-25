@@ -208,14 +208,17 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     blockCounters.current[labelGroup]++;
     
     // Extract first 3 words from command/type for the label
-    const commandName = defaultData?.command || type;
+    // For navigation blocks, use target_node_label if available
+    const commandName = (type === 'navigation' && defaultData?.target_node_label) 
+      ? defaultData.target_node_label 
+      : (defaultData?.command || type);
     const words = commandName
       .split(/[_\s]+/) // Split by underscore or space
       .filter(Boolean) // Remove empty strings
       .slice(0, 3) // Take first 3 words
       .join('_'); // Join with underscore
     
-    // Generate auto-label (e.g., "action_1:swipe_up", "verification_2:verify_ocr")
+    // Generate auto-label (e.g., "action_1:swipe_up", "navigation_1:home")
     const autoLabel = words 
       ? `${labelGroup}_${blockCounters.current[labelGroup]}:${words}`
       : `${labelGroup}_${blockCounters.current[labelGroup]}`;
@@ -226,7 +229,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       position,
       data: {
         ...defaultData,
-        label: autoLabel, // Add auto-generated label
+        // For navigation blocks, use block_label to avoid overwriting target_node_label
+        // For all other blocks, use label as expected
+        ...(type === 'navigation' ? { block_label: autoLabel } : { label: autoLabel }),
       },
     };
     setNodes((prev) => [...prev, newNode]);
@@ -289,11 +294,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       
       // Determine edge type and color based on source handle
       // Support: success, failure, true, false, complete, break
-      let edgeType = sourceHandleId;
+      // Strip "-hitarea" suffix if present (hitarea handles should use same type as their visible counterpart)
+      let edgeType = sourceHandleId.replace(/-hitarea$/, '');
       let edgeColor = '#6b7280'; // default gray
       
       // Map handle types to colors
-      switch (sourceHandleId) {
+      switch (edgeType) {
         case 'success':
         case 'true':
         case 'complete':
@@ -384,12 +390,13 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       if (response.step_results && Array.isArray(response.step_results)) {
         response.step_results.forEach((step: any) => {
           if (step.block_id) {
-            unifiedExecution.completeBlockExecution(
-              step.block_id,
-              step.success,
-              step.error,
-              step
-            );
+            // Set the duration from backend execution_time_ms
+            unifiedExecution.updateBlockState(step.block_id, {
+              status: step.success ? 'success' : 'failure',
+              duration: step.execution_time_ms || 0,
+              error: step.error,
+              result: step
+            });
           }
         });
       }

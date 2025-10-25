@@ -1,3 +1,4 @@
+import CloseIcon from '@mui/icons-material/Close';
 import React, { useState, useEffect } from 'react';
 import {
   Dialog,
@@ -8,6 +9,7 @@ import {
   TextField,
   Box,
   Typography,
+  IconButton,
 } from '@mui/material';
 import { LoopBlockData, LoopForm } from '../../../types/testcase/TestCase_Types';
 
@@ -42,8 +44,26 @@ export const LoopConfigDialog: React.FC<LoopConfigDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>Configure Loop Block</DialogTitle>
+    <Dialog 
+      open={open} 
+      onClose={onCancel} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          border: 2,
+          borderColor: 'divider',
+        }
+      }}
+    >
+      <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          <Typography variant="h6">Configure Loop</Typography>
+          <IconButton onClick={onCancel} size="small">
+            <CloseIcon />
+          </IconButton>
+        </Box>
+      </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
           <Typography variant="body2" color="text.secondary">
@@ -75,8 +95,10 @@ export const LoopConfigDialog: React.FC<LoopConfigDialogProps> = ({
           </Box>
         </Box>
       </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
+      <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+        <Button onClick={onCancel} variant="outlined">
+          Cancel
+        </Button>
         <Button onClick={handleSave} variant="contained" disabled={!formData.isValid}>
           Save
         </Button>

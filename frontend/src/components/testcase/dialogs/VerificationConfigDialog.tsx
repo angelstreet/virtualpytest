@@ -66,8 +66,14 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
       maxWidth="md" 
       fullWidth
       sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
+      PaperProps={{
+        sx: {
+          border: 2,
+          borderColor: 'divider',
+        }
+      }}
     >
-      <DialogTitle sx={{ pb: 0.5 }}>
+      <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">Configure Verification</Typography>
           <IconButton onClick={onCancel} size="small">
@@ -108,8 +114,10 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ pt: 0.5 }}>
-        <Button onClick={onCancel}>Cancel</Button>
+      <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+        <Button onClick={onCancel} variant="outlined">
+          Cancel
+        </Button>
         <Button onClick={handleSave} variant="contained" disabled={!isValid}>
           Save
         </Button>

@@ -619,7 +619,7 @@ class AppiumVerificationController(VerificationControllerInterface):
                     'check_interval': 1.0   # Default value
                 },
                 'verification_type': 'appium',
-                'description': 'Wait for UI element to appear using Appium'
+                'description': 'Wait for element to appear'
             },
             {
                 'command': 'waitForElementToDisappear',
@@ -629,7 +629,7 @@ class AppiumVerificationController(VerificationControllerInterface):
                     'check_interval': 1.0   # Default value
                 },
                 'verification_type': 'appium',
-                'description': 'Wait for UI element to disappear using Appium'
+                'description': 'Wait for element to disappear'
             }
         ]
 

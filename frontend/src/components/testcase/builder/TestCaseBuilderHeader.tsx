@@ -96,7 +96,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       }}
     >
       {/* SECTION 1: Title with Test Case Name */}
-      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 auto', gap: 1 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 260px', gap: 1 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
           TestCase Builder
         </Typography>

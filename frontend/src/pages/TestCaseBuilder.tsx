@@ -49,7 +49,6 @@ import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
 // 🆕 NEW: Execution components
 import { ExecutionProgressBar } from '../components/testcase/builder/ExecutionProgressBar';
-import { ExecutionLog } from '../components/testcase/ExecutionLog';
 
 // Dialogs
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
@@ -419,18 +418,38 @@ const TestCaseBuilderContent: React.FC = () => {
             }))}
             edges={hookData.edges.map(edge => {
               // 🆕 ADD: Calculate edge execution state based on source/target blocks
+              const sourceNode = hookData.nodes.find(n => n.id === edge.source);
+              const targetNode = hookData.nodes.find(n => n.id === edge.target);
               const sourceBlockState = hookData.unifiedExecution.state.blockStates.get(edge.source);
               const targetBlockState = hookData.unifiedExecution.state.blockStates.get(edge.target);
               const currentBlockId = hookData.unifiedExecution.state.currentBlockId;
               const previousBlockId = hookData.unifiedExecution.state.previousBlockId;
+              const isExecuting = hookData.unifiedExecution.state.isExecuting;
               
               // Determine edge execution state
               let edgeExecutionState: 'idle' | 'active' | 'success' | 'failure' = 'idle';
               
+              // 🆕 SPECIAL: START node - edge is active when execution begins or target is executing
+              if (sourceNode?.type === 'start' && isExecuting) {
+                if (currentBlockId === edge.target || previousBlockId === edge.source) {
+                  edgeExecutionState = 'active';
+                } else if (targetBlockState && targetBlockState.status !== 'pending') {
+                  edgeExecutionState = 'success';
+                }
+              }
+              // 🆕 SPECIAL: Terminal nodes (SUCCESS/FAILURE) - show result when reached
+              else if (targetNode?.type === 'success' || targetNode?.type === 'failure') {
+                if (targetBlockState && targetBlockState.status !== 'pending') {
+                  // Edge to SUCCESS terminal = green, edge to FAILURE terminal = red
+                  edgeExecutionState = targetNode.type === 'success' ? 'success' : 'failure';
+                } else if (currentBlockId === edge.target) {
+                  edgeExecutionState = 'active';
+                }
+              }
               // Active: Edge is currently being traversed (from previous to current block)
-              if (hookData.unifiedExecution.state.isExecuting && 
-                  previousBlockId === edge.source && 
-                  currentBlockId === edge.target) {
+              else if (isExecuting && 
+                       previousBlockId === edge.source && 
+                       currentBlockId === edge.target) {
                 edgeExecutionState = 'active';
               }
               // Success/Failure: Edge was traversed after source block completed
@@ -480,15 +499,6 @@ const TestCaseBuilderContent: React.FC = () => {
             />
           </ReactFlow>
         </Box>
-        
-        {/* 🆕 NEW: Execution Log (collapsible side panel) */}
-        <ExecutionLog
-          blockStates={hookData.unifiedExecution.state.blockStates}
-          nodes={hookData.nodes}
-          onClose={() => {
-            // Optional: Add close handler if needed
-          }}
-        />
       </Box>
 
       {/* Footer */}

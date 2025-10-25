@@ -466,17 +466,7 @@ class AudioVerificationController(VerificationControllerInterface):
                     'duration': 2.0         # Default duration
                 },
                 'verification_type': 'audio',
-                'description': 'Wait for audio to appear above threshold'
-            },
-            {
-                'command': 'VerifyAudioContainsFrequency',
-                'params': {
-                    'target_freq': 0.0,     # Empty value for user input
-                    'tolerance': 50.0,      # Default tolerance
-                    'duration': 2.0         # Default duration
-                },
-                'verification_type': 'audio',
-                'description': 'Verify audio contains specific frequency'
+                'description': 'Wait for audio to appear'
             },
             {
                 'command': 'DetectAudioFromJson',
@@ -485,7 +475,7 @@ class AudioVerificationController(VerificationControllerInterface):
                     'strict_mode': True     # Strict mode (all files must be clean)
                 },
                 'verification_type': 'audio',
-                'description': 'Detect audio presence from JSON analysis'
+                'description': 'Detect audio'
             }
         ]
 

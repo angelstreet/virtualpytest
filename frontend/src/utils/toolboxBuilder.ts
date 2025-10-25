@@ -112,9 +112,9 @@ function extractNavigationBlocks(nodes: any[]) {
         color: '#8b5cf6',
         outputs: ['success', 'failure'],
         defaultData: {
-          target_node_label: label,  // This is what UniversalBlock expects
-          target_node_id: node.id,
-          label: label  // Also store as 'label' for compatibility
+          target_node_label: label,  // Data: target node name for execution
+          target_node_id: node.id,    // Data: target node ID for execution
+          // NO label field here - let addBlock auto-generate it as "navigation_1:home"
         },
         description: `Navigate to ${label}`
       };

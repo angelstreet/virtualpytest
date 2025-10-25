@@ -375,6 +375,16 @@ export const useNode = (props?: UseNodeProps) => {
       try {
         const executionTreeId = parentChain[0]?.treeId || navigationConfig.actualTreeId;
         
+        console.log('[@useNode:executeNavigation] 🎯 NAVIGATION EXECUTION REQUEST:');
+        console.log('[@useNode:executeNavigation]   → Target Node ID:', selectedNode.id);
+        console.log('[@useNode:executeNavigation]   → Target Node Label:', selectedNode.data.label);
+        console.log('[@useNode:executeNavigation]   → Target Node Type:', selectedNode.type);
+        console.log('[@useNode:executeNavigation]   → Execution Tree ID:', executionTreeId);
+        console.log('[@useNode:executeNavigation]   → Current Node ID:', currentNodeId || 'None');
+        console.log('[@useNode:executeNavigation]   → UserInterface Name:', userInterface?.name);
+        console.log('[@useNode:executeNavigation]   → Host:', props.selectedHost?.host_name);
+        console.log('[@useNode:executeNavigation]   → Device:', currentDeviceId);
+        
         const executionUrl = buildServerUrl(`/server/navigation/execute/${executionTreeId}/${selectedNode.id}`);
         
         const result = await fetch(

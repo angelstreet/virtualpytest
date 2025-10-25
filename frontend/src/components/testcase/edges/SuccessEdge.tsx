@@ -29,7 +29,6 @@ export const SuccessEdge: React.FC<EdgeProps & {
   style = {},
   markerEnd,
   selected,
-  animated,
   data,
 }) => {
   const [edgePath] = getBezierPath({

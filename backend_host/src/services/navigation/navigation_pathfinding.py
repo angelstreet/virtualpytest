@@ -63,11 +63,18 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     # Resolve target_node_id if it's a label instead of UUID (including action nodes)
     actual_target_node = target_node_id
     target_resolved_by_label = False
+    
+    print(f"[@pathfinding] 🎯 TARGET NODE RESOLUTION:")
+    print(f"[@pathfinding]   → Requested target_node_id: {target_node_id}")
+    print(f"[@pathfinding]   → Is in unified graph? {target_node_id in unified_graph.nodes}")
+    
     if target_node_id not in unified_graph.nodes:
+        print(f"[@pathfinding]   → Node ID not found, trying to resolve by label...")
         for node_id, node_data in unified_graph.nodes(data=True):
             if node_data.get('label', '') == target_node_id:
                 actual_target_node = node_id
                 target_resolved_by_label = True
+                print(f"[@pathfinding]   ✅ Resolved by label! '{target_node_id}' → {actual_target_node}")
                 break
         else:
             # Try case-insensitive search
@@ -123,8 +130,22 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     if actual_start_node not in unified_graph.nodes:
         raise PathfindingError(f"Start node {actual_start_node} not found in unified graph")
     
+    # FAIL EARLY if target not found - clear, actionable error
     if actual_target_node not in unified_graph.nodes:
         available_nodes = list(unified_graph.nodes())
+        
+        # Log detailed information about available nodes
+        print(f"[@pathfinding] ❌ TARGET NODE NOT FOUND!")
+        print(f"[@pathfinding]   → Requested: {actual_target_node}")
+        print(f"[@pathfinding]   → Available nodes ({len(available_nodes)}):")
+        for node_id in available_nodes[:20]:  # Show first 20 nodes
+            node_data = unified_graph.nodes[node_id]
+            node_label = node_data.get('label', 'NO_LABEL')
+            node_type = node_data.get('type', 'NO_TYPE')
+            print(f"[@pathfinding]      • {node_id} (label: '{node_label}', type: '{node_type}')")
+        if len(available_nodes) > 20:
+            print(f"[@pathfinding]      ... and {len(available_nodes) - 20} more nodes")
+        
         raise PathfindingError(f"Target node {actual_target_node} not found in unified graph. Available nodes: {available_nodes}")
     
     # Check if we're already at the target

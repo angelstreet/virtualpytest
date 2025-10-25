@@ -828,7 +828,7 @@ class ImageVerificationController:
                     "area": None            # Optional area
                 },
                 "verification_type": "image",
-                "description": "Wait for image to appear on screen"
+                "description": "Wait for image to appear"
             },
             {
                 "command": "waitForImageToDisappear",
@@ -839,7 +839,7 @@ class ImageVerificationController:
                     "area": None            # Optional area
                 },
                 "verification_type": "image",
-                "description": "Wait for image to disappear from screen"
+                "description": "Wait for image to disappear"
             },
             {
                 "command": "waitForImageToAppearThenDisappear",
@@ -850,7 +850,7 @@ class ImageVerificationController:
                     "area": None            # Optional area
                 },
                 "verification_type": "image",
-                "description": "Wait for image to appear then disappear within timeout"
+                "description": "Wait for image to appear then disappear"
             }
         ]
 

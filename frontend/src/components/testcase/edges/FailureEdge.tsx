@@ -29,7 +29,6 @@ export const FailureEdge: React.FC<EdgeProps & {
   style = {},
   markerEnd,
   selected,
-  animated,
   data,
 }) => {
   const [edgePath] = getBezierPath({

@@ -8,7 +8,7 @@
  * - Collapsible sections
  */
 
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Box, Typography, LinearProgress, IconButton, Tooltip, Collapse } from '@mui/material';
 import StopIcon from '@mui/icons-material/Stop';
 import CloseIcon from '@mui/icons-material/Close';
@@ -16,6 +16,7 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 import { useTheme } from '../../../contexts/ThemeContext';
 
@@ -74,6 +75,11 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const [lastBlockLabel, setLastBlockLabel] = useState<string | null>(null);
   const [isAIReasoningExpanded, setIsAIReasoningExpanded] = useState(true);
+  
+  // Draggable state
+  const [position, setPosition] = useState({ x: 0, y: 120 });
+  const [isDragging, setIsDragging] = useState(false);
+  const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
 
   // Get block label from node data
   const getCurrentBlockLabel = () => {
@@ -141,30 +147,76 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
     .filter(step => step.state.status !== 'pending')
     .reverse(); // Most recent first
 
+  // Draggable handlers
+  const handleMouseDown = (e: React.MouseEvent) => {
+    if ((e.target as HTMLElement).closest('.drag-handle')) {
+      setIsDragging(true);
+      dragRef.current = {
+        startX: e.clientX,
+        startY: e.clientY,
+        initialX: position.x,
+        initialY: position.y,
+      };
+      e.preventDefault();
+    }
+  };
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (isDragging && dragRef.current) {
+        const deltaX = e.clientX - dragRef.current.startX;
+        const deltaY = e.clientY - dragRef.current.startY;
+        setPosition({
+          x: dragRef.current.initialX + deltaX,
+          y: dragRef.current.initialY + deltaY,
+        });
+      }
+    };
+
+    const handleMouseUp = () => {
+      setIsDragging(false);
+      dragRef.current = null;
+    };
+
+    if (isDragging) {
+      document.addEventListener('mousemove', handleMouseMove);
+      document.addEventListener('mouseup', handleMouseUp);
+    }
+
+    return () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+    };
+  }, [isDragging]);
+
   return (
     <Box
+      onMouseDown={handleMouseDown}
       sx={{
         position: 'fixed',
-        top: 120,
-        right: '24px',
-        transform: 'translateX(-50%)',
+        top: `${position.y}px`,
+        right: position.x === 0 ? '24px' : 'auto',
+        left: position.x !== 0 ? `${position.x}px` : 'auto',
         zIndex: 1100,
         minWidth: 450,
         maxWidth: 650,
         backgroundColor: actualMode === 'dark' ? '#1f2937' : '#ffffff',
         borderRadius: 2,
-        boxShadow: '0 8px 16px rgba(0, 0, 0, 0.3)',
+        boxShadow: isDragging ? '0 12px 24px rgba(0, 0, 0, 0.4)' : '0 8px 16px rgba(0, 0, 0, 0.3)',
         border: '2px solid',
         borderColor: '#3b82f6',
-        animation: 'slideDown 0.3s ease-out',
+        cursor: isDragging ? 'grabbing' : 'default',
+        userSelect: isDragging ? 'none' : 'auto',
+        transition: isDragging ? 'none' : 'box-shadow 0.2s ease',
+        animation: position.x === 0 && position.y === 120 ? 'slideDown 0.3s ease-out' : 'none',
         '@keyframes slideDown': {
           from: {
             opacity: 0,
-            transform: 'translateX(-50%) translateY(-20px)',
+            transform: 'translateY(-20px)',
           },
           to: {
             opacity: 1,
-            transform: 'translateX(-50%) translateY(0)',
+            transform: 'translateY(0)',
           },
         },
       }}
@@ -180,6 +232,24 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {/* Drag Handle */}
+          <Box
+            className="drag-handle"
+            sx={{
+              cursor: 'grab',
+              display: 'flex',
+              alignItems: 'center',
+              color: 'text.secondary',
+              '&:hover': {
+                color: 'text.primary',
+              },
+              '&:active': {
+                cursor: 'grabbing',
+              },
+            }}
+          >
+            <DragIndicatorIcon fontSize="small" />
+          </Box>
           {isExecuting ? (
             <>
               <Box

@@ -25,7 +25,9 @@ import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
  */
 export const UniversalBlock: React.FC<NodeProps & { 
   executionState?: BlockExecutionState // Optional - for unified execution tracking
-}> = ({ data, selected, dragging, type, id, executionState }) => {
+}> = ({ data, selected, dragging, type, id }) => {
+  // Extract executionState from data (passed by TestCaseBuilder)
+  const executionState = data.executionState as BlockExecutionState | undefined;
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
@@ -135,14 +137,32 @@ export const UniversalBlock: React.FC<NodeProps & {
       let response;
       
       if (isNavigation) {
-        // Execute navigation
-        response = await fetch(buildServerUrl(`/server/navigation/execute?team_id=default-team-id`), {
+        // Execute navigation using target_node_label
+        // The backend will resolve the label to a node ID and find the path
+        // We need tree_id which comes from the userinterface
+        const userinterfaceName = data.userinterface_name || 'horizon_android_mobile'; // TODO: Get from context
+        
+        // Get tree_id for the userinterface
+        const treeResponse = await fetch(buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId?userinterface_name=${userinterfaceName}`));
+        if (!treeResponse.ok) {
+          throw new Error(`Failed to get tree for userinterface: ${userinterfaceName}`);
+        }
+        const treeData = await treeResponse.json();
+        const tree_id = treeData.tree?.id;
+        
+        if (!tree_id) {
+          throw new Error(`No tree found for userinterface: ${userinterfaceName}`);
+        }
+        
+        // Use the proper navigation execution endpoint with tree_id and target_node_label
+        // The backend's pathfinding supports label resolution
+        response = await fetch(buildServerUrl(`/server/navigation/execute/${tree_id}/${data.target_node_label}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            target_node_label: data.target_node_label,
             host_name: currentHost.host_name,
             device_id: currentDeviceId || 'device1',
+            userinterface_name: userinterfaceName,
           }),
         });
       } else {
@@ -206,7 +226,7 @@ export const UniversalBlock: React.FC<NodeProps & {
     data.command || 
     data.target_node_label || 
     data.iterations ||
-    data.label || // For navigation blocks
+    data.block_label || // For any blocks with auto-generated labels
     Object.keys(data).length > 1 // More than just position data
   );
   
@@ -223,12 +243,12 @@ export const UniversalBlock: React.FC<NodeProps & {
   );
   
   if (isConfigured) {
-    // For navigation blocks: show label:target_node_label in header, target_node_label in content
+    // For navigation blocks: show block_label:target_node_label in header, target_node_label in content
     if (type === 'navigation' && data.target_node_label) {
-      // If has custom label (e.g., "navigation_1"), show "navigation_1:home_tvguide"
-      // Otherwise just show "navigation:home_tvguide"
-      if (data.label) {
-        headerLabel = `${data.label}:${data.target_node_label}`;
+      // If has custom block_label (e.g., "navigation_1"), show "navigation_1:home"
+      // Otherwise just show "navigation:home"
+      if (data.block_label) {
+        headerLabel = `${data.block_label}:${data.target_node_label}`;
       } else {
         headerLabel = `navigation:${data.target_node_label}`;
       }
