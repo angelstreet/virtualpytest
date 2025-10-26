@@ -209,7 +209,19 @@ def _openrouter_call(prompt: str, model: str, image: Union[str, bytes] = None,
                             continue
                         return {'success': False, 'error': 'OpenRouter returned empty/null content', 'content': '', 'initial_prompt': prompt}
                     
-                    return {'success': True, 'content': content, 'initial_prompt': prompt}
+                    # Extract usage stats (token counts)
+                    usage_stats = result.get('usage', {})
+                    
+                    return {
+                        'success': True, 
+                        'content': content, 
+                        'initial_prompt': prompt,
+                        'usage': {
+                            'prompt_tokens': usage_stats.get('prompt_tokens', 0),
+                            'completion_tokens': usage_stats.get('completion_tokens', 0),
+                            'total_tokens': usage_stats.get('total_tokens', 0),
+                        }
+                    }
                 except (KeyError, IndexError, TypeError) as e:
                     print(f"[AI_UTILS] Error extracting content: {e}")
                     print(f"[AI_UTILS] Response structure: {list(result.keys()) if isinstance(result, dict) else 'Not a dict'}")

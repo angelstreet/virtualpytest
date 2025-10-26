@@ -91,6 +91,10 @@ export interface UseTestCaseBuilderPageReturn {
   aiGenerateConfirmOpen: boolean;
   setAiGenerateConfirmOpen: (open: boolean) => void;
   handleConfirmAIGenerate: () => void;
+  aiGenerationResult: any | null;
+  showAIResultPanel: boolean;
+  handleCloseAIResultPanel: () => void;
+  handleRegenerateAI: () => void;
   
   // Execution (NEW: Unified execution state)
   unifiedExecution: ReturnType<typeof useTestCaseBuilder>['unifiedExecution'];
@@ -347,6 +351,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   const [newConfirmOpen, setNewConfirmOpen] = useState(false);
   const [aiGenerateConfirmOpen, setAiGenerateConfirmOpen] = useState(false);
   
+  // AI Generation Result Panel State
+  const [aiGenerationResult, setAiGenerationResult] = useState<any | null>(null);
+  const [showAIResultPanel, setShowAIResultPanel] = useState(false);
+  
   // Handle Load button click - fetch data first, then open dialog
   const handleLoadClick = useCallback(async () => {
     setIsLoadingTestCases(true);
@@ -497,7 +505,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
 
     // Check for unsaved changes or existing nodes
     const hasExistingGraph = nodes.length > 2; // More than START and SUCCESS nodes
-    if (hasUnsavedChanges || hasExistingGraph) {
+    const hasCurrentTestCase = !!currentTestcaseId; // Has a loaded test case
+    
+    // Only show warning if there's actual content to lose (existing graph OR saved test case with changes)
+    if (hasExistingGraph && (hasUnsavedChanges || hasCurrentTestCase)) {
       // Show confirmation dialog
       setAiGenerateConfirmOpen(true);
       return;
@@ -505,7 +516,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
 
     // Proceed with generation
     await performAIGeneration();
-  }, [aiPrompt, userinterfaceName, selectedHost, hasUnsavedChanges, nodes.length]);
+  }, [aiPrompt, userinterfaceName, selectedHost, hasUnsavedChanges, nodes.length, currentTestcaseId]);
 
   const performAIGeneration = useCallback(async () => {
     setIsGenerating(true);
@@ -519,6 +530,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       );
       
       if (result.success && result.graph) {
+        // Load graph onto ReactFlow canvas (like loading a test case)
         setNodes(result.graph.nodes.map((node: any) => ({
           id: node.id,
           type: node.type as any,
@@ -538,12 +550,11 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
           }
         })));
         
-        setSnackbar({
-          open: true,
-          message: 'Test case generated! Review and save when ready.',
-          severity: 'success',
-        });
+        // Store the generation result for the result panel
+        setAiGenerationResult(result);
+        setShowAIResultPanel(true);
         
+        // Switch to visual mode to show the graph
         setCreationMode('visual');
       } else {
         setSnackbar({
@@ -568,6 +579,17 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   const handleConfirmAIGenerate = useCallback(() => {
     performAIGeneration();
   }, [performAIGeneration]);
+  
+  const handleCloseAIResultPanel = useCallback(() => {
+    setShowAIResultPanel(false);
+    setAiGenerationResult(null);
+  }, []);
+  
+  const handleRegenerateAI = useCallback(() => {
+    setShowAIResultPanel(false);
+    setAiGenerationResult(null);
+    setCreationMode('ai'); // Switch back to AI mode
+  }, [setCreationMode]);
   
   // ==================== RETURN ====================
   return {
@@ -641,6 +663,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     aiGenerateConfirmOpen,
     setAiGenerateConfirmOpen,
     handleConfirmAIGenerate,
+    aiGenerationResult,
+    showAIResultPanel,
+    handleCloseAIResultPanel,
+    handleRegenerateAI,
     
     // AV Panel
     isAVPanelCollapsed,

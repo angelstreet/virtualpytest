@@ -294,14 +294,46 @@ class AIExecutor:
                     'execution_time': time.time() - start_time
                 }
             
+            # Calculate block counts from graph
+            graph = plan_dict.get('graph', {})
+            nodes = graph.get('nodes', [])
+            
+            block_counts = {
+                'navigation': len([n for n in nodes if n.get('type') == 'navigation']),
+                'action': len([n for n in nodes if n.get('type') == 'action']),
+                'verification': len([n for n in nodes if n.get('type') == 'verification']),
+                'other': len([n for n in nodes if n.get('type') not in ['start', 'success', 'failure', 'navigation', 'action', 'verification']]),
+                'total': len(nodes),
+            }
+            
+            # Get block details for list
+            blocks_generated = [
+                {
+                    'type': node.get('type'),
+                    'label': node.get('data', {}).get('label') or node.get('data', {}).get('command') or node.get('type'),
+                    'id': node.get('id'),
+                }
+                for node in nodes
+            ]
+            
+            # Extract usage stats (token counts)
+            usage = plan_dict.get('_usage', {})
+            
             # Return graph structure without execution
             return {
                 'success': True,
-                'graph': plan_dict.get('graph', {}),
+                'graph': graph,
                 'analysis': plan_dict.get('analysis', ''),
                 'plan_id': plan_dict.get('id'),
                 'execution_time': time.time() - start_time,
-                'message': 'Graph generated successfully (not executed)'
+                'message': 'Graph generated successfully (not executed)',
+                'generation_stats': {
+                    'prompt_tokens': usage.get('prompt_tokens', 0),
+                    'completion_tokens': usage.get('completion_tokens', 0),
+                    'total_tokens': usage.get('total_tokens', 0),
+                    'block_counts': block_counts,
+                    'blocks_generated': blocks_generated,
+                }
             }
                 
         except Exception as e:
@@ -964,7 +996,14 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
         if not result.get('success'):
             raise Exception(f"AI call failed: {result.get('error')}")
 
-        return self._extract_json_from_ai_response(result['content'])
+        # Extract JSON and attach usage stats
+        parsed_response = self._extract_json_from_ai_response(result['content'])
+        
+        # Attach usage stats to response for token tracking
+        if 'usage' in result:
+            parsed_response['_usage'] = result['usage']
+        
+        return parsed_response
     
     def _extract_json_from_ai_response(self, content: str) -> Dict[str, Any]:
         """Extract and sanitize JSON from AI response with robust error handling"""
@@ -999,8 +1038,16 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
             
             print(f"[@ai_executor] Cleaned content (first 200 chars): {repr(cleaned_content[:200])}")
             
-            # Parse JSON
-            parsed_json = json.loads(cleaned_content)
+            # Parse JSON - use JSONDecoder to handle trailing data
+            from json import JSONDecoder
+            decoder = JSONDecoder()
+            parsed_json, idx = decoder.raw_decode(cleaned_content)
+            
+            # Check if there's extra content after the JSON
+            remaining_content = cleaned_content[idx:].strip()
+            if remaining_content:
+                print(f"[@ai_executor] ⚠️ Warning: AI returned extra content after JSON: {repr(remaining_content[:100])}")
+            
             print(f"[@ai_executor] ✅ Successfully parsed JSON with keys: {list(parsed_json.keys())}")
             
             # Validate required fields

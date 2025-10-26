@@ -42,6 +42,7 @@ import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigD
 import { VerificationConfigDialog } from '../components/testcase/dialogs/VerificationConfigDialog';
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
 import { TestCaseBuilderDialogs } from '../components/testcase/builder/TestCaseBuilderDialogs';
+import { AIGenerationResultPanel } from '../components/testcase/builder/AIGenerationResultPanel';
 
 // Context
 import { TestCaseBuilderProvider } from '../contexts/testcase/TestCaseBuilderContext';
@@ -617,6 +618,15 @@ const TestCaseBuilderContent: React.FC = () => {
         handleAVPanelMinimizedChange={hookData.handleAVPanelMinimizedChange}
         handleCaptureModeChange={hookData.handleCaptureModeChange}
       />
+      
+      {/* AI Generation Result Panel */}
+      {hookData.showAIResultPanel && hookData.aiGenerationResult && (
+        <AIGenerationResultPanel
+          result={hookData.aiGenerationResult}
+          onClose={hookData.handleCloseAIResultPanel}
+          onRegenerate={hookData.handleRegenerateAI}
+        />
+      )}
       
       {/* 🗑️ REMOVED: ExecutionOverlay - replaced by ExecutionProgressBar + ExecutionLog */}
     </Box>

@@ -187,7 +187,7 @@ export const AndroidMobileRemote = React.memo(
 
       // Calculate content position (accounting for header)
       // Add Y offset when using dynamic positioning (TestCaseBuilder context)
-      const yOffset =  -30;
+      const yOffset = (streamPositionLeft && streamPositionBottom) ? -30 : 0;
       
       const streamActualPosition = {
         x: panelX + (streamPanelWidth - streamContentWidth) / 2, // Center horizontally
