@@ -101,6 +101,202 @@ NO legacy code, NO backward compatibility - Pure, efficient implementation.
 
 ---
 
+## Complete Workflow (Step-by-Step)
+
+### Workflow 1: TestCase Builder - AI Generation Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 1: USER PROMPT (Frontend: TestCaseBuilder.tsx)       │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+          User enters: "go to live and check audio"
+          Selects: userinterface = "horizon_android_mobile"
+          Clicks: "Generate with AI"
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 2: FRONTEND API CALL                                  │
+└─────────────────────────────────────────────────────────────┘
+          POST /server/ai/generatePlan?team_id=XXX
+          Body: {
+            prompt: "go to live and check audio",
+            userinterface_name: "horizon_android_mobile",
+            device_id: "device1",
+            host_name: "localhost"
+          }
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 3: SERVER PROXY (server_ai_routes.py)                │
+└─────────────────────────────────────────────────────────────┘
+          Proxies to: POST /host/ai/generatePlan
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 4: HOST AI ROUTE (host_ai_routes.py)                 │
+└─────────────────────────────────────────────────────────────┘
+          device.ai_builder.generate_graph(
+            prompt, userinterface_name, team_id
+          )
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 5: AI BUILDER PIPELINE (ai_builder.py)               │
+└─────────────────────────────────────────────────────────────┘
+          
+   5.1  _load_context()
+        ├─ nav_executor.get_available_context()
+        │  Returns: {available_nodes: ['home', 'live', 'settings']}
+        ├─ Extract: nav_nodes = ['home', 'live', ...]  ✅ STRINGS
+        ├─ Store: context['nodes_raw'] = nav_nodes    ✅ DIRECT
+        └─ Format: _format_navigation_nodes(nav_nodes) ✅ CLEAN
+        
+   5.2  Check Cache (fingerprint: prompt + interface)
+        └─ MISS → Continue to preprocessing
+        
+   5.3  Smart Preprocessing
+        ├─ Extract: node_list = context['nodes_raw']  ✅ NO CONVERSION!
+        ├─ Intent extraction (keywords: "live", "audio")
+        ├─ TF-IDF filtering (15 most relevant nodes)
+        ├─ Check exact match / learned mappings
+        └─ Returns: filtered_context or disambiguation_needed
+        
+   5.4  Build AI Prompt (if no exact match)
+        ├─ Use filtered context (not all 100 nodes)
+        ├─ Include structure hints from intent parser
+        └─ Call OpenRouter API
+        
+   5.5  Parse AI Response
+        └─ Extract JSON graph from response
+        
+   5.6  Post-Process Graph
+        ├─ Enforce node labels (navigation_1:live)
+        ├─ Validate structure
+        └─ Prefetch navigation transitions
+        
+   5.7  Store in Cache
+        └─ Save graph for future similar prompts
+        
+   5.8  Return Result
+        {
+          success: true,
+          graph: {...},  // React Flow format
+          analysis: "AI reasoning...",
+          generation_stats: {...},
+          cached: false
+        }
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 6: FRONTEND RECEIVES GRAPH                            │
+└─────────────────────────────────────────────────────────────┘
+          setGraph(result.graph)
+          Loads graph on React Flow canvas
+          Shows AIGenerationResultPanel (stats, analysis)
+          User can EDIT graph visually
+                            ↓
+          USER EDITS → SAVES → EXECUTES LATER
+```
+
+---
+
+### Workflow 2: Live AI Modal - Quick Execution Flow
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 1: USER PROMPT (Frontend: AIExecutionPanel.tsx)      │
+└─────────────────────────────────────────────────────────────┘
+                            ↓
+          User enters: "go to live and check audio"
+          Selects: userinterface = "horizon_android_mobile"
+          Clicks: "Generate Graph"
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 2: FRONTEND API CALL                                  │
+└─────────────────────────────────────────────────────────────┘
+          POST /server/ai/generatePlan?team_id=XXX
+          Body: {
+            prompt: "go to live and check audio",
+            userinterface_name: "horizon_android_mobile",
+            device_id: "device1",
+            host_name: "localhost"
+          }
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 3: SERVER PROXY (server_ai_routes.py)                │
+└─────────────────────────────────────────────────────────────┘
+          Proxies to: POST /host/ai/generatePlan
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 4: HOST AI ROUTE (host_ai_routes.py)                 │
+└─────────────────────────────────────────────────────────────┘
+          device.ai_builder.generate_graph(
+            prompt, userinterface_name, team_id
+          )
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 5: AI BUILDER PIPELINE (ai_builder.py)               │
+└─────────────────────────────────────────────────────────────┘
+          
+   [SAME AS WORKFLOW 1 - Steps 5.1 to 5.8]
+   
+   Returns graph + analysis
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 6: FRONTEND RECEIVES GRAPH                            │
+└─────────────────────────────────────────────────────────────┘
+          setGraph(result.graph)
+          setAnalysis(result.analysis)
+          Shows preview panel with stats
+                            ↓
+          USER REVIEWS GRAPH → CLICKS "EXECUTE"
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 7: FRONTEND EXECUTION CALL                            │
+└─────────────────────────────────────────────────────────────┘
+          POST /server/testcase/execute?team_id=XXX
+          Body: {
+            device_id: "device1",
+            host_name: "localhost",
+            userinterface_name: "horizon_android_mobile",  ✅ INCLUDED!
+            graph_json: {...},  // The generated graph
+            async_execution: true
+          }
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 8: SERVER PROXY → HOST EXECUTION                     │
+└─────────────────────────────────────────────────────────────┘
+          POST /host/testcase/execute
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 9: HOST EXECUTES GRAPH (testcase_executor.py)        │
+└─────────────────────────────────────────────────────────────┘
+          executor.execute_testcase_from_graph_async(
+            graph, team_id, device_id, userinterface_name  ✅
+          )
+          Returns: {success: true, execution_id: "xxx"}
+                            ↓
+┌─────────────────────────────────────────────────────────────┐
+│  STEP 10: FRONTEND POLLS STATUS                             │
+└─────────────────────────────────────────────────────────────┘
+          Every 1s: GET /server/testcase/execution/{id}/status
+          Updates progress UI with real-time steps
+          Shows completed/failed when done
+```
+
+---
+
+### Key Differences Between Workflows
+
+| Aspect | TestCase Builder | Live AI Modal |
+|--------|------------------|---------------|
+| **Generation** | ✅ Same (Steps 1-5) | ✅ Same (Steps 1-5) |
+| **Graph Display** | React Flow canvas (editable) | Preview panel (read-only) |
+| **User Actions** | Edit → Save → Execute later | Review → Execute immediately |
+| **Execution** | Optional (can save without executing) | Immediate (after review) |
+| **Persistence** | Saved to database | Ephemeral (not saved) |
+| **Progress Tracking** | ExecutionProgressBar | AIStepDisplay (real-time) |
+
+**Key Insight:** Both workflows use **identical backend** (AIGraphBuilder) but differ in **frontend UX** (edit vs execute).
+
+---
+
 ### Shared Components & Backend
 
 Both use cases share the SAME infrastructure:
