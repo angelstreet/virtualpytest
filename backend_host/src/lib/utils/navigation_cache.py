@@ -1,53 +1,50 @@
 """
 Unified Navigation Graph Caching System
 Manages in-memory cache of NetworkX graphs for nested tree navigation
+
+CACHE STRATEGY:
+- Memory-only cache (no disk persistence)
+- Cleared on server restart
+- Rebuilt automatically on first use
 """
 
 import networkx as nx
 from datetime import datetime, timedelta
 from typing import Dict, Optional, List
 import sys
-import os
-import pickle
 
 # Import cache config from shared
 from shared.src.lib.config.constants import CACHE_CONFIG
 CACHE_TTL = CACHE_CONFIG['LONG_TTL']  # 24 hours
-CACHE_DIR = "/tmp/nav_cache"
 
-# Unified graph caching for nested trees (single cache system)
+# Unified graph caching for nested trees (memory-only, cleared on restart)
 _unified_graphs_cache: Dict[str, nx.DiGraph] = {}      # Unified graphs with nested trees
 _tree_hierarchy_cache: Dict[str, Dict] = {}            # Tree hierarchy metadata
 _node_location_cache: Dict[str, str] = {}              # node_id -> tree_id mapping
 _unified_cache_timestamps: Dict[str, datetime] = {}
 
-# Ensure cache directory exists
-os.makedirs(CACHE_DIR, exist_ok=True)
-
 def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiGraph]:
     """
-    Get cached unified NetworkX graph - checks file cache (shared across processes)
+    Get cached unified NetworkX graph - memory-only (no file persistence)
     """
     if not root_tree_id or not team_id:
         return None
     
     cache_key = f"unified_{root_tree_id}_{team_id}"
-    cache_file = f"{CACHE_DIR}/{cache_key}.pkl"
     
-    # Check file cache (works across processes)
-    if os.path.exists(cache_file):
-        try:
-            file_age = datetime.now().timestamp() - os.path.getmtime(cache_file)
-            if file_age < CACHE_TTL:
-                with open(cache_file, 'rb') as f:
-                    cached_data = pickle.load(f)
-                print(f"[@navigation:cache:get_cached_unified_graph] ✅ File Cache HIT: {cache_key} (age: {file_age:.1f}s)")
-                return cached_data['graph']
+    # Check memory cache only
+    if cache_key in _unified_graphs_cache:
+        timestamp = _unified_cache_timestamps.get(cache_key)
+        if timestamp:
+            age = (datetime.now() - timestamp).total_seconds()
+            if age < CACHE_TTL:
+                print(f"[@navigation:cache:get_cached_unified_graph] ✅ Memory Cache HIT: {cache_key} (age: {age:.1f}s)")
+                return _unified_graphs_cache[cache_key]
             else:
-                os.remove(cache_file)  # Expired
+                # Expired - remove from cache
+                del _unified_graphs_cache[cache_key]
+                del _unified_cache_timestamps[cache_key]
                 print(f"[@navigation:cache:get_cached_unified_graph] Cache expired, removed: {cache_key}")
-        except Exception as e:
-            print(f"[@navigation:cache:get_cached_unified_graph] Error reading cache: {e}")
     
     print(f"[@navigation:cache:get_cached_unified_graph] ❌ Cache MISS: {cache_key}")
     return None
@@ -74,10 +71,9 @@ def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:
 
 def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List[Dict]) -> Optional[nx.DiGraph]:
     """
-    Build and cache unified graph - saves to file (shared across processes)
+    Build and cache unified graph - memory-only (no file persistence)
     """
     cache_key = f"unified_{root_tree_id}_{team_id}"
-    cache_file = f"{CACHE_DIR}/{cache_key}.pkl"
     
     try:
         from  backend_host.src.lib.utils.navigation_graph import create_unified_networkx_graph
@@ -89,12 +85,11 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
         if not unified_graph:
             return None
         
-        # Save to file cache (accessible by all processes)
-        cache_data = {'graph': unified_graph, 'timestamp': datetime.now()}
-        with open(cache_file, 'wb') as f:
-            pickle.dump(cache_data, f)
+        # Store in memory cache only (cleared on restart)
+        _unified_graphs_cache[cache_key] = unified_graph
+        _unified_cache_timestamps[cache_key] = datetime.now()
         
-        print(f"[@navigation:cache:populate_unified_cache] ✅ Cached to file: {cache_key} ({len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges)")
+        print(f"[@navigation:cache:populate_unified_cache] ✅ Cached to memory: {cache_key} ({len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges)")
         return unified_graph
         
     except Exception as e:
@@ -103,7 +98,7 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
 
 def save_unified_cache(root_tree_id: str, team_id: str, graph: nx.DiGraph) -> bool:
     """
-    Save existing unified graph to file cache (incremental update)
+    Save existing unified graph to memory cache (incremental update)
     
     Args:
         root_tree_id: Root navigation tree ID
@@ -114,14 +109,13 @@ def save_unified_cache(root_tree_id: str, team_id: str, graph: nx.DiGraph) -> bo
         True if saved successfully, False otherwise
     """
     cache_key = f"unified_{root_tree_id}_{team_id}"
-    cache_file = f"{CACHE_DIR}/{cache_key}.pkl"
     
     try:
-        cache_data = {'graph': graph, 'timestamp': datetime.now()}
-        with open(cache_file, 'wb') as f:
-            pickle.dump(cache_data, f)
+        # Store in memory cache only (cleared on restart)
+        _unified_graphs_cache[cache_key] = graph
+        _unified_cache_timestamps[cache_key] = datetime.now()
         
-        print(f"[@navigation:cache:save_unified_cache] ✅ Saved graph to file: {cache_key} ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
+        print(f"[@navigation:cache:save_unified_cache] ✅ Saved graph to memory: {cache_key} ({len(graph.nodes)} nodes, {len(graph.edges)} edges)")
         return True
         
     except Exception as e:
@@ -159,7 +153,7 @@ def get_tree_hierarchy_metadata(root_tree_id: str, team_id: str) -> Optional[Dic
     return _tree_hierarchy_cache.get(hierarchy_cache_key)
 
 def clear_unified_cache(root_tree_id: str = None, team_id: str = None):
-    """Clear both in-memory and file caches"""
+    """Clear memory cache (memory-only, cleared on restart)"""
     if root_tree_id and team_id:
         cache_key = f"unified_{root_tree_id}_{team_id}"
         
@@ -171,12 +165,7 @@ def clear_unified_cache(root_tree_id: str = None, team_id: str = None):
         if cache_key in _tree_hierarchy_cache:
             del _tree_hierarchy_cache[cache_key]
         
-        # Clear file cache
-        cache_file = f"{CACHE_DIR}/{cache_key}.pkl"
-        if os.path.exists(cache_file):
-            os.remove(cache_file)
-        
-        print(f"[@navigation:cache:clear_unified_cache] Cleared in-memory + file cache for tree: {root_tree_id}")
+        print(f"[@navigation:cache:clear_unified_cache] Cleared memory cache for tree: {root_tree_id}")
     else:
         # Clear all in-memory caches
         _unified_graphs_cache.clear()
@@ -184,19 +173,14 @@ def clear_unified_cache(root_tree_id: str = None, team_id: str = None):
         _tree_hierarchy_cache.clear()
         _node_location_cache.clear()
         
-        # Clear all file caches
-        for f in os.listdir(CACHE_DIR):
-            os.remove(os.path.join(CACHE_DIR, f))
-        
-        print(f"[@navigation:cache:clear_unified_cache] Cleared ALL in-memory + file caches")
+        print(f"[@navigation:cache:clear_unified_cache] Cleared ALL memory caches")
 
 def get_cache_stats() -> Dict[str, int]:
-    """Get cache statistics from files"""
-    cached_files = [f for f in os.listdir(CACHE_DIR) if f.endswith('.pkl')]
+    """Get cache statistics from memory"""
     return {
-        'cache_type': 'File',
-        'cached_graphs': len(cached_files),
-        'cache_dir': CACHE_DIR
+        'cache_type': 'Memory (cleared on restart)',
+        'cached_graphs': len(_unified_graphs_cache),
+        'cache_timestamps': len(_unified_cache_timestamps)
     }
 
 # Backward compatibility aliases (deprecated - use unified functions directly)

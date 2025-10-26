@@ -347,6 +347,9 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     if (!result.success) {
       throw new Error(result.error);
     }
+    
+    // Note: Backend cache is memory-only and cleared on restart
+    // Incremental updates still happen via /host/navigation/cache/update-node if needed for live editing
   };
 
   const saveEdge = async (treeId: string, edge: NavigationEdge): Promise<any> => {
@@ -361,27 +364,8 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       throw new Error(result.error);
     }
     
-    // Update backend unified cache after saving edge
-    try {
-      const cacheUpdateResponse = await fetch(buildServerUrl(`/host/navigation/cache/update-edge`), {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          tree_id: treeId,
-          edge: result.edge // Use edge data from server response
-        })
-      });
-      const cacheResult = await cacheUpdateResponse.json();
-      if (cacheResult.success) {
-        console.log(`[@NavigationConfigContext:saveEdge] ✅ Backend cache updated for edge ${edge.id}`);
-      } else {
-        console.warn(`[@NavigationConfigContext:saveEdge] ⚠️ Backend cache update failed: ${cacheResult.error}`);
-      }
-    } catch (err) {
-      console.warn(`[@NavigationConfigContext:saveEdge] ⚠️ Backend cache update error:`, err);
-      // Don't fail the save if cache update fails - cache will be refreshed on next tree load
-    }
-    
+    // Note: Backend cache is memory-only and cleared on restart
+    // Incremental updates still happen via /host/navigation/cache/update-edge if needed for live editing
     return result;
   };
 
