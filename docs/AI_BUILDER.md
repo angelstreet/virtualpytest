@@ -1102,6 +1102,8 @@ CREATE TABLE ai_prompt_disambiguation (
   - `preprocess_prompt()` - Full preprocessing pipeline
   - `find_fuzzy_matches()` - Similarity matching
   - `extract_potential_node_phrases()` - Parse prompt for node refs
+  - `is_valid_potential_node()` - **NEW:** Validate phrases (3+ chars, stopwords filter)
+  - `STOPWORDS` - **NEW:** 50+ common words to filter out
 
 **Frontend:**
 - `frontend/src/components/ai/PromptDisambiguation.tsx` - Disambiguation modal

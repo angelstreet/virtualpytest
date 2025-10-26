@@ -28,6 +28,86 @@ from backend_host.src.services.ai.ai_intent_parser import IntentParser, build_st
 from backend_host.src.services.ai.ai_context_filter import ContextFilter, format_filtered_context_for_ai
 
 
+# =============================================================================
+# STOPWORDS & FILTERS
+# =============================================================================
+
+# Common English words that should NOT be treated as navigation nodes
+# These are filtered out to prevent false positive ambiguities
+STOPWORDS = {
+    # Articles & prepositions
+    'a', 'an', 'and', 'are', 'as', 'at', 'be', 'by', 'for', 'from',
+    'has', 'he', 'in', 'is', 'it', 'its', 'of', 'on', 'or', 'that',
+    'the', 'was', 'will', 'with', 'she', 'they', 'we', 'you',
+    
+    # Navigation/action verbs (not node names)
+    'go', 'to', 'navigate', 'open', 'close', 'press', 'click', 'tap',
+    'select', 'exit', 'move', 'change', 'switch', 'set', 'get',
+    
+    # Temporal/sequential words
+    'then', 'now', 'next', 'after', 'before', 'first', 'last', 'again',
+    'back', 'forward', 'up', 'down',
+    
+    # Common actions
+    'do', 'make', 'take', 'show', 'see', 'look', 'find', 'use',
+}
+
+
+def is_valid_potential_node(phrase: str) -> bool:
+    """
+    Check if a phrase could potentially be a navigation node reference.
+    
+    Rules:
+    1. Must be at least 3 characters total (filters: "go", "to", "in", "up")
+    2. Must not be a stopword
+    3. Individual words in phrase must be >= 3 chars (unless contains digits/special chars)
+    
+    Args:
+        phrase: Potential node name or phrase
+    
+    Returns:
+        True if phrase could be a valid node reference
+    
+    Examples:
+        >>> is_valid_potential_node("live_fullscreen")
+        True
+        >>> is_valid_potential_node("home")
+        True
+        >>> is_valid_potential_node("to")
+        False
+        >>> is_valid_potential_node("go")
+        False
+        >>> is_valid_potential_node("to_live")  # "to" is < 3 chars
+        False
+        >>> is_valid_potential_node("ch+")  # Has special char, might be valid
+        True
+    """
+    phrase = phrase.strip().lower()
+    
+    # Must be at least 3 characters total
+    if len(phrase) < 3:
+        return False
+    
+    # Check if entire phrase is a stopword
+    if phrase in STOPWORDS:
+        return False
+    
+    # For multi-word or underscore-separated phrases, check each part
+    # Split on spaces and underscores
+    parts = re.split(r'[\s_]+', phrase)
+    
+    for part in parts:
+        # Allow parts with digits or special characters (e.g., "ch+", "5", "360")
+        if any(c.isdigit() or not c.isalnum() for c in part):
+            continue
+        
+        # Alphabetic parts must be >= 3 chars OR not be stopwords
+        if len(part) < 3 and part in STOPWORDS:
+            return False
+    
+    return True
+
+
 def find_fuzzy_matches(target: str, available_nodes: List[str], 
                       max_results: int = 3, cutoff: float = 0.4) -> List[str]:
     """
@@ -61,50 +141,73 @@ def extract_potential_node_phrases(prompt: str) -> List[str]:
     """
     Extract phrases from prompt that could be node references.
     
+    IMPROVED with stopword and length filtering to reduce false positives.
+    
     Patterns:
     - Quoted strings: "live fullscreen"
-    - After navigation keywords: "navigate to live"
-    - Individual words
+    - After navigation keywords: "navigate to live" → extracts "live"
+    - Individual words (filtered by stopwords and length)
+    - Multi-word combinations (2-word phrases)
     
     Args:
         prompt: User's natural language prompt
     
     Returns:
-        List of potential node phrases
+        List of potential node phrases (filtered)
+    
+    Examples:
+        >>> extract_potential_node_phrases("go to live fullscreen")
+        ['live fullscreen', 'live', 'fullscreen']
+        # Filtered: "go", "to" (stopwords < 3 chars)
     """
     phrases = []
+    prompt_lower = prompt.lower()
     
-    # Pattern 1: Quoted strings
+    # Pattern 1: Quoted strings (high priority - user explicitly marked)
     quoted = re.findall(r'["\']([^"\']+)["\']', prompt)
-    phrases.extend(quoted)
+    for q in quoted:
+        if is_valid_potential_node(q):
+            phrases.append(q.lower())
     
-    # Pattern 2: Words/phrases after navigation keywords
-    # Matches: "to X", "navigate to X", "go to X", "open X"
-    navigation_pattern = r'(?:to|navigate to|go to|open)\s+([a-zA-Z0-9_\s]+?)(?:\s+and|\s+then|$|,|\.|;)'
-    nav_matches = re.findall(navigation_pattern, prompt.lower())
-    phrases.extend([m.strip() for m in nav_matches])
+    # Pattern 2: After navigation keywords
+    # Extract content after "go to", "navigate to", "open", etc.
+    navigation_pattern = r'(?:go\s+to|navigate\s+to|open|goto)\s+([a-zA-Z0-9_\s]+?)(?:\s+and|\s+then|$|,|\.|;)'
+    nav_matches = re.findall(navigation_pattern, prompt_lower)
+    for match in nav_matches:
+        clean_match = match.strip()
+        if is_valid_potential_node(clean_match):
+            phrases.append(clean_match)
     
-    # Pattern 3: Individual words (might be node names)
-    words = re.findall(r'\b[a-zA-Z0-9_]+\b', prompt.lower())
-    phrases.extend(words)
+    # Pattern 3: Individual words (filtered by stopwords and length)
+    words = re.findall(r'\b[a-zA-Z0-9_]+\b', prompt_lower)
+    for word in words:
+        if is_valid_potential_node(word):
+            phrases.append(word)
     
-    # Also try multi-word combinations (2-word phrases)
-    words_list = prompt.lower().split()
+    # Pattern 4: Multi-word combinations (2-word phrases)
+    words_list = prompt_lower.split()
     for i in range(len(words_list) - 1):
         two_word = f"{words_list[i]} {words_list[i+1]}"
-        phrases.append(two_word)
+        if is_valid_potential_node(two_word):
+            phrases.append(two_word)
+        
         # Also try with underscore
         two_word_underscore = f"{words_list[i]}_{words_list[i+1]}"
-        phrases.append(two_word_underscore)
+        if is_valid_potential_node(two_word_underscore):
+            phrases.append(two_word_underscore)
     
     # Deduplicate while preserving order
     seen = set()
     unique_phrases = []
     for phrase in phrases:
         phrase = phrase.strip()
-        if phrase and phrase not in seen and len(phrase) > 1:  # Skip single chars
+        if phrase and phrase not in seen:
             seen.add(phrase)
             unique_phrases.append(phrase)
+    
+    print(f"[@ai_preprocessing] Extracted and filtered {len(unique_phrases)} valid phrases from prompt")
+    if unique_phrases:
+        print(f"[@ai_preprocessing]   Valid phrases: {unique_phrases[:10]}")  # Show first 10
     
     return unique_phrases
 
@@ -135,6 +238,8 @@ def preprocess_prompt(prompt: str, available_nodes: List[str],
     """
     # Extract potential node phrases from prompt
     phrases = extract_potential_node_phrases(prompt)
+    print(f"[@ai_preprocessing] Extracted {len(phrases)} potential phrases from prompt")
+    print(f"[@ai_preprocessing] Phrases: {phrases[:10]}")  # Show first 10
     
     # Get learned mappings from database (batch query for efficiency)
     learned = get_learned_mappings_batch(team_id, userinterface_name, phrases)
@@ -175,24 +280,36 @@ def preprocess_prompt(prompt: str, available_nodes: List[str],
         elif len(matches) > 1:
             # Multiple matches → needs user disambiguation
             needs_disambiguation.append({
-                'original': phrase,
+                'phrase': phrase,  # Frontend expects 'phrase', not 'original'
                 'suggestions': matches
             })
             print(f"[@ai_preprocessing] ⚠️  Ambiguous: '{phrase}' → {matches}")
     
     # Determine status and return appropriate response
     if not auto_corrections and not needs_disambiguation:
+        print(f"[@ai_preprocessing] ✅ Prompt is clear - no changes needed")
         return {'status': 'clear', 'prompt': prompt}
     
     if needs_disambiguation:
-        return {
+        print(f"[@ai_preprocessing] ⚠️  DISAMBIGUATION REQUIRED")
+        print(f"[@ai_preprocessing]   Ambiguous phrases: {len(needs_disambiguation)}")
+        print(f"[@ai_preprocessing]   Auto-corrections: {len(auto_corrections)}")
+        
+        # Log structure being returned
+        response = {
             'status': 'needs_disambiguation',
             'original_prompt': prompt,
             'ambiguities': needs_disambiguation,
             'auto_corrections': auto_corrections  # Show what was auto-corrected
         }
+        
+        print(f"[@ai_preprocessing] 📤 Returning disambiguation data structure:")
+        print(f"[@ai_preprocessing]   Keys: {list(response.keys())}")
+        
+        return response
     
     # Auto-corrected only (apply corrections to prompt)
+    print(f"[@ai_preprocessing] ✅ Auto-correcting {len(auto_corrections)} phrases")
     corrected_prompt = prompt
     for correction in auto_corrections:
         # Use word boundaries to avoid partial replacements
@@ -359,12 +476,36 @@ def smart_preprocess(
     
     if preprocessed['status'] == 'needs_disambiguation':
         print(f"[@smart_preprocess] ⚠️  Needs disambiguation")
-        return {
-            'status': 'needs_disambiguation',
-            'ambiguities': preprocessed['ambiguities'],
-            'auto_corrections': preprocessed.get('auto_corrections', []),
-            'intent': intent
-        }
+        
+        try:
+            ambiguities = preprocessed.get('ambiguities', [])
+            auto_corrections = preprocessed.get('auto_corrections', [])
+            
+            print(f"[@smart_preprocess]   Ambiguities: {len(ambiguities)}")
+            print(f"[@smart_preprocess]   Auto-corrections: {len(auto_corrections)}")
+            
+            # Log ambiguous phrases
+            for amb in ambiguities:
+                phrase = amb.get('phrase', 'UNKNOWN')
+                suggestions = amb.get('suggestions', [])
+                print(f"[@smart_preprocess]     '{phrase}' → {suggestions}")
+            
+            return {
+                'status': 'needs_disambiguation',
+                'ambiguities': ambiguities,
+                'auto_corrections': auto_corrections,
+                'intent': intent
+            }
+            
+        except Exception as e:
+            print(f"[@smart_preprocess] ❌ ERROR processing disambiguation: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'status': 'impossible',
+                'reason': f'Disambiguation processing error: {str(e)}',
+                'intent': intent
+            }
     
     # Step 6: Build structure hints for AI
     structure_hints = build_structure_hints_for_ai(intent)

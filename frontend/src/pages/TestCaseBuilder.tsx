@@ -43,6 +43,7 @@ import { VerificationConfigDialog } from '../components/testcase/dialogs/Verific
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
 import { TestCaseBuilderDialogs } from '../components/testcase/builder/TestCaseBuilderDialogs';
 import { AIGenerationResultPanel } from '../components/testcase/builder/AIGenerationResultPanel';
+import { PromptDisambiguation } from '../components/ai/PromptDisambiguation';
 
 // Context
 import { TestCaseBuilderProvider } from '../contexts/testcase/TestCaseBuilderContext';
@@ -629,6 +630,27 @@ const TestCaseBuilderContent: React.FC = () => {
           onRegenerate={hookData.handleRegenerateAI}
           originalPrompt={hookData.aiPrompt}
         />
+      )}
+      
+      {/* AI Disambiguation Modal - Rendered at top level with proper z-index */}
+      {hookData.disambiguationData && (
+        <>
+          {console.log('[@TestCaseBuilder] Rendering PromptDisambiguation modal')}
+          {console.log('[@TestCaseBuilder] Modal data:', {
+            hasAmbiguities: !!hookData.disambiguationData.ambiguities,
+            ambiguitiesLength: hookData.disambiguationData.ambiguities?.length,
+            hasAutoCorrections: !!hookData.disambiguationData.auto_corrections,
+            hasAvailableNodes: !!hookData.disambiguationData.available_nodes
+          })}
+          <PromptDisambiguation
+            ambiguities={hookData.disambiguationData.ambiguities}
+            autoCorrections={hookData.disambiguationData.auto_corrections}
+            availableNodes={hookData.disambiguationData.available_nodes}
+            onResolve={hookData.handleDisambiguationResolve}
+            onCancel={hookData.handleDisambiguationCancel}
+            onEditPrompt={hookData.handleDisambiguationEditPrompt}
+          />
+        </>
       )}
       
       {/* 🗑️ REMOVED: ExecutionOverlay - replaced by ExecutionProgressBar + ExecutionLog */}

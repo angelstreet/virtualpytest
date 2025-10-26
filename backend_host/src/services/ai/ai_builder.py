@@ -395,14 +395,53 @@ class AIGraphBuilder:
                 
                 elif preprocessed['status'] == 'needs_disambiguation':
                     # Return disambiguation request to frontend
-                    return {
-                        'success': False,
-                        'needs_disambiguation': True,
-                        'ambiguities': preprocessed['ambiguities'],
-                        'auto_corrections': preprocessed.get('auto_corrections', []),
-                        'original_prompt': prompt,
-                        'execution_time': time.time() - start_time
-                    }
+                    print(f"[@ai_builder] ⚠️  Disambiguation needed")
+                    
+                    try:
+                        ambiguities = preprocessed.get('ambiguities', [])
+                        auto_corrections = preprocessed.get('auto_corrections', [])
+                        
+                        # Validate disambiguation data
+                        if not ambiguities:
+                            print(f"[@ai_builder] ❌ ERROR: Ambiguities list is empty!")
+                            return {
+                                'success': False,
+                                'error': 'Preprocessing returned needs_disambiguation but no ambiguities provided',
+                                'execution_time': time.time() - start_time
+                            }
+                        
+                        print(f"[@ai_builder]   Ambiguities count: {len(ambiguities)}")
+                        print(f"[@ai_builder]   Auto-corrections count: {len(auto_corrections)}")
+                        
+                        # Log each ambiguity for debugging
+                        for idx, amb in enumerate(ambiguities, 1):
+                            phrase = amb.get('phrase', 'UNKNOWN')
+                            suggestions = amb.get('suggestions', [])
+                            print(f"[@ai_builder]   Ambiguity {idx}: '{phrase}' → {len(suggestions)} options")
+                        
+                        # Build disambiguation response
+                        response = {
+                            'success': False,
+                            'needs_disambiguation': True,
+                            'ambiguities': ambiguities,
+                            'auto_corrections': auto_corrections,
+                            'available_nodes': node_list,  # Full list for frontend reference
+                            'original_prompt': prompt,
+                            'execution_time': time.time() - start_time
+                        }
+                        
+                        print(f"[@ai_builder] 📤 Returning disambiguation response to frontend")
+                        return response
+                        
+                    except Exception as e:
+                        print(f"[@ai_builder] ❌ ERROR building disambiguation response: {e}")
+                        import traceback
+                        traceback.print_exc()
+                        return {
+                            'success': False,
+                            'error': f'Failed to build disambiguation response: {str(e)}',
+                            'execution_time': time.time() - start_time
+                        }
                 
                 elif preprocessed['status'] == 'impossible':
                     # Task cannot be completed (missing required context)
@@ -736,21 +775,69 @@ class AIGraphBuilder:
         Post-process graph after AI generation
         
         Steps:
-        1. Validate structure
-        2. Enforce label conventions
-        3. Pre-fetch navigation transitions
-        4. Validate nodes exist
+        1. Ensure terminal blocks exist (START, SUCCESS, FAILURE)
+        2. Validate structure
+        3. Enforce label conventions
+        4. Pre-fetch navigation transitions
+        5. Validate nodes exist
         """
         print(f"[@ai_builder:postprocess] Processing graph...")
         
-        # Enforce labels
+        # Step 1: Ensure terminal blocks exist
+        graph = self._ensure_terminal_blocks(graph)
+        
+        # Step 2: Enforce labels
         graph = self._enforce_labels(graph)
         
-        # Pre-fetch navigation transitions
+        # Step 3: Pre-fetch navigation transitions
         self._prefetch_navigation_transitions(graph, context)
         
         print(f"[@ai_builder:postprocess] ✅ Post-processing complete")
         
+        return graph
+    
+    def _ensure_terminal_blocks(self, graph: Dict) -> Dict:
+        """
+        Ensure START, SUCCESS, and FAILURE terminal blocks exist
+        
+        If any are missing, add them with default positions
+        """
+        nodes = graph.get('nodes', [])
+        node_types = {node.get('type') for node in nodes}
+        
+        # Check which terminal blocks exist
+        has_start = 'start' in node_types
+        has_success = 'success' in node_types
+        has_failure = 'failure' in node_types
+        
+        if not has_start:
+            print(f"[@ai_builder:postprocess] ⚠️  Missing START block - adding it")
+            nodes.insert(0, {
+                'id': 'start',
+                'type': 'start',
+                'position': {'x': 400, 'y': 50},
+                'data': {'label': 'START'}
+            })
+        
+        if not has_success:
+            print(f"[@ai_builder:postprocess] ⚠️  Missing SUCCESS block - adding it")
+            nodes.append({
+                'id': 'success',
+                'type': 'success',
+                'position': {'x': 400, 'y': 600},
+                'data': {'label': 'SUCCESS'}
+            })
+        
+        if not has_failure:
+            print(f"[@ai_builder:postprocess] ⚠️  Missing FAILURE block - adding it")
+            nodes.append({
+                'id': 'failure',
+                'type': 'failure',
+                'position': {'x': 700, 'y': 600},
+                'data': {'label': 'FAILURE'}
+            })
+        
+        graph['nodes'] = nodes
         return graph
     
     def _enforce_labels(self, graph: Dict) -> Dict:

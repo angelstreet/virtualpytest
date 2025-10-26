@@ -142,9 +142,22 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       
       const result = await response.json();
       
+      console.log('[@AIExecutionPanel] Generation response:', {
+        success: result.success,
+        needs_disambiguation: result.needs_disambiguation,
+        has_graph: !!result.graph,
+        has_error: !!result.error,
+        keys: Object.keys(result)
+      });
+      
       // Handle disambiguation
       if (result.needs_disambiguation) {
+        console.log('[@AIExecutionPanel] Disambiguation needed!');
+        console.log('[@AIExecutionPanel] Ambiguities:', result.ambiguities);
+        console.log('[@AIExecutionPanel] Has callback:', !!onDisambiguationDataChange);
+        
         if (onDisambiguationDataChange) {
+          console.log('[@AIExecutionPanel] Calling onDisambiguationDataChange...');
           onDisambiguationDataChange(
             result,
             (selections, saveToDb) => {
@@ -156,6 +169,9 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               setIsGenerating(false);
             }
           );
+        } else {
+          console.error('[@AIExecutionPanel] ❌ No onDisambiguationDataChange callback provided!');
+          showError('Disambiguation needed but no handler available');
         }
         setIsGenerating(false);
         return;

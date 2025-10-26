@@ -97,6 +97,12 @@ export interface UseTestCaseBuilderPageReturn {
   handleRegenerateAI: () => void;
   handleShowLastGeneration: () => void;
   
+  // AI Disambiguation
+  disambiguationData: any | null;
+  handleDisambiguationResolve: (selections: Record<string, string>, saveToDb: boolean) => void;
+  handleDisambiguationCancel: () => void;
+  handleDisambiguationEditPrompt: () => void;
+  
   // Execution (NEW: Unified execution state)
   unifiedExecution: ReturnType<typeof useTestCaseBuilder>['unifiedExecution'];
   
@@ -222,7 +228,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   const { setUserInterfaceFromProps } = useNavigationEditor();
   const { loadTreeByUserInterface } = useNavigationConfig();
   const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
-  const { generateTestCaseFromPrompt } = useTestCaseAI();
+  const { generateTestCaseFromPrompt, saveDisambiguationAndRegenerate } = useTestCaseAI();
   
   const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
   const [navNodes, setNavNodes] = useState<any[]>([]);
@@ -355,6 +361,9 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   // AI Generation Result Panel State
   const [aiGenerationResult, setAiGenerationResult] = useState<any | null>(null);
   const [showAIResultPanel, setShowAIResultPanel] = useState(false);
+  
+  // AI Disambiguation state
+  const [disambiguationData, setDisambiguationData] = useState<any | null>(null);
   
   // Handle Load button click - fetch data first, then open dialog
   const handleLoadClick = useCallback(async () => {
@@ -532,12 +541,27 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setIsGenerating(true);
     
     try {
+      console.log('[@useTestCaseBuilderPage] Starting AI generation');
       const result = await generateTestCaseFromPrompt(
         aiPrompt, 
         userinterfaceName,
         selectedDeviceId || 'device1',
         selectedHost!.host_name
       );
+      
+      console.log('[@useTestCaseBuilderPage] AI generation result:', {
+        success: result.success,
+        needs_disambiguation: result.needs_disambiguation,
+        has_graph: !!result.graph
+      });
+      
+      // Handle disambiguation
+      if (result.needs_disambiguation) {
+        console.log('[@useTestCaseBuilderPage] Disambiguation needed, showing modal');
+        setDisambiguationData(result);
+        setIsGenerating(false);
+        return;
+      }
       
       if (result.success && result.graph) {
         // Load graph onto ReactFlow canvas (like loading a test case)
@@ -605,6 +629,59 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setShowAIResultPanel(false);
     setAiGenerationResult(null);
     setCreationMode('ai'); // Switch back to AI mode
+  }, [setCreationMode]);
+  
+  // Disambiguation handlers
+  const handleDisambiguationResolve = useCallback(async (
+    selections: Record<string, string>,
+    saveToDb: boolean
+  ) => {
+    console.log('[@useTestCaseBuilderPage] Resolving disambiguation', { selections, saveToDb });
+    setDisambiguationData(null);
+    setIsGenerating(true);
+    
+    try {
+      if (saveToDb) {
+        // Convert selections to array format expected by API
+        const selectionsArray = Object.entries(selections).map(([phrase, resolved]) => ({
+          phrase,
+          resolved
+        }));
+        
+        // Save disambiguation choices
+        await saveDisambiguationAndRegenerate(
+          aiPrompt,
+          selectionsArray,
+          userinterfaceName,
+          selectedDeviceId || 'device1',
+          selectedHost!.host_name
+        );
+      }
+      
+      // Regenerate with resolved selections
+      await performAIGeneration();
+    } catch (error) {
+      console.error('[@useTestCaseBuilderPage] Disambiguation resolve error:', error);
+      setSnackbar({
+        open: true,
+        message: `Failed to apply disambiguation: ${error instanceof Error ? error.message : 'Unknown error'}`,
+        severity: 'error',
+      });
+      setIsGenerating(false);
+    }
+  }, [aiPrompt, userinterfaceName, selectedDeviceId, selectedHost, performAIGeneration, saveDisambiguationAndRegenerate]);
+  
+  const handleDisambiguationCancel = useCallback(() => {
+    console.log('[@useTestCaseBuilderPage] Disambiguation cancelled');
+    setDisambiguationData(null);
+    setIsGenerating(false);
+  }, []);
+  
+  const handleDisambiguationEditPrompt = useCallback(() => {
+    console.log('[@useTestCaseBuilderPage] Edit prompt requested from disambiguation');
+    setDisambiguationData(null);
+    setIsGenerating(false);
+    setCreationMode('ai'); // Switch to AI mode to edit prompt
   }, [setCreationMode]);
   
   // ==================== RETURN ====================
@@ -684,6 +761,12 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     handleCloseAIResultPanel,
     handleRegenerateAI,
     handleShowLastGeneration,
+    
+    // AI Disambiguation
+    disambiguationData,
+    handleDisambiguationResolve,
+    handleDisambiguationCancel,
+    handleDisambiguationEditPrompt,
     
     // AV Panel
     isAVPanelCollapsed,

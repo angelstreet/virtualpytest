@@ -94,9 +94,15 @@ const RecHostStreamModalContent: React.FC<{
     resolve: (selections: Record<string, string>, saveToDb: boolean) => void,
     cancel: () => void
   ) => {
+    console.log('[@RecHostStreamModal] handleDisambiguationDataChange called');
+    console.log('[@RecHostStreamModal] Disambiguation data:', data);
+    console.log('[@RecHostStreamModal] Has ambiguities:', !!data?.ambiguities);
+    
     setDisambiguationData(data);
     setDisambiguationResolve(() => resolve);
     setDisambiguationCancel(() => cancel);
+    
+    console.log('[@RecHostStreamModal] Disambiguation state updated, modal should appear');
   }, []);
 
   // AI Image Query state
@@ -803,25 +809,34 @@ const RecHostStreamModalContent: React.FC<{
 
       {/* AI Disambiguation Modal - Rendered at top level with proper z-index */}
       {disambiguationData && disambiguationResolve && disambiguationCancel && (
-        <PromptDisambiguation
-          ambiguities={disambiguationData.ambiguities}
-          autoCorrections={disambiguationData.auto_corrections}
-          availableNodes={disambiguationData.available_nodes}
-          onResolve={(selections, saveToDb) => {
-            disambiguationResolve(selections, saveToDb);
-            setDisambiguationData(null);
-          }}
-          onCancel={() => {
-            disambiguationCancel();
-            setDisambiguationData(null);
-          }}
-          onEditPrompt={() => {
-            // Close modal and cancel AI execution so user can edit their prompt
-            disambiguationCancel();
-            setDisambiguationData(null);
-            // User can now edit the prompt in AIExecutionPanel
-          }}
-        />
+        <>
+          {console.log('[@RecHostStreamModal] Rendering PromptDisambiguation modal')}
+          {console.log('[@RecHostStreamModal] Modal data:', {
+            hasAmbiguities: !!disambiguationData.ambiguities,
+            ambiguitiesLength: disambiguationData.ambiguities?.length,
+            hasAutoCorrections: !!disambiguationData.auto_corrections,
+            hasAvailableNodes: !!disambiguationData.available_nodes
+          })}
+          <PromptDisambiguation
+            ambiguities={disambiguationData.ambiguities}
+            autoCorrections={disambiguationData.auto_corrections}
+            availableNodes={disambiguationData.available_nodes}
+            onResolve={(selections, saveToDb) => {
+              disambiguationResolve(selections, saveToDb);
+              setDisambiguationData(null);
+            }}
+            onCancel={() => {
+              disambiguationCancel();
+              setDisambiguationData(null);
+            }}
+            onEditPrompt={() => {
+              // Close modal and cancel AI execution so user can edit their prompt
+              disambiguationCancel();
+              setDisambiguationData(null);
+              // User can now edit the prompt in AIExecutionPanel
+            }}
+          />
+        </>
       )}
 
       {/* AI Image Query Modal */}
