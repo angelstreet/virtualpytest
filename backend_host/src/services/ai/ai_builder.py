@@ -58,8 +58,24 @@ Generate a test case graph in JSON format with nodes and edges.'''
     'v2': {
         'version': '2.0.0',
         'description': 'Simple text-based output that we parse ourselves',
-        'template': '''Task: {task}
+        'template': '''CONTEXT:
+You are generating automated test scripts for devices (mobile, STB, TV) to test apps like Netflix, YouTube, etc.
+Your goal is to provide steps that simulate what a user manually does on the device.
 
+KEY CONCEPTS:
+- Navigation nodes are PRE-CODED and AUTONOMOUS - they automatically navigate to target screens without manual steps
+- Actions represent user interactions (press button, enter text, swipe, etc.)
+- Verifications check that something is visible or correct on screen
+
+IMPORTANT:
+- The nodes, actions, and verifications below are PRE-FILTERED for this specific task
+- ONLY use items from the lists below - DO NOT invent new ones
+- Navigation nodes are self-sufficient - they don't need actions or verifications unless the task explicitly requires user interaction AFTER navigation
+- For simple navigation tasks, ONLY use Navigate steps
+
+Task: {task}
+
+FILTERED CONTEXT (pre-selected for this task):
 Available Navigation Nodes:
 {available_nodes}
 
@@ -69,17 +85,22 @@ Available Actions:
 Available Verifications:
 {available_verifications}
 
-Respond in this simple format:
+Respond in this format:
 
-ANALYSIS: Brief explanation of what this test does
+GOAL: [One sentence: What is the user trying to achieve?]
+
+REASONING: [Brief explanation: How do you translate the user's intent into these steps? Why did you choose this sequence?]
 
 STEPS:
 1. Navigate to: [node_name]
-2. Action: [action_command] (optional description)
-3. Verify: [verification_type] (optional description)
-... continue as needed
+2. Navigate to: [node_name]
+... or include Action/Verify ONLY if the task explicitly requires them
 
-Keep it simple. Just list the steps in order. I'll handle the rest.'''
+Guidelines:
+- For navigation-only tasks: Use ONLY Navigate steps
+- Add Action steps ONLY if task requires user interaction (press, tap, enter text, swipe)
+- Add Verify steps ONLY if task requires checking something specific
+- Keep it simple and direct'''
     }
 }
 
@@ -728,7 +749,8 @@ class AIGraphBuilder:
         Parse AI text response and convert to graph structure
         
         Expected format:
-        ANALYSIS: ...
+        GOAL: ...
+        REASONING: ...
         STEPS:
         1. Navigate to: node_name
         2. Action: command
@@ -737,9 +759,25 @@ class AIGraphBuilder:
         try:
             print(f"[@ai_builder:parse] Parsing AI text response...")
             
-            # Extract analysis
-            analysis_match = re.search(r'ANALYSIS:\s*(.+?)(?:\n\nSTEPS:|$)', content, re.DOTALL)
-            analysis = analysis_match.group(1).strip() if analysis_match else "AI-generated test case"
+            # Extract GOAL (optional)
+            goal_match = re.search(r'GOAL:\s*(.+?)(?:\n\n|\n(?=[A-Z]+:)|$)', content, re.DOTALL)
+            goal = goal_match.group(1).strip() if goal_match else None
+            
+            # Extract REASONING (optional)
+            reasoning_match = re.search(r'REASONING:\s*(.+?)(?:\n\n|\n(?=STEPS:)|$)', content, re.DOTALL)
+            reasoning = reasoning_match.group(1).strip() if reasoning_match else None
+            
+            # Build analysis from GOAL + REASONING (fallback to legacy ANALYSIS field)
+            if goal and reasoning:
+                analysis = f"{goal}\n\n{reasoning}"
+            elif goal:
+                analysis = goal
+            elif reasoning:
+                analysis = reasoning
+            else:
+                # Fallback: try old ANALYSIS field for backward compatibility
+                analysis_match = re.search(r'ANALYSIS:\s*(.+?)(?:\n\nSTEPS:|$)', content, re.DOTALL)
+                analysis = analysis_match.group(1).strip() if analysis_match else "AI-generated test case"
             
             # Extract steps
             steps_match = re.search(r'STEPS:\s*(.+)', content, re.DOTALL)
@@ -852,7 +890,8 @@ class AIGraphBuilder:
                         'label': f'navigation_{node_counter["navigation"]}:{target}',
                         'target_node': target,
                         'target_node_id': target,
-                        'action_type': 'navigation'
+                        'action_type': 'navigation',
+                        'transitions': []  # Empty - navigation is autonomous at runtime
                     }
                 })
                 node_counter['navigation'] += 1
@@ -943,8 +982,7 @@ class AIGraphBuilder:
         1. Ensure terminal blocks exist (START, SUCCESS, FAILURE)
         2. Validate structure
         3. Enforce label conventions
-        4. Pre-fetch navigation transitions
-        5. Validate nodes exist
+        4. Filter out invalid nodes (e.g., "None" verifications)
         """
         print(f"[@ai_builder:postprocess] Processing graph...")
         
@@ -954,8 +992,8 @@ class AIGraphBuilder:
         # Step 2: Enforce labels
         graph = self._enforce_labels(graph)
         
-        # Step 3: Pre-fetch navigation transitions
-        self._prefetch_navigation_transitions(graph, context)
+        # Step 3: Filter out invalid nodes
+        graph = self._filter_invalid_nodes(graph)
         
         print(f"[@ai_builder:postprocess] ✅ Post-processing complete")
         
@@ -1047,45 +1085,100 @@ class AIGraphBuilder:
         
         return graph
     
-    def _prefetch_navigation_transitions(self, graph: Dict, context: Dict) -> None:
+    def _filter_invalid_nodes(self, graph: Dict) -> Dict:
         """
-        Pre-fetch navigation transitions for all navigation nodes
+        Filter out invalid nodes from the graph
         
-        Resolves target nodes and embeds transition data in graph
+        Removes:
+        - Verification nodes with type "None"
+        - Action nodes with command "None"
+        - Empty or placeholder nodes
+        
+        Also removes edges connected to removed nodes
         """
         nodes = graph.get('nodes', [])
-        nav_nodes = [n for n in nodes if n.get('type') == 'navigation']
+        edges = graph.get('edges', [])
         
-        if not nav_nodes:
-            return
+        # Track nodes to remove
+        nodes_to_remove = set()
         
-        print(f"[@ai_builder:prefetch] Pre-fetching transitions for {len(nav_nodes)} navigation nodes...")
-        
-        for node in nav_nodes:
+        for node in nodes:
+            node_id = node.get('id')
+            node_type = node.get('type')
             data = node.get('data', {})
-            target_node = data.get('target_node') or data.get('target_node_id')
             
-            if not target_node:
-                continue
+            # Check verification nodes for "None" type
+            if node_type == 'verification':
+                verify_type = data.get('verification_type', '').strip()
+                if not verify_type or verify_type.lower() in ['none', 'null', '']:
+                    print(f"[@ai_builder:filter] ❌ Removing invalid verification node: {node_id} (type: '{verify_type}')")
+                    nodes_to_remove.add(node_id)
             
-            try:
-                # Use device's navigation executor to get path
-                path_result = self.device.navigation_executor.get_navigation_path(
-                    target_node_id=target_node,
-                    userinterface_name=context['userinterface_name'],
-                    team_id=context['team_id']
+            # Check action nodes for "None" command
+            elif node_type == 'action':
+                command = data.get('command', '').strip()
+                if not command or command.lower() in ['none', 'null', '']:
+                    print(f"[@ai_builder:filter] ❌ Removing invalid action node: {node_id} (command: '{command}')")
+                    nodes_to_remove.add(node_id)
+        
+        if not nodes_to_remove:
+            return graph
+        
+        # Remove invalid nodes
+        filtered_nodes = [n for n in nodes if n.get('id') not in nodes_to_remove]
+        
+        # Remove edges connected to removed nodes
+        filtered_edges = [
+            e for e in edges 
+            if e.get('source') not in nodes_to_remove and e.get('target') not in nodes_to_remove
+        ]
+        
+        # Reconnect the graph: if we removed nodes, connect previous valid node to next valid node
+        # Build adjacency map from remaining edges
+        edge_map = {}  # source -> target
+        for edge in filtered_edges:
+            edge_map[edge['source']] = edge['target']
+        
+        # For each removed node, find its predecessor and successor, then connect them
+        for removed_id in nodes_to_remove:
+            # Find edge pointing TO this node
+            predecessor = None
+            for edge in edges:
+                if edge.get('target') == removed_id:
+                    predecessor = edge.get('source')
+                    break
+            
+            # Find edge starting FROM this node
+            successor = None
+            for edge in edges:
+                if edge.get('source') == removed_id:
+                    successor = edge.get('target')
+                    break
+            
+            # If both exist, reconnect
+            if predecessor and successor and predecessor not in nodes_to_remove and successor not in nodes_to_remove:
+                # Check if edge doesn't already exist
+                edge_exists = any(
+                    e.get('source') == predecessor and e.get('target') == successor
+                    for e in filtered_edges
                 )
-                
-                if path_result.get('success'):
-                    data['transitions'] = path_result.get('transitions', [])
-                    print(f"[@ai_builder:prefetch] ✅ Pre-fetched path to: {target_node}")
-                else:
-                    print(f"[@ai_builder:prefetch] ⚠️ Could not resolve: {target_node}")
-                    data['transitions'] = []
-                    
-            except Exception as e:
-                print(f"[@ai_builder:prefetch] ❌ Error pre-fetching {target_node}: {e}")
-                data['transitions'] = []
+                if not edge_exists:
+                    new_edge = {
+                        'id': f'e_{predecessor}_{successor}',
+                        'source': predecessor,
+                        'target': successor,
+                        'sourceHandle': 'success',
+                        'type': 'success'
+                    }
+                    filtered_edges.append(new_edge)
+                    print(f"[@ai_builder:filter] ✅ Reconnected: {predecessor} → {successor}")
+        
+        print(f"[@ai_builder:filter] Removed {len(nodes_to_remove)} invalid nodes, reconnected graph")
+        
+        graph['nodes'] = filtered_nodes
+        graph['edges'] = filtered_edges
+        
+        return graph
     
     # ========================================
     # STATS CALCULATION
@@ -1177,7 +1270,8 @@ class AIGraphBuilder:
                         'label': f'navigation_1:{target_node}',
                         'target_node': target_node,
                         'target_node_id': target_node,
-                        'action_type': 'navigation'
+                        'action_type': 'navigation',
+                        'transitions': []  # Empty - navigation is autonomous at runtime
                     }
                 },
                 {

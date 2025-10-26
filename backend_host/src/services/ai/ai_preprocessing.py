@@ -446,6 +446,40 @@ def smart_preprocess(
     filtered_action_names = [item['item'] for item in filtered_context['actions']]
     filtered_verification_names = [item['item'] for item in filtered_context['verifications']]
     
+    # VALIDATE intent keywords against filtered context
+    # Remove keywords that don't exist in filtered context (e.g., "saved" if not in nodes)
+    validated_intent = intent.copy()
+    original_nav_count = len(validated_intent['keywords']['navigation'])
+    validated_intent['keywords']['navigation'] = [
+        n for n in intent['keywords']['navigation'] 
+        if n in filtered_node_names
+    ]
+    removed_nav = original_nav_count - len(validated_intent['keywords']['navigation'])
+    if removed_nav > 0:
+        print(f"[@smart_preprocess] ✅ Filtered out {removed_nav} invalid navigation keywords from intent")
+    
+    original_action_count = len(validated_intent['keywords']['actions'])
+    validated_intent['keywords']['actions'] = [
+        a for a in intent['keywords']['actions']
+        if a in filtered_action_names
+    ]
+    removed_actions = original_action_count - len(validated_intent['keywords']['actions'])
+    if removed_actions > 0:
+        print(f"[@smart_preprocess] ✅ Filtered out {removed_actions} invalid action keywords from intent")
+    
+    original_verify_count = len(validated_intent['keywords']['verifications'])
+    validated_intent['keywords']['verifications'] = [
+        v for v in intent['keywords']['verifications']
+        if v in filtered_verification_names
+    ]
+    removed_verify = original_verify_count - len(validated_intent['keywords']['verifications'])
+    if removed_verify > 0:
+        print(f"[@smart_preprocess] ✅ Filtered out {removed_verify} invalid verification keywords from intent")
+    
+    # Use validated intent going forward
+    intent = validated_intent
+    keywords = intent['keywords']
+    
     # Step 4: Validate - do we have relevant context?
     if not filtered_node_names and keywords['navigation']:
         return {
