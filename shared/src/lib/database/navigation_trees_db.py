@@ -223,7 +223,8 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
             result = supabase.table('navigation_nodes').insert(node_data).execute()
             print(f"[@db:navigation_trees:save_node] Created new node: {node_data['node_id']}, position: ({node_data.get('position_x', 'missing')}, {node_data.get('position_y', 'missing')})")
         
-        # NOTE: Cache invalidation moved to batch save operation to avoid clearing cache for each node
+        # Invalidate cache after successful save
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
         
         return {'success': True, 'node': result.data[0]}
     except Exception as e:
@@ -378,7 +379,8 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
             result = supabase.table('navigation_edges').insert(edge_data).execute()
             print(f"[@db:navigation_trees:save_edge] Created new edge: {edge_data['edge_id']}")
         
-        # NOTE: Cache invalidation moved to batch save operation to avoid clearing cache for each edge
+        # Invalidate cache after successful save
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
         
         return {'success': True, 'edge': result.data[0]}
     except Exception as e:

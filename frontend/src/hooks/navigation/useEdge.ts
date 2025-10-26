@@ -126,13 +126,31 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       skip_db_recording: true  // Frontend testing - don't record to DB
     };
     
-    return await actionHook.executeActions(
+    const result = await actionHook.executeActions(
       actionSet.actions.map(convertToControllerAction),
       (actionSet.retry_actions || []).map(convertToControllerAction),
       (actionSet.failure_actions || []).map(convertToControllerAction),
       navigationContext
     );
-  }, [getActionSetsFromEdge, actionHook, convertToControllerAction]);
+
+    // Update current position to the target node if execution was successful
+    // BUT: If target is an action node, stay at the source node since actions are operations, not destinations
+    if (result && result.success !== false && edge.target) {
+      const targetNode = nodes.find(n => n.id === edge.target);
+      
+      if (targetNode?.type === 'action') {
+        // For action nodes, position remains at source (where the action was triggered from)
+        // Do not update current position since actions are transient operations
+        console.log(`[@useEdge:executeActionSet] Action node '${targetNode.data.label}' executed, position remains at source`);
+      } else {
+        // For screen/menu nodes, update position to target
+        console.log(`[@useEdge:executeActionSet] Updating current position to target: ${edge.target}`);
+        updateCurrentPosition(edge.target, null);
+      }
+    }
+
+    return result;
+  }, [getActionSetsFromEdge, actionHook, convertToControllerAction, nodes, updateCurrentPosition]);
 
 
 
