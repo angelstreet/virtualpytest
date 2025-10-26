@@ -10,6 +10,7 @@ interface AIModePanelProps {
   handleGenerateWithAI?: () => void;
   hasLastGeneration?: boolean;
   handleShowLastGeneration?: () => void;
+  isControlActive?: boolean;
 }
 
 export const AIModePanel: React.FC<AIModePanelProps> = ({
@@ -19,6 +20,7 @@ export const AIModePanel: React.FC<AIModePanelProps> = ({
   handleGenerateWithAI = () => {},
   hasLastGeneration = false,
   handleShowLastGeneration = () => {},
+  isControlActive = true,
 }) => {
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, p: 1.5, flex: 1, overflowY: 'auto' }}>
@@ -28,11 +30,16 @@ export const AIModePanel: React.FC<AIModePanelProps> = ({
       <TextField
         multiline
         rows={6}
-        placeholder="e.g., Go to live TV and verify audio is playing"
+        placeholder={
+          isControlActive
+            ? "e.g., Go to live TV and verify audio is playing"
+            : "Take control of the device first to enter a prompt"
+        }
         value={aiPrompt}
         onChange={(e) => setAiPrompt(e.target.value)}
         size="small"
         fullWidth
+        disabled={!isControlActive || isGenerating}
       />
       
       {/* Action Buttons */}
@@ -41,7 +48,7 @@ export const AIModePanel: React.FC<AIModePanelProps> = ({
           variant="contained"
           startIcon={<AutoAwesomeIcon />}
           onClick={handleGenerateWithAI}
-          disabled={isGenerating || !aiPrompt.trim()}
+          disabled={!isControlActive || isGenerating || !aiPrompt.trim()}
           fullWidth
           size="small"
         >

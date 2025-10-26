@@ -346,9 +346,8 @@ class AIGraphBuilder:
                 print(f"[@ai_builder] Cache MISS - this request will generate")
                 
                 # Step 5: SMART PREPROCESSING with context filtering
-                # Extract raw lists for smart_preprocess
-                node_list = [node.get('node_label', node.get('node_id')) 
-                            for node in context.get('nodes_raw', [])]
+                # nodes_raw is already a list of strings, actions_raw and verifications_raw are lists of dicts
+                node_list = context.get('nodes_raw', [])  # Already strings: ['home', 'live', ...]
                 action_list = [action.get('command', action.get('action_type', '')) 
                               for action in context.get('actions_raw', [])]
                 verification_list = [v.get('command', v.get('verification_type', ''))
@@ -531,19 +530,23 @@ class AIGraphBuilder:
         }
         
         # Get navigation nodes
-        nav_nodes = self.device.navigation_executor.get_available_nodes(userinterface_name, team_id)
-        # Store RAW data for preprocessing (lists of dicts)
+        nav_context = self.device.navigation_executor.get_available_context(userinterface_name, team_id)
+        nav_nodes = nav_context.get('available_nodes', [])  # List of strings: ['home', 'live', ...]
+        
+        # Store as strings directly - preprocessing works with strings
         context['nodes_raw'] = nav_nodes
         # Store FORMATTED strings for AI prompt
-        context['available_nodes'] = self._format_navigation_context(nav_nodes)
+        context['available_nodes'] = self._format_navigation_nodes(nav_nodes)
         
         # Get actions
-        actions = self.device.testcase_executor.get_available_actions()
+        action_context = self.device.action_executor.get_available_context(userinterface_name)
+        actions = action_context.get('available_actions', [])
         context['actions_raw'] = actions
         context['available_actions'] = self._format_action_context(actions)
         
         # Get verifications
-        verifications = self.device.testcase_executor.get_available_verifications()
+        verification_context = self.device.verification_executor.get_available_context(userinterface_name)
+        verifications = verification_context.get('available_verifications', [])
         context['verifications_raw'] = verifications
         context['available_verifications'] = self._format_verification_context(verifications)
         
@@ -554,12 +557,12 @@ class AIGraphBuilder:
         
         return context
     
-    def _format_navigation_context(self, nodes: List[Dict]) -> str:
-        """Format navigation nodes for AI prompt"""
+    def _format_navigation_nodes(self, nodes: List[str]) -> str:
+        """Format navigation node labels for AI prompt"""
         if not nodes:
             return "Available Navigation Nodes: []"
         
-        node_list = [f"- {node.get('node_label', node.get('node_id'))}" for node in nodes[:50]]  # Limit to 50
+        node_list = [f"- {node}" for node in nodes[:50]]  # Limit to 50
         return f"Available Navigation Nodes:\n" + "\n".join(node_list)
     
     def _format_action_context(self, actions: List[Dict]) -> str:

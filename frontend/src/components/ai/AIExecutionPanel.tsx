@@ -232,6 +232,12 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
       if (result.success && result.testcase) {
         setGraph(result.testcase.graph_json);
         setAnalysis(result.testcase.ai_analysis || 'Loaded from database');
+        
+        // Set userinterface from test case if available
+        if (result.testcase.userinterface_name) {
+          setSelectedUserinterface(result.testcase.userinterface_name);
+        }
+        
         showSuccess('Test case loaded! Review and click Execute.');
       }
     } catch (error: any) {
@@ -261,6 +267,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
           body: JSON.stringify({
             device_id: device.device_id,
             host_name: host.host_name,
+            userinterface_name: selectedUserinterface,
             graph_json: graph,
             async_execution: true,
           }),

@@ -504,6 +504,15 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       return;
     }
 
+    if (!isControlActive) {
+      setSnackbar({
+        open: true,
+        message: 'Please take control of the device first',
+        severity: 'error',
+      });
+      return;
+    }
+
     // Check for unsaved changes or existing nodes
     const hasExistingGraph = nodes.length > 2; // More than START and SUCCESS nodes
     const hasCurrentTestCase = !!currentTestcaseId; // Has a loaded test case

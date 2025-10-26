@@ -130,6 +130,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
                   handleGenerateWithAI={handleGenerateWithAI}
                   hasLastGeneration={hasLastGeneration}
                   handleShowLastGeneration={handleShowLastGeneration}
+                  isControlActive={isControlActive}
                 />
               )}
             </Box>
