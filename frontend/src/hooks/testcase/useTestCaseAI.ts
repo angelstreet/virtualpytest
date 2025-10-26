@@ -27,6 +27,19 @@ export const useTestCaseAI = () => {
     ambiguities?: any[];
     available_nodes?: any[];
     error?: string;
+    generation_stats?: {
+      prompt_tokens?: number;
+      completion_tokens?: number;
+      block_counts?: {
+        navigation: number;
+        action: number;
+        verification: number;
+        other: number;
+        total: number;
+      };
+    };
+    execution_time?: number;
+    message?: string;
   }> => {
     try {
       const response = await fetch(buildServerUrl('/server/ai/generatePlan'), {
@@ -51,32 +64,35 @@ export const useTestCaseAI = () => {
       const result = await response.json();
       
       if (result.success) {
-        const plan = result.plan || {};
+        // Backend now returns data directly (not wrapped in 'plan')
         
         // Check if needs disambiguation
-        if (plan.needs_disambiguation) {
+        if (result.needs_disambiguation) {
           return {
             success: false,
             needs_disambiguation: true,
-            ambiguities: plan.ambiguities || [],
-            available_nodes: plan.available_nodes || [],
+            ambiguities: result.ambiguities || [],
+            available_nodes: result.available_nodes || [],
             error: 'Prompt needs disambiguation',
           };
         }
         
         // Check if not feasible
-        if (plan.feasible === false) {
+        if (result.feasible === false) {
           return {
             success: false,
-            error: plan.error || 'Task is not feasible with available navigation nodes',
+            error: result.error || 'Task is not feasible with available navigation nodes',
           };
         }
         
-        // Success - return graph
+        // Success - return graph with generation stats
         return {
           success: true,
-          graph: plan.graph,
-          analysis: plan.analysis,
+          graph: result.graph,
+          analysis: result.analysis,
+          generation_stats: result.generation_stats,
+          execution_time: result.execution_time,
+          message: result.message,
         };
       } else {
         return {

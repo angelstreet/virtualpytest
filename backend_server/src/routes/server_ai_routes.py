@@ -69,7 +69,7 @@ def stop_execution():
 
 @server_ai_bp.route('/resetCache', methods=['POST'])
 def reset_cache():
-    """Reset AI plan cache"""
+    """Reset AI graph cache"""
     data = request.get_json()
     if not data:
         return jsonify({'success': False, 'error': 'No JSON data provided'}), 400
@@ -85,14 +85,14 @@ def reset_cache():
     from shared.src.lib.utils.supabase_utils import get_supabase_client
     supabase = get_supabase_client()
     
-    count_result = supabase.table('ai_plan_generation').select('id', count='exact').eq('team_id', team_id).execute()
+    count_result = supabase.table('ai_graph_cache').select('id', count='exact').eq('team_id', team_id).execute()
     deleted_count = count_result.count if count_result.count else 0
     
-    supabase.table('ai_plan_generation').delete().eq('team_id', team_id).execute()
+    supabase.table('ai_graph_cache').delete().eq('team_id', team_id).execute()
     
     return jsonify({
         'success': True,
-        'message': f'Cache cleared: {deleted_count} plans deleted',
+        'message': f'Cache cleared: {deleted_count} graphs deleted',
         'deleted_count': deleted_count
     }), 200
 

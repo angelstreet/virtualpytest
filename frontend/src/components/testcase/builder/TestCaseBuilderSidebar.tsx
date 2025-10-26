@@ -29,6 +29,8 @@ interface TestCaseBuilderSidebarProps {
   setAiPrompt?: (prompt: string) => void;
   isGenerating?: boolean;
   handleGenerateWithAI?: () => void;
+  hasLastGeneration?: boolean;
+  handleShowLastGeneration?: () => void;
 }
 
 export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
@@ -46,6 +48,8 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
   setAiPrompt,
   isGenerating,
   handleGenerateWithAI,
+  hasLastGeneration,
+  handleShowLastGeneration,
 }) => {
   return (
     <>
@@ -124,6 +128,8 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
                   setAiPrompt={setAiPrompt}
                   isGenerating={isGenerating}
                   handleGenerateWithAI={handleGenerateWithAI}
+                  hasLastGeneration={hasLastGeneration}
+                  handleShowLastGeneration={handleShowLastGeneration}
                 />
               )}
             </Box>

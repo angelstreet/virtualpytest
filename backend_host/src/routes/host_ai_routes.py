@@ -12,9 +12,9 @@ host_ai_bp = Blueprint('host_ai', __name__, url_prefix='/host/ai')
 
 @host_ai_bp.route('/generatePlan', methods=['POST'])
 def ai_generate_plan():
-    """Generate AI plan using device's AIExecutor"""
+    """Generate AI graph using device's AIGraphBuilder"""
     try:
-        print("[@host_ai] Starting AI plan generation")
+        print("[@host_ai] Starting AI graph generation")
         
         # Get request data
         data = request.get_json() or {}
@@ -24,7 +24,7 @@ def ai_generate_plan():
         current_node_id = data.get('current_node_id')
         team_id = request.args.get('team_id')
         
-        print(f"[@host_ai] Generating plan for device: {device_id}, team: {team_id}")
+        print(f"[@host_ai] Generating graph for device: {device_id}, team: {team_id}")
         print(f"[@host_ai] Prompt: {prompt[:100]}...")
         
         # Validate
@@ -51,15 +51,15 @@ def ai_generate_plan():
         
         print(f"[@host_ai] Using AI service for device: {device_id}")
         
-        # Check if device has ai_executor
-        if not hasattr(device, 'ai_executor') or not device.ai_executor:
+        # Check if device has ai_builder
+        if not hasattr(device, 'ai_builder') or not device.ai_builder:
             return jsonify({
                 'success': False,
-                'error': f'Device {device_id} does not have AIExecutor initialized'
+                'error': f'Device {device_id} does not have AIGraphBuilder initialized'
             }), 500
         
-        # Use generate_graph_only() to get the visual graph WITHOUT execution
-        result = device.ai_executor.generate_graph_only(
+        # Generate graph using AIGraphBuilder
+        result = device.ai_builder.generate_graph(
             prompt=prompt,
             userinterface_name=userinterface_name,
             team_id=team_id,
@@ -72,9 +72,11 @@ def ai_generate_plan():
         
     except Exception as e:
         print(f"[@host_ai] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
-            'error': f'AI plan generation failed: {str(e)}'
+            'error': f'AI graph generation failed: {str(e)}'
         }), 500
 
 @host_ai_bp.route('/executePlan', methods=['POST'])

@@ -12,6 +12,9 @@ import base64
 import xml.etree.ElementTree as ET
 from typing import Dict, Any, List, Optional, Tuple
 
+# Import centralized HTTP config for timeouts
+from shared.src.lib.config.constants import HTTP_CONFIG
+
 
 class AndroidElement:
     """Represents an Android UI element from UI dump."""
@@ -114,17 +117,20 @@ class ADBUtils:
         Initialize ADB utilities.
         """
         
-    def execute_command(self, command: str, timeout: int = 30) -> Tuple[bool, str, str, int]:
+    def execute_command(self, command: str, timeout: int = None) -> Tuple[bool, str, str, int]:
         """
         Execute a command using subprocess.
         
         Args:
             command: Command to execute
-            timeout: Command timeout in seconds
+            timeout: Command timeout in seconds (default: ULTRA_SHORT_TIMEOUT from HTTP_CONFIG)
             
         Returns:
             Tuple of (success, stdout, stderr, exit_code)
         """
+        # Use centralized ultra-short timeout if not specified (3s for quick ADB operations)
+        if timeout is None:
+            timeout = HTTP_CONFIG['ULTRA_SHORT_TIMEOUT']
         try:
             result = subprocess.run(
                 command.split(),
@@ -642,7 +648,7 @@ class ADBUtils:
             screenshot_path = "/sdcard/screenshot.png"
             screenshot_command = f"adb -s {device_id} shell screencap -p {screenshot_path}"
             
-            success, stdout, stderr, exit_code = self.execute_command(screenshot_command, timeout=30)
+            success, stdout, stderr, exit_code = self.execute_command(screenshot_command, timeout=HTTP_CONFIG['SHORT_TIMEOUT'])
             
             if not success or exit_code != 0:
                 error_msg = f"Failed to take screenshot: {stderr}"
@@ -654,7 +660,7 @@ class ADBUtils:
             # Pull screenshot to SSH host
             remote_temp_path = "/tmp/android_screenshot.png"
             pull_command = f"adb -s {device_id} pull {screenshot_path} {remote_temp_path}"
-            success, stdout, stderr, exit_code = self.execute_command(pull_command, timeout=30)
+            success, stdout, stderr, exit_code = self.execute_command(pull_command, timeout=HTTP_CONFIG['SHORT_TIMEOUT'])
             
             if not success or exit_code != 0:
                 error_msg = f"Failed to pull screenshot: {stderr}"

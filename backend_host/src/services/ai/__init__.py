@@ -1,13 +1,12 @@
 """
 AI Services Module
 
-Provides AI execution capabilities for devices.
+Provides AI graph generation capabilities for devices.
+Clean architecture - NO legacy code.
 """
 
-from shared.src.lib.executors.ai_executor import AIExecutor
-from shared.src.lib.executors.ai_types import ExecutionResult
+from backend_host.src.services.ai.ai_builder import AIGraphBuilder
 
 __all__ = [
-    'AIExecutor',
-    'ExecutionResult'
+    'AIGraphBuilder',
 ]

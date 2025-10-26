@@ -38,7 +38,8 @@ CACHE_CONFIG = {
 
 HTTP_CONFIG = {
     # Request timeouts
-    'VERY_SHORT_TIMEOUT': 5,      # Quick operations
+    'ULTRA_SHORT_TIMEOUT': 3,      # Ultra-fast operations (ADB connect, device list)
+    'VERY_SHORT_TIMEOUT': 5,       # Quick operations
     'SHORT_TIMEOUT': 30,           # Default operations
     'DEFAULT_TIMEOUT': 60,         # Standard timeout
     'NAVIGATION_TIMEOUT': 180,     # Navigation/Action execution (3 minutes)

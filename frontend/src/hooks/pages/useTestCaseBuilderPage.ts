@@ -95,6 +95,7 @@ export interface UseTestCaseBuilderPageReturn {
   showAIResultPanel: boolean;
   handleCloseAIResultPanel: () => void;
   handleRegenerateAI: () => void;
+  handleShowLastGeneration: () => void;
   
   // Execution (NEW: Unified execution state)
   unifiedExecution: ReturnType<typeof useTestCaseBuilder>['unifiedExecution'];
@@ -582,8 +583,14 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   
   const handleCloseAIResultPanel = useCallback(() => {
     setShowAIResultPanel(false);
-    setAiGenerationResult(null);
+    // Keep aiGenerationResult so user can reopen it
   }, []);
+  
+  const handleShowLastGeneration = useCallback(() => {
+    if (aiGenerationResult) {
+      setShowAIResultPanel(true);
+    }
+  }, [aiGenerationResult]);
   
   const handleRegenerateAI = useCallback(() => {
     setShowAIResultPanel(false);
@@ -667,6 +674,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     showAIResultPanel,
     handleCloseAIResultPanel,
     handleRegenerateAI,
+    handleShowLastGeneration,
     
     // AV Panel
     isAVPanelCollapsed,

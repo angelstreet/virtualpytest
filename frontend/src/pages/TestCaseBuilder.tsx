@@ -301,6 +301,8 @@ const TestCaseBuilderContent: React.FC = () => {
           setAiPrompt={hookData.setAiPrompt}
           isGenerating={hookData.isGenerating}
           handleGenerateWithAI={hookData.handleGenerateWithAI}
+          hasLastGeneration={!!hookData.aiGenerationResult}
+          handleShowLastGeneration={hookData.handleShowLastGeneration}
         />
 
         {/* Canvas */}
@@ -625,6 +627,7 @@ const TestCaseBuilderContent: React.FC = () => {
           result={hookData.aiGenerationResult}
           onClose={hookData.handleCloseAIResultPanel}
           onRegenerate={hookData.handleRegenerateAI}
+          originalPrompt={hookData.aiPrompt}
         />
       )}
       
