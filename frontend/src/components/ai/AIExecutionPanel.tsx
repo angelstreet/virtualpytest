@@ -391,10 +391,14 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               fullWidth
               multiline
               rows={3}
-              placeholder="Enter task (e.g., 'Go to live TV and check audio')"
+              placeholder={
+                isControlActive 
+                  ? "Enter task (e.g., 'Go to live TV and check audio')"
+                  : "Take control of the device first to enter a prompt"
+              }
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
-              disabled={isGenerating || isExecuting}
+              disabled={!isControlActive || isGenerating || isExecuting}
               sx={{ mb: 2 }}
             />
             
@@ -402,7 +406,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               variant="contained"
               fullWidth
               onClick={handleGenerateFromPrompt}
-              disabled={!prompt.trim() || !selectedUserinterface || isGenerating || isExecuting}
+              disabled={!isControlActive || !prompt.trim() || !selectedUserinterface || isGenerating || isExecuting}
               startIcon={isGenerating ? <CircularProgress size={16} /> : undefined}
             >
               {isGenerating ? 'Generating...' : 'Generate Graph'}
@@ -442,7 +446,7 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
               variant="contained"
               fullWidth
               onClick={handleLoadTestCase}
-              disabled={!selectedTestCase || isGenerating || isExecuting}
+              disabled={!isControlActive || !selectedTestCase || isGenerating || isExecuting}
               startIcon={isGenerating ? <CircularProgress size={16} /> : undefined}
             >
               {isGenerating ? 'Loading...' : 'Load & Preview'}
