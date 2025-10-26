@@ -29,6 +29,7 @@ from shared.src.lib.database.navigation_trees_db import (
 )
 from shared.src.lib.database.userinterface_db import get_all_userinterfaces
 from shared.src.lib.utils.app_utils import DEFAULT_USER_ID, check_supabase
+from shared.src.lib.config.constants import CACHE_CONFIG
 import time
 import threading
 
@@ -40,7 +41,6 @@ server_navigation_trees_bp = Blueprint('server_navigation_trees', __name__, url_
 
 _tree_cache = {}  # {tree_id: {'data': {...}, 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
-_cache_ttl = 300  # 5 minutes TTL
 
 def get_cached_tree(tree_id: str, team_id: str):
     """Get tree from cache if available and not expired."""
@@ -49,7 +49,7 @@ def get_cached_tree(tree_id: str, team_id: str):
         if cache_key in _tree_cache:
             cached = _tree_cache[cache_key]
             age = time.time() - cached['timestamp']
-            if age < _cache_ttl:
+            if age < CACHE_CONFIG['MEDIUM_TTL']:
                 print(f"[@cache] HIT: Tree {tree_id} (age: {age:.1f}s)")
                 return cached['data']
             else:

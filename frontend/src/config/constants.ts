@@ -242,6 +242,10 @@ export const HTTP_CONFIG = {
    * Default request timeout (30 seconds)
    */
   DEFAULT_TIMEOUT: 30000,
+  VERY_SHORT_TIMEOUT: 3000,
+  SHORT_TIMEOUT: 10000,
+  MEDIUM_TIMEOUT: 30000,
+  LONG_TIMEOUT: 60000,
 
   /**
    * Default retry attempts for failed requests

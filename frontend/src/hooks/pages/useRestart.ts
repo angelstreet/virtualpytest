@@ -3,6 +3,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { Host, Device } from '../../types/common/Host_Types';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { useToast } from '../useToast';
+import { CACHE_CONFIG } from '../../config/constants';
 
 // =====================================================
 // TYPES & INTERFACES
@@ -169,7 +170,7 @@ interface CacheEntry {
 
 class VideoGenerationCache {
   private cache = new Map<string, CacheEntry>();
-  private readonly CACHE_TTL = 30000; // 30 seconds
+  private readonly CACHE_TTL = CACHE_CONFIG.VERY_SHORT_TTL;
 
   private generateKey(host: Host, device: Device): string {
     return `${host.host_name}-${device.device_id}`;

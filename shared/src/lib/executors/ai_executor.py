@@ -82,7 +82,10 @@ class AIExecutor:
         self._action_cache = {}
         self._verification_cache = {}
         self._navigation_cache = {}
-        self._cache_ttl = 86400  # 24 hours
+        
+        # Import cache config
+        from shared.src.lib.config.constants import CACHE_CONFIG
+        self._cache_ttl = CACHE_CONFIG['LONG_TTL']
         
         # Initialize AI plan cache (loaded on demand)
         self.plan_cache = None

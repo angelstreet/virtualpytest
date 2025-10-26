@@ -13,7 +13,6 @@ import { CACHE_CONFIG } from '../../config/constants';
 
 // 24-hour cache for userinterfaces
 const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();
-const CACHE_TTL = 24 * 60 * 60 * 1000; // 24 hours
 
 // 24-hour cache for all interfaces
 const allInterfacesCache: {data: UserInterface[] | null, timestamp: number} = {data: null, timestamp: 0};
@@ -23,7 +22,7 @@ const compatibleInterfacesCache = new Map<string, {data: UserInterface[], timest
 
 function getCachedInterface(name: string) {
   const cached = userInterfaceCache.get(name);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+  if (cached && (Date.now() - cached.timestamp) < CACHE_CONFIG.LONG_TTL) {
     return cached.data;
   }
   if (cached) {
@@ -38,7 +37,7 @@ function setCachedInterface(name: string, data: Promise<UserInterface>) {
 
 function getCachedCompatibleInterfaces(deviceModel: string) {
   const cached = compatibleInterfacesCache.get(deviceModel);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_TTL) {
+  if (cached && (Date.now() - cached.timestamp) < CACHE_CONFIG.LONG_TTL) {
     return cached.data;
   }
   if (cached) {

@@ -26,6 +26,7 @@ from shared.src.lib.database.navigation_trees_db import (
 )
 
 from shared.src.lib.utils.app_utils import check_supabase
+from shared.src.lib.config.constants import CACHE_CONFIG
 
 # Create blueprint
 server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix='/server/userinterface')
@@ -36,7 +37,6 @@ server_userinterface_bp = Blueprint('server_userinterface', __name__, url_prefix
 _compatible_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
 _interfaces_cache = {}  # {team_id: {'data': [...], 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
-_cache_ttl = 86400  # 24 hours TTL
 
 def _invalidate_interfaces_cache(team_id):
     """Invalidate all user interface caches for a specific team"""
@@ -77,7 +77,7 @@ def get_compatible_interfaces():
         if cache_key in _compatible_cache:
             cached = _compatible_cache[cache_key]
             age = time.time() - cached['timestamp']
-            if age < _cache_ttl:
+            if age < CACHE_CONFIG['LONG_TTL']:
                 print(f"[@cache] HIT: Compatible interfaces for {device_model} (age: {age/3600:.1f}h)")
                 return jsonify(cached['data'])
             else:
@@ -133,7 +133,7 @@ def get_userinterfaces():
         if team_id in _interfaces_cache:
             cached = _interfaces_cache[team_id]
             age = time.time() - cached['timestamp']
-            if age < _cache_ttl:
+            if age < CACHE_CONFIG['LONG_TTL']:
                 print(f"[@cache] HIT: User interfaces for team {team_id} (age: {age/3600:.1f}h)")
                 return jsonify(cached['data'])
             else:

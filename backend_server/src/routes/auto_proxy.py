@@ -9,6 +9,7 @@ import time
 import threading
 from flask import Blueprint, request, jsonify
 from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
+from shared.src.lib.config.constants import CACHE_CONFIG, HTTP_CONFIG
 
 auto_proxy_bp = Blueprint('auto_proxy', __name__)
 
@@ -17,7 +18,6 @@ auto_proxy_bp = Blueprint('auto_proxy', __name__)
 # ============================================================================
 _stream_url_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
-_cache_ttl = 86400  # 24 hours TTL
 
 @auto_proxy_bp.route('/server/<path:endpoint>', methods=['GET', 'POST', 'PUT', 'DELETE'])
 def auto_proxy(endpoint):
@@ -76,7 +76,7 @@ def auto_proxy(endpoint):
                     if cache_key in _stream_url_cache:
                         cached = _stream_url_cache[cache_key]
                         age = time.time() - cached['timestamp']
-                        if age < _cache_ttl:
+                        if age < CACHE_CONFIG['LONG_TTL']:
                             print(f"[@cache] HIT: Stream URL for {host_name}/{device_id} (age: {age/3600:.1f}h)")
                             return jsonify(cached['data'])
                         else:
@@ -84,10 +84,13 @@ def auto_proxy(endpoint):
         
         # Determine timeout based on endpoint type
         if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint or 'action/executeBatch' in endpoint:
-            timeout = 180  # 3 minutes for navigation/action execution
+            timeout = HTTP_CONFIG['NAVIGATION_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: navigation/action execution)")
+        elif '/av/getStreamUrl' in endpoint:
+            timeout = HTTP_CONFIG['VERY_SHORT_TIMEOUT']
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: very short timeout)")
         else:
-            timeout = 60  # Default timeout for other operations
+            timeout = HTTP_CONFIG['DEFAULT_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: default timeout)")
         
         print(f"[@auto_proxy] 📡 Proxying {target_method} /server/{endpoint} -> {host_endpoint} with timeout={timeout}s")

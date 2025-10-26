@@ -9,6 +9,7 @@ from flask import Blueprint, request, jsonify
 import requests
 from  backend_server.src.lib.utils.server_utils import get_host_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl
+from shared.src.lib.config.constants import CACHE_CONFIG
 
 server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
 
@@ -17,7 +18,6 @@ server_script_bp = Blueprint('server_script', __name__, url_prefix='/server')
 # ============================================================================
 _script_cache = {}  # {team_id: {'data': {...}, 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
-_cache_ttl = 60  # 60 seconds TTL
 
 def analyze_script_parameters(script_path):
     """
@@ -298,7 +298,7 @@ def list_scripts():
             if team_id in _script_cache:
                 cached = _script_cache[team_id]
                 age = time.time() - cached['timestamp']
-                if age < _cache_ttl:
+                if age < CACHE_CONFIG['SHORT_TTL']:
                     print(f"[@cache] HIT: Script list for team {team_id} (age: {age:.1f}s)")
                     return jsonify(cached['data'])
                 else:

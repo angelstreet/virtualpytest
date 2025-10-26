@@ -20,6 +20,7 @@ from shared.src.lib.database.device_models_db import (
 )
 
 from shared.src.lib.utils.app_utils import check_supabase
+from shared.src.lib.config.constants import CACHE_CONFIG
 
 # Create blueprint
 server_devicemodel_bp = Blueprint('server_devicemodel', __name__, url_prefix='/server/devicemodel')
@@ -29,7 +30,6 @@ server_devicemodel_bp = Blueprint('server_devicemodel', __name__, url_prefix='/s
 # ============================================================================
 _models_cache = {}  # {team_id: {'data': [...], 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
-_cache_ttl = 86400  # 24 hours TTL
 
 def _invalidate_models_cache(team_id):
     """Invalidate the device models cache for a specific team"""
@@ -56,7 +56,7 @@ def get_device_models():
         if team_id in _models_cache:
             cached = _models_cache[team_id]
             age = time.time() - cached['timestamp']
-            if age < _cache_ttl:
+            if age < CACHE_CONFIG['LONG_TTL']:
                 print(f"[@cache] HIT: Device models for team {team_id} (age: {age/3600:.1f}h)")
                 return jsonify(cached['data'])
             else:

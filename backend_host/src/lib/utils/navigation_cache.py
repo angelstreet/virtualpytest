@@ -10,8 +10,9 @@ import sys
 import os
 import pickle
 
-# Cache TTL in seconds (24 hours)
-CACHE_TTL = 86400
+# Import cache config from shared
+from shared.src.lib.config.constants import CACHE_CONFIG
+CACHE_TTL = CACHE_CONFIG['LONG_TTL']  # 24 hours
 CACHE_DIR = "/tmp/nav_cache"
 
 # Unified graph caching for nested trees (single cache system)
