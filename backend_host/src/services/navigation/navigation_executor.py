@@ -544,8 +544,9 @@ class NavigationExecutor:
                 # Current position is null - check if we might already be at destination
                 # Skip this optimization if using pre-computed path (validation mode)
                 # OPTIMIZATION: For "home" target specifically, always verify first to avoid expensive entry flow
-                is_home_target = (target_node_label and 'home' in target_node_label.lower()) or \
-                                (target_node_id and 'home' in target_node_id.lower())
+                # IMPORTANT: Only match EXACTLY "home", not "home_settings", "home_menu", etc.
+                is_home_target = (target_node_label and target_node_label.lower() == 'home') or \
+                                (target_node_id and target_node_id.lower() == 'home')
                 
                 if is_home_target:
                     print(f"[@navigation_executor:execute_navigation] 🏠 No current position + target is HOME - verifying if already at home to avoid expensive entry flow")
