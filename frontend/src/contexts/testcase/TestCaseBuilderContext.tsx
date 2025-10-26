@@ -10,7 +10,6 @@ import {
   type UserInterface,
   type ActionCommand
 } from '../../hooks/testcase';
-import { getLayoutedElements } from '../../components/testcase/ai/autoLayout';
 
 interface TestCaseBuilderContextType {
   // Graph state
