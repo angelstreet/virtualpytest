@@ -16,6 +16,9 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
+// Auto-layout utility
+import { getLayoutedElements } from '../components/testcase/ai/autoLayout';
+
 // Hide React Flow attribution
 const styles = `
   .react-flow__panel.react-flow__attribution {
@@ -206,6 +209,24 @@ const TestCaseBuilderContent: React.FC = () => {
   
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+
+  // Auto-layout handler - ALWAYS vertical (top to bottom)
+  const handleAutoLayout = useCallback(() => {
+    const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+      hookData.nodes,
+      hookData.edges,
+      { direction: 'TB' } // Force vertical layout
+    );
+    hookData.setNodes(layoutedNodes);
+    hookData.setEdges(layoutedEdges);
+    
+    // Fit view after layout with a small delay
+    if (reactFlowInstance) {
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+      }, 50);
+    }
+  }, [hookData.nodes, hookData.edges, hookData.setNodes, hookData.setEdges, reactFlowInstance]);
 
   // Fit view when ReactFlow instance is ready
   React.useEffect(() => {
@@ -406,6 +427,7 @@ const TestCaseBuilderContent: React.FC = () => {
             <TestCaseBuilderCanvas
               actualMode={actualMode}
               isSidebarOpen={isSidebarOpen}
+              onAutoLayout={handleAutoLayout}
               // 🗑️ REMOVED: isExecuting, executionDetails - no longer needed
             />
           </ReactFlow>

@@ -10,6 +10,7 @@ import 'reactflow/dist/style.css';
 interface TestCaseBuilderCanvasProps {
   actualMode: 'light' | 'dark';
   isSidebarOpen: boolean;
+  onAutoLayout?: () => void;
   
   // 🗑️ REMOVED: Execution Overlay props - no longer needed
 }
@@ -17,6 +18,7 @@ interface TestCaseBuilderCanvasProps {
 export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
   actualMode,
   isSidebarOpen,
+  onAutoLayout,
 }) => {
   return (
     <>
@@ -37,6 +39,58 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
           transition: 'left 0.3s ease',
         }}
       />
+      
+      {/* Auto Layout Button */}
+      {onAutoLayout && (
+        <button
+          onClick={onAutoLayout}
+          title="Auto Layout"
+          style={{
+            position: 'absolute',
+            top: '98px',
+            left: isSidebarOpen ? '306px' : '26px',
+            transition: 'left 0.3s ease',
+            width: '26px',
+            height: '26px',
+            padding: '0',
+            background: '#ffffff',
+            border: `0px solid ${actualMode === 'dark' ? '#334155' : '#e2e8f0'}`,
+            borderRadius: '0',
+            cursor: 'pointer',
+            fontSize: '16px',
+            color: '#000000',
+            zIndex: 5,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            boxShadow: 'rgba(0, 0, 0, 0.1) 0px 0px 0px 1px',
+          }}
+          onMouseEnter={(e) => {
+            e.currentTarget.style.background = '#f1f5f9';
+          }}
+          onMouseLeave={(e) => {
+            e.currentTarget.style.background = '#ffffff';
+          }}
+        >
+          <svg 
+            width="16" 
+            height="16" 
+            viewBox="0 0 24 24" 
+            fill="none" 
+            stroke="currentColor" 
+            strokeWidth="2"
+            strokeLinecap="round" 
+            strokeLinejoin="round"
+          >
+            {/* Grid layout icon */}
+            <rect x="3" y="3" width="7" height="7" />
+            <rect x="14" y="3" width="7" height="7" />
+            <rect x="14" y="14" width="7" height="7" />
+            <rect x="3" y="14" width="7" height="7" />
+          </svg>
+        </button>
+      )}
+      
       <MiniMap
         nodeColor={(node) => {
           const colorMap: Record<string, string> = {

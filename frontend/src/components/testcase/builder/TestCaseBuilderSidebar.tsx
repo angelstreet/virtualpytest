@@ -144,7 +144,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
           sx={{
             position: 'absolute',
             left: 0,
-            top: '120px',
+            top: '140px',
             zIndex: 10,
           }}
         >
