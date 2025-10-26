@@ -1011,7 +1011,11 @@ class NavigationExecutor:
                                     print(f"[@navigation_executor:execute_navigation] ❌ No recovery path found from {actual_node} to {target_node_id}")
                                     # Fall through to failure handling below
                         else:
-                            print(f"[@navigation_executor:execute_navigation] ❌ Conditional edge recovery failed: {recovery_result.get('error')}")
+                            error_msg = recovery_result.get('error')
+                            if error_msg == 'No conditional siblings':
+                                print(f"[@navigation_executor:execute_navigation] ⚠️ Conditional edge recovery skipped: {error_msg}")
+                            else:
+                                print(f"[@navigation_executor:execute_navigation] ❌ Conditional edge recovery failed: {error_msg}")
                             # Fall through to failure handling below
                     
                     # NAVIGATION FUNCTIONS: Stop immediately on ANY step failure (no recovery attempts)
@@ -1791,7 +1795,7 @@ class NavigationExecutor:
                     break
         
         if not sibling_edges:
-            print(f"[@navigation_executor:_try_conditional_edge_siblings] No sibling edges found")
+            print(f"[@navigation_executor:_try_conditional_edge_siblings] ⚠️ No sibling edges found")
             return {'success': False, 'error': 'No conditional siblings'}
         
         print(f"[@navigation_executor:_try_conditional_edge_siblings] Found {len(sibling_edges)} sibling edge(s)")
