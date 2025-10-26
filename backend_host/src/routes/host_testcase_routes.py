@@ -358,7 +358,7 @@ def execute_from_prompt():
     """
     try:
         from shared.src.lib.database.testcase_db import create_testcase
-        from shared.src.lib.executors.ai_prompt_validation import preprocess_prompt
+        from backend_host.src.services.ai.ai_preprocessing import preprocess_prompt
         
         print("[@host_testcase] Unified execute-from-prompt")
         

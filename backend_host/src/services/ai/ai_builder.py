@@ -15,12 +15,16 @@ import time
 import re
 import hashlib
 import json
+import traceback
+import threading
 from typing import Dict, List, Optional, Any, Tuple
 from difflib import get_close_matches, SequenceMatcher
+from dataclasses import dataclass, asdict
+from datetime import datetime
 
 # Imports
 from shared.src.lib.utils.ai_utils import call_text_ai
-from shared.src.lib.config.constants import AI_CONFIG
+from shared.src.lib.config.constants import AI_CONFIG, CACHE_CONFIG
 from shared.src.lib.database.ai_graph_cache_db import (
     store_graph,
     get_graph_by_fingerprint,
@@ -28,8 +32,90 @@ from shared.src.lib.database.ai_graph_cache_db import (
 )
 from backend_host.src.services.ai.ai_preprocessing import (
     preprocess_prompt,
-    check_exact_match
+    check_exact_match,
+    smart_preprocess  # NEW: Smart preprocessing with filtering
 )
+
+
+# =====================================================
+# PROMPT TEMPLATES & VERSIONING
+# =====================================================
+
+PROMPT_TEMPLATES = {
+    'v1': {
+        'version': '1.0.0',
+        'description': 'Original prompt template',
+        'template': '''Task: {task}
+
+{available_nodes}
+
+{available_actions}
+
+{available_verifications}
+
+Generate a test case graph in JSON format with nodes and edges.'''
+    },
+    'v2': {
+        'version': '2.0.0',
+        'description': 'Improved with explicit label requirements and examples',
+        'template': '''Task: {task}
+
+Context:
+{available_nodes}
+{available_actions}
+{available_verifications}
+
+CRITICAL LABEL REQUIREMENTS:
+- Navigation nodes: MUST use format "navigation_N:target_node" (e.g., "navigation_1:home")
+- Action nodes: MUST use format "action_N:command" (e.g., "action_1:click")
+- Verification nodes: MUST use format "verification_N:type" (e.g., "verification_1:check_audio")
+- Terminal nodes: Use "START", "SUCCESS", "FAILURE"
+
+Generate a test case graph in JSON format following these requirements.'''
+    }
+}
+
+DEFAULT_PROMPT_VERSION = 'v2'  # Current production version
+
+
+# =====================================================
+# METRICS & OBSERVABILITY
+# =====================================================
+
+@dataclass
+class GenerationMetrics:
+    """Structured metrics for graph generation tracking"""
+    fingerprint: str
+    device_id: str
+    team_id: str
+    userinterface_name: str
+    
+    # Performance
+    cached: bool
+    preprocessing_method: str  # 'exact'|'learned'|'fuzzy'|'ai'|'none'
+    duration_ms: int
+    
+    # AI usage (if applicable)
+    ai_called: bool
+    prompt_tokens: int
+    completion_tokens: int
+    total_tokens: int
+    ai_cost_estimate: float  # Rough estimate in USD
+    
+    # Graph stats
+    node_count: int
+    edge_count: int
+    
+    # Preprocessing confidence (if applicable)
+    preprocessing_confidence: Optional[float]
+    auto_corrections_count: int
+    
+    # Timestamp
+    timestamp: str
+    
+    def to_dict(self) -> Dict:
+        """Convert to dict for logging"""
+        return asdict(self)
 
 
 class AIGraphBuilder:
@@ -43,18 +129,143 @@ class AIGraphBuilder:
     - Caching: Intelligent caching for performance
     """
     
-    def __init__(self, device):
+    def __init__(self, device, prompt_version: str = DEFAULT_PROMPT_VERSION):
         """
         Initialize AIGraphBuilder for a device
         
         Args:
             device: Device instance with navigation_executor, testcase_executor
+            prompt_version: AI prompt template version ('v1', 'v2', etc.)
         """
         self.device = device
         self._context_cache = {}
-        self._cache_ttl = 86400  # 24 hours
+        # Use MEDIUM_TTL (5 minutes) - navigation changes frequently
+        self._cache_ttl = CACHE_CONFIG['MEDIUM_TTL']
+        
+        # Prompt versioning
+        if prompt_version not in PROMPT_TEMPLATES:
+            print(f"[@ai_builder] ⚠️  Unknown prompt version '{prompt_version}', using '{DEFAULT_PROMPT_VERSION}'")
+            prompt_version = DEFAULT_PROMPT_VERSION
+        self.prompt_version = prompt_version
+        template_info = PROMPT_TEMPLATES[prompt_version]
+        print(f"[@ai_builder] Using prompt template: {template_info['version']} - {template_info['description']}")
+        
+        # Metrics collection
+        self._metrics_buffer = []  # Store recent metrics
+        self._metrics_max_buffer = 100  # Keep last 100 generations
+        
+        # Race condition prevention (cache locking)
+        self._generation_locks = {}  # fingerprint → Lock
+        self._lock_manager = threading.Lock()  # Protects _generation_locks dict
         
         print(f"[@ai_builder] Initialized for device: {device.device_id}")
+        print(f"[@ai_builder] Context cache TTL: {self._cache_ttl}s ({self._cache_ttl/60:.1f} minutes)")
+    
+    def _record_metric(self, metric: GenerationMetrics):
+        """
+        Record generation metrics for observability
+        
+        Args:
+            metric: GenerationMetrics instance
+        """
+        # Add to buffer
+        self._metrics_buffer.append(metric)
+        
+        # Keep buffer size limited
+        if len(self._metrics_buffer) > self._metrics_max_buffer:
+            self._metrics_buffer.pop(0)
+        
+        # Log structured metrics
+        print(f"[@ai_builder:metrics] {metric.preprocessing_method.upper()} generation")
+        print(f"[@ai_builder:metrics]   Duration: {metric.duration_ms}ms")
+        print(f"[@ai_builder:metrics]   Cached: {metric.cached}")
+        if metric.ai_called:
+            print(f"[@ai_builder:metrics]   AI tokens: {metric.total_tokens} (~${metric.ai_cost_estimate:.4f})")
+        print(f"[@ai_builder:metrics]   Graph: {metric.node_count} nodes, {metric.edge_count} edges")
+    
+    def get_metrics_summary(self) -> Dict:
+        """
+        Get metrics summary for monitoring
+        
+        Returns:
+            Dict with aggregated metrics
+        """
+        if not self._metrics_buffer:
+            return {'total_generations': 0}
+        
+        total = len(self._metrics_buffer)
+        cached = sum(1 for m in self._metrics_buffer if m.cached)
+        ai_called = sum(1 for m in self._metrics_buffer if m.ai_called)
+        total_tokens = sum(m.total_tokens for m in self._metrics_buffer)
+        total_cost = sum(m.ai_cost_estimate for m in self._metrics_buffer)
+        avg_duration = sum(m.duration_ms for m in self._metrics_buffer) / total
+        
+        # Count preprocessing methods
+        methods = {}
+        for m in self._metrics_buffer:
+            methods[m.preprocessing_method] = methods.get(m.preprocessing_method, 0) + 1
+        
+        return {
+            'total_generations': total,
+            'cache_hit_rate': cached / total if total > 0 else 0,
+            'ai_call_rate': ai_called / total if total > 0 else 0,
+            'total_tokens_used': total_tokens,
+            'total_cost_estimate': total_cost,
+            'avg_duration_ms': avg_duration,
+            'preprocessing_methods': methods,
+            'device_id': self.device.device_id
+        }
+    
+    def _create_metric(self, fingerprint: str, team_id: str, userinterface_name: str,
+                      graph: Dict, cached: bool, preprocessing_method: str, 
+                      duration_ms: int, ai_usage: Optional[Dict] = None,
+                      preprocessing_confidence: Optional[float] = None,
+                      auto_corrections_count: int = 0) -> GenerationMetrics:
+        """
+        Create a GenerationMetrics instance
+        
+        Args:
+            fingerprint: Graph fingerprint
+            team_id: Team ID
+            userinterface_name: Interface name
+            graph: Generated graph
+            cached: Whether loaded from cache
+            preprocessing_method: 'exact'|'learned'|'fuzzy'|'ai'|'none'
+            duration_ms: Generation duration in milliseconds
+            ai_usage: AI token usage dict (if AI was called)
+            preprocessing_confidence: Confidence score for preprocessing
+            auto_corrections_count: Number of auto-corrections applied
+            
+        Returns:
+            GenerationMetrics instance
+        """
+        ai_called = ai_usage is not None
+        prompt_tokens = ai_usage.get('prompt_tokens', 0) if ai_usage else 0
+        completion_tokens = ai_usage.get('completion_tokens', 0) if ai_usage else 0
+        total_tokens = ai_usage.get('total_tokens', 0) if ai_usage else 0
+        
+        # Rough cost estimate (OpenRouter pricing varies, using ~$0.01 per 1K tokens as average)
+        ai_cost_estimate = (total_tokens / 1000) * 0.01 if ai_called else 0.0
+        
+        return GenerationMetrics(
+            fingerprint=fingerprint,
+            device_id=self.device.device_id,
+            team_id=team_id,
+            userinterface_name=userinterface_name,
+            cached=cached,
+            preprocessing_method=preprocessing_method,
+            duration_ms=duration_ms,
+            ai_called=ai_called,
+            prompt_tokens=prompt_tokens,
+            completion_tokens=completion_tokens,
+            total_tokens=total_tokens,
+            ai_cost_estimate=ai_cost_estimate,
+            node_count=len(graph.get('nodes', [])),
+            edge_count=len(graph.get('edges', [])),
+            preprocessing_confidence=preprocessing_confidence,
+            auto_corrections_count=auto_corrections_count,
+            timestamp=datetime.now().isoformat()
+        )
     
     # ========================================
     # PUBLIC API
@@ -107,127 +318,176 @@ class AIGraphBuilder:
             # Step 1: Load context
             context = self._load_context(userinterface_name, current_node_id, team_id)
             
-            # Step 2: Check cache (MANDATORY - skip AI if cache hit)
+            # Step 2: Generate fingerprint for this request
             fingerprint = _generate_fingerprint(prompt, context)
-            cached = get_graph_by_fingerprint(fingerprint, team_id)
             
-            if cached:
-                print(f"[@ai_builder] ✅ CACHE HIT - returning immediately (no AI call)")
-                return {
-                    'success': True,
-                    'graph': cached['graph'],
-                    'analysis': cached['analysis'],
-                    'execution_time': time.time() - start_time,
-                    'message': 'Graph loaded from cache',
-                    'cached': True
-                }
+            # Step 3: Get or create lock for this fingerprint (prevent duplicate AI calls)
+            with self._lock_manager:
+                if fingerprint not in self._generation_locks:
+                    self._generation_locks[fingerprint] = threading.Lock()
+                generation_lock = self._generation_locks[fingerprint]
             
-            print(f"[@ai_builder] Cache MISS - generating with AI")
-            
-            # Step 3: Preprocess (exact match, learned mappings, disambiguation)
-            # Extract node list for preprocessing
-            node_list = [node.get('node_label', node.get('node_id')) 
-                        for node in context.get('nodes', [])]
-            
-            # Check for exact match (skip AI entirely)
-            exact_node = check_exact_match(prompt, node_list)
-            if exact_node:
-                print(f"[@ai_builder] 🎯 Exact match - generating simple graph (no AI)")
-                graph = self._create_simple_navigation_graph(exact_node)
-                analysis = f"Goal: Navigate to {exact_node}\nThinking: Exact match found, created direct navigation path."
+            # Step 4: Acquire lock (only ONE request per fingerprint generates)
+            with generation_lock:
+                # Check cache AGAIN (another request might have just completed)
+                cached = get_graph_by_fingerprint(fingerprint, team_id)
                 
-                # Store in cache
+                if cached:
+                    print(f"[@ai_builder] ✅ CACHE HIT (after lock) - returning immediately")
+                    return {
+                        'success': True,
+                        'graph': cached['graph'],
+                        'analysis': cached['analysis'],
+                        'execution_time': time.time() - start_time,
+                        'message': 'Graph loaded from cache',
+                        'cached': True
+                    }
+                
+                print(f"[@ai_builder] Cache MISS - this request will generate")
+                
+                # Step 5: SMART PREPROCESSING with context filtering
+                # Extract raw lists for smart_preprocess
+                node_list = [node.get('node_label', node.get('node_id')) 
+                            for node in context.get('nodes_raw', [])]
+                action_list = [action.get('command', action.get('action_type', '')) 
+                              for action in context.get('actions_raw', [])]
+                verification_list = [v.get('command', v.get('verification_type', ''))
+                                    for v in context.get('verifications_raw', [])]
+                
+                # Run smart preprocessing (intent extraction + context filtering)
+                preprocessed = smart_preprocess(
+                    prompt=prompt,
+                    all_nodes=node_list,
+                    all_actions=action_list,
+                    all_verifications=verification_list,
+                    team_id=team_id,
+                    userinterface_name=userinterface_name
+                )
+                
+                # Handle different preprocessing outcomes
+                if preprocessed['status'] == 'exact_match':
+                    # Simple prompt with exact match - skip AI entirely
+                    exact_node = preprocessed['node']
+                    print(f"[@ai_builder] 🎯 Exact match - generating simple graph (no AI)")
+                    graph = self._create_simple_navigation_graph(exact_node)
+                    analysis = f"Goal: Navigate to {exact_node}\nThinking: Exact match found, created direct navigation path."
+                    
+                    # Store in cache
+                    store_graph(
+                        fingerprint=fingerprint,
+                        original_prompt=prompt,
+                        device_model=self.device.device_model,
+                        userinterface_name=userinterface_name,
+                        available_nodes=node_list,
+                        graph=graph,
+                        analysis=analysis,
+                        team_id=team_id
+                    )
+                    
+                    return {
+                        'success': True,
+                        'graph': graph,
+                        'analysis': analysis,
+                        'execution_time': time.time() - start_time,
+                        'message': 'Simple navigation generated (exact match)',
+                        'cached': False,
+                        'exact_match': True
+                    }
+                
+                elif preprocessed['status'] == 'needs_disambiguation':
+                    # Return disambiguation request to frontend
+                    return {
+                        'success': False,
+                        'needs_disambiguation': True,
+                        'ambiguities': preprocessed['ambiguities'],
+                        'auto_corrections': preprocessed.get('auto_corrections', []),
+                        'original_prompt': prompt,
+                        'execution_time': time.time() - start_time
+                    }
+                
+                elif preprocessed['status'] == 'impossible':
+                    # Task cannot be completed (missing required context)
+                    return {
+                        'success': False,
+                        'error': preprocessed['reason'],
+                        'execution_time': time.time() - start_time
+                    }
+                
+                elif preprocessed['status'] == 'ready':
+                    # Ready for AI generation with filtered context
+                    final_prompt = preprocessed['corrected_prompt']
+                    filtered_context = preprocessed['filtered_context']
+                    structure_hints = preprocessed['structure_hints']
+                    formatted_context = preprocessed['formatted_context']
+                    
+                    print(f"[@ai_builder] ✅ Preprocessing complete")
+                    print(f"[@ai_builder]   Context reduction: {preprocessed['stats']['reduction_percent']}")
+                    
+                    # Update context with filtered data for AI
+                    # Replace full catalog with filtered items
+                    context['available_nodes'] = formatted_context
+                    context['structure_hints'] = structure_hints
+                    context['intent'] = preprocessed['intent']
+                else:
+                    # Unknown status
+                    return {
+                        'success': False,
+                        'error': f"Unknown preprocessing status: {preprocessed['status']}",
+                        'execution_time': time.time() - start_time
+                    }
+                
+                # Step 6: Generate with AI (inside lock to prevent duplicate calls)
+                ai_response = self._generate_with_ai(final_prompt, context, current_node_id)
+                
+                # Step 7: Check feasibility
+                if not ai_response.get('feasible', True):
+                    return {
+                        'success': False,
+                        'error': 'Task not feasible',
+                        'analysis': ai_response.get('analysis', ''),
+                        'execution_time': time.time() - start_time
+                    }
+                
+                # Step 8: Extract graph
+                graph = ai_response.get('graph', {})
+                if not graph or not graph.get('nodes'):
+                    return {
+                        'success': False,
+                        'error': 'AI returned empty graph',
+                        'execution_time': time.time() - start_time
+                    }
+                
+                # Step 9: Post-process graph
+                graph = self._postprocess_graph(graph, context)
+                
+                # Step 10: Calculate stats
+                stats = self._calculate_stats(graph, ai_response.get('_usage', {}))
+                
+                # Step 11: Store in cache for future use (still inside lock)
                 store_graph(
                     fingerprint=fingerprint,
                     original_prompt=prompt,
-                    device_model=self.device.device_model,
+                    device_model=context['device_model'],
                     userinterface_name=userinterface_name,
-                    available_nodes=node_list,
+                    available_nodes=list(context.get('available_nodes', [])),
                     graph=graph,
-                    analysis=analysis,
+                    analysis=ai_response.get('analysis', ''),
                     team_id=team_id
                 )
+                
+                print(f"[@ai_builder] ✅ Graph generated successfully")
+                print(f"[@ai_builder]   Nodes: {len(graph.get('nodes', []))}, Edges: {len(graph.get('edges', []))}")
                 
                 return {
                     'success': True,
                     'graph': graph,
-                    'analysis': analysis,
-                    'execution_time': time.time() - start_time,
-                    'message': 'Simple navigation generated (exact match)',
-                    'cached': False,
-                    'exact_match': True
-                }
-            
-            # Apply learned mappings and check for ambiguities
-            preprocessed = preprocess_prompt(prompt, node_list, team_id, userinterface_name)
-            
-            if preprocessed['status'] == 'needs_disambiguation':
-                # Return disambiguation request to frontend
-                return {
-                    'success': False,
-                    'needs_disambiguation': True,
-                    'ambiguities': preprocessed['ambiguities'],
-                    'auto_corrections': preprocessed.get('auto_corrections', []),
-                    'original_prompt': prompt,
-                    'execution_time': time.time() - start_time
-                }
-            
-            # Use corrected prompt if available
-            final_prompt = preprocessed.get('corrected_prompt', prompt)
-            if preprocessed['status'] == 'auto_corrected':
-                print(f"[@ai_builder] ✅ Applied {len(preprocessed['corrections'])} auto-corrections")
-            
-            # Step 4: Generate with AI
-            ai_response = self._generate_with_ai(final_prompt, context, current_node_id)
-            
-            # Step 5: Check feasibility
-            if not ai_response.get('feasible', True):
-                return {
-                    'success': False,
-                    'error': 'Task not feasible',
                     'analysis': ai_response.get('analysis', ''),
-                    'execution_time': time.time() - start_time
+                    'plan_id': ai_response.get('id'),
+                    'execution_time': time.time() - start_time,
+                    'message': 'Graph generated successfully',
+                    'generation_stats': stats
                 }
-            
-            # Step 6: Extract graph
-            graph = ai_response.get('graph', {})
-            if not graph or not graph.get('nodes'):
-                return {
-                    'success': False,
-                    'error': 'AI returned empty graph',
-                    'execution_time': time.time() - start_time
-                }
-            
-            # Step 7: Post-process graph
-            graph = self._postprocess_graph(graph, context)
-            
-            # Step 8: Calculate stats
-            stats = self._calculate_stats(graph, ai_response.get('_usage', {}))
-            
-            # Step 9: Store in cache for future use
-            store_graph(
-                fingerprint=fingerprint,
-                original_prompt=prompt,
-                device_model=context['device_model'],
-                userinterface_name=userinterface_name,
-                available_nodes=list(context.get('available_nodes', [])),
-                graph=graph,
-                analysis=ai_response.get('analysis', ''),
-                team_id=team_id
-            )
-            
-            print(f"[@ai_builder] ✅ Graph generated successfully")
-            print(f"[@ai_builder]   Nodes: {len(graph.get('nodes', []))}, Edges: {len(graph.get('edges', []))}")
-            
-            return {
-                'success': True,
-                'graph': graph,
-                'analysis': ai_response.get('analysis', ''),
-                'plan_id': ai_response.get('id'),
-                'execution_time': time.time() - start_time,
-                'message': 'Graph generated successfully',
-                'generation_stats': stats
-            }
+            # Lock released here - subsequent requests can now use cached result
             
         except Exception as e:
             print(f"[@ai_builder] ❌ Graph generation failed: {str(e)}")
@@ -272,14 +532,19 @@ class AIGraphBuilder:
         
         # Get navigation nodes
         nav_nodes = self.device.navigation_executor.get_available_nodes(userinterface_name, team_id)
+        # Store RAW data for preprocessing (lists of dicts)
+        context['nodes_raw'] = nav_nodes
+        # Store FORMATTED strings for AI prompt
         context['available_nodes'] = self._format_navigation_context(nav_nodes)
         
         # Get actions
         actions = self.device.testcase_executor.get_available_actions()
+        context['actions_raw'] = actions
         context['available_actions'] = self._format_action_context(actions)
         
         # Get verifications
         verifications = self.device.testcase_executor.get_available_verifications()
+        context['verifications_raw'] = verifications
         context['available_verifications'] = self._format_verification_context(verifications)
         
         # Cache it
@@ -361,83 +626,41 @@ class AIGraphBuilder:
     
     def _build_ai_prompt(self, prompt: str, context: Dict) -> str:
         """
-        Build optimized AI prompt with context
+        Build AI prompt using versioned template
         
-        Includes:
-        - Task description
-        - Available navigation nodes
-        - Available actions
-        - Available verifications
-        - Output format with examples
-        - Label naming rules
+        Uses self.prompt_version to select template, allowing A/B testing
+        and gradual rollout of prompt improvements.
+        
+        Context-aware: Includes current device state and structure hints
         """
-        current_node_label = context.get('current_node_label', 'ENTRY')
+        template_config = PROMPT_TEMPLATES[self.prompt_version]
+        template = template_config['template']
         
-        ai_prompt = f"""You are controlling a TV application on a device ({context['device_model']}).
-Your task is to navigate through the app using available commands provided.
-
-Task: "{prompt}"
-Device: {context['device_model']}
-Current Position: {current_node_label}
-
-OUTPUT FORMAT: Generate a React Flow graph with nodes and edges.
-
-Node Types:
-- start: Entry point (always first, id="start")
-- navigation: Navigate to UI node
-- action: Execute device action  
-- verification: Check UI state
-- success: Test passed (terminal)
-- failure: Test failed (terminal)
-
-{context['available_nodes']}
-
-{context['available_actions']}
-
-{context['available_verifications']}
-
-Rules:
-- If already at target node, respond with feasible=true, graph with just start→success
-- If exact node exists → navigate directly
-- If NO similar node → set feasible=false
-- NEVER use node names not in the navigation list
-- PRIORITIZE navigation over manual actions
-- ALWAYS include label field in node data following these formats:
-  * start: label="START"
-  * success: label="SUCCESS"
-  * failure: label="FAILURE"
-  * navigation: label="navigation_N:target_node" (e.g., "navigation_1:home")
-  * action: label="action_N:command" (e.g., "action_1:click_element")
-  * verification: label="verification_N:type" (e.g., "verification_1:check_audio")
-
-CRITICAL: Include "analysis" field with Goal and Thinking.
-
-Analysis format:
-- Goal: [What needs to be achieved]
-- Thinking: [Brief explanation of approach/reasoning]
-
-Example Response:
-{{
-  "analysis": "Goal: Navigate to home\\nThinking: 'home' node exists in navigation list → direct navigation in one step",
-  "feasible": true,
-  "graph": {{
-    "nodes": [
-      {{"id": "start", "type": "start", "position": {{"x": 100, "y": 100}}, "data": {{"label": "START"}}}},
-      {{"id": "nav1", "type": "navigation", "position": {{"x": 100, "y": 200}}, "data": {{"label": "navigation_1:home", "target_node": "home", "target_node_id": "home", "action_type": "navigation"}}}},
-      {{"id": "success", "type": "success", "position": {{"x": 100, "y": 300}}, "data": {{"label": "SUCCESS"}}}}
-    ],
-    "edges": [
-      {{"id": "e1", "source": "start", "target": "nav1", "sourceHandle": "success", "type": "success"}},
-      {{"id": "e2", "source": "nav1", "target": "success", "sourceHandle": "success", "type": "success"}}
-    ]
-  }}
-}}
-
-If task is not possible:
-{{"analysis": "Goal: [state goal]\\nThinking: Task not feasible → no relevant navigation nodes exist", "feasible": false, "graph": {{"nodes": [], "edges": []}}}}
-
-RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."""
-
+        # Get current node context (context-aware generation)
+        current_node_id = context.get('current_node_id')
+        current_context = ""
+        if current_node_id and current_node_id != 'unknown':
+            current_context = f"\n\nCURRENT DEVICE STATE:\n- Currently at node: {current_node_id}\n- If already at target node, skip navigation\n- Optimize path from current position"
+        
+        # Get structure hints from smart preprocessing
+        structure_hints = context.get('structure_hints', '')
+        if structure_hints:
+            current_context += f"\n\n{structure_hints}"
+        
+        # Format template with context
+        ai_prompt = template.format(
+            task=prompt,
+            available_nodes=context.get('available_nodes', ''),
+            available_actions=context.get('available_actions', ''),
+            available_verifications=context.get('available_verifications', '')
+        ) + current_context
+        
+        print(f"[@ai_builder:prompt] Using template {self.prompt_version} ({template_config['version']})")
+        if current_node_id:
+            print(f"[@ai_builder:prompt] Context-aware: current node = {current_node_id}")
+        if structure_hints:
+            print(f"[@ai_builder:prompt] Structure hints included")
+        
         return ai_prompt
     
     def _parse_ai_response(self, content: str) -> Dict[str, Any]:
@@ -647,9 +870,25 @@ RESPOND WITH JSON ONLY. Keep analysis concise with Goal and Thinking structure."
     # ========================================
     
     def clear_context_cache(self):
-        """Clear context cache"""
+        """Clear context cache (manual)"""
         self._context_cache.clear()
-        print(f"[@ai_builder] Context cache cleared")
+        print(f"[@ai_builder] Context cache cleared manually")
+    
+    def invalidate_context_cache(self, reason: str = "Navigation tree updated"):
+        """
+        Invalidate context cache when navigation graph changes
+        
+        This should be called when:
+        - Navigation nodes are added/removed
+        - Node properties are updated
+        - User interface structure changes
+        
+        Args:
+            reason: Why cache is being invalidated (for logging)
+        """
+        self._context_cache.clear()
+        print(f"[@ai_builder] 🔄 Context cache invalidated: {reason}")
+        print(f"[@ai_builder]    Reason: Ensure fresh data for AI generation")
     
     # ========================================
     # SIMPLE GRAPH GENERATION (No AI)

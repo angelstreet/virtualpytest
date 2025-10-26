@@ -7,11 +7,9 @@ Unified executors for scripts and campaigns that can be used by both server and 
 from .script_executor import ScriptExecutor
 from .campaign_executor import CampaignExecutor
 from .zap_executor import ZapExecutor
-from .ai_executor import AIExecutor
 
 __all__ = [
     'ScriptExecutor',
     'CampaignExecutor',
-    'ZapExecutor',
-    'AIExecutor'
+    'ZapExecutor'
 ]

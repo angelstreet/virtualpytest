@@ -1,26 +1,39 @@
-import React, { useState, useEffect } from 'react';
+/**
+ * AI Execution Panel - Unified Modal AI System
+ * 
+ * Two execution modes:
+ * 1. PROMPT: Generate graph from prompt using AIGraphBuilder (with smart preprocessing)
+ * 2. LOAD: Load existing test case from database
+ * 
+ * After graph is ready (from either mode), shows preview and executes.
+ * 
+ * NO LEGACY CODE - Uses AIGraphBuilder only, no backward compatibility.
+ */
+
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   Box,
   Typography,
   TextField,
   Button,
   CircularProgress,
-  IconButton,
-  Checkbox,
-  FormControlLabel,
+  Autocomplete,
+  ToggleButton,
+  ToggleButtonGroup,
 } from '@mui/material';
 import {
   SmartToy as AIIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
+  Edit as PromptIcon,
+  FolderOpen as LoadIcon,
 } from '@mui/icons-material';
 
 import { Host, Device } from '../../types/common/Host_Types';
-import { useAI } from '../../hooks/useAI';
-import { useAICacheReset } from '../../hooks/aiagent';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { AIStepDisplay } from './AIStepDisplay';
 import { UserinterfaceSelector } from '../common';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { useToast } from '../../hooks/useToast';
+import { APP_CONFIG } from '../../config/constants';
 
 interface AIExecutionPanelProps {
   host: Host;
@@ -35,6 +48,14 @@ interface AIExecutionPanelProps {
   ) => void;
 }
 
+interface TestCaseDefinition {
+  testcase_id: string;
+  testcase_name: string;
+  graph_json: any;
+  ai_analysis?: string;
+  userinterface_name: string;
+}
+
 export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   host,
   device,
@@ -42,76 +63,256 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
   isVisible,
   onDisambiguationDataChange,
 }) => {
-  // Local state
-  const [taskInput, setTaskInput] = useState('');
-  const [isAnalysisExpanded, setIsAnalysisExpanded] = useState<boolean>(true); // Default to expanded
-  // Controls whether to use cached AI plans for similar tasks (does not affect plan storage)
-  const [useAIPlanCache, setUseAIPlanCache] = useState(true);
+  // Execution mode
+  const [mode, setMode] = useState<'prompt' | 'load'>('prompt');
   
-  // Userinterface selection state
+  // Prompt mode state
+  const [prompt, setPrompt] = useState('');
   const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
+  
+  // Load mode state
+  const [testCases, setTestCases] = useState<TestCaseDefinition[]>([]);
+  const [selectedTestCase, setSelectedTestCase] = useState<TestCaseDefinition | null>(null);
+  const [isLoadingTestCases, setIsLoadingTestCases] = useState(false);
+  
+  // Generated/loaded graph state
+  const [graph, setGraph] = useState<any>(null);
+  const [analysis, setAnalysis] = useState<string>('');
+  const [isGenerating, setIsGenerating] = useState(false);
+  
+  // Execution state
+  const [isExecuting, setIsExecuting] = useState(false);
+  const [executionProgress, setExecutionProgress] = useState<any>(null);
+  
+  const { showError, showSuccess, showInfo } = useToast();
 
-  // AI Agent hook
-  const {
-    isExecuting: isAIExecuting,
-    currentPlan: aiPlan,
-    taskResult,
-    executionSummary,
-    executeTask: executeAITask,
-    // Direct access to computed values
-    currentStep,
-    progressPercentage,
-    isPlanFeasible,
-    // Processed data for UI
-    processedSteps,
-    // Disambiguation (NEW)
-    disambiguationData,
-    handleDisambiguationResolve,
-    handleDisambiguationCancel
-  } = useAI({
-    host,
-    device,
-    mode: 'real-time'
-  });
-
-  // Cache reset hook
-  const { resetCache, isResetting: isResettingCache } = useAICacheReset({
-    hostName: host.host_name
-  });
-
-  // Auto-expand analysis when new plan arrives
+  // Load test cases when switching to load mode
   useEffect(() => {
-    if (aiPlan && aiPlan.analysis) {
-      setIsAnalysisExpanded(true);
+    if (mode === 'load' && testCases.length === 0) {
+      loadTestCases();
     }
-  }, [aiPlan]);
+  }, [mode]);
 
-  // DEBUG: Log plan changes
-  useEffect(() => {
-    if (aiPlan) {
-      console.log('[@AIExecutionPanel] Plan updated:', {
-        id: aiPlan.id,
-        has_analysis: !!aiPlan.analysis,
-        analysis_length: aiPlan.analysis?.length || 0,
-        has_steps: !!aiPlan.steps,
-        steps_count: aiPlan.steps?.length || 0,
-        feasible: aiPlan.feasible,
-        isPlanFeasible: isPlanFeasible
-      });
-    }
-  }, [aiPlan, isPlanFeasible]);
-
-  // Notify parent when disambiguation data changes, including handlers
-  useEffect(() => {
-    if (onDisambiguationDataChange) {
-      onDisambiguationDataChange(
-        disambiguationData,
-        handleDisambiguationResolve,
-        handleDisambiguationCancel
+  // Load available test cases
+  const loadTestCases = useCallback(async () => {
+    setIsLoadingTestCases(true);
+    try {
+      const response = await fetch(
+        buildServerUrl(`/server/testcase/list?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`)
       );
+      
+      if (!response.ok) throw new Error('Failed to load test cases');
+      
+      const data = await response.json();
+      if (data.success) {
+        setTestCases(data.testcases || []);
+      }
+    } catch (error) {
+      console.error('[@AIExecutionPanel] Error loading test cases:', error);
+      showError('Failed to load test cases');
+    } finally {
+      setIsLoadingTestCases(false);
     }
-  }, [disambiguationData, onDisambiguationDataChange, handleDisambiguationResolve, handleDisambiguationCancel]);
+  }, [showError]);
 
+  // Generate graph from prompt using AIGraphBuilder
+  const handleGenerateFromPrompt = useCallback(async () => {
+    if (!prompt.trim() || !selectedUserinterface) return;
+    
+    setIsGenerating(true);
+    setGraph(null);
+    setAnalysis('');
+    
+    try {
+      console.log('[@AIExecutionPanel] Generating graph from prompt');
+      
+      const response = await fetch(
+        buildServerUrl(`/server/ai/generatePlan?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            userinterface_name: selectedUserinterface,
+            device_id: device.device_id,
+            host_name: host.host_name,
+          }),
+        }
+      );
+      
+      const result = await response.json();
+      
+      // Handle disambiguation
+      if (result.needs_disambiguation) {
+        if (onDisambiguationDataChange) {
+          onDisambiguationDataChange(
+            result,
+            (selections, saveToDb) => {
+              // Resolve disambiguation and regenerate
+              handleDisambiguationResolve(selections, saveToDb);
+            },
+            () => {
+              // Cancel
+              setIsGenerating(false);
+            }
+          );
+        }
+        setIsGenerating(false);
+        return;
+      }
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Graph generation failed');
+      }
+      
+      console.log('[@AIExecutionPanel] Graph generated successfully');
+      setGraph(result.graph);
+      setAnalysis(result.analysis || '');
+      showSuccess('Graph generated! Review and click Execute.');
+      
+    } catch (error: any) {
+      console.error('[@AIExecutionPanel] Generation error:', error);
+      showError(error.message || 'Failed to generate graph');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [prompt, selectedUserinterface, device, host, showError, showSuccess, onDisambiguationDataChange]);
+
+  // Handle disambiguation resolution
+  const handleDisambiguationResolve = useCallback(async (
+    selections: Record<string, string>,
+    saveToDb: boolean
+  ) => {
+    setIsGenerating(true);
+    
+    try {
+      // Save disambiguation choices if requested
+      if (saveToDb) {
+        await fetch(buildServerUrl('/server/ai/saveDisambiguationAndRegenerate'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            prompt,
+            userinterface_name: selectedUserinterface,
+            device_id: device.device_id,
+            host_name: host.host_name,
+            team_id: APP_CONFIG.DEFAULT_TEAM_ID,
+            selections,
+          }),
+        });
+      }
+      
+      // Regenerate with resolved selections
+      handleGenerateFromPrompt();
+    } catch (error) {
+      console.error('[@AIExecutionPanel] Disambiguation resolve error:', error);
+      showError('Failed to apply disambiguation');
+      setIsGenerating(false);
+    }
+  }, [prompt, selectedUserinterface, device, host, handleGenerateFromPrompt, showError]);
+
+  // Load test case from database
+  const handleLoadTestCase = useCallback(async () => {
+    if (!selectedTestCase) return;
+    
+    setIsGenerating(true);
+    setGraph(null);
+    setAnalysis('');
+    
+    try {
+      console.log('[@AIExecutionPanel] Loading test case:', selectedTestCase.testcase_id);
+      
+      const response = await fetch(
+        buildServerUrl(`/server/testcase/${selectedTestCase.testcase_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`)
+      );
+      
+      if (!response.ok) throw new Error('Failed to load test case');
+      
+      const result = await response.json();
+      if (result.success && result.testcase) {
+        setGraph(result.testcase.graph_json);
+        setAnalysis(result.testcase.ai_analysis || 'Loaded from database');
+        showSuccess('Test case loaded! Review and click Execute.');
+      }
+    } catch (error: any) {
+      console.error('[@AIExecutionPanel] Load error:', error);
+      showError(error.message || 'Failed to load test case');
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedTestCase, showError, showSuccess]);
+
+  // Execute the graph (works for both prompt-generated and loaded graphs)
+  const handleExecute = useCallback(async () => {
+    if (!graph) return;
+    
+    setIsExecuting(true);
+    setExecutionProgress(null);
+    
+    try {
+      console.log('[@AIExecutionPanel] Executing graph');
+      
+      // Call testcase executor with graph
+      const response = await fetch(
+        buildServerUrl(`/server/testcase/execute?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: device.device_id,
+            host_name: host.host_name,
+            graph_json: graph,
+            async_execution: true,
+          }),
+        }
+      );
+      
+      const result = await response.json();
+      
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || 'Execution failed');
+      }
+      
+      showInfo('Executing test case...');
+      
+      // Start polling for progress
+      pollExecutionStatus(result.execution_id);
+      
+    } catch (error: any) {
+      console.error('[@AIExecutionPanel] Execution error:', error);
+      showError(error.message || 'Failed to execute test case');
+      setIsExecuting(false);
+    }
+  }, [graph, device, host, showError, showInfo]);
+
+  // Poll execution status
+  const pollExecutionStatus = useCallback((execId: string) => {
+    const interval = setInterval(async () => {
+      try {
+        const response = await fetch(
+          buildServerUrl(`/server/testcase/execution/${execId}/status`)
+        );
+        
+        const result = await response.json();
+        
+        if (result.status === 'completed' || result.status === 'failed') {
+          clearInterval(interval);
+          setIsExecuting(false);
+          setExecutionProgress(result);
+          
+          if (result.status === 'completed') {
+            showSuccess('Test case completed successfully!');
+          } else {
+            showError('Test case execution failed');
+          }
+        } else {
+          setExecutionProgress(result);
+        }
+      } catch (error) {
+        console.error('[@AIExecutionPanel] Poll error:', error);
+      }
+    }, 1000);
+  }, [showSuccess, showError]);
 
   // Don't render if not visible
   if (!isVisible) return null;
@@ -126,19 +327,19 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
         zIndex: getZIndex('MODAL_CONTENT'),
         pointerEvents: 'auto',
         width: '480px',
-        backgroundColor: 'rgba(0,0,0,0.85)',
-        borderRadius: 1,
+        backgroundColor: 'rgba(0,0,0,0.9)',
+        borderRadius: 2,
         border: '1px solid rgba(255,255,255,0.2)',
         backdropFilter: 'blur(10px)',
       }}
     >
-      <Box sx={{ p: 1 }}>
+      <Box sx={{ p: 2 }}>
         {/* Header */}
         <Typography
           variant="h6"
           sx={{
             color: '#ffffff',
-            mb: 1,
+            mb: 2,
             display: 'flex',
             alignItems: 'center',
             gap: 1,
@@ -146,383 +347,148 @@ export const AIExecutionPanel: React.FC<AIExecutionPanelProps> = ({
         >
           <AIIcon />
           AI Agent
-          {isAIExecuting && (
+          {isExecuting && (
             <Typography variant="caption" sx={{ color: '#2196f3', ml: 1 }}>
-              Progress: {progressPercentage}%
+              Executing...
             </Typography>
-          )}
-          {aiPlan && !isPlanFeasible && (
-            <Box sx={{ color: '#f44336', display: 'flex', alignItems: 'center', ml: 1 }}>
-              ✕
-            </Box>
           )}
         </Typography>
 
-        {/* Userinterface Selection */}
-        <Box sx={{ mb: 0.5 }}>
-          <UserinterfaceSelector
-            deviceModel={device.device_model}
-            value={selectedUserinterface}
-            onChange={setSelectedUserinterface}
-            label="Userinterface"
-            size="small"
-            fullWidth
-            sx={{
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                '& fieldset': { borderColor: '#444' },
-                '&:hover fieldset': { borderColor: '#666' },
-                '&.Mui-focused fieldset': { borderColor: '#2196f3' },
-              },
-              '& .MuiInputLabel-root': { color: '#aaa' },
-              '& .MuiSelect-select': { color: '#ffffff' },
-            }}
-          />
-        </Box>
+        {/* Mode Toggle */}
+        <ToggleButtonGroup
+          value={mode}
+          exclusive
+          onChange={(_, value) => value && setMode(value)}
+          fullWidth
+          size="small"
+          sx={{ mb: 2 }}
+        >
+          <ToggleButton value="prompt">
+            <PromptIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Prompt
+          </ToggleButton>
+          <ToggleButton value="load">
+            <LoadIcon sx={{ mr: 0.5 }} fontSize="small" />
+            Load Test Case
+          </ToggleButton>
+        </ToggleButtonGroup>
 
-        {/* Task Input */}
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 0.5 }}>
-          <TextField
-            size="small"
-            placeholder="Enter task (e.g., 'go to live and zap 10 times')"
-            value={taskInput}
-            onChange={(e) => setTaskInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && !e.shiftKey) {
-                e.preventDefault();
-                if (selectedUserinterface) {
-                  executeAITask(taskInput, selectedUserinterface, useAIPlanCache);
-                }
-              }
-            }}
-            disabled={isAIExecuting || !selectedUserinterface}
-            sx={{
-              flex: 1,
-              '& .MuiOutlinedInput-root': {
-                backgroundColor: 'rgba(0, 0, 0, 0.7)',
-                '& fieldset': {
-                  borderColor: '#444',
-                },
-                '&:hover fieldset': {
-                  borderColor: '#666',
-                },
-                '&.Mui-focused fieldset': {
-                  borderColor: '#2196f3',
-                },
-              },
-              '& .MuiInputBase-input': {
-                color: '#ffffff',
-                '&::placeholder': {
-                  color: '#888',
-                  opacity: 1,
-                },
-              },
-            }}
-          />
-          <Button
-            variant="contained"
-            size="small"
-            onClick={() => {
-              if (selectedUserinterface) {
-                executeAITask(taskInput, selectedUserinterface, useAIPlanCache);
-              }
-            }}
-            disabled={!taskInput.trim() || isAIExecuting || !isControlActive || !selectedUserinterface}
-            startIcon={isAIExecuting ? <CircularProgress size={16} sx={{ color: '#fff' }} /> : undefined}
-            sx={{
-              backgroundColor: isAIExecuting ? '#1976d2' : '#2196f3',
-              color: '#ffffff',
-              minWidth: '80px',
-              '&:hover': {
-                backgroundColor: '#1976d2',
-              },
-              '&.Mui-disabled': {
-                backgroundColor: '#444',
-                color: '#888',
-              },
-            }}
-          >
-            {isAIExecuting ? 'Executing...' : 'Execute'}
-          </Button>
-        </Box>
+        {/* PROMPT MODE */}
+        {mode === 'prompt' && (
+          <>
+            <UserinterfaceSelector
+              deviceModel={device.device_model}
+              value={selectedUserinterface}
+              onChange={setSelectedUserinterface}
+              label="User Interface"
+              size="small"
+              fullWidth
+              sx={{ mb: 2 }}
+            />
+            
+            <TextField
+              size="small"
+              fullWidth
+              multiline
+              rows={3}
+              placeholder="Enter task (e.g., 'Go to live TV and check audio')"
+              value={prompt}
+              onChange={(e) => setPrompt(e.target.value)}
+              disabled={isGenerating || isExecuting}
+              sx={{ mb: 2 }}
+            />
+            
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={handleGenerateFromPrompt}
+              disabled={!prompt.trim() || !selectedUserinterface || isGenerating || isExecuting}
+              startIcon={isGenerating ? <CircularProgress size={16} /> : undefined}
+            >
+              {isGenerating ? 'Generating...' : 'Generate Graph'}
+            </Button>
+          </>
+        )}
 
-        {/* AI Execution Controls */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0 }}>
-          <FormControlLabel
-            control={
-              <Checkbox
-                checked={useAIPlanCache}
-                onChange={(e) => setUseAIPlanCache(e.target.checked)}
-                size="small"
-                sx={{
-                  color: '#888',
-                  '&.Mui-checked': {
-                    color: '#2196f3',
-                  },
-                }}
-              />
-            }
-            label={
-              <Typography variant="caption" sx={{ color: '#aaa' }}>
-                Use Cache
-              </Typography>
-            }
-            sx={{ margin: 0 }}
-          />
-          
-          <Button
-            variant="outlined"
-            size="small"
-            onClick={resetCache}
-            disabled={isAIExecuting || isResettingCache}
-            sx={{
-              fontSize: '0.7rem',
-              padding: '2px 8px',
-              minWidth: 'auto',
-              borderColor: '#f44336',
-              color: '#f44336',
-              '&:hover': {
-                borderColor: '#d32f2f',
-                backgroundColor: 'rgba(244, 67, 54, 0.1)',
-              },
-              '&.Mui-disabled': {
-                borderColor: '#444',
-                color: '#666',
-              }
-            }}
-          >
-            {isResettingCache ? '...' : 'Reset Cache'}
-          </Button>
-        </Box>
-
-        {/* AI Plan Display */}
-        {(aiPlan || isAIExecuting) && (
-          <Box
-            key={aiPlan?.id || `executing-${isAIExecuting}`} // Force re-render on plan change
-            sx={{
-              mt: 1,
-              p: 1,
-              backgroundColor: 'rgba(0, 0, 0, 0.8)',
-              borderRadius: 1,
-              border: `1px solid ${isPlanFeasible ? '#444' : '#f44336'}`,
-              maxHeight: '400px',
-              overflowY: 'auto',
-            }}
-          >
-            {/* Show current step when executing but no plan yet */}
-            {isAIExecuting && !aiPlan && (
-              <Box sx={{ p: 1, textAlign: 'center' }}>
-                <CircularProgress size={20} sx={{ color: '#2196f3', mb: 1 }} />
-                <Typography variant="body2" sx={{ color: '#2196f3' }}>
-                  {currentStep || 'Starting AI...'}
-                </Typography>
-              </Box>
-            )}
-
-            {/* PHASE 1: Analysis Display (Always show first when available) */}
-            {aiPlan && aiPlan.analysis && (
-              <Box sx={{ mb: 0.5 }}>
-                <Box 
-                  sx={{ 
-                    display: 'flex', 
-                    alignItems: 'center', 
-                    cursor: 'pointer',
-                    '&:hover': { backgroundColor: 'rgba(255,255,255,0.05)' },
-                    borderRadius: 0.5,
-                    p: 0.5,
-                    mb: 0.5
+        {/* LOAD MODE */}
+        {mode === 'load' && (
+          <>
+            <Autocomplete
+              size="small"
+              options={testCases}
+              getOptionLabel={(option) => option.testcase_name}
+              value={selectedTestCase}
+              onChange={(_, newValue) => setSelectedTestCase(newValue)}
+              loading={isLoadingTestCases}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  placeholder="Select a test case..."
+                  InputProps={{
+                    ...params.InputProps,
+                    endAdornment: (
+                      <>
+                        {isLoadingTestCases ? <CircularProgress size={20} /> : null}
+                        {params.InputProps.endAdornment}
+                      </>
+                    ),
                   }}
-                  onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
-                >
-                  <Typography variant="subtitle2" sx={{ 
-                    color: isPlanFeasible ? '#4caf50' : '#f44336', 
-                    flex: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    {isPlanFeasible ? '✅' : '❌'} AI Reasoning
-                    {!isPlanFeasible && (
-                      <Typography variant="caption" sx={{ color: '#f44336', ml: 0 }}>
-                        (Not Feasible)
-                      </Typography>
-                    )}
-                  </Typography>
-                  <IconButton 
-                    size="small" 
-                    sx={{ color: '#aaa', p: 0.25 }}
-                    aria-label={isAnalysisExpanded ? 'Collapse analysis' : 'Expand analysis'}
-                  >
-                    {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                  </IconButton>
-                </Box>
-                
-                {isAnalysisExpanded && (
-                  <Box
-                    sx={{
-                      p: 1,
-                      backgroundColor: !isPlanFeasible ? 'rgba(244,67,54,0.1)' : 'rgba(76,175,80,0.1)',
-                      borderRadius: 0.5,
-                      border: !isPlanFeasible ? '1px solid rgba(244,67,54,0.3)' : '1px solid rgba(76,175,80,0.3)',
-                      mb: 1
-                    }}
-                  >
-                    {/* Format analysis with Goal and Thinking structure */}
-                    {aiPlan.analysis.includes('Goal:') && aiPlan.analysis.includes('Thinking:') ? (
-                      <Box>
-                        {aiPlan.analysis.split('\n').map((line, idx) => {
-                          if (line.startsWith('Goal:')) {
-                            return (
-                              <Typography key={idx} variant="body2" sx={{ color: '#ffffff', fontWeight: 'bold', mb: 0.5 }}>
-                                🎯 {line.replace('Goal:', '').trim()}
-                              </Typography>
-                            );
-                          } else if (line.startsWith('Thinking:')) {
-                            return (
-                              <Typography key={idx} variant="body2" sx={{ color: '#cccccc', fontSize: '0.85rem' }}>
-                                💭 {line.replace('Thinking:', '').trim()}
-                              </Typography>
-                            );
-                          }
-                          return null;
-                        })}
-                      </Box>
-                    ) : (
-                      // Fallback for legacy format
-                      <Typography variant="body2" sx={{ color: !isPlanFeasible ? '#ffffff' : '#cccccc' }}>
-                        {aiPlan.analysis}
-                      </Typography>
-                    )}
-                  </Box>
-                )}
-              </Box>
+                />
+              )}
+              sx={{ mb: 2 }}
+            />
+            
+            <Button
+              variant="contained"
+              fullWidth
+              onClick={handleLoadTestCase}
+              disabled={!selectedTestCase || isGenerating || isExecuting}
+              startIcon={isGenerating ? <CircularProgress size={16} /> : undefined}
+            >
+              {isGenerating ? 'Loading...' : 'Load & Preview'}
+            </Button>
+          </>
+        )}
+
+        {/* GRAPH PREVIEW (shown after generation/load) */}
+        {graph && !isExecuting && (
+          <Box sx={{ mt: 2, p: 2, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: '#4caf50', mb: 1 }}>
+              ✅ Graph Ready
+            </Typography>
+            
+            {analysis && (
+              <Typography variant="body2" sx={{ color: '#aaa', mb: 2, fontSize: '0.85rem' }}>
+                {analysis}
+              </Typography>
             )}
+            
+            <Typography variant="caption" sx={{ color: '#888', display: 'block', mb: 1 }}>
+              {graph.nodes?.length || 0} nodes • {graph.edges?.length || 0} edges
+            </Typography>
+            
+            <Button
+              variant="contained"
+              fullWidth
+              color="success"
+              onClick={handleExecute}
+              disabled={!isControlActive}
+            >
+              Execute Test Case
+            </Button>
+          </Box>
+        )}
 
-            {/* Non-feasible task message */}
-            {aiPlan && !isPlanFeasible && (
-              <Box sx={{ mt: 0.5, mb: 1 }}>
-                <Typography variant="body2" sx={{ 
-                  color: '#f44336',
-                  fontWeight: 'bold',
-                  textAlign: 'center',
-                  p: 1,
-                  backgroundColor: 'rgba(244,67,54,0.1)',
-                  borderRadius: 0.5,
-                  border: '1px solid rgba(244,67,54,0.3)'
-                }}>
-                  ❌ Task not feasible
-                </Typography>
-              </Box>
-            )}
-
-            {/* Task Execution Status Header - Only for feasible plans */}
-            {aiPlan && isPlanFeasible && (
-              <Box sx={{ mt: 0.5, mb: 0.5 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-                  <Typography variant="subtitle2" sx={{ 
-                    color: '#2196f3',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: 1
-                  }}>
-                    🎯 Task Execution
-                  </Typography>
-                  {taskResult && !isAIExecuting && (
-                    <Typography variant="caption" sx={{ 
-                      color: taskResult.success ? '#4caf50' : '#f44336',
-                      fontWeight: 'bold'
-                    }}>
-                      {taskResult.success ? '🎉 Success' : '⚠️ Failed'}
-                    </Typography>
-                  )}
-                </Box>
-              </Box>
-            )}
-
-            {/* PHASE 2: Plan Steps Display (Only for feasible plans) */}
-            {aiPlan && isPlanFeasible && aiPlan.steps && aiPlan.steps.length > 0 && (
-              <>
-                <Box sx={{ mt: 0.5 }}>
-                  {processedSteps.map((step: any) => (
-                    <AIStepDisplay
-                      key={`${aiPlan?.id || 'current'}-step-${step.stepNumber}`}
-                      step={step}
-                      showExpand={true}
-                    />
-                  ))}
-                </Box>
-
-                {/* PHASE 3: Execution Summary (Show during/after execution) */}
-                {(isAIExecuting || executionSummary || taskResult) && (
-                  <Box sx={{ mt: 1, p: 1, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 0.5 }}>
-                    
-                    {/* Progress Bar */}
-                    <Box sx={{ mb: 1 }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ color: '#fff' }}>
-                          Progress: {progressPercentage.toFixed(0)}%
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#aaa' }}>
-                          {executionSummary ? `${executionSummary.completedSteps}/${executionSummary.totalSteps}` : `${Math.round(progressPercentage / 100 * (aiPlan.steps?.length || 0))}/${aiPlan.steps?.length || 0}`} steps
-                        </Typography>
-                      </Box>
-                      <Box sx={{ 
-                        width: '100%', 
-                        height: 4, 
-                        backgroundColor: 'rgba(255,255,255,0.1)', 
-                        borderRadius: 2,
-                        overflow: 'hidden'
-                      }}>
-                        <Box sx={{ 
-                          width: `${progressPercentage}%`, 
-                          height: '100%', 
-                          backgroundColor: taskResult?.success === false ? '#f44336' : '#4caf50',
-                          transition: 'width 0.3s ease'
-                        }} />
-                      </Box>
-                    </Box>
-
-                    {/* Current Status */}
-                    {isAIExecuting && (
-                      <Typography variant="caption" sx={{ color: '#2196f3', display: 'block', mb: 1 }}>
-                        🔄 {currentStep}
-                      </Typography>
-                    )}
-
-                    {/* Execution Summary */}
-                    {executionSummary && (
-                      <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1 }}>
-                        <Typography variant="caption" sx={{
-                          color: '#4caf50',
-                          backgroundColor: 'rgba(76,175,80,0.1)',
-                          px: 1, py: 0.5, borderRadius: 0.5,
-                        }}>
-                          ✅ {executionSummary.completedSteps} completed
-                        </Typography>
-                        {executionSummary.failedSteps > 0 && (
-                          <Typography variant="caption" sx={{
-                            color: '#f44336',
-                            backgroundColor: 'rgba(244,67,54,0.1)',
-                            px: 1, py: 0.5, borderRadius: 0.5,
-                          }}>
-                            ❌ {executionSummary.failedSteps} failed
-                          </Typography>
-                        )}
-                        <Typography variant="caption" sx={{
-                          color: '#2196f3',
-                          backgroundColor: 'rgba(33,150,243,0.1)',
-                          px: 1, py: 0.5, borderRadius: 0.5,
-                        }}>
-                          ⏱️ {executionSummary.totalDuration.toFixed(1)}s total
-                        </Typography>
-                      </Box>
-                    )}
-
-                  </Box>
-                )}
-
-              </>
-            )}
+        {/* EXECUTION PROGRESS */}
+        {isExecuting && executionProgress && (
+          <Box sx={{ mt: 2, p: 2, backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 1 }}>
+            <Typography variant="subtitle2" sx={{ color: '#2196f3', mb: 1 }}>
+              🔄 Executing...
+            </Typography>
+            
+            {executionProgress.steps?.map((step: any, idx: number) => (
+              <AIStepDisplay key={idx} step={step} showExpand={false} compact />
+            ))}
           </Box>
         )}
       </Box>

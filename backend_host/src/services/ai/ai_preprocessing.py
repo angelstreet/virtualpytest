@@ -1,11 +1,14 @@
 """
 AI Prompt Preprocessing
 
-Pre-processes prompts before AI generation:
-- Apply learned mappings from database
-- Detect ambiguous phrases
-- Auto-correct high-confidence matches
-- Extract exact node matches
+SMART preprocessing before AI generation:
+1. Intent extraction (keywords, patterns, structure)
+2. Context filtering (semantic search to reduce noise)
+3. Learned mappings (from database)
+4. Disambiguation (auto-correct or ask user)
+5. Exact match detection (skip AI if simple)
+
+Goal: Preprocessing is smart enough that AI just assembles the graph
 
 Adapted from old shared/src/lib/executors/ai_prompt_validation.py
 Now lives in backend_host/src/services/ai/ (host-specific, not shared)
@@ -20,6 +23,9 @@ from shared.src.lib.database.ai_prompt_disambiguation_db import (
     get_learned_mappings_batch,
     save_disambiguation
 )
+
+from backend_host.src.services.ai.ai_intent_parser import IntentParser, build_structure_hints_for_ai
+from backend_host.src.services.ai.ai_context_filter import ContextFilter, format_filtered_context_for_ai
 
 
 def find_fuzzy_matches(target: str, available_nodes: List[str], 
@@ -247,4 +253,144 @@ def check_exact_match(prompt: str, available_nodes: List[str]) -> Optional[str]:
                         return node
     
     return None
+
+
+def smart_preprocess(
+    prompt: str,
+    all_nodes: List[str],
+    all_actions: List[str],
+    all_verifications: List[str],
+    team_id: str,
+    userinterface_name: str
+) -> Dict:
+    """
+    SMART preprocessing with intent extraction and context filtering
+    
+    This is the main entry point for preprocessing. It:
+    1. Extracts user intent (keywords, patterns, structure)
+    2. Filters context by relevance (15 nodes instead of 100)
+    3. Checks for exact matches (skip AI if simple)
+    4. Applies learned mappings and disambiguation
+    5. Returns filtered context ready for AI
+    
+    Args:
+        prompt: User's natural language prompt
+        all_nodes: ALL available navigation nodes (will be filtered)
+        all_actions: ALL available actions (will be filtered)
+        all_verifications: ALL available verifications (will be filtered)
+        team_id: Team ID for database lookup
+        userinterface_name: UI context
+    
+    Returns:
+        Either:
+        - {status: 'ready', filtered_context: {...}} → Send to AI
+        - {status: 'needs_disambiguation', ...} → Show modal
+        - {status: 'exact_match', node: ...} → Skip AI entirely
+        - {status: 'impossible', reason: ...} → Fail early
+    """
+    print(f"[@smart_preprocess] Starting smart preprocessing")
+    print(f"[@smart_preprocess]   Input context: {len(all_nodes)} nodes, {len(all_actions)} actions, {len(all_verifications)} verifications")
+    
+    # Step 1: Parse intent (keywords, patterns, structure)
+    intent_parser = IntentParser()
+    intent = intent_parser.parse_prompt(prompt)
+    
+    keywords = intent['keywords']
+    patterns = intent['patterns']
+    all_keywords = intent['all_keywords']
+    
+    # Step 2: Check for exact match (skip AI entirely)
+    if not patterns['has_loop'] and not patterns['has_sequence']:
+        # Simple prompt → might be exact match
+        exact_node = check_exact_match(prompt, all_nodes)
+        if exact_node:
+            print(f"[@smart_preprocess] ✅ Exact match found - skipping AI")
+            return {
+                'status': 'exact_match',
+                'node': exact_node,
+                'intent': intent
+            }
+    
+    # Step 3: Filter context by relevance (semantic search)
+    context_filter = ContextFilter()
+    filtered_context = context_filter.filter_context(
+        prompt=prompt,
+        keywords=keywords,
+        all_nodes=all_nodes,
+        all_actions=all_actions,
+        all_verifications=all_verifications
+    )
+    
+    # Extract just the item names (not scores) for disambiguation
+    filtered_node_names = [item['item'] for item in filtered_context['nodes']]
+    filtered_action_names = [item['item'] for item in filtered_context['actions']]
+    filtered_verification_names = [item['item'] for item in filtered_context['verifications']]
+    
+    # Step 4: Validate - do we have relevant context?
+    if not filtered_node_names and keywords['navigation']:
+        return {
+            'status': 'impossible',
+            'reason': f'No navigation nodes found for: {", ".join(keywords["navigation"])}',
+            'intent': intent
+        }
+    
+    if not filtered_action_names and keywords['actions']:
+        return {
+            'status': 'impossible',
+            'reason': f'No actions found for: {", ".join(keywords["actions"])}',
+            'intent': intent
+        }
+    
+    if not filtered_verification_names and keywords['verifications']:
+        return {
+            'status': 'impossible',
+            'reason': f'No verifications found for: {", ".join(keywords["verifications"])}',
+            'intent': intent
+        }
+    
+    # Step 5: Apply learned mappings and check for ambiguities
+    # Run disambiguation on FILTERED context (not full catalog!)
+    preprocessed = preprocess_prompt(
+        prompt,
+        available_nodes=filtered_node_names,  # FILTERED!
+        team_id=team_id,
+        userinterface_name=userinterface_name
+    )
+    
+    if preprocessed['status'] == 'needs_disambiguation':
+        print(f"[@smart_preprocess] ⚠️  Needs disambiguation")
+        return {
+            'status': 'needs_disambiguation',
+            'ambiguities': preprocessed['ambiguities'],
+            'auto_corrections': preprocessed.get('auto_corrections', []),
+            'intent': intent
+        }
+    
+    # Step 6: Build structure hints for AI
+    structure_hints = build_structure_hints_for_ai(intent)
+    
+    # Step 7: Format filtered context for AI prompt
+    formatted_context = format_filtered_context_for_ai(filtered_context)
+    
+    # Use corrected prompt if available
+    final_prompt = preprocessed.get('corrected_prompt', prompt)
+    
+    print(f"[@smart_preprocess] ✅ Preprocessing complete - ready for AI")
+    if preprocessed['status'] == 'auto_corrected':
+        print(f"[@smart_preprocess]   Applied {len(preprocessed['corrections'])} auto-corrections")
+    
+    return {
+        'status': 'ready',
+        'original_prompt': prompt,
+        'corrected_prompt': final_prompt,
+        'filtered_context': {
+            'nodes': filtered_context['nodes'],
+            'actions': filtered_context['actions'],
+            'verifications': filtered_context['verifications']
+        },
+        'formatted_context': formatted_context,  # String for AI prompt
+        'structure_hints': structure_hints,      # String for AI prompt
+        'intent': intent,
+        'stats': filtered_context['stats']
+    }
 

@@ -62,4 +62,25 @@ HEATMAP_CONFIG = {
     'PROCESS_PRIORITY_LOW': True,
 }
 
+# =====================================================
+# AI CONFIGURATION
+# =====================================================
+
+AI_CONFIG = {
+    # Model configuration
+    'MODEL': 'microsoft/phi-3-mini-128k-instruct',  # OpenRouter model
+    'MAX_TOKENS': 2000,                              # Max completion tokens
+    'TEMPERATURE': 0.0,                              # Deterministic output
+    
+    # Context limits (for smart preprocessing)
+    'MAX_NODES_TO_AI': 15,        # Top N navigation nodes
+    'MAX_ACTIONS_TO_AI': 10,      # Top N actions
+    'MAX_VERIFICATIONS_TO_AI': 8, # Top N verifications
+    
+    # Confidence thresholds
+    'CONFIDENCE_VERY_HIGH': 0.95,  # Auto-correct even with multiple matches
+    'CONFIDENCE_HIGH': 0.85,       # Auto-correct single match
+    'CONFIDENCE_MEDIUM': 0.60,     # Show in disambiguation
+    'CONFIDENCE_LOW': 0.40,        # Minimum similarity
+}
 
