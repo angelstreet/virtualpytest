@@ -553,7 +553,7 @@ class NavigationExecutor:
                         node_id=target_node_id,
                         userinterface_name=userinterface_name,  # MANDATORY parameter
                         team_id=team_id,
-                        tree_id=tree_id
+                        tree_id=tree_id  # Unified tree - only one tree
                     )
                     
                     # Only skip entry flow if verifications exist AND passed
@@ -1215,6 +1215,7 @@ class NavigationExecutor:
         userinterface_name: str,
         current_node_id: Optional[str] = None,
         target_node_label: Optional[str] = None,
+        frontend_sent_position: bool = False,
         team_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
@@ -1227,6 +1228,7 @@ class NavigationExecutor:
             userinterface_name: User interface name (MANDATORY for reference resolution)
             current_node_id: Current node ID (optional)
             target_node_label: Target node label (optional)
+            frontend_sent_position: Whether frontend explicitly sent position
             team_id: Team ID (optional)
         
         Returns:
@@ -1248,6 +1250,7 @@ class NavigationExecutor:
                 'current_node_id': current_node_id,
                 'target_node_label': target_node_label,
                 'userinterface_name': userinterface_name,
+                'frontend_sent_position': frontend_sent_position,
                 'result': None,
                 'error': None,
                 'start_time': time.time(),
@@ -1258,7 +1261,7 @@ class NavigationExecutor:
         # Start execution in background thread
         thread = threading.Thread(
             target=self._execute_navigation_with_tracking,
-            args=(execution_id, tree_id, target_node_id, userinterface_name, current_node_id, target_node_label, team_id),
+            args=(execution_id, tree_id, target_node_id, userinterface_name, current_node_id, target_node_label, frontend_sent_position, team_id),
             daemon=True
         )
         thread.start()
@@ -1314,6 +1317,7 @@ class NavigationExecutor:
         userinterface_name: str,
         current_node_id: Optional[str],
         target_node_label: Optional[str],
+        frontend_sent_position: bool,
         team_id: Optional[str]
     ):
         """Execute navigation in background thread with progress tracking"""
@@ -1330,6 +1334,7 @@ class NavigationExecutor:
                 target_node_id=target_node_id,
                 current_node_id=current_node_id,
                 target_node_label=target_node_label,
+                frontend_sent_position=frontend_sent_position,
                 team_id=team_id
             )
             
