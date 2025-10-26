@@ -565,14 +565,14 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       
       if (result.success && result.graph) {
         // Load graph onto ReactFlow canvas (like loading a test case)
-        setNodes(result.graph.nodes.map((node: any) => ({
+        const loadedNodes = result.graph.nodes.map((node: any) => ({
           id: node.id,
           type: node.type as any,
           position: node.position,
           data: node.data
-        })));
+        }));
         
-        setEdges(result.graph.edges.map((edge: any) => ({
+        const loadedEdges = result.graph.edges.map((edge: any) => ({
           id: edge.id,
           source: edge.source,
           target: edge.target,
@@ -582,7 +582,18 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
             stroke: edge.type === 'success' ? '#10b981' : '#ef4444',
             strokeWidth: 2
           }
-        })));
+        }));
+        
+        // 🆕 AUTO-LAYOUT: Apply vertical layout immediately after AI generation
+        const { getLayoutedElements } = await import('../../components/testcase/ai/autoLayout');
+        const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+          loadedNodes,
+          loadedEdges,
+          { direction: 'TB' } // Force vertical layout
+        );
+        
+        setNodes(layoutedNodes);
+        setEdges(layoutedEdges);
         
         // Store the generation result for the result panel
         setAiGenerationResult(result);

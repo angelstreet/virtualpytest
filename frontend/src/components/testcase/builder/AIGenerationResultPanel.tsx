@@ -52,7 +52,7 @@ export const AIGenerationResultPanel: React.FC<AIGenerationResultPanelProps> = (
 }) => {
   const { actualMode } = useTheme();
   const [isAnalysisExpanded, setIsAnalysisExpanded] = useState(true);
-  const [isStatsExpanded, setIsStatsExpanded] = useState(false); // Collapsed by default
+  const [isStatsExpanded, setIsStatsExpanded] = useState(true); // Expanded by default
   
   // Draggable state - start centered
   const [position, setPosition] = useState({ 

@@ -118,6 +118,15 @@ export const useTestCaseExecution = () => {
       try {
         const statusResponse = await fetch(buildServerUrl(`/server/testcase/execution/${executionId}/status`));
         
+        // If execution not found or already cleaned up, stop polling
+        if (statusResponse.status === 400 || statusResponse.status === 404) {
+          console.log(`[useTestCaseExecution] Execution ${executionId} not found (${statusResponse.status}) - stopping poll`);
+          return {
+            success: false,
+            error: 'Execution not found - it may have already completed'
+          };
+        }
+        
         if (!statusResponse.ok) {
           throw new Error(`HTTP ${statusResponse.status}`);
         }
@@ -125,7 +134,12 @@ export const useTestCaseExecution = () => {
         const statusData = await statusResponse.json();
         
         if (!statusData.success) {
-          throw new Error(statusData.error || 'Failed to get status');
+          // If backend explicitly says execution is done/failed, stop polling
+          console.log(`[useTestCaseExecution] Backend returned success=false - stopping poll`);
+          return {
+            success: false,
+            error: statusData.error || 'Execution failed'
+          };
         }
         
         const status: ExecutionStatus = statusData.status;
@@ -164,7 +178,8 @@ export const useTestCaseExecution = () => {
         
       } catch (error) {
         console.error('[useTestCaseExecution] Error polling status:', error);
-        // Continue polling unless we've hit max attempts
+        // Only continue polling for network errors, not for "not found" errors
+        // If we've hit max attempts, give up
         if (attempt >= maxAttempts - 1) {
           return {
             success: false,
