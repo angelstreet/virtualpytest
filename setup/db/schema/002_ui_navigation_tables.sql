@@ -344,6 +344,7 @@ $$;
 CREATE OR REPLACE FUNCTION update_node_subtree_counts()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SET search_path TO public, pg_temp
 AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
@@ -572,8 +573,73 @@ Automatically refreshed when tree data changes via triggers.
 Performance: ~10ms reads vs ~500ms function calls (50x faster!)';
 
 -- ============================================================================
--- AUTO-REFRESH TRIGGERS FOR MATERIALIZED VIEW
+-- AUTO-LABEL TRIGGERS FOR EDGES
 -- ============================================================================
+
+-- Function to auto-set edge label on insert (if not provided)
+CREATE OR REPLACE FUNCTION auto_set_edge_label_on_insert()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path TO public, pg_temp
+AS $$
+BEGIN
+    -- Set the label for the new edge if it's not already set
+    IF NEW.label IS NULL OR NEW.label = '' THEN
+        SELECT source_node.label || '→' || target_node.label INTO NEW.label
+        FROM navigation_nodes source_node, navigation_nodes target_node
+        WHERE NEW.tree_id = source_node.tree_id 
+          AND NEW.source_node_id = source_node.node_id
+          AND NEW.tree_id = target_node.tree_id 
+          AND NEW.target_node_id = target_node.node_id;
+    END IF;
+    
+    RETURN NEW;
+END;
+$$;
+
+-- Create trigger to auto-set edge label on insert
+CREATE TRIGGER trigger_auto_set_edge_label_on_insert
+    BEFORE INSERT ON navigation_edges
+    FOR EACH ROW
+    EXECUTE FUNCTION auto_set_edge_label_on_insert();
+
+-- Function to auto-update edge labels when node label changes
+CREATE OR REPLACE FUNCTION auto_update_edge_labels_on_node_change()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SET search_path TO public, pg_temp
+AS $$
+BEGIN
+    -- Update all edges where this node is the source
+    UPDATE navigation_edges 
+    SET label = NEW.label || '→' || target_node.label,
+        updated_at = now()
+    FROM navigation_nodes target_node
+    WHERE navigation_edges.tree_id = NEW.tree_id 
+      AND navigation_edges.source_node_id = NEW.node_id
+      AND navigation_edges.tree_id = target_node.tree_id 
+      AND navigation_edges.target_node_id = target_node.node_id;
+    
+    -- Update all edges where this node is the target
+    UPDATE navigation_edges 
+    SET label = source_node.label || '→' || NEW.label,
+        updated_at = now()
+    FROM navigation_nodes source_node
+    WHERE navigation_edges.tree_id = NEW.tree_id 
+      AND navigation_edges.target_node_id = NEW.node_id
+      AND navigation_edges.tree_id = source_node.tree_id 
+      AND navigation_edges.source_node_id = source_node.node_id;
+    
+    RETURN NEW;
+END;
+$$;
+
+-- Create trigger to auto-update edge labels when node label changes
+CREATE TRIGGER trigger_auto_update_edge_labels_on_node_change
+    AFTER INSERT OR UPDATE OF label ON navigation_nodes
+    FOR EACH ROW
+    WHEN (OLD.label IS DISTINCT FROM NEW.label OR TG_OP = 'INSERT')
+    EXECUTE FUNCTION auto_update_edge_labels_on_node_change();
 
 -- Function to refresh materialized view for a specific tree
 CREATE OR REPLACE FUNCTION refresh_tree_materialized_view()
@@ -591,7 +657,7 @@ BEGIN
         RETURN NEW;
     END IF;
 END;
-$$ LANGUAGE plpgsql SET search_path = '';
+$$ LANGUAGE plpgsql SET search_path TO public, pg_temp;
 
 -- Trigger on navigation_trees changes
 CREATE TRIGGER trigger_refresh_mv_on_tree_change

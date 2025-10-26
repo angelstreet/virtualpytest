@@ -53,7 +53,7 @@ BEGIN
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path TO public, pg_temp;
 
 -- 2. Function to cascade delete subtrees when parent node is deleted
 CREATE OR REPLACE FUNCTION cascade_delete_subtrees()
@@ -80,7 +80,7 @@ BEGIN
     
     RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$ LANGUAGE plpgsql SET search_path TO public, pg_temp;
 
 -- 3. Create sync trigger (fires on label, screenshot, or verifications changes)
 DROP TRIGGER IF EXISTS sync_parent_node_to_subtrees_trigger ON navigation_nodes;
