@@ -336,6 +336,32 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // Metrics state
     const [showMetricsModal, setShowMetricsModal] = useState(false);
 
+    // Modifier key state for conditional edge creation
+    const [isShiftHeld, setIsShiftHeld] = useState(false);
+
+    // Keyboard event listeners for modifier keys
+    useEffect(() => {
+      const handleKeyDown = (e: KeyboardEvent) => {
+        if (e.shiftKey) {
+          setIsShiftHeld(true);
+        }
+      };
+
+      const handleKeyUp = (e: KeyboardEvent) => {
+        if (!e.shiftKey) {
+          setIsShiftHeld(false);
+        }
+      };
+
+      window.addEventListener('keydown', handleKeyDown);
+      window.addEventListener('keyup', handleKeyUp);
+
+      return () => {
+        window.removeEventListener('keydown', handleKeyDown);
+        window.removeEventListener('keyup', handleKeyUp);
+      };
+    }, []);
+
     // AI Generation handler
     const handleToggleAIGeneration = useCallback(() => {
       setIsAIGenerationOpen(true);
@@ -404,6 +430,26 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       // Call the original handler
       onPaneClick();
     }, [onPaneClick, showGotoPanel]);
+
+    // Wrap onConnect to pass modifier key state for conditional edges
+    const wrappedOnConnect = useCallback(
+      (connection: any) => {
+        // Pass isConditional flag based on Shift key state
+        const enhancedConnection = {
+          ...connection,
+          isConditional: isShiftHeld, // Hold Shift to create conditional edge (BLUE, shared actions)
+        };
+        
+        if (isShiftHeld) {
+          console.log('[@NavigationEditor] 🔷 Creating CONDITIONAL edge (Shift held) - will share actions with siblings');
+        } else {
+          console.log('[@NavigationEditor] ⚪ Creating REGULAR edge - unique action sets');
+        }
+        
+        onConnect(enhancedConnection);
+      },
+      [onConnect, isShiftHeld]
+    );
 
     // Memoize the AV panel collapsed change handler to prevent infinite loops
     const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
@@ -793,7 +839,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   edges={edges}
                   onNodesChange={wrappedOnNodesChange}
                   onEdgesChange={onEdgesChange}
-                  onConnect={onConnect}
+                  onConnect={wrappedOnConnect}
                   onNodeClick={wrappedOnNodeClick}
                   onEdgeClick={wrappedOnEdgeClick}
                   onNodeDoubleClick={nestedNavigation.handleNodeDoubleClick}

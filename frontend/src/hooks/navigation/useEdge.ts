@@ -565,6 +565,41 @@ export const useEdge = (props: UseEdgeProps = {}) => {
     return actionSets;
   }, [getActionSetsFromEdge, isActionEdge]);
 
+  /**
+   * Check if actions have changed compared to original
+   * Used for conditional edge unlinking detection
+   */
+  const hasActionsChanged = useCallback((
+    newActions: Action[] = [],
+    originalActions: Action[] = [],
+    newRetryActions: Action[] = [],
+    originalRetryActions: Action[] = [],
+    newFailureActions: Action[] = [],
+    originalFailureActions: Action[] = []
+  ): boolean => {
+    // Helper to compare action arrays
+    const actionsEqual = (arr1: Action[], arr2: Action[]) => {
+      if (arr1.length !== arr2.length) return false;
+      
+      return arr1.every((action1, index) => {
+        const action2 = arr2[index];
+        return (
+          action1.command === action2.command &&
+          JSON.stringify(action1.params) === JSON.stringify(action2.params) &&
+          action1.action_type === action2.action_type &&
+          action1.iterator === action2.iterator
+        );
+      });
+    };
+
+    // Check if any action arrays changed
+    return (
+      !actionsEqual(newActions, originalActions) ||
+      !actionsEqual(newRetryActions, originalRetryActions) ||
+      !actionsEqual(newFailureActions, originalFailureActions)
+    );
+  }, []);
+
   return {
     // Action hook - 🛡️ EXECUTION GUARD: Check actionHook.loading before allowing edge operations
     actionHook,
@@ -582,6 +617,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
     isProtectedEdge,
     isActionEdge,
     getDisplayActionSets,
+    hasActionsChanged,
 
     canRunActions,
     formatRunResult,

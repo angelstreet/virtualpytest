@@ -1061,17 +1061,44 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
              throw new Error('Edge ID missing from form data');
            }
 
-           const currentSelectedEdge = edges.find((edge) => edge.id === edgeForm.edgeId);
-           if (!currentSelectedEdge) {
-             throw new Error(`Edge ${edgeForm.edgeId} not found in current tree`);
-           }
+          const currentSelectedEdge = edges.find((edge) => edge.id === edgeForm.edgeId);
+          if (!currentSelectedEdge) {
+            throw new Error(`Edge ${edgeForm.edgeId} not found in current tree`);
+          }
 
-                     // Update edge with new data
+          // ✅ AUTO-UNLINK: If conditional edge + actions changed → generate new unique action_set_id
+          const isConditional = currentSelectedEdge.data?.is_conditional === true;
+          
+          if (isConditional && edgeForm.action_sets?.[0]) {
+            const originalActionSet = currentSelectedEdge.data?.action_sets?.find(
+              (as: any) => as.id === edgeForm.action_sets[0].id
+            );
+            
+            const actionsChanged = originalActionSet && (
+              JSON.stringify(edgeForm.action_sets[0].actions) !== JSON.stringify(originalActionSet.actions) ||
+              JSON.stringify(edgeForm.action_sets[0].retry_actions) !== JSON.stringify(originalActionSet.retry_actions) ||
+              JSON.stringify(edgeForm.action_sets[0].failure_actions) !== JSON.stringify(originalActionSet.failure_actions)
+            );
+            
+            if (actionsChanged) {
+              // Generate unique ID → automatic unlink
+              const sourceNode = nodes.find(n => n.id === currentSelectedEdge.source);
+              const targetNode = nodes.find(n => n.id === currentSelectedEdge.target);
+              const cleanSource = (sourceNode?.data?.label || 'source').toLowerCase().replace(/[^a-z0-9]/g, '_');
+              const cleanTarget = (targetNode?.data?.label || 'target').toLowerCase().replace(/[^a-z0-9]/g, '_');
+              
+              edgeForm.action_sets[0].id = `${cleanSource}_to_${cleanTarget}_${Date.now()}`;
+              edgeForm.default_action_set_id = edgeForm.action_sets[0].id;
+              
+              console.log(`[@NavigationContext:saveEdge] ⚠️ Conditional edge → independent (actions changed)`);
+            }
+          }
+
+          // Update edge with form data
           const updatedEdge = {
             ...currentSelectedEdge,
             data: {
               ...(currentSelectedEdge.data || {}),
-              // Include all form data including action_sets
               action_sets: edgeForm.action_sets || [],
               default_action_set_id: edgeForm.default_action_set_id || 'default',
               final_wait_time: edgeForm.final_wait_time || 0,

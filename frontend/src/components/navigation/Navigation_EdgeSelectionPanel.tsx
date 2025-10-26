@@ -1,5 +1,5 @@
 import { Close as CloseIcon } from '@mui/icons-material';
-import { Box, Typography, Button, IconButton, Paper, LinearProgress } from '@mui/material';
+import { Box, Typography, Button, IconButton, Paper, LinearProgress, Alert } from '@mui/material';
 import React, { useEffect, useMemo } from 'react';
 import { useReactFlow } from 'reactflow';
 
@@ -306,6 +306,18 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
               {toLabel}
             </Typography>
           </Box>
+
+          {/* Conditional Edge Warning */}
+          {selectedEdge.data?.is_conditional && (
+            <Alert severity="info" sx={{ mb: 1, py: 0.5, fontSize: '0.75rem' }}>
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block', fontWeight: 'bold' }}>
+                🔷 Conditional Edge
+              </Typography>
+              <Typography variant="caption" sx={{ fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
+                Editing actions will unlink this edge and make it independent.
+              </Typography>
+            </Alert>
+          )}
 
           {/* Show main actions list */}
           {(actions?.length || 0) > 0 && (
