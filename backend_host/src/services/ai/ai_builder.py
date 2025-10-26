@@ -100,7 +100,12 @@ Guidelines:
 - For navigation-only tasks: Use ONLY Navigate steps
 - Add Action steps ONLY if task requires user interaction (press, tap, enter text, swipe)
 - Add Verify steps ONLY if task requires checking something specific
-- Keep it simple and direct'''
+- Keep it simple and direct
+
+DON'T DO THIS (common mistakes):
+✗ Navigate to: Navigate to home  ← WRONG! Remove duplicate "Navigate to"
+✗ Navigation: Navigate to home   ← WRONG! Use "Navigate to:" format only
+✗ Verify: None                   ← WRONG! Skip verification entirely if not needed'''
     }
 }
 
@@ -797,8 +802,9 @@ class AIGraphBuilder:
                 step_content = re.sub(r'^\d+\.\s*', '', line)
                 
                 # Determine step type
-                if 'Navigate to:' in step_content or 'navigate to' in step_content.lower():
-                    node_match = re.search(r'(?:Navigate to|navigate to):\s*([a-zA-Z0-9_]+)', step_content, re.IGNORECASE)
+                if 'Navigate to:' in step_content or 'navigate to' in step_content.lower() or 'Navigation:' in step_content:
+                    # Match both formats: "Navigate to: home" and "Navigation: Navigate to home"
+                    node_match = re.search(r'(?:Navigation:|Navigate to:|navigation:|navigate to:)\s*(?:Navigate to:|navigate to:)?\s*([a-zA-Z0-9_]+)', step_content, re.IGNORECASE)
                     if node_match:
                         steps.append({
                             'type': 'navigation',

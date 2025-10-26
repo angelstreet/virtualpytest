@@ -41,7 +41,7 @@ STOPWORDS = {
     'the', 'was', 'will', 'with', 'she', 'they', 'we', 'you',
     
     # Navigation/action verbs (not node names)
-    'go', 'to', 'navigate', 'open', 'close', 'press', 'click', 'tap',
+    'go',  'goto', 'to', 'navigate', 'open', 'close', 'press', 'click', 'tap',
     'select', 'exit', 'move', 'change', 'switch', 'set', 'get',
     
     # Temporal/sequential words
@@ -440,6 +440,23 @@ def smart_preprocess(
         all_actions=all_actions,
         all_verifications=all_verifications
     )
+    
+    # RESPECT INTENT: Remove actions/verifications independently based on keywords
+    # Actions and verifications are INDEPENDENT - check separately
+    
+    if not keywords.get('actions'):
+        # User didn't mention actions → remove them
+        actions_removed = len(filtered_context['actions'])
+        if actions_removed > 0:
+            print(f"[@smart_preprocess] No action keywords detected → removing {actions_removed} actions")
+        filtered_context['actions'] = []
+    
+    if not keywords.get('verifications'):
+        # User didn't mention verifications → remove them
+        verifications_removed = len(filtered_context['verifications'])
+        if verifications_removed > 0:
+            print(f"[@smart_preprocess] No verification keywords detected → removing {verifications_removed} verifications")
+        filtered_context['verifications'] = []
     
     # Extract just the item names (not scores) for disambiguation
     filtered_node_names = [item['item'] for item in filtered_context['nodes']]
