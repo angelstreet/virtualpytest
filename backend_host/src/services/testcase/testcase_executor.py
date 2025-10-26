@@ -929,15 +929,39 @@ class TestCaseExecutor:
             print(f"[@testcase_executor:_execute_navigation_block]   → target_node_label: {data.get('target_node_label')}")
             print(f"[@testcase_executor:_execute_navigation_block]   → target_node_id: {data.get('target_node_id')}")
             
-            # Call navigation_executor directly - it handles label resolution internally
-            result = navigation_executor.execute_navigation(
-                tree_id=context.tree_id,
-                userinterface_name=context.userinterface_name,
-                target_node_id=data.get('target_node_id'),
-                target_node_label=data.get('target_node_label') or data.get('target_node'),
-                team_id=context.team_id,
-                context=context
-            )
+            # Call navigation_executor with resilient parameter selection
+            # PRIORITY: Use label if available (more human-readable), fallback to ID
+            # Backend validation requires EXACTLY ONE parameter, not both
+            target_label = data.get('target_node_label') or data.get('target_node')
+            target_id = data.get('target_node_id')
+            
+            # Prefer label over ID - only pass ID if no label exists
+            if target_label:
+                print(f"[@testcase_executor:_execute_navigation_block] Using target_node_label: {target_label}")
+                result = navigation_executor.execute_navigation(
+                    tree_id=context.tree_id,
+                    userinterface_name=context.userinterface_name,
+                    target_node_id=None,  # Explicitly set to None when using label
+                    target_node_label=target_label,
+                    team_id=context.team_id,
+                    context=context
+                )
+            elif target_id:
+                print(f"[@testcase_executor:_execute_navigation_block] Using target_node_id: {target_id}")
+                result = navigation_executor.execute_navigation(
+                    tree_id=context.tree_id,
+                    userinterface_name=context.userinterface_name,
+                    target_node_id=target_id,
+                    target_node_label=None,  # Explicitly set to None when using ID
+                    team_id=context.team_id,
+                    context=context
+                )
+            else:
+                return {
+                    'success': False,
+                    'execution_time_ms': int((time.time() - start_time) * 1000),
+                    'error': 'Navigation block missing both target_node_label and target_node_id'
+                }
             
             execution_time_ms = int((time.time() - start_time) * 1000)
             

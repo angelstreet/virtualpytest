@@ -92,8 +92,8 @@ export const useTestCaseExecution = () => {
       
       console.log(`[useTestCaseExecution] Started async execution: ${executionId}`);
       
-      // Step 2: Poll for status until completion
-      return await pollExecutionStatus(executionId, onProgress);
+      // Step 2: Poll for status until completion (pass hostName for routing)
+      return await pollExecutionStatus(executionId, hostName, onProgress);
       
     } catch (error) {
       console.error('[useTestCaseExecution] Error executing test case:', error);
@@ -109,37 +109,63 @@ export const useTestCaseExecution = () => {
    */
   const pollExecutionStatus = async (
     executionId: string,
+    hostName: string,  // Include host_name for proxy routing
     onProgress?: (status: ExecutionStatus) => void
   ): Promise<TestCaseExecutionResponse> => {
     const maxAttempts = 300;  // 5 minutes max (300 * 1000ms)
     const pollInterval = 1000;  // Poll every 1 second
+    let consecutiveErrors = 0;
+    const maxConsecutiveErrors = 3;  // Stop after 3 consecutive errors
     
     for (let attempt = 0; attempt < maxAttempts; attempt++) {
       try {
-        const statusResponse = await fetch(buildServerUrl(`/server/testcase/execution/${executionId}/status`));
-        
-        // If execution not found or already cleaned up, stop polling
-        if (statusResponse.status === 400 || statusResponse.status === 404) {
-          console.log(`[useTestCaseExecution] Execution ${executionId} not found (${statusResponse.status}) - stopping poll`);
-          return {
-            success: false,
-            error: 'Execution not found - it may have already completed'
-          };
-        }
+        // Include host_name as query param so proxy can route correctly
+        const statusResponse = await fetch(
+          buildServerUrl(`/server/testcase/execution/${executionId}/status?host_name=${encodeURIComponent(hostName)}`)
+        );
         
         if (!statusResponse.ok) {
+          // If 404, execution was removed from memory - stop polling
+          if (statusResponse.status === 404) {
+            console.log(`[useTestCaseExecution] Execution ${executionId} not found (404) - stopping poll`);
+            return {
+              success: false,
+              error: 'Execution not found'
+            };
+          }
+          
+          // If 400, might be a proxy/session issue - count consecutive errors
+          if (statusResponse.status === 400) {
+            consecutiveErrors++;
+            console.warn(`[useTestCaseExecution] HTTP 400 error (${consecutiveErrors}/${maxConsecutiveErrors})`);
+            
+            if (consecutiveErrors >= maxConsecutiveErrors) {
+              console.log(`[useTestCaseExecution] Too many consecutive 400 errors - execution completed but status unavailable`);
+              return {
+                success: false,
+                result_type: 'error',
+                execution_time_ms: 0,
+                step_count: 0,
+                script_result_id: '',
+                error: 'Execution completed but final status unavailable (host connection lost)'
+              };
+            }
+            
+            // Wait and retry
+            await new Promise(resolve => setTimeout(resolve, pollInterval));
+            continue;
+          }
+          
           throw new Error(`HTTP ${statusResponse.status}`);
         }
+        
+        // Reset error counter on successful response
+        consecutiveErrors = 0;
         
         const statusData = await statusResponse.json();
         
         if (!statusData.success) {
-          // If backend explicitly says execution is done/failed, stop polling
-          console.log(`[useTestCaseExecution] Backend returned success=false - stopping poll`);
-          return {
-            success: false,
-            error: statusData.error || 'Execution failed'
-          };
+          throw new Error(statusData.error || 'Failed to get status');
         }
         
         const status: ExecutionStatus = statusData.status;
@@ -151,7 +177,7 @@ export const useTestCaseExecution = () => {
         
         // Check if execution is complete
         if (status.status === 'completed' || status.status === 'failed') {
-          console.log(`[useTestCaseExecution] Execution ${executionId} ${status.status}`);
+          console.log(`[useTestCaseExecution] Execution ${executionId} ${status.status} - STOPPING POLL`);
           
           if (status.result) {
             // Return final result
@@ -178,8 +204,17 @@ export const useTestCaseExecution = () => {
         
       } catch (error) {
         console.error('[useTestCaseExecution] Error polling status:', error);
-        // Only continue polling for network errors, not for "not found" errors
-        // If we've hit max attempts, give up
+        consecutiveErrors++;
+        
+        // Stop if too many consecutive errors
+        if (consecutiveErrors >= maxConsecutiveErrors) {
+          return {
+            success: false,
+            error: 'Too many polling errors - execution status unavailable'
+          };
+        }
+        
+        // Continue polling unless we've hit max attempts
         if (attempt >= maxAttempts - 1) {
           return {
             success: false,
