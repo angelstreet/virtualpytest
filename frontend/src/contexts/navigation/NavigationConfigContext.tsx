@@ -348,8 +348,26 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       throw new Error(result.error);
     }
     
-    // Note: Backend cache is memory-only and cleared on restart
-    // Incremental updates still happen via /host/navigation/cache/update-node if needed for live editing
+    // Update backend unified cache for live editing (memory-only, but needs updates)
+    try {
+      const cacheUpdateResponse = await fetch(buildServerUrl(`/host/navigation/cache/update-node`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tree_id: treeId,
+          node: result.node // Use node data from server response
+        })
+      });
+      const cacheResult = await cacheUpdateResponse.json();
+      if (cacheResult.success) {
+        console.log(`[@NavigationConfigContext:saveNode] ✅ Backend cache updated for node ${node.node_id}`);
+      } else {
+        console.warn(`[@NavigationConfigContext:saveNode] ⚠️ Backend cache update failed: ${cacheResult.error}`);
+      }
+    } catch (err) {
+      console.warn(`[@NavigationConfigContext:saveNode] ⚠️ Backend cache update error:`, err);
+      // Don't fail the save if cache update fails
+    }
   };
 
   const saveEdge = async (treeId: string, edge: NavigationEdge): Promise<any> => {
@@ -364,8 +382,27 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       throw new Error(result.error);
     }
     
-    // Note: Backend cache is memory-only and cleared on restart
-    // Incremental updates still happen via /host/navigation/cache/update-edge if needed for live editing
+    // Update backend unified cache for live editing (memory-only, but needs updates)
+    try {
+      const cacheUpdateResponse = await fetch(buildServerUrl(`/host/navigation/cache/update-edge`), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tree_id: treeId,
+          edge: result.edge // Use edge data from server response
+        })
+      });
+      const cacheResult = await cacheUpdateResponse.json();
+      if (cacheResult.success) {
+        console.log(`[@NavigationConfigContext:saveEdge] ✅ Backend cache updated for edge ${edge.id}`);
+      } else {
+        console.warn(`[@NavigationConfigContext:saveEdge] ⚠️ Backend cache update failed: ${cacheResult.error}`);
+      }
+    } catch (err) {
+      console.warn(`[@NavigationConfigContext:saveEdge] ⚠️ Backend cache update error:`, err);
+      // Don't fail the save if cache update fails
+    }
+    
     return result;
   };
 
