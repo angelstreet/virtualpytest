@@ -64,7 +64,11 @@ export const AIGenerationResultPanel: React.FC<AIGenerationResultPanelProps> = (
 
   // Parse analysis
   const parseAnalysis = (analysis?: string) => {
-    if (!analysis) return { goal: '', thinking: '' };
+    if (!analysis) return { goal: '', thinking: '', isDirectMatch: false };
+    
+    // Check if this is a direct match (no AI)
+    const isDirectMatch = analysis.includes('Direct Match Found') || analysis.includes('🎯');
+    
     const lines = analysis.split('\n');
     let goal = '';
     let thinking = '';
@@ -72,10 +76,16 @@ export const AIGenerationResultPanel: React.FC<AIGenerationResultPanelProps> = (
       if (line.startsWith('Goal:')) goal = line.replace('Goal:', '').trim();
       else if (line.startsWith('Thinking:')) thinking = line.replace('Thinking:', '').trim();
     }
-    return { goal, thinking };
+    
+    // If no Goal/Thinking format, use full text as thinking
+    if (!goal && !thinking) {
+      thinking = analysis;
+    }
+    
+    return { goal, thinking, isDirectMatch };
   };
 
-  const { goal, thinking } = parseAnalysis(result.analysis);
+  const { goal, thinking, isDirectMatch } = parseAnalysis(result.analysis);
 
   // Calculate block counts
   const blockCounts = result.generation_stats?.block_counts || {
@@ -216,7 +226,7 @@ export const AIGenerationResultPanel: React.FC<AIGenerationResultPanelProps> = (
             onClick={() => setIsAnalysisExpanded(!isAnalysisExpanded)}
           >
             <Typography variant="caption" fontWeight="bold" color="text.secondary">
-              🤖 AI REASONING
+              {isDirectMatch ? '🎯 DIRECT MATCH' : '🤖 AI REASONING'}
             </Typography>
             <IconButton size="small" sx={{ p: 0.25 }}>
               {isAnalysisExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}

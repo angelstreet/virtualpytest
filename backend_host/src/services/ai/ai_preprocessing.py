@@ -101,8 +101,11 @@ def is_valid_potential_node(phrase: str) -> bool:
         if any(c.isdigit() or not c.isalnum() for c in part):
             continue
         
-        # Alphabetic parts must be >= 3 chars OR not be stopwords
-        if len(part) < 3 and part in STOPWORDS:
+        # Alphabetic parts must be >= 3 chars AND not be stopwords
+        # Reject if part is too short OR is a stopword
+        if len(part) < 3:
+            return False
+        if part in STOPWORDS:
             return False
     
     return True

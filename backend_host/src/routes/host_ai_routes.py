@@ -67,6 +67,11 @@ def ai_generate_plan():
         )
         
         print(f"[@host_ai] Graph generation result: success={result.get('success')}")
+        print(f"[@host_ai] Result keys: {list(result.keys())}")
+        print(f"[@host_ai] needs_disambiguation: {result.get('needs_disambiguation')}")
+        
+        if result.get('needs_disambiguation'):
+            print(f"[@host_ai] ⚠️  DISAMBIGUATION - ambiguities count: {len(result.get('ambiguities', []))}")
         
         return jsonify(result)
         

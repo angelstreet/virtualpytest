@@ -57,21 +57,29 @@ Generate a test case graph in JSON format with nodes and edges.'''
     },
     'v2': {
         'version': '2.0.0',
-        'description': 'Improved with explicit label requirements and examples',
+        'description': 'Simple text-based output that we parse ourselves',
         'template': '''Task: {task}
 
-Context:
+Available Navigation Nodes:
 {available_nodes}
+
+Available Actions:
 {available_actions}
+
+Available Verifications:
 {available_verifications}
 
-CRITICAL LABEL REQUIREMENTS:
-- Navigation nodes: MUST use format "navigation_N:target_node" (e.g., "navigation_1:home")
-- Action nodes: MUST use format "action_N:command" (e.g., "action_1:click")
-- Verification nodes: MUST use format "verification_N:type" (e.g., "verification_1:check_audio")
-- Terminal nodes: Use "START", "SUCCESS", "FAILURE"
+Respond in this simple format:
 
-Generate a test case graph in JSON format following these requirements.'''
+ANALYSIS: Brief explanation of what this test does
+
+STEPS:
+1. Navigate to: [node_name]
+2. Action: [action_command] (optional description)
+3. Verify: [verification_type] (optional description)
+... continue as needed
+
+Keep it simple. Just list the steps in order. I'll handle the rest.'''
     }
 }
 
@@ -369,7 +377,11 @@ class AIGraphBuilder:
                     exact_node = preprocessed['node']
                     print(f"[@ai_builder] 🎯 Exact match - generating simple graph (no AI)")
                     graph = self._create_simple_navigation_graph(exact_node)
-                    analysis = f"Goal: Navigate to {exact_node}\nThinking: Exact match found, created direct navigation path."
+                    
+                    # Post-process to ensure terminal blocks
+                    graph = self._postprocess_graph(graph, context)
+                    
+                    analysis = f"🎯 Direct Match Found\n\nNo AI needed - '{exact_node}' was found as an exact match in available nodes. Created simple navigation path directly."
                     
                     # Store in cache
                     store_graph(
@@ -647,15 +659,21 @@ class AIGraphBuilder:
         print(f"[@ai_builder:ai] Calling AI (prompt length: {len(ai_prompt)} chars)...")
         result = call_text_ai(
             prompt=ai_prompt,
-            max_tokens=2000,
-            temperature=0.0,
-            model=AI_CONFIG['providers']['openrouter']['models']['agent']
+            max_tokens=AI_CONFIG['MAX_TOKENS'],
+            temperature=AI_CONFIG['TEMPERATURE'],
+            model=AI_CONFIG['MODEL']
         )
         
         if not result.get('success'):
             raise Exception(f"AI call failed: {result.get('error')}")
         
         print(f"[@ai_builder:ai] ✅ AI response received ({len(result.get('content', ''))} chars)")
+        
+        # Log raw AI response for debugging
+        print(f"[@ai_builder:ai] Raw AI response:")
+        print("="*80)
+        print(result.get('content', ''))
+        print("="*80)
         
         # Parse JSON
         parsed = self._parse_ai_response(result['content'])
@@ -707,54 +725,201 @@ class AIGraphBuilder:
     
     def _parse_ai_response(self, content: str) -> Dict[str, Any]:
         """
-        Parse AI JSON response with robust error handling
+        Parse AI text response and convert to graph structure
         
-        Handles:
-        - Markdown code blocks
-        - Trailing content after JSON
-        - Control characters in strings
+        Expected format:
+        ANALYSIS: ...
+        STEPS:
+        1. Navigate to: node_name
+        2. Action: command
+        3. Verify: type
         """
         try:
-            cleaned_content = content.strip()
+            print(f"[@ai_builder:parse] Parsing AI text response...")
             
-            # Handle markdown code blocks
-            json_match = re.search(r'```json\s*\n(.*?)```', cleaned_content, re.DOTALL)
-            if json_match:
-                cleaned_content = json_match.group(1).strip()
-            elif '```' in cleaned_content:
-                json_match = re.search(r'```\s*\n(.*?)```', cleaned_content, re.DOTALL)
-                if json_match:
-                    cleaned_content = json_match.group(1).strip()
-            elif cleaned_content.startswith('```json'):
-                cleaned_content = cleaned_content.replace('```json', '').replace('```', '').strip()
-            elif cleaned_content.startswith('```'):
-                cleaned_content = cleaned_content.replace('```', '').strip()
+            # Extract analysis
+            analysis_match = re.search(r'ANALYSIS:\s*(.+?)(?:\n\nSTEPS:|$)', content, re.DOTALL)
+            analysis = analysis_match.group(1).strip() if analysis_match else "AI-generated test case"
             
-            # Sanitize control characters
-            cleaned_content = self._sanitize_json_string(cleaned_content)
+            # Extract steps
+            steps_match = re.search(r'STEPS:\s*(.+)', content, re.DOTALL)
+            if not steps_match:
+                raise Exception("AI response missing STEPS section")
             
-            # Parse JSON (handle trailing data)
-            from json import JSONDecoder
-            decoder = JSONDecoder()
-            parsed_json, idx = decoder.raw_decode(cleaned_content)
+            steps_text = steps_match.group(1).strip()
+            steps = []
             
-            # Warn about trailing content
-            remaining = cleaned_content[idx:].strip()
-            if remaining:
-                print(f"[@ai_builder:parse] ⚠️ AI returned extra content after JSON (ignored)")
+            # Parse each step line
+            for line in steps_text.split('\n'):
+                line = line.strip()
+                if not line or not re.match(r'^\d+\.', line):
+                    continue
+                
+                # Remove step number
+                step_content = re.sub(r'^\d+\.\s*', '', line)
+                
+                # Determine step type
+                if 'Navigate to:' in step_content or 'navigate to' in step_content.lower():
+                    node_match = re.search(r'(?:Navigate to|navigate to):\s*([a-zA-Z0-9_]+)', step_content, re.IGNORECASE)
+                    if node_match:
+                        steps.append({
+                            'type': 'navigation',
+                            'target': node_match.group(1).strip()
+                        })
+                
+                elif 'Action:' in step_content or 'action:' in step_content.lower():
+                    action_match = re.search(r'(?:Action|action):\s*([a-zA-Z0-9_]+)', step_content, re.IGNORECASE)
+                    if action_match:
+                        steps.append({
+                            'type': 'action',
+                            'command': action_match.group(1).strip()
+                        })
+                
+                elif 'Verify:' in step_content or 'verify:' in step_content.lower():
+                    verify_match = re.search(r'(?:Verify|verify):\s*([a-zA-Z0-9_]+)', step_content, re.IGNORECASE)
+                    if verify_match:
+                        steps.append({
+                            'type': 'verification',
+                            'check': verify_match.group(1).strip()
+                        })
             
-            # Validate required fields
-            if 'analysis' not in parsed_json:
-                raise Exception("AI response missing 'analysis' field")
-            if 'feasible' not in parsed_json:
-                parsed_json['feasible'] = True
+            if not steps:
+                raise Exception("No valid steps found in AI response")
             
-            return parsed_json
+            print(f"[@ai_builder:parse] ✅ Parsed {len(steps)} steps from AI")
+            print(f"[@ai_builder:parse] Steps breakdown:")
+            for i, step in enumerate(steps, 1):
+                print(f"[@ai_builder:parse]   {i}. {step['type']}: {step.get('target') or step.get('command') or step.get('check')}")
             
-        except json.JSONDecodeError as e:
-            print(f"[@ai_builder:parse] ❌ JSON parsing error: {e}")
-            print(f"[@ai_builder:parse] Content preview: {content[:200]}")
-            raise Exception(f"AI returned invalid JSON: {str(e)}")
+            # Convert steps to graph structure
+            graph = self._steps_to_graph(steps)
+            
+            print(f"[@ai_builder:parse] Analysis: {analysis[:100]}...")
+            
+            return {
+                'analysis': analysis,
+                'feasible': True,
+                'graph': graph
+            }
+            
+        except Exception as e:
+            print(f"[@ai_builder:parse] ❌ Parsing error: {e}")
+            print(f"[@ai_builder:parse] Content preview:")
+            print("="*80)
+            print(content[:500])
+            print("="*80)
+            raise Exception(f"Failed to parse AI response: {str(e)}")
+    
+    def _steps_to_graph(self, steps: List[Dict]) -> Dict:
+        """
+        Convert simple steps list to React Flow graph structure
+        
+        Args:
+            steps: List of step dicts with 'type' and details
+            
+        Returns:
+            Graph dict with nodes and edges
+        """
+        nodes = []
+        edges = []
+        y_position = 100
+        y_increment = 100
+        
+        # Always start with START node
+        nodes.append({
+            'id': 'start',
+            'type': 'start',
+            'position': {'x': 250, 'y': y_position},
+            'data': {'label': 'START'}
+        })
+        y_position += y_increment
+        
+        prev_node_id = 'start'
+        node_counter = {'navigation': 1, 'action': 1, 'verification': 1}
+        
+        # Create nodes for each step
+        for step in steps:
+            step_type = step['type']
+            
+            if step_type == 'navigation':
+                node_id = f'nav{node_counter["navigation"]}'
+                target = step['target']
+                nodes.append({
+                    'id': node_id,
+                    'type': 'navigation',
+                    'position': {'x': 250, 'y': y_position},
+                    'data': {
+                        'label': f'navigation_{node_counter["navigation"]}:{target}',
+                        'target_node': target,
+                        'target_node_id': target,
+                        'action_type': 'navigation'
+                    }
+                })
+                node_counter['navigation'] += 1
+                
+            elif step_type == 'action':
+                node_id = f'act{node_counter["action"]}'
+                command = step['command']
+                nodes.append({
+                    'id': node_id,
+                    'type': 'action',
+                    'position': {'x': 250, 'y': y_position},
+                    'data': {
+                        'label': f'action_{node_counter["action"]}:{command}',
+                        'command': command,
+                        'action_type': 'action'
+                    }
+                })
+                node_counter['action'] += 1
+                
+            elif step_type == 'verification':
+                node_id = f'ver{node_counter["verification"]}'
+                check = step['check']
+                nodes.append({
+                    'id': node_id,
+                    'type': 'verification',
+                    'position': {'x': 250, 'y': y_position},
+                    'data': {
+                        'label': f'verification_{node_counter["verification"]}:{check}',
+                        'verification_type': check,
+                        'action_type': 'verification'
+                    }
+                })
+                node_counter['verification'] += 1
+            
+            # Create edge from previous node
+            edges.append({
+                'id': f'e_{prev_node_id}_{node_id}',
+                'source': prev_node_id,
+                'target': node_id,
+                'sourceHandle': 'success',
+                'type': 'success'
+            })
+            
+            prev_node_id = node_id
+            y_position += y_increment
+        
+        # Add SUCCESS terminal node
+        nodes.append({
+            'id': 'success',
+            'type': 'success',
+            'position': {'x': 250, 'y': y_position},
+            'data': {'label': 'SUCCESS'}
+        })
+        
+        # Edge to SUCCESS
+        edges.append({
+            'id': f'e_{prev_node_id}_success',
+            'source': prev_node_id,
+            'target': 'success',
+            'sourceHandle': 'success',
+            'type': 'success'
+        })
+        
+        return {
+            'nodes': nodes,
+            'edges': edges
+        }
     
     def _sanitize_json_string(self, json_str: str) -> str:
         """Remove/escape control characters that break JSON parsing"""

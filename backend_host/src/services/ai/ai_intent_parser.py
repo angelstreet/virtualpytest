@@ -161,15 +161,28 @@ class IntentParser:
         
         Handles:
         - "live TV" → ["live", "tv"]
-        - "check_audio" → ["check", "audio"]
+        - "check_audio" → ["check", "audio", "check_audio"]  ← Keep full phrase!
         - "press-ok" → ["press", "ok"]
+        
+        IMPORTANT: For underscore-separated names, keep BOTH the full name AND parts
+        to support node names like "home_tvguide" (don't break them!)
         """
-        # Replace special chars with spaces
-        text = re.sub(r'[_\-/]', ' ', text)
+        tokens = []
+        
+        # Keep original if it contains underscores (likely a node/action name)
+        if '_' in text:
+            original = text.lower().strip()
+            if original and original not in STOP_WORDS and len(original) > 1:
+                tokens.append(original)
+        
+        # Replace special chars with spaces for tokenization
+        text_spaced = re.sub(r'[_\-/]', ' ', text)
         # Split on whitespace
-        tokens = text.lower().split()
+        word_tokens = text_spaced.lower().split()
         # Filter out empty and stop words
-        return [t for t in tokens if t and t not in STOP_WORDS and len(t) > 1]
+        tokens.extend([t for t in word_tokens if t and t not in STOP_WORDS and len(t) > 1])
+        
+        return tokens
     
     def _detect_patterns(self, prompt: str) -> Dict:
         """

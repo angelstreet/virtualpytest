@@ -67,9 +67,13 @@ def store_graph(fingerprint: str,
         from shared.src.lib.utils.supabase_utils import get_supabase_client
         supabase = get_supabase_client()
         
+        # Normalize prompt for consistent lookups
+        normalized_prompt = original_prompt.lower().strip()
+        
         data = {
             'fingerprint': fingerprint,
             'original_prompt': original_prompt,
+            'normalized_prompt': normalized_prompt,
             'device_model': device_model,
             'userinterface_name': userinterface_name,
             'available_nodes': json.dumps(available_nodes),
