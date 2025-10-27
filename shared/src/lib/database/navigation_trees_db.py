@@ -20,21 +20,55 @@ def get_supabase():
     return get_supabase_client()
 
 def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
-    """Clear cache when tree is modified - includes materialized view refresh"""
+    """
+    Clear cache when tree is modified (on ANY save: edge, node, tree)
+    Cache will be rebuilt automatically on next navigation/take-control
+    
+    This function clears cache on ALL hosts (multi-host architecture)
+    """
     try:
-        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
-        # Get interface name for this tree
-        tree_result = get_tree_metadata(tree_id, team_id)
-        if tree_result['success']:
-            userinterface_id = tree_result['tree'].get('userinterface_id')
-            if userinterface_id:
-                from shared.src.lib.database.userinterface_db import get_userinterface
-                interface = get_userinterface(userinterface_id, team_id)
-                if interface:
-                    interface_name = interface.get('name')
-                    print(f"[@cache_invalidation] Clearing cache for interface: {interface_name}, tree: {tree_id}")
-                    # Clear existing cache
-                    clear_unified_cache(tree_id, team_id)
+        print(f"[@cache_invalidation] 🔄 Clearing cache for tree: {tree_id} (will rebuild on next use)")
+        
+        # Try to clear cache on ALL hosts via server coordination
+        try:
+            # Import at function level to avoid circular imports
+            from backend_server.src.lib.utils.server_utils import get_host_manager
+            from backend_server.src.lib.utils.route_utils import proxy_to_host_direct
+            
+            # Get all registered hosts
+            host_manager = get_host_manager()
+            hosts = host_manager.get_all_hosts()
+            
+            if hosts:
+                print(f"[@cache_invalidation] Clearing cache on {len(hosts)} host(s)")
+                
+                for host in hosts:
+                    try:
+                        result, status_code = proxy_to_host_direct(
+                            host,
+                            f'/host/navigation/cache/clear/{tree_id}?team_id={team_id}',
+                            'POST'
+                        )
+                        
+                        if result and result.get('success'):
+                            print(f"[@cache_invalidation] ✅ Cache cleared on host: {host.get('host_name')}")
+                        else:
+                            print(f"[@cache_invalidation] ⚠️ Failed to clear cache on host {host.get('host_name')}: {result}")
+                    except Exception as host_error:
+                        print(f"[@cache_invalidation] ⚠️ Error clearing cache on host {host.get('host_name')}: {host_error}")
+            else:
+                print(f"[@cache_invalidation] ⚠️ No hosts registered, attempting local cache clear")
+                # Fallback: try local clear (when running in backend_host process)
+                from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+                clear_unified_cache(tree_id, team_id)
+                
+        except ImportError:
+            # Running in backend_host process (not backend_server) - clear local cache only
+            print(f"[@cache_invalidation] Running in backend_host, clearing local cache only")
+            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+            clear_unified_cache(tree_id, team_id)
+        
+        print(f"[@cache_invalidation] ✅ Cache invalidation completed for tree: {tree_id}")
         
         # NOTE: Materialized view (mv_full_navigation_trees) is automatically refreshed by database triggers
         # on navigation_nodes, navigation_edges, and navigation_trees tables - no manual refresh needed

@@ -536,17 +536,8 @@ _cache_tracker_ttl = 3600  # 1 hour TTL for cache tracker
 
 def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name: str) -> bool:
     """
-    Populate navigation cache when taking control of a device
-    
-    Uses TWO-LEVEL CACHE COHERENCE CHECK:
-    - Level 1: In-memory tracker (fast - avoids DB queries and network calls)
-    - Level 2: HOST verification (safe - ensures cache file actually exists)
-    
-    This prevents cache incoherence when:
-    - HOST process restarts and /tmp cache is cleared
-    - Cache file is manually deleted on HOST
-    - HOST cache TTL expires but SERVER tracker is still valid
-    - Disk space issues cause cache eviction
+    Rebuild navigation cache when taking control of a device
+    ALWAYS clears and rebuilds cache on take-control to ensure fresh data
     
     Args:
         tree_id: Navigation tree ID
@@ -554,64 +545,39 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
         host_name: Host name to populate cache on
         
     Returns:
-        True if cache exists or was successfully populated, False otherwise
+        True if cache was successfully populated, False otherwise
     """
     try:
         import time
         cache_key = (tree_id, team_id, host_name)
         
-        # Get host info first (needed for verification)
+        # Get host info first
         host_manager = get_host_manager()
         host_info = host_manager.get_host(host_name)
         if not host_info:
             print(f"[@control:cache] Host {host_name} not found")
             return False
         
-        # OPTION 3: Two-Level Check (Fast + Safe)
-        # Level 1: Check in-memory tracker (fast path - avoid DB queries)
-        cache_tracked = cache_key in _navigation_cache_tracker
-        if cache_tracked:
-            last_populated = _navigation_cache_tracker[cache_key]
-            age = time.time() - last_populated
-            if age < _cache_tracker_ttl:
-                print(f"[@control:cache] 🔍 In-memory tracker says cache exists (age: {int(age)}s) - verifying with HOST...")
-                
-                # Level 2: ALWAYS verify HOST actually has the file (cache coherence check)
-                check_result, status_code = proxy_to_host_direct(
-                    host_info,
-                    f'/host/navigation/cache/check/{tree_id}?team_id={team_id}',
-                    'GET'
-                )
-                
-                if check_result and check_result.get('success') and check_result.get('exists'):
-                    print(f"[@control:cache] ✅ HOST confirmed cache exists - cache coherent, skipping population")
-                    # Refresh tracker timestamp to extend TTL
-                    _navigation_cache_tracker[cache_key] = time.time()
-                    return True
-                else:
-                    # CACHE COHERENCE FAILURE: Tracker says yes, but HOST says no!
-                    print(f"[@control:cache] ⚠️ CACHE INCOHERENT: Tracker cached but HOST missing file - invalidating tracker and re-populating")
-                    del _navigation_cache_tracker[cache_key]
-                    # Fall through to re-populate
-            else:
-                print(f"[@control:cache] Cache tracker expired (age: {int(age)}s), re-checking host")
-                del _navigation_cache_tracker[cache_key]
-        
-        # Either tracker expired, or HOST cache missing, or no tracker entry - verify with HOST
-        print(f"[@control:cache] Checking if cache exists on HOST for tree {tree_id}")
-        check_result, status_code = proxy_to_host_direct(
+        # STEP 1: ALWAYS clear cache on take-control (ensures fresh data)
+        print(f"[@control:cache] 🔄 Take Control: Clearing cache on HOST for tree {tree_id}")
+        clear_result, status_code = proxy_to_host_direct(
             host_info,
-            f'/host/navigation/cache/check/{tree_id}?team_id={team_id}',
-            'GET'
+            f'/host/navigation/cache/clear/{tree_id}?team_id={team_id}',
+            'POST'
         )
         
-        if check_result and check_result.get('success') and check_result.get('exists'):
-            print(f"[@control:cache] ✅ Cache already exists on HOST for tree {tree_id}, updating tracker and skipping")
-            # Update tracker with current timestamp
-            _navigation_cache_tracker[cache_key] = time.time()
-            return True
+        if clear_result and clear_result.get('success'):
+            print(f"[@control:cache] ✅ Cache cleared on HOST")
+        else:
+            print(f"[@control:cache] ⚠️ Cache clear failed (continuing anyway): {clear_result}")
         
-        # Load tree data from database
+        # Clear server-side tracker
+        if cache_key in _navigation_cache_tracker:
+            del _navigation_cache_tracker[cache_key]
+            print(f"[@control:cache] Server tracker cleared")
+        
+        # STEP 2: Load tree data from database
+        print(f"[@control:cache] Loading tree data from database for tree {tree_id}")
         from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
         
         # Try to load complete hierarchy first (for nested trees)
@@ -627,44 +593,29 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
                 print(f"[@control:cache] Failed to load tree {tree_id}: {tree_result.get('error', 'Unknown error')}")
                 return False
             
-            # Format as single-tree hierarchy for unified cache
-            all_trees_data = [{
-                'tree_id': tree_id,
-                'tree_info': {
-                    'name': tree_result['tree'].get('name', 'Unknown'),
-                    'is_root_tree': True,
-                    'tree_depth': 0,
-                    'parent_tree_id': None,
-                    'parent_node_id': None
-                },
-                'nodes': tree_result['nodes'],
-                'edges': tree_result['edges']
-            }]
-            print(f"[@control:cache] Loaded single tree as fallback")
+            all_trees_data = [tree_result.get('tree')]
+            print(f"[@control:cache] Loaded single tree")
         
-        # Populate cache on host
-        cache_result, status_code = proxy_to_host_direct(
+        # STEP 3: Rebuild cache on HOST with fresh data
+        print(f"[@control:cache] 🔨 Rebuilding cache on HOST for tree {tree_id}")
+        populate_result, status_code = proxy_to_host_direct(
             host_info,
-            f'/host/navigation/cache/populate/{tree_id}',
+            f'/host/navigation/cache/populate/{tree_id}?team_id={team_id}',
             'POST',
-            {
-                'team_id': team_id,
-                'all_trees_data': all_trees_data,
-                'force_repopulate': True
-            }
+            json={'all_trees_data': all_trees_data}
         )
         
-        if cache_result and cache_result.get('success'):
-            print(f"[@control:cache] Successfully populated cache on {host_name}: {cache_result.get('nodes_count', 0)} nodes")
-            # Track in memory so subsequent takeControl calls are instant
-            import time
+        if populate_result and populate_result.get('success'):
+            print(f"[@control:cache] ✅ Cache rebuilt successfully on HOST for tree {tree_id}")
+            # Track in memory
             _navigation_cache_tracker[cache_key] = time.time()
-            print(f"[@control:cache] Cache tracker updated for tree {tree_id}")
             return True
         else:
-            print(f"[@control:cache] Cache population failed: {cache_result.get('error', 'Unknown error') if cache_result else 'No response'}")
+            print(f"[@control:cache] ❌ Cache rebuild failed: {populate_result}")
             return False
             
     except Exception as e:
-        print(f"[@control:cache] Error populating cache: {str(e)}")
+        print(f"[@control:cache] Error rebuilding cache: {e}")
+        import traceback
+        traceback.print_exc()
         return False 
