@@ -138,25 +138,62 @@ const RunTests: React.FC = () => {
     const syncExecutableFromScript = async () => {
       // Only sync if we have a script selected but no executable object
       if (selectedScript && !selectedExecutable) {
+        console.log('[@RunTests] 🔄 Reverse sync triggered - selectedScript exists but selectedExecutable is null');
+        console.log('[@RunTests] selectedScript:', selectedScript);
+        
         try {
           // Fetch executables to find the matching one
+          console.log('[@RunTests] Fetching executable list...');
           const response = await fetch(buildServerUrl('/server/executable/list'));
           const data = await response.json();
           
+          console.log('[@RunTests] API response:', {
+            success: data.success,
+            foldersCount: data.folders?.length
+          });
+          
           if (data.success && data.folders) {
             // Search through all folders for the matching script/testcase
+            console.log('[@RunTests] Searching for matching executable...');
             for (const folder of data.folders) {
-              const foundItem = folder.items.find((item: any) => item.id === selectedScript);
+              console.log('[@RunTests] Checking folder:', folder.name, 'items:', folder.items?.length);
+              
+              // Try exact match first
+              let foundItem = folder.items.find((item: any) => item.id === selectedScript);
+              
+              // If not found and selectedScript doesn't have an extension, try adding .py
+              if (!foundItem && !selectedScript.includes('.')) {
+                console.log('[@RunTests] Exact match failed, trying with .py extension...');
+                foundItem = folder.items.find((item: any) => item.id === `${selectedScript}.py`);
+              }
+              
+              // If still not found, try removing extension from selectedScript
+              if (!foundItem && selectedScript.includes('.')) {
+                const scriptWithoutExt = selectedScript.split('.')[0];
+                console.log('[@RunTests] Trying without extension:', scriptWithoutExt);
+                foundItem = folder.items.find((item: any) => item.id === scriptWithoutExt);
+              }
+              
               if (foundItem) {
+                console.log('[@RunTests] ✅ FOUND! Setting selectedExecutable:', foundItem);
                 setSelectedExecutable(foundItem);
-                console.log('[@RunTests] Synced selectedExecutable from selectedScript:', foundItem);
                 break;
               }
             }
+            if (!selectedExecutable) {
+              console.log('[@RunTests] ⚠️ No matching executable found for:', selectedScript);
+            }
           }
         } catch (error) {
-          console.error('[@RunTests] Failed to sync executable from script:', error);
+          console.error('[@RunTests] ❌ Failed to sync executable from script:', error);
         }
+      } else {
+        console.log('[@RunTests] Skipping reverse sync:', {
+          hasSelectedScript: !!selectedScript,
+          hasSelectedExecutable: !!selectedExecutable,
+          selectedScript,
+          selectedExecutableName: selectedExecutable?.name
+        });
       }
     };
 

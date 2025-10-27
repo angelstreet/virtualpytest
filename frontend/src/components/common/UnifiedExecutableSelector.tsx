@@ -32,8 +32,6 @@ import {
   FolderOpen as FolderOpenIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Terminal as ScriptIcon,
-  Science as TestcaseIcon,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
@@ -71,9 +69,7 @@ interface UnifiedExecutableSelectorProps {
 export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps> = ({
   value,
   onChange,
-  label = 'Select Script or Test Case',
   placeholder = 'Search by name...',
-  disabled = false,
   filters = { folders: true, tags: true, search: true },
   allowedTypes,
 }) => {
@@ -89,47 +85,81 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
 
+  // Track if we should auto-expand (only on mount/initial load, not on user clicks)
+  const [allowAutoExpand, setAllowAutoExpand] = useState(true);
+
   // Load executables on mount
   useEffect(() => {
+    console.log('[@UnifiedExecutableSelector] Component mounted, loading executables...');
     loadExecutables();
   }, []);
 
+  // Auto-expand folder containing the selected item when value changes
+  // BUT only if allowAutoExpand is true (not after user clicks)
+  useEffect(() => {
+    console.log('[@UnifiedExecutableSelector] Auto-expand effect triggered:', {
+      hasValue: !!value,
+      valueName: value?.name,
+      valueId: value?.id,
+      foldersCount: folders.length,
+      allowAutoExpand,
+      folders: folders.map(f => ({ id: f.id, name: f.name, itemCount: f.items.length }))
+    });
+
+    if (value && folders.length > 0 && allowAutoExpand) {
+      // Find which folder contains the selected item
+      for (const folder of folders) {
+        console.log('[@UnifiedExecutableSelector] Checking folder:', folder.name, 'items:', folder.items.map(i => i.id));
+        const containsSelected = folder.items.some(item => item.id === value.id);
+        if (containsSelected) {
+          // Expand this folder so the selected item is visible
+          console.log('[@UnifiedExecutableSelector] ✅ FOUND! Auto-expanding folder:', folder.name, 'for selected item:', value.name);
+          setExpandedFolders(new Set([folder.id]));
+          break;
+        } else {
+          console.log('[@UnifiedExecutableSelector] ❌ Not found in folder:', folder.name);
+        }
+      }
+    } else {
+      console.log('[@UnifiedExecutableSelector] ⚠️ Cannot auto-expand:', {
+        reason: !value ? 'No value selected' : !allowAutoExpand ? 'Auto-expand disabled (user clicked)' : 'No folders loaded',
+        value: value?.name,
+        foldersCount: folders.length,
+        allowAutoExpand
+      });
+    }
+  }, [value, folders, allowAutoExpand]);
+
   const loadExecutables = async () => {
     try {
+      console.log('[@UnifiedExecutableSelector] Loading executables from API...');
       setLoading(true);
       setError(null);
 
       const response = await fetch(buildServerUrl('/server/executable/list'));
       const data = await response.json();
 
+      console.log('[@UnifiedExecutableSelector] API response:', {
+        success: data.success,
+        foldersCount: data.folders?.length,
+        folders: data.folders?.map((f: any) => ({ id: f.id, name: f.name, itemCount: f.items?.length }))
+      });
+
       if (data.success) {
         setFolders(data.folders || []);
         setAllTags(data.all_tags || []);
+        console.log('[@UnifiedExecutableSelector] ✅ Folders loaded successfully:', data.folders?.length);
       } else {
         throw new Error(data.error || 'Failed to load executables');
       }
     } catch (err) {
-      console.error('[@component:UnifiedExecutableSelector] Error loading executables:', err);
+      console.error('[@UnifiedExecutableSelector] ❌ Error loading executables:', err);
       setError(err instanceof Error ? err.message : 'Failed to load executables');
     } finally {
       setLoading(false);
+      console.log('[@UnifiedExecutableSelector] Loading complete');
     }
   };
-
-  // Flatten all items for autocomplete
-  const allItems = useMemo(() => {
-    let items: ExecutableItem[] = [];
-    folders.forEach(folder => {
-      items = [...items, ...folder.items];
-    });
-    
-    // Filter by allowed types if specified
-    if (allowedTypes && allowedTypes.length > 0) {
-      items = items.filter(item => allowedTypes.includes(item.type));
-    }
-    
-    return items;
-  }, [folders, allowedTypes]);
 
   // Filter items based on search, tags, and folder
   const filteredFolders = useMemo(() => {
@@ -169,27 +199,32 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
 
   // Toggle folder expansion
   const toggleFolder = (folderId: number) => {
+    console.log('[@UnifiedExecutableSelector] 📁 User manually toggling folder:', folderId);
     setExpandedFolders(prev => {
       const newSet = new Set(prev);
       if (newSet.has(folderId)) {
+        console.log('[@UnifiedExecutableSelector] Collapsing folder:', folderId);
         newSet.delete(folderId);
       } else {
+        console.log('[@UnifiedExecutableSelector] Expanding folder:', folderId);
         newSet.add(folderId);
       }
+      console.log('[@UnifiedExecutableSelector] Expanded folders now:', Array.from(newSet));
       return newSet;
     });
   };
 
-  // Handle item selection and auto-collapse
+  // Handle item selection and auto-collapse (only when user clicks, not on mount)
   const handleItemSelect = (item: ExecutableItem) => {
+    console.log('[@UnifiedExecutableSelector] 🎯 Item selected by user click:', item.name);
     onChange(item);
-    // Auto-collapse all folders after selection
+    // Disable auto-expand so it doesn't re-expand after we collapse
+    console.log('[@UnifiedExecutableSelector] 🚫 Disabling auto-expand to keep folders collapsed');
+    setAllowAutoExpand(false);
+    // Auto-collapse all folders after user selection
+    console.log('[@UnifiedExecutableSelector] 📦 Collapsing all folders...');
     setExpandedFolders(new Set());
-  };
-
-  // Get icon for executable type
-  const getExecutableIcon = (type: 'script' | 'testcase') => {
-    return type === 'script' ? <ScriptIcon fontSize="small" /> : <TestcaseIcon fontSize="small" />;
+    console.log('[@UnifiedExecutableSelector] ✅ All folders collapsed and will stay collapsed');
   };
 
   // Render loading state
@@ -288,64 +323,48 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
         )}
       </Box>
 
-      {/* Main Content: Selected Display (LEFT) + Selector List (RIGHT) in one row */}
-      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
-        {/* LEFT: Selected Value Display - Ultra Compact */}
-        <Box sx={{ flex: '0 0 200px', minWidth: 180 }}>
-          {value ? (
-            <Paper variant="outlined" sx={{ p: 1, bgcolor: 'action.hover' }}>
-              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.6rem', lineHeight: 1, display: 'block', mb: 0.5 }}>
-                Selected
-              </Typography>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                <Chip 
-                  label={value.type === 'script' ? 'S' : 'TC'} 
-                  size="small" 
-                  color={value.type === 'script' ? 'primary' : 'secondary'}
-                  sx={{ height: '20px', fontSize: '0.65rem', minWidth: '28px' }}
-                />
-                <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.85rem', lineHeight: 1.2 }}>
-                  {value.name}
-                </Typography>
+      {/* Selected Value Display - Compact */}
+      {value && (
+        <Box sx={{ mb: 1, p: 0.75, bgcolor: 'action.hover', borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+            <Chip 
+              label={value.type === 'script' ? 'S' : 'TC'} 
+              size="small" 
+              color={value.type === 'script' ? 'primary' : 'secondary'}
+              sx={{ height: '18px', fontSize: '0.65rem', minWidth: '28px' }}
+            />
+            <Typography variant="body2" fontWeight="bold">{value.name}</Typography>
+            {value.tags && value.tags.length > 0 && (
+              <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
+                {value.tags.map(tag => (
+                  <Chip
+                    key={tag.name}
+                    label={tag.name}
+                    size="small"
+                    sx={{
+                      height: 18,
+                      backgroundColor: tag.color,
+                      color: 'white',
+                      fontSize: '0.65rem'
+                    }}
+                  />
+                ))}
               </Box>
-              {value.tags && value.tags.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.75, flexWrap: 'wrap' }}>
-                  {value.tags.map(tag => (
-                    <Chip
-                      key={tag.name}
-                      label={tag.name}
-                      size="small"
-                      sx={{
-                        height: 16,
-                        backgroundColor: tag.color,
-                        color: 'white',
-                        fontSize: '0.6rem'
-                      }}
-                    />
-                  ))}
-                </Box>
-              )}
-            </Paper>
-          ) : (
-            <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'action.hover' }}>
-              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-                No selection
-              </Typography>
-            </Paper>
-          )}
+            )}
+          </Box>
         </Box>
+      )}
 
-        {/* RIGHT: Executable List (Folder Tree) - Takes remaining space */}
-        <Box sx={{ flex: 1, minWidth: 300 }}>
-          <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
-            {filteredFolders.length === 0 ? (
-              <Box sx={{ p: 2, textAlign: 'center' }}>
-                <Typography variant="body2" color="text.secondary">
-                  No executables found
-                </Typography>
-              </Box>
-            ) : (
-              <List dense disablePadding>
+      {/* Executable List (Folder Tree) - Compact */}
+      <Paper variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
+        {filteredFolders.length === 0 ? (
+          <Box sx={{ p: 2, textAlign: 'center' }}>
+            <Typography variant="body2" color="text.secondary">
+              No executables found
+            </Typography>
+          </Box>
+        ) : (
+          <List dense disablePadding>
             {filteredFolders.map(folder => {
               const isExpanded = expandedFolders.has(folder.id);
               
@@ -481,8 +500,6 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
             Clear
           </Typography>
         )}
-      </Box>
-        </Box>
       </Box>
     </Box>
   );
