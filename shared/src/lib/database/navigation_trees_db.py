@@ -768,28 +768,39 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
     Performance: ~10ms reads (50x faster than function calls)
     """
     try:
+        from postgrest.exceptions import APIError
         supabase = get_supabase()
         
-        # Use materialized view - RPC returns single JSON object
-        result = supabase.rpc(
-            'get_full_tree_from_mv',
-            {'p_tree_id': tree_id, 'p_team_id': team_id}
-        ).execute()
-        
-        # RPC functions that return JSON are wrapped as first element in .data
-        if result.data and len(result.data) > 0:
-            tree_data = result.data[0] if isinstance(result.data, list) else result.data
-            print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+        try:
+            # Use materialized view - RPC returns single JSON object
+            result = supabase.rpc(
+                'get_full_tree_from_mv',
+                {'p_tree_id': tree_id, 'p_team_id': team_id}
+            ).execute()
             
-            return {
-                'success': tree_data.get('success', True),
-                'tree': tree_data.get('tree'),
-                'nodes': tree_data.get('nodes', []),
-                'edges': tree_data.get('edges', [])
-            }
-        else:
-            print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
-            return {'success': False, 'error': 'Tree not found'}
+            # RPC functions that return JSON are wrapped as first element in .data
+            if result.data and len(result.data) > 0:
+                tree_data = result.data[0] if isinstance(result.data, list) else result.data
+            else:
+                print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
+                return {'success': False, 'error': 'Tree not found'}
+                
+        except APIError as api_error:
+            # RPC returns single JSON object which postgrest wraps incorrectly
+            # The actual data is IN the error message
+            tree_data = api_error.args[0] if api_error.args else None
+            if not tree_data or not isinstance(tree_data, dict):
+                print(f"[@db:navigation_trees:get_full_tree] ERROR: Unexpected APIError format")
+                return {'success': False, 'error': 'Invalid response format'}
+        
+        print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+        
+        return {
+            'success': tree_data.get('success', True),
+            'tree': tree_data.get('tree'),
+            'nodes': tree_data.get('nodes', []),
+            'edges': tree_data.get('edges', [])
+        }
             
     except Exception as e:
         error_type = type(e).__name__
