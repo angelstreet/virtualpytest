@@ -347,8 +347,8 @@ class VerificationExecutor:
             node_data = get_node_from_graph(node_id, tree_id, team_id)
             
             if not node_data:
-                print(f"[@lib:verification_executor:verify_node] ❌ Node {node_id} not found in graph")
-                return {'success': False, 'error': 'Node not found in unified graph', 'results': []}
+                print(f"[@lib:verification_executor:verify_node] ⚠️ Node {node_id} not in graph - skipping verification")
+                return {'success': False, 'has_verifications': False, 'message': 'Node not found in graph', 'results': []}
             
             print(f"[@lib:verification_executor:verify_node] ✅ Node data from graph: {node_data.get('label')} (tree: {node_data.get('tree_name')})")
             
