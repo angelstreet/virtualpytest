@@ -564,25 +564,7 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             print(f"[@control:cache] Host {host_name} not found")
             return False
         
-        # STEP 1: ALWAYS clear cache on take-control (ensures fresh data)
-        print(f"[@control:cache] 🔄 Take Control: Clearing cache on HOST for tree {tree_id}")
-        clear_result, status_code = proxy_to_host_direct(
-            host_info,
-            f'/host/navigation/cache/clear/{tree_id}?team_id={team_id}',
-            'POST'
-        )
-        
-        if clear_result and clear_result.get('success'):
-            print(f"[@control:cache] ✅ Cache cleared on HOST")
-        else:
-            print(f"[@control:cache] ⚠️ Cache clear failed (continuing anyway): {clear_result}")
-        
-        # Clear server-side tracker
-        if cache_key in _navigation_cache_tracker:
-            del _navigation_cache_tracker[cache_key]
-            print(f"[@control:cache] Server tracker cleared")
-        
-        # STEP 2: Load tree data from database
+        # STEP 1: Load tree data from database
         print(f"[@control:cache] Loading tree data from database for tree {tree_id}")
         from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
         
@@ -602,8 +584,8 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             all_trees_data = [tree_result.get('tree')]
             print(f"[@control:cache] Loaded single tree")
         
-        # STEP 3: Rebuild cache on HOST with fresh data
-        print(f"[@control:cache] 🔨 Rebuilding cache on HOST for tree {tree_id}")
+        # STEP 2: Populate cache on HOST (overwrites any existing cache)
+        print(f"[@control:cache] 🔨 Building cache on HOST for tree {tree_id}")
         populate_result, status_code = proxy_to_host_direct(
             host_info,
             f'/host/navigation/cache/populate/{tree_id}?team_id={team_id}',
@@ -612,12 +594,12 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
         )
         
         if populate_result and populate_result.get('success'):
-            print(f"[@control:cache] ✅ Cache rebuilt successfully on HOST for tree {tree_id}")
+            print(f"[@control:cache] ✅ Cache built successfully on HOST for tree {tree_id}")
             # Track in memory
             _navigation_cache_tracker[cache_key] = time.time()
             return True
         else:
-            print(f"[@control:cache] ❌ Cache rebuild failed: {populate_result}")
+            print(f"[@control:cache] ❌ Cache build failed: {populate_result}")
             return False
             
     except Exception as e:
