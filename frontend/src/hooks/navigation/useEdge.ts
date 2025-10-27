@@ -214,7 +214,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
    * Execute edge actions using centralized method
    */
   const executeEdgeActions = useCallback(
-    async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[], overrideFailureActions?: Action[]) => {
+    async (edge: UINavigationEdge, overrideActions?: Action[], overrideRetryActions?: Action[], overrideFailureActions?: Action[], actionSetId?: string) => {
       // 🛡️ GUARD: Prevent execution if already executing
       if (actionHook.loading) {
         console.log('[@useEdge:executeEdgeActions] Ignoring click - edge execution already in progress');
@@ -239,9 +239,13 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       setRunResult(null);
 
       try {
-        // Determine target node based on default action set direction
+        // Determine target node based on action set direction
         const actionSets = getActionSetsFromEdge(edge);
-        const isForward = defaultSet.id === actionSets[0]?.id;
+        const defaultSet = getDefaultActionSet(edge);
+        
+        // Use provided actionSetId or fall back to default
+        const executingActionSetId = actionSetId || defaultSet.id;
+        const isForward = executingActionSetId === actionSets[0]?.id;
         const targetNodeId = isForward ? edge.target : edge.source;
         
         // Include navigation context for proper metrics recording
@@ -250,7 +254,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         const navigationContext = {
           tree_id: currentTreeId || undefined,
           edge_id: edge.id,
-          action_set_id: defaultSet.id,
+          action_set_id: executingActionSetId,
           target_node_id: targetNodeId,  // ✅ Send correct target based on direction
           skip_db_recording: true  // Frontend testing - don't record to DB
         };

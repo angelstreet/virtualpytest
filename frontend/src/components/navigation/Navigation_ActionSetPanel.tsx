@@ -66,7 +66,7 @@ export const ActionSetPanel: React.FC<ActionSetPanelProps> = React.memo(({
     if (!canExecute) return;
     
     try {
-      await edgeHook.executeEdgeActions(selectedEdge, actionSet.actions, actionSet.retry_actions, actionSet.failure_actions);
+      await edgeHook.executeEdgeActions(selectedEdge, actionSet.actions, actionSet.retry_actions, actionSet.failure_actions, actionSet.id);
     } catch (error) {
       console.error('Failed to execute action set:', error);
     }
