@@ -89,43 +89,55 @@ def take_control():
         if not av_available and not remote_available:
             print(f"[@route:take_control] ⚠️ WARNING: No controllers available for device {device_id}, but allowing control for localhost testing")
         
-        # REBUILD NAVIGATION CACHE if tree_id provided
+        # REBUILD NAVIGATION CACHE if tree_id provided (MANDATORY - fail if it doesn't work)
         if tree_id and team_id:
-            print(f"[@route:take_control] 🔨 Rebuilding navigation cache for tree {tree_id}")
-            try:
-                # STEP 1: Clear cache
-                from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
-                clear_unified_cache(tree_id, team_id)
-                print(f"[@route:take_control] ✅ Cache cleared")
-                
-                # STEP 2: Load tree data from database
-                from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
-                
-                hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
-                if hierarchy_result.get('success'):
-                    all_trees_data = hierarchy_result.get('all_trees_data', [])
-                    print(f"[@route:take_control] Loaded tree hierarchy: {len(all_trees_data)} trees")
+            print(f"[@route:take_control] 🔨 Building navigation cache for tree {tree_id}")
+            
+            # STEP 1: Clear cache
+            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+            clear_unified_cache(tree_id, team_id)
+            print(f"[@route:take_control] ✅ Cache cleared")
+            
+            # STEP 2: Load tree data from database
+            from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
+            
+            hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+            if hierarchy_result.get('success'):
+                all_trees_data = hierarchy_result.get('all_trees_data', [])
+                print(f"[@route:take_control] Loaded tree hierarchy: {len(all_trees_data)} trees")
+            else:
+                # Fallback: Load single tree
+                tree_result = get_full_tree(tree_id, team_id)
+                if tree_result.get('success'):
+                    all_trees_data = [tree_result.get('tree')]
+                    print(f"[@route:take_control] Loaded single tree")
                 else:
-                    # Fallback: Load single tree
-                    tree_result = get_full_tree(tree_id, team_id)
-                    if tree_result.get('success'):
-                        all_trees_data = [tree_result.get('tree')]
-                        print(f"[@route:take_control] Loaded single tree")
-                    else:
-                        print(f"[@route:take_control] ⚠️ Failed to load tree data: {tree_result.get('error')}")
-                        all_trees_data = None
-                
-                # STEP 3: Rebuild cache
-                if all_trees_data:
-                    from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
-                    unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
-                    
-                    if unified_graph:
-                        print(f"[@route:take_control] ✅ Cache rebuilt: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
-                    else:
-                        print(f"[@route:take_control] ⚠️ Cache rebuild failed")
-            except Exception as cache_error:
-                print(f"[@route:take_control] ⚠️ Cache rebuild error (non-critical): {cache_error}")
+                    error_msg = f"Failed to load tree data: {tree_result.get('error')}"
+                    print(f"[@route:take_control] ❌ {error_msg}")
+                    return jsonify({
+                        'success': False,
+                        'error': error_msg
+                    }), 500
+            
+            # STEP 3: Build cache (MUST succeed)
+            if not all_trees_data:
+                print(f"[@route:take_control] ❌ No tree data loaded")
+                return jsonify({
+                    'success': False,
+                    'error': 'No tree data loaded from database'
+                }), 500
+            
+            from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+            unified_graph = populate_unified_cache(tree_id, team_id, all_trees_data)
+            
+            if not unified_graph:
+                print(f"[@route:take_control] ❌ Cache build failed")
+                return jsonify({
+                    'success': False,
+                    'error': 'Failed to build navigation cache'
+                }), 500
+            
+            print(f"[@route:take_control] ✅ Cache built: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
         
         print(f"[@route:take_control] SUCCESS: Take control succeeded for device: {device_id} with controllers: {available_controllers}")
         return jsonify({
