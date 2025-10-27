@@ -17,7 +17,8 @@ import {
   MenuItem,
   Chip,
   IconButton,
-  Autocomplete
+  Autocomplete,
+  CircularProgress
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -110,6 +111,26 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   const [availableFolders, setAvailableFolders] = useState<Folder[]>([]);
   const [availableTags, setAvailableTags] = useState<Tag[]>([]);
   const [loadingFoldersTags, setLoadingFoldersTags] = useState(false);
+  
+  // State for save button animation
+  const [saveStatus, setSaveStatus] = useState<'idle' | 'loading' | 'success'>('idle');
+
+  // Reset save status when dialog closes
+  useEffect(() => {
+    if (!saveDialogOpen) {
+      setSaveStatus('idle');
+    }
+  }, [saveDialogOpen]);
+
+  // Auto-close dialog 3 seconds after success
+  useEffect(() => {
+    if (saveStatus === 'success') {
+      const timer = setTimeout(() => {
+        setSaveDialogOpen(false);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [saveStatus, setSaveDialogOpen]);
 
   // Load folders and tags when save dialog opens
   useEffect(() => {
@@ -133,6 +154,18 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
       console.error('Error loading folders and tags:', error);
     } finally {
       setLoadingFoldersTags(false);
+    }
+  };
+
+  // Wrapper for handleSave with loading and success states
+  const handleSaveWithAnimation = async () => {
+    setSaveStatus('loading');
+    try {
+      await handleSave();
+      setSaveStatus('success');
+    } catch (error) {
+      console.error('Error saving test case:', error);
+      setSaveStatus('idle');
     }
   };
 
@@ -240,7 +273,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           <Autocomplete
             freeSolo
             value={testcaseFolder}
-            onChange={(event, newValue) => {
+            onChange={(_, newValue) => {
               setTestcaseFolder(newValue || '(Root)');
             }}
             options={availableFolders.map(f => f.name)}
@@ -260,7 +293,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             multiple
             freeSolo
             value={testcaseTags}
-            onChange={(event, newValue) => {
+            onChange={(_, newValue) => {
               setTestcaseTags(newValue);
             }}
             options={availableTags.map(t => t.name)}
@@ -301,11 +334,39 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           />
         </DialogContent>
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
-          <Button onClick={() => setSaveDialogOpen(false)} variant="outlined">
+          <Button 
+            onClick={() => setSaveDialogOpen(false)} 
+            variant="outlined"
+            disabled={saveStatus === 'loading'}
+          >
             Cancel
           </Button>
-          <Button onClick={handleSave} variant="contained" disabled={!testcaseName.trim()}>
-            {currentTestcaseId ? 'Update' : 'Save'}
+          <Button 
+            onClick={handleSaveWithAnimation} 
+            variant="contained" 
+            disabled={!testcaseName.trim() || saveStatus === 'loading'}
+            sx={{
+              minWidth: 120,
+              bgcolor: saveStatus === 'success' ? 'success.main' : undefined,
+              '&:hover': {
+                bgcolor: saveStatus === 'success' ? 'success.dark' : undefined,
+              },
+              transition: 'all 0.3s ease-in-out'
+            }}
+            startIcon={
+              saveStatus === 'loading' ? (
+                <CircularProgress size={20} color="inherit" />
+              ) : saveStatus === 'success' ? (
+                <CheckCircleIcon />
+              ) : undefined
+            }
+          >
+            {saveStatus === 'loading' 
+              ? 'Saving...' 
+              : saveStatus === 'success' 
+                ? 'Saved!' 
+                : currentTestcaseId ? 'Update' : 'Save'
+            }
           </Button>
         </DialogActions>
       </Dialog>
