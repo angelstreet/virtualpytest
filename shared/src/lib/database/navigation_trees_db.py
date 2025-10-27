@@ -787,10 +787,21 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
                 
         except APIError as api_error:
             # RPC returns single JSON object which postgrest wraps incorrectly
-            # The actual data is IN the error message
-            tree_data = api_error.args[0] if api_error.args else None
-            if not tree_data or not isinstance(tree_data, dict):
-                print(f"[@db:navigation_trees:get_full_tree] ERROR: Unexpected APIError format")
+            # The actual data is IN the error - it's the response body
+            import json
+            error_data = api_error.args[0] if api_error.args else None
+            
+            # Try to extract data from different possible formats
+            if isinstance(error_data, dict):
+                tree_data = error_data
+            elif isinstance(error_data, str):
+                try:
+                    tree_data = json.loads(error_data)
+                except:
+                    print(f"[@db:navigation_trees:get_full_tree] ERROR: Could not parse APIError data")
+                    return {'success': False, 'error': 'Invalid response format'}
+            else:
+                print(f"[@db:navigation_trees:get_full_tree] ERROR: Unexpected APIError format: {type(error_data)}")
                 return {'success': False, 'error': 'Invalid response format'}
         
         print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")

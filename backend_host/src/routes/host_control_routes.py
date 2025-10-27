@@ -89,16 +89,11 @@ def take_control():
         if not av_available and not remote_available:
             print(f"[@route:take_control] ⚠️ WARNING: No controllers available for device {device_id}, but allowing control for localhost testing")
         
-        # REBUILD NAVIGATION CACHE if tree_id provided (MANDATORY - fail if it doesn't work)
+        # BUILD NAVIGATION CACHE if tree_id provided (MANDATORY - fail if it doesn't work)
         if tree_id and team_id:
             print(f"[@route:take_control] 🔨 Building navigation cache for tree {tree_id}")
             
-            # STEP 1: Clear cache
-            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
-            clear_unified_cache(tree_id, team_id)
-            print(f"[@route:take_control] ✅ Cache cleared")
-            
-            # STEP 2: Load tree data from database
+            # Load tree data from database
             from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy, get_full_tree
             
             hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
@@ -119,7 +114,7 @@ def take_control():
                         'error': error_msg
                     }), 500
             
-            # STEP 3: Build cache (MUST succeed)
+            # Build cache (MUST succeed - overwrites any existing cache)
             if not all_trees_data:
                 print(f"[@route:take_control] ❌ No tree data loaded")
                 return jsonify({
