@@ -1352,6 +1352,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             const labelChanged = node.data.label !== initialNode.data.label;
             const descChanged = node.data.description !== initialNode.data.description;
             const typeChanged = node.type !== initialNode.type;
+            const screenshotChanged = node.data.screenshot !== initialNode.data.screenshot;
             const verificationsChanged = JSON.stringify(node.data.verifications) !== JSON.stringify(initialNode.data.verifications);
             
             // DETAILED LOGGING for debugging
@@ -1362,10 +1363,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               labelChanged,
               descChanged,
               typeChanged,
+              screenshotChanged,
               verificationsChanged
             });
             
-            if (posChanged || labelChanged || descChanged || typeChanged || verificationsChanged) {
+            if (posChanged || labelChanged || descChanged || typeChanged || screenshotChanged || verificationsChanged) {
               return true;
             }
             return false;
