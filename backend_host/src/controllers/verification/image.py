@@ -1010,18 +1010,61 @@ class ImageVerificationController:
             
             local_path = f'{local_dir}/{reference_name}'
             
-            # Check if file exists and is less than 24 hours old (cache policy)
+            # PHASE 1: Reduced TTL to 5 minutes (was 24 hours)
+            # PHASE 2: ETag-based freshness check
+            REFERENCE_CACHE_TTL_MINUTES = 5
+            
             should_download = True
+            cached_etag = None
+            
             if os.path.exists(local_path):
                 import time
                 file_age_seconds = time.time() - os.path.getmtime(local_path)
-                file_age_hours = file_age_seconds / 3600
+                file_age_minutes = file_age_seconds / 60
                 
-                if file_age_hours < 24:
-                    print(f"[@controller:ImageVerification] Using cached reference (age: {file_age_hours:.1f}h): {local_path}")
-                    should_download = False
+                # Read cached ETag from metadata file if exists
+                etag_file = f"{local_path}.etag"
+                if os.path.exists(etag_file):
+                    try:
+                        with open(etag_file, 'r') as f:
+                            cached_etag = f.read().strip()
+                    except Exception as e:
+                        print(f"[@controller:ImageVerification] Could not read ETag file: {e}")
+                
+                if file_age_minutes < REFERENCE_CACHE_TTL_MINUTES:
+                    # Cache is fresh by TTL, but check if R2 file changed (ETag check)
+                    if cached_etag:
+                        print(f"[@controller:ImageVerification] Checking if R2 file changed (cached ETag: {cached_etag[:8]}...)")
+                        
+                        from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+                        r2_object_key = f"reference-images/{userinterface_name}/{reference_name}"
+                        
+                        try:
+                            cloudflare_utils = get_cloudflare_utils()
+                            head_result = cloudflare_utils.head_file(r2_object_key)
+                            
+                            if head_result.get('success'):
+                                r2_etag = head_result.get('etag', '').strip('"')
+                                
+                                if r2_etag and r2_etag != cached_etag:
+                                    print(f"[@controller:ImageVerification] ETag mismatch! R2: {r2_etag[:8]}... vs Cached: {cached_etag[:8]}... - re-downloading")
+                                    should_download = True
+                                else:
+                                    print(f"[@controller:ImageVerification] ETag match - using cached reference (age: {file_age_minutes:.1f}min): {local_path}")
+                                    should_download = False
+                            else:
+                                # HEAD request failed, use cache anyway if TTL valid
+                                print(f"[@controller:ImageVerification] ETag check failed - using cached reference (age: {file_age_minutes:.1f}min): {local_path}")
+                                should_download = False
+                        except Exception as e:
+                            print(f"[@controller:ImageVerification] ETag check error: {e} - using cached reference")
+                            should_download = False
+                    else:
+                        # No ETag cached, use TTL only
+                        print(f"[@controller:ImageVerification] Using cached reference (age: {file_age_minutes:.1f}min, no ETag): {local_path}")
+                        should_download = False
                 else:
-                    print(f"[@controller:ImageVerification] Cached reference is too old (age: {file_age_hours:.1f}h), will re-download")
+                    print(f"[@controller:ImageVerification] Cached reference is too old (age: {file_age_minutes:.1f}min), will re-download")
             
             # Download from R2 if needed (not cached or cache expired)
             if should_download:
@@ -1042,6 +1085,17 @@ class ImageVerificationController:
                     error_msg = f"Failed to download reference from R2: {download_result.get('error')}"
                     print(f"[@controller:ImageVerification] {error_msg}")
                     return None, None
+                
+                # Store ETag for future comparisons
+                etag = download_result.get('etag')
+                if etag:
+                    etag_file = f"{local_path}.etag"
+                    try:
+                        with open(etag_file, 'w') as f:
+                            f.write(etag.strip('"'))
+                        print(f"[@controller:ImageVerification] Stored ETag: {etag.strip('"')[:8]}...")
+                    except Exception as e:
+                        print(f"[@controller:ImageVerification] Could not save ETag file: {e}")
                 
                 print(f"[@controller:ImageVerification] Successfully downloaded reference from R2: {local_path}")
             

@@ -260,26 +260,33 @@ class CloudflareUtils:
             local_path: Path to save the file locally
             
         Returns:
-            Dict with success status and local file path
+            Dict with success status, local file path, and ETag
         """
         try:
             # Ensure directory exists
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
-            # Download file using bucket name
-            self.s3_client.download_file(
-                self.bucket_name,
-                remote_path,
-                local_path
+            # Download file using bucket name and get response metadata
+            response = self.s3_client.get_object(
+                Bucket=self.bucket_name,
+                Key=remote_path
             )
             
-            logger.info(f"Downloaded: {remote_path} -> {local_path}")
+            # Write file content
+            with open(local_path, 'wb') as f:
+                f.write(response['Body'].read())
+            
+            # Extract ETag from response metadata
+            etag = response.get('ETag', '').strip('"')
+            
+            logger.info(f"Downloaded: {remote_path} -> {local_path} (ETag: {etag[:8]}...)")
             
             return {
                 'success': True,
                 'remote_path': remote_path,
                 'local_path': local_path,
-                'size': os.path.getsize(local_path)
+                'size': os.path.getsize(local_path),
+                'etag': etag
             }
             
         except ClientError as e:
@@ -291,6 +298,47 @@ class CloudflareUtils:
                 return {'success': False, 'error': str(e)}
         except Exception as e:
             logger.error(f"Download failed: {str(e)}")
+            return {'success': False, 'error': str(e)}
+    
+    def head_file(self, remote_path: str) -> Dict:
+        """
+        Get file metadata from R2 without downloading (HTTP HEAD request).
+        Useful for checking if file changed (via ETag) or getting Last-Modified date.
+        
+        Args:
+            remote_path: Path in R2 (e.g., 'reference-images/horizon_tv/apps_oneplus.jpg')
+            
+        Returns:
+            Dict with success status, etag, last_modified, and content_length
+        """
+        try:
+            response = self.s3_client.head_object(
+                Bucket=self.bucket_name,
+                Key=remote_path
+            )
+            
+            etag = response.get('ETag', '').strip('"')
+            last_modified = response.get('LastModified')
+            content_length = response.get('ContentLength', 0)
+            
+            logger.debug(f"HEAD: {remote_path} (ETag: {etag[:8]}..., Size: {content_length} bytes)")
+            
+            return {
+                'success': True,
+                'etag': etag,
+                'last_modified': last_modified,
+                'content_length': content_length
+            }
+            
+        except ClientError as e:
+            if e.response['Error']['Code'] == '404':
+                logger.error(f"File not found in R2: {remote_path}")
+                return {'success': False, 'error': f"File not found in R2: {remote_path}"}
+            else:
+                logger.error(f"HEAD request failed: {str(e)}")
+                return {'success': False, 'error': str(e)}
+        except Exception as e:
+            logger.error(f"HEAD request failed: {str(e)}")
             return {'success': False, 'error': str(e)}
     
     def copy_file(self, source_path: str, destination_path: str) -> Dict:
