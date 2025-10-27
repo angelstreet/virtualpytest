@@ -74,6 +74,8 @@ def navigation_execute(tree_id, target_node_id):
                 userinterface_name=userinterface_name,
                 target_node_id=target_node_id,
                 current_node_id=current_node_id,
+                frontend_sent_position=frontend_sent_position,
+                image_source_url=image_source_url,
                 team_id=team_id
             )
             print(f"[@route:host_navigation:navigation_execute] Async execution started: {result.get('execution_id')}")

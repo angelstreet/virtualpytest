@@ -200,98 +200,152 @@ client_registration_state = {
 ping_thread = None
 ping_stop_event = threading.Event()
 
-def register_host_with_server():
-    """Register this host with the server using new architecture."""
+def register_host_with_server(max_retries: int = 3, retry_delay: int = 5):
+    """Register this host with the server using new architecture.
+    
+    Args:
+        max_retries: Maximum number of retry attempts (default: 3)
+        retry_delay: Delay in seconds between retries (default: 5)
+    
+    Returns:
+        bool: True if registration successful, False otherwise
+    """
     global client_registration_state
     
     print("=" * 50)
     print("🔗 [HOST] Starting registration with server...")
     
-    try:
-        # Get host with all devices and controllers
-        host = get_host()
-        
-        print(f"   Host Name: {host.host_name}")
-        print(f"   Host URL: {host.host_ip}:{host.host_port}")
-        print(f"   Configured Devices: {host.get_device_count()}")
-        
-        # Display device information
-        for device in host.get_devices():
-            print(f"     - {device.device_name} ({device.device_model}) [{device.device_id}]")
-            capabilities = device.get_capabilities()
-            if capabilities:
-                print(f"       Capabilities: {', '.join(capabilities)}")
-        
-        # Get enhanced system stats for registration (skip speedtest to avoid startup delay)
-        system_stats = get_enhanced_system_stats(skip_speedtest=True)
-        
-        # Get HOST_URL from environment variable (for browser/frontend access via nginx)
-        host_url = os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
-        
-        # Get HOST_API_URL for direct server-to-server communication (HTTP, no SSL)
-        # This allows servers to bypass nginx and talk directly to each other
-        host_api_url = os.getenv('HOST_API_URL', f"http://{host.host_ip}:{host.host_port}")
-        
-        print(f"   Browser URL (via nginx): {host_url}")
-        print(f"   API URL (direct): {host_api_url}")
-        
-        # Create registration payload
-        registration_data = {
-            'host_name': host.host_name,
-            'host_url': host_url,  # For browser: HTTPS via nginx proxy
-            'host_api_url': host_api_url,  # For server: HTTP direct connection
-            'host_port': host.host_port,
-            'host_ip': host.host_ip,
-            'device_count': host.get_device_count(),
-            'devices': [device.to_dict() for device in host.get_devices()],
-            'capabilities': host.get_all_capabilities(),
-            'system_stats': system_stats
-        }
-        
-        # Build server URLs
-        registration_url = buildServerUrl('/server/system/register')
-        
-        print(f"\n📡 [HOST] Sending registration to: {registration_url}")
-        
-        # Send registration request
-        response = requests.post(
-            registration_url,
-            json=registration_data,
-            timeout=30
-        )
-        
-        if response.status_code == 200:
-            print("✅ [HOST] Registration successful!")
+    for attempt in range(1, max_retries + 1):
+        try:
+            # Get host with all devices and controllers
+            host = get_host()
             
-            # Update registration state
-            client_registration_state.update({
-                'registered': True,
+            if attempt == 1:
+                print(f"   Host Name: {host.host_name}")
+                print(f"   Host URL: {host.host_ip}:{host.host_port}")
+                print(f"   Configured Devices: {host.get_device_count()}")
+                
+                # Display device information
+                for device in host.get_devices():
+                    print(f"     - {device.device_name} ({device.device_model}) [{device.device_id}]")
+                    capabilities = device.get_capabilities()
+                    if capabilities:
+                        print(f"       Capabilities: {', '.join(capabilities)}")
+            
+            # Get enhanced system stats for registration (skip speedtest to avoid startup delay)
+            system_stats = get_enhanced_system_stats(skip_speedtest=True)
+            
+            # Get HOST_URL from environment variable (for browser/frontend access via nginx)
+            host_url = os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
+            
+            # Get HOST_API_URL for direct server-to-server communication (HTTP, no SSL)
+            # This allows servers to bypass nginx and talk directly to each other
+            host_api_url = os.getenv('HOST_API_URL', f"http://{host.host_ip}:{host.host_port}")
+            
+            if attempt == 1:
+                print(f"   Browser URL (via nginx): {host_url}")
+                print(f"   API URL (direct): {host_api_url}")
+            
+            # Create registration payload
+            registration_data = {
                 'host_name': host.host_name,
-                'urls': {
-                    'register': registration_url,
-                    'ping': buildServerUrl('/server/system/ping'),
-                    'unregister': buildServerUrl('/server/system/unregister')
-                },
-                'ping_failures': 0,
-                'last_ping_time': 0
-            })
+                'host_url': host_url,  # For browser: HTTPS via nginx proxy
+                'host_api_url': host_api_url,  # For server: HTTP direct connection
+                'host_port': host.host_port,
+                'host_ip': host.host_ip,
+                'device_count': host.get_device_count(),
+                'devices': [device.to_dict() for device in host.get_devices()],
+                'capabilities': host.get_all_capabilities(),
+                'system_stats': system_stats
+            }
             
-            print(f"   Registered as: {host.host_name}")
-            print(f"   Devices: {host.get_device_count()}")
-            print(f"   Total capabilities: {len(host.get_all_capabilities())}")
+            # Build server URLs
+            registration_url = buildServerUrl('/server/system/register')
             
-            return True
+            if attempt > 1:
+                print(f"\n🔄 [HOST] Registration attempt {attempt}/{max_retries}...")
             
-        else:
-            print(f"❌ [HOST] Registration failed: {response.status_code}")
-            print(f"   Response: {response.text}")
-            return False
-        
-    except Exception as e:
-        print(f"❌ [HOST] Registration error: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        return False
+            print(f"📡 [HOST] Sending registration to: {registration_url}")
+            
+            # Send registration request
+            response = requests.post(
+                registration_url,
+                json=registration_data,
+                timeout=30
+            )
+            
+            if response.status_code == 200:
+                print("✅ [HOST] Registration successful!")
+                
+                # Update registration state
+                client_registration_state.update({
+                    'registered': True,
+                    'host_name': host.host_name,
+                    'urls': {
+                        'register': registration_url,
+                        'ping': buildServerUrl('/server/system/ping'),
+                        'unregister': buildServerUrl('/server/system/unregister')
+                    },
+                    'ping_failures': 0,
+                    'last_ping_time': 0
+                })
+                
+                print(f"   Registered as: {host.host_name}")
+                print(f"   Devices: {host.get_device_count()}")
+                print(f"   Total capabilities: {len(host.get_all_capabilities())}")
+                
+                return True
+                
+            else:
+                print(f"❌ [HOST] Registration failed: {response.status_code}")
+                print(f"   Response: {response.text}")
+                
+                # Retry on server errors (5xx) or service unavailable
+                if response.status_code >= 500 and attempt < max_retries:
+                    print(f"⏳ [HOST] Retrying in {retry_delay} seconds...")
+                    time.sleep(retry_delay)
+                    continue
+                
+                return False
+            
+        except requests.exceptions.ConnectionError as e:
+            print(f"❌ [HOST] Connection error: {str(e)}")
+            
+            if attempt < max_retries:
+                print(f"⏳ [HOST] Server may be starting up. Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f"❌ [HOST] Registration failed after {max_retries} attempts, will retry next ping cycle")
+                import traceback
+                traceback.print_exc()
+                return False
+                
+        except requests.exceptions.Timeout as e:
+            print(f"❌ [HOST] Request timeout: {str(e)}")
+            
+            if attempt < max_retries:
+                print(f"⏳ [HOST] Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f"❌ [HOST] Registration failed after {max_retries} attempts, will retry next ping cycle")
+                return False
+                
+        except Exception as e:
+            print(f"❌ [HOST] Registration error: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            
+            if attempt < max_retries:
+                print(f"⏳ [HOST] Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
+                time.sleep(retry_delay)
+                continue
+            else:
+                print(f"❌ [HOST] Registration failed after {max_retries} attempts, will retry next ping cycle")
+                return False
+    
+    return False
 
 
 def get_devices_with_running_deployments():

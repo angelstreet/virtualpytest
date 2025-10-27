@@ -288,48 +288,64 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
         )}
       </Box>
 
-      {/* Selected Value Display - Compact */}
-      {value && (
-        <Box sx={{ mb: 1, p: 0.75, bgcolor: 'action.hover', borderRadius: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Chip 
-              label={value.type === 'script' ? 'S' : 'TC'} 
-              size="small" 
-              color={value.type === 'script' ? 'primary' : 'secondary'}
-              sx={{ height: '18px', fontSize: '0.65rem', minWidth: '28px' }}
-            />
-            <Typography variant="body2" fontWeight="bold">{value.name}</Typography>
-            {value.tags && value.tags.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
-                {value.tags.map(tag => (
-                  <Chip
-                    key={tag.name}
-                    label={tag.name}
-                    size="small"
-                    sx={{
-                      height: 18,
-                      backgroundColor: tag.color,
-                      color: 'white',
-                      fontSize: '0.65rem'
-                    }}
-                  />
-                ))}
+      {/* Main Content: Selected Display (LEFT) + Selector List (RIGHT) in one row */}
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+        {/* LEFT: Selected Value Display - Ultra Compact */}
+        <Box sx={{ flex: '0 0 200px', minWidth: 180 }}>
+          {value ? (
+            <Paper variant="outlined" sx={{ p: 1, bgcolor: 'action.hover' }}>
+              <Typography variant="overline" color="text.secondary" sx={{ fontSize: '0.6rem', lineHeight: 1, display: 'block', mb: 0.5 }}>
+                Selected
+              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+                <Chip 
+                  label={value.type === 'script' ? 'S' : 'TC'} 
+                  size="small" 
+                  color={value.type === 'script' ? 'primary' : 'secondary'}
+                  sx={{ height: '20px', fontSize: '0.65rem', minWidth: '28px' }}
+                />
+                <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.85rem', lineHeight: 1.2 }}>
+                  {value.name}
+                </Typography>
               </Box>
-            )}
-          </Box>
+              {value.tags && value.tags.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 0.5, mt: 0.75, flexWrap: 'wrap' }}>
+                  {value.tags.map(tag => (
+                    <Chip
+                      key={tag.name}
+                      label={tag.name}
+                      size="small"
+                      sx={{
+                        height: 16,
+                        backgroundColor: tag.color,
+                        color: 'white',
+                        fontSize: '0.6rem'
+                      }}
+                    />
+                  ))}
+                </Box>
+              )}
+            </Paper>
+          ) : (
+            <Paper variant="outlined" sx={{ p: 1.5, textAlign: 'center', bgcolor: 'action.hover' }}>
+              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                No selection
+              </Typography>
+            </Paper>
+          )}
         </Box>
-      )}
 
-      {/* Executable List (Folder Tree) - Compact */}
-      <Paper variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
-        {filteredFolders.length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              No executables found
-            </Typography>
-          </Box>
-        ) : (
-          <List dense disablePadding>
+        {/* RIGHT: Executable List (Folder Tree) - Takes remaining space */}
+        <Box sx={{ flex: 1, minWidth: 300 }}>
+          <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
+            {filteredFolders.length === 0 ? (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  No executables found
+                </Typography>
+              </Box>
+            ) : (
+              <List dense disablePadding>
             {filteredFolders.map(folder => {
               const isExpanded = expandedFolders.has(folder.id);
               
@@ -465,6 +481,8 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
             Clear
           </Typography>
         )}
+      </Box>
+        </Box>
       </Box>
     </Box>
   );
