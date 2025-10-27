@@ -17,6 +17,9 @@ export interface ScriptResult {
   completed_at: string;
   html_report_r2_url: string | null;
   error_msg: string | null;
+  // NEW: Folder and tags for unified organization
+  folder?: string;
+  tags?: Array<{ name: string; color: string }>;
 }
 
 export interface CampaignResult {

@@ -883,6 +883,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   edgeTypes={edgeTypes}
                   defaultEdgeOptions={defaultEdgeOptions}
                   connectionLineType={ConnectionLineType.SmoothStep}
+                  connectionRadius={50}
                   defaultViewport={defaultViewport}
                   translateExtent={translateExtent}
                   nodeExtent={nodeExtent}
@@ -963,7 +964,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                               console.log('[@NavigationEditor] Edge metrics for', edge.id, 'actionSet', actionSet.id, ':', edgeMetrics);
                               panels.push(
                                 <EdgeSelectionPanel
-                                  key={`${edge.id}-${actionSet.id}-${actionSet.actions?.length || 0}`}
+                                  key={`${edge.id}-${actionSet.id}-${panelIndexOffset + actionSetIndex}`}
                                   selectedEdge={edge}
                                   actionSet={actionSet}
                                   panelIndex={panelIndexOffset + actionSetIndex}

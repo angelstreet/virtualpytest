@@ -38,6 +38,7 @@ import {
 import { ScriptConfiguration } from '../../types/pages/Campaign_Types';
 import { ParameterInputRenderer } from '../common/ParameterInput/ParameterInputRenderer';
 import { getScriptDisplayName, isAIScript } from '../../utils/executionUtils';
+import { UnifiedExecutableSelector, ExecutableItem } from '../common/UnifiedExecutableSelector';
 
 interface ScriptSequenceBuilderProps {
   scripts: ScriptConfiguration[];
@@ -69,13 +70,13 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
   onLoadScriptAnalysis,
 }) => {
   const [addScriptDialogOpen, setAddScriptDialogOpen] = useState(false);
-  const [selectedScriptToAdd, setSelectedScriptToAdd] = useState('');
+  const [selectedExecutableToAdd, setSelectedExecutableToAdd] = useState<ExecutableItem | null>(null);
   const [expandedScript, setExpandedScript] = useState<string | false>(false);
 
   const handleAddScript = () => {
-    if (selectedScriptToAdd) {
-      onAddScript(selectedScriptToAdd);
-      setSelectedScriptToAdd('');
+    if (selectedExecutableToAdd) {
+      onAddScript(selectedExecutableToAdd.id); // Use the executable ID (script filename or testcase UUID)
+      setSelectedExecutableToAdd(null);
       setAddScriptDialogOpen(false);
     }
   };
@@ -252,46 +253,27 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
       <Dialog
         open={addScriptDialogOpen}
         onClose={() => setAddScriptDialogOpen(false)}
-        maxWidth="sm"
+        maxWidth="md"
         fullWidth
       >
-        <DialogTitle>Add Script to Campaign</DialogTitle>
-        <DialogContent>
-          <FormControl fullWidth sx={{ mt: 1 }}>
-            <InputLabel>Select Script</InputLabel>
-            <Select
-              value={selectedScriptToAdd}
-              label="Select Script"
-              onChange={(e) => setSelectedScriptToAdd(e.target.value)}
-            >
-              {availableScripts.map((scriptName) => (
-                <MenuItem key={scriptName} value={scriptName}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    {isAIScript(scriptName) && (
-                      <Chip 
-                        label="AI" 
-                        size="small" 
-                        color="primary" 
-                        sx={{ fontSize: '0.7rem', height: '18px' }} 
-                      />
-                    )}
-                    <Typography variant="body2">
-                      {getScriptDisplayName(scriptName, aiTestCasesInfo)}
-                    </Typography>
-                  </Box>
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
+        <DialogTitle>Add Script or Test Case to Campaign</DialogTitle>
+        <DialogContent sx={{ minHeight: 400 }}>
+          <UnifiedExecutableSelector
+            value={selectedExecutableToAdd}
+            onChange={setSelectedExecutableToAdd}
+            label="Select Script or Test Case"
+            placeholder="Search by name..."
+            filters={{ folders: true, tags: true, search: true }}
+          />
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setAddScriptDialogOpen(false)}>Cancel</Button>
           <Button 
             onClick={handleAddScript} 
             variant="contained"
-            disabled={!selectedScriptToAdd}
+            disabled={!selectedExecutableToAdd}
           >
-            Add Script
+            Add to Campaign
           </Button>
         </DialogActions>
       </Dialog>

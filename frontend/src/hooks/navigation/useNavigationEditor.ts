@@ -328,29 +328,25 @@ export const useNavigationEditor = () => {
         console.log('[@useNavigationEditor:onConnect] 🔗 Edge is conditional - will verify all siblings on failure');
       }
 
-      // 🎨 Update sibling edge colors to BLUE (conditional)
-      if (siblingEdges.length > 0) {
-        const updatedEdges = navigation.edges.map((edge) => {
-          const isSibling = siblingEdges.some((s) => s.id === edge.id);
-          if (isSibling) {
-            return {
-              ...edge,
-              style: { ...edge.style, stroke: '#2196f3' },  // 🎨 BLUE
-              markerEnd: { ...edge.markerEnd, color: '#2196f3' },
-              data: {
-                ...edge.data,
-                is_conditional: true,
-              },
-            };
-          }
-          return edge;
-        });
-        
-        navigation.setEdges(updatedEdges);
-        console.log('[@useNavigationEditor:onConnect] 🎨 Updated sibling edges to BLUE (conditional)');
-      }
-
       let edgesToAdd = [newEdge];
+      
+      // 🎨 Mark sibling edges as PRIMARY conditional edges
+      // Primary edge: is_conditional_primary = true → BLUE + fully editable + no warning
+      // Conditional edge: is_conditional = true → BLUE + shows warning popup
+      let siblingEdgesToUpdate: UINavigationEdge[] = [];
+      if (siblingEdges.length > 0) {
+        siblingEdgesToUpdate = siblingEdges.map((edge) => ({
+          ...edge,
+          style: { ...edge.style, stroke: '#2196f3' },  // 🎨 BLUE (visual indicator)
+          markerEnd: { ...edge.markerEnd, color: '#2196f3' },
+          data: {
+            ...edge.data,
+            is_conditional_primary: true,  // ✅ Mark as PRIMARY conditional edge
+          },
+        }));
+        console.log('[@useNavigationEditor:onConnect] 🎨 Will mark', siblingEdgesToUpdate.length, 'sibling edge(s) as PRIMARY conditional (BLUE + editable)');
+      }
+      console.log('[@useNavigationEditor:onConnect] Primary edge: BLUE + editable, Conditional edge: BLUE + warning popup');
 
       // No need for separate reverse edges - bidirectional logic is built into action sets
       if (false) { // Disabled complex reverse edge logic
@@ -521,6 +517,17 @@ export const useNavigationEditor = () => {
 
       // Add all edges to current edges using ReactFlow's addEdge utility
       let updatedEdges = navigation.edges;
+      
+      // 🎨 First, apply sibling updates (mark as PRIMARY conditional)
+      if (siblingEdgesToUpdate.length > 0) {
+        updatedEdges = updatedEdges.map((edge) => {
+          const updatedSibling = siblingEdgesToUpdate.find((s) => s.id === edge.id);
+          return updatedSibling || edge;
+        });
+        console.log('[@useNavigationEditor:onConnect] 🎨 Marked', siblingEdgesToUpdate.length, 'edge(s) as PRIMARY conditional');
+      }
+      
+      // Then add new edges
       for (const edge of edgesToAdd) {
         updatedEdges = addEdge(edge, updatedEdges) as UINavigationEdge[];
       }

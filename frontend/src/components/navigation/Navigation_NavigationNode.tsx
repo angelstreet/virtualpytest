@@ -351,7 +351,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         isConnectableEnd={false}
         style={{
           background: '#9c27b0',
-          border: '2px solid #fff',
+          border: '10px solid transparent',
           width: '16px',
           height: '16px',
           borderRadius: '50%',
@@ -359,11 +359,12 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
           transform: 'translateX(-50%)',
           top: -7,
           cursor: 'crosshair',
-          zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
+          zIndex: 10,
+          boxShadow: '0 0 0 2px #fff',
         }}
       />
 
-      {/* Top: TARGET for menu connections - same position, lower z-index */}
+      {/* Top: TARGET for menu connections - same position, higher z-index */}
       <Handle
         type="target"
         position={Position.Top}
@@ -373,7 +374,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         isConnectableEnd={true}
         style={{
           background: '#4caf50',
-          border: '2px solid #fff',
+          border: '10px solid transparent',
           width: '16px',
           height: '16px',
           borderRadius: '50%',
@@ -381,8 +382,9 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
           transform: 'translateX(-50%)',
           top: -7,
           cursor: 'crosshair',
-          zIndex: 10,
+          zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
           opacity: 0,
+          boxShadow: '0 0 0 2px #fff',
         }}
       />
 
@@ -397,7 +399,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         isConnectableEnd={true}
         style={{
           background: '#9c27b0',
-          border: '2px solid #fff',
+          border: '10px solid transparent',
           width: '16px',
           height: '16px',
           borderRadius: '50%',
@@ -406,6 +408,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
           bottom: -7,
           cursor: 'crosshair',
           zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
+          boxShadow: '0 0 0 2px #fff',
         }}
       />
 
@@ -419,7 +422,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         isConnectableEnd={false}
         style={{
           background: '#4caf50',
-          border: '2px solid #fff',
+          border: '10px solid transparent',
           width: '16px',
           height: '16px',
           borderRadius: '50%',
@@ -429,6 +432,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
           cursor: 'crosshair',
           zIndex: 10,
           opacity: 0,
+          boxShadow: '0 0 0 2px #fff',
         }}
       />
 

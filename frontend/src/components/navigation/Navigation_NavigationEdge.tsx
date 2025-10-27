@@ -8,7 +8,7 @@ import { UINavigationEdge as UINavigationEdgeType } from '../../types/pages/Navi
 export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['data']>> = (
   props,
 ) => {
-  const { id, source, target, sourceX, sourceY, targetX, targetY, selected } = props;
+  const { id, source, target, sourceX, sourceY, targetX, targetY, selected, data } = props;
   const { getNodes } = useReactFlow();
 
   // Get metrics for this edge
@@ -17,7 +17,17 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
 
   // Get edge colors based on validation status with metrics (direct call)
   const { getEdgeColors } = useValidationColors([]);
-  const edgeColors = getEdgeColors(id, edgeMetrics);
+  let edgeColors = getEdgeColors(id, edgeMetrics);
+
+  // 🎨 OVERRIDE: Conditional edges AND primary conditional edges are always BLUE
+  if (data?.is_conditional || data?.is_conditional_primary) {
+    edgeColors = {
+      stroke: '#2196f3',
+      strokeWidth: 3,
+      strokeDasharray: '',
+      opacity: 1,
+    };
+  }
 
   // Get current nodes to check types
   const nodes = getNodes();

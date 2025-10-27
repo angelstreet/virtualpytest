@@ -330,7 +330,28 @@ const CampaignReports: React.FC = () => {
                                 <TableCell sx={{ py: 0.5, pl: 4 }}>
                                   <ScriptIcon fontSize="small" />
                                 </TableCell>
-                                <TableCell sx={{ py: 0.5 }}>{script.script_name}</TableCell>
+                                <TableCell sx={{ py: 0.5 }}>
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                                    <Typography variant="body2">{script.script_name}</Typography>
+                                    {script.tags && script.tags.length > 0 && (
+                                      <Box sx={{ display: 'inline-flex', gap: 0.5 }}>
+                                        {script.tags.map(tag => (
+                                          <Chip
+                                            key={tag.name}
+                                            label={tag.name}
+                                            size="small"
+                                            sx={{
+                                              height: '18px',
+                                              fontSize: '0.65rem',
+                                              backgroundColor: tag.color,
+                                              color: 'white'
+                                            }}
+                                          />
+                                        ))}
+                                      </Box>
+                                    )}
+                                  </Box>
+                                </TableCell>
                                 <TableCell sx={{ py: 0.5 }}>-</TableCell>
                                 <TableCell sx={{ py: 0.5 }}>-</TableCell>
                                 <TableCell sx={{ py: 0.5 }}>-</TableCell>

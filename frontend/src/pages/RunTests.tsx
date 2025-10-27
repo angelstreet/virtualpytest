@@ -24,6 +24,7 @@ import {
 import React, { useState, useEffect, useRef } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 import { ParameterInputRenderer } from '../components/common/ParameterInput/ParameterInputRenderer';
+import { UnifiedExecutableSelector, ExecutableItem } from '../components/common/UnifiedExecutableSelector';
 
 
 
@@ -32,7 +33,7 @@ import { useScript } from '../hooks/script/useScript';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useRun } from '../hooks/useRun';
-import { getStatusChip, getScriptDisplayName, isAIScript, getLogsUrl } from '../utils/executionUtils';
+import { getStatusChip, getScriptDisplayName, getLogsUrl } from '../utils/executionUtils';
 
 import { DeviceStreamGrid } from '../components/common/DeviceStreaming/DeviceStreamGrid';
 
@@ -80,7 +81,8 @@ const RunTests: React.FC = () => {
 
   const [selectedHost, setSelectedHost] = useState<string>('');
   const [selectedDevice, setSelectedDevice] = useState<string>('');
-  const [selectedScript, setSelectedScript] = useState<string>('');
+  const [selectedExecutable, setSelectedExecutable] = useState<ExecutableItem | null>(null);
+  const [selectedScript, setSelectedScript] = useState<string>(''); // Keep for backward compatibility
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
 
@@ -120,6 +122,15 @@ const RunTests: React.FC = () => {
   };
 
 
+
+  // Sync selectedScript from selectedExecutable for backward compatibility
+  useEffect(() => {
+    if (selectedExecutable) {
+      setSelectedScript(selectedExecutable.id);
+    } else {
+      setSelectedScript('');
+    }
+  }, [selectedExecutable]);
 
   // Use run hook for script analysis and parameter management
   const { 
@@ -699,45 +710,19 @@ const RunTests: React.FC = () => {
               ) : (
                 // Show wizard form when active
                 <>
-                  {/* First row: All main parameters on one line */}
+                  {/* Unified Executable Selector */}
+                  <Box sx={{ mb: 2 }}>
+                    <UnifiedExecutableSelector
+                      value={selectedExecutable}
+                      onChange={setSelectedExecutable}
+                      label="Select Script or Test Case"
+                      placeholder="Search by name..."
+                      filters={{ folders: true, tags: true, search: true }}
+                    />
+                  </Box>
+
+                  {/* First row: Host and Device selection */}
                   <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
-                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Script</InputLabel>
-                        <Select
-                          value={selectedScript}
-                          label="Script"
-                          onChange={(e) => setSelectedScript(e.target.value)}
-                          disabled={loadingScripts}
-                        >
-                          {loadingScripts ? (
-                            <MenuItem value="">
-                              <CircularProgress size={20} />
-                            </MenuItem>
-                          ) : availableScripts.length === 0 ? (
-                            <MenuItem value="">No scripts available</MenuItem>
-                          ) : (
-                            availableScripts.map((script) => (
-                              <MenuItem key={script} value={script}>
-                                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                                  {isAIScript(script) && (
-                                    <Chip 
-                                      label="AI" 
-                                      size="small" 
-                                      color="primary" 
-                                      sx={{ fontSize: '0.7rem', height: '18px' }} 
-                                    />
-                                  )}
-                                  <Typography variant="body2">
-                                    {getScriptDisplayName(script, aiTestCasesInfo)}
-                                  </Typography>
-                                </Box>
-                              </MenuItem>
-                            ))
-                          )}
-                        </Select>
-                      </FormControl>
-                    </Box>
 
                     <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
                       <FormControl fullWidth size="small">
