@@ -894,7 +894,7 @@ class AIGraphBuilder:
                     'position': {'x': 250, 'y': y_position},
                     'data': {
                         'label': f'navigation_{node_counter["navigation"]}:{target}',
-                        'target_node': target,
+                        'target_node_label': target,  # ✅ FIX: Frontend expects target_node_label
                         'target_node_id': target,
                         'action_type': 'navigation',
                         'transitions': []  # Empty - navigation is autonomous at runtime
@@ -1076,7 +1076,7 @@ class AIGraphBuilder:
                 data['label'] = 'FAILURE'
             elif node_type == 'navigation':
                 nav_counter += 1
-                target = data.get('target_node') or data.get('target_node_id') or 'unknown'
+                target = data.get('target_node_label') or data.get('target_node') or data.get('target_node_id') or 'unknown'
                 data['label'] = f"navigation_{nav_counter}:{target}"
             elif node_type == 'action':
                 action_counter += 1
@@ -1274,7 +1274,7 @@ class AIGraphBuilder:
                     'position': {'x': 100, 'y': 200},
                     'data': {
                         'label': f'navigation_1:{target_node}',
-                        'target_node': target_node,
+                        'target_node_label': target_node,  # ✅ FIX: Frontend expects target_node_label
                         'target_node_id': target_node,
                         'action_type': 'navigation',
                         'transitions': []  # Empty - navigation is autonomous at runtime

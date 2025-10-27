@@ -735,12 +735,12 @@ const RunTests: React.FC = () => {
     );
   };
 
-  // Framework parameters with dedicated selectors at the top (host, device)
-  // All other parameters (including userinterface_name if declared) show inline
-  const FRAMEWORK_PARAMS = ['host', 'device'];
+  // Framework parameters with dedicated selectors at the top (host, device, userinterface)
+  // All other parameters show inline in Section 3
+  const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
   
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
-    // Show all parameters EXCEPT host/device (which have dedicated UI elements)
+    // Show all parameters EXCEPT host/device/userinterface (which have dedicated UI elements)
     !FRAMEWORK_PARAMS.includes(param.name)
   ) || [];
   
@@ -759,9 +759,6 @@ const RunTests: React.FC = () => {
         <Grid item xs={12}>
           <Card sx={{ '& .MuiCardContent-root': { p: 2, '&:last-child': { pb: 2 } } }}>
             <CardContent>
-              <Typography variant="h6" sx={{ mb: 1 }}>
-                Execute Script
-              </Typography>
 
               {!showWizard ? (
                 // Show launch button when wizard is not active
@@ -778,87 +775,136 @@ const RunTests: React.FC = () => {
               ) : (
                 // Show wizard form when active
                 <>
-                  {/* Unified Executable Selector */}
-                  <Box sx={{ mb: 2 }}>
+                  {/* SECTION 1: DEVICE SELECTION */}
+                  <Box sx={{ mb: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                      <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Host</InputLabel>
+                          <Select
+                            value={selectedHost}
+                            label="Host"
+                            onChange={(e) => {
+                              setSelectedHost(e.target.value);
+                              setSelectedDevice('');
+                              handleParameterChange('userinterface_name', '');
+                            }}
+                          >
+                            {hosts.map((host) => (
+                              <MenuItem key={host.host_name} value={host.host_name}>
+                                {host.host_name}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                      </Box>
+
+                      <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
+                        <FormControl fullWidth size="small">
+                          <InputLabel>Device</InputLabel>
+                          <Select
+                            value={selectedDevice}
+                            label="Device"
+                            onChange={(e) => {
+                              setSelectedDevice(e.target.value);
+                              handleParameterChange('userinterface_name', '');
+                            }}
+                            disabled={!selectedHost || getAvailableDevicesForSelection().length === 0}
+                          >
+                            {getAvailableDevicesForSelection().map((device) => {
+                              const deviceIsExecuting = isDeviceExecuting(selectedHost, device.device_id);
+                              return (
+                                <MenuItem 
+                                  key={device.device_id} 
+                                  value={device.device_id}
+                                  disabled={deviceIsExecuting}
+                                >
+                                  {device.device_name || device.device_id}
+                                  {deviceIsExecuting && (
+                                    <Chip 
+                                      label="Executing" 
+                                      size="small" 
+                                      color="warning" 
+                                      sx={{ ml: 1, fontSize: '0.7rem', height: '18px' }} 
+                                    />
+                                  )}
+                                </MenuItem>
+                              );
+                            })}
+                          </Select>
+                        </FormControl>
+                      </Box>
+
+                      <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
+                        <UserinterfaceSelector
+                          deviceModel={getPrimaryDeviceModel()}
+                          value={parameterValues['userinterface_name'] || ''}
+                          onChange={(newValue) => handleParameterChange('userinterface_name', newValue)}
+                          label="Userinterface"
+                          size="small"
+                          fullWidth
+                        />
+                      </Box>
+                    </Box>
+                  </Box>
+
+                  {/* SECTION 2: SCRIPT SELECTION */}
+                  <Box sx={{ mb: 1 }}>
                     <UnifiedExecutableSelector
                       value={selectedExecutable}
                       onChange={setSelectedExecutable}
-                      label="Select Script or Test Case"
                       placeholder="Search by name..."
                       filters={{ folders: true, tags: true, search: true }}
                     />
                   </Box>
 
-                  {/* First row: Host and Device selection */}
-                  <Box sx={{ display: 'flex', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+                  {/* SECTION 3: SELECTED SCRIPT + PARAMETERS - ONE LINE */}
+                  {selectedExecutable && (
+                    <Box sx={{ 
+                      mb: 1, 
+                      p: 1, 
+                      bgcolor: 'action.hover', 
+                      borderRadius: 1, 
+                      display: 'flex', 
+                      alignItems: 'center', 
+                      gap: 1, 
+                      flexWrap: 'wrap' 
+                    }}>
+                      {/* Script badge + name */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <Chip
+                          label={selectedExecutable.type === 'script' ? 'S' : 'TC'}
+                          size="small"
+                          color={selectedExecutable.type === 'script' ? 'primary' : 'secondary'}
+                          sx={{ height: '20px', fontSize: '0.65rem', minWidth: '28px' }}
+                        />
+                        <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.9rem' }}>
+                          {selectedExecutable.name}
+                        </Typography>
+                      </Box>
 
-                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Host</InputLabel>
-                        <Select
-                          value={selectedHost}
-                          label="Host"
-                          onChange={(e) => {
-                            setSelectedHost(e.target.value);
-                            setSelectedDevice(''); // Reset device when host changes
-                            handleParameterChange('userinterface_name', ''); // Reset userinterface so it can auto-fill
-                          }}
-                        >
-                          {hosts.map((host) => (
-                            <MenuItem key={host.host_name} value={host.host_name}>
-                              {host.host_name}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                    </Box>
+                      {/* Bullet separator if there are parameters */}
+                      {displayParameters.length > 0 && (
+                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                          •
+                        </Typography>
+                      )}
 
-                    <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
-                      <FormControl fullWidth size="small">
-                        <InputLabel>Device</InputLabel>
-                        <Select
-                          value={selectedDevice}
-                          label="Device"
-                          onChange={(e) => {
-                            setSelectedDevice(e.target.value);
-                            handleParameterChange('userinterface_name', ''); // Reset userinterface so it can auto-fill for new device
-                          }}
-                          disabled={!selectedHost || getAvailableDevicesForSelection().length === 0}
-                        >
-                          {getAvailableDevicesForSelection().map((device) => {
-                            const deviceIsExecuting = isDeviceExecuting(selectedHost, device.device_id);
-                            return (
-                              <MenuItem 
-                                key={device.device_id} 
-                                value={device.device_id}
-                                disabled={deviceIsExecuting}
-                              >
-                                {device.device_name || device.device_id}
-                                {deviceIsExecuting && (
-                                  <Chip 
-                                    label="Executing" 
-                                    size="small" 
-                                    color="warning" 
-                                    sx={{ ml: 1, fontSize: '0.7rem', height: '18px' }} 
-                                  />
-                                )}
-                              </MenuItem>
-                            );
-                          })}
-                        </Select>
-                      </FormControl>
-                    </Box>
-
-                    {/* Parameters on the same row */}
-                    {displayParameters.length > 0 &&
-                      displayParameters.map((param) => (
-                        <Box key={param.name} sx={{ minWidth: 120, flex: '1 1 120px' }}>
-                          {renderParameterInput(param)}
+                      {/* Parameters inline with labels */}
+                      {displayParameters.map((param) => (
+                        <Box key={param.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Typography variant="body2" sx={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                            {param.name}:
+                          </Typography>
+                          <Box sx={{ minWidth: 100 }}>
+                            {renderParameterInput(param)}
+                          </Box>
                         </Box>
                       ))}
-                  </Box>
+                    </Box>
+                  )}
 
-                  {/* Second row: Add Device button aligned right - only show if more devices are available */}
+                  {/* Multi-device section (keep as is) */}
                   {hasMoreDevicesAvailable() && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
                       {selectedHost && selectedDevice && (!scriptDeclaresUserinterface || parameterValues['userinterface_name']) && (
@@ -868,7 +914,6 @@ const RunTests: React.FC = () => {
                           onClick={() => {
                             const exists = additionalDevices.some(hd => hd.hostName === selectedHost && hd.deviceId === selectedDevice);
                             if (!exists) {
-                              // Get device model for the selected device
                               const hostDevices = getDevicesFromHost(selectedHost);
                               const deviceObject = hostDevices.find(device => device.device_id === selectedDevice);
                               const deviceModel = deviceObject?.device_model || 'unknown';
@@ -879,7 +924,6 @@ const RunTests: React.FC = () => {
                                 deviceModel: deviceModel,
                                 userinterface: parameterValues['userinterface_name'] || ''
                               }]);
-                              // Reset current selection to allow adding different device
                               setSelectedHost('');
                               setSelectedDevice('');
                             }
@@ -888,7 +932,7 @@ const RunTests: React.FC = () => {
                             !selectedHost || 
                             !selectedDevice || 
                             (scriptDeclaresUserinterface && !parameterValues['userinterface_name']) ||
-                            isDeviceExecuting(selectedHost, selectedDevice) // Prevent adding device that's currently executing
+                            isDeviceExecuting(selectedHost, selectedDevice)
                           }
                           size="small"
                         >
@@ -898,7 +942,6 @@ const RunTests: React.FC = () => {
                     </Box>
                   )}
 
-                  {/* Show additional devices with per-device userinterface selectors */}
                   {additionalDevices.length > 0 && (
                     <Box sx={{ mt: 2, mb: 1 }}>
                       <Typography variant="body2" sx={{ mb: 1, fontWeight: 'bold' }}>
@@ -1011,6 +1054,7 @@ const RunTests: React.FC = () => {
                     </Box>
                   )}
 
+                  {/* SECTION 4: EXECUTE/CANCEL BUTTONS */}
                   <Box display="flex" gap={1}>
                     <Button
                       variant="contained"
@@ -1029,7 +1073,7 @@ const RunTests: React.FC = () => {
                     >
                       {isExecuting 
                         ? `Executing... (${executingIds.length} running)` 
-                        : `Execute Script${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length > 1 ? ` on ${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length} devices` : ''}`
+                        : `Execute${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length > 1 ? ` on ${((selectedHost && selectedDevice) ? 1 : 0) + additionalDevices.length} devices` : ''}`
                       }
                     </Button>
                     <Button

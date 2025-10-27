@@ -1,69 +1,33 @@
-/**
- * Unified Executable Selector Component
- * 
- * Reusable component for selecting scripts or testcases with:
- * - Folder-based organization
- * - Tag filtering
- * - Real-time search
- * - Unified interface for both types
- * 
- * Used by: RunTests, RunCampaigns
- */
-
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box,
-  TextField,
-  Autocomplete,
-  Chip,
-  Typography,
-  CircularProgress,
-  Paper,
-  List,
-  ListItem,
-  ListItemButton,
-  ListItemText,
-  Collapse,
-  InputAdornment,
+  Box, TextField, Autocomplete, Chip, Typography, CircularProgress, Paper,
+  List, ListItem, ListItemButton, InputAdornment,
 } from '@mui/material';
 import {
-  Search as SearchIcon,
-  Folder as FolderIcon,
-  FolderOpen as FolderOpenIcon,
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
+  Search as SearchIcon, Folder as FolderIcon,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 export interface ExecutableItem {
   type: 'script' | 'testcase';
-  id: string; // script filename or testcase UUID
-  name: string; // display name
-  description?: string;
-  tags?: Array<{ name: string; color: string }>;
-  userinterface?: string;
-  folder?: string;
-}
-
-interface FolderGroup {
-  id: number;
+  id: string;
   name: string;
-  items: ExecutableItem[];
+  description?: string;
+  tags?: string[];
+  userinterface?: string;
 }
 
-interface UnifiedExecutableSelectorProps {
+export interface UnifiedExecutableSelectorProps {
   value: ExecutableItem | null;
-  onChange: (executable: ExecutableItem | null) => void;
+  onChange: (item: ExecutableItem) => void;
   label?: string;
   placeholder?: string;
-  disabled?: boolean;
   filters?: {
+    search?: boolean;
     folders?: boolean;
     tags?: boolean;
-    search?: boolean;
   };
-  // Optional: Filter by type
-  allowedTypes?: Array<'script' | 'testcase'>;
+  allowedTypes?: ('script' | 'testcase')[];
 }
 
 export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps> = ({
@@ -73,62 +37,22 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
   filters = { folders: true, tags: true, search: true },
   allowedTypes,
 }) => {
-  // State
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [folders, setFolders] = useState<FolderGroup[]>([]);
+  const [allItems, setAllItems] = useState<ExecutableItem[]>([]);
+  const [allFolderNames, setAllFolderNames] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<Array<{ name: string; color: string }>>([]);
-  const [expandedFolders, setExpandedFolders] = useState<Set<number>>(new Set([0])); // Root folder expanded by default
-  
+
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
-  const [selectedFolder, setSelectedFolder] = useState<string | null>(null);
-
-  // Track if we should auto-expand (only on mount/initial load, not on user clicks)
-  const [allowAutoExpand, setAllowAutoExpand] = useState(true);
+  const [selectedFolder, setSelectedFolder] = useState<string | null>('All');
 
   // Load executables on mount
   useEffect(() => {
     console.log('[@UnifiedExecutableSelector] Component mounted, loading executables...');
     loadExecutables();
   }, []);
-
-  // Auto-expand folder containing the selected item when value changes
-  // BUT only if allowAutoExpand is true (not after user clicks)
-  useEffect(() => {
-    console.log('[@UnifiedExecutableSelector] Auto-expand effect triggered:', {
-      hasValue: !!value,
-      valueName: value?.name,
-      valueId: value?.id,
-      foldersCount: folders.length,
-      allowAutoExpand,
-      folders: folders.map(f => ({ id: f.id, name: f.name, itemCount: f.items.length }))
-    });
-
-    if (value && folders.length > 0 && allowAutoExpand) {
-      // Find which folder contains the selected item
-      for (const folder of folders) {
-        console.log('[@UnifiedExecutableSelector] Checking folder:', folder.name, 'items:', folder.items.map(i => i.id));
-        const containsSelected = folder.items.some(item => item.id === value.id);
-        if (containsSelected) {
-          // Expand this folder so the selected item is visible
-          console.log('[@UnifiedExecutableSelector] ✅ FOUND! Auto-expanding folder:', folder.name, 'for selected item:', value.name);
-          setExpandedFolders(new Set([folder.id]));
-          break;
-        } else {
-          console.log('[@UnifiedExecutableSelector] ❌ Not found in folder:', folder.name);
-        }
-      }
-    } else {
-      console.log('[@UnifiedExecutableSelector] ⚠️ Cannot auto-expand:', {
-        reason: !value ? 'No value selected' : !allowAutoExpand ? 'Auto-expand disabled (user clicked)' : 'No folders loaded',
-        value: value?.name,
-        foldersCount: folders.length,
-        allowAutoExpand
-      });
-    }
-  }, [value, folders, allowAutoExpand]);
 
   const loadExecutables = async () => {
     try {
@@ -142,13 +66,24 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
       console.log('[@UnifiedExecutableSelector] API response:', {
         success: data.success,
         foldersCount: data.folders?.length,
-        folders: data.folders?.map((f: any) => ({ id: f.id, name: f.name, itemCount: f.items?.length }))
       });
 
       if (data.success) {
-        setFolders(data.folders || []);
+        // Flatten all items from all folders
+        const items: ExecutableItem[] = [];
+        data.folders.forEach((folder: any) => {
+          folder.items.forEach((item: any) => {
+            items.push({
+              ...item,
+              folder: folder.name, // Add folder info to each item
+            });
+          });
+        });
+
+        setAllItems(items);
+        setAllFolderNames(data.all_folders || []);
         setAllTags(data.all_tags || []);
-        console.log('[@UnifiedExecutableSelector] ✅ Folders loaded successfully:', data.folders?.length);
+        console.log('[@UnifiedExecutableSelector] ✅ Loaded', items.length, 'items');
       } else {
         throw new Error(data.error || 'Failed to load executables');
       }
@@ -161,77 +96,50 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
     }
   };
 
-  // Filter items based on search, tags, and folder
-  const filteredFolders = useMemo(() => {
-    return folders.map(folder => {
-      let items = folder.items;
+  // Filter items
+  const filteredItems = useMemo(() => {
+    let items = [...allItems];
 
-      // Filter by allowed types
-      if (allowedTypes && allowedTypes.length > 0) {
-        items = items.filter(item => allowedTypes.includes(item.type));
-      }
+    // Apply type filter
+    if (allowedTypes && allowedTypes.length > 0) {
+      items = items.filter(item => allowedTypes.includes(item.type));
+    }
 
-      // Filter by folder selection
-      if (selectedFolder && folder.name !== selectedFolder) {
-        return { ...folder, items: [] };
-      }
+    // Apply folder filter
+    if (selectedFolder && selectedFolder !== 'All') {
+      items = items.filter((item: any) => item.folder === selectedFolder);
+    }
 
-      // Filter by search query
-      if (searchQuery.trim()) {
-        const query = searchQuery.toLowerCase();
-        items = items.filter(item => 
-          item.name.toLowerCase().includes(query) ||
-          item.description?.toLowerCase().includes(query)
-        );
-      }
+    // Apply search filter
+    if (searchQuery.trim()) {
+      const query = searchQuery.toLowerCase();
+      items = items.filter(item =>
+        item.name.toLowerCase().includes(query) ||
+        item.description?.toLowerCase().includes(query)
+      );
+    }
 
-      // Filter by tags (AND logic: item must have ALL selected tags)
-      if (selectedTags.length > 0) {
-        items = items.filter(item => {
-          const itemTagNames = item.tags?.map(t => t.name) || [];
-          return selectedTags.every(tag => itemTagNames.includes(tag));
-        });
-      }
+    // Apply tag filter
+    if (selectedTags.length > 0) {
+      items = items.filter(item =>
+        item.tags && item.tags.some(tag => selectedTags.includes(tag))
+      );
+    }
 
-      return { ...folder, items };
-    }).filter(folder => folder.items.length > 0); // Only show folders with items
-  }, [folders, searchQuery, selectedTags, selectedFolder, allowedTypes]);
+    return items;
+  }, [allItems, searchQuery, selectedTags, selectedFolder, allowedTypes]);
 
-  // Toggle folder expansion
-  const toggleFolder = (folderId: number) => {
-    console.log('[@UnifiedExecutableSelector] 📁 User manually toggling folder:', folderId);
-    setExpandedFolders(prev => {
-      const newSet = new Set(prev);
-      if (newSet.has(folderId)) {
-        console.log('[@UnifiedExecutableSelector] Collapsing folder:', folderId);
-        newSet.delete(folderId);
-      } else {
-        console.log('[@UnifiedExecutableSelector] Expanding folder:', folderId);
-        newSet.add(folderId);
-      }
-      console.log('[@UnifiedExecutableSelector] Expanded folders now:', Array.from(newSet));
-      return newSet;
-    });
-  };
-
-  // Handle item selection and auto-collapse (only when user clicks, not on mount)
+  // Handle item selection
   const handleItemSelect = (item: ExecutableItem) => {
-    console.log('[@UnifiedExecutableSelector] 🎯 Item selected by user click:', item.name);
+    console.log('[@UnifiedExecutableSelector] 🎯 Item selected:', item.name);
     onChange(item);
-    // Disable auto-expand so it doesn't re-expand after we collapse
-    console.log('[@UnifiedExecutableSelector] 🚫 Disabling auto-expand to keep folders collapsed');
-    setAllowAutoExpand(false);
-    // Auto-collapse all folders after user selection
-    console.log('[@UnifiedExecutableSelector] 📦 Collapsing all folders...');
-    setExpandedFolders(new Set());
-    console.log('[@UnifiedExecutableSelector] ✅ All folders collapsed and will stay collapsed');
   };
 
   // Render loading state
   if (loading) {
     return (
       <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-        <CircularProgress />
+        <CircularProgress size={24} />
       </Box>
     );
   }
@@ -239,7 +147,7 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
   // Render error state
   if (error) {
     return (
-      <Box sx={{ p: 2 }}>
+      <Box sx={{ p: 2, bgcolor: 'error.light', borderRadius: 1 }}>
         <Typography color="error">{error}</Typography>
       </Box>
     );
@@ -247,9 +155,8 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
 
   return (
     <Box>
-      {/* Filters Section - All in one row */}
+      {/* Filters Section - All in one row, equal sizes */}
       <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-        {/* Search */}
         {filters.search && (
           <TextField
             size="small"
@@ -263,49 +170,60 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
                 </InputAdornment>
               ),
             }}
-            sx={{ flex: 1, minWidth: 200 }}
+            sx={{ flex: 1 }}
           />
         )}
 
-        {/* Folder Filter */}
         {filters.folders && (
           <Autocomplete
             size="small"
-            options={folders.map(f => f.name)}
             value={selectedFolder}
-            onChange={(_, newValue) => setSelectedFolder(newValue)}
+            onChange={(event, newValue) => setSelectedFolder(newValue)}
+            options={['All', ...allFolderNames]}
             renderInput={(params) => (
-              <TextField {...params} placeholder="All folders" />
+              <TextField
+                {...params}
+                label="Folder"
+                InputProps={{
+                  ...params.InputProps,
+                  startAdornment: (
+                    <>
+                      <InputAdornment position="start">
+                        <FolderIcon fontSize="small" />
+                      </InputAdornment>
+                      {params.InputProps.startAdornment}
+                    </>
+                  ),
+                }}
+              />
             )}
-            sx={{ flex: 1, minWidth: 150 }}
+            sx={{ flex: 1 }}
           />
         )}
 
-        {/* Tag Filter - Always visible, even when no tags exist */}
         {filters.tags && (
           <Autocomplete
-            multiple
             size="small"
-            options={allTags.map(t => t.name)}
+            multiple
             value={selectedTags}
-            onChange={(_, newValue) => setSelectedTags(newValue)}
+            onChange={(event, newValue) => setSelectedTags(newValue)}
+            options={allTags.map(t => t.name)}
             disabled={allTags.length === 0}
             renderTags={(value, getTagProps) =>
-              value.map((tagName, index) => {
-                const tag = allTags.find(t => t.name === tagName);
+              value.map((option, index) => {
+                const tag = allTags.find(t => t.name === option);
                 return (
                   <Chip
-                    label={tagName}
+                    label={option}
                     size="small"
                     {...getTagProps({ index })}
                     sx={{
                       height: '20px',
-                      fontSize: '0.7rem',
                       backgroundColor: tag?.color || '#9e9e9e',
                       color: 'white',
-                      '& .MuiChip-deleteIcon': { 
-                        color: 'rgba(255, 255, 255, 0.7)', 
-                        '&:hover': { color: 'white' } 
+                      '& .MuiChip-deleteIcon': {
+                        color: 'rgba(255,255,255,0.7)',
+                        '&:hover': { color: 'white' }
                       }
                     }}
                   />
@@ -313,176 +231,114 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
               })
             }
             renderInput={(params) => (
-              <TextField 
-                {...params} 
-                placeholder={allTags.length === 0 ? "No tags yet" : "Tags..."} 
+              <TextField
+                {...params}
+                label="Tags"
+                placeholder={allTags.length === 0 ? 'No tags' : 'Filter...'}
               />
             )}
-            sx={{ flex: 1, minWidth: 200 }}
+            sx={{ flex: 1 }}
           />
         )}
       </Box>
 
-      {/* Selected Value Display - Compact */}
-      {value && (
-        <Box sx={{ mb: 1, p: 0.75, bgcolor: 'action.hover', borderRadius: 1 }}>
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-            <Chip 
-              label={value.type === 'script' ? 'S' : 'TC'} 
-              size="small" 
-              color={value.type === 'script' ? 'primary' : 'secondary'}
-              sx={{ height: '18px', fontSize: '0.65rem', minWidth: '28px' }}
-            />
-            <Typography variant="body2" fontWeight="bold">{value.name}</Typography>
-            {value.tags && value.tags.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 0.5, ml: 'auto' }}>
-                {value.tags.map(tag => (
-                  <Chip
-                    key={tag.name}
-                    label={tag.name}
-                    size="small"
-                    sx={{
-                      height: 18,
-                      backgroundColor: tag.color,
-                      color: 'white',
-                      fontSize: '0.65rem'
-                    }}
-                  />
-                ))}
+      {/* Flat Item List - Full width */}
+      <Box>
+          <Paper variant="outlined" sx={{ maxHeight: 200, overflow: 'auto' }}>
+            {filteredItems.length === 0 ? (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="body2" color="text.secondary">
+                  No executables found
+                </Typography>
               </Box>
-            )}
-          </Box>
-        </Box>
-      )}
-
-      {/* Executable List (Folder Tree) - Compact */}
-      <Paper variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
-        {filteredFolders.length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="body2" color="text.secondary">
-              No executables found
-            </Typography>
-          </Box>
-        ) : (
-          <List dense disablePadding>
-            {filteredFolders.map(folder => {
-              const isExpanded = expandedFolders.has(folder.id);
-              
-              return (
-                <React.Fragment key={folder.id}>
-                  {/* Folder Header - Compact */}
-                  <ListItem disablePadding>
-                    <ListItemButton onClick={() => toggleFolder(folder.id)} sx={{ py: 0.5, minHeight: 32 }}>
-                      {isExpanded ? <FolderOpenIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} /> : <FolderIcon sx={{ mr: 0.5, fontSize: '1.1rem' }} />}
-                      <ListItemText 
-                        primary={
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
-                            <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.85rem' }}>
-                              {folder.name}
-                            </Typography>
-                            <Chip label={folder.items.length} size="small" sx={{ height: '16px', fontSize: '0.65rem' }} />
-                          </Box>
-                        }
-                      />
-                      {isExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
-                    </ListItemButton>
-                  </ListItem>
-
-                  {/* Folder Items - Ultra Compact (One Line) */}
-                  <Collapse in={isExpanded} timeout="auto" unmountOnExit>
-                    <List component="div" disablePadding>
-                      {folder.items.map(item => {
-                        const isSelected = value?.id === item.id;
-                        return (
-                          <ListItem 
-                            key={item.id} 
-                            disablePadding
+            ) : (
+              <List dense disablePadding>
+                {filteredItems.map(item => {
+                  const isSelected = value?.id === item.id;
+                  return (
+                    <ListItem
+                      key={item.id}
+                      disablePadding
+                      sx={{
+                        bgcolor: isSelected ? 'primary.main' : 'transparent',
+                        '&:hover': { bgcolor: isSelected ? 'primary.dark' : 'action.hover' },
+                        borderLeft: isSelected ? '3px solid' : 'none',
+                        borderColor: 'primary.light'
+                      }}
+                    >
+                      <ListItemButton
+                        onClick={() => handleItemSelect(item)}
+                        selected={isSelected}
+                        sx={{
+                          py: 0.25,
+                          pl: isSelected ? 0.75 : 1,
+                          pr: 1,
+                          minHeight: 28,
+                          color: isSelected ? 'primary.contrastText' : 'inherit'
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
+                          <Chip
+                            label={item.type === 'script' ? 'S' : 'TC'}
+                            size="small"
+                            color={item.type === 'script' ? 'primary' : 'secondary'}
                             sx={{
-                              bgcolor: isSelected ? 'primary.main' : 'transparent',
-                              '&:hover': { bgcolor: isSelected ? 'primary.dark' : 'action.hover' },
-                              borderLeft: isSelected ? '3px solid' : 'none',
-                              borderColor: 'primary.light'
+                              height: '16px',
+                              fontSize: '0.6rem',
+                              minWidth: '24px',
+                              '.MuiChip-label': { px: 0.5 },
+                              bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
+                              color: isSelected ? 'primary.main' : undefined
+                            }}
+                          />
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontSize: '0.8rem',
+                              flex: 1,
+                              overflow: 'hidden',
+                              textOverflow: 'ellipsis',
+                              whiteSpace: 'nowrap',
+                              fontWeight: isSelected ? 'bold' : 'normal'
                             }}
                           >
-                            <ListItemButton 
-                              sx={{ 
-                                py: 0.25, 
-                                pl: isSelected ? 2.75 : 3, // Adjust for border
-                                pr: 1, 
-                                minHeight: 28,
-                                color: isSelected ? 'primary.contrastText' : 'inherit'
-                              }}
-                              onClick={() => handleItemSelect(item)}
-                              selected={isSelected}
-                            >
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, width: '100%' }}>
-                                {/* Type Badge (S or TC) */}
-                                <Chip 
-                                  label={item.type === 'script' ? 'S' : 'TC'} 
-                                  size="small" 
-                                  color={item.type === 'script' ? 'primary' : 'secondary'}
-                                  sx={{ 
-                                    height: '16px', 
-                                    fontSize: '0.6rem', 
-                                    minWidth: '24px', 
-                                    '.MuiChip-label': { px: 0.5 },
-                                    bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
-                                    color: isSelected ? 'primary.main' : undefined
-                                  }}
-                                />
-                                
-                                {/* Name */}
-                                <Typography 
-                                  variant="body2" 
-                                  sx={{ 
-                                    fontSize: '0.8rem', 
-                                    flex: 1, 
-                                    overflow: 'hidden', 
-                                    textOverflow: 'ellipsis', 
-                                    whiteSpace: 'nowrap',
-                                    fontWeight: isSelected ? 'bold' : 'normal'
-                                  }}
-                                >
-                                  {item.name}
-                                </Typography>
-                                
-                                {/* Tags */}
-                                {item.tags && item.tags.length > 0 && (
-                                  <Box sx={{ display: 'flex', gap: 0.5, flexShrink: 0 }}>
-                                    {item.tags.map(tag => (
-                                      <Chip
-                                        key={tag.name}
-                                        label={tag.name}
-                                        size="small"
-                                        sx={{
-                                          height: 16,
-                                          fontSize: '0.6rem',
-                                          backgroundColor: isSelected ? 'rgba(255,255,255,0.85)' : tag.color,
-                                          color: isSelected ? tag.color : 'white',
-                                          '.MuiChip-label': { px: 0.5 }
-                                        }}
-                                      />
-                                    ))}
-                                  </Box>
-                                )}
-                              </Box>
-                            </ListItemButton>
-                          </ListItem>
-                        );
-                      })}
-                    </List>
-                  </Collapse>
-                </React.Fragment>
-              );
-            })}
-          </List>
-        )}
-      </Paper>
+                            {item.name}
+                          </Typography>
+                          {item.tags && item.tags.length > 0 && (
+                            <Box sx={{ display: 'flex', gap: 0.25 }}>
+                              {item.tags.map(tagName => {
+                                const tag = allTags.find(t => t.name === tagName);
+                                return (
+                                  <Chip
+                                    key={tagName}
+                                    label={tagName}
+                                    size="small"
+                                    sx={{
+                                      height: '14px',
+                                      fontSize: '0.55rem',
+                                      backgroundColor: isSelected ? 'rgba(255,255,255,0.9)' : (tag?.color || '#9e9e9e'),
+                                      color: isSelected ? 'primary.main' : 'white'
+                                    }}
+                                  />
+                                );
+                              })}
+                            </Box>
+                          )}
+                        </Box>
+                      </ListItemButton>
+                    </ListItem>
+                  );
+                })}
+              </List>
+            )}
+          </Paper>
+      </Box>
 
       {/* Summary - Compact */}
       <Box sx={{ mt: 0.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem' }}>
-          {filteredFolders.reduce((sum, f) => sum + f.items.length, 0)} items
+          {filteredItems.length} items
+          {selectedFolder && selectedFolder !== 'All' && ` in ${selectedFolder}`}
           {selectedTags.length > 0 && ` • ${selectedTags.join(', ')}`}
           {searchQuery && ` • "${searchQuery}"`}
         </Typography>

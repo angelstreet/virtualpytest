@@ -99,7 +99,7 @@ def list_executables():
                 script_display = f"{script}.py"
                 display_name = script_name.replace('_', ' ').title()
             else:
-                folder_name = '(Root)'
+                folder_name = 'Root'
                 script_name = script
                 script_display = f"{script}.py"
                 display_name = script.replace('_', ' ').title()
@@ -144,7 +144,7 @@ def list_executables():
             folder_id = testcase.get('folder_id', 0)
             
             # Get folder name from database
-            folder_name = next((f['name'] for f in all_folders if f['folder_id'] == folder_id), '(Root)')
+            folder_name = next((f['name'] for f in all_folders if f['folder_id'] == folder_id), 'Root')
             
             # Get tags for this testcase
             tc_tags = get_executable_tags('testcase', testcase['testcase_id'])
@@ -185,14 +185,14 @@ def list_executables():
         folders = [folder for folder in folder_map.values() if len(folder['items']) > 0]
         
         # Sort folders by name (Root first, then alphabetical)
-        folders.sort(key=lambda f: (f['name'] != '(Root)', f['name'].lower()))
+        folders.sort(key=lambda f: (f['name'] != 'Root', f['name'].lower()))
         
         # Get all unique folder names for the filter dropdown
         all_folder_names = sorted(set(folder_map.keys()))
-        # Ensure (Root) is first
-        if '(Root)' in all_folder_names:
-            all_folder_names.remove('(Root)')
-            all_folder_names = ['(Root)'] + all_folder_names
+        # Ensure Root is first
+        if 'Root' in all_folder_names:
+            all_folder_names.remove('Root')
+            all_folder_names = ['Root'] + all_folder_names
         
         return jsonify({
             'success': True,
