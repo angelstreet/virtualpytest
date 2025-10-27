@@ -69,69 +69,90 @@ def list_executables():
         filter_tags = request.args.get('tags', '').split(',') if request.args.get('tags') else []
         search_query = request.args.get('search', '').lower()
         
-        # Get all folders and tags
+        # Get all folders and tags from database (for test cases)
         all_folders = list_all_folders()
         all_tags = list_all_tags()
         
-        # Get scripts from filesystem
+        # Get scripts from filesystem (includes subfolder paths like "gw/smartping")
         available_scripts = list_available_scripts()
         
         # Get testcases from database
         testcases = list_testcases(team_id)
         
         # Build folder structure
+        # Use a dict with folder name as key for easy lookup
         folder_map = {}
         
-        # Initialize folders
+        # Initialize folders from database (for test cases)
         for folder in all_folders:
-            folder_map[folder['folder_id']] = {
+            folder_map[folder['name']] = {
                 'id': folder['folder_id'],
                 'name': folder['name'],
                 'items': []
             }
         
-        # Add scripts to folders (scripts don't have folder info in DB yet, all go to root)
+        # Process scripts - extract folder from filesystem path
         for script in available_scripts:
+            # Parse folder from script path (e.g., "gw/smartping" -> folder="gw", name="smartping")
+            if '/' in script:
+                folder_name, script_name = script.rsplit('/', 1)
+                script_display = f"{script}.py"
+                display_name = script_name.replace('_', ' ').title()
+            else:
+                folder_name = '(Root)'
+                script_name = script
+                script_display = f"{script}.py"
+                display_name = script.replace('_', ' ').title()
+            
             # Get tags for this script
-            script_tags = get_executable_tags('script', f"{script}.py")
+            script_tags = get_executable_tags('script', script_display)
             tag_names = [tag['name'] for tag in script_tags]
             
             # Apply filters
-            if filter_folder and filter_folder != '(Root)':
-                continue  # Skip scripts not in filtered folder (scripts are in root)
+            if filter_folder and filter_folder != folder_name:
+                continue
             
             if filter_tags and not any(tag in tag_names for tag in filter_tags):
                 continue
             
-            script_display = f"{script}.py"
-            if search_query and search_query not in script_display.lower():
+            if search_query and search_query not in script_display.lower() and search_query not in display_name.lower():
                 continue
             
-            # Add to root folder
+            # Create script item
             script_item = {
                 'type': 'script',
                 'id': script_display,
-                'name': script.replace('_', ' ').title(),
-                'description': f'Execute {script}',
+                'name': display_name,
+                'description': f'Execute {script_name}',
                 'tags': tag_names
             }
             
-            if 0 in folder_map:
-                folder_map[0]['items'].append(script_item)
+            # Ensure folder exists in map
+            if folder_name not in folder_map:
+                # Create dynamic folder for filesystem folders not in database
+                folder_id = hash(folder_name) % 10000  # Simple hash for ID
+                folder_map[folder_name] = {
+                    'id': folder_id,
+                    'name': folder_name,
+                    'items': []
+                }
+            
+            folder_map[folder_name]['items'].append(script_item)
         
-        # Add testcases to folders
+        # Process testcases - use database folder_id
         for testcase in testcases:
             folder_id = testcase.get('folder_id', 0)
+            
+            # Get folder name from database
+            folder_name = next((f['name'] for f in all_folders if f['folder_id'] == folder_id), '(Root)')
             
             # Get tags for this testcase
             tc_tags = get_executable_tags('testcase', testcase['testcase_id'])
             tag_names = [tag['name'] for tag in tc_tags]
             
             # Apply filters
-            if filter_folder:
-                folder_name = next((f['name'] for f in all_folders if f['folder_id'] == folder_id), '(Root)')
-                if folder_name != filter_folder:
-                    continue
+            if filter_folder and folder_name != filter_folder:
+                continue
             
             if filter_tags and not any(tag in tag_names for tag in filter_tags):
                 continue
@@ -139,7 +160,7 @@ def list_executables():
             if search_query and search_query not in testcase['testcase_name'].lower():
                 continue
             
-            # Add to appropriate folder
+            # Create testcase item
             testcase_item = {
                 'type': 'testcase',
                 'id': testcase['testcase_id'],
@@ -150,20 +171,34 @@ def list_executables():
                 'created_at': testcase.get('created_at')
             }
             
-            if folder_id in folder_map:
-                folder_map[folder_id]['items'].append(testcase_item)
+            # Ensure folder exists in map
+            if folder_name not in folder_map:
+                folder_map[folder_name] = {
+                    'id': folder_id,
+                    'name': folder_name,
+                    'items': []
+                }
+            
+            folder_map[folder_name]['items'].append(testcase_item)
         
         # Convert to list and filter out empty folders
         folders = [folder for folder in folder_map.values() if len(folder['items']) > 0]
         
         # Sort folders by name (Root first, then alphabetical)
-        folders.sort(key=lambda f: (f['name'] != '(Root)', f['name']))
+        folders.sort(key=lambda f: (f['name'] != '(Root)', f['name'].lower()))
+        
+        # Get all unique folder names for the filter dropdown
+        all_folder_names = sorted(set(folder_map.keys()))
+        # Ensure (Root) is first
+        if '(Root)' in all_folder_names:
+            all_folder_names.remove('(Root)')
+            all_folder_names = ['(Root)'] + all_folder_names
         
         return jsonify({
             'success': True,
             'folders': folders,
             'all_tags': all_tags,
-            'all_folders': [f['name'] for f in all_folders]
+            'all_folders': all_folder_names
         })
         
     except Exception as e:

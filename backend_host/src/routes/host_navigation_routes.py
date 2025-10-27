@@ -12,7 +12,12 @@ host_navigation_bp = Blueprint('host_navigation', __name__, url_prefix='/host/na
 
 @host_navigation_bp.route('/execute/<tree_id>/<target_node_id>', methods=['POST'])
 def navigation_execute(tree_id, target_node_id):
-    """Execute navigation using device's NavigationExecutor - supports async execution"""
+    """
+    Execute navigation using device's NavigationExecutor - supports async execution
+    
+    NOTE: target_node_id in URL can be EITHER a node ID (UUID) or a node label.
+    The executor will resolve labels to IDs internally.
+    """
     try:
         print(f"\n{'='*80}")
         print(f"[@route:host_navigation:navigation_execute] 🚀 NAVIGATION EXECUTION STARTED")
@@ -66,28 +71,80 @@ def navigation_execute(tree_id, target_node_id):
                 'error': f'Device {device_id} does not have NavigationExecutor initialized'
             }), 500
         
+        # 🔍 SMART RESOLUTION: Determine if target_node_id is a label or actual ID
+        # UUIDs contain hyphens and are longer, labels are typically shorter and may have underscores
+        # We can check the graph to see if it exists as a node ID first
+        is_label = False
+        
+        # Try to determine if it's a label by checking the graph
+        try:
+            if device.navigation_executor.unified_graph:
+                # Check if target_node_id exists as a node ID in the graph
+                if not device.navigation_executor.unified_graph.has_node(target_node_id):
+                    # Not found as node ID - might be a label
+                    # The executor will resolve it, but we should call with target_node_label instead
+                    is_label = True
+                    print(f"[@route:host_navigation:navigation_execute] '{target_node_id}' not found as node ID - treating as label")
+                else:
+                    print(f"[@route:host_navigation:navigation_execute] '{target_node_id}' found as node ID in graph")
+            else:
+                # No graph loaded - assume it might be a label and let executor resolve
+                # Heuristic: if it looks like a UUID (contains 'node-' or multiple hyphens), treat as ID
+                if 'node-' in target_node_id or target_node_id.count('-') >= 4:
+                    is_label = False
+                    print(f"[@route:host_navigation:navigation_execute] '{target_node_id}' looks like UUID - treating as node ID")
+                else:
+                    is_label = True
+                    print(f"[@route:host_navigation:navigation_execute] '{target_node_id}' doesn't look like UUID - treating as label")
+        except Exception as e:
+            # If error checking, assume it's a label and let executor handle it
+            print(f"[@route:host_navigation:navigation_execute] Error checking if '{target_node_id}' is ID or label: {e} - letting executor resolve")
+            is_label = True
+        
         # Execute navigation: async or sync
         if async_execution:
             # Async execution - returns immediately with execution_id
-            result = device.navigation_executor.execute_navigation_async(
-                tree_id=tree_id,
-                userinterface_name=userinterface_name,
-                target_node_id=target_node_id,
-                current_node_id=current_node_id,
-                team_id=team_id
-            )
+            if is_label:
+                result = device.navigation_executor.execute_navigation_async(
+                    tree_id=tree_id,
+                    target_node_label=target_node_id,  # Pass as label
+                    userinterface_name=userinterface_name,
+                    current_node_id=current_node_id,
+                    frontend_sent_position=frontend_sent_position,
+                    team_id=team_id
+                )
+            else:
+                result = device.navigation_executor.execute_navigation_async(
+                    tree_id=tree_id,
+                    target_node_id=target_node_id,  # Pass as ID
+                    userinterface_name=userinterface_name,
+                    current_node_id=current_node_id,
+                    frontend_sent_position=frontend_sent_position,
+                    team_id=team_id
+                )
             print(f"[@route:host_navigation:navigation_execute] Async execution started: {result.get('execution_id')}")
         else:
             # Sync execution - waits for completion (may timeout)
-            result = device.navigation_executor.execute_navigation(
-                tree_id=tree_id,
-                userinterface_name=userinterface_name,
-                target_node_id=target_node_id,
-                current_node_id=current_node_id,
-                frontend_sent_position=frontend_sent_position,
-                image_source_url=image_source_url,
-                team_id=team_id
-            )
+            if is_label:
+                result = device.navigation_executor.execute_navigation(
+                    tree_id=tree_id,
+                    userinterface_name=userinterface_name,
+                    target_node_label=target_node_id,  # Pass as label
+                    current_node_id=current_node_id,
+                    frontend_sent_position=frontend_sent_position,
+                    image_source_url=image_source_url,
+                    team_id=team_id
+                )
+            else:
+                result = device.navigation_executor.execute_navigation(
+                    tree_id=tree_id,
+                    userinterface_name=userinterface_name,
+                    target_node_id=target_node_id,  # Pass as ID
+                    current_node_id=current_node_id,
+                    frontend_sent_position=frontend_sent_position,
+                    image_source_url=image_source_url,
+                    team_id=team_id
+                )
             print(f"[@route:host_navigation:navigation_execute] Sync execution completed: success={result.get('success')}")
         
         return jsonify(result)
