@@ -24,12 +24,16 @@ CACHE_CONFIG = {
     'SHORT_TTL': 2 * 60,
     
     # Medium cache - for semi-static data (5 minutes)
-    # Used for: Navigation trees, heatmap analysis
+    # Used for: Navigation trees, heatmap analysis, Reference images (with ETag checking)
     'MEDIUM_TTL': 5 * 60,
     
     # Long cache - for static data (24 hours)
     # Used for: Stream URLs, metadata, device models, user interfaces
     'LONG_TTL': 24 * 60 * 60,
+    
+    # Reference image cache TTL (5 minutes with ETag validation)
+    # ETags provide instant change detection, TTL is safety fallback
+    'REFERENCE_IMAGE_TTL': 5 * 60,
 }
 
 # =====================================================

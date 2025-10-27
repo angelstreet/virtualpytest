@@ -1012,7 +1012,8 @@ class ImageVerificationController:
             
             # PHASE 1: Reduced TTL to 5 minutes (was 24 hours)
             # PHASE 2: ETag-based freshness check
-            REFERENCE_CACHE_TTL_MINUTES = 5
+            from shared.src.lib.config.constants import CACHE_CONFIG
+            REFERENCE_CACHE_TTL_SECONDS = CACHE_CONFIG['REFERENCE_IMAGE_TTL']
             
             should_download = True
             cached_etag = None
@@ -1031,7 +1032,7 @@ class ImageVerificationController:
                     except Exception as e:
                         print(f"[@controller:ImageVerification] Could not read ETag file: {e}")
                 
-                if file_age_minutes < REFERENCE_CACHE_TTL_MINUTES:
+                if file_age_seconds < REFERENCE_CACHE_TTL_SECONDS:
                     # Cache is fresh by TTL, but check if R2 file changed (ETag check)
                     if cached_etag:
                         print(f"[@controller:ImageVerification] Checking if R2 file changed (cached ETag: {cached_etag[:8]}...)")
