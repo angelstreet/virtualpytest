@@ -100,28 +100,24 @@ def take_control():
                     if result.get('success'):
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
-                        # Populate navigation cache for the controlled device (if tree_id provided)
-                        # Run in background thread to avoid blocking takeControl response (was 5.78s!)
+                        # Populate navigation cache SYNCHRONOUSLY (ensures cache is ready before returning)
                         tree_id = data.get('tree_id')
                         team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
+                        cache_status = 'not_applicable'
+                        
                         if tree_id and team_id:
-                            import threading
-                            
-                            def populate_cache_async():
-                                """Background task to populate navigation cache"""
-                                try:
-                                    print(f"🗺️ [CONTROL:ASYNC] Populating navigation cache for tree: {tree_id}")
-                                    cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-                                    if cache_success:
-                                        print(f"✅ [CONTROL:ASYNC] Navigation cache populated successfully")
-                                    else:
-                                        print(f"⚠️ [CONTROL:ASYNC] Navigation cache population failed (non-critical)")
-                                except Exception as cache_error:
-                                    print(f"⚠️ [CONTROL:ASYNC] Navigation cache population error: {cache_error}")
-                            
-                            # Start cache population in background (non-blocking)
-                            threading.Thread(target=populate_cache_async, daemon=True).start()
-                            print(f"🗺️ [CONTROL] Navigation cache population started in background")
+                            print(f"🗺️ [CONTROL] Building navigation cache for tree: {tree_id}")
+                            try:
+                                cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+                                if cache_success:
+                                    print(f"✅ [CONTROL] Navigation cache built successfully")
+                                    cache_status = 'ready'
+                                else:
+                                    print(f"⚠️ [CONTROL] Navigation cache build failed (non-critical)")
+                                    cache_status = 'failed'
+                            except Exception as cache_error:
+                                print(f"⚠️ [CONTROL] Navigation cache build error: {cache_error}")
+                                cache_status = 'error'
                         
                         return jsonify({
                             'success': True,
@@ -130,7 +126,7 @@ def take_control():
                             'host_name': host_name,
                             'device_id': device_id,
                             'host_result': result,
-                            'cache_status': 'populating' if tree_id and team_id else 'not_applicable'
+                            'cache_status': cache_status
                         })
                     else:
                         # Host rejected control - unlock and return error
