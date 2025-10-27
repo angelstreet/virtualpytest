@@ -152,6 +152,48 @@ def get_tree_hierarchy_metadata(root_tree_id: str, team_id: str) -> Optional[Dic
     hierarchy_cache_key = f"hierarchy_{root_tree_id}_{team_id}"
     return _tree_hierarchy_cache.get(hierarchy_cache_key)
 
+def get_node_from_graph(node_id: str, root_tree_id: str, team_id: str) -> Optional[Dict]:
+    """
+    Get node data from unified graph cache (ZERO database calls!)
+    
+    Args:
+        node_id: Node ID to retrieve
+        root_tree_id: Root tree ID for the hierarchy
+        team_id: Team ID for security
+        
+    Returns:
+        Dict with node data or None if not found
+    """
+    try:
+        unified_graph = get_cached_unified_graph(root_tree_id, team_id)
+        if not unified_graph:
+            print(f"[@navigation:cache:get_node_from_graph] No cached graph for tree {root_tree_id}")
+            return None
+        
+        if node_id not in unified_graph.nodes:
+            print(f"[@navigation:cache:get_node_from_graph] Node {node_id} not found in graph")
+            return None
+        
+        # Get all node attributes from graph
+        node_attrs = unified_graph.nodes[node_id]
+        
+        # Return in same format as database for compatibility
+        return {
+            'node_id': node_id,
+            'label': node_attrs.get('label', ''),
+            'node_type': node_attrs.get('node_type', 'screen'),
+            'tree_id': node_attrs.get('tree_id'),
+            'tree_name': node_attrs.get('tree_name', ''),
+            'tree_depth': node_attrs.get('tree_depth', 0),
+            'verifications': node_attrs.get('verifications', []),
+            'verification_pass_condition': node_attrs.get('metadata', {}).get('verification_pass_condition', 'all'),
+            'data': node_attrs.get('metadata', {}),
+            'is_entry_point': node_attrs.get('is_entry_point', False),
+        }
+    except Exception as e:
+        print(f"[@navigation:cache:get_node_from_graph] Error: {e}")
+        return None
+
 def clear_unified_cache(root_tree_id: str = None, team_id: str = None):
     """Clear memory cache (memory-only, cleared on restart)"""
     if root_tree_id and team_id:

@@ -335,34 +335,37 @@ class VerificationExecutor:
         print(f"[@lib:verification_executor:verify_node] 🔍 Called with node_id={node_id}, userinterface_name={userinterface_name}, tree_id={tree_id}, team_id={team_id}")
         
         try:
-            # Get tree_id from navigation context if not provided
+            # Get tree_id from navigation context if not provided (use root tree for unified graph)
             if not tree_id:
                 nav_context = self.device.navigation_context
-                tree_id = nav_context.get('current_tree_id')
+                tree_id = nav_context.get('tree_id')  # Use root tree_id, not current_tree_id
                 print(f"[@lib:verification_executor:verify_node] Tree ID from context: {tree_id}")
             
-            # Get node data from database to retrieve verifications
-            from shared.src.lib.database.navigation_trees_db import get_node_by_id
-            print(f"[@lib:verification_executor:verify_node] Fetching node data from database...")
-            node_data = get_node_by_id(tree_id, node_id, team_id)
+            # Get node data from UNIFIED GRAPH (zero database calls!)
+            from backend_host.src.lib.utils.navigation_cache import get_node_from_graph
+            print(f"[@lib:verification_executor:verify_node] Fetching node from unified graph...")
+            node_data = get_node_from_graph(node_id, tree_id, team_id)
             
-            if not node_data or 'error' in node_data:
-                print(f"[@lib:verification_executor:verify_node] ❌ Failed to get node data for {node_id}")
-                return {'success': False, 'error': 'Node not found', 'results': []}
+            if not node_data:
+                print(f"[@lib:verification_executor:verify_node] ❌ Node {node_id} not found in graph")
+                return {'success': False, 'error': 'Node not found in unified graph', 'results': []}
             
-            print(f"[@lib:verification_executor:verify_node] ✅ Node data retrieved successfully")
+            print(f"[@lib:verification_executor:verify_node] ✅ Node data from graph: {node_data.get('label')} (tree: {node_data.get('tree_name')})")
             
             # Extract verifications from node
-            verifications = node_data.get('node', {}).get('verifications', [])
+            verifications = node_data.get('verifications', [])
             
             if not verifications:
                 print(f"[@lib:verification_executor:verify_node] No verifications for node {node_id}")
                 return {'success': False, 'has_verifications': False, 'message': 'No verifications defined - cannot verify position', 'results': []}
             
             # Extract verification_pass_condition from node (defaults to 'all')
-            verification_pass_condition = node_data.get('node', {}).get('verification_pass_condition') or node_data.get('node', {}).get('data', {}).get('verification_pass_condition') or 'all'
+            verification_pass_condition = node_data.get('verification_pass_condition', 'all')
             
             print(f"[@lib:verification_executor:verify_node] Executing {len(verifications)} verifications for node {node_id} with condition '{verification_pass_condition}'")
+            
+            # Use actual node's tree_id for database recording (nested tree)
+            actual_tree_id = node_data.get('tree_id')
             
             # Execute verifications with proper tree_id and node_id for database recording
             return self.execute_verifications(
@@ -370,7 +373,7 @@ class VerificationExecutor:
                 userinterface_name=userinterface_name,  # MANDATORY parameter
                 image_source_url=image_source_url,
                 team_id=team_id,
-                tree_id=tree_id,
+                tree_id=actual_tree_id,  # Use node's actual tree_id for recording
                 node_id=node_id,
                 verification_pass_condition=verification_pass_condition  # NEW: Pass condition from node
             )
