@@ -132,6 +132,37 @@ const RunTests: React.FC = () => {
     }
   }, [selectedExecutable]);
 
+  // Reverse sync: When selectedScript has a value but selectedExecutable is null,
+  // fetch the executable details from the backend (happens on page load with saved state)
+  useEffect(() => {
+    const syncExecutableFromScript = async () => {
+      // Only sync if we have a script selected but no executable object
+      if (selectedScript && !selectedExecutable) {
+        try {
+          // Fetch executables to find the matching one
+          const response = await fetch(buildServerUrl('/server/executable/list'));
+          const data = await response.json();
+          
+          if (data.success && data.folders) {
+            // Search through all folders for the matching script/testcase
+            for (const folder of data.folders) {
+              const foundItem = folder.items.find((item: any) => item.id === selectedScript);
+              if (foundItem) {
+                setSelectedExecutable(foundItem);
+                console.log('[@RunTests] Synced selectedExecutable from selectedScript:', foundItem);
+                break;
+              }
+            }
+          }
+        } catch (error) {
+          console.error('[@RunTests] Failed to sync executable from script:', error);
+        }
+      }
+    };
+
+    syncExecutableFromScript();
+  }, [selectedScript, selectedExecutable]);
+
   // Use run hook for script analysis and parameter management
   const { 
     scriptAnalysis, 

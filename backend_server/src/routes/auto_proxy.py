@@ -33,8 +33,18 @@ def auto_proxy(endpoint):
     
     Note: Blueprints registered BEFORE auto_proxy in app.py take precedence.
     Example: server_ai_execution_routes handles /resetCache specifically, auto_proxy handles /executeTask
+    
+    EXCLUDED from auto-proxy (handled by dedicated blueprints):
+    - /server/executable/* (handled by server_executable_bp - no host_name needed for listing)
     """
     try:
+        # Explicit exclusions for endpoints that don't need host proxying
+        if endpoint.startswith('executable/'):
+            return jsonify({
+                'success': False,
+                'error': f'Endpoint /server/{endpoint} is handled by a dedicated blueprint, not auto-proxy'
+            }), 404
+        
         # Simple passthrough with method conversion for specific endpoints
         data = request.get_json() if request.method in ['POST', 'PUT'] else None
         host_endpoint = f'/host/{endpoint}'

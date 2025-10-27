@@ -185,7 +185,8 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         selectedEdge,
         actions,
         retryActions,
-        failureActions
+        failureActions,
+        actionSet?.id
       );
     };
 

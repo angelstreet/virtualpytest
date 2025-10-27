@@ -21,9 +21,13 @@ def list_executables():
     Unified endpoint to list both scripts and testcases organized by folders.
     
     Query params:
+        - team_id: Team identifier (automatically added by frontend buildServerUrl)
         - folder: Filter by folder name
         - tags: Comma-separated tag names to filter by
         - search: Search query for name/description
+    
+    Note: This endpoint does NOT require host_name since it only lists available
+    executables, not executing them. Execution requires host_name separately.
     
     Returns:
         {
@@ -55,6 +59,7 @@ def list_executables():
         }
     """
     try:
+        # Get team_id from query params (automatically added by buildServerUrl)
         team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
