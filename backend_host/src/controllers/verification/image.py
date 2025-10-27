@@ -1094,7 +1094,8 @@ class ImageVerificationController:
                     try:
                         with open(etag_file, 'w') as f:
                             f.write(etag.strip('"'))
-                        print(f"[@controller:ImageVerification] Stored ETag: {etag.strip('"')[:8]}...")
+                        etag_clean = etag.strip('"')
+                        print(f"[@controller:ImageVerification] Stored ETag: {etag_clean[:8]}...")
                     except Exception as e:
                         print(f"[@controller:ImageVerification] Could not save ETag file: {e}")
                 
