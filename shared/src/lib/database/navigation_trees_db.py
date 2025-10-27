@@ -770,14 +770,15 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
     try:
         supabase = get_supabase()
         
-        # Use materialized view - fail fast if it doesn't work
+        # Use materialized view - RPC returns single JSON object
         result = supabase.rpc(
             'get_full_tree_from_mv',
             {'p_tree_id': tree_id, 'p_team_id': team_id}
         ).execute()
         
-        if result.data:
-            tree_data = result.data
+        # RPC functions that return JSON are wrapped as first element in .data
+        if result.data and len(result.data) > 0:
+            tree_data = result.data[0] if isinstance(result.data, list) else result.data
             print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
             
             return {
@@ -791,7 +792,7 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
             return {'success': False, 'error': 'Tree not found'}
             
     except Exception as e:
-        print(f"[@db:navigation_trees:get_full_tree] CRITICAL ERROR: Materialized view failed: {e}")
+        print(f"[@db:navigation_trees:get_full_tree] ERROR: Materialized view call failed: {e}")
         import traceback
         traceback.print_exc()
         return {'success': False, 'error': str(e)}

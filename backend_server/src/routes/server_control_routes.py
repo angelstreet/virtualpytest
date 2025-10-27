@@ -100,33 +100,14 @@ def take_control():
                     if result.get('success'):
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
-                        # Populate navigation cache SYNCHRONOUSLY (ensures cache is ready before returning)
-                        tree_id = data.get('tree_id')
-                        team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
-                        cache_status = 'not_applicable'
-                        
-                        if tree_id and team_id:
-                            print(f"🗺️ [CONTROL] Building navigation cache for tree: {tree_id}")
-                            try:
-                                cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-                                if cache_success:
-                                    print(f"✅ [CONTROL] Navigation cache built successfully")
-                                    cache_status = 'ready'
-                                else:
-                                    print(f"⚠️ [CONTROL] Navigation cache build failed (non-critical)")
-                                    cache_status = 'failed'
-                            except Exception as cache_error:
-                                print(f"⚠️ [CONTROL] Navigation cache build error: {cache_error}")
-                                cache_status = 'error'
-                        
+                        # HOST handles cache building - we just return success
                         return jsonify({
                             'success': True,
                             'message': f'Successfully took control of host: {host_name}, device: {device_id}',
                             'session_id': session_id,
                             'host_name': host_name,
                             'device_id': device_id,
-                            'host_result': result,
-                            'cache_status': cache_status
+                            'host_result': result
                         })
                     else:
                         # Host rejected control - unlock and return error
