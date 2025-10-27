@@ -792,9 +792,9 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
             return {'success': False, 'error': 'Tree not found'}
             
     except Exception as e:
-        print(f"[@db:navigation_trees:get_full_tree] ERROR: Materialized view call failed: {e}")
-        import traceback
-        traceback.print_exc()
-        return {'success': False, 'error': str(e)}
+        error_type = type(e).__name__
+        error_msg = str(e)[:200]  # Limit to 200 chars
+        print(f"[@db:navigation_trees:get_full_tree] ERROR: {error_type}: {error_msg}...")
+        return {'success': False, 'error': f'{error_type}: Database call failed'}
 
  
