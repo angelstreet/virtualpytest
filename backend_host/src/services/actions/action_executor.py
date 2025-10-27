@@ -467,6 +467,10 @@ class ActionExecutor:
                     self._executions[execution_id]['result'] = result
                     self._executions[execution_id]['progress'] = 100
                     self._executions[execution_id]['message'] = 'Action execution completed'
+                    # 🆕 Update position after successful execution (3 lines)
+                    target_node_id = self.device.navigation_context.get('target_node_id')
+                    if target_node_id:
+                        self.device.navigation_context['current_node_id'] = target_node_id
                 else:
                     self._executions[execution_id]['status'] = 'error'
                     self._executions[execution_id]['error'] = result.get('error', 'Action execution failed')

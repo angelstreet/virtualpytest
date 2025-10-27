@@ -226,6 +226,11 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       setRunResult(null);
 
       try {
+        // Calculate target node (forward = edge.target, reverse = edge.source)
+        const actionSets = getActionSetsFromEdge(edge);
+        const isForward = defaultSet.id === actionSets[0]?.id;
+        const targetNodeId = isForward ? edge.target : edge.source;
+        
         // Include navigation context for proper metrics recording
         // Use current props value to avoid stale closure
         const currentTreeId = props?.treeId;
@@ -233,6 +238,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
           tree_id: currentTreeId || undefined,
           edge_id: edge.id,
           action_set_id: defaultSet.id,
+          target_node_id: targetNodeId,  // 🆕 Target node for verification
           skip_db_recording: true  // Frontend testing - don't record to DB
         };
         
@@ -241,6 +247,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         console.log('[@useEdge:executeEdgeActions] props?.treeId:', props?.treeId);
         console.log('[@useEdge:executeEdgeActions] edge.id:', edge.id);
         console.log('[@useEdge:executeEdgeActions] defaultSet.id:', defaultSet.id);
+        console.log('[@useEdge:executeEdgeActions] targetNodeId:', targetNodeId);
         
         const result = await actionHook.executeActions(
           actions.map(convertToControllerAction),
@@ -252,14 +259,8 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));
         setRunResult(formattedResult);
 
-        // Update current position based on which action set was executed
+        // Update current position (target already calculated above)
         if (result && result.success !== false) {
-          const actionSets = getActionSetsFromEdge(edge);
-          // actionSets[0] = forward (source → target)
-          // actionSets[1] = reverse (target → source)
-          const isForward = defaultSet.id === actionSets[0]?.id;
-          const targetNodeId = isForward ? edge.target : edge.source;
-          
           console.log(`[@useEdge:executeEdgeActions] Executed action_set[${isForward ? 0 : 1}], moving to: ${targetNodeId}`);
           updateCurrentPosition(targetNodeId, null);
         }

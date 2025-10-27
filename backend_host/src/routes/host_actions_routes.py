@@ -25,6 +25,7 @@ def action_execute_batch():
         tree_id = data.get('tree_id')
         edge_id = data.get('edge_id')
         action_set_id = data.get('action_set_id')
+        target_node_id = data.get('target_node_id')  # 🆕 Target node to update position
         skip_db_recording = data.get('skip_db_recording', False)
         async_execution = data.get('async_execution', True)  # Default to async to prevent timeouts
         
@@ -76,6 +77,10 @@ def action_execute_batch():
         
         print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}, skip_db_recording={skip_db_recording}")
         
+        # 🆕 Store target_node_id for position update after execution
+        if target_node_id:
+            device.navigation_context['target_node_id'] = target_node_id
+        
         # Execute actions: async or sync
         if async_execution:
             # Async execution - returns immediately with execution_id
@@ -93,6 +98,9 @@ def action_execute_batch():
                 team_id=team_id
             )
             print(f"[@route:host_actions:action_execute_batch] Sync execution completed: success={result.get('success')}")
+            # 🆕 Update position after successful execution (3 lines)
+            if result.get('success') and target_node_id:
+                device.navigation_context['current_node_id'] = target_node_id
         
         return jsonify(result)
         
