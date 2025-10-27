@@ -24,6 +24,10 @@ export interface NavigationEditorActionButtonsProps {
   onFitView: () => void;
   onSaveToConfig: () => void;
   onDiscardChanges: () => void;
+  onUndo?: () => void;
+  onRedo?: () => void;
+  canUndo?: boolean;
+  canRedo?: boolean;
 }
 
 export interface NavigationEditorDeviceControlsProps {

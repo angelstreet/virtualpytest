@@ -34,6 +34,17 @@ interface TestCaseBuilderContextType {
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
   
+  // Undo/Redo
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  
+  // Copy/Paste
+  copyBlock: () => void;
+  pasteBlock: () => void;
+  canPaste: boolean;
+  
   // Test case list
   testcaseList: any[];
   setTestcaseList: React.Dispatch<React.SetStateAction<any[]>>;
@@ -139,6 +150,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [edges, setEdges] = useState<Edge[]>([]);
   const [selectedBlock, setSelectedBlock] = useState<Node | null>(null);
   const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
+  
+  // Undo/Redo state
+  const [history, setHistory] = useState<Array<{ nodes: Node[]; edges: Edge[] }>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // Copy/Paste state
+  const [copiedBlock, setCopiedBlock] = useState<Node | null>(null);
+  
   const [executionState, setExecutionState] = useState<ExecutionState>({
     isExecuting: false,
     currentBlockId: null,
@@ -332,6 +351,76 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     
     setHasUnsavedChanges(true);
   }, []);
+
+  // Undo/Redo methods
+  const pushHistory = useCallback(() => {
+    const snapshot = { nodes, edges };
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), snapshot]);
+    setHistoryIndex(prev => prev + 1);
+  }, [nodes, edges, historyIndex]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1];
+      setNodes(prevState.nodes);
+      setEdges(prevState.edges);
+      setHistoryIndex(prev => prev - 1);
+      setHasUnsavedChanges(true);
+    }
+  }, [history, historyIndex]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1];
+      setNodes(nextState.nodes);
+      setEdges(nextState.edges);
+      setHistoryIndex(prev => prev + 1);
+      setHasUnsavedChanges(true);
+    }
+  }, [history, historyIndex]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  // Copy/Paste methods
+  const copyBlock = useCallback(() => {
+    if (selectedBlock) {
+      setCopiedBlock(selectedBlock);
+      console.log('[@TestCaseBuilder] Block copied:', selectedBlock.id);
+    }
+  }, [selectedBlock]);
+
+  const pasteBlock = useCallback(() => {
+    if (copiedBlock && copiedBlock.id !== 'start' && copiedBlock.id !== 'success' && copiedBlock.id !== 'failure') {
+      const newBlock: Node = {
+        ...copiedBlock,
+        id: crypto.randomUUID(),
+        position: {
+          x: copiedBlock.position.x + 50,
+          y: copiedBlock.position.y + 50,
+        },
+        data: {
+          ...copiedBlock.data,
+        },
+      };
+      setNodes((prev) => [...prev, newBlock]);
+      setHasUnsavedChanges(true);
+      console.log('[@TestCaseBuilder] Block pasted:', newBlock.id);
+    }
+  }, [copiedBlock]);
+
+  const canPaste = copiedBlock !== null && copiedBlock.id !== 'start' && copiedBlock.id !== 'success' && copiedBlock.id !== 'failure';
+
+  // Auto-push history when nodes/edges change
+  const prevNodesRef = useRef<Node[]>(nodes);
+  const prevEdgesRef = useRef<Edge[]>(edges);
+  useEffect(() => {
+    if (nodes !== prevNodesRef.current || edges !== prevEdgesRef.current) {
+      prevNodesRef.current = nodes;
+      prevEdgesRef.current = edges;
+      if (nodes.length > 0) pushHistory();
+    }
+  }, [nodes, edges, pushHistory]);
 
   // Execute testcase
   const executeCurrentTestCase = useCallback(async (hostName: string) => {
@@ -780,6 +869,13 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setCurrentTestcaseId,
     hasUnsavedChanges,
     setHasUnsavedChanges,
+    undo,
+    redo,
+    canUndo,
+    canRedo,
+    copyBlock,
+    pasteBlock,
+    canPaste,
     testcaseList,
     setTestcaseList,
     isLoadingTestCaseList,

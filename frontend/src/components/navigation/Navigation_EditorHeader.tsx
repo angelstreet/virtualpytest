@@ -7,6 +7,7 @@ import { useNavigationStack } from '../../contexts/navigation/NavigationStackCon
 import { useDeviceControl } from '../../hooks/useDeviceControl';
 import { useHostManager } from '../../hooks/useHostManager';
 import { useToast } from '../../hooks/useToast';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 import NavigationEditorActionButtons from './Navigation_NavigationEditor_ActionButtons';
 import NavigationEditorDeviceControls from './Navigation_NavigationEditor_DeviceControls';
@@ -73,8 +74,8 @@ export const NavigationEditorHeader: React.FC<{
   // Get toast notifications
   const { showError } = useToast();
 
-  // Get navigation context for current position updates
-  const { updateCurrentPosition } = useNavigation();
+  // Get navigation context for current position updates and undo/redo
+  const { updateCurrentPosition, undo, redo, canUndo, canRedo } = useNavigation();
 
   // Get navigation stack for breadcrumb display
   const { isNested, currentLevel } = useNavigationStack();
@@ -122,9 +123,42 @@ export const NavigationEditorHeader: React.FC<{
     } else {
       // Take device control only
       console.log('[@component:NavigationEditorHeader] Taking device control');
-      await handleTakeControl();
+      const success = await handleTakeControl();
+      
+      // If take control failed due to lock, check if we should force unlock
+      if (!success && controlError && controlError.includes('in use')) {
+        const confirmed = window.confirm(
+          `Device ${selectedHost?.host_name} is currently locked by another session.\n\n` +
+          `This might be your own session from a different browser or Wi-Fi network.\n\n` +
+          `Do you want to force release the lock and take control?`
+        );
+        
+        if (confirmed && selectedHost) {
+          console.log('[@component:NavigationEditorHeader] User confirmed force takeover');
+          // Call force unlock API
+          try {
+            const response = await fetch(buildServerUrl('/server/control/forceUnlock'), {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ host_name: selectedHost.host_name }),
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+              console.log('[@component:NavigationEditorHeader] Force unlock successful, retrying take control');
+              // Retry take control
+              await handleTakeControl();
+            } else {
+              showError(`Failed to force unlock: ${result.error || 'Unknown error'}`);
+            }
+          } catch (error: any) {
+            showError(`Failed to force unlock: ${error.message || 'Unknown error'}`);
+          }
+        }
+      }
     }
-  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId]);
+  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId, controlError, selectedHost, showError]);
 
   // Sync control state with parent component (only device control)
   React.useEffect(() => {
@@ -155,18 +189,18 @@ export const NavigationEditorHeader: React.FC<{
     <>
       <AppBar position="static" color="default" elevation={1}>
         <Toolbar variant="dense" sx={{ minHeight: 44, px: 2 }}>
-          {/* Grid Layout with 4 sections */}
+          {/* Flex Layout with 4 sections - responsive */}
           <Box
             sx={{
-              display: 'grid',
-              gridTemplateColumns: '60px 360px 340px 380px',
-              gap: 1.5,
+              display: 'flex',
+              gap: 2,
               alignItems: 'center',
               width: '100%',
+              justifyContent: 'space-between',
             }}
           >
             {/* Section 1: Tree Name and Status */}
-            <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 auto' }}>
               <Typography
                 variant="h6"
                 sx={{
@@ -188,19 +222,22 @@ export const NavigationEditorHeader: React.FC<{
             </Box>
 
             {/* Section 2: Tree Controls */}
-            <NavigationEditorTreeControls
-              focusNodeId={focusNodeId}
-              availableFocusNodes={availableFocusNodes}
-              maxDisplayDepth={maxDisplayDepth}
-              totalNodes={totalNodes}
-              visibleNodes={visibleNodes}
-              onFocusNodeChange={onFocusNodeChange}
-              onDepthChange={onDepthChange}
-              onResetFocus={handleResetFocus}
-            />
+            <Box sx={{ flex: '0 1 auto', minWidth: 0 }}>
+              <NavigationEditorTreeControls
+                focusNodeId={focusNodeId}
+                availableFocusNodes={availableFocusNodes}
+                maxDisplayDepth={maxDisplayDepth}
+                totalNodes={totalNodes}
+                visibleNodes={visibleNodes}
+                onFocusNodeChange={onFocusNodeChange}
+                onDepthChange={onDepthChange}
+                onResetFocus={handleResetFocus}
+              />
+            </Box>
 
             {/* Section 3: Action Buttons */}
-            <NavigationEditorActionButtons
+            <Box sx={{ flex: '0 1 auto', minWidth: 0 }}>
+              <NavigationEditorActionButtons
               treeId={treeId}
               isLocked={isLocked}
               hasUnsavedChanges={hasUnsavedChanges}
@@ -213,10 +250,15 @@ export const NavigationEditorHeader: React.FC<{
               onFitView={onFitView}
               onSaveToConfig={onSaveToConfig}
               onDiscardChanges={onDiscardChanges}
+              onUndo={undo}
+              onRedo={redo}
+              canUndo={canUndo}
+              canRedo={canRedo}
             />
+            </Box>
 
             {/* Section 4: Device Controls - now with proper device-oriented locking */}
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: '0 0 auto' }}>
               <NavigationEditorDeviceControls
                 selectedHost={selectedHost}
                 selectedDeviceId={selectedDeviceId || null}

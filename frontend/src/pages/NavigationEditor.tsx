@@ -345,6 +345,24 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         if (e.shiftKey) {
           setIsShiftHeld(true);
         }
+        // Undo/Redo shortcuts
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+          e.preventDefault();
+          navigation.undo();
+        }
+        if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+          e.preventDefault();
+          navigation.redo();
+        }
+        // Copy/Paste shortcuts
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+          e.preventDefault();
+          navigation.copyNode();
+        }
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+          e.preventDefault();
+          navigation.pasteNode();
+        }
       };
 
       const handleKeyUp = (e: KeyboardEvent) => {
@@ -736,8 +754,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     return (
       <Box
         sx={{
-          width: '100%',
-          height: '100vh',
+          position: 'fixed',
+          top: 64,
+          left: 0,
+          right: 0,
+          bottom: 0,
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

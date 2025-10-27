@@ -64,8 +64,10 @@ class DeviceLockManager:
                         return True
                     
                     else:
-                        ip_info = f" (IP: {locked_ip})" if locked_ip else ""
-                        print(f"❌ [LockManager] Device {host_name} already locked by different session: {locked_by}{ip_info}")
+                        # Enhanced logging to debug IP mismatch issues
+                        ip_info = f" (IP: {locked_ip})" if locked_ip else " (No IP recorded)"
+                        current_ip_info = f" Current IP: {client_ip}" if client_ip else " (No current IP)"
+                        print(f"❌ [LockManager] Device {host_name} already locked by different session: {locked_by}{ip_info}.{current_ip_info}")
                         return False
                 
                 # Lock the device

@@ -17,7 +17,18 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
 
   // Get edge colors based on validation status with metrics (direct call)
   const { getEdgeColors } = useValidationColors([]);
-  const edgeColors = getEdgeColors(id, edgeMetrics);
+  
+  // Check if this is a conditional edge and apply blue color
+  const isConditionalEdge = props.data?.is_conditional === true;
+  const edgeColors = isConditionalEdge 
+    ? {
+        stroke: '#2196f3', // Blue for conditional edges
+        strokeWidth: 2,
+        strokeDasharray: '0',
+        opacity: 1,
+        className: 'edge-conditional'
+      }
+    : getEdgeColors(id, edgeMetrics);
 
   // Get current nodes to check types
   const nodes = getNodes();

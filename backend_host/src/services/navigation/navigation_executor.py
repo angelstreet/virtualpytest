@@ -1214,9 +1214,9 @@ class NavigationExecutor:
         self,
         tree_id: str,
         userinterface_name: str,
-        target_node_id: Optional[str] = None,
-        target_node_label: Optional[str] = None,
+        target_node_id: str,
         current_node_id: Optional[str] = None,
+        target_node_label: Optional[str] = None,
         frontend_sent_position: bool = False,
         team_id: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -1227,9 +1227,9 @@ class NavigationExecutor:
         Args:
             tree_id: Tree ID
             userinterface_name: User interface name (MANDATORY for reference resolution)
-            target_node_id: Target node ID (optional, either this or target_node_label must be provided)
-            target_node_label: Target node label (optional, either this or target_node_id must be provided)
+            target_node_id: Target node ID (can also be a label - pathfinding handles resolution)
             current_node_id: Current node ID (optional)
+            target_node_label: Target node label (optional - usually not needed)
             frontend_sent_position: Whether frontend explicitly sent position
             team_id: Team ID (optional)
         
@@ -1240,12 +1240,6 @@ class NavigationExecutor:
                 'message': 'Navigation started'
             }
         """
-        # Validate that at least one target is provided
-        if not target_node_id and not target_node_label:
-            return {
-                'success': False,
-                'error': 'Either target_node_id or target_node_label must be provided'
-            }
         execution_id = str(uuid.uuid4())
         
         # Initialize execution state
@@ -1269,7 +1263,7 @@ class NavigationExecutor:
         # Start execution in background thread
         thread = threading.Thread(
             target=self._execute_navigation_with_tracking,
-            args=(execution_id, tree_id, userinterface_name, target_node_id, target_node_label, current_node_id, frontend_sent_position, team_id),
+            args=(execution_id, tree_id, target_node_id, userinterface_name, current_node_id, target_node_label, frontend_sent_position, team_id),
             daemon=True
         )
         thread.start()
@@ -1321,10 +1315,10 @@ class NavigationExecutor:
         self,
         execution_id: str,
         tree_id: str,
+        target_node_id: str,
         userinterface_name: str,
-        target_node_id: Optional[str],
-        target_node_label: Optional[str],
         current_node_id: Optional[str],
+        target_node_label: Optional[str],
         frontend_sent_position: bool,
         team_id: Optional[str]
     ):
@@ -1340,8 +1334,8 @@ class NavigationExecutor:
                 tree_id=tree_id,
                 userinterface_name=userinterface_name,
                 target_node_id=target_node_id,
-                target_node_label=target_node_label,
                 current_node_id=current_node_id,
+                target_node_label=target_node_label,
                 frontend_sent_position=frontend_sent_position,
                 team_id=team_id
             )

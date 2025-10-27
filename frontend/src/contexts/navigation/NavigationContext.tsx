@@ -135,6 +135,18 @@ export interface NavigationContextType {
   // History state
   initialState: { nodes: UINavigationNode[]; edges: UINavigationEdge[] } | null;
   setInitialState: (state: { nodes: UINavigationNode[]; edges: UINavigationEdge[] } | null) => void;
+  
+  // Undo/Redo methods
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  pushHistory: () => void;
+  
+  // Copy/Paste methods
+  copyNode: () => void;
+  pasteNode: () => void;
+  canPaste: boolean;
 
   // React Flow refs
   reactFlowWrapper: React.RefObject<HTMLDivElement>;
@@ -496,6 +508,13 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     nodes: UINavigationNode[];
     edges: UINavigationEdge[];
   } | null>(null);
+  
+  // Undo/Redo state
+  const [history, setHistory] = useState<Array<{ nodes: UINavigationNode[]; edges: UINavigationEdge[] }>>([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+  
+  // Copy/Paste state
+  const [copiedNode, setCopiedNode] = useState<UINavigationNode | null>(null);
 
   // React Flow refs
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
@@ -707,6 +726,77 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     return path.length > 0 && path.every((id) => typeof id === 'string' && id.length > 0);
   }, []);
 
+  // Undo/Redo methods
+  const pushHistory = useCallback(() => {
+    const snapshot = { nodes: nodes as UINavigationNode[], edges: edges as UINavigationEdge[] };
+    setHistory(prev => [...prev.slice(0, historyIndex + 1), snapshot]);
+    setHistoryIndex(prev => prev + 1);
+  }, [nodes, edges, historyIndex]);
+
+  const undo = useCallback(() => {
+    if (historyIndex > 0) {
+      const prevState = history[historyIndex - 1];
+      setNodes(prevState.nodes);
+      setEdges(prevState.edges);
+      setHistoryIndex(prev => prev - 1);
+      setHasUnsavedChanges(true);
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  const redo = useCallback(() => {
+    if (historyIndex < history.length - 1) {
+      const nextState = history[historyIndex + 1];
+      setNodes(nextState.nodes);
+      setEdges(nextState.edges);
+      setHistoryIndex(prev => prev + 1);
+      setHasUnsavedChanges(true);
+    }
+  }, [history, historyIndex, setNodes, setEdges]);
+
+  const canUndo = historyIndex > 0;
+  const canRedo = historyIndex < history.length - 1;
+
+  // Copy/Paste methods
+  const copyNode = useCallback(() => {
+    if (selectedNode) {
+      setCopiedNode(selectedNode);
+      console.log('[@NavigationContext] Node copied:', selectedNode.id);
+    }
+  }, [selectedNode]);
+
+  const pasteNode = useCallback(() => {
+    if (copiedNode) {
+      const newNode: UINavigationNode = {
+        ...copiedNode,
+        id: `node-${Date.now()}`,
+        position: {
+          x: copiedNode.position.x + 50,
+          y: copiedNode.position.y + 50,
+        },
+        data: {
+          ...copiedNode.data,
+          label: `${copiedNode.data.label}_copy`,
+        },
+      };
+      setNodes([...nodes, newNode]);
+      setHasUnsavedChanges(true);
+      console.log('[@NavigationContext] Node pasted:', newNode.id);
+    }
+  }, [copiedNode, nodes, setNodes]);
+
+  const canPaste = copiedNode !== null;
+
+  // Auto-push history when nodes/edges change
+  const prevNodesRef = useRef<UINavigationNode[]>(nodes as UINavigationNode[]);
+  const prevEdgesRef = useRef<UINavigationEdge[]>(edges as UINavigationEdge[]);
+  useEffect(() => {
+    if (nodes !== prevNodesRef.current || edges !== prevEdgesRef.current) {
+      prevNodesRef.current = nodes as UINavigationNode[];
+      prevEdgesRef.current = edges as UINavigationEdge[];
+      if (nodes.length > 0) pushHistory();
+    }
+  }, [nodes, edges, pushHistory]);
+
   const updateNavigationPath = useCallback(
     (newPath: string[], newNamePath: string[]) => {
       console.log('[@context:NavigationProvider] Updating navigation path:', {
@@ -884,6 +974,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
       // History state
       initialState,
       setInitialState,
+      
+      // Undo/Redo
+      undo,
+      redo,
+      canUndo,
+      canRedo,
+      pushHistory,
+      
+      // Copy/Paste
+      copyNode,
+      pasteNode,
+      canPaste,
 
       // React Flow refs
           reactFlowWrapper,

@@ -287,6 +287,37 @@ def get_locked_devices():
         print(f"❌ [CONTROL] Error getting locked devices: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
 
+@server_control_bp.route('/forceUnlock', methods=['POST'])
+def force_unlock():
+    """Force unlock a device (useful when user's IP changes or session is stuck)"""
+    try:
+        from backend_server.src.lib.utils.lock_utils import force_unlock_device
+        
+        data = request.get_json()
+        host_name = data.get('host_name')
+        
+        if not host_name:
+            return jsonify({'error': 'host_name is required'}), 400
+        
+        print(f"🔓 [CONTROL] Force unlocking device: {host_name}")
+        
+        success = force_unlock_device(host_name)
+        
+        if success:
+            return jsonify({
+                'success': True,
+                'message': f'Successfully force unlocked device: {host_name}'
+            })
+        else:
+            return jsonify({
+                'success': False,
+                'error': f'Failed to force unlock device: {host_name}'
+            }), 500
+        
+    except Exception as e:
+        print(f"❌ [CONTROL] Error force unlocking device: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 @server_control_bp.route('/navigation/execute', methods=['POST'])
 def execute_navigation():
     """Execute navigation on a host device."""

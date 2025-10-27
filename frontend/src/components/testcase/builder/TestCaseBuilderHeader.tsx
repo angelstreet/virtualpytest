@@ -7,6 +7,8 @@ import AddIcon from '@mui/icons-material/Add';
 import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { UserinterfaceSelector } from '../../common/UserinterfaceSelector';
 import { NavigationEditorDeviceControls } from '../../navigation/Navigation_NavigationEditor_DeviceControls';
+import { UndoRedoDiscardButtons } from '../../common/UndoRedoDiscardButtons';
+import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 
 interface TestCaseBuilderHeaderProps {
   // Theme
@@ -80,6 +82,35 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   isExecutable,
   onCloseProgressBar,
 }) => {
+  // Get undo/redo from context
+  const { undo, redo, canUndo, canRedo, resetBuilder, copyBlock, pasteBlock } = useTestCaseBuilder();
+
+  // Keyboard shortcuts for undo/redo and copy/paste
+  React.useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+        e.preventDefault();
+        undo();
+      }
+      if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+        e.preventDefault();
+        redo();
+      }
+      // Copy/Paste shortcuts
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        e.preventDefault();
+        copyBlock();
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        e.preventDefault();
+        pasteBlock();
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [undo, redo, copyBlock, pasteBlock]);
+
   return (
     <Box
       sx={{
@@ -136,7 +167,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       </Box>
       
       {/* SECTION 2: Visual/AI Mode Toggle */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '0 0 auto', ml: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: '0 0 auto', ml: 2 }}>
         <Button
           size="small"
           variant={creationMode === 'visual' ? 'contained' : 'outlined'}
@@ -193,8 +224,19 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       </Box>
       
       {/* SECTION 4: Action Buttons */}
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
-        <Box sx={{ display: 'flex', gap: 1.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, minWidth: 0, flex: '0 0 auto', ml: 2 }}>
+        <Box sx={{ display: 'flex', gap: 0.5 }}>
+          {/* Undo/Redo/Discard Buttons */}
+          <UndoRedoDiscardButtons
+            onUndo={undo}
+            onRedo={redo}
+            onDiscard={resetBuilder}
+            canUndo={canUndo}
+            canRedo={canRedo}
+            hasUnsavedChanges={hasUnsavedChanges}
+            size="small"
+          />
+          
           <Button 
             size="small" 
             variant="outlined" 
@@ -243,6 +285,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
           >
             Save
           </Button>
+          
           <Button
             size="small"
             variant="contained"

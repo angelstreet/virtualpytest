@@ -2,13 +2,13 @@ import {
   Add as AddIcon,
   FitScreen as FitScreenIcon,
   Save as SaveIcon,
-  Cancel as CancelIcon,
 } from '@mui/icons-material';
 import { Box, Button, IconButton, CircularProgress } from '@mui/material';
 import React from 'react';
 
 import { NavigationEditorActionButtonsProps } from '../../types/pages/NavigationHeader_Types';
 import { ValidationButtonClient } from '../validation';
+import { UndoRedoDiscardButtons } from '../common/UndoRedoDiscardButtons';
 
 export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButtonsProps> = ({
   treeId,
@@ -23,6 +23,10 @@ export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButto
   onFitView,
   onSaveToConfig,
   onDiscardChanges,
+  onUndo,
+  onRedo,
+  canUndo,
+  canRedo,
 }) => {
   return (
     <Box
@@ -64,6 +68,18 @@ export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButto
         <FitScreenIcon />
       </IconButton>
 
+      {/* Undo/Redo/Discard Buttons */}
+      <UndoRedoDiscardButtons
+        onUndo={onUndo}
+        onRedo={onRedo}
+        onDiscard={onDiscardChanges}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        hasUnsavedChanges={hasUnsavedChanges}
+        isLoading={isLoading}
+        error={error}
+      />
+
       {/* Save Button */}
       <IconButton
         onClick={() => {
@@ -81,17 +97,6 @@ export const NavigationEditorActionButtons: React.FC<NavigationEditorActionButto
         color={hasUnsavedChanges ? 'primary' : 'default'}
       >
         {isLoading ? <CircularProgress size={20} /> : <SaveIcon />}
-      </IconButton>
-
-      {/* Discard Changes Button */}
-      <IconButton
-        onClick={onDiscardChanges}
-        size="small"
-        title={hasUnsavedChanges ? 'Discard Unsaved Changes' : 'Discard Changes'}
-        color={hasUnsavedChanges ? 'warning' : 'default'}
-        disabled={isLoading || !!error}
-      >
-        <CancelIcon />
       </IconButton>
     </Box>
   );
