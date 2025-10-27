@@ -180,7 +180,7 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
           <Autocomplete
             size="small"
             value={selectedFolder}
-            onChange={(event, newValue) => setSelectedFolder(newValue)}
+            onChange={(_event, newValue) => setSelectedFolder(newValue)}
             options={['All', ...allFolderNames]}
             renderInput={(params) => (
               <TextField
@@ -208,7 +208,7 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
             size="small"
             multiple
             value={selectedTags}
-            onChange={(event, newValue) => setSelectedTags(newValue)}
+            onChange={(_event, newValue) => setSelectedTags(newValue)}
             options={allTags.map(t => t.name)}
             disabled={allTags.length === 0}
             renderTags={(value, getTagProps) =>

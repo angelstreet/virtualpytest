@@ -13,10 +13,6 @@ import {
   Card,
   CardContent,
   IconButton,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
   TextField,
   Chip,
   Accordion,
@@ -57,7 +53,6 @@ interface ScriptSequenceBuilderProps {
 
 export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
   scripts,
-  availableScripts,
   aiTestCasesInfo = [],
   scriptAnalysisCache,
   deviceModel,
