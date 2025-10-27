@@ -1445,6 +1445,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               // Include ReactFlow handle information for persistence
               ...(edge.sourceHandle && { sourceHandle: edge.sourceHandle }),
               ...(edge.targetHandle && { targetHandle: edge.targetHandle }),
+              // Include conditional properties for persistence
+              ...(edge.data?.is_conditional !== undefined && { is_conditional: edge.data.is_conditional }),
+              ...(edge.data?.is_conditional_primary !== undefined && { is_conditional_primary: edge.data.is_conditional_primary }),
               // IMPORTANT: Do NOT include label in data - use top-level label field only
             },
             // STRICT: action_sets required - NO LEGACY CONVERSION

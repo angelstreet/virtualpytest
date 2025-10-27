@@ -535,10 +535,22 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     );
 
     // Handle navigation back to parent tree
-    const handleNavigateBack = useCallback(() => {
+    const handleNavigateBack = useCallback(async () => {
       if (navigation.parentChain.length <= 1) {
         console.log('[@NavigationEditor] Already at root, cannot go back');
         return;
+      }
+      
+      // Auto-save before navigating if there are unsaved changes
+      if (hasUnsavedChanges && actualTreeId) {
+        console.log('[@NavigationEditor] Auto-saving before navigating back to parent tree');
+        try {
+          await saveTreeWithStateUpdate(actualTreeId);
+          console.log('[@NavigationEditor] Auto-save successful');
+        } catch (error) {
+          console.error('[@NavigationEditor] Auto-save failed:', error);
+          // Continue navigation even if save fails - user can manually save later
+        }
       }
       
       navigation.popFromParentChain();
@@ -548,14 +560,26 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       if (parent) {
         setActualTreeId(parent.treeId);
       }
-    }, [navigation, popLevel, setActualTreeId]);
+    }, [navigation, popLevel, setActualTreeId, hasUnsavedChanges, saveTreeWithStateUpdate, actualTreeId]);
 
     // Handle navigation to specific level in breadcrumb
     const handleNavigateToLevel = useCallback(
-      (levelIndex: number) => {
+      async (levelIndex: number) => {
         if (levelIndex >= navigation.parentChain.length) {
           console.log('[@NavigationEditor] Invalid level index');
           return;
+        }
+        
+        // Auto-save before navigating if there are unsaved changes
+        if (hasUnsavedChanges && actualTreeId) {
+          console.log('[@NavigationEditor] Auto-saving before navigating to level', levelIndex);
+          try {
+            await saveTreeWithStateUpdate(actualTreeId);
+            console.log('[@NavigationEditor] Auto-save successful');
+          } catch (error) {
+            console.error('[@NavigationEditor] Auto-save failed:', error);
+            // Continue navigation even if save fails - user can manually save later
+          }
         }
         
         const newChain = navigation.parentChain.slice(0, levelIndex + 1);
@@ -568,14 +592,26 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         jumpToLevel(levelIndex);
         setActualTreeId(target.treeId);
       },
-      [navigation, jumpToLevel, setActualTreeId],
+      [navigation, jumpToLevel, setActualTreeId, hasUnsavedChanges, saveTreeWithStateUpdate, actualTreeId],
     );
 
     // Handle navigation to root
-    const handleNavigateToRoot = useCallback(() => {
+    const handleNavigateToRoot = useCallback(async () => {
       if (navigation.parentChain.length === 0) {
         console.log('[@NavigationEditor] No root tree in parent chain');
         return;
+      }
+      
+      // Auto-save before navigating if there are unsaved changes
+      if (hasUnsavedChanges && actualTreeId) {
+        console.log('[@NavigationEditor] Auto-saving before navigating to root');
+        try {
+          await saveTreeWithStateUpdate(actualTreeId);
+          console.log('[@NavigationEditor] Auto-save successful');
+        } catch (error) {
+          console.error('[@NavigationEditor] Auto-save failed:', error);
+          // Continue navigation even if save fails - user can manually save later
+        }
       }
       
       navigation.resetToRoot();
@@ -583,7 +619,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       
       const root = navigation.parentChain[0];
       setActualTreeId(root.treeId);
-    }, [navigation, jumpToRoot, setActualTreeId]);
+    }, [navigation, jumpToRoot, setActualTreeId, hasUnsavedChanges, saveTreeWithStateUpdate, actualTreeId]);
 
     // Memoize the selectedHost to prevent unnecessary re-renders
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);
