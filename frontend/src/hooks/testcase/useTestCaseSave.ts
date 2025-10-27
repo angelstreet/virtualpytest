@@ -21,7 +21,9 @@ export const useTestCaseSave = () => {
     userinterfaceName: string,
     createdBy: string,
     environment: string = 'dev',
-    overwrite: boolean = false
+    overwrite: boolean = false,
+    folder?: string,  // NEW: Folder name (user-selected or typed)
+    tags?: string[]   // NEW: List of tag names
   ): Promise<{ success: boolean; action?: string; error?: string; testcase?: any }> => {
     try {
       const response = await fetch(buildServerUrl('/server/testcase/save'), {
@@ -35,6 +37,8 @@ export const useTestCaseSave = () => {
           created_by: createdBy,
           environment,
           overwrite,
+          folder,  // NEW: Folder name
+          tags,    // NEW: Tag names array
         }),
       });
       

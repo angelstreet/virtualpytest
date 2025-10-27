@@ -9,6 +9,12 @@ Execution results are stored in script_results table (unified tracking).
 import json
 from typing import Dict, List, Optional, Any
 from shared.src.lib.utils.supabase_utils import get_supabase_client
+from shared.src.lib.database.folder_tag_db import (
+    get_or_create_folder,
+    get_or_create_tag,
+    set_executable_tags,
+    get_executable_tags
+)
 
 DEFAULT_TEAM_ID = '7fdeb4bb-3639-4ec3-959f-b54769a219ce'
 
@@ -28,7 +34,9 @@ def create_testcase(
     ai_prompt: str = None,
     ai_analysis: str = None,
     overwrite: bool = False,
-    environment: str = 'dev'
+    environment: str = 'dev',
+    folder: str = None,
+    tags: List[str] = None
 ) -> Optional[str]:
     """
     Create a new test case definition, or update if it exists and overwrite=True.
@@ -45,6 +53,8 @@ def create_testcase(
         ai_analysis: AI reasoning if AI-generated
         overwrite: If True, update existing test case with same name
         environment: Environment ('dev', 'test', 'prod') - defaults to 'dev'
+        folder: Folder name (user-selected or typed) - defaults to '(Root)'
+        tags: List of tag names (existing or new) - auto-created if not exist
     
     Returns:
         testcase_id (UUID) or None on failure
@@ -73,6 +83,9 @@ def create_testcase(
                 else:
                     return None
         
+        # Get or create folder
+        folder_id = get_or_create_folder(folder) if folder else 0
+        
         data = {
             'team_id': team_id,
             'testcase_name': testcase_name,
@@ -83,14 +96,20 @@ def create_testcase(
             'creation_method': creation_method,
             'ai_prompt': ai_prompt,
             'ai_analysis': ai_analysis,
-            'environment': environment
+            'environment': environment,
+            'folder_id': folder_id
         }
         
         result = supabase.table('testcase_definitions').insert(data).execute()
         
         if result.data and len(result.data) > 0:
             testcase_id = result.data[0]['testcase_id']
-            print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method}, env: {environment})")
+            
+            # Set tags if provided
+            if tags:
+                set_executable_tags('testcase', str(testcase_id), tags)
+            
+            print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method}, env: {environment}, folder_id: {folder_id}, tags: {len(tags) if tags else 0})")
             return str(testcase_id)
         else:
             print(f"[@testcase_db] ERROR: No data returned after insert")
@@ -191,7 +210,9 @@ def update_testcase(
     graph_json: Dict[str, Any] = None,
     description: str = None,
     userinterface_name: str = None,
-    team_id: str = None
+    team_id: str = None,
+    folder: str = None,
+    tags: List[str] = None
 ) -> bool:
     """
     Update test case definition.
@@ -202,6 +223,8 @@ def update_testcase(
         description: Updated description
         userinterface_name: Updated navigation tree
         team_id: Team ID for security check
+        folder: Updated folder name (user-selected or typed)
+        tags: Updated list of tag names
     
     Returns:
         True on success, False on failure
@@ -223,23 +246,33 @@ def update_testcase(
         if userinterface_name is not None:
             update_data['userinterface_name'] = userinterface_name
         
-        if not update_data:
+        if folder is not None:
+            folder_id = get_or_create_folder(folder)
+            update_data['folder_id'] = folder_id
+        
+        if not update_data and tags is None:
             print("[@testcase_db] WARNING: No fields to update")
             return True
         
-        query = supabase.table('testcase_definitions').update(update_data).eq('testcase_id', testcase_id)
+        # Update testcase record if there's data
+        if update_data:
+            query = supabase.table('testcase_definitions').update(update_data).eq('testcase_id', testcase_id)
+            
+            if team_id:
+                query = query.eq('team_id', team_id)
+            
+            result = query.execute()
+            
+            if not result.data or len(result.data) == 0:
+                print(f"[@testcase_db] WARNING: No test case updated (ID: {testcase_id})")
+                return False
         
-        if team_id:
-            query = query.eq('team_id', team_id)
+        # Update tags if provided
+        if tags is not None:
+            set_executable_tags('testcase', testcase_id, tags)
         
-        result = query.execute()
-        
-        if result.data and len(result.data) > 0:
-            print(f"[@testcase_db] Updated test case: {testcase_id}")
-            return True
-        else:
-            print(f"[@testcase_db] WARNING: No test case updated (ID: {testcase_id})")
-            return False
+        print(f"[@testcase_db] Updated test case: {testcase_id}")
+        return True
         
     except Exception as e:
         print(f"[@testcase_db] ERROR updating test case: {e}")

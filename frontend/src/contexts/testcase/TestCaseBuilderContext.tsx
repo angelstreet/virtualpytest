@@ -25,6 +25,10 @@ interface TestCaseBuilderContextType {
   setDescription: React.Dispatch<React.SetStateAction<string>>;
   testcaseEnvironment: string;
   setTestcaseEnvironment: React.Dispatch<React.SetStateAction<string>>;
+  testcaseFolder: string; // NEW: Folder for organization
+  setTestcaseFolder: React.Dispatch<React.SetStateAction<string>>;
+  testcaseTags: string[]; // NEW: Tags for filtering
+  setTestcaseTags: React.Dispatch<React.SetStateAction<string[]>>;
   userinterfaceName: string;
   setUserinterfaceName: React.Dispatch<React.SetStateAction<string>>;
   currentTestcaseId: string | null;
@@ -168,6 +172,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [testcaseName, setTestcaseName] = useState<string>('');
   const [description, setDescription] = useState<string>('');
   const [testcaseEnvironment, setTestcaseEnvironment] = useState<string>('dev');
+  const [testcaseFolder, setTestcaseFolder] = useState<string>('(Root)'); // NEW: Folder organization
+  const [testcaseTags, setTestcaseTags] = useState<string[]>([]); // NEW: Tags for filtering
   const [userinterfaceName, setUserinterfaceName] = useState<string>('');
   const [currentTestcaseId, setCurrentTestcaseId] = useState<string | null>(null);
   const [testcaseList, setTestcaseList] = useState<any[]>([]);
@@ -639,7 +645,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         userinterfaceName,
         'default-user',
         testcaseEnvironment,
-        true  // Always overwrite - maintains history automatically via trigger
+        true,  // Always overwrite - maintains history automatically via trigger
+        testcaseFolder,  // NEW: Folder name
+        testcaseTags     // NEW: Tag names array
       );
       
       if (result.success && (result as any).testcase?.testcase_id) {
@@ -654,7 +662,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     } catch (error: any) {
       return { success: false, error: error.message };
     }
-  }, [testcaseName, description, testcaseEnvironment, userinterfaceName, nodes, edges, saveTestCase]);
+  }, [testcaseName, description, testcaseEnvironment, testcaseFolder, testcaseTags, userinterfaceName, nodes, edges, saveTestCase]);
   
   // Load test case
   const loadTestCase = useCallback(async (testcase_id: string) => {
@@ -863,6 +871,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setDescription,
     testcaseEnvironment,
     setTestcaseEnvironment,
+    testcaseFolder, // NEW
+    setTestcaseFolder, // NEW
+    testcaseTags, // NEW
+    setTestcaseTags, // NEW
     userinterfaceName,
     setUserinterfaceName,
     currentTestcaseId,

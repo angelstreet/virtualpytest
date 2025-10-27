@@ -132,8 +132,31 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const failureCount = Array.from(blockStates.values()).filter(s => s.status === 'failure').length;
   const errorCount = Array.from(blockStates.values()).filter(s => s.status === 'error').length;
 
-  // Build step history from blockStates (most recent first)
-  const stepHistory = Array.from(blockStates.entries())
+  // 🆕 Calculate current step NUMBER (not just completed count)
+  const allSteps = Array.from(blockStates.entries()).map(([blockId, state]) => ({
+    blockId,
+    state,
+  }));
+  const currentStepNumber = currentBlockId 
+    ? allSteps.findIndex(s => s.blockId === currentBlockId) + 1 
+    : completed + 1;
+
+  // 🆕 Separate current executing step from completed history
+  const currentExecutingStep = currentBlockId && isExecuting ? (() => {
+    const node = nodes.find(n => n.id === currentBlockId);
+    const state = blockStates.get(currentBlockId);
+    if (!state) return null;
+    return {
+      blockId: currentBlockId,
+      label: node?.data?.label || node?.data?.command || node?.type || currentBlockId,
+      type: node?.type || 'unknown',
+      command: node?.data?.command,
+      state,
+    };
+  })() : null;
+
+  // Build completed step history (exclude current executing)
+  const completedSteps = Array.from(blockStates.entries())
     .map(([blockId, state]) => {
       const node = nodes.find(n => n.id === blockId);
       return {
@@ -144,7 +167,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
         state,
       };
     })
-    .filter(step => step.state.status !== 'pending')
+    .filter(step => ['success', 'failure', 'error'].includes(step.state.status))
     .reverse(); // Most recent first
 
   // Draggable handlers
@@ -389,7 +412,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
           }}
         >
           <Typography variant="caption" color="text.secondary">
-            Step {completed}/{total} {(currentBlockLabel || lastBlockLabel) && `• ${currentBlockLabel || lastBlockLabel}`}
+            Step {currentStepNumber}/{total} {(currentBlockLabel || lastBlockLabel) && `• ${currentBlockLabel || lastBlockLabel}`}
           </Typography>
           <Typography variant="caption" color="text.secondary" fontWeight="bold">
             {Math.round(progress)}%
@@ -500,7 +523,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
       )}
 
       {/* Step History Section */}
-      {stepHistory.length > 0 && (
+      {(currentExecutingStep || completedSteps.length > 0) && (
         <Box sx={{ borderTop: 1, borderColor: 'divider' }}>
           <Box
             sx={{
@@ -524,39 +547,79 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
               },
             }}
           >
-            {stepHistory.map((step, index) => {
-              const isCurrentStep = step.blockId === currentBlockId && isExecuting;
-              const statusIcon = step.state.status === 'executing' || isCurrentStep ? '🔵' :
-                                step.state.status === 'success' ? '✅' :
+            {/* 🆕 Current Executing Step (always at top) */}
+            {currentExecutingStep && (
+              <Box
+                sx={{
+                  mb: completedSteps.length > 0 ? 1.5 : 0,
+                  p: 1.5,
+                  borderRadius: 1,
+                  backgroundColor: actualMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                  border: '1px solid',
+                  borderColor: '#3b82f6',
+                  animation: 'stepPulse 2s ease-in-out infinite',
+                  '@keyframes stepPulse': {
+                    '0%, 100%': {
+                      borderColor: '#3b82f6',
+                      boxShadow: `0 0 0 rgba(59, 130, 246, 0)`,
+                    },
+                    '50%': {
+                      borderColor: '#3b82f6',
+                      boxShadow: `0 0 8px rgba(59, 130, 246, 0.4)`,
+                    },
+                  },
+                }}
+              >
+                {/* Step Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
+                      🔵
+                    </Typography>
+                    <Typography variant="caption" fontWeight="bold" sx={{ color: '#3b82f6' }}>
+                      STEP {currentStepNumber}: EXECUTING
+                    </Typography>
+                  </Box>
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                    Running...
+                  </Typography>
+                </Box>
+
+                {/* Step Details */}
+                <Typography variant="caption" sx={{ display: 'block', color: 'text.primary', mb: 0.5 }}>
+                  {currentExecutingStep.label}
+                </Typography>
+                
+                {currentExecutingStep.command && (
+                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem' }}>
+                    Command: {currentExecutingStep.command}
+                  </Typography>
+                )}
+              </Box>
+            )}
+
+            {/* Completed Steps History */}
+            {completedSteps.map((step, index) => {
+              // Calculate step number (completed steps are in reverse order)
+              const stepNumber = allSteps.findIndex(s => s.blockId === step.blockId) + 1;
+              
+              const statusIcon = step.state.status === 'success' ? '✅' :
                                 step.state.status === 'failure' ? '❌' : '⚠️';
-              const statusColor = step.state.status === 'executing' || isCurrentStep ? '#3b82f6' :
-                                 step.state.status === 'success' ? '#10b981' :
+              const statusColor = step.state.status === 'success' ? '#10b981' :
                                  step.state.status === 'failure' ? '#ef4444' : '#f59e0b';
-              const statusText = step.state.status === 'executing' || isCurrentStep ? 'EXECUTING' :
-                                step.state.status === 'success' ? 'SUCCESS' :
+              const statusText = step.state.status === 'success' ? 'SUCCESS' :
                                 step.state.status === 'failure' ? 'FAILED' : 'ERROR';
               
               return (
                 <Box
                   key={step.blockId}
                   sx={{
-                    mb: index < stepHistory.length - 1 ? 1.5 : 0,
+                    mb: index < completedSteps.length - 1 ? 1.5 : 0,
                     p: 1.5,
                     borderRadius: 1,
                     backgroundColor: actualMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
                     border: '1px solid',
-                    borderColor: isCurrentStep ? statusColor : (actualMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'),
-                    animation: isCurrentStep ? 'stepPulse 2s ease-in-out infinite' : undefined,
-                    '@keyframes stepPulse': {
-                      '0%, 100%': {
-                        borderColor: statusColor,
-                        boxShadow: `0 0 0 rgba(59, 130, 246, 0)`,
-                      },
-                      '50%': {
-                        borderColor: statusColor,
-                        boxShadow: `0 0 8px rgba(59, 130, 246, 0.4)`,
-                      },
-                    },
+                    borderColor: actualMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                   }}
                 >
                   {/* Step Header */}
@@ -566,11 +629,11 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                         {statusIcon}
                       </Typography>
                       <Typography variant="caption" fontWeight="bold" sx={{ color: statusColor }}>
-                        {statusText}
+                        STEP {stepNumber}: {statusText}
                       </Typography>
                     </Box>
                     <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                      {isCurrentStep ? 'Running...' : `⏱ ${((step.state.duration || 0) / 1000).toFixed(2)}s`}
+                      ⏱ {((step.state.duration || 0) / 1000).toFixed(2)}s
                     </Typography>
                   </Box>
 

@@ -17,6 +17,10 @@ from shared.src.lib.database.testcase_db import (
     get_testcase_by_name,
     get_next_version_number
 )
+from shared.src.lib.database.folder_tag_db import (
+    list_all_folders,
+    list_all_tags
+)
 
 server_testcase_bp = Blueprint('server_testcase', __name__, url_prefix='/server/testcase')
 
@@ -43,7 +47,9 @@ def testcase_save():
                 graph_json=data.get('graph_json'),
                 description=data.get('description'),
                 userinterface_name=data.get('userinterface_name'),
-                team_id=team_id
+                team_id=team_id,
+                folder=data.get('folder'),  # NEW: Folder name
+                tags=data.get('tags')  # NEW: List of tag names
             )
             
             if success:
@@ -77,7 +83,9 @@ def testcase_save():
                 creation_method=data.get('creation_method', 'visual'),
                 ai_prompt=data.get('ai_prompt'),
                 ai_analysis=data.get('ai_analysis'),
-                overwrite=overwrite
+                overwrite=overwrite,
+                folder=data.get('folder'),  # NEW: Folder name (user-selected or typed)
+                tags=data.get('tags')  # NEW: List of tag names
             )
             
             if new_testcase_id == 'DUPLICATE_NAME':
@@ -375,4 +383,32 @@ def generate_with_ai():
             'success': False,
             'error': f'Failed to generate test case: {str(e)}'
         }), 500
+
+
+@server_testcase_bp.route('/folders-tags', methods=['GET'])
+def get_folders_and_tags():
+    """
+    Get all folders and tags for dropdown selection.
+    Used by TestCaseBuilder save dialog and RunTests selector.
+    
+    Returns:
+        {
+            "success": true,
+            "folders": [{folder_id, name}, ...],
+            "tags": [{tag_id, name, color}, ...]
+        }
+    """
+    try:
+        folders = list_all_folders()
+        tags = list_all_tags()
+        
+        return jsonify({
+            'success': True,
+            'folders': folders,
+            'tags': tags
+        })
+        
+    except Exception as e:
+        print(f"[@server_testcase:folders_tags] ERROR: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
 

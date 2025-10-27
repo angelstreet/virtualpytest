@@ -133,15 +133,20 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       navigationContext
     );
 
-    // Update current position based on which action set was executed
-    if (result && result.success !== false) {
-      // actionSets[0] = forward (source → target)
-      // actionSets[1] = reverse (target → source)
-      const isForward = actionSetId === actionSets[0]?.id;
-      const targetNodeId = isForward ? edge.target : edge.source;
+    // Update current position to the target node if execution was successful
+    // BUT: If target is an action node, stay at the source node since actions are operations, not destinations
+    if (result && result.success !== false && edge.target) {
+      const targetNode = nodes.find(n => n.id === edge.target);
       
-      console.log(`[@useEdge:executeActionSet] Executed action_set[${isForward ? 0 : 1}], moving to: ${targetNodeId}`);
-      updateCurrentPosition(targetNodeId, null);
+      if (targetNode?.type === 'action') {
+        // For action nodes, position remains at source (where the action was triggered from)
+        // Do not update current position since actions are transient operations
+        console.log(`[@useEdge:executeActionSet] Action node '${targetNode.data.label}' executed, position remains at source`);
+      } else {
+        // For screen/menu nodes, update position to target
+        console.log(`[@useEdge:executeActionSet] Updating current position to target: ${edge.target}`);
+        updateCurrentPosition(edge.target, null);
+      }
     }
 
     return result;
@@ -226,11 +231,6 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       setRunResult(null);
 
       try {
-        // Calculate target node (forward = edge.target, reverse = edge.source)
-        const actionSets = getActionSetsFromEdge(edge);
-        const isForward = defaultSet.id === actionSets[0]?.id;
-        const targetNodeId = isForward ? edge.target : edge.source;
-        
         // Include navigation context for proper metrics recording
         // Use current props value to avoid stale closure
         const currentTreeId = props?.treeId;
@@ -238,7 +238,6 @@ export const useEdge = (props: UseEdgeProps = {}) => {
           tree_id: currentTreeId || undefined,
           edge_id: edge.id,
           action_set_id: defaultSet.id,
-          target_node_id: targetNodeId,  // 🆕 Target node for verification
           skip_db_recording: true  // Frontend testing - don't record to DB
         };
         
@@ -247,7 +246,6 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         console.log('[@useEdge:executeEdgeActions] props?.treeId:', props?.treeId);
         console.log('[@useEdge:executeEdgeActions] edge.id:', edge.id);
         console.log('[@useEdge:executeEdgeActions] defaultSet.id:', defaultSet.id);
-        console.log('[@useEdge:executeEdgeActions] targetNodeId:', targetNodeId);
         
         const result = await actionHook.executeActions(
           actions.map(convertToControllerAction),
@@ -259,10 +257,22 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));
         setRunResult(formattedResult);
 
-        // Update current position (target already calculated above)
-        if (result && result.success !== false) {
-          console.log(`[@useEdge:executeEdgeActions] Executed action_set[${isForward ? 0 : 1}], moving to: ${targetNodeId}`);
-          updateCurrentPosition(targetNodeId, null);
+        // Update current position to the target node if execution was successful
+        // BUT: If target is an action node, stay at the source node since actions are operations, not destinations
+        if (result && result.success !== false && edge.target) {
+          const targetNode = nodes.find(n => n.id === edge.target);
+          
+          if (targetNode?.type === 'action') {
+            // For action nodes, position remains at source (where the action was triggered from)
+            // Do not update current position since actions are transient operations
+            console.log(`[@useEdge] Action node '${targetNode.data.label}' executed, position remains at source`);
+          } else {
+            // For screen/menu nodes, update position to target
+            updateCurrentPosition(edge.target, null);
+          }
+          
+          // Note: Timer actions should be handled by a dedicated timer actions hook
+          // in components that specifically need auto-return functionality
         }
 
         return result;

@@ -513,6 +513,10 @@ const TestCaseBuilderContent: React.FC = () => {
             : null
         }
         handleSave={hookData.handleSave}
+        testcaseFolder={hookData.testcaseFolder}
+        setTestcaseFolder={hookData.setTestcaseFolder}
+        testcaseTags={hookData.testcaseTags}
+        setTestcaseTags={hookData.setTestcaseTags}
         loadDialogOpen={hookData.loadDialogOpen}
         setLoadDialogOpen={hookData.setLoadDialogOpen}
         availableTestcases={hookData.testcaseList}

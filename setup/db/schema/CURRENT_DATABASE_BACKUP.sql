@@ -160,7 +160,42 @@ CREATE TABLE testcase_definitions (
     creation_method character varying(10) DEFAULT 'visual'::character varying CHECK (creation_method IN ('visual', 'ai')),
     ai_prompt text,
     ai_analysis text,
+    folder_id integer DEFAULT 0,  -- UPDATED: Added for unified test organization
     CONSTRAINT unique_testcase_per_team UNIQUE (team_id, testcase_name)
+);
+
+-- Folders table (Unified Test Organization)
+CREATE TABLE folders (
+    folder_id SERIAL PRIMARY KEY,
+    name character varying(255) NOT NULL UNIQUE,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Tags table (Unified Test Organization)
+CREATE TABLE tags (
+    tag_id SERIAL PRIMARY KEY,
+    name character varying(50) NOT NULL UNIQUE,
+    color character varying(7) NOT NULL,
+    created_at timestamp with time zone DEFAULT now()
+);
+
+-- Executable Tags Mapping (Unified for Scripts and Testcases)
+CREATE TABLE executable_tags (
+    executable_type character varying(10) NOT NULL CHECK (executable_type IN ('script', 'testcase')),
+    executable_id character varying(255) NOT NULL,
+    tag_id integer NOT NULL REFERENCES tags(tag_id) ON DELETE CASCADE,
+    created_at timestamp with time zone DEFAULT now(),
+    PRIMARY KEY (executable_type, executable_id, tag_id)
+);
+
+-- Scripts Metadata table (For Unified Listing)
+CREATE TABLE scripts (
+    script_id SERIAL PRIMARY KEY,
+    name character varying(255) NOT NULL UNIQUE,
+    display_name character varying(255),
+    description text,
+    folder_id integer DEFAULT 0,
+    created_at timestamp with time zone DEFAULT now()
 );
 
 -- Test executions table

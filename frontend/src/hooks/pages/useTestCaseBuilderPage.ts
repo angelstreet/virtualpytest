@@ -63,6 +63,10 @@ export interface UseTestCaseBuilderPageReturn {
   setTestcaseName: (name: string) => void;
   description: string;
   setDescription: (desc: string) => void;
+  testcaseFolder: string; // NEW
+  setTestcaseFolder: (folder: string) => void; // NEW
+  testcaseTags: string[]; // NEW
+  setTestcaseTags: (tags: string[]) => void; // NEW
   currentTestcaseId: string | null;
   testcaseList: any[];
   isLoadingTestCaseList: boolean;
@@ -324,6 +328,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setTestcaseName,
     description,
     setDescription,
+    testcaseFolder, // NEW
+    setTestcaseFolder, // NEW
+    testcaseTags, // NEW
+    setTestcaseTags, // NEW
     currentTestcaseId,
     testcaseList,
     isLoadingTestCaseList,
@@ -739,6 +747,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setTestcaseName,
     description,
     setDescription,
+    testcaseFolder, // NEW
+    setTestcaseFolder, // NEW
+    testcaseTags, // NEW
+    setTestcaseTags, // NEW
     currentTestcaseId,
     testcaseList,
     isLoadingTestCaseList,

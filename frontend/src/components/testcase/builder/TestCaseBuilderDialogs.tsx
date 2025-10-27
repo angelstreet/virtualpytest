@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Dialog, 
   DialogTitle, 
@@ -16,11 +16,24 @@ import {
   Select,
   MenuItem,
   Chip,
-  IconButton
+  IconButton,
+  Autocomplete
 } from '@mui/material';
 import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import { buildServerUrl } from '../../../utils/buildUrlUtils';
+
+interface Folder {
+  folder_id: number;
+  name: string;
+}
+
+interface Tag {
+  tag_id: number;
+  name: string;
+  color: string;
+}
 
 interface TestCaseBuilderDialogsProps {
   // Save Dialog
@@ -35,6 +48,11 @@ interface TestCaseBuilderDialogsProps {
   currentTestcaseId: string | null;
   currentVersion?: number | null;
   handleSave: () => void;
+  // NEW: Folder and Tags
+  testcaseFolder?: string;
+  setTestcaseFolder?: (folder: string) => void;
+  testcaseTags?: string[];
+  setTestcaseTags?: (tags: string[]) => void;
   
   // Load Dialog
   loadDialogOpen: boolean;
@@ -83,7 +101,41 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   aiGenerateConfirmOpen,
   setAiGenerateConfirmOpen,
   handleConfirmAIGenerate,
+  testcaseFolder = '(Root)',
+  setTestcaseFolder = () => {},
+  testcaseTags = [],
+  setTestcaseTags = () => {},
 }) => {
+  // State for folders and tags
+  const [availableFolders, setAvailableFolders] = useState<Folder[]>([]);
+  const [availableTags, setAvailableTags] = useState<Tag[]>([]);
+  const [loadingFoldersTags, setLoadingFoldersTags] = useState(false);
+
+  // Load folders and tags when save dialog opens
+  useEffect(() => {
+    if (saveDialogOpen && !loadingFoldersTags && availableFolders.length === 0) {
+      loadFoldersAndTags();
+    }
+  }, [saveDialogOpen]);
+
+  const loadFoldersAndTags = async () => {
+    setLoadingFoldersTags(true);
+    try {
+      const teamId = localStorage.getItem('team_id') || '';
+      const response = await fetch(buildServerUrl(`/server/testcase/folders-tags?team_id=${teamId}`));
+      const data = await response.json();
+      
+      if (data.success) {
+        setAvailableFolders(data.folders || []);
+        setAvailableTags(data.tags || []);
+      }
+    } catch (error) {
+      console.error('Error loading folders and tags:', error);
+    } finally {
+      setLoadingFoldersTags(false);
+    }
+  };
+
   // Get environment color for chips
   const getEnvironmentColor = (env: string) => {
     switch (env) {
@@ -183,6 +235,70 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
               </MenuItem>
             </Select>
           </FormControl>
+
+          {/* Folder Selector - Autocomplete (select or type new) */}
+          <Autocomplete
+            freeSolo
+            value={testcaseFolder}
+            onChange={(event, newValue) => {
+              setTestcaseFolder(newValue || '(Root)');
+            }}
+            options={availableFolders.map(f => f.name)}
+            renderInput={(params) => (
+              <TextField 
+                {...params} 
+                label="Folder" 
+                margin="dense"
+                helperText="Select existing or type new folder name"
+              />
+            )}
+            sx={{ mt: 1 }}
+          />
+
+          {/* Tag Selector - Multi-Autocomplete (select or type new) */}
+          <Autocomplete
+            multiple
+            freeSolo
+            value={testcaseTags}
+            onChange={(event, newValue) => {
+              setTestcaseTags(newValue);
+            }}
+            options={availableTags.map(t => t.name)}
+            renderTags={(value, getTagProps) =>
+              value.map((option, index) => {
+                // Find tag color if exists, or use default for new tags
+                const existingTag = availableTags.find(t => t.name === option);
+                const color = existingTag?.color || '#9e9e9e';
+                
+                return (
+                  <Chip
+                    label={option}
+                    {...getTagProps({ index })}
+                    sx={{ 
+                      backgroundColor: color,
+                      color: 'white',
+                      '& .MuiChip-deleteIcon': {
+                        color: 'rgba(255, 255, 255, 0.7)',
+                        '&:hover': {
+                          color: 'white'
+                        }
+                      }
+                    }}
+                  />
+                );
+              })
+            }
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Tags"
+                margin="dense"
+                placeholder="Select or type new tags..."
+                helperText="Tags help organize and filter test cases"
+              />
+            )}
+            sx={{ mt: 1 }}
+          />
         </DialogContent>
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
           <Button onClick={() => setSaveDialogOpen(false)} variant="outlined">
