@@ -133,13 +133,14 @@ export const useEdge = (props: UseEdgeProps = {}) => {
       navigationContext
     );
 
-    // Update current position based on action set direction
+    // Update current position based on which action set was executed
     if (result && result.success !== false) {
-      // Determine target based on action set direction
+      // actionSets[0] = forward (source → target)
+      // actionSets[1] = reverse (target → source)
       const isForward = actionSetId === actionSets[0]?.id;
       const targetNodeId = isForward ? edge.target : edge.source;
       
-      console.log(`[@useEdge:executeActionSet] Updating current position to: ${targetNodeId} (${isForward ? 'forward' : 'reverse'})`);
+      console.log(`[@useEdge:executeActionSet] Executed action_set[${isForward ? 0 : 1}], moving to: ${targetNodeId}`);
       updateCurrentPosition(targetNodeId, null);
     }
 
@@ -251,13 +252,15 @@ export const useEdge = (props: UseEdgeProps = {}) => {
         const formattedResult = formatRunResult(actionHook.formatExecutionResults(result));
         setRunResult(formattedResult);
 
-        // Update current position based on action set direction
+        // Update current position based on which action set was executed
         if (result && result.success !== false) {
           const actionSets = getActionSetsFromEdge(edge);
+          // actionSets[0] = forward (source → target)
+          // actionSets[1] = reverse (target → source)
           const isForward = defaultSet.id === actionSets[0]?.id;
           const targetNodeId = isForward ? edge.target : edge.source;
           
-          console.log(`[@useEdge:executeEdgeActions] Updating current position to: ${targetNodeId} (${isForward ? 'forward' : 'reverse'})`);
+          console.log(`[@useEdge:executeEdgeActions] Executed action_set[${isForward ? 0 : 1}], moving to: ${targetNodeId}`);
           updateCurrentPosition(targetNodeId, null);
         }
 

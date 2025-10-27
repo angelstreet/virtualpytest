@@ -758,7 +758,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           top: 64,
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
           display: 'flex',
           flexDirection: 'column',
           overflow: 'hidden',

@@ -244,7 +244,7 @@ const TestCaseBuilderContent: React.FC = () => {
       top: 64,
       left: 0,
       right: 0,
-      bottom: 32,
+      bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
       display: 'flex', 
       flexDirection: 'column', 
       overflow: 'hidden',
@@ -434,17 +434,17 @@ const TestCaseBuilderContent: React.FC = () => {
         </Box>
       </Box>
 
-      {/* Footer */}
+      {/* Stats Bar - Page-specific info above shared footer */}
       <Box
         sx={{
-          height: '40px',
+          height: '32px',
           borderTop: 1,
           borderColor: 'divider',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'space-between',
           px: 2,
-          background: actualMode === 'dark' ? '#111827' : '#f9fafb',
+          background: actualMode === 'dark' ? '#1e293b' : '#f1f5f9',
           flexShrink: 0,
         }}
       >

@@ -53,7 +53,12 @@ export default function ValidationButtonClient({ treeId, disabled, selectedHost,
         onClick={handleClick}
         disabled={disabled || validation.isValidating || !validation.canRunValidation}
         endIcon={validation.isValidating ? <CircularProgress size={16} /> : <ExpandMoreIcon />}
-        sx={{ minWidth: 120 }}
+        size="small"
+        sx={{ 
+          minWidth: 'auto',
+          whiteSpace: 'nowrap',
+          fontSize: '0.75rem',
+        }}
       >
         {validation.isValidating ? 'Validating...' : 'Validate'}
       </Button>
