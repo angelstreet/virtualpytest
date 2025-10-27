@@ -612,7 +612,7 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             host_info,
             f'/host/navigation/cache/populate/{tree_id}?team_id={team_id}',
             'POST',
-            json={'all_trees_data': all_trees_data}
+            data={'all_trees_data': all_trees_data}
         )
         
         if populate_result and populate_result.get('success'):
