@@ -62,30 +62,21 @@ def execute_navigation(tree_id, node_id):
                 'error': 'userinterface_name is required for reference resolution'
             }), 400
         
-        # Handle cache miss resilience - reuse take control cache population logic
+        # Check cache exists - NEVER clear or rebuild (only takeControl should do that)
         print(f"[@route:navigation_execution:execute_navigation] Navigation execution for tree {tree_id}, team_id {team_id}")
         
-        # Check if cache exists, if not, populate it (race condition resilience)
+        # Verify cache exists before execution
         from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
         cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
         
         if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
             print(f"[@route:navigation_execution:execute_navigation] ✅ Cache exists for tree {tree_id}")
         else:
-            print(f"[@route:navigation_execution:execute_navigation] ⚠️ Cache missing for tree {tree_id} - auto-populating (race condition recovery)")
-            
-            # Reuse the take control cache population logic
-            from backend_server.src.routes.server_control_routes import populate_navigation_cache_for_control
-            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-            
-            if cache_populated:
-                print(f"[@route:navigation_execution:execute_navigation] ✅ Cache auto-populated successfully")
-            else:
-                print(f"[@route:navigation_execution:execute_navigation] ❌ Cache auto-population failed")
-                return jsonify({
-                    'success': False,
-                    'error': 'Navigation cache missing and auto-population failed. Please try taking control again.'
-                }), 400
+            print(f"[@route:navigation_execution:execute_navigation] ❌ Cache missing for tree {tree_id}")
+            return jsonify({
+                'success': False,
+                'error': 'Navigation cache not ready. Please take control first to build the cache.'
+            }), 503  # Service Unavailable - temporary state, client should retry
         
         # Proxy to host navigation execution endpoint
         execution_payload = {
@@ -189,26 +180,17 @@ def get_navigation_preview_with_executor(tree_id, node_id):
                 'error': 'host_name query parameter is required'
             }), 400
         
-        # ✅ CHECK CACHE & AUTO-POPULATE IF MISSING (same as execute route)
+        # ✅ CHECK CACHE EXISTS (NEVER clear or rebuild - only takeControl should do that)
         cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
         
         if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
             print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ✅ Cache exists for tree {tree_id}")
         else:
-            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ⚠️ Cache missing for tree {tree_id} - auto-populating")
-            
-            # Reuse the take control cache population logic
-            from backend_server.src.routes.server_control_routes import populate_navigation_cache_for_control
-            cache_populated = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-            
-            if cache_populated:
-                print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ✅ Cache auto-populated successfully")
-            else:
-                print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ❌ Cache auto-population failed")
-                return jsonify({
-                    'success': False,
-                    'error': 'Navigation cache missing and auto-population failed. Please try taking control again.'
-                }), 400
+            print(f"[@route:navigation_execution:get_navigation_preview_with_executor] ❌ Cache missing for tree {tree_id}")
+            return jsonify({
+                'success': False,
+                'error': 'Navigation cache not ready. Please wait for take control to complete building the cache.'
+            }), 503  # Service Unavailable - temporary state, client should retry
         
         # Create minimal host configuration for preview
         host = {'host_name': host_name}
