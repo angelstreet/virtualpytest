@@ -74,13 +74,23 @@ def take_control():
                 
                 print(f"📡 [CONTROL] Forwarding take-control to host: {host_url}")
                 
-                # Send device_id as provided, let host handle device ID mapping
+                # Send device_id, tree_id, and team_id to host for local cache rebuild
                 request_payload = {}
                 if device_id:
                     request_payload['device_id'] = device_id
                 
+                # Pass tree_id for navigation cache rebuild on host
+                tree_id = data.get('tree_id')
+                if tree_id:
+                    request_payload['tree_id'] = tree_id
+                    print(f"📡 [CONTROL] Including tree_id for host cache rebuild: {tree_id}")
+                
+                # Add team_id as query parameter (host expects it there)
+                team_id = request.args.get('team_id')
+                query_params = f"?team_id={team_id}" if team_id else ""
+                
                 response = requests.post(
-                    host_url,
+                    f"{host_url}{query_params}",
                     json=request_payload,
                     timeout=30
                 )
