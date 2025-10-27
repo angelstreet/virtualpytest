@@ -9,11 +9,11 @@ import {
   NodeForm,
   NavigationStep,
   NavigationPreviewResponse,
-  NavigationExecuteResponse,
 } from '../../types/pages/Navigation_Types';
 import { useValidationColors } from '../validation/useValidationColors';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { executeNavigationAsync } from '../../utils/navigationExecutionUtils';
 export interface UseNodeProps {
   selectedHost?: Host;
   selectedDeviceId?: string;
@@ -361,6 +361,10 @@ export const useNode = (props?: UseNodeProps) => {
       try {
         const executionTreeId = parentChain[0]?.treeId || navigationConfig.actualTreeId;
         
+        if (!executionTreeId) {
+          throw new Error('No tree ID available for navigation execution');
+        }
+        
         console.log('[@useNode:executeNavigation] 🎯 NAVIGATION EXECUTION REQUEST:');
         console.log('[@useNode:executeNavigation]   → Target Node ID:', selectedNode.id);
         console.log('[@useNode:executeNavigation]   → Target Node Label:', selectedNode.data.label);
@@ -371,92 +375,43 @@ export const useNode = (props?: UseNodeProps) => {
         console.log('[@useNode:executeNavigation]   → Host:', props.selectedHost?.host_name);
         console.log('[@useNode:executeNavigation]   → Device:', currentDeviceId);
         
-        const executionUrl = buildServerUrl(`/server/navigation/execute/${executionTreeId}/${selectedNode.id}`);
-        
-        // Start async execution
-        const startResult = await fetch(
-          executionUrl,
-          {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              host_name: props.selectedHost?.host_name,
-              device_id: currentDeviceId,
-              current_node_id: currentNodeId,
-              userinterface_name: userInterface?.name,  // MANDATORY for reference resolution
-              async_execution: true,  // Enable async execution
-            }),
-          },
-        );
-
-        const startResponse = await startResult.json();
-
-        if (!startResponse.success) {
-          throw new Error(startResponse.error || 'Failed to start navigation');
-        }
-
-        const executionId = startResponse.execution_id;
-        console.log('[@useNode:executeNavigation] ✅ Async execution started:', executionId);
-        setExecutionMessage('Navigating to ' + selectedNode.data.label + '...');
-
-        // Poll for completion
-        const statusUrl = buildServerUrl(`/server/navigation/execution/${executionId}/status?host_name=${props.selectedHost?.host_name}&device_id=${currentDeviceId}`);
-        
-        let attempts = 0;
-        const maxAttempts = 60; // 60 * 1000ms = 60 seconds max
-        
-        while (attempts < maxAttempts) {
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
-          attempts++;
-          
-          const statusResult = await fetch(statusUrl);
-          const statusResponse = await statusResult.json();
-          
-          if (!statusResponse.success) {
-            throw new Error(statusResponse.error || 'Failed to get execution status');
-          }
-          
-          if (statusResponse.status === 'completed') {
-            const response: NavigationExecuteResponse = statusResponse.result;
-            
-            if (!response.success) {
-              throw new Error(response.error || 'Navigation execution failed');
-            }
-
-            setExecutionMessage(`Navigation to ${selectedNode.data.label} completed successfully`);
-            setIsExecuting(false);
-
-            // Update current position using centralized method
-            const finalPositionNodeId = response.final_position_node_id || selectedNode.id;
-            updateCurrentPosition(finalPositionNodeId, selectedNode.data.label);
-
-            // Handle verification results
-            if (response.verification_results && response.verification_results.length > 0) {
-              const verificationSuccess = response.verification_results.every((vr: any) => vr.success);
-              if (verificationSuccess) {
-                setNodeVerificationSuccess(selectedNode.id);
-              } else {
-                setNodeVerificationFailure(selectedNode.id);
-              }
-            }
-
-            // Set edges to green for successful navigation
-            if (navigationTransitions && navigationTransitions.length > 0) {
-              setNavigationEdgesSuccess(navigationTransitions);
-            }
-            break;
-          } else if (statusResponse.status === 'error') {
-            throw new Error(statusResponse.error || 'Navigation execution failed');
-          }
-          
-          // Update progress message
-          if (statusResponse.message) {
-            setExecutionMessage(statusResponse.message);
-          }
+        if (!props.selectedHost?.host_name) {
+          throw new Error('Host name is required for navigation execution');
         }
         
-        if (attempts >= maxAttempts) {
-          throw new Error('Navigation timeout - execution took too long');
+        // ✅ REUSE: Use shared navigation execution utility
+        const response = await executeNavigationAsync({
+          treeId: executionTreeId,
+          targetNodeLabel: selectedNode.data.label, // Use label for pathfinding
+          hostName: props.selectedHost.host_name,
+          deviceId: currentDeviceId || 'device1',
+          userinterfaceName: userInterface?.name || '',
+          currentNodeId: currentNodeId || undefined,
+          onProgress: (message) => {
+            setExecutionMessage(message);
+          }
+        });
+
+        setExecutionMessage(`Navigation to ${selectedNode.data.label} completed successfully`);
+        setIsExecuting(false);
+
+        // Update current position using centralized method
+        const finalPositionNodeId = response.final_position_node_id || selectedNode.id;
+        updateCurrentPosition(finalPositionNodeId, selectedNode.data.label);
+
+        // Handle verification results
+        if (response.verification_results && response.verification_results.length > 0) {
+          const verificationSuccess = response.verification_results.every((vr: any) => vr.success);
+          if (verificationSuccess) {
+            setNodeVerificationSuccess(selectedNode.id);
+          } else {
+            setNodeVerificationFailure(selectedNode.id);
+          }
+        }
+
+        // Set edges to green for successful navigation
+        if (navigationTransitions && navigationTransitions.length > 0) {
+          setNavigationEdgesSuccess(navigationTransitions);
         }
       } catch (error: any) {
         console.error(`[@hook:useNode:executeNavigation] Navigation failed:`, error);

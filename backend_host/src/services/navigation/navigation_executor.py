@@ -310,13 +310,14 @@ class NavigationExecutor:
         nav_context['previous_node_label'] = nav_context['current_node_label']
         
         # Get target node label for logging (if unified graph is available)
-        target_node_label = None
-        if self.unified_graph or (tree_id and team_id):
-            try:
-                target_node_label = self.get_node_label(target_node_id, tree_id, team_id)
-            except ValueError:
-                print(f"[@navigation_executor:execute_navigation] Could not find label for node_id '{target_node_id}' - will use ID for logging")
-                target_node_label = target_node_id
+        # Note: target_node_label might already be set if provided as input parameter
+        if not target_node_label:
+            if self.unified_graph or (tree_id and team_id):
+                try:
+                    target_node_label = self.get_node_label(target_node_id, tree_id, team_id)
+                except ValueError:
+                    print(f"[@navigation_executor:execute_navigation] Could not find label for node_id '{target_node_id}' - will use ID for logging")
+                    target_node_label = target_node_id
         
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
@@ -1212,10 +1213,10 @@ class NavigationExecutor:
     def execute_navigation_async(
         self,
         tree_id: str,
-        target_node_id: str,
         userinterface_name: str,
-        current_node_id: Optional[str] = None,
+        target_node_id: Optional[str] = None,
         target_node_label: Optional[str] = None,
+        current_node_id: Optional[str] = None,
         frontend_sent_position: bool = False,
         team_id: Optional[str] = None
     ) -> Dict[str, Any]:
@@ -1225,10 +1226,10 @@ class NavigationExecutor:
         
         Args:
             tree_id: Tree ID
-            target_node_id: Target node ID
             userinterface_name: User interface name (MANDATORY for reference resolution)
+            target_node_id: Target node ID (optional, either this or target_node_label must be provided)
+            target_node_label: Target node label (optional, either this or target_node_id must be provided)
             current_node_id: Current node ID (optional)
-            target_node_label: Target node label (optional)
             frontend_sent_position: Whether frontend explicitly sent position
             team_id: Team ID (optional)
         
@@ -1239,6 +1240,12 @@ class NavigationExecutor:
                 'message': 'Navigation started'
             }
         """
+        # Validate that at least one target is provided
+        if not target_node_id and not target_node_label:
+            return {
+                'success': False,
+                'error': 'Either target_node_id or target_node_label must be provided'
+            }
         execution_id = str(uuid.uuid4())
         
         # Initialize execution state
@@ -1262,7 +1269,7 @@ class NavigationExecutor:
         # Start execution in background thread
         thread = threading.Thread(
             target=self._execute_navigation_with_tracking,
-            args=(execution_id, tree_id, target_node_id, userinterface_name, current_node_id, target_node_label, frontend_sent_position, team_id),
+            args=(execution_id, tree_id, userinterface_name, target_node_id, target_node_label, current_node_id, frontend_sent_position, team_id),
             daemon=True
         )
         thread.start()
@@ -1314,10 +1321,10 @@ class NavigationExecutor:
         self,
         execution_id: str,
         tree_id: str,
-        target_node_id: str,
         userinterface_name: str,
-        current_node_id: Optional[str],
+        target_node_id: Optional[str],
         target_node_label: Optional[str],
+        current_node_id: Optional[str],
         frontend_sent_position: bool,
         team_id: Optional[str]
     ):
@@ -1333,8 +1340,8 @@ class NavigationExecutor:
                 tree_id=tree_id,
                 userinterface_name=userinterface_name,
                 target_node_id=target_node_id,
-                current_node_id=current_node_id,
                 target_node_label=target_node_label,
+                current_node_id=current_node_id,
                 frontend_sent_position=frontend_sent_position,
                 team_id=team_id
             )
@@ -1397,6 +1404,23 @@ class NavigationExecutor:
             
             return result
             
+        except PathfindingError as e:
+            # No path found - target node may not exist or be unreachable
+            error_message = str(e)
+            print(f"[@navigation_executor:get_navigation_preview] ❌ Pathfinding error: {error_message}")
+            result = {
+                'success': False,
+                'error': error_message,
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'transitions': [],
+                'total_transitions': 0,
+                'total_actions': 0
+            }
+            # Don't cache errors
+            return result
+        
         except UnifiedCacheError as e:
             # Cache missing - this indicates the tree wasn't loaded properly
             print(f"[@navigation_executor:get_navigation_preview] Unified cache missing for tree {tree_id}")

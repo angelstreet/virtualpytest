@@ -326,7 +326,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
               fontWeight: 'bold',
             }}
           >
-            ⏱ {(finalTime ?? elapsedTime).toFixed(1)}s
+            ⏱ {(finalTime ?? elapsedTime).toFixed(2)}s
           </Typography>
 
           {/* Stop/Close Button */}

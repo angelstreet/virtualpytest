@@ -13,6 +13,7 @@ import { useNavigationConfig } from '../../../contexts/navigation/NavigationConf
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
+import { executeNavigationAsync } from '../../../utils/navigationExecutionUtils';
 
 /**
  * Universal Block - Renders any command type with appropriate handles
@@ -140,11 +141,10 @@ export const UniversalBlock: React.FC<NodeProps & {
     const startTime = Date.now();
     
     try {
-      let response;
+      let result: any; // Result from either navigation or action execution
       
       if (isNavigation) {
-        // Execute navigation using target_node_label
-        // Use tree_id and userinterface from context (already loaded!)
+        // ✅ REUSE: Execute navigation using shared utility with async polling
         const tree_id = actualTreeId;
         const interfaceName = data.userinterface_name || userinterfaceName;
         
@@ -156,17 +156,20 @@ export const UniversalBlock: React.FC<NodeProps & {
           throw new Error(`No userinterface selected. Please select a userinterface first.`);
         }
         
-        // Use the proper navigation execution endpoint with tree_id and target_node_label
-        // The backend's pathfinding supports label resolution - NO API CALLS TO GET TREE!
-        response = await fetch(buildServerUrl(`/server/navigation/execute/${tree_id}/${data.target_node_label}`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            host_name: currentHost.host_name,
-            device_id: currentDeviceId || 'device1',
-            userinterface_name: interfaceName,
-          }),
+        // Use shared navigation execution utility (same as useNode)
+        const navResult = await executeNavigationAsync({
+          treeId: tree_id,
+          targetNodeLabel: data.target_node_label,
+          hostName: currentHost.host_name,
+          deviceId: currentDeviceId || 'device1',
+          userinterfaceName: interfaceName,
+          onProgress: (msg: string) => {
+            console.log('[@UniversalBlock] Navigation progress:', msg);
+          }
         });
+        
+        // Convert to response format expected by result handling below
+        result = navResult;
       } else {
         // Execute action or verification
         const actionPayload = {
@@ -179,7 +182,7 @@ export const UniversalBlock: React.FC<NodeProps & {
         };
         
         const endpoint = '/server/action/execute'; // Both actions and verifications use same endpoint
-        response = await fetch(buildServerUrl(`${endpoint}?team_id=default-team-id`), {
+        const response = await fetch(buildServerUrl(`${endpoint}?team_id=default-team-id`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -188,9 +191,10 @@ export const UniversalBlock: React.FC<NodeProps & {
             device_id: currentDeviceId || 'device1',
           }),
         });
+        
+        result = await response.json();
       }
       
-      const result = await response.json();
       const duration = Date.now() - startTime;
       const durationText = `${(duration / 1000).toFixed(2)}s`;
       const commandLabel = isNavigation ? `Navigate to ${data.target_node_label}` : data.command;
@@ -200,7 +204,14 @@ export const UniversalBlock: React.FC<NodeProps & {
         unifiedExecution.completeBlockExecution(id, true, undefined, result);
         
         setAnimateHandle('success');
-        showSuccess(`✓ ${commandLabel} - ${durationText}`);
+        
+        // Show different message if already at destination
+        if (isNavigation && result.already_at_target) {
+          showSuccess(`ℹ️ Already at ${data.target_node_label} - ${durationText}`);
+        } else {
+          showSuccess(`✓ ${commandLabel} - ${durationText}`);
+        }
+        
         // Clear animation after 2 seconds
         setTimeout(() => setAnimateHandle(null), 2000);
         
