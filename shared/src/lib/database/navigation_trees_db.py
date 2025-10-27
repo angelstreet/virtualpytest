@@ -776,8 +776,9 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
             {'p_tree_id': tree_id, 'p_team_id': team_id}
         ).execute()
         
-        if result.data:
-            tree_data = result.data
+        # RPC functions that return JSON are wrapped in a list by Supabase
+        if result.data and len(result.data) > 0:
+            tree_data = result.data[0]  # Get first element from list
             print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
             
             return {
