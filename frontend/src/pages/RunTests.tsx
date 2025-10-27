@@ -1,4 +1,4 @@
-import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon, Close as CloseIcon } from '@mui/icons-material';
+import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon, Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -20,6 +20,7 @@ import {
   TableRow,
   Paper,
   IconButton,
+  Collapse,
 } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
@@ -76,6 +77,9 @@ interface ScriptParameter {
 const RunTests: React.FC = () => {
   const { executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { showInfo, showSuccess, showError } = useToast();
+  
+  // State for collapsible script selector
+  const [scriptSelectorExpanded, setScriptSelectorExpanded] = useState(true);
   
 
 
@@ -848,61 +852,88 @@ const RunTests: React.FC = () => {
                     </Box>
                   </Box>
 
-                  {/* SECTION 2: SCRIPT SELECTION */}
+                  {/* SECTION 2: SCRIPT SELECTION - COLLAPSIBLE */}
                   <Box sx={{ mb: 1 }}>
-                    <UnifiedExecutableSelector
-                      value={selectedExecutable}
-                      onChange={setSelectedExecutable}
-                      placeholder="Search by name..."
-                      filters={{ folders: true, tags: true, search: true }}
-                    />
+                    <Collapse in={scriptSelectorExpanded}>
+                      <UnifiedExecutableSelector
+                        value={selectedExecutable}
+                        onChange={setSelectedExecutable}
+                        placeholder="Search by name..."
+                        filters={{ folders: true, tags: true, search: true }}
+                        collapseIcon={
+                          <IconButton 
+                            size="small" 
+                            onClick={() => setScriptSelectorExpanded(!scriptSelectorExpanded)}
+                          >
+                            <ExpandLessIcon fontSize="small" />
+                          </IconButton>
+                        }
+                      />
+                    </Collapse>
+                    {!scriptSelectorExpanded && (
+                      <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                        <IconButton 
+                          size="small" 
+                          onClick={() => setScriptSelectorExpanded(true)}
+                        >
+                          <ExpandMoreIcon fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    )}
                   </Box>
 
-                  {/* SECTION 3: SELECTED SCRIPT + PARAMETERS - ONE LINE */}
-                  {selectedExecutable && (
-                    <Box sx={{ 
-                      mb: 1, 
-                      p: 1, 
-                      bgcolor: 'action.hover', 
-                      borderRadius: 1, 
-                      display: 'flex', 
-                      alignItems: 'center', 
-                      gap: 1, 
-                      flexWrap: 'wrap' 
-                    }}>
-                      {/* Script badge + name */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                        <Chip
-                          label={selectedExecutable.type === 'script' ? 'S' : 'TC'}
-                          size="small"
-                          color={selectedExecutable.type === 'script' ? 'primary' : 'secondary'}
-                          sx={{ height: '20px', fontSize: '0.65rem', minWidth: '28px' }}
-                        />
-                        <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.9rem' }}>
-                          {selectedExecutable.name}
-                        </Typography>
-                      </Box>
-
-                      {/* Bullet separator if there are parameters */}
-                      {displayParameters.length > 0 && (
-                        <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
-                          •
-                        </Typography>
-                      )}
-
-                      {/* Parameters inline with labels */}
-                      {displayParameters.map((param) => (
-                        <Box key={param.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <Typography variant="body2" sx={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                            {param.name}:
+                  {/* SECTION 3: SELECTED SCRIPT + PARAMETERS - ONE LINE WITH FIXED HEIGHT */}
+                  <Box sx={{ 
+                    mb: 1, 
+                    p: 1, 
+                    bgcolor: 'action.hover', 
+                    borderRadius: 1, 
+                    display: 'flex', 
+                    alignItems: 'center', 
+                    gap: 1, 
+                    flexWrap: 'wrap',
+                    minHeight: 48  // Fixed height to prevent flash effect
+                  }}>
+                    {selectedExecutable ? (
+                      <>
+                        {/* Script badge + name */}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <Chip
+                            label={selectedExecutable.type === 'script' ? 'S' : 'TC'}
+                            size="small"
+                            color={selectedExecutable.type === 'script' ? 'primary' : 'secondary'}
+                            sx={{ height: '20px', fontSize: '0.65rem', minWidth: '28px' }}
+                          />
+                          <Typography variant="body2" fontWeight="bold" sx={{ fontSize: '0.9rem' }}>
+                            {selectedExecutable.name}
                           </Typography>
-                          <Box sx={{ minWidth: 100 }}>
-                            {renderParameterInput(param)}
-                          </Box>
                         </Box>
-                      ))}
-                    </Box>
-                  )}
+
+                        {/* Bullet separator if there are parameters */}
+                        {displayParameters.length > 0 && (
+                          <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 'bold' }}>
+                            •
+                          </Typography>
+                        )}
+
+                        {/* Parameters inline with labels */}
+                        {displayParameters.map((param) => (
+                          <Box key={param.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            <Typography variant="body2" sx={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
+                              {param.name}:
+                            </Typography>
+                            <Box sx={{ minWidth: 100 }}>
+                              {renderParameterInput(param)}
+                            </Box>
+                          </Box>
+                        ))}
+                      </>
+                    ) : (
+                      <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.85rem' }}>
+                        No script selected
+                      </Typography>
+                    )}
+                  </Box>
 
                   {/* Multi-device section (keep as is) */}
                   {hasMoreDevicesAvailable() && (

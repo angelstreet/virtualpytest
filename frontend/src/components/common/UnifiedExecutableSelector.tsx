@@ -28,6 +28,7 @@ export interface UnifiedExecutableSelectorProps {
     tags?: boolean;
   };
   allowedTypes?: ('script' | 'testcase')[];
+  collapseIcon?: React.ReactNode;
 }
 
 export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps> = ({
@@ -36,6 +37,7 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
   placeholder = 'Search by name...',
   filters = { folders: true, tags: true, search: true },
   allowedTypes,
+  collapseIcon,
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -155,8 +157,8 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
 
   return (
     <Box>
-      {/* Filters Section - All in one row, equal sizes */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+      {/* Filters Section - All in one row, equal sizes, with collapse icon on right */}
+      <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center' }}>
         {filters.search && (
           <TextField
             size="small"
@@ -239,6 +241,13 @@ export const UnifiedExecutableSelector: React.FC<UnifiedExecutableSelectorProps>
             )}
             sx={{ flex: 1 }}
           />
+        )}
+
+        {/* Collapse icon on the right */}
+        {collapseIcon && (
+          <Box sx={{ flexShrink: 0 }}>
+            {collapseIcon}
+          </Box>
         )}
       </Box>
 

@@ -70,19 +70,37 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
     
     if target_node_id not in unified_graph.nodes:
         print(f"[@pathfinding]   → Node ID not found, trying to resolve by label...")
+        # Collect ALL nodes with matching label (there may be duplicates across trees)
+        matching_nodes = []
         for node_id, node_data in unified_graph.nodes(data=True):
             if node_data.get('label', '') == target_node_id:
-                actual_target_node = node_id
-                target_resolved_by_label = True
-                print(f"[@pathfinding]   ✅ Resolved by label! '{target_node_id}' → {actual_target_node}")
-                break
-        else:
-            # Try case-insensitive search
+                matching_nodes.append(node_id)
+        
+        # If no exact match, try case-insensitive
+        if not matching_nodes:
             for node_id, node_data in unified_graph.nodes(data=True):
                 if node_data.get('label', '').lower() == target_node_id.lower():
-                    actual_target_node = node_id
-                    target_resolved_by_label = True
-                    break
+                    matching_nodes.append(node_id)
+        
+        # If we found matches, prefer the one in the root tree
+        if matching_nodes:
+            if len(matching_nodes) > 1:
+                print(f"[@pathfinding]   ⚠️  Found {len(matching_nodes)} nodes with label '{target_node_id}': {matching_nodes}")
+                # Prefer nodes from root tree
+                for node_id in matching_nodes:
+                    node_data = unified_graph.nodes[node_id]
+                    if node_data.get('tree_id') == root_tree_id:
+                        actual_target_node = node_id
+                        print(f"[@pathfinding]   ✅ Resolved by label (preferred root tree)! '{target_node_id}' → {actual_target_node}")
+                        break
+                else:
+                    # No root tree match, use first one
+                    actual_target_node = matching_nodes[0]
+                    print(f"[@pathfinding]   ✅ Resolved by label (first match)! '{target_node_id}' → {actual_target_node}")
+            else:
+                actual_target_node = matching_nodes[0]
+                print(f"[@pathfinding]   ✅ Resolved by label! '{target_node_id}' → {actual_target_node}")
+            target_resolved_by_label = True
     
     # Determine starting node
     actual_start_node = start_node_id
