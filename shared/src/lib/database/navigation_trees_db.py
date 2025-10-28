@@ -274,17 +274,9 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
             result = supabase.table('navigation_nodes').insert(node_data).execute()
             print(f"[@db:navigation_trees:save_node] Created new node: {node_data['node_id']}, position: ({node_data.get('position_x', 'missing')}, {node_data.get('position_y', 'missing')})")
         
-        # INCREMENTAL: Update host cache directly (if cache exists)
-        try:
-            from backend_host.src.lib.utils.navigation_cache import update_node_in_cache
-            root_tree_id = _get_root_tree_id(tree_id, team_id)
-            if root_tree_id:
-                update_node_in_cache(root_tree_id, team_id, node_data)
-                print(f"[@db:navigation_trees:save_node] ✅ Incremental cache update for node: {node_data['node_id']}")
-        except ImportError:
-            pass  # Host cache module not available (running on server)
-        except Exception as cache_error:
-            print(f"[@db:navigation_trees:save_node] Cache update failed (non-critical): {cache_error}")
+        # NOTE: Cache updates are handled by frontend calling /server/navigation/cache/update-node
+        # which proxies to all hosts for incremental NetworkX graph updates (graph.nodes[id].update())
+        # This is O(1) incremental update - no full graph rebuild needed
         
         return {'success': True, 'node': result.data[0]}
     except Exception as e:
@@ -439,17 +431,9 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
             result = supabase.table('navigation_edges').insert(edge_data).execute()
             print(f"[@db:navigation_trees:save_edge] Created new edge: {edge_data['edge_id']}")
         
-        # INCREMENTAL: Update host cache directly (if cache exists)
-        try:
-            from backend_host.src.lib.utils.navigation_cache import update_edge_in_cache
-            root_tree_id = _get_root_tree_id(tree_id, team_id)
-            if root_tree_id:
-                update_edge_in_cache(root_tree_id, team_id, edge_data)
-                print(f"[@db:navigation_trees:save_edge] ✅ Incremental cache update for edge: {edge_data['edge_id']}")
-        except ImportError:
-            pass  # Host cache module not available (running on server)
-        except Exception as cache_error:
-            print(f"[@db:navigation_trees:save_edge] Cache update failed (non-critical): {cache_error}")
+        # NOTE: Cache updates are handled by frontend calling /server/navigation/cache/update-edge
+        # which proxies to all hosts for incremental NetworkX graph updates (graph.remove_edge + graph.add_edge)
+        # This is O(1) incremental update - no full graph rebuild needed
         
         return {'success': True, 'edge': result.data[0]}
     except Exception as e:
