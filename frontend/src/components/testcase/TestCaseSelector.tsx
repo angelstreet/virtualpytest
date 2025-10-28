@@ -186,7 +186,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   return (
     <Box>
       {/* Filters Section - All in one row, equal sizes */}
-      <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 1, mt: 1, alignItems: 'flex-start' }}>
         <TextField
           size="small"
           placeholder="Search by name, description, UI..."
@@ -221,6 +221,11 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                     {params.InputProps.startAdornment}
                   </>
                 ),
+              }}
+              InputLabelProps={{
+                ...params.InputLabelProps,
+                shrink: true,
+                sx: { backgroundColor: 'background.paper', px: 0.5 }
               }}
             />
           )}
@@ -260,6 +265,11 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
               {...params}
               label="Tags"
               placeholder={allTags.length === 0 ? 'No tags' : 'Filter...'}
+              InputLabelProps={{
+                ...params.InputLabelProps,
+                shrink: true,
+                sx: { backgroundColor: 'background.paper', px: 0.5 }
+              }}
             />
           )}
           sx={{ flex: 1 }}
@@ -300,16 +310,18 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                       onClick={() => handleItemSelect(tc.testcase_id)}
                       selected={isSelected}
                       sx={{
-                        py: 0.75,
+                        py: 0.5,
                         px: 1.5,
                         display: 'flex',
-                        flexDirection: 'column',
-                        alignItems: 'stretch',
+                        flexDirection: 'row',  // Single line layout
+                        alignItems: 'center',
+                        gap: 1,
                         color: isSelected ? 'primary.contrastText' : 'inherit'
                       }}
                     >
-                      {/* Line 1: Name, UI, Blocks, Delete */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                      {/* Single line: Badge + Name + Description + UI + Blocks + Env + Version + Status + Tags + Delete */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                        {/* Badge */}
                         <Chip
                           label="TC"
                           size="small"
@@ -319,123 +331,140 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                             fontSize: '0.65rem',
                             minWidth: '28px',
                             fontWeight: 'bold',
+                            flexShrink: 0,
                             bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
                             color: isSelected ? 'secondary.main' : undefined
                           }}
                         />
+                        
+                        {/* Name */}
                         <Typography
                           variant="body2"
                           sx={{
                             fontSize: '0.875rem',
                             fontWeight: 'bold',
-                            flex: 1,
+                            minWidth: 120,
+                            maxWidth: 180,
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis',
+                            whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {tc.testcase_name}
+                        </Typography>
+                        
+                        {/* Separator */}
+                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                        
+                        {/* Description */}
+                        <Typography
+                          variant="caption"
+                          sx={{
+                            fontSize: '0.75rem',
+                            flex: '1 1 200px',
+                            minWidth: 0,
+                            opacity: 0.85,
                             overflow: 'hidden',
                             textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
                           }}
                         >
-                          {tc.testcase_name}
+                          {tc.description || 'No description'}
                         </Typography>
+                        
+                        {/* Separator */}
+                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                        
+                        {/* UI + Blocks */}
                         <Typography
                           variant="caption"
                           sx={{
                             fontSize: '0.75rem',
                             opacity: 0.8,
                             whiteSpace: 'nowrap',
+                            flexShrink: 0,
+                            minWidth: 120,
                           }}
                         >
                           {tc.userinterface_name || 'No UI'} • {blockCount} blocks
                         </Typography>
-                        {onDelete && (
-                          <IconButton
-                            size="small"
-                            onClick={(e) => handleDeleteClick(e, tc.testcase_id, tc.testcase_name)}
-                            sx={{
-                              p: 0.5,
-                              color: isSelected ? 'primary.contrastText' : 'error.main',
-                              '&:hover': {
-                                bgcolor: isSelected ? 'rgba(255,255,255,0.2)' : 'error.light'
-                              }
-                            }}
-                          >
-                            <DeleteIcon fontSize="small" />
-                          </IconButton>
-                        )}
-                      </Box>
+                        
+                        {/* Separator */}
+                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
 
-                      {/* Line 2: Description, Env, Version, Execution Status, Tags */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                        {/* Environment Badge */}
+                        <Chip
+                          label={(tc.environment || 'dev').toUpperCase()}
+                          size="small"
+                          color={getEnvironmentColor(tc.environment)}
+                          sx={{
+                            height: '16px',
+                            fontSize: '0.6rem',
+                            fontWeight: 'bold',
+                            flexShrink: 0,
+                            bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
+                            color: isSelected 
+                              ? tc.environment === 'prod' ? 'error.main' 
+                                : tc.environment === 'test' ? 'warning.main' 
+                                : 'success.main'
+                              : undefined
+                          }}
+                        />
+                        
+                        {/* Version */}
+                        <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.8, flexShrink: 0 }}>
+                          v{tc.current_version || 1}
+                        </Typography>
+                        
+                        {/* Separator */}
+                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                        
+                        {/* Execution Status */}
                         <Typography
                           variant="caption"
                           sx={{
-                            fontSize: '0.75rem',
-                            flex: 1,
+                            fontSize: '0.7rem',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 0.25,
                             opacity: 0.85,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
                             whiteSpace: 'nowrap',
-                            minWidth: 0,
+                            flexShrink: 0,
+                            minWidth: 100,
                           }}
                         >
-                          {tc.description || 'No description'}
+                          {tc.execution_count && tc.execution_count > 0 ? (
+                            <>
+                              {tc.last_execution_success ? (
+                                <CheckCircleIcon 
+                                  fontSize="inherit" 
+                                  sx={{ 
+                                    fontSize: '0.9rem',
+                                    color: isSelected ? 'rgba(255,255,255,0.9)' : 'success.main'
+                                  }} 
+                                />
+                              ) : (
+                                <ErrorIcon 
+                                  fontSize="inherit" 
+                                  sx={{ 
+                                    fontSize: '0.9rem',
+                                    color: isSelected ? 'rgba(255,255,255,0.9)' : 'error.main'
+                                  }} 
+                                />
+                              )}
+                              {tc.execution_count} run{tc.execution_count > 1 ? 's' : ''}
+                            </>
+                          ) : (
+                            'Never executed'
+                          )}
                         </Typography>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
-                          <Chip
-                            label={(tc.environment || 'dev').toUpperCase()}
-                            size="small"
-                            color={getEnvironmentColor(tc.environment)}
-                            sx={{
-                              height: '16px',
-                              fontSize: '0.6rem',
-                              fontWeight: 'bold',
-                              bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
-                              color: isSelected 
-                                ? tc.environment === 'prod' ? 'error.main' 
-                                  : tc.environment === 'test' ? 'warning.main' 
-                                  : 'success.main'
-                                : undefined
-                            }}
-                          />
-                          <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.8 }}>
-                            v{tc.current_version || 1}
-                          </Typography>
-                          <Typography
-                            variant="caption"
-                            sx={{
-                              fontSize: '0.7rem',
-                              display: 'flex',
-                              alignItems: 'center',
-                              gap: 0.25,
-                              opacity: 0.85,
-                            }}
-                          >
-                            {tc.execution_count && tc.execution_count > 0 ? (
-                              <>
-                                {tc.last_execution_success ? (
-                                  <CheckCircleIcon 
-                                    fontSize="inherit" 
-                                    sx={{ 
-                                      fontSize: '0.9rem',
-                                      color: isSelected ? 'rgba(255,255,255,0.9)' : 'success.main'
-                                    }} 
-                                  />
-                                ) : (
-                                  <ErrorIcon 
-                                    fontSize="inherit" 
-                                    sx={{ 
-                                      fontSize: '0.9rem',
-                                      color: isSelected ? 'rgba(255,255,255,0.9)' : 'error.main'
-                                    }} 
-                                  />
-                                )}
-                                {tc.execution_count} run{tc.execution_count > 1 ? 's' : ''}
-                              </>
-                            ) : (
-                              'Never executed'
-                            )}
-                          </Typography>
-                          {tc.tags && tc.tags.length > 0 && (
-                            <Box sx={{ display: 'flex', gap: 0.25, ml: 0.5 }}>
+                        
+                        {/* Tags */}
+                        {tc.tags && tc.tags.length > 0 && (
+                          <>
+                            <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                            <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
                               {tc.tags.slice(0, 2).map(tagName => {
                                 const tag = allTags.find(t => t.name === tagName);
                                 return (
@@ -458,8 +487,27 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                                 </Typography>
                               )}
                             </Box>
-                          )}
-                        </Box>
+                          </>
+                        )}
+                        
+                        {/* Delete Button */}
+                        {onDelete && (
+                          <IconButton
+                            size="small"
+                            onClick={(e) => handleDeleteClick(e, tc.testcase_id, tc.testcase_name)}
+                            sx={{
+                              p: 0.5,
+                              ml: 'auto',
+                              flexShrink: 0,
+                              color: isSelected ? 'primary.contrastText' : 'error.main',
+                              '&:hover': {
+                                bgcolor: isSelected ? 'rgba(255,255,255,0.2)' : 'error.light'
+                              }
+                            }}
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </IconButton>
+                        )}
                       </Box>
                     </ListItemButton>
                   </ListItem>

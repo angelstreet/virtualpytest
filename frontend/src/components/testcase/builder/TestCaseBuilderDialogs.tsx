@@ -15,10 +15,12 @@ import {
   MenuItem,
   Chip,
   Autocomplete,
-  CircularProgress
+  CircularProgress,
+  IconButton
 } from '@mui/material';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
+import CloseIcon from '@mui/icons-material/Close';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { TestCaseSelector } from '../TestCaseSelector';
 
@@ -139,8 +141,8 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   const loadFoldersAndTags = async () => {
     setLoadingFoldersTags(true);
     try {
-      const teamId = localStorage.getItem('team_id') || '';
-      const response = await fetch(buildServerUrl(`/server/testcase/folders-tags?team_id=${teamId}`));
+      // Note: buildServerUrl automatically adds team_id parameter
+      const response = await fetch(buildServerUrl('/server/testcase/folders-tags'));
       const data = await response.json();
       
       if (data.success) {
@@ -372,7 +374,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
       <Dialog 
         open={loadDialogOpen} 
         onClose={() => setLoadDialogOpen(false)} 
-        maxWidth="md" 
+        maxWidth="md"  // Wider dialog for single-line layout
         fullWidth
         PaperProps={{
           sx: {
@@ -381,21 +383,38 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           }
         }}
       >
-        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
-          Load Test Case
+        <DialogTitle sx={{ 
+          borderBottom: 1, 
+          borderColor: 'divider', 
+          py: 0.2,  // Compact vertical padding
+          px: 2,  // Horizontal padding
+          pr: 5,  // Extra right padding for close button
+          mb: 1,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between'
+        }}>
+          <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>Load Test Case</Typography>
+          <IconButton
+            size="small"
+            onClick={() => setLoadDialogOpen(false)}
+            sx={{
+              position: 'absolute',
+              right: 6,
+              top: 6,
+              color: 'text.secondary',
+            }}
+          >
+            <CloseIcon fontSize="small" />
+          </IconButton>
         </DialogTitle>
-        <DialogContent sx={{ pt: 3 }}>
+        <DialogContent sx={{ pt: 3, pb: 1 }}>
           <TestCaseSelector
             onLoad={handleLoad}
             onDelete={handleDelete}
             selectedTestCaseId={currentTestcaseId}
           />
         </DialogContent>
-        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
-          <Button onClick={() => setLoadDialogOpen(false)} variant="outlined">
-            Close
-          </Button>
-        </DialogActions>
       </Dialog>
       
       {/* Edit Node Dialog */}
