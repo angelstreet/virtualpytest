@@ -1247,7 +1247,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                            // Update frontend state with server response (source of truth)
               if (saveResponse && 'edge' in saveResponse) {
                 const serverEdge = (saveResponse as any).edge;
-                             const updatedEdgeFromServer: UINavigationEdge = {
+                
+                // Check if edge is conditional (preserve from server data)
+                const isConditional = serverEdge.data?.is_conditional || serverEdge.data?.is_conditional_primary;
+                
+                const updatedEdgeFromServer: UINavigationEdge = {
                 ...currentSelectedEdge,
                 data: {
                   // Map server response to frontend data structure
@@ -1258,11 +1262,17 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   // Preserve ReactFlow properties
                   sourceHandle: currentSourceHandle || undefined,
                   targetHandle: currentTargetHandle || undefined,
+                  // Preserve conditional flags
+                  ...(serverEdge.data?.is_conditional !== undefined && { is_conditional: serverEdge.data.is_conditional }),
+                  ...(serverEdge.data?.is_conditional_primary !== undefined && { is_conditional_primary: serverEdge.data.is_conditional_primary }),
                 },
                 type: currentSelectedEdge.type || 'smoothstep', // Ensure type is never undefined
                 label: typeof currentSelectedEdge.label === 'string' ? currentSelectedEdge.label : undefined,
                 sourceHandle: currentSourceHandle || undefined,
                 targetHandle: currentTargetHandle || undefined,
+                // Apply conditional styling based on server data
+                style: isConditional ? { stroke: '#2196f3', strokeWidth: 2 } : (currentSelectedEdge.style || { stroke: '#555', strokeWidth: 2 }),
+                markerEnd: isConditional ? { type: 'arrowclosed' as const, color: '#2196f3' } : currentSelectedEdge.markerEnd,
               };
               
               // Update edges list with server data

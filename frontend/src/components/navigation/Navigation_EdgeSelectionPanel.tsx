@@ -58,7 +58,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     edgeMetrics,
     treeId,
   }) => {
-    const { getNodes } = useReactFlow();
+    const { getNodes, getEdges } = useReactFlow();
 
     // Simple hardcoded direction lookup based on action set ID
     const { fromLabel, toLabel } = useMemo(() => {
@@ -81,6 +81,30 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
 
       return { fromLabel: sourceLabel, toLabel: targetLabel };
     }, [getNodes, selectedEdge.source, selectedEdge.target, actionSet]);
+
+    // Check if this specific actionSet is shared with other edges (conditional edge)
+    const isCurrentActionSetShared = useMemo(() => {
+      if (!actionSet?.id) return false;
+      
+      const edges = getEdges();
+      // Count how many edges have this same action_set_id
+      let shareCount = 0;
+      
+      edges.forEach((edge: any) => {
+        const edgeActionSets = edge.data?.action_sets || [];
+        edgeActionSets.forEach((as: any) => {
+          if (as.id === actionSet.id) {
+            shareCount++;
+          }
+        });
+      });
+      
+      // If more than 1 edge has this action_set_id, it's shared
+      return shareCount > 1;
+    }, [actionSet?.id, getEdges]);
+    
+    // Check if this is the primary conditional edge (fully editable without warning)
+    const isConditionalPrimary = selectedEdge.data?.is_conditional_primary || false;
 
     // Use edge hook only for action execution - initialize lazily
     const edgeHook = useEdge({
@@ -308,14 +332,11 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
             </Typography>
           </Box>
 
-          {/* Conditional Edge Warning */}
-          {selectedEdge.data?.is_conditional && (
-            <Alert severity="info" sx={{ mb: 1, py: 0.5, fontSize: '0.75rem' }}>
-              <Typography variant="caption" sx={{ fontSize: '0.7rem', display: 'block', fontWeight: 'bold' }}>
-                🔷 Conditional Edge
-              </Typography>
-              <Typography variant="caption" sx={{ fontSize: '0.65rem', display: 'block', mt: 0.5 }}>
-                Editing actions will unlink this edge and make it independent.
+          {/* Conditional Edge Warning - Only show for shared action sets (not primary) */}
+          {isCurrentActionSetShared && !isConditionalPrimary && (
+            <Alert severity="info" icon={false} sx={{ mb: 1, py: 0.5, fontSize: '0.75rem' }}>
+              <Typography variant="caption" sx={{ fontSize: '0.7rem', fontWeight: 'bold' }}>
+                🔷 Conditional Edge - Editing actions will unlink this edge and make it independent.
               </Typography>
             </Alert>
           )}

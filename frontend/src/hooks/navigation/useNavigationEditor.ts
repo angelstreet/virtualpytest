@@ -51,22 +51,38 @@ export const useNavigationEditor = () => {
           console.log(`[@useNavigationEditor:loadTreeData]   • ${node.id} (label: '${node.data.label}', type: '${node.type}')`);
         });
 
-        const frontendEdges = treeData.edges.map((edge: any) => ({
-          id: edge.edge_id,
-          source: edge.source_node_id,
-          target: edge.target_node_id,
-          type: 'navigation',
-          label: edge.label, // Move label to top-level (ReactFlow standard)
-          sourceHandle: edge.data?.sourceHandle,
-          targetHandle: edge.data?.targetHandle,
-          data: {
-            // Remove label from data - now in top-level field
-            action_sets: edge.action_sets,
-            default_action_set_id: edge.default_action_set_id,
-            final_wait_time: edge.final_wait_time,
-            ...edge.data
+        const frontendEdges = treeData.edges.map((edge: any) => {
+          // Check if edge is conditional (either primary or regular conditional)
+          const isConditional = edge.data?.is_conditional || edge.data?.is_conditional_primary;
+          
+          if (isConditional) {
+            console.log(`[@useNavigationEditor:loadTreeData] 🔵 Restoring conditional edge styling: ${edge.edge_id}`, {
+              is_conditional: edge.data?.is_conditional,
+              is_conditional_primary: edge.data?.is_conditional_primary,
+              action_set_id: edge.action_sets?.[0]?.id
+            });
           }
-        }));
+          
+          return {
+            id: edge.edge_id,
+            source: edge.source_node_id,
+            target: edge.target_node_id,
+            type: 'navigation',
+            label: edge.label, // Move label to top-level (ReactFlow standard)
+            sourceHandle: edge.data?.sourceHandle,
+            targetHandle: edge.data?.targetHandle,
+            // Apply conditional styling if flags are set
+            style: isConditional ? { stroke: '#2196f3', strokeWidth: 2 } : { stroke: '#555', strokeWidth: 2 },
+            markerEnd: isConditional ? { type: 'arrowclosed' as const, color: '#2196f3' } : { type: 'arrowclosed' as const, color: '#555' },
+            data: {
+              // Remove label from data - now in top-level field
+              action_sets: edge.action_sets,
+              default_action_set_id: edge.default_action_set_id,
+              final_wait_time: edge.final_wait_time,
+              ...edge.data
+            }
+          };
+        });
 
         navigation.setNodes(frontendNodes);
         navigation.setEdges(frontendEdges);
@@ -129,21 +145,29 @@ export const useNavigationEditor = () => {
             }
           }));
 
-          const frontendEdges = (treeData.metadata?.edges || []).map((edge: any) => ({
-            id: edge.edge_id,
-            source: edge.source_node_id,
-            target: edge.target_node_id,
-            type: 'navigation',
-            label: edge.label,
-            sourceHandle: edge.data?.sourceHandle,
-            targetHandle: edge.data?.targetHandle,
-            data: {
-              action_sets: edge.action_sets,
-              default_action_set_id: edge.default_action_set_id,
-              final_wait_time: edge.final_wait_time,
-              ...edge.data
-            }
-          }));
+          const frontendEdges = (treeData.metadata?.edges || []).map((edge: any) => {
+            // Check if edge is conditional (either primary or regular conditional)
+            const isConditional = edge.data?.is_conditional || edge.data?.is_conditional_primary;
+            
+            return {
+              id: edge.edge_id,
+              source: edge.source_node_id,
+              target: edge.target_node_id,
+              type: 'navigation',
+              label: edge.label,
+              sourceHandle: edge.data?.sourceHandle,
+              targetHandle: edge.data?.targetHandle,
+              // Apply conditional styling if flags are set
+              style: isConditional ? { stroke: '#2196f3', strokeWidth: 2 } : { stroke: '#555', strokeWidth: 2 },
+              markerEnd: isConditional ? { type: 'arrowclosed' as const, color: '#2196f3' } : { type: 'arrowclosed' as const, color: '#555' },
+              data: {
+                action_sets: edge.action_sets,
+                default_action_set_id: edge.default_action_set_id,
+                final_wait_time: edge.final_wait_time,
+                ...edge.data
+              }
+            };
+          });
 
           navigation.setNodes(frontendNodes);
           navigation.setEdges(frontendEdges);

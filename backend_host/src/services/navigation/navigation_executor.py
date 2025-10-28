@@ -1813,15 +1813,17 @@ class NavigationExecutor:
             _, target, edge_data = edge
             action_sets = edge_data.get('action_sets', [])
             
-            # Check if any action set in this edge matches our action_set_id
-            for action_set in action_sets:
-                if action_set.get('id') == current_action_set_id and target != expected_target_node_id:
+            # CRITICAL: Only check FORWARD action set (index 0) for siblings
+            # Backward action sets (index 1) are independent and should NOT be treated as siblings
+            if action_sets and len(action_sets) > 0:
+                forward_action_set = action_sets[0]
+                if forward_action_set.get('id') == current_action_set_id and target != expected_target_node_id:
                     sibling_edges.append({
                         'target_node_id': target,
                         'target_label': edge_data.get('label', target),
                         'edge_data': edge_data
                     })
-                    break
+                    print(f"[@navigation_executor:_try_conditional_edge_siblings] Found sibling: {edge_data.get('label', target)} (forward action_set_id: {forward_action_set.get('id')})")
         
         if not sibling_edges:
             print(f"[@navigation_executor:_try_conditional_edge_siblings] ⚠️ No sibling edges found")
