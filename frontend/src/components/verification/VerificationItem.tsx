@@ -141,9 +141,11 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
                     sx={{ pl: 3, fontSize: '0.7rem', minHeight: '24px' }}
                   >
                     {verification.command
-                      .replace(/_/g, ' ')
-                      .replace(/([A-Z])/g, ' $1')
-                      .trim()}
+                      ? verification.command
+                          .replace(/_/g, ' ')
+                          .replace(/([A-Z])/g, ' $1')
+                          .trim()
+                      : 'Unknown Command'}
                   </MenuItem>
                 )),
               ];

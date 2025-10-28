@@ -201,9 +201,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           justifyContent: 'space-between',
           alignItems: 'center'
         }}>
-          <Typography variant="h6">
-            {currentTestcaseId ? 'Update Test Case' : 'Save Test Case'}
-          </Typography>
+          {currentTestcaseId ? 'Update Test Case' : 'Save Test Case'}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
             <Chip 
               label={(testcaseEnvironment || 'dev').toUpperCase()} 
@@ -394,7 +392,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           alignItems: 'center',
           justifyContent: 'space-between'
         }}>
-          <Typography variant="h6" sx={{ fontSize: '1.1rem' }}>Load Test Case</Typography>
+          Load Test Case
           <IconButton
             size="small"
             onClick={() => setLoadDialogOpen(false)}
@@ -477,7 +475,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
               <ErrorIcon color="warning" />
-              <Typography variant="h6">Unsaved Changes</Typography>
+              Unsaved Changes
             </Box>
           </DialogTitle>
           <DialogContent sx={{ pt: 3 }}>
