@@ -29,6 +29,8 @@ def generate_verification_failure_report(
     """
     try:
         from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+        from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+        from backend_host.src.lib.utils.host_utils import get_host_info
         
         # Save report in COLD storage root (same level as captures/, thumbnails/) - SAME AS KPI
         cold_base = get_cold_storage_path(device_folder, '')  # Empty subfolder = base dir
@@ -43,10 +45,19 @@ def generate_verification_failure_report(
         verification_type = verification_config.get('verification_type', 'unknown')
         command = verification_config.get('command', 'unknown')
         
-        # Get image paths (use file:// URLs like KPI failure report)
+        # Get host info for URL building
+        host_info = get_host_info()
+        
+        # Get image paths and convert to HTTP URLs
         source_image_path = verification_config.get('source_image_path') or details.get('source_image_path')
-        reference_image_path = details.get('reference_image_path')
+        source_image_url = buildHostImageUrl(host_info, source_image_path) if source_image_path else None
+        
+        # Reference image URL is already R2 URL - use as is
+        reference_image_url = details.get('reference_image_url')
+        
+        # Overlay image - convert local path to HTTP URL
         result_overlay_path = details.get('result_overlay_path')
+        result_overlay_url = buildHostImageUrl(host_info, result_overlay_path) if result_overlay_path else None
         
         # Build simple HTML (same pattern as KPI failure report)
         html = ['<!DOCTYPE html><html><head><meta charset="UTF-8">']
@@ -69,17 +80,17 @@ def generate_verification_failure_report(
         
         # Images section
         html.append('<h2>Images</h2>')
-        if source_image_path and os.path.exists(source_image_path):
+        if source_image_url:
             html.append(f'<div><p><b>Source Screenshot</b></p>')
-            html.append(f'<img src="file://{source_image_path}" alt="Source"></div>')
+            html.append(f'<img src="{source_image_url}" alt="Source"></div>')
         
-        if reference_image_path and os.path.exists(reference_image_path):
+        if reference_image_url:
             html.append(f'<div><p><b>Reference Image</b></p>')
-            html.append(f'<img src="file://{reference_image_path}" alt="Reference"></div>')
+            html.append(f'<img src="{reference_image_url}" alt="Reference"></div>')
         
-        if result_overlay_path and os.path.exists(result_overlay_path):
+        if result_overlay_url:
             html.append(f'<div><p><b>Result Overlay</b></p>')
-            html.append(f'<img src="file://{result_overlay_path}" alt="Overlay"></div>')
+            html.append(f'<img src="{result_overlay_url}" alt="Overlay"></div>')
         
         # Processing details
         html.append('<h2>Processing Details</h2>')
