@@ -83,31 +83,32 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     }, [getNodes, selectedEdge.source, selectedEdge.target, actionSet]);
 
     // Check if this specific actionSet is shared with other edges (conditional edge)
+    // USE SAME LOGIC AS EDGE COMPONENT for consistency
     const isCurrentActionSetShared = useMemo(() => {
       if (!actionSet?.id) return false;
       
-      // CRITICAL: Only count as shared if:
-      // 1. Multiple edges FROM THE SAME SOURCE have this action_set_id as their DEFAULT
-      // 2. Conditional edges are edges with same source, same action_set_id, but different targets
+      // First check if edge has conditional flag (same as edge component line 25)
+      if (selectedEdge.data?.is_conditional || selectedEdge.data?.is_conditional_primary) {
+        return true;
+      }
+      
+      // Auto-detect by counting edges (same as edge component lines 28-43)
       const edges = getEdges();
       let shareCount = 0;
       
       edges.forEach((edge: any) => {
         // Only count edges from the SAME SOURCE node
-        if (edge.source !== selectedEdge.source) {
-          return;
-        }
-        
-        // Only count if this action_set_id is the default (active) for this edge
-        const defaultActionSetId = edge.data?.default_action_set_id;
-        if (defaultActionSetId === actionSet.id) {
-          shareCount++;
+        if (edge.source === selectedEdge.source) {
+          const edgeActionSetId = edge.data?.default_action_set_id;
+          if (edgeActionSetId === actionSet.id) {
+            shareCount++;
+          }
         }
       });
       
       // If more than 1 edge from same source has this action_set_id as DEFAULT, it's conditional
       return shareCount > 1;
-    }, [actionSet?.id, selectedEdge.source, getEdges]);
+    }, [actionSet?.id, selectedEdge.source, selectedEdge.data?.is_conditional, selectedEdge.data?.is_conditional_primary, getEdges]);
     
     // Check if this is the primary conditional edge (fully editable without warning)
     const isConditionalPrimary = selectedEdge.data?.is_conditional_primary || false;

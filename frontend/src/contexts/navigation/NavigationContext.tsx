@@ -242,7 +242,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
   const [edges, setEdges, _onEdgesChange] = useEdgesState([]);  // Rename to _onEdgesChange
 
   // Wrap onEdgesChange to handle conditional edge auto-ungroup
-  const onEdgesChange = useCallback((changes: any[]) => {
+  const onEdgesChange = useCallback(async (changes: any[]) => {
     // First apply the changes using the original handler
     _onEdgesChange(changes);
     
@@ -251,11 +251,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
     if (removeChanges.length === 0) return;
     
     // For each removed edge, check if it was part of a conditional group
-    removeChanges.forEach((removeChange) => {
+    for (const removeChange of removeChanges) {
       const removedEdgeId = removeChange.id;
       const removedEdge = edges.find((e) => e.id === removedEdgeId);
       
-      if (!removedEdge || !removedEdge.data?.is_conditional) return;
+      if (!removedEdge || !removedEdge.data?.is_conditional) continue;
       
       // Find remaining sibling edges (same source + sourceHandle, different target)
       const remainingSiblings = edges.filter(
@@ -266,23 +266,47 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           e.data?.action_sets?.[0]?.id === removedEdge.data?.action_sets?.[0]?.id
       );
       
-      // If only 1 sibling remains, convert it back to normal (blue)
+      // If only 1 sibling remains, unlink it
       if (remainingSiblings.length === 1) {
         const lastSibling = remainingSiblings[0];
-        console.log(`[@NavigationContext:onEdgesChange] 🔗→🔵 Auto-ungroup: Last sibling ${lastSibling.id} reverting to normal`);
+        console.log(`[@NavigationContext:onEdgesChange] 🔓 UNLINK: Last sibling ${lastSibling.id} becoming independent`);
         
-        // Update the last sibling to normal style
+        // Save to database with cleared conditional flag
+        try {
+          const siblingNormalized = {
+            edge_id: lastSibling.id,
+            source_node_id: lastSibling.source,
+            target_node_id: lastSibling.target,
+            label: lastSibling.label,
+            data: {
+              priority: lastSibling.data?.priority || 'p3',
+              sourceHandle: lastSibling.sourceHandle,
+              targetHandle: lastSibling.targetHandle,
+              // Clear conditional flags
+              is_conditional: false,
+              is_conditional_primary: false,
+            },
+            action_sets: lastSibling.data.action_sets,
+            default_action_set_id: lastSibling.data.default_action_set_id,
+            final_wait_time: lastSibling.data.final_wait_time || 2000,
+          };
+          
+          await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', siblingNormalized as any);
+          console.log(`[@NavigationContext:onEdgesChange] 🔓 Unlinked sibling saved to database: ${lastSibling.id}`);
+        } catch (err) {
+          console.error(`[@NavigationContext:onEdgesChange] ⚠️ Failed to save unlinked sibling:`, err);
+        }
+        
+        // Update frontend state
         setEdges((currentEdges) => 
           currentEdges.map((edge): Edge => {
             if (edge.id === lastSibling.id) {
-              const updatedMarkerEnd = typeof edge.markerEnd === 'object' && edge.markerEnd ? { ...edge.markerEnd, color: '#555' } : edge.markerEnd;
               return {
                 ...edge,
-                style: { ...edge.style, stroke: '#555' },  // 🔵 Gray (normal)
-                markerEnd: updatedMarkerEnd,
                 data: {
                   ...edge.data,
                   is_conditional: false,
+                  is_conditional_primary: false,
                 },
               };
             }
@@ -290,8 +314,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           })
         );
       }
-    });
-  }, [_onEdgesChange, edges, setEdges]);
+    }
+  }, [_onEdgesChange, edges, setEdges, navigationConfig]);
 
   // Selection state
   const [selectedNode, setSelectedNode] = useState<UINavigationNode | null>(null);
@@ -1204,64 +1228,67 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             throw new Error(`Edge ${edgeForm.edgeId} not found in current tree`);
           }
 
-          // ✅ CONDITIONAL EDGE SYNC: Update all sibling edges with same action_set_id
-          const sharedActionSetId = edgeForm.default_action_set_id;
-          const siblingEdges = edges.filter(e => 
-            e.source === currentSelectedEdge.source &&
-            e.data?.default_action_set_id === sharedActionSetId &&
-            e.id !== currentSelectedEdge.id
-          );
+          // ✅ CONDITIONAL EDGE UNLINK: When editing, unlink from siblings
+          const isConditionalEdge = currentSelectedEdge.data?.is_conditional || currentSelectedEdge.data?.is_conditional_primary;
           
-          if (siblingEdges.length > 0) {
-            console.log(`[@NavigationContext:saveEdge] 🔗 Syncing ${siblingEdges.length} conditional sibling(s) with action_set_id: ${sharedActionSetId}`);
+          if (isConditionalEdge) {
+            const sharedActionSetId = edgeForm.default_action_set_id;
+            const siblingEdges = edges.filter(e => 
+              e.source === currentSelectedEdge.source &&
+              e.data?.default_action_set_id === sharedActionSetId &&
+              e.id !== currentSelectedEdge.id
+            );
             
-            // Update all siblings with the same forward actions
-            const updatedSiblings = siblingEdges.map(sibling => ({
-              ...sibling,
-              data: {
-                ...sibling.data,
-                action_sets: [
-                  {
-                    ...sibling.data.action_sets[0],
-                    actions: edgeForm.action_sets[0].actions,
-                    retry_actions: edgeForm.action_sets[0].retry_actions,
-                    failure_actions: edgeForm.action_sets[0].failure_actions,
-                  },
-                  ...(sibling.data.action_sets[1] ? [sibling.data.action_sets[1]] : [])
-                ]
-              }
-            }));
-            
-            // Save each sibling to database
-            for (const sibling of updatedSiblings) {
-              const siblingNormalized = {
-                edge_id: sibling.id,
-                source_node_id: sibling.source,
-                target_node_id: sibling.target,
-                label: sibling.label,
-                data: {
-                  priority: sibling.data?.priority || 'p3',
-                  sourceHandle: sibling.sourceHandle,
-                  targetHandle: sibling.targetHandle,
-                  // PRESERVE conditional flags
-                  ...(sibling.data?.is_conditional !== undefined && { is_conditional: sibling.data.is_conditional }),
-                  ...(sibling.data?.is_conditional_primary !== undefined && { is_conditional_primary: sibling.data.is_conditional_primary }),
-                },
-                action_sets: sibling.data.action_sets,
-                default_action_set_id: sibling.data.default_action_set_id,
-                final_wait_time: sibling.data.final_wait_time || 2000,
-              };
+            if (siblingEdges.length > 0) {
+              console.log(`[@NavigationContext:saveEdge] 🔓 UNLINKING ${siblingEdges.length + 1} conditional edges`);
               
-              await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', siblingNormalized as any);
-              console.log(`[@NavigationContext:saveEdge] ✅ Synced sibling: ${sibling.id}`);
+              // UNLINK: Clear conditional flags for ALL siblings
+              const unlinkedSiblings = siblingEdges.map(sibling => ({
+                ...sibling,
+                data: {
+                  ...sibling.data,
+                  is_conditional: false,
+                  is_conditional_primary: false,
+                }
+              }));
+              
+              // Save each sibling to database with cleared flags
+              for (const sibling of unlinkedSiblings) {
+                const siblingNormalized = {
+                  edge_id: sibling.id,
+                  source_node_id: sibling.source,
+                  target_node_id: sibling.target,
+                  label: sibling.label,
+                  data: {
+                    priority: sibling.data?.priority || 'p3',
+                    sourceHandle: sibling.sourceHandle,
+                    targetHandle: sibling.targetHandle,
+                    // Clear conditional flags
+                    is_conditional: false,
+                    is_conditional_primary: false,
+                  },
+                  action_sets: sibling.data.action_sets,
+                  default_action_set_id: sibling.data.default_action_set_id,
+                  final_wait_time: sibling.data.final_wait_time || 2000,
+                };
+                
+                await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', siblingNormalized as any);
+                console.log(`[@NavigationContext:saveEdge] 🔓 Unlinked sibling: ${sibling.id}`);
+              }
+              
+              // Update frontend state with unlinked siblings
+              const updatedEdges = edges.map(e => {
+                const unlinkedSibling = unlinkedSiblings.find(s => s.id === e.id);
+                return unlinkedSibling || e;
+              });
+              setEdges(updatedEdges);
+              
+              // Generate new action_set_id for the edited edge to make it independent
+              const newActionSetId = `${currentSelectedEdge.source}_to_${currentSelectedEdge.target}_${Date.now()}`;
+              edgeForm.action_sets[0].id = newActionSetId;
+              edgeForm.default_action_set_id = newActionSetId;
+              console.log(`[@NavigationContext:saveEdge] 🔓 Created new action_set_id for edited edge: ${newActionSetId}`);
             }
-            
-            // Update frontend state with synced siblings
-            const updatedEdges = edges.map(e => {
-              const syncedSibling = updatedSiblings.find(s => s.id === e.id);
-              return syncedSibling || e;
-            });
-            setEdges(updatedEdges);
           }
 
           // Update edge with form data
@@ -1302,7 +1329,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 // Include ReactFlow handle information for persistence (use current canvas state)
                 ...(currentSourceHandle && { sourceHandle: currentSourceHandle }),
                 ...(currentTargetHandle && { targetHandle: currentTargetHandle }),
-                // IMPORTANT: Do NOT include label in data - use top-level label field only
+                // Clear conditional flags when editing (unlinking)
+                is_conditional: false,
+                is_conditional_primary: false,
               },
               // NEW: action_sets structure - NO LEGACY FIELDS
               action_sets: updatedEdge.data.action_sets || [],
