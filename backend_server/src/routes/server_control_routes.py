@@ -74,23 +74,13 @@ def take_control():
                 
                 print(f"📡 [CONTROL] Forwarding take-control to host: {host_url}")
                 
-                # Send device_id, tree_id, and team_id to host for local cache rebuild
+                # Send device_id as provided, let host handle device ID mapping
                 request_payload = {}
                 if device_id:
                     request_payload['device_id'] = device_id
                 
-                # Pass tree_id for navigation cache rebuild on host
-                tree_id = data.get('tree_id')
-                if tree_id:
-                    request_payload['tree_id'] = tree_id
-                    print(f"📡 [CONTROL] Including tree_id for host cache rebuild: {tree_id}")
-                
-                # Add team_id as query parameter (host expects it there)
-                team_id = request.args.get('team_id')
-                query_params = f"?team_id={team_id}" if team_id else ""
-                
                 response = requests.post(
-                    f"{host_url}{query_params}",
+                    host_url,
                     json=request_payload,
                     timeout=30
                 )
@@ -100,7 +90,29 @@ def take_control():
                     if result.get('success'):
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
-                        # HOST handles cache building - we just return success
+                        # Populate navigation cache for the controlled device (if tree_id provided)
+                        # Run in background thread to avoid blocking takeControl response (was 5.78s!)
+                        tree_id = data.get('tree_id')
+                        team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
+                        if tree_id and team_id:
+                            import threading
+                            
+                            def populate_cache_async():
+                                """Background task to populate navigation cache"""
+                                try:
+                                    print(f"🗺️ [CONTROL:ASYNC] Populating navigation cache for tree: {tree_id}")
+                                    cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
+                                    if cache_success:
+                                        print(f"✅ [CONTROL:ASYNC] Navigation cache populated successfully")
+                                    else:
+                                        print(f"⚠️ [CONTROL:ASYNC] Navigation cache population failed (non-critical)")
+                                except Exception as cache_error:
+                                    print(f"⚠️ [CONTROL:ASYNC] Navigation cache population error: {cache_error}")
+                            
+                            # Start cache population in background (non-blocking)
+                            threading.Thread(target=populate_cache_async, daemon=True).start()
+                            print(f"🗺️ [CONTROL] Navigation cache population started in background")
+                        
                         return jsonify({
                             'success': True,
                             'message': f'Successfully took control of host: {host_name}, device: {device_id}',
