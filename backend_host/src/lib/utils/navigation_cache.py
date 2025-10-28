@@ -246,17 +246,29 @@ def update_node_in_cache(root_tree_id: str, team_id: str, node_data: Dict) -> bo
             print(f"[@navigation:cache:update_node_in_cache] Missing node_id")
             return False
         
-        # Update or add node with all attributes
-        graph.add_node(node_id, **{
-            'label': node_data.get('label'),
-            'node_type': node_data.get('node_type', 'screen'),
-            'verifications': node_data.get('verifications', []),
-            'tree_id': node_data.get('tree_id'),
-            'data': node_data.get('data', {}),
-        })
+        # Get existing node attributes if node exists, otherwise start fresh
+        if node_id in graph.nodes:
+            existing_attrs = graph.nodes[node_id].copy()
+        else:
+            existing_attrs = {}
+        
+        # Update only the fields that are provided in node_data
+        if 'label' in node_data:
+            existing_attrs['label'] = node_data['label']
+        if 'node_type' in node_data:
+            existing_attrs['node_type'] = node_data['node_type']
+        if 'verifications' in node_data:
+            existing_attrs['verifications'] = node_data['verifications']
+        if 'tree_id' in node_data:
+            existing_attrs['tree_id'] = node_data['tree_id']
+        if 'data' in node_data:
+            existing_attrs['data'] = node_data['data']
+        
+        # Update node with merged attributes
+        graph.add_node(node_id, **existing_attrs)
         
         save_unified_cache(root_tree_id, team_id, graph)
-        print(f"[@navigation:cache:update_node_in_cache] ✅ Updated node {node_id}")
+        print(f"[@navigation:cache:update_node_in_cache] ✅ Updated node {node_id} (verifications: {len(node_data.get('verifications', []))})")
         return True
         
     except Exception as e:

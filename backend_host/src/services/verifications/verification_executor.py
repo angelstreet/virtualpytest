@@ -604,18 +604,34 @@ class VerificationExecutor:
                     from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
                     from shared.src.lib.utils.storage_path_utils import get_capture_folder
                     
-                    # Get device folder from capture path
-                    source_path = verification_config.get('source_image_path')
-                    print(f"[@lib:verification_executor] Source path: {source_path}")
+                    # ✅ Get source_image_path from RESULT (controller sets it), not from config (input)
+                    # Controllers auto-capture screenshots if not provided, so path is in result.details
+                    source_path = None
+                    details = flattened_result.get('details', {})
+                    
+                    # DEBUG: Log entire details dict to see what's available
+                    print(f"[@lib:verification_executor] Details keys: {list(details.keys())}")
+                    print(f"[@lib:verification_executor] Details content: {details}")
+                    
+                    # Try multiple locations where source path might be
+                    if 'source_image_path' in details:
+                        source_path = details['source_image_path']
+                    elif 'source_image_path' in verification_config:
+                        source_path = verification_config['source_image_path']
+                    
+                    print(f"[@lib:verification_executor] Source path from result: {source_path}")
                     
                     if source_path:
                         device_folder = get_capture_folder(source_path)
                         print(f"[@lib:verification_executor] Device folder: {device_folder}")
                         
                         if device_folder:
+                            # ✅ Add source_image_path to verification_config for report generator
+                            verification_config_with_path = {**verification_config, 'source_image_path': source_path}
+                            
                             # CRITICAL: Pass flattened_result (has correct field mapping) not verification_result (raw)
                             report = generate_verification_failure_report(
-                                verification_config=verification_config,
+                                verification_config=verification_config_with_path,
                                 verification_result=flattened_result,  # ✅ Use flattened_result with correct field mapping
                                 device_folder=device_folder
                             )
@@ -633,7 +649,7 @@ class VerificationExecutor:
                         else:
                             print(f"[@lib:verification_executor] ⚠️ Device folder is None - cannot generate report")
                     else:
-                        print(f"[@lib:verification_executor] ⚠️ Source path is None - cannot generate report")
+                        print(f"[@lib:verification_executor] ⚠️ Source path not found in result or config - cannot generate report")
                 except Exception as report_error:
                     # Don't let report generation break verification execution
                     print(f"[@lib:verification_executor] ❌ Failed to generate debug report: {report_error}")
