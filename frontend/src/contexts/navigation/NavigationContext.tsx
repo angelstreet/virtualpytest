@@ -1422,7 +1422,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 menu_type: node.data.menu_type,
                 priority: node.data.priority,
                 is_root: node.data.is_root,
-                // REMOVED: isParentReference, originalTreeId (frontend-only metadata)
+                // CRITICAL: Preserve parent reference metadata (for blue primary sibling indicator in nested trees)
+                isParentReference: node.data.isParentReference,
+                originalTreeId: node.data.originalTreeId,
                 // DO NOT include verifications here - they're already at top level
               }
             };
