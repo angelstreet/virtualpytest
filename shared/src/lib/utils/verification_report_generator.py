@@ -127,7 +127,11 @@ def generate_verification_failure_report(
         with open(report_path, 'w') as f:
             f.write('\n'.join(html))
         
+        # Build HTTP URL for the report (for logging)
+        report_url = buildHostImageUrl(host_info, report_path)
+        
         print(f"[@verification_report_generator] Failure report generated: {report_path}")
+        print(f"[@verification_report_generator] Report URL: {report_url}")
         
         # Return local path only - frontend will convert to HTTP URL
         return report_path
