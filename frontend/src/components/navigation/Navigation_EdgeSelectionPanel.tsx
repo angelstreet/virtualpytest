@@ -87,23 +87,27 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       if (!actionSet?.id) return false;
       
       // CRITICAL: Only count as shared if:
-      // 1. Multiple edges have this action_set_id as their DEFAULT/active action set
-      // 2. Not just appearing in bidirectional reverse action sets
+      // 1. Multiple edges FROM THE SAME SOURCE have this action_set_id as their DEFAULT
+      // 2. Conditional edges are edges with same source, same action_set_id, but different targets
       const edges = getEdges();
       let shareCount = 0;
       
       edges.forEach((edge: any) => {
+        // Only count edges from the SAME SOURCE node
+        if (edge.source !== selectedEdge.source) {
+          return;
+        }
+        
         // Only count if this action_set_id is the default (active) for this edge
-        // This prevents counting bidirectional reverse action sets
         const defaultActionSetId = edge.data?.default_action_set_id;
         if (defaultActionSetId === actionSet.id) {
           shareCount++;
         }
       });
       
-      // If more than 1 edge has this action_set_id as DEFAULT, it's shared (conditional)
+      // If more than 1 edge from same source has this action_set_id as DEFAULT, it's conditional
       return shareCount > 1;
-    }, [actionSet?.id, getEdges]);
+    }, [actionSet?.id, selectedEdge.source, getEdges]);
     
     // Check if this is the primary conditional edge (fully editable without warning)
     const isConditionalPrimary = selectedEdge.data?.is_conditional_primary || false;

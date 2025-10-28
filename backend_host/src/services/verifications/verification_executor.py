@@ -599,7 +599,9 @@ class VerificationExecutor:
             
             # Generate debug report for failures (only for image/text verifications with images)
             if not flattened_result.get('success') and verification_type in ['image', 'text']:
-                print(f"[@lib:verification_executor] 🔍 Verification failed - generating debug report...")
+                print(f"[@lib:verification_executor] " + "=" * 80)
+                print(f"[@lib:verification_executor] 🔍 VERIFICATION FAILURE - GENERATING DEBUG REPORT")
+                print(f"[@lib:verification_executor] " + "=" * 80)
                 try:
                     from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
                     from shared.src.lib.utils.storage_path_utils import get_capture_folder
@@ -609,17 +611,19 @@ class VerificationExecutor:
                     source_path = None
                     details = flattened_result.get('details', {})
                     
-                    # DEBUG: Log entire details dict to see what's available
-                    print(f"[@lib:verification_executor] Details keys: {list(details.keys())}")
-                    print(f"[@lib:verification_executor] Details content: {details}")
+                    # DEBUG: Show what's in details
+                    print(f"[@lib:verification_executor] Details dict has {len(details)} keys: {list(details.keys())}")
                     
                     # Try multiple locations where source path might be
                     if 'source_image_path' in details:
                         source_path = details['source_image_path']
+                        print(f"[@lib:verification_executor] ✅ Found source_image_path in details: {source_path}")
                     elif 'source_image_path' in verification_config:
                         source_path = verification_config['source_image_path']
-                    
-                    print(f"[@lib:verification_executor] Source path from result: {source_path}")
+                        print(f"[@lib:verification_executor] ✅ Found source_image_path in config: {source_path}")
+                    else:
+                        print(f"[@lib:verification_executor] ❌ source_image_path not found!")
+                        print(f"[@lib:verification_executor] Details content: {details}")
                     
                     if source_path:
                         device_folder = get_capture_folder(source_path)
@@ -637,7 +641,6 @@ class VerificationExecutor:
                             )
                             if report:
                                 local_path, http_url = report
-                                print(f"[@lib:verification_executor] ❌ Verification FAILED: {verification.get('command')}")
                                 print(f"[@lib:verification_executor] " + "-" * 80)
                                 print(f"[@lib:verification_executor] 🔍 DEBUG REPORT: {http_url}")
                                 print(f"[@lib:verification_executor] " + "-" * 80)
@@ -649,12 +652,15 @@ class VerificationExecutor:
                         else:
                             print(f"[@lib:verification_executor] ⚠️ Device folder is None - cannot generate report")
                     else:
-                        print(f"[@lib:verification_executor] ⚠️ Source path not found in result or config - cannot generate report")
+                        print(f"[@lib:verification_executor] ⚠️ Source path not found - cannot generate report")
+                        
+                    print(f"[@lib:verification_executor] " + "=" * 80)
                 except Exception as report_error:
                     # Don't let report generation break verification execution
                     print(f"[@lib:verification_executor] ❌ Failed to generate debug report: {report_error}")
                     import traceback
                     traceback.print_exc()
+                    print(f"[@lib:verification_executor] " + "=" * 80)
             
             return flattened_result
             
