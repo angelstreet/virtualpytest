@@ -1,5 +1,12 @@
 -- VirtualPyTest UI & Navigation Tables Schema
 -- This file contains tables for user interfaces, navigation trees, nodes, and edges
+--
+-- RECENT UPDATES:
+-- - 2025-10-28: Added NOT NULL constraints to navigation_nodes.data, navigation_nodes.style,
+--               navigation_edges.data, navigation_edges.style to prevent NULL values that
+--               cause "NoneType has no attribute 'get'" errors in Python code.
+--               All fields now default to '{}' if not provided.
+--
 
 -- Drop existing tables if they exist (for clean recreation)
 DROP TRIGGER IF EXISTS cascade_delete_subtrees_trigger ON navigation_nodes;
@@ -111,8 +118,8 @@ CREATE TABLE navigation_edges (
     target_node_id text NOT NULL,
     label text, -- ✅ UPDATED: Now uses bidirectional format (e.g., "home ↔ home_tvguide")
     edge_type text NOT NULL DEFAULT 'default',
-    style jsonb DEFAULT '{}',
-    data jsonb DEFAULT '{}',
+    style jsonb NOT NULL DEFAULT '{}',
+    data jsonb NOT NULL DEFAULT '{}',
     action_sets jsonb NOT NULL DEFAULT '[]', -- ✅ REQUIRED: Array of action sets (2-3 per edge typical)
     default_action_set_id text NOT NULL, -- ✅ REQUIRED: ID of default action set (priority 1)
     final_wait_time integer DEFAULT 0,
