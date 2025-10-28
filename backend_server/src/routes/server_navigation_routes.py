@@ -309,11 +309,10 @@ def update_edge_in_cache():
             host_name = host_info.get('host_name')
             try:
                 result, status_code = proxy_to_host_direct(
-                    host_info,  # Pass full host dict, not just string
-                    f'/host/navigation/cache/update-edge',
+                    host_info,
+                    f'/host/navigation/cache/update-edge?team_id={team_id}',  # Add query params to URL
                     'POST',
-                    {'edge': edge_data, 'tree_id': tree_id},
-                    {'team_id': team_id}
+                    {'edge': edge_data, 'tree_id': tree_id}
                 )
                 
                 # Debug: Log what we got back
@@ -434,11 +433,10 @@ def update_node_in_cache():
             host_name = host_info.get('host_name')
             try:
                 result, status_code = proxy_to_host_direct(
-                    host_info,  # Pass full host dict, not just string
-                    f'/host/navigation/cache/update-node',
+                    host_info,
+                    f'/host/navigation/cache/update-node?team_id={team_id}',  # Add query params to URL
                     'POST',
-                    {'node': node_data, 'tree_id': tree_id},
-                    {'team_id': team_id}
+                    {'node': node_data, 'tree_id': tree_id}
                 )
                 
                 # Debug: Log what we got back
