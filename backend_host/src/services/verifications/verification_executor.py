@@ -259,12 +259,6 @@ class VerificationExecutor:
             result['execution_time_ms'] = execution_time
             results.append(result)
             
-            # ✅ LOG DEBUG REPORT PATH if verification failed
-            if not result.get('success') and result.get('debug_report_path'):
-                print(f"[@lib:verification_executor:execute_verifications] " + "-" * 80)
-                print(f"[@lib:verification_executor:execute_verifications] 🔍 DEBUG REPORT (local): {result['debug_report_path']}")
-                print(f"[@lib:verification_executor:execute_verifications] " + "-" * 80)
-            
             # Count successful verifications
             if result.get('success'):
                 passed_count += 1
