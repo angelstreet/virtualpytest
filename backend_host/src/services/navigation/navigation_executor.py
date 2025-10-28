@@ -941,13 +941,15 @@ class NavigationExecutor:
                         error_msg = verification_result.get('error', 'Verification failed')
                         error_details = verification_result.get('error_details', {})
                         failure_type = "verification"
-                        # ✅ Extract debug report path if available
+                        # ✅ Extract debug report path and URL if available
                         debug_report_path = verification_result.get('debug_report_path')
+                        debug_report_url = verification_result.get('debug_report_url')
                     else:
                         error_msg = result.get('error', 'Unknown error')
                         error_details = result.get('error_details', {})
                         failure_type = "action"
                         debug_report_path = None
+                        debug_report_url = None
                     
                     print(f"[@navigation_executor:execute_navigation] NAVIGATION STEP FAILED:")
                     print(f"[@navigation_executor:execute_navigation]   Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
@@ -1047,10 +1049,13 @@ class NavigationExecutor:
                         'action_details': error_details
                     }
                     
-                    # ✅ Add debug report path to error details if available (frontend will convert to URL)
+                    # ✅ Add debug report path and URL to error details if available
                     if debug_report_path:
                         build_error_details['debug_report_path'] = debug_report_path
                         print(f"[@navigation_executor:execute_navigation] Including debug_report_path in error: {debug_report_path}")
+                    if debug_report_url:
+                        build_error_details['debug_report_url'] = debug_report_url
+                        print(f"[@navigation_executor:execute_navigation] Including debug_report_url in error: {debug_report_url}")
                     
                     return self._build_result(
                         False, 
