@@ -605,11 +605,11 @@ class VerificationExecutor:
                     device_folder = get_capture_folder(self.av_controller.video_capture_path)
                     print(f"[@lib:verification_executor] Device folder from AV controller: {device_folder}")
                     
-                    # ✅ Get host info for URL building (don't use get_host_info - doesn't exist!)
+                    # ✅ Get host info for URL building
                     host = get_host_instance()
                     host_info = {
                         'host_name': host.host_name,
-                        'host_url': os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
+                        'host_url': host.host_url  # Already set during registration with proper env var
                     }
                     print(f"[@lib:verification_executor] Host info for report: {host_info}")
                     
