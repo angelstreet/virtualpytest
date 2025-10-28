@@ -586,14 +586,19 @@ class VerificationExecutor:
             
             # Generate debug report for failures (only for image/text verifications with images)
             if not flattened_result.get('success') and verification_type in ['image', 'text']:
+                print(f"[@lib:verification_executor] 🔍 Verification failed - generating debug report...")
                 try:
                     from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
                     from shared.src.lib.utils.storage_path_utils import get_capture_folder
                     
                     # Get device folder from capture path
                     source_path = verification_config.get('source_image_path')
+                    print(f"[@lib:verification_executor] Source path: {source_path}")
+                    
                     if source_path:
                         device_folder = get_capture_folder(source_path)
+                        print(f"[@lib:verification_executor] Device folder: {device_folder}")
+                        
                         if device_folder:
                             # CRITICAL: Pass flattened_result (has correct field mapping) not verification_result (raw)
                             report = generate_verification_failure_report(
@@ -610,9 +615,17 @@ class VerificationExecutor:
                                 # ✅ ADD REPORT URL TO RESULT for frontend display
                                 flattened_result['debug_report_url'] = http_url
                                 flattened_result['debug_report_path'] = local_path
+                            else:
+                                print(f"[@lib:verification_executor] ⚠️ Report generation returned None")
+                        else:
+                            print(f"[@lib:verification_executor] ⚠️ Device folder is None - cannot generate report")
+                    else:
+                        print(f"[@lib:verification_executor] ⚠️ Source path is None - cannot generate report")
                 except Exception as report_error:
                     # Don't let report generation break verification execution
-                    print(f"[@lib:verification_executor] Warning: Failed to generate debug report: {report_error}")
+                    print(f"[@lib:verification_executor] ❌ Failed to generate debug report: {report_error}")
+                    import traceback
+                    traceback.print_exc()
             
             return flattened_result
             
