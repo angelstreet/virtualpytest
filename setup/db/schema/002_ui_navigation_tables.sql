@@ -68,8 +68,8 @@ CREATE TABLE navigation_nodes (
     position_x double precision NOT NULL DEFAULT 0,
     position_y double precision NOT NULL DEFAULT 0,
     node_type text NOT NULL DEFAULT 'default',
-    style jsonb DEFAULT '{}',
-    data jsonb DEFAULT '{}',
+    style jsonb NOT NULL DEFAULT '{}',
+    data jsonb NOT NULL DEFAULT '{}',
     verifications jsonb DEFAULT '[]', -- ✅ Embedded verification objects
     
     -- Nested tree metadata
