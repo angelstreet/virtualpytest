@@ -261,27 +261,36 @@ def update_edge_in_cache():
         
         print(f"[@route:host_navigation:update_edge_in_cache] 🔧 Update Request:")
         print(f"  → Edge ID: {edge_id}")
-        print(f"  → Tree ID: {tree_id}")
+        print(f"  → Tree ID (requested): {tree_id}")
         print(f"  → Team ID: {team_id}")
         print(f"  → Source: {source_node} → Target: {target_node}")
+        
+        # Resolve to root tree (cache is always stored under root tree ID)
+        from shared.src.lib.database.navigation_trees_db import _get_root_tree_id
+        root_tree_id = _get_root_tree_id(tree_id, team_id)
+        
+        if not root_tree_id:
+            print(f"  ⚠️  Could not resolve root tree for {tree_id}")
+            root_tree_id = tree_id  # Fallback to original tree_id
+        elif root_tree_id != tree_id:
+            print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
         # Get the cached graph
         from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
         
         # DEBUG: Show what caches exist
         available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
-        print(f"  → Available caches for team {team_id}: {available_caches}")
+        print(f"  → Available caches for team: {available_caches}")
         
-        # Try to get cache for this tree
-        cache_key = f"unified_{tree_id}_{team_id}"
+        # Try to get cache for ROOT tree
+        cache_key = f"unified_{root_tree_id}_{team_id}"
         print(f"  → Looking for cache: {cache_key}")
         
-        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        cached_graph = get_cached_unified_graph(root_tree_id, team_id)
         
         if not cached_graph:
-            print(f"  ⚠️  No cache found for tree {tree_id}")
+            print(f"  ⚠️  No cache found for root tree {root_tree_id}")
             print(f"  💡 Cache is only created when taking control of a device")
-            print(f"  💡 If editing nested tree, cache may be under ROOT tree ID")
             return jsonify({
                 'success': True,
                 'message': f'No cache for tree {tree_id} - update skipped (will rebuild on next take-control)',
@@ -297,14 +306,14 @@ def update_edge_in_cache():
             # Remove old edge and add with fresh data to ensure complete replacement
             cached_graph.remove_edge(source_node, target_node)
             cached_graph.add_edge(source_node, target_node, **edge_data)
-            print(f"[@route:host_navigation:update_edge_in_cache] Replaced edge {source_node} -> {target_node} with fresh data")
+            print(f"  ✅ REPLACED edge {source_node} -> {target_node} with fresh data")
         else:
             # Edge doesn't exist in graph - add it
             cached_graph.add_edge(source_node, target_node, **edge_data)
-            print(f"[@route:host_navigation:update_edge_in_cache] Added new edge {source_node} -> {target_node}")
+            print(f"  ✅ ADDED NEW edge {source_node} -> {target_node}")
         
-        # Save updated graph to file cache
-        save_unified_cache(tree_id, team_id, cached_graph)
+        # Save updated graph to cache (use ROOT tree ID)
+        save_unified_cache(root_tree_id, team_id, cached_graph)
         
         # Update in-memory graphs in all NavigationExecutor instances
         host_devices = getattr(current_app, 'host_devices', {})
@@ -366,26 +375,35 @@ def update_node_in_cache():
         
         print(f"[@route:host_navigation:update_node_in_cache] 🔧 Update Request:")
         print(f"  → Node ID: {node_id}")
-        print(f"  → Tree ID: {tree_id}")
+        print(f"  → Tree ID (requested): {tree_id}")
         print(f"  → Team ID: {team_id}")
+        
+        # Resolve to root tree (cache is always stored under root tree ID)
+        from shared.src.lib.database.navigation_trees_db import _get_root_tree_id
+        root_tree_id = _get_root_tree_id(tree_id, team_id)
+        
+        if not root_tree_id:
+            print(f"  ⚠️  Could not resolve root tree for {tree_id}")
+            root_tree_id = tree_id  # Fallback to original tree_id
+        elif root_tree_id != tree_id:
+            print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
         # Get the cached graph
         from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
         
         # DEBUG: Show what caches exist
         available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
-        print(f"  → Available caches for team {team_id}: {available_caches}")
+        print(f"  → Available caches for team: {available_caches}")
         
-        # Try to get cache for this tree
-        cache_key = f"unified_{tree_id}_{team_id}"
+        # Try to get cache for ROOT tree
+        cache_key = f"unified_{root_tree_id}_{team_id}"
         print(f"  → Looking for cache: {cache_key}")
         
-        cached_graph = get_cached_unified_graph(tree_id, team_id)
+        cached_graph = get_cached_unified_graph(root_tree_id, team_id)
         
         if not cached_graph:
-            print(f"  ⚠️  No cache found for tree {tree_id}")
+            print(f"  ⚠️  No cache found for root tree {root_tree_id}")
             print(f"  💡 Cache is only created when taking control of a device")
-            print(f"  💡 If editing nested tree, cache may be under ROOT tree ID")
             return jsonify({
                 'success': True,
                 'message': f'No cache for tree {tree_id} - update skipped (will rebuild on next take-control)',
@@ -400,14 +418,14 @@ def update_node_in_cache():
         if cached_graph.has_node(node_id):
             # Update node data
             cached_graph.nodes[node_id].update(node_data)
-            print(f"[@route:host_navigation:update_node_in_cache] Updated node {node_id}")
+            print(f"  ✅ UPDATED node {node_id}")
         else:
             # Node doesn't exist - add it
             cached_graph.add_node(node_id, **node_data)
-            print(f"[@route:host_navigation:update_node_in_cache] Added new node {node_id}")
+            print(f"  ✅ ADDED NEW node {node_id}")
         
-        # Save updated graph to file cache
-        save_unified_cache(tree_id, team_id, cached_graph)
+        # Save updated graph to cache (use ROOT tree ID)
+        save_unified_cache(root_tree_id, team_id, cached_graph)
         
         # Update in-memory graphs in all NavigationExecutor instances
         host_devices = getattr(current_app, 'host_devices', {})
