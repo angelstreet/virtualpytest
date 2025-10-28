@@ -777,15 +777,9 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
         ).execute()
         
         if result.data:
-            tree_data = result.data
+            # RPC returns the JSON object directly (not wrapped)
             print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
-            
-            return {
-                'success': tree_data.get('success', True),
-                'tree': tree_data.get('tree'),
-                'nodes': tree_data.get('nodes', []),
-                'edges': tree_data.get('edges', [])
-            }
+            return result.data
         else:
             print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
             return {'success': False, 'error': 'Tree not found'}
