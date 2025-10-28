@@ -129,20 +129,13 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
                 reverse_actions = reverse_set.get('actions', [])
                 has_reverse_actions = bool(reverse_actions)
             
-            # CONDITIONAL EDGE SUPPORT: Check if this edge shares action_set_id with siblings
-            # Multiple edges from same source with same action_set_id = conditional edges
-            # These must ALWAYS be created in graph (pathfinding needs to know all possible destinations)
-            is_conditional_edge = False
-            if default_action_set_id:
-                # This edge has an action_set_id - might be part of conditional group
-                # We'll create it even if actions are empty (actions might be on sibling)
-                is_conditional_edge = True
+            # Don't skip conditional edges (edges with shared action_set_id)
+            # Conditional edges might not have actions populated yet but need graph representation
+            is_conditional_edge = default_action_set_id is not None
             
-            # Skip edges only if:
-            # 1. Neither forward nor reverse have actions
-            # 2. AND it's not a conditional edge (conditional edges always need graph representation)
+            # Skip edges only if no actions AND not conditional
             if not has_forward_actions and not has_reverse_actions and not is_conditional_edge:
-                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions in either direction")
+                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions")
                 edges_skipped += 1
                 continue
         
