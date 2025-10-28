@@ -1143,19 +1143,22 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             
             // Refresh navigation caches after node save (non-blocking)
             try {
+              // CRITICAL: Use ROOT tree_id (parentChain[0]) for unified graph cache
+              const rootTreeId = parentChain[0]?.treeId || targetTreeId;
+              
               // 1. Refresh SERVER cache (for preview)
               await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ 
-                  tree_id: targetTreeId,
+                  tree_id: rootTreeId,
                   team_id: APP_CONFIG.DEFAULT_TEAM_ID
                 })
               });
               
               // 2. Refresh HOST cache (for execution) - only if host is active
               if (currentHost?.host_name) {
-                await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${targetTreeId}`), {
+                await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${rootTreeId}`), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                 });
@@ -1340,19 +1343,22 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
                           // Refresh navigation caches (non-blocking)
               try {
+                // CRITICAL: Use ROOT tree_id (parentChain[0]) for unified graph cache
+                const rootTreeId = parentChain[0]?.treeId || navigationConfig?.actualTreeId || 'unknown';
+                
                 // 1. Refresh SERVER cache (for preview)
                 await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({ 
-                    tree_id: navigationConfig?.actualTreeId || 'unknown',
+                    tree_id: rootTreeId,
                     team_id: APP_CONFIG.DEFAULT_TEAM_ID
                   })
                 });
                 
                 // 2. Refresh HOST cache (for execution) - only if host is active
                 if (currentHost?.host_name) {
-                  await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${navigationConfig?.actualTreeId || 'unknown'}`), {
+                  await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${rootTreeId}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                   });

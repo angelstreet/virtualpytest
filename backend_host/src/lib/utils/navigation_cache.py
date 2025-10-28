@@ -72,24 +72,38 @@ def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:
 def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List[Dict]) -> Optional[nx.DiGraph]:
     """
     Build and cache unified graph - memory-only (no file persistence)
+    CRITICAL: Always stores under the ROOT tree_id, not the entry tree_id
     """
-    cache_key = f"unified_{root_tree_id}_{team_id}"
-    
     try:
         from  backend_host.src.lib.utils.navigation_graph import create_unified_networkx_graph
         
         if not all_trees_data:
             return None
         
+        # STEP 1: Find the actual root tree from the hierarchy
+        actual_root_tree_id = root_tree_id
+        for tree_data in all_trees_data:
+            tree_info = tree_data.get('tree_info', {})
+            if tree_info.get('is_root_tree', False):
+                actual_root_tree_id = tree_data.get('tree_id')
+                print(f"[@navigation:cache:populate_unified_cache] Found root tree: {actual_root_tree_id}")
+                break
+        
+        # STEP 2: Use root tree_id as cache key (single source of truth)
+        cache_key = f"unified_{actual_root_tree_id}_{team_id}"
+        
+        # STEP 3: Build unified graph from all trees
         unified_graph = create_unified_networkx_graph(all_trees_data)
         if not unified_graph:
             return None
         
-        # Store in memory cache only (cleared on restart)
+        # STEP 4: Store in memory cache under ROOT tree_id only
         _unified_graphs_cache[cache_key] = unified_graph
         _unified_cache_timestamps[cache_key] = datetime.now()
         
-        print(f"[@navigation:cache:populate_unified_cache] ✅ Cached to memory: {cache_key} ({len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges)")
+        print(f"[@navigation:cache:populate_unified_cache] ✅ Cached to memory: {cache_key}")
+        print(f"[@navigation:cache:populate_unified_cache] Graph: {len(unified_graph.nodes)} nodes, {len(unified_graph.edges)} edges")
+        print(f"[@navigation:cache:populate_unified_cache] Trees in hierarchy: {len(all_trees_data)}")
         return unified_graph
         
     except Exception as e:
