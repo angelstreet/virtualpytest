@@ -12,7 +12,7 @@
 import { useState, useEffect, useCallback, useMemo } from 'react';
 import { useHostManager } from '../../contexts/index';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
-import { useDeviceControl } from '../useDeviceControl';
+import { useDeviceControlWithForceUnlock } from '../useDeviceControlWithForceUnlock';
 import { useNavigationEditor } from '../navigation/useNavigationEditor';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useUserInterface } from './useUserInterface';
@@ -178,28 +178,48 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     return hostManagerIsDeviceLocked(host || null, deviceId);
   }, [availableHosts, hostManagerIsDeviceLocked]);
   
-  const {
-    isControlLoading,
-    handleTakeControl,
-    handleReleaseControl,
-  } = useDeviceControl({
-    host: selectedHost,
-    device_id: selectedDeviceId || 'device1',
-    sessionId: 'testcase-builder-session',
-    autoCleanup: true,
+  // ==================== INTERFACE & NAVIGATION (EARLY DECLARATION) ====================
+  // Declare currentTreeId early so it can be used by device control hook
+  const [currentTreeId, setCurrentTreeId] = useState<string | null>(null);
+  
+  // ==================== SNACKBAR (EARLY DECLARATION) ====================
+  // Declare snackbar early so it can be used in control error display
+  const [snackbar, setSnackbar] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'info';
+  }>({
+    open: false,
+    message: '',
+    severity: 'info',
   });
   
-  const handleDeviceControl = useCallback(async () => {
-    if (isControlActive) {
-      await handleReleaseControl();
-      handleControlStateChange(false);
-    } else {
-      const success = await handleTakeControl();
-      if (success) {
-        handleControlStateChange(true);
-      }
+  // Use enhanced device control hook with force unlock and tree_id support
+  const {
+    isControlLoading,
+    handleDeviceControl,
+    controlError,
+    clearError,
+  } = useDeviceControlWithForceUnlock({
+    host: selectedHost,
+    device_id: selectedDeviceId,
+    sessionId: 'testcase-builder-session',
+    autoCleanup: true,
+    tree_id: currentTreeId || undefined, // Pass tree_id for cache building
+    onControlStateChange: handleControlStateChange,
+  });
+  
+  // Show control errors
+  useEffect(() => {
+    if (controlError) {
+      setSnackbar({
+        open: true,
+        message: controlError,
+        severity: 'error',
+      });
+      clearError();
     }
-  }, [isControlActive, handleTakeControl, handleReleaseControl, handleControlStateChange]);
+  }, [controlError, clearError]);
   
   // ==================== DEVICE DATA ====================
   const { 
@@ -236,6 +256,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   
   const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
   const [navNodes, setNavNodes] = useState<any[]>([]);
+  // Note: currentTreeId is declared earlier for use in device control hook
   
   const {
     userinterfaceName,
@@ -283,6 +304,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     const loadNavigationTree = async () => {
       if (!selectedDeviceId || !userinterfaceName) {
         setNavNodes([]);
+        setCurrentTreeId(null);
         return;
       }
       
@@ -294,11 +316,21 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
           setUserInterfaceFromProps(userInterface);
           
           const nodes = result?.tree?.metadata?.nodes || result?.nodes || [];
+          const treeId = result?.tree?.tree_id || result?.tree_id || userInterface.root_tree;
+          
           setNavNodes(nodes);
+          setCurrentTreeId(treeId);
+          
+          console.log('[@useTestCaseBuilderPage] Loaded navigation tree:', {
+            interface: userinterfaceName,
+            treeId,
+            nodeCount: nodes.length
+          });
         }
       } catch (error) {
         console.error('[@useTestCaseBuilderPage] Failed to load tree:', error);
         setNavNodes([]);
+        setCurrentTreeId(null);
       }
     };
     
@@ -407,15 +439,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   }, []);
   
   // ==================== SNACKBAR ====================
-  const [snackbar, setSnackbar] = useState<{
-    open: boolean;
-    message: string;
-    severity: 'success' | 'error' | 'info';
-  }>({
-    open: false,
-    message: '',
-    severity: 'info',
-  });
+  // Note: snackbar state is declared earlier for use in control error display
   
   // ==================== TEST CASE OPERATIONS ====================
   const handleSave = useCallback(async (): Promise<{ success: boolean; error?: string }> => {

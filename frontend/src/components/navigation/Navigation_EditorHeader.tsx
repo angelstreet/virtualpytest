@@ -4,10 +4,9 @@ import React from 'react';
 
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { useNavigationStack } from '../../contexts/navigation/NavigationStackContext';
-import { useDeviceControl } from '../../hooks/useDeviceControl';
+import { useDeviceControlWithForceUnlock } from '../../hooks/useDeviceControlWithForceUnlock';
 import { useHostManager } from '../../hooks/useHostManager';
 import { useToast } from '../../hooks/useToast';
-import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 import NavigationEditorActionButtons from './Navigation_NavigationEditor_ActionButtons';
 import NavigationEditorDeviceControls from './Navigation_NavigationEditor_DeviceControls';
@@ -83,22 +82,6 @@ export const NavigationEditorHeader: React.FC<{
   // Get device locking functionality from HostManager
   const { isDeviceLocked } = useHostManager();
 
-  // Device control hook (physical device control)
-  const {
-    isControlActive,
-    isControlLoading,
-    controlError,
-    handleTakeControl,
-    handleReleaseControl,
-    clearError,
-  } = useDeviceControl({
-    host: selectedHost,
-    device_id: selectedDeviceId || 'device1', // Pass device_id for device-oriented control
-    sessionId: 'navigation-editor-session',
-    autoCleanup: true, // Auto-release on unmount
-    tree_id: treeId, // Pass tree_id for navigation cache population
-  });
-
   // Function to reset current node ID
   const resetCurrentNodeId = React.useCallback(() => {
     console.log('[@component:NavigationEditorHeader] Resetting current node ID');
@@ -112,59 +95,26 @@ export const NavigationEditorHeader: React.FC<{
     resetCurrentNodeId(); // Reset the current node ID
   }, [onResetFocus, resetCurrentNodeId]);
 
-  // Device control handler (only controls physical device, not navigation tree)
-  const handleDeviceControl = React.useCallback(async () => {
-    if (isControlActive) {
-      // Release device control only
-      console.log('[@component:NavigationEditorHeader] Releasing device control');
-      await handleReleaseControl();
-      // Reset current node ID when control is released
-      resetCurrentNodeId();
-    } else {
-      // Take device control only
-      console.log('[@component:NavigationEditorHeader] Taking device control');
-      const result = await handleTakeControl();
-      
-      // If take control failed due to lock, check if we should force unlock
-      // Use the result object directly (not state) to avoid React timing issues
-      if (!result.success && result.errorType === 'device_locked') {
-        const confirmed = window.confirm(
-          `Device ${selectedHost?.host_name} is currently locked by another session.\n\n` +
-          `This might be your own session from a different browser or Wi-Fi network.\n\n` +
-          `Do you want to force release the lock and take control?`
-        );
-        
-        if (confirmed && selectedHost) {
-          console.log('[@component:NavigationEditorHeader] User confirmed force takeover');
-          // Call force unlock API
-          try {
-            const response = await fetch(buildServerUrl('/server/control/forceUnlock'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ host_name: selectedHost.host_name }),
-            });
-            
-            const unlockResult = await response.json();
-            
-            if (unlockResult.success) {
-              console.log('[@component:NavigationEditorHeader] Force unlock successful, retrying take control');
-              // Retry take control
-              await handleTakeControl();
-            } else {
-              showError(`Failed to force unlock: ${unlockResult.error || 'Unknown error'}`);
-            }
-          } catch (error: any) {
-            showError(`Failed to force unlock: ${error.message || 'Unknown error'}`);
-          }
-        }
+  // Use shared device control hook with force unlock
+  const {
+    isControlActive,
+    isControlLoading,
+    controlError,
+    handleDeviceControl,
+    clearError,
+  } = useDeviceControlWithForceUnlock({
+    host: selectedHost,
+    device_id: selectedDeviceId || null,
+    sessionId: 'navigation-editor-session',
+    autoCleanup: true,
+    tree_id: treeId,
+    onControlStateChange: (active: boolean) => {
+      onControlStateChange(active);
+      if (!active) {
+        resetCurrentNodeId();
       }
-    }
-  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId, selectedHost, showError]);
-
-  // Sync control state with parent component (only device control)
-  React.useEffect(() => {
-    onControlStateChange(isControlActive);
-  }, [isControlActive, onControlStateChange]);
+    },
+  });
 
   // Show control errors
   React.useEffect(() => {

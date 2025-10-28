@@ -6,8 +6,6 @@ import {
   DialogActions, 
   TextField, 
   Button, 
-  List, 
-  ListItem,
   Box,
   Typography,
   Alert,
@@ -16,14 +14,13 @@ import {
   Select,
   MenuItem,
   Chip,
-  IconButton,
   Autocomplete,
   CircularProgress
 } from '@mui/material';
-import DeleteIcon from '@mui/icons-material/Delete';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
 import ErrorIcon from '@mui/icons-material/Error';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
+import { TestCaseSelector } from '../TestCaseSelector';
 
 interface Folder {
   folder_id: number;
@@ -58,7 +55,7 @@ interface TestCaseBuilderDialogsProps {
   // Load Dialog
   loadDialogOpen: boolean;
   setLoadDialogOpen: (open: boolean) => void;
-  availableTestcases: any[];
+  availableTestcases: any[]; // DEPRECATED: Now loaded in TestCaseSelector, kept for backward compatibility
   handleLoad: (testcaseId: string) => void;
   handleDelete?: (testcaseId: string, testcaseName: string) => void;
   
@@ -371,7 +368,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
         </DialogActions>
       </Dialog>
       
-      {/* Load Dialog */}
+      {/* Load Dialog - Compact with Filters */}
       <Dialog 
         open={loadDialogOpen} 
         onClose={() => setLoadDialogOpen(false)} 
@@ -388,100 +385,11 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
           Load Test Case
         </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          {availableTestcases.length === 0 ? (
-            <Alert severity="info">No test cases found. Create one first!</Alert>
-          ) : (
-            <List>
-              {availableTestcases.map((tc) => (
-                <ListItem
-                  key={tc.testcase_id}
-                  sx={{ 
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'stretch',
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    borderRadius: 1,
-                    mb: 1,
-                    p: 0,
-                    '&:hover': {
-                      bgcolor: 'action.hover'
-                    }
-                  }}
-                >
-                  {/* Header Row: Name and Chips + Delete Button */}
-                  <Box sx={{ 
-                    display: 'flex', 
-                    justifyContent: 'space-between', 
-                    alignItems: 'center',
-                    p: 2,
-                    pb: 1,
-                    cursor: 'pointer'
-                  }}
-                  onClick={() => handleLoad(tc.testcase_id)}
-                  >
-                    <Typography variant="subtitle1" sx={{ fontWeight: 'bold' }}>
-                      {tc.testcase_name}
-                    </Typography>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexShrink: 0, ml: 2 }}>
-                      <Chip 
-                        label={(tc.environment || 'dev').toUpperCase()} 
-                        color={getEnvironmentColor(tc.environment || 'dev')} 
-                        size="small" 
-                        sx={{ fontWeight: 'bold' }}
-                      />
-                      <Chip 
-                        label={`Version ${tc.current_version || 1}`} 
-                        color="primary" 
-                        size="small" 
-                        variant="outlined"
-                        sx={{ fontWeight: 'bold' }}
-                      />
-                      {handleDelete && (
-                        <IconButton 
-                          size="small" 
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            handleDelete(tc.testcase_id, tc.testcase_name);
-                          }}
-                          sx={{ ml: 0.5 }}
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      )}
-                    </Box>
-                  </Box>
-                  
-                  {/* Content: Description, UI, and Execution Info */}
-                  <Box sx={{ px: 2, pb: 2, cursor: 'pointer' }} onClick={() => handleLoad(tc.testcase_id)}>
-                    {tc.description && (
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                        {tc.description}
-                      </Typography>
-                    )}
-                    <Typography variant="body2" color="text.secondary">
-                      UI: {tc.userinterface_name || 'Not specified'} - {tc.graph_json?.nodes?.length || 0} blocks
-                    </Typography>
-                    {tc.execution_count > 0 ? (
-                      <Typography variant="body2" color="text.secondary" sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mt: 0.5 }}>
-                        Last run: {tc.last_execution_success ? 
-                          <CheckCircleIcon fontSize="small" style={{ color: '#10b981' }} /> : 
-                          <ErrorIcon fontSize="small" style={{ color: '#ef4444' }} />
-                        } {tc.execution_count} execution{tc.execution_count > 1 ? 's' : ''}
-                      </Typography>
-                    ) : (
-                      <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
-                        Last run: Never executed
-                      </Typography>
-                    )}
-                    <Typography variant="caption" color="text.secondary">
-                      Created: {new Date(tc.created_at).toLocaleDateString()} - Modified: {new Date(tc.updated_at).toLocaleDateString()}
-                    </Typography>
-                  </Box>
-                </ListItem>
-              ))}
-            </List>
-          )}
+          <TestCaseSelector
+            onLoad={handleLoad}
+            onDelete={handleDelete}
+            selectedTestCaseId={currentTestcaseId}
+          />
         </DialogContent>
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
           <Button onClick={() => setLoadDialogOpen(false)} variant="outlined">
