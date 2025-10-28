@@ -13,6 +13,7 @@ import {
 import ReactFlow, {
   ReactFlowProvider,
   MarkerType,
+  addEdge,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
@@ -37,6 +38,7 @@ import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
 import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
+import { DataEdge } from '../components/testcase/edges/DataEdge';
 // 🆕 NEW: Execution components
 import { ExecutionProgressBar } from '../components/testcase/builder/ExecutionProgressBar';
 
@@ -82,6 +84,9 @@ const nodeTypes = {
   condition: UniversalBlock,
   container: UniversalBlock,
   set_variable: UniversalBlock,
+  set_variable_io: UniversalBlock,
+  set_metadata: UniversalBlock,
+  getMenuInfo: UniversalBlock,
   sleep: UniversalBlock,
   get_current_time: UniversalBlock,
   generate_random: UniversalBlock,
@@ -97,6 +102,7 @@ const edgeTypes = {
   false: FailureEdge,
   complete: SuccessEdge,
   break: FailureEdge,
+  data: DataEdge, // NEW: Data flow edges
 };
 
 // Default edge options
@@ -129,6 +135,13 @@ const TestCaseBuilderContent: React.FC = () => {
   const { actualMode } = useTheme();
   
   // 🗑️ REMOVED: Local execution overlay state - now using unifiedExecution from context
+  
+  // 🆕 NEW: Data linking state for click-to-link I/O
+  const [dataLinkingState, setDataLinkingState] = useState<{
+    active: boolean;
+    sourceBlockId: string;
+    sourceHandle: string;
+  } | null>(null);
   
   // Use the consolidated hook for all business logic
   const hookData = useTestCaseBuilderPage();
@@ -173,6 +186,67 @@ const TestCaseBuilderContent: React.FC = () => {
     event.preventDefault();
     event.dataTransfer.dropEffect = 'move';
   }, []);
+
+  // 🆕 NEW: Handle I/O handle clicks for data linking
+  const handleDataHandleClick = useCallback((blockId: string, handleId: string, handleType: 'input' | 'output') => {
+    if (handleType === 'output') {
+      // Start linking mode from OUTPUT
+      setDataLinkingState({
+        active: true,
+        sourceBlockId: blockId,
+        sourceHandle: handleId,
+        sourceType: 'output',
+      });
+      console.log('[@TestCaseBuilder] Data linking started from OUTPUT:', { blockId, handleId });
+    } else if (handleType === 'input') {
+      if (dataLinkingState?.active) {
+        // Completing link: OUTPUT → INPUT
+        
+        // Prevent self-linking (same block)
+        if (dataLinkingState.sourceBlockId === blockId) {
+          console.log('[@TestCaseBuilder] Cannot link block to itself');
+          setDataLinkingState(null);
+          return;
+        }
+        
+        // Create DATA edge
+        console.log('[@TestCaseBuilder] Creating data edge (OUT → IN):', {
+          source: dataLinkingState.sourceBlockId,
+          target: blockId,
+        });
+        
+        const newEdge = {
+          id: `data-${dataLinkingState.sourceBlockId}-${blockId}-${Date.now()}`,
+          source: dataLinkingState.sourceBlockId,
+          sourceHandle: dataLinkingState.sourceHandle,
+          target: blockId,
+          targetHandle: handleId,
+          type: 'data',
+        };
+        
+        hookData.setEdges((eds) => addEdge(newEdge, eds));
+        setDataLinkingState(null);
+      } else {
+        // IN clicked when NOT in linking mode → Open dialog to set static value
+        console.log('[@TestCaseBuilder] Opening dialog to set static value for block:', blockId);
+        // TODO: Open dialog to set static input value
+        // For now, just log - dialog implementation will come later
+      }
+    }
+  }, [dataLinkingState, hookData.setEdges]);
+
+  // Cancel linking on Escape key
+  React.useEffect(() => {
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === 'Escape' && dataLinkingState?.active) {
+        setDataLinkingState(null);
+        console.log('[@TestCaseBuilder] Data linking cancelled');
+      }
+    };
+    
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [dataLinkingState]);
 
   // Handle block single click - just select
   const onNodeClick = useCallback(
@@ -346,6 +420,8 @@ const TestCaseBuilderContent: React.FC = () => {
               data: {
                 ...node.data,
                 executionState: hookData.unifiedExecution.state.blockStates.get(node.id),
+                onDataHandleClick: handleDataHandleClick, // 🆕 NEW: Pass handler to blocks
+                dataLinkingState: dataLinkingState, // 🆕 NEW: Pass linking state
               },
             }))}
             edges={hookData.edges.map(edge => {

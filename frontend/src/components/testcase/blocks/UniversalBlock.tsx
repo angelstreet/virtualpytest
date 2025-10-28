@@ -267,6 +267,121 @@ export const UniversalBlock: React.FC<NodeProps & {
     }
   };
   
+  // Render I/O handles for data flow (ABOVE block, at top)
+  const renderIOHandles = () => {
+    const hasInput = data.hasInput === true;
+    const hasOutput = data.hasOutput === true;
+    
+    if (!hasInput && !hasOutput) return null;
+    
+    // Get handler and linking state from data (passed from TestCaseBuilder)
+    const onDataHandleClick = data.onDataHandleClick;
+    const dataLinkingState = data.dataLinkingState;
+    
+    // Check if this block is the linking source
+    const isLinkingSource = dataLinkingState?.active && dataLinkingState?.sourceBlockId === id;
+    const isActive = dataLinkingState?.active;
+    
+    return (
+      <>
+        {/* Input handle - TOP LEFT (purple, same style as pass/fail) */}
+        {hasInput && (
+          <Handle
+            type="target"
+            position={Position.Top}
+            id="data-input"
+            isConnectable={true} // Can receive connections
+            isConnectableStart={false} // ✅ CANNOT start drag from here
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onDataHandleClick) {
+                onDataHandleClick(id as string, 'data-input', 'input');
+              }
+            }}
+            style={{
+              left: '25%',
+              background: isActive ? '#7c3aed' : '#8b5cf6', // Purple
+              width: isActive ? 80 : 70,
+              height: isActive ? 34 : 28,
+              borderRadius: 4,
+              border: isActive ? '4px solid white' : '2px solid white',
+              top: isActive ? -36 : -32,
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: 11,
+              cursor: isActive ? 'crosshair' : 'pointer',
+              boxShadow: isActive ? '0 0 20px #8b5cf6' : 'none',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                pointerEvents: 'none',
+              }}
+            >
+              <Typography fontSize={10} fontWeight="bold">IN</Typography>
+            </Box>
+          </Handle>
+        )}
+        
+        {/* Output handle - TOP RIGHT (orange, same style as pass/fail) */}
+        {hasOutput && (
+          <Handle
+            type="source"
+            position={Position.Top}
+            id="data-output"
+            isConnectable={true} // ✅ CAN start drag from here
+            onClick={(e) => {
+              e.stopPropagation();
+              if (onDataHandleClick) {
+                onDataHandleClick(id as string, 'data-output', 'output');
+              }
+            }}
+            style={{
+              left: '75%',
+              background: isLinkingSource ? '#ea580c' : '#f97316', // Orange
+              width: isLinkingSource ? 80 : 70,
+              height: isLinkingSource ? 34 : 28,
+              borderRadius: 4,
+              border: isLinkingSource ? '4px solid white' : '2px solid white',
+              top: isLinkingSource ? -36 : -32,
+              transform: 'translateX(-50%)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: 'white',
+              fontWeight: 'bold',
+              fontSize: 11,
+              cursor: 'pointer',
+              boxShadow: isLinkingSource ? '0 0 20px #f97316' : 'none',
+              transition: 'all 0.3s ease',
+            }}
+          >
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                gap: 0.5,
+                pointerEvents: 'none',
+              }}
+            >
+              <Typography fontSize={10} fontWeight="bold">OUT</Typography>
+            </Box>
+          </Handle>
+        )}
+      </>
+    );
+  };
+  
   // Determine header and content based on block type
   let headerLabel = categoryLabel;
   let contentLabel = 'Click to configure';
@@ -742,6 +857,9 @@ export const UniversalBlock: React.FC<NodeProps & {
       
       {/* Output handles at bottom - rectangles with icons */}
       {renderOutputHandles()}
+      
+      {/* I/O handles for data flow - below flow handles */}
+      {renderIOHandles()}
     </Box>
   );
 };

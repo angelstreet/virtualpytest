@@ -71,6 +71,12 @@ class ScriptExecutionContext:
         # Custom data for display in final summary
         self.custom_data = {}
         
+        # Builder-specific: Runtime variables (cleared after execution)
+        self.variables = {}
+        
+        # Builder-specific: Metadata for DB storage (persisted to script_results.metadata)
+        self.metadata = {}
+        
         # Stdout capture for log upload
         self.stdout_buffer = []
         

@@ -7,6 +7,11 @@ import NavigationIcon from '@mui/icons-material/Navigation';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import LoopIcon from '@mui/icons-material/Loop';
+import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import AccountTreeIcon from '@mui/icons-material/AccountTree';
+import StorageIcon from '@mui/icons-material/Storage';
+import SaveIcon from '@mui/icons-material/Save';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
 import type { Actions } from '../types/controller/Action_Types';
 import type { Verifications } from '../types/verification/Verification_Types';
 
@@ -54,10 +59,71 @@ export function buildToolboxFromNavigationData(
         {
           groupName: 'Standard',
           commands: sortCommands([
-            { type: 'loop', label: 'Loop', icon: LoopIcon, color: '#3b82f6', outputs: ['complete', 'break'], description: 'Repeat actions' },
-            { type: 'sleep', label: 'Sleep', icon: LoopIcon, color: '#3b82f6', outputs: ['success'], description: 'Wait for duration' },
-            { type: 'condition', label: 'Evaluate Condition', icon: LoopIcon, color: '#3b82f6', outputs: ['true', 'false'], description: 'Conditional branch' },
-            { type: 'set_variable', label: 'Common Operation', icon: LoopIcon, color: '#3b82f6', outputs: ['success'], description: 'Set variable' },
+            { 
+              type: 'loop', 
+              label: 'Loop', 
+              icon: LoopIcon, 
+              color: '#6b7280', 
+              outputs: ['complete', 'break'], 
+              defaultData: { iterations: 1 },
+              description: 'Repeat steps multiple times' 
+            },
+            { 
+              type: 'sleep', 
+              label: 'Sleep', 
+              icon: AccessTimeIcon, 
+              color: '#6b7280', 
+              outputs: ['success'], 
+              description: 'Wait for specified duration' 
+            },
+            { 
+              type: 'get_current_time', 
+              label: 'Get Current Time', 
+              icon: AccessTimeIcon, 
+              color: '#6b7280', 
+              outputs: ['success'], 
+              description: 'Get current timestamp' 
+            },
+            { 
+              type: 'condition', 
+              label: 'Evaluate Condition', 
+              icon: AccountTreeIcon, 
+              color: '#6b7280', 
+              outputs: ['true', 'false'], 
+              description: 'Conditional branching' 
+            },
+            { 
+              type: 'set_variable', 
+              label: 'Common Operation', 
+              icon: LoopIcon, 
+              color: '#6b7280', 
+              outputs: ['success'], 
+              description: 'Set variable' 
+            },
+            // NEW: Additional blocks with I/O capabilities
+            { 
+              type: 'set_variable_io', 
+              label: 'Set Variable', 
+              icon: StorageIcon, 
+              color: '#6b7280', 
+              outputs: ['success'], 
+              defaultData: { 
+                hasInput: true,
+                hasOutput: true,
+              },
+              description: 'Store value with data flow' 
+            },
+            { 
+              type: 'set_metadata', 
+              label: 'Set Metadata', 
+              icon: SaveIcon, 
+              color: '#6b7280', 
+              outputs: ['success'], 
+              defaultData: {
+                hasInput: true,
+              },
+              description: 'Push variables to metadata' 
+            },
           ])
         }
       ]

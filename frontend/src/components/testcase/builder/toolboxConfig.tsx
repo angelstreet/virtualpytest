@@ -12,6 +12,8 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import StorageIcon from '@mui/icons-material/Storage';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
+import TextFieldsIcon from '@mui/icons-material/TextFields';
+import SaveIcon from '@mui/icons-material/Save';
 import { BlockType } from '../../../types/testcase/TestCase_Types';
 
 export type OutputType = 'success' | 'failure' | 'true' | 'false' | 'complete' | 'break';
@@ -86,7 +88,22 @@ export const toolboxConfig: Record<string, TabConfig> = {
             icon: <StorageIcon fontSize="small" />,
             color: '#6b7280', // grey - standard operations
             outputs: ['success'],
+            defaultData: { 
+              hasInput: true,
+              hasOutput: true,
+            },
             description: 'Store a value in variable'
+          },
+          {
+            type: 'set_metadata',
+            label: 'Set Metadata',
+            icon: <SaveIcon fontSize="small" />,
+            color: '#6b7280', // grey - standard operations
+            outputs: ['success'],
+            defaultData: {
+              hasInput: true,
+            },
+            description: 'Push variables to metadata'
           },
         ]
       }
@@ -177,6 +194,19 @@ export const toolboxConfig: Record<string, TabConfig> = {
             outputs: ['success', 'failure'],
             defaultData: { command: 'verify_ocr', verification_type: 'ocr' },
             description: 'Optical character recognition'
+          },
+          {
+            type: 'getMenuInfo',
+            label: 'Get Menu Info',
+            icon: <TextFieldsIcon fontSize="small" />,
+            color: '#3b82f6', // blue - distinguishable from success (green)
+            outputs: ['success', 'failure'],
+            defaultData: { 
+              command: 'getMenuInfo', 
+              verification_type: 'text',
+              hasOutput: true,
+            },
+            description: 'OCR menu, parse key-values, auto-store to metadata'
           },
         ]
       },
