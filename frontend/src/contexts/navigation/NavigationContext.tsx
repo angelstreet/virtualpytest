@@ -1140,6 +1140,29 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               };
               setParentChain(newChain);
             }
+            
+            // Refresh navigation caches after node save (non-blocking)
+            try {
+              // 1. Refresh SERVER cache (for preview)
+              await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                  tree_id: targetTreeId,
+                  team_id: APP_CONFIG.DEFAULT_TEAM_ID
+                })
+              });
+              
+              // 2. Refresh HOST cache (for execution) - only if host is active
+              if (currentHost?.host_name) {
+                await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${targetTreeId}`), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                });
+              }
+            } catch (cacheError) {
+              console.warn('Node save cache refresh failed:', cacheError);
+            }
            }
 
           setIsNodeDialogOpen(false);
@@ -1315,8 +1338,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               }
              }
 
-                          // Refresh navigation cache (non-blocking)
+                          // Refresh navigation caches (non-blocking)
               try {
+                // 1. Refresh SERVER cache (for preview)
                 await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
@@ -1325,6 +1349,14 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                     team_id: APP_CONFIG.DEFAULT_TEAM_ID
                   })
                 });
+                
+                // 2. Refresh HOST cache (for execution) - only if host is active
+                if (currentHost?.host_name) {
+                  await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${navigationConfig?.actualTreeId || 'unknown'}`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                  });
+                }
               } catch (cacheError) {
                 console.warn('Cache refresh failed:', cacheError);
               }
