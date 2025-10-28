@@ -632,6 +632,33 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       setControlState(stableSelectedHost, selectedDeviceId, isControlActive);
     }, [stableSelectedHost, selectedDeviceId, isControlActive, setControlState]);
 
+    // Focus node view handler - pan/zoom to focused node when selected
+    useEffect(() => {
+      if (focusNodeId && nodes.length > 0 && navigation.reactFlowInstance) {
+        // Find the focused node in the current nodes array
+        const focusedNode = nodes.find((node) => node.id === focusNodeId);
+        
+        if (focusedNode) {
+          console.log(`[@NavigationEditor] Focusing view on node: ${focusedNode.data.label || focusNodeId}`);
+          
+          // Center the view on the focused node with smooth animation
+          // Calculate center position (React Flow nodes may have width/height as optional properties)
+          const nodeWidth = (focusedNode as any).width || 200;
+          const nodeHeight = (focusedNode as any).height || 100;
+          
+          setTimeout(() => {
+            navigation.reactFlowInstance?.setCenter(
+              focusedNode.position.x + nodeWidth / 2,
+              focusedNode.position.y + nodeHeight / 2,
+              { zoom: 1.2, duration: 800 }
+            );
+          }, 100);
+        } else {
+          console.warn(`[@NavigationEditor] Focused node ${focusNodeId} not found in current nodes`);
+        }
+      }
+    }, [focusNodeId, nodes, navigation.reactFlowInstance]);
+
     // ========================================
     // 1. INITIALIZATION & REFERENCES
     // ========================================
