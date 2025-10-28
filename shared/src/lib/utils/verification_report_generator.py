@@ -38,33 +38,24 @@ def generate_verification_failure_report(
             logger.error(f"🔍 DEBUG REPORT (local): {report_path}")
     """
     try:
-        # Get verification failures directory (COLD storage)
-        failures_base = get_cold_storage_path(device_folder, 'verification_failures')
+        from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
         
-        # Create timestamped report directory
+        # Save report in COLD storage root (same level as captures/, thumbnails/) - SAME AS KPI
+        cold_base = get_cold_storage_path(device_folder, '')  # Empty subfolder = base dir
         timestamp = str(int(time.time() * 1000))
-        report_dir = os.path.join(failures_base, timestamp)
-        os.makedirs(report_dir, exist_ok=True)
+        report_filename = f'verification_failure_{timestamp}.html'
+        report_path = os.path.join(cold_base, report_filename)
         
-        # Copy images to report directory
+        print(f"[@verification_report_generator] 📝 Generating failure report: {report_path}")
+        
+        # Get image paths for embedding in HTML
         details = verification_result.get('details', {})
         
-        # Source image (original screenshot)
         source_image_path = verification_config.get('source_image_path') or details.get('source_image_path')
-        if source_image_path and os.path.exists(source_image_path):
-            shutil.copy2(source_image_path, os.path.join(report_dir, 'source_image.jpg'))
-        
-        # Reference image (expected image)
         reference_image_path = details.get('reference_image_path')
-        if reference_image_path and os.path.exists(reference_image_path):
-            shutil.copy2(reference_image_path, os.path.join(report_dir, 'reference_image.jpg'))
-        
-        # Result overlay (if available - shows match regions)
         result_overlay_path = details.get('result_overlay_path')
-        if result_overlay_path and os.path.exists(result_overlay_path):
-            shutil.copy2(result_overlay_path, os.path.join(report_dir, 'result_overlay.jpg'))
         
-        # Save processing details as JSON
+        # Build processing info
         processing_info = {
             'command': verification_config.get('command'),
             'verification_type': verification_config.get('verification_type'),
@@ -82,18 +73,22 @@ def generate_verification_failure_report(
             'timestamp': timestamp
         }
         
-        with open(os.path.join(report_dir, 'details.json'), 'w') as f:
-            json.dump(processing_info, f, indent=2)
+        # Generate HTML with file:// references to existing images
+        html_content = _generate_html_report(
+            processing_info, 
+            verification_config, 
+            verification_result,
+            source_image_path,
+            reference_image_path,
+            result_overlay_path
+        )
         
-        # Generate minimal HTML report
-        html_content = _generate_html_report(processing_info, verification_config, verification_result)
-        
-        html_path = os.path.join(report_dir, 'index.html')
-        with open(html_path, 'w') as f:
+        # Write HTML file
+        with open(report_path, 'w') as f:
             f.write(html_content)
         
         # Return local path only - frontend will convert to HTTP URL
-        return html_path
+        return report_path
         
     except Exception as e:
         print(f"❌ Failed to generate verification failure report: {e}")
@@ -105,28 +100,31 @@ def generate_verification_failure_report(
 def _generate_html_report(
     processing_info: Dict,
     verification_config: Dict,
-    verification_result: Dict
+    verification_result: Dict,
+    source_image_path: str,
+    reference_image_path: str,
+    result_overlay_path: str
 ) -> str:
-    """Generate minimal HTML report with side-by-side images"""
+    """Generate minimal HTML report with file:// references to existing images"""
     
     verification_type = verification_config.get('verification_type', 'unknown')
     command = verification_config.get('command', 'unknown')
     success = verification_result.get('success', False)
     
-    # Build image row
+    # Build image row with file:// URLs
     images_html = '<tr>'
     
     # Source image
-    if os.path.exists('source_image.jpg'):
-        images_html += '<td><img src="source_image.jpg" style="max-width:400px"/><br/><b>Source Screenshot</b></td>'
+    if source_image_path and os.path.exists(source_image_path):
+        images_html += f'<td><img src="file://{source_image_path}" style="max-width:400px"/><br/><b>Source Screenshot</b></td>'
     
     # Reference image
-    if os.path.exists('reference_image.jpg'):
-        images_html += '<td><img src="reference_image.jpg" style="max-width:400px"/><br/><b>Reference Image</b></td>'
+    if reference_image_path and os.path.exists(reference_image_path):
+        images_html += f'<td><img src="file://{reference_image_path}" style="max-width:400px"/><br/><b>Reference Image</b></td>'
     
     # Result overlay (if available)
-    if os.path.exists('result_overlay.jpg'):
-        images_html += '<td><img src="result_overlay.jpg" style="max-width:400px"/><br/><b>Result Overlay</b></td>'
+    if result_overlay_path and os.path.exists(result_overlay_path):
+        images_html += f'<td><img src="file://{result_overlay_path}" style="max-width:400px"/><br/><b>Result Overlay</b></td>'
     
     images_html += '</tr>'
     
@@ -213,7 +211,7 @@ def _generate_html_report(
         <hr/>
         <p style="color: #666; font-size: 12px;">
             Generated by verification_report_generator.py<br/>
-            Report directory: verification_failures/{processing_info.get("timestamp")}
+            Timestamp: {processing_info.get("timestamp")}
         </p>
     </div>
 </body>

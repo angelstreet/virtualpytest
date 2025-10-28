@@ -273,11 +273,12 @@ def update_edge_in_cache():
                 'cache_exists': False
             })
         
-        # Update edge in graph
+        # Update edge in graph - COMPLETELY REPLACE attributes (not shallow merge)
         if cached_graph.has_edge(source_node, target_node):
-            # Update edge data
-            cached_graph[source_node][target_node].update(edge_data)
-            print(f"[@route:host_navigation:update_edge_in_cache] Updated edge {source_node} -> {target_node}")
+            # Remove old edge and add with fresh data to ensure complete replacement
+            cached_graph.remove_edge(source_node, target_node)
+            cached_graph.add_edge(source_node, target_node, **edge_data)
+            print(f"[@route:host_navigation:update_edge_in_cache] Replaced edge {source_node} -> {target_node} with fresh data")
         else:
             # Edge doesn't exist in graph - add it
             cached_graph.add_edge(source_node, target_node, **edge_data)
@@ -292,9 +293,10 @@ def update_edge_in_cache():
         for device_id, device in host_devices.items():
             if hasattr(device, 'navigation_executor') and device.navigation_executor:
                 if device.navigation_executor.unified_graph:
-                    # Update the edge in the in-memory graph
+                    # COMPLETELY REPLACE edge in in-memory graph
                     if device.navigation_executor.unified_graph.has_edge(source_node, target_node):
-                        device.navigation_executor.unified_graph[source_node][target_node].update(edge_data)
+                        device.navigation_executor.unified_graph.remove_edge(source_node, target_node)
+                        device.navigation_executor.unified_graph.add_edge(source_node, target_node, **edge_data)
                     else:
                         device.navigation_executor.unified_graph.add_edge(source_node, target_node, **edge_data)
                     updated_devices.append(device_id)
