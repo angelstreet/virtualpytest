@@ -646,9 +646,17 @@ class VerificationExecutor:
                         if report_path:
                             print(f"[@lib:verification_executor] " + "-" * 80)
                             print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (local): {report_path}")
+                            
+                            # ✅ Convert local path to URL for frontend
+                            from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                            report_url = buildHostImageUrl(host_info, report_path)
+                            
+                            print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (URL): {report_url}")
                             print(f"[@lib:verification_executor] " + "-" * 80)
-                            # ✅ ADD REPORT PATH TO RESULT for frontend to convert to URL
-                            flattened_result['debug_report_path'] = report_path
+                            
+                            # ✅ ADD REPORT URL TO RESULT for frontend to display as link
+                            flattened_result['debug_report_url'] = report_url
+                            flattened_result['debug_report_path'] = report_path  # Keep local path for backend reference
                         else:
                             print(f"[@lib:verification_executor] ⚠️ Report generation returned None")
                     else:

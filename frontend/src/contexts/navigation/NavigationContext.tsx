@@ -1140,19 +1140,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               setParentChain(newChain);
             }
             
-            // Refresh HOST cache incrementally (only the host with control)
-            // Note: Server proxies to host for preview, so only host cache matters
-            try {
-              if (currentHost?.host_name) {
-                const rootTreeId = parentChain[0]?.treeId || targetTreeId;
-                await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${rootTreeId}`), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                });
-              }
-            } catch (cacheError) {
-              console.warn('Host cache refresh failed (non-critical):', cacheError);
-            }
+            // NOTE: Cache updates are handled by /server/navigation/cache/update-node
+            // which is called separately after node save. No need for additional cache clear.
            }
 
           setIsNodeDialogOpen(false);
@@ -1328,19 +1317,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               }
              }
 
-                          // Refresh HOST cache incrementally (only the host with control)
-              // Note: Server proxies to host for preview, so only host cache matters
-              try {
-                if (currentHost?.host_name) {
-                  const rootTreeId = parentChain[0]?.treeId || navigationConfig?.actualTreeId || 'unknown';
-                  await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${rootTreeId}`), {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                  });
-                }
-              } catch (cacheError) {
-                console.warn('Host cache refresh failed (non-critical):', cacheError);
-              }
+                          // NOTE: Cache updates are handled by /server/navigation/cache/update-edge
+              // which is called in useEdgeEdit.ts after edge save. No need for additional cache clear.
            }
 
            setIsEdgeDialogOpen(false);

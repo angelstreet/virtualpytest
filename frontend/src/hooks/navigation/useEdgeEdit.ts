@@ -351,11 +351,18 @@ export const useEdgeEdit = ({
     
     try {
       // 1. Save to database via context
+      console.log('[useEdgeEdit] 💾 Saving edge to database:', edgeForm.edgeId);
       await saveEdgeWithStateUpdate(edgeForm);
+      console.log('[useEdgeEdit] ✅ Edge saved to database');
       
       // 2. Update cache incrementally on all hosts (no rebuild)
       if (treeId && selectedEdge) {
-        console.log('[useEdgeEdit] Updating edge in cache for tree:', treeId);
+        console.log('\n[useEdgeEdit] 🔄 Updating cache on all hosts...');
+        console.log('[useEdgeEdit]   → Tree ID:', treeId);
+        console.log('[useEdgeEdit]   → Edge ID:', edgeForm.edgeId);
+        console.log('[useEdgeEdit]   → Source:', selectedEdge.source);
+        console.log('[useEdgeEdit]   → Target:', selectedEdge.target);
+        
         const { buildServerUrl } = await import('../../utils/buildUrlUtils');
         
         // Build proper edge data structure for cache update
@@ -370,10 +377,15 @@ export const useEdgeEdit = ({
           threshold: edgeForm.threshold
         };
         
-        console.log('[useEdgeEdit] Cache update payload:', edgeDataForCache);
+        console.log('[useEdgeEdit]   → Action sets:', edgeDataForCache.action_sets?.length || 0);
+        console.log('[useEdgeEdit]   → Default set:', edgeDataForCache.default_action_set_id);
         
         // Call server to update edge in cache on all hosts (buildServerUrl adds team_id automatically)
-        const response = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
+        const url = buildServerUrl(`/server/navigation/cache/update-edge`);
+        console.log('[useEdgeEdit]   → Calling:', url);
+        
+        const startTime = Date.now();
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
@@ -381,17 +393,40 @@ export const useEdgeEdit = ({
             tree_id: treeId
           })
         });
+        const duration = Date.now() - startTime;
         
         if (!response.ok) {
           const errorText = await response.text();
-          console.error('[useEdgeEdit] Failed to update edge in cache:', response.statusText, errorText);
+          console.error('[useEdgeEdit] ❌ Cache update failed:', {
+            status: response.status,
+            statusText: response.statusText,
+            error: errorText,
+            duration: `${duration}ms`
+          });
         } else {
           const result = await response.json();
-          console.log('[useEdgeEdit] ✅ Edge updated in cache (incremental):', result);
+          console.log('[useEdgeEdit] ✅ Cache update completed:', {
+            duration: `${duration}ms`,
+            summary: result.summary,
+            message: result.message
+          });
+          
+          // Log per-host results
+          if (result.results && result.results.length > 0) {
+            console.log('[useEdgeEdit] 📊 Per-host results:');
+            result.results.forEach((hostResult: any) => {
+              const status = hostResult.cache_exists ? '✅ Updated' : 
+                            hostResult.success ? 'ℹ️  Skipped (no cache)' : 
+                            '❌ Failed';
+              console.log(`[useEdgeEdit]   ${status} - ${hostResult.host}${hostResult.error ? ': ' + hostResult.error : ''}`);
+            });
+          }
         }
+      } else {
+        console.log('[useEdgeEdit] ℹ️  Cache update skipped - missing treeId or selectedEdge');
       }
     } catch (error) {
-      console.error('[useEdgeEdit] Failed to save edge or update cache:', error);
+      console.error('[useEdgeEdit] ❌ Failed to save edge or update cache:', error);
       throw error;
     }
   }, [edgeForm, saveEdgeWithStateUpdate, treeId]);

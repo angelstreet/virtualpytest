@@ -6,6 +6,11 @@ import { buildServerUrl } from './buildUrlUtils';
 export interface NavigationExecuteResponse {
   success: boolean;
   error?: string;
+  error_details?: {
+    debug_report_url?: string;
+    debug_report_path?: string;
+    [key: string]: any;
+  };
   final_position_node_id?: string;
   verification_results?: Array<{ success: boolean }>;
   transitions?: any[];
@@ -88,7 +93,11 @@ export async function executeNavigationAsync(params: {
       const response: NavigationExecuteResponse = statusResponse.result;
 
       if (!response.success) {
-        throw new Error(response.error || 'Navigation execution failed');
+        // ✅ Create error object with debug report URL if available
+        const error: any = new Error(response.error || 'Navigation execution failed');
+        error.debugReportUrl = response.error_details?.debug_report_url;
+        error.errorDetails = response.error_details;
+        throw error;
       }
 
       if (onProgress) {
@@ -97,7 +106,13 @@ export async function executeNavigationAsync(params: {
 
       return response;
     } else if (statusResponse.status === 'error') {
-      throw new Error(statusResponse.error || 'Navigation execution failed');
+      // ✅ Create error object with debug report URL if available
+      const error: any = new Error(statusResponse.error || 'Navigation execution failed');
+      if (statusResponse.result?.error_details) {
+        error.debugReportUrl = statusResponse.result.error_details.debug_report_url;
+        error.errorDetails = statusResponse.result.error_details;
+      }
+      throw error;
     }
 
     // Update progress message

@@ -278,7 +278,14 @@ def update_edge_in_cache():
                 'error': 'edge, tree_id, and team_id are required'
             }), 400
         
-        print(f"[@route:server_navigation:update_edge_in_cache] Updating edge {edge_data.get('id')} on all hosts")
+        edge_id = edge_data.get('id') or edge_data.get('edge_id')
+        print(f"\n{'='*80}")
+        print(f"[@route:server_navigation:update_edge_in_cache] 🔄 CACHE UPDATE REQUEST")
+        print(f"  → Edge ID: {edge_id}")
+        print(f"  → Tree ID: {tree_id}")
+        print(f"  → Team ID: {team_id}")
+        print(f"  → Source: {edge_data.get('source_node_id')}")
+        print(f"  → Target: {edge_data.get('target_node_id')}")
         
         # Get all hosts and update edge on each
         from backend_server.src.lib.utils.server_utils import get_host_manager
@@ -287,33 +294,81 @@ def update_edge_in_cache():
         host_manager = get_host_manager()
         hosts = host_manager.get_all_hosts()
         
+        print(f"  → Updating on {len(hosts)} host(s): {[h.get('host_name') for h in hosts]}")
+        
         results = []
+        success_count = 0
+        cache_exists_count = 0
+        skip_count = 0
+        error_count = 0
+        
         for host in hosts:
+            host_name = host.get('host_name')
             try:
-                result, _ = proxy_to_host_direct(
+                result, status_code = proxy_to_host_direct(
                     host,
                     f'/host/navigation/cache/update-edge',
                     'POST',
                     {'edge': edge_data, 'tree_id': tree_id},
                     {'team_id': team_id}
                 )
-                results.append({
-                    'host': host.get('host_name'),
-                    'success': result.get('success', False) if result else False,
-                    'cache_exists': result.get('cache_exists', False) if result else False
-                })
-                print(f"[@route:server_navigation:update_edge_in_cache] Edge updated on {host.get('host_name')}")
+                
+                if result:
+                    cache_exists = result.get('cache_exists', False)
+                    success = result.get('success', False)
+                    
+                    if success and cache_exists:
+                        print(f"  ✅ {host_name}: Cache updated")
+                        success_count += 1
+                        cache_exists_count += 1
+                    elif success and not cache_exists:
+                        print(f"  ℹ️  {host_name}: No cache (skipped - will rebuild on next take-control)")
+                        skip_count += 1
+                    else:
+                        print(f"  ⚠️  {host_name}: Update failed - {result.get('message', 'unknown error')}")
+                        error_count += 1
+                    
+                    results.append({
+                        'host': host_name,
+                        'success': success,
+                        'cache_exists': cache_exists,
+                        'message': result.get('message', '')
+                    })
+                else:
+                    print(f"  ❌ {host_name}: No response (status: {status_code})")
+                    error_count += 1
+                    results.append({
+                        'host': host_name,
+                        'success': False,
+                        'error': f'No response (HTTP {status_code})'
+                    })
+                    
             except Exception as e:
-                print(f"[@route:server_navigation:update_edge_in_cache] Failed for {host.get('host_name')}: {e}")
+                print(f"  ❌ {host_name}: Exception - {str(e)}")
+                error_count += 1
                 results.append({
-                    'host': host.get('host_name'),
+                    'host': host_name,
                     'success': False,
                     'error': str(e)
                 })
         
+        # Summary
+        print(f"\n📊 CACHE UPDATE SUMMARY:")
+        print(f"  → Total hosts: {len(hosts)}")
+        print(f"  → Successfully updated: {success_count}")
+        print(f"  → Skipped (no cache): {skip_count}")
+        print(f"  → Errors: {error_count}")
+        print(f"{'='*80}\n")
+        
         return jsonify({
             'success': True,
-            'message': f'Edge update requested for tree {tree_id}',
+            'message': f'Edge update completed on {len(hosts)} host(s)',
+            'summary': {
+                'total_hosts': len(hosts),
+                'updated': success_count,
+                'skipped': skip_count,
+                'errors': error_count
+            },
             'results': results
         })
         

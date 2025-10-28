@@ -72,6 +72,7 @@ export const useNode = (props?: UseNodeProps) => {
   const [isLoadingPreview, setIsLoadingPreview] = useState<boolean>(false);
   const [isExecuting, setIsExecuting] = useState<boolean>(false);
   const [navigationError, setNavigationError] = useState<string | null>(null);
+  const [debugReportUrl, setDebugReportUrl] = useState<string | null>(null);
   const [executionMessage, setExecutionMessage] = useState<string | null>(null);
 
   /**
@@ -418,6 +419,15 @@ export const useNode = (props?: UseNodeProps) => {
         const errorMessage = error.message || 'Navigation failed';
         setExecutionMessage(`Navigation failed: ${errorMessage}`);
         setNavigationError(errorMessage);
+        
+        // ✅ Extract debug report URL if available
+        if (error.debugReportUrl) {
+          console.log(`[@hook:useNode:executeNavigation] Debug report URL:`, error.debugReportUrl);
+          setDebugReportUrl(error.debugReportUrl);
+        } else {
+          setDebugReportUrl(null);
+        }
+        
         setIsExecuting(false);
 
         // Set edges to red for failed navigation
@@ -461,6 +471,7 @@ export const useNode = (props?: UseNodeProps) => {
    */
   const clearNavigationState = useCallback(() => {
     setNavigationError(null);
+    setDebugReportUrl(null);
     setExecutionMessage(null);
     // Clear navigation route indicators
     updateNodesWithMinimapIndicators([]);
@@ -551,6 +562,7 @@ export const useNode = (props?: UseNodeProps) => {
     isLoadingPreview,
     isExecuting, // 🛡️ EXECUTION GUARD: Check this before allowing navigation operations
     navigationError,
+    debugReportUrl,
     executionMessage,
     loadNavigationPreview,
     executeNavigation,

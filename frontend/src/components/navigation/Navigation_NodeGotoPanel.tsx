@@ -444,6 +444,22 @@ export const NodeGotoPanel: React.FC<NodeGotoPanelProps> = ({
             <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 0.5, color: 'error.main' }}>
               {nodeHook.navigationError}
             </Typography>
+            {nodeHook.debugReportUrl && (
+              <Typography variant="body2" sx={{ mt: 1 }}>
+                <a 
+                  href={nodeHook.debugReportUrl} 
+                  target="_blank" 
+                  rel="noopener noreferrer"
+                  style={{ 
+                    color: '#1976d2', 
+                    textDecoration: 'underline',
+                    fontWeight: 'bold'
+                  }}
+                >
+                  🔍 View Debug Report
+                </a>
+              </Typography>
+            )}
           </Alert>
         )}
         {!nodeHook.navigationError && nodeHook.executionMessage && (
