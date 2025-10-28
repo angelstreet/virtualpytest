@@ -87,20 +87,20 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       if (!actionSet?.id) return false;
       
       const edges = getEdges();
-      // Count how many DIFFERENT edges have this same action_set_id
-      const edgesWithThisActionSet = new Set<string>();
+      // Count how many edges have this same action_set_id
+      let shareCount = 0;
       
       edges.forEach((edge: any) => {
         const edgeActionSets = edge.data?.action_sets || [];
         edgeActionSets.forEach((as: any) => {
           if (as.id === actionSet.id) {
-            edgesWithThisActionSet.add(edge.id);
+            shareCount++;
           }
         });
       });
       
-      // If more than 1 DIFFERENT edge has this action_set_id, it's shared
-      return edgesWithThisActionSet.size > 1;
+      // If more than 1 edge has this action_set_id, it's shared
+      return shareCount > 1;
     }, [actionSet?.id, getEdges]);
     
     // Check if this is the primary conditional edge (fully editable without warning)

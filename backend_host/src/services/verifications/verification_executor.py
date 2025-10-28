@@ -354,13 +354,26 @@ class VerificationExecutor:
                 tree_id = nav_context.get('tree_id')  # Use root tree_id, not current_tree_id
                 print(f"[@lib:verification_executor:verify_node] Tree ID from context: {tree_id}")
             
-            # Get node data from UNIFIED GRAPH (zero database calls!)
-            from backend_host.src.lib.utils.navigation_cache import get_node_from_graph
-            print(f"[@lib:verification_executor:verify_node] Fetching node from unified graph...")
-            node_data = get_node_from_graph(node_id, tree_id, team_id)
+            # ✅ USE ALREADY-LOADED UNIFIED GRAPH (zero database calls, zero cache calls!)
+            # NavigationExecutor already loaded the unified graph during navigation
+            if not hasattr(self.device, 'navigation_executor') or not self.device.navigation_executor:
+                raise ValueError(f"Device {self.device_id} has no NavigationExecutor - cannot verify")
+            
+            unified_graph = self.device.navigation_executor.unified_graph
+            if not unified_graph:
+                raise ValueError(f"NavigationExecutor has no unified graph loaded - call load_navigation_tree() first")
+            
+            print(f"[@lib:verification_executor:verify_node] ✅ Using unified graph from NavigationExecutor ({len(unified_graph.nodes)} nodes)")
+            
+            # Get node data from unified graph
+            if node_id not in unified_graph.nodes:
+                print(f"[@lib:verification_executor:verify_node] ⚠️ Node {node_id} not in graph - skipping verification")
+                return {'success': False, 'has_verifications': False, 'message': 'Node not found in graph', 'results': []}
+            
+            node_data = unified_graph.nodes[node_id]
             
             if not node_data:
-                print(f"[@lib:verification_executor:verify_node] ⚠️ Node {node_id} not in graph - skipping verification")
+                print(f"[@lib:verification_executor:verify_node] ⚠️ Node {node_id} has no data - skipping verification")
                 return {'success': False, 'has_verifications': False, 'message': 'Node not found in graph', 'results': []}
             
             print(f"[@lib:verification_executor:verify_node] ✅ Node data from graph: {node_data.get('label')} (tree: {node_data.get('tree_name')})")

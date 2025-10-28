@@ -343,7 +343,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
         if (e.shiftKey) {
-          console.log('[@NavigationEditor] 🔍 Shift key PRESSED - setting isShiftHeld to TRUE');
           setIsShiftHeld(true);
         }
         // Undo/Redo shortcuts
@@ -368,7 +367,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
       const handleKeyUp = (e: KeyboardEvent) => {
         if (!e.shiftKey) {
-          console.log('[@NavigationEditor] 🔍 Shift key RELEASED - setting isShiftHeld to FALSE');
           setIsShiftHeld(false);
         }
       };
@@ -454,18 +452,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // Wrap onConnect to pass modifier key state for conditional edges
     const wrappedOnConnect = useCallback(
       (connection: any) => {
-        // DEBUG: Log everything to understand what's available
-        console.log('[@NavigationEditor:wrappedOnConnect] 🔍 Connection object:', connection);
-        console.log('[@NavigationEditor:wrappedOnConnect] 🔍 isShiftHeld state:', isShiftHeld);
-        console.log('[@NavigationEditor:wrappedOnConnect] 🔍 Connection keys:', Object.keys(connection));
-        
         // Pass isConditional flag based on Shift key state
         const enhancedConnection = {
           ...connection,
           isConditional: isShiftHeld, // Hold Shift to create conditional edge (BLUE, shared actions)
         };
-        
-        console.log('[@NavigationEditor:wrappedOnConnect] 🔍 Enhanced connection:', enhancedConnection);
         
         if (isShiftHeld) {
           console.log('[@NavigationEditor] 🔷 Creating CONDITIONAL edge (Shift held) - will share actions with siblings');
