@@ -294,7 +294,9 @@ def update_edge_in_cache():
         host_manager = get_host_manager()
         hosts = host_manager.get_all_hosts()
         
-        print(f"  → Updating on {len(hosts)} host(s): {[h.get('host_name') for h in hosts]}")
+        # Handle both list of dicts and list of strings
+        host_names = [h.get('host_name') if isinstance(h, dict) else h for h in hosts]
+        print(f"  → Updating on {len(hosts)} host(s): {host_names}")
         
         results = []
         success_count = 0
@@ -303,7 +305,7 @@ def update_edge_in_cache():
         error_count = 0
         
         for host in hosts:
-            host_name = host.get('host_name')
+            host_name = host.get('host_name') if isinstance(host, dict) else host
             try:
                 result, status_code = proxy_to_host_direct(
                     host,
