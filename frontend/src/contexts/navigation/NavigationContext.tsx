@@ -1243,6 +1243,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   priority: sibling.data?.priority || 'p3',
                   sourceHandle: sibling.sourceHandle,
                   targetHandle: sibling.targetHandle,
+                  // PRESERVE conditional flags
+                  ...(sibling.data?.is_conditional !== undefined && { is_conditional: sibling.data.is_conditional }),
+                  ...(sibling.data?.is_conditional_primary !== undefined && { is_conditional_primary: sibling.data.is_conditional_primary }),
                 },
                 action_sets: sibling.data.action_sets,
                 default_action_set_id: sibling.data.default_action_set_id,
