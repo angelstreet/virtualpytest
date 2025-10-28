@@ -86,20 +86,22 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     const isCurrentActionSetShared = useMemo(() => {
       if (!actionSet?.id) return false;
       
+      // CRITICAL: Only count as shared if:
+      // 1. Multiple edges have this action_set_id as their DEFAULT/active action set
+      // 2. Not just appearing in bidirectional reverse action sets
       const edges = getEdges();
-      // Count how many edges have this same action_set_id
       let shareCount = 0;
       
       edges.forEach((edge: any) => {
-        const edgeActionSets = edge.data?.action_sets || [];
-        edgeActionSets.forEach((as: any) => {
-          if (as.id === actionSet.id) {
-            shareCount++;
-          }
-        });
+        // Only count if this action_set_id is the default (active) for this edge
+        // This prevents counting bidirectional reverse action sets
+        const defaultActionSetId = edge.data?.default_action_set_id;
+        if (defaultActionSetId === actionSet.id) {
+          shareCount++;
+        }
       });
       
-      // If more than 1 edge has this action_set_id, it's shared
+      // If more than 1 edge has this action_set_id as DEFAULT, it's shared (conditional)
       return shareCount > 1;
     }, [actionSet?.id, getEdges]);
     
