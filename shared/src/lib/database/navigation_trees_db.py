@@ -826,37 +826,21 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
     Get complete tree data (metadata + nodes + edges) from materialized view.
     
     Uses materialized view for instant reads (~10ms) with automatic refresh on writes.
-    FAILS EARLY if materialized view is unavailable - no fallbacks to avoid hiding issues.
+    FAILS FAST - no error handling, no fallbacks. Let exceptions propagate.
     
     Performance: ~10ms reads (50x faster than function calls)
     """
-    try:
-        supabase = get_supabase()
-        
-        # Use materialized view
-        result = supabase.rpc(
-            'get_full_tree_from_mv',
-            {'p_tree_id': tree_id, 'p_team_id': team_id}
-        ).execute()
-        
-        if result.data:
-            # RPC returns the JSON object directly (not wrapped)
-            print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
-            
-            # Validate data structure
-            if not result.data.get('tree'):
-                print(f"[@db:navigation_trees:get_full_tree] ⚠️ WARNING: Tree {tree_id} has no tree metadata in materialized view")
-            
-            return result.data
-        else:
-            print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
-            return {'success': False, 'error': 'Tree not found'}
-            
-    except Exception as e:
-        error_type = type(e).__name__
-        print(f"[@db:navigation_trees:get_full_tree] ERROR: {error_type}")
-        import traceback
-        traceback.print_exc()
-        return {'success': False, 'error': f'{error_type}: Database call failed'}
+    supabase = get_supabase()
+    
+    # Use .single() to tell PostgREST we expect ONE row, not an array
+    result = supabase.rpc(
+        'get_full_tree_from_mv',
+        {'p_tree_id': tree_id, 'p_team_id': team_id}
+    ).single().execute()
+    
+    print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+    
+    # Return the data directly - fail fast if structure is wrong
+    return result.data
 
  
