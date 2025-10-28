@@ -181,6 +181,41 @@ class TextHelpers:
         target_clean = ' '.join(target_text.split()).lower()
         
         return target_clean in extracted_clean
-
+    
+    def parse_menu_info(self, ocr_text: str) -> Dict[str, str]:
+        """
+        Parse key-value pairs from OCR text (menu format).
+        
+        Extracts horizontal key-value pairs from text like:
+        - "Serial Number: ABC123"
+        - "MAC Address = 00:11:22:33:44:55"
+        - "Firmware - 1.2.3"
+        
+        Args:
+            ocr_text: Raw OCR text from menu/info screen
+            
+        Returns:
+            Dict with parsed key-value pairs (keys normalized to lowercase with underscores)
+        """
+        parsed_data = {}
+        lines = ocr_text.split('\n')
+        
+        for line in lines:
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Try to split by common delimiters: colon, equals, dash
+            for delimiter in [':', '=', '-']:
+                if delimiter in line:
+                    parts = line.split(delimiter, 1)  # Split only on first occurrence
+                    if len(parts) == 2:
+                        key = parts[0].strip().lower().replace(' ', '_')
+                        value = parts[1].strip()
+                        if key and value:
+                            parsed_data[key] = value
+                    break
+        
+        return parsed_data
 
  

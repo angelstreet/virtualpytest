@@ -204,7 +204,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             defaultData: { 
               command: 'getMenuInfo', 
               verification_type: 'text',
-              hasOutput: true,
+              hasOutput: false,  // Changed: no output handle needed (auto-stores to metadata)
             },
             description: 'OCR menu, parse key-values, auto-store to metadata'
           },

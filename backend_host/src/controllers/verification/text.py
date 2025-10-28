@@ -413,7 +413,15 @@ class TextVerificationController:
             params = verification_config.get('params', {})
             command = verification_config.get('command', 'waitForTextToAppear')
             
-            # Required parameters
+            # Check if this is getMenuInfo (different parameter requirements)
+            if command == 'getMenuInfo':
+                # Get Menu Info: OCR + parse key-values + auto-store to metadata
+                area = params.get('area')
+                context = verification_config.get('context')
+                result = self.getMenuInfo(area=area, context=context, source_path=source_path)
+                return result  # Return directly (already in correct format)
+            
+            # Required parameters for standard text verifications
             text = params.get('text', '')
             if not text:
                 return {
@@ -511,6 +519,14 @@ class TextVerificationController:
                 },
                 "verification_type": "text",
                 "description": "Wait for text to disappear"
+            },
+            {
+                "command": "getMenuInfo",
+                "params": {
+                    "area": None            # Optional area for OCR
+                },
+                "verification_type": "text",
+                "description": "OCR menu, parse key-values, auto-store to metadata"
             }
         ] 
 
@@ -609,3 +625,123 @@ class TextVerificationController:
             return None
         num = int(match.group(1)) + offset
         return filepath.replace(match.group(0), f'capture_{num:09d}')
+    
+    def getMenuInfo(self, area: dict = None, context = None, source_path: str = None) -> Dict[str, Any]:
+        """
+        Extract menu information from screen using OCR, parse key-value pairs, and auto-store to metadata.
+        
+        This combines OCR with automatic key-value parsing for menu/info screens.
+        Typical use: Extract device info (serial number, MAC, firmware, etc.)
+        
+        Args:
+            area: Optional area dict {'x', 'y', 'width', 'height'} for OCR region
+            context: Execution context (for metadata storage)
+            source_path: Screenshot path (already provided by execute_verification)
+            
+        Returns:
+            Dict with:
+                - success: bool
+                - output_data: dict with parsed_data and ocr_text
+                - message: str
+                
+        Example metadata output (FLAT JSON):
+            {
+                "serial_number": "ABC123",
+                "mac_address": "00:11:22:33:44:55",
+                "firmware_version": "1.2.3",
+                "extraction_timestamp": "2025-10-28T10:30:00",
+                "ocr_text": "Serial Number: ABC123\nMAC: 00:11:22:33:44:55",
+                "device_name": "device1"
+            }
+        """
+        print(f"[@controller:TextVerification:getMenuInfo] Extracting menu info with auto-parsing")
+        
+        try:
+            # Extract text using helper
+            result = self.helpers.detect_text_in_area(source_path, area)
+            extracted_text = result.get('extracted_text', '')
+            
+            if not extracted_text:
+                print(f"[@controller:TextVerification:getMenuInfo] No text extracted from area")
+                return {
+                    'success': False,
+                    'output_data': {'ocr_text': ''},
+                    'message': 'No text detected in specified area'
+                }
+            
+            print(f"[@controller:TextVerification:getMenuInfo] Extracted text ({len(extracted_text)} chars):")
+            print(f"--- OCR TEXT START ---")
+            print(extracted_text)
+            print(f"--- OCR TEXT END ---")
+            
+            # Parse key-value pairs using helper
+            parsed_data = self.helpers.parse_menu_info(extracted_text)
+            
+            print(f"[@controller:TextVerification:getMenuInfo] Parsed {len(parsed_data)} key-value pairs")
+            for key, value in parsed_data.items():
+                print(f"  • {key} = {value}")
+            
+            if not parsed_data:
+                print(f"[@controller:TextVerification:getMenuInfo] WARNING: No key-value pairs found in OCR text")
+            
+            # Auto-store to context.metadata (FLAT JSON)
+            if context:
+                from datetime import datetime
+                
+                # Initialize metadata if not exists
+                if not hasattr(context, 'metadata'):
+                    context.metadata = {}
+                
+                # Append parsed data directly to metadata (flat structure)
+                for key, value in parsed_data.items():
+                    context.metadata[key] = value
+                
+                # Add extraction metadata
+                context.metadata['extraction_timestamp'] = datetime.now().isoformat()
+                context.metadata['ocr_text'] = extracted_text
+                
+                # Add device info if available
+                if hasattr(context, 'selected_device') and context.selected_device:
+                    device = context.selected_device
+                    if hasattr(device, 'device_name'):
+                        context.metadata['device_name'] = device.device_name
+                
+                if area:
+                    context.metadata['ocr_area'] = str(area)
+                
+                print(f"[@controller:TextVerification:getMenuInfo] ✅ AUTO-APPENDED to context.metadata (FLAT)")
+                print(f"[@controller:TextVerification:getMenuInfo] Metadata keys: {list(context.metadata.keys())}")
+                print(f"[@controller:TextVerification:getMenuInfo] New fields added: {list(parsed_data.keys())}")
+            else:
+                print(f"[@controller:TextVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
+            
+            # Prepare output data
+            output_data = {
+                'parsed_data': parsed_data,
+                'ocr_text': extracted_text,
+                'character_count': result.get('character_count', 0),
+                'word_count': result.get('word_count', 0),
+                'language': result.get('language', 'en'),
+                'area': area,
+                'source_image': source_path,
+                'processed_image': result.get('image_textdetected_path', '')
+            }
+            
+            return {
+                'success': True,
+                'output_data': output_data,
+                'message': f'Parsed {len(parsed_data)} fields and auto-stored to metadata'
+            }
+            
+        except Exception as e:
+            error_msg = f"Error extracting menu info: {str(e)}"
+            print(f"[@controller:TextVerification:getMenuInfo] ERROR: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                'success': False,
+                'output_data': {},
+                'message': error_msg
+            }
+
