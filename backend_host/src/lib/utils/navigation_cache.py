@@ -136,6 +136,164 @@ def save_unified_cache(root_tree_id: str, team_id: str, graph: nx.DiGraph) -> bo
         print(f"[@navigation:cache:save_unified_cache] Error: {e}")
         return False
 
+# ============================================================================
+# INCREMENTAL CACHE UPDATE FUNCTIONS
+# ============================================================================
+
+def update_edge_in_cache(root_tree_id: str, team_id: str, edge_data: Dict) -> bool:
+    """
+    Update or add an edge directly in the cached graph (no rebuild needed)
+    
+    Args:
+        root_tree_id: Root tree ID
+        team_id: Team ID
+        edge_data: Edge data with source_node_id, target_node_id, action_sets, etc.
+    
+    Returns:
+        True if updated successfully
+    """
+    try:
+        # Get cached graph
+        graph = get_cached_unified_graph(root_tree_id, team_id)
+        if not graph:
+            print(f"[@navigation:cache:update_edge_in_cache] No cache found, cannot update incrementally")
+            return False
+        
+        source_id = edge_data.get('source_node_id')
+        target_id = edge_data.get('target_node_id')
+        
+        if not source_id or not target_id:
+            print(f"[@navigation:cache:update_edge_in_cache] Missing source or target node ID")
+            return False
+        
+        # Check if nodes exist
+        if source_id not in graph.nodes or target_id not in graph.nodes:
+            print(f"[@navigation:cache:update_edge_in_cache] Source or target node not in graph")
+            return False
+        
+        # Update or add edge with all attributes
+        graph.add_edge(source_id, target_id, **{
+            'edge_id': edge_data.get('edge_id'),
+            'action_sets': edge_data.get('action_sets', []),
+            'default_action_set_id': edge_data.get('default_action_set_id'),
+            'final_wait_time': edge_data.get('final_wait_time', 2000),
+            'label': edge_data.get('label', ''),
+            'tree_id': edge_data.get('tree_id'),
+            'data': edge_data.get('data', {}),
+        })
+        
+        # Save updated graph back to cache
+        save_unified_cache(root_tree_id, team_id, graph)
+        print(f"[@navigation:cache:update_edge_in_cache] ✅ Updated edge {source_id} → {target_id}")
+        return True
+        
+    except Exception as e:
+        print(f"[@navigation:cache:update_edge_in_cache] Error: {e}")
+        return False
+
+def delete_edge_from_cache(root_tree_id: str, team_id: str, source_id: str, target_id: str) -> bool:
+    """
+    Delete an edge directly from the cached graph (no rebuild needed)
+    
+    Args:
+        root_tree_id: Root tree ID
+        team_id: Team ID
+        source_id: Source node ID
+        target_id: Target node ID
+    
+    Returns:
+        True if deleted successfully
+    """
+    try:
+        graph = get_cached_unified_graph(root_tree_id, team_id)
+        if not graph:
+            print(f"[@navigation:cache:delete_edge_from_cache] No cache found")
+            return False
+        
+        if graph.has_edge(source_id, target_id):
+            graph.remove_edge(source_id, target_id)
+            save_unified_cache(root_tree_id, team_id, graph)
+            print(f"[@navigation:cache:delete_edge_from_cache] ✅ Deleted edge {source_id} → {target_id}")
+            return True
+        else:
+            print(f"[@navigation:cache:delete_edge_from_cache] Edge not found in graph")
+            return False
+            
+    except Exception as e:
+        print(f"[@navigation:cache:delete_edge_from_cache] Error: {e}")
+        return False
+
+def update_node_in_cache(root_tree_id: str, team_id: str, node_data: Dict) -> bool:
+    """
+    Update or add a node directly in the cached graph (no rebuild needed)
+    
+    Args:
+        root_tree_id: Root tree ID
+        team_id: Team ID
+        node_data: Node data with node_id, label, verifications, etc.
+    
+    Returns:
+        True if updated successfully
+    """
+    try:
+        graph = get_cached_unified_graph(root_tree_id, team_id)
+        if not graph:
+            print(f"[@navigation:cache:update_node_in_cache] No cache found")
+            return False
+        
+        node_id = node_data.get('node_id')
+        if not node_id:
+            print(f"[@navigation:cache:update_node_in_cache] Missing node_id")
+            return False
+        
+        # Update or add node with all attributes
+        graph.add_node(node_id, **{
+            'label': node_data.get('label'),
+            'node_type': node_data.get('node_type', 'screen'),
+            'verifications': node_data.get('verifications', []),
+            'tree_id': node_data.get('tree_id'),
+            'data': node_data.get('data', {}),
+        })
+        
+        save_unified_cache(root_tree_id, team_id, graph)
+        print(f"[@navigation:cache:update_node_in_cache] ✅ Updated node {node_id}")
+        return True
+        
+    except Exception as e:
+        print(f"[@navigation:cache:update_node_in_cache] Error: {e}")
+        return False
+
+def delete_node_from_cache(root_tree_id: str, team_id: str, node_id: str) -> bool:
+    """
+    Delete a node directly from the cached graph (no rebuild needed)
+    
+    Args:
+        root_tree_id: Root tree ID
+        team_id: Team ID
+        node_id: Node ID to delete
+    
+    Returns:
+        True if deleted successfully
+    """
+    try:
+        graph = get_cached_unified_graph(root_tree_id, team_id)
+        if not graph:
+            print(f"[@navigation:cache:delete_node_from_cache] No cache found")
+            return False
+        
+        if node_id in graph.nodes:
+            graph.remove_node(node_id)  # This also removes connected edges
+            save_unified_cache(root_tree_id, team_id, graph)
+            print(f"[@navigation:cache:delete_node_from_cache] ✅ Deleted node {node_id}")
+            return True
+        else:
+            print(f"[@navigation:cache:delete_node_from_cache] Node not found in graph")
+            return False
+            
+    except Exception as e:
+        print(f"[@navigation:cache:delete_node_from_cache] Error: {e}")
+        return False
+
 def get_node_tree_location(node_id: str, root_tree_id: str, team_id: str) -> Optional[str]:
     """
     Get which tree a node belongs to in the unified hierarchy

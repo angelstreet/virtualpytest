@@ -19,6 +19,58 @@ def get_supabase():
     """Get the Supabase client instance."""
     return get_supabase_client()
 
+def _get_root_tree_id(tree_id: str, team_id: str) -> Optional[str]:
+    """
+    Get root tree ID for a given tree (could be a subtree)
+    
+    Args:
+        tree_id: Current tree ID (may be a subtree)
+        team_id: Team ID
+        
+    Returns:
+        Root tree ID or None
+    """
+    try:
+        supabase = get_supabase()
+        
+        # Get tree info
+        tree_result = supabase.table('navigation_trees').select('id, is_root_tree, parent_tree_id, userinterface_id')\
+            .eq('id', tree_id)\
+            .eq('team_id', team_id)\
+            .limit(1)\
+            .execute()
+        
+        if not tree_result.data:
+            return None
+        
+        tree_info = tree_result.data[0]
+        
+        # If already root, return it
+        if tree_info.get('is_root_tree'):
+            return tree_id
+        
+        # If has parent_tree_id, traverse up
+        if tree_info.get('parent_tree_id'):
+            return _get_root_tree_id(tree_info['parent_tree_id'], team_id)
+        
+        # Fallback: Find root by userinterface_id
+        if tree_info.get('userinterface_id'):
+            root_result = supabase.table('navigation_trees').select('id')\
+                .eq('userinterface_id', tree_info['userinterface_id'])\
+                .eq('team_id', team_id)\
+                .eq('is_root_tree', True)\
+                .limit(1)\
+                .execute()
+            
+            if root_result.data:
+                return root_result.data[0]['id']
+        
+        return None
+        
+    except Exception as e:
+        print(f"[@db:_get_root_tree_id] Error: {e}")
+        return None
+
 def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
     """
     Clear cache when tree is modified (on ANY save: edge, node, tree)
@@ -225,6 +277,17 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         # Invalidate cache after successful save
         invalidate_navigation_cache_for_tree(tree_id, team_id)
         
+        # INCREMENTAL: Update host cache directly (if cache exists)
+        try:
+            from backend_host.src.lib.utils.navigation_cache import update_node_in_cache
+            root_tree_id = _get_root_tree_id(tree_id, team_id)
+            if root_tree_id:
+                update_node_in_cache(root_tree_id, team_id, node_data)
+        except ImportError:
+            pass  # Host cache module not available (running on server)
+        except Exception as cache_error:
+            print(f"[@db:navigation_trees:save_node] Cache update failed (non-critical): {cache_error}")
+        
         return {'success': True, 'node': result.data[0]}
     except Exception as e:
         print(f"[@db:navigation_trees:save_node] Error: {e}")
@@ -380,6 +443,17 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
         
         # Invalidate cache after successful save
         invalidate_navigation_cache_for_tree(tree_id, team_id)
+        
+        # INCREMENTAL: Update host cache directly (if cache exists)
+        try:
+            from backend_host.src.lib.utils.navigation_cache import update_edge_in_cache
+            root_tree_id = _get_root_tree_id(tree_id, team_id)
+            if root_tree_id:
+                update_edge_in_cache(root_tree_id, team_id, edge_data)
+        except ImportError:
+            pass  # Host cache module not available (running on server)
+        except Exception as cache_error:
+            print(f"[@db:navigation_trees:save_edge] Cache update failed (non-critical): {cache_error}")
         
         return {'success': True, 'edge': result.data[0]}
     except Exception as e:
