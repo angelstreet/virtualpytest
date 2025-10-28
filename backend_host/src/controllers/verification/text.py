@@ -526,7 +526,7 @@ class TextVerificationController:
                     "area": None            # Optional area for OCR
                 },
                 "verification_type": "text",
-                "description": "OCR menu, parse key-values, auto-store to metadata"
+                "description": "getMenuInfo"
             }
         ] 
 
