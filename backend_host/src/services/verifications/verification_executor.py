@@ -289,14 +289,17 @@ class VerificationExecutor:
         # Extract detailed error information from failed verifications
         error_info = None
         debug_report_path = None  # ✅ Track first debug report path (local path)
+        debug_report_url = None  # ✅ Track first debug report URL (HTTP URL)
         if not overall_success and results:
             # Get the first failed verification's message as the primary error
             for result in results:
                 if not result.get('success', False):
                     error_info = result.get('message', 'Verification failed')
-                    # ✅ Capture debug report path from first failed verification
+                    # ✅ Capture debug report path and URL from first failed verification
                     if result.get('debug_report_path'):
                         debug_report_path = result.get('debug_report_path')
+                    if result.get('debug_report_url'):
+                        debug_report_url = result.get('debug_report_url')
                     break
         
         # Collect all verification evidence for KPI report
@@ -319,9 +322,11 @@ class VerificationExecutor:
         # Add error information if verifications failed
         if error_info:
             result['error'] = error_info
-            # ✅ Include debug report path if available (frontend will convert to URL)
+            # ✅ Include debug report path and URL if available
             if debug_report_path:
                 result['debug_report_path'] = debug_report_path
+            if debug_report_url:
+                result['debug_report_url'] = debug_report_url
             
         return result
     
