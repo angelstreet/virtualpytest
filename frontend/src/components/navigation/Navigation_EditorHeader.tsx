@@ -123,10 +123,11 @@ export const NavigationEditorHeader: React.FC<{
     } else {
       // Take device control only
       console.log('[@component:NavigationEditorHeader] Taking device control');
-      const success = await handleTakeControl();
+      const result = await handleTakeControl();
       
       // If take control failed due to lock, check if we should force unlock
-      if (!success && controlError && controlError.includes('in use')) {
+      // Use the result object directly (not state) to avoid React timing issues
+      if (!result.success && result.errorType === 'device_locked') {
         const confirmed = window.confirm(
           `Device ${selectedHost?.host_name} is currently locked by another session.\n\n` +
           `This might be your own session from a different browser or Wi-Fi network.\n\n` +
@@ -143,14 +144,14 @@ export const NavigationEditorHeader: React.FC<{
               body: JSON.stringify({ host_name: selectedHost.host_name }),
             });
             
-            const result = await response.json();
+            const unlockResult = await response.json();
             
-            if (result.success) {
+            if (unlockResult.success) {
               console.log('[@component:NavigationEditorHeader] Force unlock successful, retrying take control');
               // Retry take control
               await handleTakeControl();
             } else {
-              showError(`Failed to force unlock: ${result.error || 'Unknown error'}`);
+              showError(`Failed to force unlock: ${unlockResult.error || 'Unknown error'}`);
             }
           } catch (error: any) {
             showError(`Failed to force unlock: ${error.message || 'Unknown error'}`);
@@ -158,7 +159,7 @@ export const NavigationEditorHeader: React.FC<{
         }
       }
     }
-  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId, controlError, selectedHost, showError]);
+  }, [isControlActive, handleTakeControl, handleReleaseControl, resetCurrentNodeId, selectedHost, showError]);
 
   // Sync control state with parent component (only device control)
   React.useEffect(() => {

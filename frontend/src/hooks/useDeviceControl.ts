@@ -22,9 +22,9 @@ interface UseDeviceControlReturn {
   isControlLoading: boolean;
   controlError: string | null;
 
-  // Control actions
+  // Control actions (now return full result object for immediate error checking)
   handleToggleControl: () => Promise<void>;
-  handleTakeControl: () => Promise<boolean>;
+  handleTakeControl: () => Promise<{ success: boolean; errorType?: string; error?: string }>;
   handleReleaseControl: () => Promise<boolean>;
 
   // Utility functions
@@ -71,10 +71,10 @@ export const useDeviceControl = ({
   // CONTROL HANDLERS
   // ========================================
 
-  const handleTakeControl = useCallback(async (): Promise<boolean> => {
+  const handleTakeControl = useCallback(async (): Promise<{ success: boolean; errorType?: string; error?: string }> => {
     if (!host) {
       setControlError('No host selected');
-      return false;
+      return { success: false, error: 'No host selected' };
     }
 
     setIsControlLoading(true);
@@ -99,7 +99,7 @@ export const useDeviceControl = ({
         console.log(
           `[useDeviceControl] Successfully took control of: ${host.host_name}, device: ${device_id}`,
         );
-        return true;
+        return { success: true };
       } else {
         // Handle specific error types with user-friendly messages
         let errorMessage = result.error || 'Failed to take control';
@@ -118,13 +118,13 @@ export const useDeviceControl = ({
 
         setControlError(errorMessage);
         console.error(`[useDeviceControl] Failed to take control:`, result);
-        return false;
+        return { success: false, errorType: result.errorType, error: errorMessage };
       }
     } catch (error: any) {
       const errorMessage = `Connection failed: ${error.message || 'Unknown error'}`;
       setControlError(errorMessage);
       console.error(`[useDeviceControl] Exception taking control:`, error);
-      return false;
+      return { success: false, error: errorMessage };
     } finally {
       setIsControlLoading(false);
     }

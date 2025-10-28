@@ -432,16 +432,16 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           let errorType: any = 'generic_error';
           let errorMessage = result.error || 'Failed to take control of device';
 
-          if (result.error_type === 'stream_service_error') {
+          if (result.errorType === 'stream_service_error' || result.error_type === 'stream_service_error') {
             errorType = 'stream_service_error';
             errorMessage = `AV Stream Error: ${result.error}`;
-          } else if (result.error_type === 'adb_connection_error') {
+          } else if (result.errorType === 'adb_connection_error' || result.error_type === 'adb_connection_error') {
             errorType = 'adb_connection_error';
             errorMessage = `Remote Connection Error: ${result.error}`;
-          } else if (result.status === 'device_locked') {
+          } else if (result.errorType === 'device_locked' || result.status === 'device_locked') {
             errorType = 'device_locked';
             errorMessage = `Device is locked by ${result.locked_by || 'another user'}`;
-          } else if (result.status === 'device_not_found') {
+          } else if (result.errorType === 'device_not_found' || result.status === 'device_not_found') {
             errorType = 'device_not_found';
             errorMessage = `Device ${host.host_name}:${effectiveDeviceId} not found or offline`;
           } else if (result.error && result.error.includes('secret key')) {
