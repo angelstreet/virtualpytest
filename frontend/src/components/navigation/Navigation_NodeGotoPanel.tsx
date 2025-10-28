@@ -406,11 +406,9 @@ export const NodeGotoPanel: React.FC<NodeGotoPanelProps> = ({
             currentNodeId === selectedNode.id || // Disable if already at destination
             !nodeHook.navigationTransitions ||
             nodeHook.navigationTransitions.length === 0 ||
-            nodeHook.navigationError !== null ||
-            // Disable if any transition has no actions defined
-            nodeHook.navigationTransitions.some(
-              (transition: any) => !transition.actions || transition.actions.length === 0,
-            )
+            nodeHook.navigationError !== null
+            // ✅ REMOVED: Don't check for empty actions - conditional edges may have empty default actions
+            // The backend pathfinding ensures only valid paths are returned
           }
           fullWidth
           sx={{ fontSize: '0.875rem' }}
