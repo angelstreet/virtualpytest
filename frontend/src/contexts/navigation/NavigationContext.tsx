@@ -21,7 +21,6 @@ import { useNavigationConfig } from './NavigationConfigContext';
 import { useNavigationPreviewCache } from './NavigationPreviewCacheContext';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { APP_CONFIG } from '../../config/constants';
 // ========================================
 // TYPES
 // ========================================
@@ -1141,30 +1140,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               setParentChain(newChain);
             }
             
-            // Refresh navigation caches after node save (non-blocking)
+            // Refresh HOST cache incrementally (only the host with control)
+            // Note: Server proxies to host for preview, so only host cache matters
             try {
-              // CRITICAL: Use ROOT tree_id (parentChain[0]) for unified graph cache
-              const rootTreeId = parentChain[0]?.treeId || targetTreeId;
-              
-              // 1. Refresh SERVER cache (for preview)
-              await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ 
-                  tree_id: rootTreeId,
-                  team_id: APP_CONFIG.DEFAULT_TEAM_ID
-                })
-              });
-              
-              // 2. Refresh HOST cache (for execution) - only if host is active
               if (currentHost?.host_name) {
+                const rootTreeId = parentChain[0]?.treeId || targetTreeId;
                 await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${rootTreeId}`), {
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                 });
               }
             } catch (cacheError) {
-              console.warn('Node save cache refresh failed:', cacheError);
+              console.warn('Host cache refresh failed (non-critical):', cacheError);
             }
            }
 
@@ -1341,30 +1328,18 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               }
              }
 
-                          // Refresh navigation caches (non-blocking)
+                          // Refresh HOST cache incrementally (only the host with control)
+              // Note: Server proxies to host for preview, so only host cache matters
               try {
-                // CRITICAL: Use ROOT tree_id (parentChain[0]) for unified graph cache
-                const rootTreeId = parentChain[0]?.treeId || navigationConfig?.actualTreeId || 'unknown';
-                
-                // 1. Refresh SERVER cache (for preview)
-                await fetch(buildServerUrl('/server/pathfinding/cache/refresh'), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ 
-                    tree_id: rootTreeId,
-                    team_id: APP_CONFIG.DEFAULT_TEAM_ID
-                  })
-                });
-                
-                // 2. Refresh HOST cache (for execution) - only if host is active
                 if (currentHost?.host_name) {
+                  const rootTreeId = parentChain[0]?.treeId || navigationConfig?.actualTreeId || 'unknown';
                   await fetch(buildServerUrl(`/server/proxy/host/${currentHost.host_name}/navigation/cache/clear/${rootTreeId}`), {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                   });
                 }
               } catch (cacheError) {
-                console.warn('Cache refresh failed:', cacheError);
+                console.warn('Host cache refresh failed (non-critical):', cacheError);
               }
            }
 
