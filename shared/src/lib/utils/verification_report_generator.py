@@ -13,7 +13,8 @@ from typing import Dict, Optional
 def generate_verification_failure_report(
     verification_config: Dict,
     verification_result: Dict,
-    device_folder: str
+    device_folder: str,
+    host_info: Dict
 ) -> Optional[str]:
     """
     Generate HTML report for verification failure with images and processing details.
@@ -22,6 +23,7 @@ def generate_verification_failure_report(
         verification_config: Verification config (command, params, type, source_image_path)
         verification_result: Verification result (success, threshold, matching_score, etc.)
         device_folder: Device folder name (e.g., 'capture4')
+        host_info: Host information dict for URL building (from get_host_info_for_report)
         
     Returns:
         Local path to report HTML file, or None if generation failed.
@@ -30,7 +32,6 @@ def generate_verification_failure_report(
     try:
         from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
         from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-        from backend_host.src.lib.utils.host_utils import get_host_info
         
         # Save report in COLD storage root (same level as captures/, thumbnails/) - SAME AS KPI
         cold_base = get_cold_storage_path(device_folder, '')  # Empty subfolder = base dir
@@ -44,9 +45,6 @@ def generate_verification_failure_report(
         details = verification_result.get('details', {})
         verification_type = verification_config.get('verification_type', 'unknown')
         command = verification_config.get('command', 'unknown')
-        
-        # Get host info for URL building
-        host_info = get_host_info()
         
         # Get image paths and convert to HTTP URLs
         source_image_path = verification_config.get('source_image_path') or details.get('source_image_path')

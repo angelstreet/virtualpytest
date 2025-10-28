@@ -599,10 +599,19 @@ class VerificationExecutor:
                 try:
                     from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
                     from shared.src.lib.utils.storage_path_utils import get_capture_folder
+                    from backend_host.src.lib.utils.host_utils import get_host_instance
                     
                     # ✅ Get device folder from AV controller (same as image.py does)
                     device_folder = get_capture_folder(self.av_controller.video_capture_path)
                     print(f"[@lib:verification_executor] Device folder from AV controller: {device_folder}")
+                    
+                    # ✅ Get host info for URL building (don't use get_host_info - doesn't exist!)
+                    host = get_host_instance()
+                    host_info = {
+                        'host_name': host.host_name,
+                        'host_url': os.getenv('HOST_URL', f"http://{host.host_ip}:{host.host_port}")
+                    }
+                    print(f"[@lib:verification_executor] Host info for report: {host_info}")
                     
                     # ✅ Get source_image_path from RESULT (controller sets it), not from config (input)
                     # Controllers auto-capture screenshots if not provided, so path is in result.details
@@ -631,7 +640,8 @@ class VerificationExecutor:
                         report_path = generate_verification_failure_report(
                             verification_config=verification_config_with_path,
                             verification_result=flattened_result,  # ✅ Use flattened_result with correct field mapping
-                            device_folder=device_folder
+                            device_folder=device_folder,
+                            host_info=host_info  # ✅ Pass host_info for URL building
                         )
                         if report_path:
                             print(f"[@lib:verification_executor] " + "-" * 80)
