@@ -1140,8 +1140,42 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               setParentChain(newChain);
             }
             
-            // NOTE: Cache updates are handled by /server/navigation/cache/update-node
-            // which is called separately after node save. No need for additional cache clear.
+            // ✅ UPDATE CACHE: Call server to update node cache on all hosts
+            try {
+              const nodeDataForCache = {
+                id: updatedNodeData.id,
+                node_id: updatedNodeData.id,
+                label: updatedNodeData.data.label,
+                node_type: updatedNodeData.type,
+                description: updatedNodeData.data.description,
+                screenshot: updatedNodeData.data.screenshot,
+                verifications: updatedNodeData.data.verifications,
+                position_x: currentPosition.x,
+                position_y: currentPosition.y,
+              };
+              
+              console.log('[@NavigationContext:saveNode] 🔄 Updating cache on all hosts...');
+              console.log('[@NavigationContext:saveNode]   → Tree ID:', targetTreeId);
+              console.log('[@NavigationContext:saveNode]   → Node ID:', updatedNodeData.id);
+              
+              const cacheResponse = await fetch(buildServerUrl(`/server/navigation/cache/update-node`), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  node: nodeDataForCache,
+                  tree_id: targetTreeId
+                })
+              });
+              
+              if (cacheResponse.ok) {
+                const cacheResult = await cacheResponse.json();
+                console.log('[@NavigationContext:saveNode] ✅ Cache updated:', cacheResult.summary);
+              } else {
+                console.warn('[@NavigationContext:saveNode] ⚠️ Cache update failed (non-critical):', cacheResponse.statusText);
+              }
+            } catch (cacheError) {
+              console.warn('[@NavigationContext:saveNode] ⚠️ Cache update error (non-critical):', cacheError);
+            }
            }
 
           setIsNodeDialogOpen(false);
@@ -1317,8 +1351,40 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               }
              }
 
-                          // NOTE: Cache updates are handled by /server/navigation/cache/update-edge
-              // which is called in useEdgeEdit.ts after edge save. No need for additional cache clear.
+                          // ✅ UPDATE CACHE: Call server to update edge cache on all hosts
+              try {
+                const edgeDataForCache = {
+                  id: updatedEdge.id,
+                  edge_id: updatedEdge.id,
+                  source_node_id: updatedEdge.source,
+                  target_node_id: updatedEdge.target,
+                  action_sets: updatedEdge.data.action_sets,
+                  default_action_set_id: updatedEdge.data.default_action_set_id,
+                  final_wait_time: updatedEdge.data.final_wait_time,
+                };
+                
+                console.log('[@NavigationContext:saveEdge] 🔄 Updating cache on all hosts...');
+                console.log('[@NavigationContext:saveEdge]   → Tree ID:', navigationConfig.actualTreeId);
+                console.log('[@NavigationContext:saveEdge]   → Edge ID:', updatedEdge.id);
+                
+                const cacheResponse = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    edge: edgeDataForCache,
+                    tree_id: navigationConfig.actualTreeId
+                  })
+                });
+                
+                if (cacheResponse.ok) {
+                  const cacheResult = await cacheResponse.json();
+                  console.log('[@NavigationContext:saveEdge] ✅ Cache updated:', cacheResult.summary);
+                } else {
+                  console.warn('[@NavigationContext:saveEdge] ⚠️ Cache update failed (non-critical):', cacheResponse.statusText);
+                }
+              } catch (cacheError) {
+                console.warn('[@NavigationContext:saveEdge] ⚠️ Cache update error (non-critical):', cacheError);
+              }
            }
 
            setIsEdgeDialogOpen(false);
