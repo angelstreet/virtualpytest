@@ -315,9 +315,15 @@ def update_edge_in_cache():
                     {'team_id': team_id}
                 )
                 
+                # Debug: Log what we got back
+                print(f"  [DEBUG] {host_name} response: result={result}, status={status_code}")
+                
                 if result:
                     cache_exists = result.get('cache_exists', False)
                     success = result.get('success', False)
+                    message = result.get('message', '')
+                    
+                    print(f"  [DEBUG] {host_name} parsed: success={success}, cache_exists={cache_exists}, message={message}")
                     
                     if success and cache_exists:
                         print(f"  ✅ {host_name}: Cache updated")
@@ -327,14 +333,14 @@ def update_edge_in_cache():
                         print(f"  ℹ️  {host_name}: No cache (skipped - will rebuild on next take-control)")
                         skip_count += 1
                     else:
-                        print(f"  ⚠️  {host_name}: Update failed - {result.get('message', 'unknown error')}")
+                        print(f"  ⚠️  {host_name}: Update failed - {message or 'unknown error'}")
                         error_count += 1
                     
                     results.append({
                         'host': host_name,
                         'success': success,
                         'cache_exists': cache_exists,
-                        'message': result.get('message', '')
+                        'message': message
                     })
                 else:
                     print(f"  ❌ {host_name}: No response (status: {status_code})")

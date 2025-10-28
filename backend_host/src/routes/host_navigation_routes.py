@@ -259,18 +259,37 @@ def update_edge_in_cache():
                 'error': 'edge must have id, source_node_id, and target_node_id'
             }), 400
         
-        print(f"[@route:host_navigation:update_edge_in_cache] Updating edge {edge_id} in cache for tree {tree_id}")
+        print(f"[@route:host_navigation:update_edge_in_cache] 🔧 Update Request:")
+        print(f"  → Edge ID: {edge_id}")
+        print(f"  → Tree ID: {tree_id}")
+        print(f"  → Team ID: {team_id}")
+        print(f"  → Source: {source_node} → Target: {target_node}")
         
         # Get the cached graph
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
+        
+        # DEBUG: Show what caches exist
+        available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
+        print(f"  → Available caches for team {team_id}: {available_caches}")
+        
+        # Try to get cache for this tree
+        cache_key = f"unified_{tree_id}_{team_id}"
+        print(f"  → Looking for cache: {cache_key}")
+        
         cached_graph = get_cached_unified_graph(tree_id, team_id)
         
         if not cached_graph:
-            print(f"[@route:host_navigation:update_edge_in_cache] No cache found - edge update skipped (will be loaded on next navigation)")
+            print(f"  ⚠️  No cache found for tree {tree_id}")
+            print(f"  💡 Cache is only created when taking control of a device")
+            print(f"  💡 If editing nested tree, cache may be under ROOT tree ID")
             return jsonify({
                 'success': True,
-                'message': 'No cache exists - update skipped',
-                'cache_exists': False
+                'message': f'No cache for tree {tree_id} - update skipped (will rebuild on next take-control)',
+                'cache_exists': False,
+                'debug': {
+                    'requested_cache': cache_key,
+                    'available_caches': available_caches
+                }
             })
         
         # Update edge in graph - COMPLETELY REPLACE attributes (not shallow merge)
@@ -345,18 +364,36 @@ def update_node_in_cache():
                 'error': 'node must have id'
             }), 400
         
-        print(f"[@route:host_navigation:update_node_in_cache] Updating node {node_id} in cache for tree {tree_id}")
+        print(f"[@route:host_navigation:update_node_in_cache] 🔧 Update Request:")
+        print(f"  → Node ID: {node_id}")
+        print(f"  → Tree ID: {tree_id}")
+        print(f"  → Team ID: {team_id}")
         
         # Get the cached graph
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache
+        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
+        
+        # DEBUG: Show what caches exist
+        available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
+        print(f"  → Available caches for team {team_id}: {available_caches}")
+        
+        # Try to get cache for this tree
+        cache_key = f"unified_{tree_id}_{team_id}"
+        print(f"  → Looking for cache: {cache_key}")
+        
         cached_graph = get_cached_unified_graph(tree_id, team_id)
         
         if not cached_graph:
-            print(f"[@route:host_navigation:update_node_in_cache] No cache found - node update skipped (will be loaded on next navigation)")
+            print(f"  ⚠️  No cache found for tree {tree_id}")
+            print(f"  💡 Cache is only created when taking control of a device")
+            print(f"  💡 If editing nested tree, cache may be under ROOT tree ID")
             return jsonify({
                 'success': True,
-                'message': 'No cache exists - update skipped',
-                'cache_exists': False
+                'message': f'No cache for tree {tree_id} - update skipped (will rebuild on next take-control)',
+                'cache_exists': False,
+                'debug': {
+                    'requested_cache': cache_key,
+                    'available_caches': available_caches
+                }
             })
         
         # Update node in graph
