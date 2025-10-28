@@ -570,6 +570,31 @@ class VerificationExecutor:
             if hasattr(controller, '_current_context'):
                 delattr(controller, '_current_context')
             
+            # Generate debug report for failures (only for image/text verifications with images)
+            if not flattened_result.get('success') and verification_type in ['image', 'text']:
+                try:
+                    from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
+                    from shared.src.lib.utils.storage_path_utils import get_capture_folder
+                    
+                    # Get device folder from capture path
+                    source_path = verification_config.get('source_image_path')
+                    if source_path:
+                        device_folder = get_capture_folder(source_path)
+                        if device_folder:
+                            report = generate_verification_failure_report(
+                                verification_config=verification_config,
+                                verification_result=verification_result,
+                                device_folder=device_folder,
+                                host_ip=self.device.host_ip if hasattr(self.device, 'host_ip') else None
+                            )
+                            if report:
+                                local_path, http_url = report
+                                print(f"[@lib:verification_executor] ❌ Verification FAILED: {verification.get('command')}")
+                                print(f"[@lib:verification_executor] 🔍 DEBUG REPORT: {http_url}")
+                except Exception as report_error:
+                    # Don't let report generation break verification execution
+                    print(f"[@lib:verification_executor] Warning: Failed to generate debug report: {report_error}")
+            
             return flattened_result
             
         except Exception as e:
