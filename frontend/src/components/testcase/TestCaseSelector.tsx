@@ -52,28 +52,43 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
 
+  // Ref to prevent duplicate API calls in React Strict Mode
+  const isLoadingRef = React.useRef(false);
+
   // Load test cases on mount
   useEffect(() => {
+    // Prevent duplicate calls in React Strict Mode
+    if (isLoadingRef.current) {
+      console.log('[@TestCaseSelector] Load already in progress, skipping duplicate call');
+      return;
+    }
+    
     console.log('[@TestCaseSelector] Loading test cases...');
     loadTestCases();
   }, []);
 
   const loadTestCases = async () => {
+    // Prevent concurrent calls
+    if (isLoadingRef.current) {
+      return;
+    }
+    
+    isLoadingRef.current = true;
+    
     try {
       setLoading(true);
       setError(null);
 
-      const teamId = localStorage.getItem('team_id') || '';
-      
+      // Note: buildServerUrl automatically adds team_id parameter
       // Load test cases
       const testCasesResponse = await fetch(
-        buildServerUrl(`/server/testcase/list?team_id=${teamId}`)
+        buildServerUrl('/server/testcase/list')
       );
       const testCasesData = await testCasesResponse.json();
 
       // Load folders and tags
       const foldersTagsResponse = await fetch(
-        buildServerUrl(`/server/testcase/folders-tags?team_id=${teamId}`)
+        buildServerUrl('/server/testcase/folders-tags')
       );
       const foldersTagsData = await foldersTagsResponse.json();
 
@@ -93,6 +108,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       setError(err instanceof Error ? err.message : 'Failed to load test cases');
     } finally {
       setLoading(false);
+      isLoadingRef.current = false;
     }
   };
 
