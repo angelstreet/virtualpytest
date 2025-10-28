@@ -132,8 +132,12 @@ export const getLowConfidenceItems = (
   }
   
   // Process edges
-  for (const [edgeId, metrics] of edgeMetrics.entries()) {
+  for (const [edgeKey, metrics] of edgeMetrics.entries()) {
     if (metrics.confidence < threshold) {
+      // Extract edge_id from compound key (format: edge_id#action_set_id)
+      const edgeId = edgeKey.includes('#') ? edgeKey.split('#')[0] : edgeKey;
+      const actionSetId = edgeKey.includes('#') ? edgeKey.split('#')[1] : null;
+      
       const edge = edges.find(e => e.id === edgeId);
       if (edge) {
         // Create edge label from source/target node labels
@@ -142,10 +146,13 @@ export const getLowConfidenceItems = (
         const edgeLabel = edge.label || 
           `${sourceNode?.data.label || 'Unknown'} → ${targetNode?.data.label || 'Unknown'}`;
         
+        // Add direction indicator if this is a directional metric
+        const fullLabel = actionSetId ? `${edgeLabel} [${actionSetId}]` : edgeLabel;
+        
         lowConfidenceEdges.push({
-          id: edgeId,
+          id: edgeKey, // Keep the full compound key for uniqueness
           type: 'edge',
-          label: edgeLabel,
+          label: fullLabel,
           confidence: metrics.confidence,
           confidence_percentage: `${(metrics.confidence * 100).toFixed(1)}%`,
           volume: metrics.volume,

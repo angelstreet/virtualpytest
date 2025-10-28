@@ -184,7 +184,21 @@ def update_edge_in_cache(root_tree_id: str, team_id: str, edge_data: Dict) -> bo
         
         # Save updated graph back to cache
         save_unified_cache(root_tree_id, team_id, graph)
-        print(f"[@navigation:cache:update_edge_in_cache] ✅ Updated edge {source_id} → {target_id}")
+        
+        # Clear, identifiable log
+        print(f"\n{'='*80}")
+        print(f"[@navigation:cache:update_edge_in_cache] ✅ INCREMENTAL UPDATE: Edge {edge_data.get('edge_id')}")
+        print(f"  → Cache key: unified_{root_tree_id}_{team_id}")
+        print(f"  → Route: {source_id} → {target_id}")
+        print(f"  → Label: {edge_data.get('label', 'N/A')}")
+        action_sets = edge_data.get('action_sets', [])
+        if action_sets:
+            print(f"  → Action sets updated: {len(action_sets)} sets")
+            for idx, action_set in enumerate(action_sets[:2]):  # Show first 2
+                direction = action_set.get('direction', 'forward')
+                actions_count = len(action_set.get('actions', []))
+                print(f"     [{idx+1}] {direction}: {actions_count} actions")
+        print(f"{'='*80}\n")
         return True
         
     except Exception as e:
@@ -268,7 +282,21 @@ def update_node_in_cache(root_tree_id: str, team_id: str, node_data: Dict) -> bo
         graph.add_node(node_id, **existing_attrs)
         
         save_unified_cache(root_tree_id, team_id, graph)
-        print(f"[@navigation:cache:update_node_in_cache] ✅ Updated node {node_id} (verifications: {len(node_data.get('verifications', []))})")
+        
+        # Clear, identifiable log
+        print(f"\n{'='*80}")
+        print(f"[@navigation:cache:update_node_in_cache] ✅ INCREMENTAL UPDATE: Node {node_id}")
+        print(f"  → Cache key: unified_{root_tree_id}_{team_id}")
+        print(f"  → Label: {existing_attrs.get('label')}")
+        if 'verifications' in node_data:
+            print(f"  → Verifications updated: {len(node_data.get('verifications', []))} verifications")
+            for idx, v in enumerate(node_data.get('verifications', [])[:3]):  # Show first 3
+                v_type = v.get('verification_type', 'unknown')
+                params = v.get('params', {})
+                threshold = params.get('threshold', 'N/A')
+                ref_name = params.get('reference_name', 'N/A')
+                print(f"     [{idx+1}] {v_type}: {ref_name} (threshold: {threshold})")
+        print(f"{'='*80}\n")
         return True
         
     except Exception as e:
