@@ -634,19 +634,17 @@ class VerificationExecutor:
                             verification_config_with_path = {**verification_config, 'source_image_path': source_path}
                             
                             # CRITICAL: Pass flattened_result (has correct field mapping) not verification_result (raw)
-                            report = generate_verification_failure_report(
+                            report_path = generate_verification_failure_report(
                                 verification_config=verification_config_with_path,
                                 verification_result=flattened_result,  # ✅ Use flattened_result with correct field mapping
                                 device_folder=device_folder
                             )
-                            if report:
-                                local_path, http_url = report
+                            if report_path:
                                 print(f"[@lib:verification_executor] " + "-" * 80)
-                                print(f"[@lib:verification_executor] 🔍 DEBUG REPORT: {http_url}")
+                                print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (local): {report_path}")
                                 print(f"[@lib:verification_executor] " + "-" * 80)
-                                # ✅ ADD REPORT URL TO RESULT for frontend display
-                                flattened_result['debug_report_url'] = http_url
-                                flattened_result['debug_report_path'] = local_path
+                                # ✅ ADD REPORT PATH TO RESULT for frontend to convert to URL
+                                flattened_result['debug_report_path'] = report_path
                             else:
                                 print(f"[@lib:verification_executor] ⚠️ Report generation returned None")
                         else:

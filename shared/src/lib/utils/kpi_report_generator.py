@@ -370,7 +370,8 @@ def generate_kpi_failure_report(
         working_dir: Working directory containing copied images (may not exist if early failure)
         
     Returns:
-        Local file path to failure report, or None if failed
+        Local path to report HTML file, or None if generation failed.
+        Frontend will convert local path to HTTP URL using buildHostImageUrl().
     """
     try:
         from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
@@ -470,14 +471,8 @@ def generate_kpi_failure_report(
         
         logger.info(f"✅ Failure report generated: {report_path}")
         
-        # Build HTTP URL using centralized utility (no hardcoding!)
-        from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-        from backend_host.src.lib.utils.host_utils import get_host_info
-        
-        host_info = get_host_info()
-        http_url = buildHostImageUrl(host_info, report_path)
-        
-        return (report_path, http_url)
+        # Return local path only - frontend will convert to HTTP URL
+        return report_path
         
     except Exception as e:
         logger.error(f"❌ Failed to generate failure report: {e}")

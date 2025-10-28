@@ -213,10 +213,9 @@ class KPIExecutorService:
                 
                 # Generate local failure report for debugging
                 from shared.src.lib.utils.kpi_report_generator import generate_kpi_failure_report
-                failure_result = generate_kpi_failure_report(request, match_result, working_dir)
-                if failure_result:
-                    local_path, http_url = failure_result
-                    logger.error(f"🔍 DEBUG REPORT: {http_url}")
+                report_path = generate_kpi_failure_report(request, match_result, working_dir)
+                if report_path:
+                    logger.error(f"🔍 DEBUG REPORT (local): {report_path}")
                 
                 self._update_result(request.execution_result_id, request.team_id, False, None, match_result['error'])
             

@@ -9,7 +9,7 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
   props,
 ) => {
   const { id, source, target, sourceX, sourceY, targetX, targetY, selected, data } = props;
-  const { getNodes } = useReactFlow();
+  const { getNodes, getEdges } = useReactFlow();
 
   // Get metrics for this edge
   const metricsHook = useMetrics();
@@ -19,8 +19,32 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
   const { getEdgeColors } = useValidationColors([]);
   let edgeColors = getEdgeColors(id, edgeMetrics);
 
-  // 🎨 OVERRIDE: Conditional edges AND primary conditional edges are always BLUE
-  if (data?.is_conditional || data?.is_conditional_primary) {
+  // 🎨 AUTOMATIC CONDITIONAL EDGE DETECTION
+  // Check if this edge's action set is shared by multiple edges from the same source
+  const defaultActionSetId = data?.default_action_set_id;
+  let isConditionalEdge = data?.is_conditional || data?.is_conditional_primary || false;
+  
+  if (!isConditionalEdge && defaultActionSetId) {
+    // Auto-detect: count how many edges from the same source use this action_set_id
+    const edges = getEdges();
+    let shareCount = 0;
+    
+    edges.forEach((edge: any) => {
+      // Only count edges from the SAME SOURCE node
+      if (edge.source === source) {
+        const edgeActionSetId = edge.data?.default_action_set_id;
+        if (edgeActionSetId === defaultActionSetId) {
+          shareCount++;
+        }
+      }
+    });
+    
+    // If multiple edges from same source share this action_set_id, it's conditional
+    isConditionalEdge = shareCount > 1;
+  }
+
+  // 🎨 OVERRIDE: Conditional edges are always BLUE
+  if (isConditionalEdge) {
     edgeColors = {
       stroke: '#2196f3',
       strokeWidth: 3,

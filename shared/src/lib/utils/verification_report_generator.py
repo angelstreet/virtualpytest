@@ -11,7 +11,7 @@ import os
 import json
 import time
 import shutil
-from typing import Dict, Optional, Tuple
+from typing import Dict, Optional
 from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_capture_folder
 
 
@@ -19,7 +19,7 @@ def generate_verification_failure_report(
     verification_config: Dict,
     verification_result: Dict,
     device_folder: str
-) -> Optional[Tuple[str, str]]:
+) -> Optional[str]:
     """
     Generate HTML report for verification failure with images and processing details.
     
@@ -29,13 +29,13 @@ def generate_verification_failure_report(
         device_folder: Device folder name (e.g., 'capture1')
         
     Returns:
-        Tuple of (local_report_path, http_url) or None if generation failed
+        Local path to report HTML file, or None if generation failed.
+        Frontend will convert local path to HTTP URL using buildHostImageUrl().
         
     Example:
-        report = generate_verification_failure_report(config, result, 'capture1')
-        if report:
-            local_path, http_url = report
-            logger.error(f"🔍 DEBUG REPORT: {http_url}")
+        report_path = generate_verification_failure_report(config, result, 'capture1')
+        if report_path:
+            logger.error(f"🔍 DEBUG REPORT (local): {report_path}")
     """
     try:
         # Get verification failures directory (COLD storage)
@@ -92,14 +92,8 @@ def generate_verification_failure_report(
         with open(html_path, 'w') as f:
             f.write(html_content)
         
-        # Build HTTP URL using centralized function (same pattern as KPI failure report)
-        from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-        from backend_host.src.lib.utils.host_utils import get_host_info
-        
-        host_info = get_host_info()
-        http_url = buildHostImageUrl(host_info, html_path)
-        
-        return (html_path, http_url)
+        # Return local path only - frontend will convert to HTTP URL
+        return html_path
         
     except Exception as e:
         print(f"❌ Failed to generate verification failure report: {e}")
