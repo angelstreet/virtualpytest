@@ -121,7 +121,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   }, [startTime, isExecuting]);
 
   // Calculate progress
-  const total = blockStates.size;
+  const total = nodes.length; // Use total nodes, not just blocks in execution state
   const completed = Array.from(blockStates.values()).filter(
     s => ['success', 'failure', 'error'].includes(s.status)
   ).length;
