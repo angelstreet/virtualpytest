@@ -91,27 +91,25 @@ def take_control():
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
                         # Populate navigation cache for the controlled device (if tree_id provided)
-                        # Run in background thread to avoid blocking takeControl response (was 5.78s!)
+                        # SYNCHRONOUS - blocks until cache is ready to prevent "cache not ready" errors
                         tree_id = data.get('tree_id')
                         team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
                         if tree_id and team_id:
-                            import threading
+                            print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
                             
-                            def populate_cache_async():
-                                """Background task to populate navigation cache"""
-                                try:
-                                    print(f"🗺️ [CONTROL:ASYNC] Populating navigation cache for tree: {tree_id}")
-                                    cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-                                    if cache_success:
-                                        print(f"✅ [CONTROL:ASYNC] Navigation cache populated successfully")
-                                    else:
-                                        print(f"⚠️ [CONTROL:ASYNC] Navigation cache population failed (non-critical)")
-                                except Exception as cache_error:
-                                    print(f"⚠️ [CONTROL:ASYNC] Navigation cache population error: {cache_error}")
+                            cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
                             
-                            # Start cache population in background (non-blocking)
-                            threading.Thread(target=populate_cache_async, daemon=True).start()
-                            print(f"🗺️ [CONTROL] Navigation cache population started in background")
+                            if not cache_success:
+                                # Cache population failed - unlock device and fail takeControl
+                                print(f"❌ [CONTROL] Navigation cache population FAILED for tree: {tree_id}")
+                                unlock_device(host_name, session_id)
+                                return jsonify({
+                                    'success': False,
+                                    'error': f'Failed to populate navigation cache for tree {tree_id}. Check server logs for details.',
+                                    'errorType': 'cache_error'
+                                }), 500
+                            
+                            print(f"✅ [CONTROL] Navigation cache populated successfully")
                         
                         return jsonify({
                             'success': True,
@@ -119,7 +117,8 @@ def take_control():
                             'session_id': session_id,
                             'host_name': host_name,
                             'device_id': device_id,
-                            'host_result': result
+                            'host_result': result,
+                            'cache_ready': True
                         })
                     else:
                         # Host rejected control - unlock and return error
