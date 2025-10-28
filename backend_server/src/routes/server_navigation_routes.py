@@ -292,10 +292,11 @@ def update_edge_in_cache():
         from backend_server.src.lib.utils.route_utils import proxy_to_host_direct
         
         host_manager = get_host_manager()
-        hosts = host_manager.get_all_hosts()
+        all_hosts_dict = host_manager.get_all_hosts()  # Returns dict: {host_name: host_info}
         
-        # Handle both list of dicts and list of strings
-        host_names = [h.get('host_name') if isinstance(h, dict) else h for h in hosts]
+        # Convert dict to list of host_info dicts
+        hosts = list(all_hosts_dict.values())
+        host_names = [h.get('host_name') for h in hosts]
         print(f"  → Updating on {len(hosts)} host(s): {host_names}")
         
         results = []
@@ -304,11 +305,11 @@ def update_edge_in_cache():
         skip_count = 0
         error_count = 0
         
-        for host in hosts:
-            host_name = host.get('host_name') if isinstance(host, dict) else host
+        for host_info in hosts:
+            host_name = host_info.get('host_name')
             try:
                 result, status_code = proxy_to_host_direct(
-                    host,
+                    host_info,  # Pass full host dict, not just string
                     f'/host/navigation/cache/update-edge',
                     'POST',
                     {'edge': edge_data, 'tree_id': tree_id},
@@ -404,38 +405,93 @@ def update_node_in_cache():
                 'error': 'node, tree_id, and team_id are required'
             }), 400
         
-        print(f"[@route:server_navigation:update_node_in_cache] Updating node {node_data.get('id')} on all hosts")
+        node_id = node_data.get('id')
+        print(f"\n{'='*80}")
+        print(f"[@route:server_navigation:update_node_in_cache] 🔄 CACHE UPDATE REQUEST")
+        print(f"  → Node ID: {node_id}")
+        print(f"  → Tree ID: {tree_id}")
+        print(f"  → Team ID: {team_id}")
         
         # Get all hosts and update node on each
         from backend_server.src.lib.utils.server_utils import get_host_manager
         from backend_server.src.lib.utils.route_utils import proxy_to_host_direct
         
         host_manager = get_host_manager()
-        hosts = host_manager.get_all_hosts()
+        all_hosts_dict = host_manager.get_all_hosts()  # Returns dict: {host_name: host_info}
+        
+        # Convert dict to list of host_info dicts
+        hosts = list(all_hosts_dict.values())
+        host_names = [h.get('host_name') for h in hosts]
+        print(f"  → Updating on {len(hosts)} host(s): {host_names}")
         
         results = []
-        for host in hosts:
+        success_count = 0
+        cache_exists_count = 0
+        skip_count = 0
+        error_count = 0
+        
+        for host_info in hosts:
+            host_name = host_info.get('host_name')
             try:
-                result, _ = proxy_to_host_direct(
-                    host,
+                result, status_code = proxy_to_host_direct(
+                    host_info,  # Pass full host dict, not just string
                     f'/host/navigation/cache/update-node',
                     'POST',
                     {'node': node_data, 'tree_id': tree_id},
                     {'team_id': team_id}
                 )
-                results.append({
-                    'host': host.get('host_name'),
-                    'success': result.get('success', False) if result else False,
-                    'cache_exists': result.get('cache_exists', False) if result else False
-                })
-                print(f"[@route:server_navigation:update_node_in_cache] Node updated on {host.get('host_name')}")
+                
+                # Debug: Log what we got back
+                print(f"  [DEBUG] {host_name} response: result={result}, status={status_code}")
+                
+                if result:
+                    cache_exists = result.get('cache_exists', False)
+                    success = result.get('success', False)
+                    message = result.get('message', '')
+                    
+                    print(f"  [DEBUG] {host_name} parsed: success={success}, cache_exists={cache_exists}, message={message}")
+                    
+                    if success and cache_exists:
+                        print(f"  ✅ {host_name}: Cache updated")
+                        success_count += 1
+                        cache_exists_count += 1
+                    elif success and not cache_exists:
+                        print(f"  ℹ️  {host_name}: No cache (skipped - will rebuild on next take-control)")
+                        skip_count += 1
+                    else:
+                        print(f"  ⚠️  {host_name}: Update failed - {message or 'unknown error'}")
+                        error_count += 1
+                    
+                    results.append({
+                        'host': host_name,
+                        'success': success,
+                        'cache_exists': cache_exists,
+                        'message': message
+                    })
+                else:
+                    print(f"  ❌ {host_name}: No response (status: {status_code})")
+                    error_count += 1
+                    results.append({
+                        'host': host_name,
+                        'success': False,
+                        'error': f'No response (HTTP {status_code})'
+                    })
+                    
             except Exception as e:
-                print(f"[@route:server_navigation:update_node_in_cache] Failed for {host.get('host_name')}: {e}")
+                print(f"  ❌ {host_name}: Exception - {str(e)}")
+                error_count += 1
                 results.append({
-                    'host': host.get('host_name'),
+                    'host': host_name,
                     'success': False,
                     'error': str(e)
                 })
+        
+        print(f"\n📊 CACHE UPDATE SUMMARY:")
+        print(f"  → Total hosts: {len(hosts)}")
+        print(f"  → Successfully updated: {success_count}")
+        print(f"  → Skipped (no cache): {skip_count}")
+        print(f"  → Errors: {error_count}")
+        print(f"{'='*80}\n")
         
         return jsonify({
             'success': True,
