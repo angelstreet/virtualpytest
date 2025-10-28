@@ -140,12 +140,21 @@ def _generate_html_report(
     details_html = '<h3>Processing Details</h3><ul>'
     
     if verification_type == 'image':
-        threshold = processing_info.get('threshold', 0.8)
-        matching_score = processing_info.get('matching_score', 0.0)
+        threshold = processing_info.get('threshold')
+        matching_score = processing_info.get('matching_score')
         match_symbol = '✅' if success else '❌'
         
-        details_html += f'<li><b>Threshold:</b> {threshold:.2f} (required)</li>'
-        details_html += f'<li><b>Match Score:</b> {matching_score:.2f} (found) {match_symbol}</li>'
+        # Handle None values gracefully
+        if threshold is not None:
+            details_html += f'<li><b>Threshold:</b> {threshold:.2f} (required)</li>'
+        else:
+            details_html += f'<li><b>Threshold:</b> N/A (required)</li>'
+        
+        if matching_score is not None:
+            details_html += f'<li><b>Match Score:</b> {matching_score:.2f} (found) {match_symbol}</li>'
+        else:
+            details_html += f'<li><b>Match Score:</b> N/A (found) {match_symbol}</li>'
+        
         details_html += f'<li><b>Image Filter:</b> {processing_info.get("image_filter", "none")}</li>'
         
         params = verification_config.get('params', {})
@@ -159,12 +168,21 @@ def _generate_html_report(
         details_html += f'<li><b>Searched Text:</b> "{searched_text}"</li>'
         details_html += f'<li><b>Extracted Text:</b> "{extracted_text}"</li>'
         details_html += f'<li><b>Detected Language:</b> {processing_info.get("detected_language", "unknown")}</li>'
-        details_html += f'<li><b>Language Confidence:</b> {processing_info.get("language_confidence", 0):.2f}</li>'
+        
+        # Handle None confidence
+        lang_confidence = processing_info.get("language_confidence")
+        if lang_confidence is not None:
+            details_html += f'<li><b>Language Confidence:</b> {lang_confidence:.2f}</li>'
+        else:
+            details_html += f'<li><b>Language Confidence:</b> N/A</li>'
     
     details_html += f'<li><b>Result:</b> {"PASS ✅" if success else "FAIL ❌"}</li>'
     
     if processing_info.get('error'):
         details_html += f'<li><b>Error:</b> {processing_info["error"]}</li>'
+    
+    if processing_info.get('message'):
+        details_html += f'<li><b>Message:</b> {processing_info["message"]}</li>'
     
     details_html += '</ul>'
     

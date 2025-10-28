@@ -851,9 +851,12 @@ class NavigationExecutor:
                 
                 # Determine final error message - verification error takes precedence over action error
                 final_error = None
+                debug_report_url = None  # ✅ NEW: Track debug report URL
                 if not verification_result.get('success', True):
                     # Verification failed - use verification error
                     final_error = verification_result.get('error', 'Verification failed')
+                    # ✅ NEW: Get debug report URL if available
+                    debug_report_url = verification_result.get('debug_report_url')
                 elif not result.get('success', False):
                     # Actions failed - use action error
                     final_error = result.get('error', 'Action failed')
@@ -894,6 +897,7 @@ class NavigationExecutor:
                         'verification_results': verification_result.get('results', []),  # From verification execution
                         'verification_screenshots': verification_result.get('verification_screenshots', []),  # All verification screenshots
                         'error': final_error,  # Verification error takes precedence over action error
+                        'debug_report_url': debug_report_url,  # ✅ NEW: Include debug report URL for frontend
                         'step_category': 'navigation'
                     }
                     
@@ -1018,13 +1022,8 @@ class NavigationExecutor:
                                 else:
                                     print(f"[@navigation_executor:execute_navigation] ❌ No recovery path found from {actual_node} to {target_node_id}")
                                     # Fall through to failure handling below
-                        else:
-                            error_msg = recovery_result.get('error')
-                            if error_msg == 'No conditional siblings':
-                                print(f"[@navigation_executor:execute_navigation] ⚠️ Conditional edge recovery skipped: {error_msg}")
-                            else:
-                                print(f"[@navigation_executor:execute_navigation] ❌ Conditional edge recovery failed: {error_msg}")
-                            # Fall through to failure handling below
+                        # ✅ SIMPLIFIED: Skip logging for conditional edge recovery attempts (internal technical detail)
+                        # Don't confuse user with "no siblings found" messages
                     
                     # NAVIGATION FUNCTIONS: Stop immediately on ANY step failure (no recovery attempts)
                     print(f"🛑 [@navigation_executor:execute_navigation] STOPPING navigation - navigation functions do not recover from failures")

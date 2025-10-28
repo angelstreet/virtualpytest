@@ -288,11 +288,15 @@ class VerificationExecutor:
         
         # Extract detailed error information from failed verifications
         error_info = None
+        debug_report_url = None  # ✅ NEW: Track first debug report URL
         if not overall_success and results:
             # Get the first failed verification's message as the primary error
             for result in results:
                 if not result.get('success', False):
                     error_info = result.get('message', 'Verification failed')
+                    # ✅ NEW: Capture debug report URL from first failed verification
+                    if result.get('debug_report_url'):
+                        debug_report_url = result.get('debug_report_url')
                     break
         
         # Collect all verification evidence for KPI report
@@ -315,6 +319,9 @@ class VerificationExecutor:
         # Add error information if verifications failed
         if error_info:
             result['error'] = error_info
+            # ✅ NEW: Include debug report URL if available
+            if debug_report_url:
+                result['debug_report_url'] = debug_report_url
             
         return result
     
@@ -537,6 +544,7 @@ class VerificationExecutor:
                 'message': verification_result.get('message'),
                 'error': verification_result.get('error'),
                 'threshold': verification_result.get('threshold') or verification_result.get('confidence') or verification_result.get('userThreshold', 0.8),
+                'matching_result': verification_result.get('matching_result'),  # ✅ Add for report generator
                 'resultType': 'PASS' if verification_result.get('success', False) else 'FAIL',
                 'sourceImageUrl': verification_result.get('sourceUrl'),
                 'referenceImageUrl': verification_result.get('referenceUrl'),
@@ -581,9 +589,10 @@ class VerificationExecutor:
                     if source_path:
                         device_folder = get_capture_folder(source_path)
                         if device_folder:
+                            # CRITICAL: Pass flattened_result (has correct field mapping) not verification_result (raw)
                             report = generate_verification_failure_report(
                                 verification_config=verification_config,
-                                verification_result=verification_result,
+                                verification_result=flattened_result,  # ✅ Use flattened_result with correct field mapping
                                 device_folder=device_folder
                             )
                             if report:
@@ -592,6 +601,9 @@ class VerificationExecutor:
                                 print(f"[@lib:verification_executor] " + "-" * 80)
                                 print(f"[@lib:verification_executor] 🔍 DEBUG REPORT: {http_url}")
                                 print(f"[@lib:verification_executor] " + "-" * 80)
+                                # ✅ ADD REPORT URL TO RESULT for frontend display
+                                flattened_result['debug_report_url'] = http_url
+                                flattened_result['debug_report_path'] = local_path
                 except Exception as report_error:
                     # Don't let report generation break verification execution
                     print(f"[@lib:verification_executor] Warning: Failed to generate debug report: {report_error}")

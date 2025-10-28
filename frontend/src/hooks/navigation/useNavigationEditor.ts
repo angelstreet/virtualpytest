@@ -255,7 +255,7 @@ export const useNavigationEditor = () => {
           const siblingActionSets = firstSibling.data?.action_sets || [];
           if (siblingActionSets.length > 0) {
             conditionalActionSetId = siblingActionSets[0].id;
-            // CRITICAL: Copy actions from sibling so all siblings share the SAME actions
+            // CRITICAL: Copy actions from sibling so all siblings share the SAME actions (even if empty)
             siblingActionsToShare = {
               actions: siblingActionSets[0].actions || [],
               retry_actions: siblingActionSets[0].retry_actions || [],
