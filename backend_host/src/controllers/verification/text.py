@@ -130,11 +130,14 @@ class TextVerificationController:
                     print(f"[@controller:TextVerification] Text found in {source_path}: '{extracted_text.strip()}'")
                     text_found = True
                     
-                    # Save cropped source image for UI comparison using stored device model
+                    # ALWAYS save cropped source image for debug report (same as image verification)
                     if area:
                         cropped_source_path = self._save_cropped_source_image(source_path, area, verification_index)
                         if cropped_source_path:
                             additional_data["source_image_path"] = cropped_source_path
+                    else:
+                        # No area - use original source image
+                        additional_data["source_image_path"] = source_path
                     
                     # KPI optimization: If match found in later image
                     if idx > 0:
@@ -146,11 +149,15 @@ class TextVerificationController:
                     additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
                     return True, f"Text pattern '{text}' found: '{extracted_text.strip()}'", additional_data
             
-            # If no match found, still save the best source for comparison
-            if best_source_path and area:
-                cropped_source_path = self._save_cropped_source_image(best_source_path, area, verification_index)
-                if cropped_source_path:
-                    additional_data["source_image_path"] = cropped_source_path
+            # ALWAYS save the best source for comparison (same as image verification)
+            if best_source_path:
+                if area:
+                    cropped_source_path = self._save_cropped_source_image(best_source_path, area, verification_index)
+                    if cropped_source_path:
+                        additional_data["source_image_path"] = cropped_source_path
+                else:
+                    # No area - use original source image
+                    additional_data["source_image_path"] = best_source_path
             
             # Set failure data
             additional_data["extractedText"] = closest_text  # Frontend-expected property name
@@ -171,20 +178,26 @@ class TextVerificationController:
             if self._text_matches(extracted_text, text):
                 print(f"[@controller:TextVerification] Text found in captured frame: '{extracted_text.strip()}'")
                 
-                # Save cropped source image for UI comparison using stored device model
+                # ALWAYS save source image for debug report (same as image verification)
                 if area:
                     cropped_source_path = self._save_cropped_source_image(capture_path, area, verification_index)
                     if cropped_source_path:
                         additional_data["source_image_path"] = cropped_source_path
+                else:
+                    # No area - use original source image
+                    additional_data["source_image_path"] = capture_path
                 
                 additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
                 return True, f"Text pattern '{text}' found: '{extracted_text.strip()}'", additional_data
             else:
-                # Save cropped source for comparison even on failure
+                # ALWAYS save source for comparison even on failure (same as image verification)
                 if area:
                     cropped_source_path = self._save_cropped_source_image(capture_path, area, verification_index)
                     if cropped_source_path:
                         additional_data["source_image_path"] = cropped_source_path
+                else:
+                    # No area - use original source image
+                    additional_data["source_image_path"] = capture_path
                 
                 additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
                 return False, f"Text pattern '{text}' not found", additional_data
