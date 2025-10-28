@@ -531,6 +531,10 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         if not root_tree['success']:
             raise DatabaseError(f"Failed to load root tree: {root_tree.get('error')}")
         
+        # Validate root tree structure
+        if not root_tree.get('tree'):
+            raise DatabaseError(f"Root tree {root_tree_id} has no tree metadata")
+        
         # Get all descendant trees using existing function
         descendant_trees = get_descendant_trees_data(root_tree_id, team_id)
         
@@ -543,7 +547,7 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         hierarchy_data.append({
             'tree_id': root_tree_id,
             'tree_info': {
-                'name': root_tree['tree']['name'],
+                'name': root_tree['tree'].get('name', root_tree_id),
                 'is_root_tree': True,
                 'tree_depth': 0,
                 'parent_tree_id': None,
@@ -559,10 +563,15 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
             
             nested_data = get_full_tree(nested_tree_id, team_id)
             if nested_data['success']:
+                # Validate nested tree structure
+                if not nested_data.get('tree'):
+                    print(f"[@db:navigation_trees:get_complete_tree_hierarchy] ⚠️ Skipping tree {nested_tree_id} - no tree metadata")
+                    continue
+                
                 hierarchy_data.append({
                     'tree_id': nested_tree_id,
                     'tree_info': {
-                        'name': nested_tree_info.get('tree_name', ''),
+                        'name': nested_tree_info.get('tree_name', nested_tree_id),
                         'is_root_tree': False,
                         'tree_depth': nested_tree_info.get('depth', 0),
                         'parent_tree_id': nested_tree_info.get('parent_tree_id'),
@@ -779,6 +788,11 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
         if result.data:
             # RPC returns the JSON object directly (not wrapped)
             print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+            
+            # Validate data structure
+            if not result.data.get('tree'):
+                print(f"[@db:navigation_trees:get_full_tree] ⚠️ WARNING: Tree {tree_id} has no tree metadata in materialized view")
+            
             return result.data
         else:
             print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
