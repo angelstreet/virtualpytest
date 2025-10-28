@@ -941,10 +941,13 @@ class NavigationExecutor:
                         error_msg = verification_result.get('error', 'Verification failed')
                         error_details = verification_result.get('error_details', {})
                         failure_type = "verification"
+                        # ✅ Extract debug report path if available
+                        debug_report_path = verification_result.get('debug_report_path')
                     else:
                         error_msg = result.get('error', 'Unknown error')
                         error_details = result.get('error_details', {})
                         failure_type = "action"
+                        debug_report_path = None
                     
                     print(f"[@navigation_executor:execute_navigation] NAVIGATION STEP FAILED:")
                     print(f"[@navigation_executor:execute_navigation]   Step {step_num}/{len(navigation_path)}: {from_node} → {to_node}")
@@ -1032,6 +1035,23 @@ class NavigationExecutor:
                     nav_context['current_node_navigation_success'] = False
                     
                     detailed_error_msg = f"Navigation failed at step {step_num} ({from_node} → {to_node}): {failure_type} failed - {error_msg}"
+                    
+                    # Build error details with debug report path if available
+                    build_error_details = {
+                        'step_number': step_num,
+                        'total_steps': len(navigation_path),
+                        'from_node': from_node,
+                        'to_node': to_node,
+                        'execution_time_ms': step_execution_time,
+                        'original_error': error_msg,
+                        'action_details': error_details
+                    }
+                    
+                    # ✅ Add debug report path to error details if available (frontend will convert to URL)
+                    if debug_report_path:
+                        build_error_details['debug_report_path'] = debug_report_path
+                        print(f"[@navigation_executor:execute_navigation] Including debug_report_path in error: {debug_report_path}")
+                    
                     return self._build_result(
                         False, 
                         detailed_error_msg,
@@ -1040,15 +1060,7 @@ class NavigationExecutor:
                         total_transitions=len(navigation_path),
                         actions_executed=actions_executed,
                         total_actions=total_actions,
-                        error_details={
-                            'step_number': step_num,
-                            'total_steps': len(navigation_path),
-                            'from_node': from_node,
-                            'to_node': to_node,
-                            'execution_time_ms': step_execution_time,
-                            'original_error': error_msg,
-                            'action_details': error_details
-                        }
+                        error_details=build_error_details
                     )
                 
                 transitions_executed += 1
