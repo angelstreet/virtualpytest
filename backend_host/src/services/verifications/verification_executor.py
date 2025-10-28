@@ -584,13 +584,14 @@ class VerificationExecutor:
                             report = generate_verification_failure_report(
                                 verification_config=verification_config,
                                 verification_result=verification_result,
-                                device_folder=device_folder,
-                                host_ip=self.device.host_ip if hasattr(self.device, 'host_ip') else None
+                                device_folder=device_folder
                             )
                             if report:
                                 local_path, http_url = report
                                 print(f"[@lib:verification_executor] ❌ Verification FAILED: {verification.get('command')}")
+                                print(f"[@lib:verification_executor] " + "-" * 80)
                                 print(f"[@lib:verification_executor] 🔍 DEBUG REPORT: {http_url}")
+                                print(f"[@lib:verification_executor] " + "-" * 80)
                 except Exception as report_error:
                     # Don't let report generation break verification execution
                     print(f"[@lib:verification_executor] Warning: Failed to generate debug report: {report_error}")

@@ -18,8 +18,7 @@ from shared.src.lib.utils.storage_path_utils import get_cold_storage_path, get_c
 def generate_verification_failure_report(
     verification_config: Dict,
     verification_result: Dict,
-    device_folder: str,
-    host_ip: str = None
+    device_folder: str
 ) -> Optional[Tuple[str, str]]:
     """
     Generate HTML report for verification failure with images and processing details.
@@ -28,7 +27,6 @@ def generate_verification_failure_report(
         verification_config: Verification config (command, params, type, source_image_path)
         verification_result: Verification result (success, threshold, matching_score, etc.)
         device_folder: Device folder name (e.g., 'capture1')
-        host_ip: Host IP for URL building (optional, defaults to localhost)
         
     Returns:
         Tuple of (local_report_path, http_url) or None if generation failed
@@ -94,13 +92,12 @@ def generate_verification_failure_report(
         with open(html_path, 'w') as f:
             f.write(html_content)
         
-        # Build HTTP URL (same pattern as KPI)
-        if not host_ip:
-            host_ip = 'localhost'
+        # Build HTTP URL using centralized function (same pattern as KPI failure report)
+        from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+        from backend_host.src.lib.utils.host_utils import get_host_info
         
-        # Convert local path to HTTP URL
-        http_url = report_dir.replace('/var/www/html/', f'http://{host_ip}:8083/')
-        http_url = f'{http_url}/index.html'
+        host_info = get_host_info()
+        http_url = buildHostImageUrl(host_info, html_path)
         
         return (html_path, http_url)
         

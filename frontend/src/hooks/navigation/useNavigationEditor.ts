@@ -238,6 +238,7 @@ export const useNavigationEditor = () => {
       
       let conditionalActionSetId: string | null = null;
       let siblingEdges: any[] = [];
+      let siblingActionsToShare: any = null;
       
       if (isConditionalEdge) {
         // MANUAL CONDITIONAL: Find sibling edges from same source to reuse action_set_id
@@ -249,12 +250,19 @@ export const useNavigationEditor = () => {
         );
         
         if (siblingEdges.length > 0) {
-          // Found sibling edge(s) - reuse their action_set_id for conditional grouping
+          // Found sibling edge(s) - reuse their action_set_id AND copy their actions
           const firstSibling = siblingEdges[0];
           const siblingActionSets = firstSibling.data?.action_sets || [];
           if (siblingActionSets.length > 0) {
             conditionalActionSetId = siblingActionSets[0].id;
+            // CRITICAL: Copy actions from sibling so all siblings share the SAME actions
+            siblingActionsToShare = {
+              actions: siblingActionSets[0].actions || [],
+              retry_actions: siblingActionSets[0].retry_actions || [],
+              failure_actions: siblingActionSets[0].failure_actions || [],
+            };
             console.log(`[@useNavigationEditor:onConnect] 🔗 MANUAL conditional edge - reusing action_set_id: ${conditionalActionSetId}`);
+            console.log(`[@useNavigationEditor:onConnect] 🔗 Copying ${siblingActionsToShare.actions.length} actions from sibling`);
             console.log(`[@useNavigationEditor:onConnect] 🔗 ${siblingEdges.length + 1} total edges will share this action`);
           }
         }
@@ -263,7 +271,7 @@ export const useNavigationEditor = () => {
       }
 
       // Helper function to create bidirectional edge data
-      const createEdgeData = (sourceLabel: string, targetLabel: string, conditionalSetId?: string | null) => {
+      const createEdgeData = (sourceLabel: string, targetLabel: string, conditionalSetId?: string | null, sharedActions?: any) => {
         // Clean labels for ID format
         const cleanSourceLabel = sourceLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
         const cleanTargetLabel = targetLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
@@ -277,9 +285,10 @@ export const useNavigationEditor = () => {
             {
               id: forwardActionSetId,  // ✅ Shared ID for conditional edges
               label: `${sourceLabel} → ${targetLabel}`,
-              actions: [],
-              retry_actions: [],
-              failure_actions: [],
+              // CRITICAL: Copy actions from sibling if this is a conditional edge
+              actions: sharedActions?.actions || [],
+              retry_actions: sharedActions?.retry_actions || [],
+              failure_actions: sharedActions?.failure_actions || [],
             },
             {
               id: `${cleanTargetLabel}_to_${cleanSourceLabel}`,
@@ -319,7 +328,8 @@ export const useNavigationEditor = () => {
         data: createEdgeData(
           sourceNode?.data?.label || 'unknown', 
           targetNode?.data?.label || 'unknown',
-          conditionalActionSetId
+          conditionalActionSetId,
+          siblingActionsToShare
         ),
       };
 
