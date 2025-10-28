@@ -1527,42 +1527,36 @@ class NavigationExecutor:
         """
         Queue KPI measurement for action_set.
         Writes JSON request file for standalone KPI executor service.
+        Uses data from unified graph - no database queries needed.
         """
         try:
-            # ✅ FAIL EARLY: Validate required fields (no fallbacks)
+            # ✅ Get all data from step (already from unified graph)
             target_node_id = step.get('to_node_id')
-            target_tree_id = step.get('to_tree_id')  # For fetching target node data
+            target_tree_id = step.get('to_tree_id')
             edge_id = step.get('edge_id')
-            action_set_id = step.get('action_set_id')  # NEW: Get action_set_id from step
+            action_set_id = step.get('action_set_id')
             
-            # Get edge's actual tree_id from original_edge_data (where the edge lives)
+            # Get edge's tree_id
             original_edge_data = step.get('original_edge_data', {})
-            edge_tree_id = original_edge_data.get('tree_id', target_tree_id)  # Fallback to target_tree_id if not found
+            edge_tree_id = original_edge_data.get('tree_id', target_tree_id)
             
             if not target_node_id or not target_tree_id or not edge_id or not action_set_id:
                 return
             
-            # Strip _reverse suffix if present (reverse edges have synthetic IDs in the graph)
-            # Database only stores the original edge_id
-            db_edge_id = edge_id.replace('_reverse', '') if edge_id.endswith('_reverse') else edge_id
+            # Strip _reverse suffix for display (edge_id from graph might have it)
+            display_edge_id = edge_id.replace('_reverse', '') if edge_id.endswith('_reverse') else edge_id
             
-            # Get edge data to fetch action_set KPI configuration
-            from shared.src.lib.database.navigation_trees_db import get_edge_by_id, get_node_by_id
-            edge_result = get_edge_by_id(edge_tree_id, db_edge_id, team_id)
-            
-            if not edge_result.get('success'):
-                print(f"[@navigation_executor] ❌ Failed to get edge '{edge_id}' for KPI: {edge_result.get('error', 'Unknown error')}")
-                print(f"[@navigation_executor] Edge tree_id: {edge_tree_id}, Team: {team_id}")
+            # ✅ Get action_set data directly from step (no database query!)
+            # Pathfinding already included all edge data in the step
+            action_sets = original_edge_data.get('action_sets', [])
+            if not action_sets:
+                print(f"[@navigation_executor] No action_sets in step data for edge '{display_edge_id}' - skipping KPI")
                 return
-            
-            edge_data = edge_result['edge']
-            action_sets = edge_data.get('action_sets', [])
             
             # Find the specific action_set that was executed
             action_set = next((a for a in action_sets if a.get('id') == action_set_id), None)
-            
             if not action_set:
-                print(f"[@navigation_executor] Action set '{action_set_id}' not found in edge '{edge_id}' - skipping KPI")
+                print(f"[@navigation_executor] Action set '{action_set_id}' not found in step - skipping KPI")
                 return
             
             action_set_label = action_set.get('label', action_set_id)
@@ -1578,32 +1572,32 @@ class NavigationExecutor:
                 
                 # Check for wait_time embedded in action params (e.g., press_key with wait_time)
                 if 'wait_time' in params:
-                    last_action_wait_ms = int(params['wait_time'])  # Already in milliseconds
+                    last_action_wait_ms = int(params['wait_time'])
                     print(f"[@navigation_executor:KPI] Found wait_time in action params: {last_action_wait_ms}ms")
-                # Also support dedicated wait action with duration in seconds
                 elif last_action.get('command') == 'wait' and 'duration' in params:
                     last_action_wait_ms = int(params['duration'] * 1000)
                     print(f"[@navigation_executor:KPI] Found wait action with duration: {last_action_wait_ms}ms")
-            else:
-                print(f"[@navigation_executor:KPI] No actions found in step")
             
-            # Check if action_set uses verifications of target node for KPI measurement
+            # ✅ Get KPI references directly from action_set or target node verifications
             use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)
             
             if use_verifications_for_kpi:
-                # Fetch target node's verifications
-                node_result = get_node_by_id(target_tree_id, target_node_id, team_id)
-                
-                if not node_result.get('success'):
+                # Get target node verifications from unified graph
+                if not self.unified_graph:
+                    print(f"[@navigation_executor] No unified graph loaded - cannot get node verifications for KPI")
                     return
                 
-                node_data = node_result['node']
+                if target_node_id not in self.unified_graph.nodes:
+                    print(f"[@navigation_executor] Target node {target_node_id} not in graph - cannot get verifications for KPI")
+                    return
+                
+                node_data = self.unified_graph.nodes[target_node_id]
                 kpi_references = node_data.get('verifications', [])
             else:
                 # Use action_set's kpi_references (default behavior)
                 kpi_references = action_set.get('kpi_references', [])
             
-            # Early exit if no KPI configured - single log line
+            # Early exit if no KPI configured
             if not kpi_references:
                 print(f"[@navigation_executor] No KPI configured for action_set '{action_set_label}' - skipping measurement")
                 return
