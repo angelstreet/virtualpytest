@@ -13,24 +13,27 @@ export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
   return (
     <Box
       sx={{
-        width: 48,
-        height: 48,
-        borderRadius: '50%',
-        background: actualMode === 'dark' ? '#2563eb' : '#3b82f6',
-        border: selected ? '3px solid #fbbf24' : 'none',
+        minWidth: 120,
+        minHeight: 60,
+        background: '#e3f2fd',
+        border: selected ? '3px solid #fbbf24' : '2px solid #2196f3',
+        borderRadius: 2,
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
-        boxShadow: 3,
+        fontWeight: 'bold',
+        color: '#1976d2',
+        fontSize: '1.1rem',
         cursor: 'pointer',
         opacity: dragging ? 0.5 : 1,
         transition: 'opacity 0.2s',
+        boxShadow: selected ? 4 : 2,
         '&:hover': {
-          boxShadow: 6,
+          boxShadow: 4,
         },
       }}
     >
-      <Typography color="white" fontWeight="bold" fontSize={12}>
+      <Typography variant="body1" fontWeight="bold" color="#1976d2">
         START
       </Typography>
       
@@ -56,7 +59,7 @@ export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
         position={Position.Bottom}
         id="success"
         style={{
-          background: '#3b82f6',
+          background: '#2196f3',
           width: 14,
           height: 14,
           borderRadius: '50%',
