@@ -41,6 +41,8 @@ export interface UseTestCaseBuilderPageReturn {
   userinterfaceName: string;
   setUserinterfaceName: (name: string) => void;
   navNodes: any[];
+  isLoadingTree: boolean; // NEW: Tree loading state
+  currentTreeId: string | null; // NEW: Current tree ID
   
   // Actions & Verifications
   availableActions: any;
@@ -181,6 +183,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   // ==================== INTERFACE & NAVIGATION (EARLY DECLARATION) ====================
   // Declare currentTreeId early so it can be used by device control hook
   const [currentTreeId, setCurrentTreeId] = useState<string | null>(null);
+  const [isLoadingTree, setIsLoadingTree] = useState(false);
   
   // ==================== SNACKBAR (EARLY DECLARATION) ====================
   // Declare snackbar early so it can be used in control error display
@@ -266,7 +269,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   // Load compatible interfaces
   useEffect(() => {
     const loadCompatibleInterfaces = async () => {
-      if (!selectedDeviceId || !selectedHost || !isControlActive) {
+      if (!selectedDeviceId || !selectedHost) {
         setCompatibleInterfaceNames([]);
         setUserinterfaceName('');
         return;
@@ -297,7 +300,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     };
     
     loadCompatibleInterfaces();
-  }, [selectedDeviceId, selectedHost, isControlActive, getAllUserInterfaces, userinterfaceName, setUserinterfaceName]);
+  }, [selectedDeviceId, selectedHost, getAllUserInterfaces, userinterfaceName, setUserinterfaceName]);
   
   // Load navigation tree
   useEffect(() => {
@@ -305,8 +308,11 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       if (!selectedDeviceId || !userinterfaceName) {
         setNavNodes([]);
         setCurrentTreeId(null);
+        setIsLoadingTree(false);
         return;
       }
+      
+      setIsLoadingTree(true);
       
       try {
         const userInterface = await getUserInterfaceByName(userinterfaceName);
@@ -315,22 +321,39 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
           const result = await loadTreeByUserInterface(userInterface.id);
           setUserInterfaceFromProps(userInterface);
           
+          console.log('[@useTestCaseBuilderPage] 🔍 DEBUG result structure:', {
+            result_tree_id: result?.tree?.id,
+            userInterface_root_tree: userInterface.root_tree,
+            full_result: result
+          });
+          
           const nodes = result?.tree?.metadata?.nodes || result?.nodes || [];
-          const treeId = result?.tree?.tree_id || result?.tree_id || userInterface.root_tree;
+          const treeId = result?.tree?.id || userInterface.root_tree;
           
           setNavNodes(nodes);
           setCurrentTreeId(treeId);
           
-          console.log('[@useTestCaseBuilderPage] Loaded navigation tree:', {
+          console.log('[@useTestCaseBuilderPage] ✅ Loaded navigation tree:', {
             interface: userinterfaceName,
-            treeId,
+            treeId: treeId,
             nodeCount: nodes.length
           });
+          
+          if (!treeId) {
+            console.error('[@useTestCaseBuilderPage] ❌ CRITICAL: tree_id is undefined!', {
+              userInterface,
+              result
+            });
+          } else {
+            console.log('[@useTestCaseBuilderPage] 🗺️ tree_id ready for cache building:', treeId);
+          }
         }
       } catch (error) {
-        console.error('[@useTestCaseBuilderPage] Failed to load tree:', error);
+        console.error('[@useTestCaseBuilderPage] ❌ Failed to load tree:', error);
         setNavNodes([]);
         setCurrentTreeId(null);
+      } finally {
+        setIsLoadingTree(false);
       }
     };
     
@@ -749,6 +772,8 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     userinterfaceName,
     setUserinterfaceName,
     navNodes,
+    isLoadingTree,
+    currentTreeId,
     
     // Actions & Verifications
     availableActions,

@@ -121,6 +121,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
           label={label}
           disabled
           startAdornment={<CircularProgress size={16} sx={{ mr: 1 }} />}
+          sx={sx}
         >
           <MenuItem value="">Loading...</MenuItem>
         </Select>
@@ -135,7 +136,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
     return (
       <FormControl size={size} fullWidth={fullWidth} disabled sx={sx}>
         <InputLabel error={!isWaitingForDevice}>{label}</InputLabel>
-        <Select value="" label={label} disabled>
+        <Select value="" label={label} disabled sx={sx}>
           <MenuItem value="">{error || 'No compatible interfaces'}</MenuItem>
         </Select>
       </FormControl>
@@ -149,6 +150,7 @@ export const UserinterfaceSelector: React.FC<UserinterfaceSelectorProps> = ({
         value={value || ''}
         onChange={handleChange}
         label={label}
+        sx={sx}
       >
         {interfaces.map((iface) => (
           <MenuItem key={iface.id} value={iface.name}>

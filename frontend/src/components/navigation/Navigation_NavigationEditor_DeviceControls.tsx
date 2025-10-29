@@ -22,6 +22,7 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
   isDeviceLocked,
   onDeviceSelect,
   onTakeControl,
+  disableTakeControl = false, // Optional prop to disable Take Control button
 }) => {
   // Helper function to create a unique device identifier
   const createDeviceKey = (hostName: string, deviceId: string) => `${hostName}:${deviceId}`;
@@ -158,7 +159,7 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
         variant={isControlActive ? 'contained' : 'outlined'}
         size="small"
         onClick={onTakeControl}
-        disabled={!selectedHost || !selectedDeviceId || isControlLoading || isSelectedDeviceLocked}
+        disabled={!selectedHost || !selectedDeviceId || isControlLoading || isSelectedDeviceLocked || disableTakeControl}
         startIcon={isControlLoading ? <CircularProgress size={16} /> : <TvIcon />}
         color={isControlActive ? 'success' : 'primary'}
         sx={{
@@ -172,11 +173,13 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
         title={
           isControlLoading
             ? 'Processing...'
-            : isSelectedDeviceLocked
-              ? `Device is locked by another user`
-              : isControlActive
-                ? 'Release Control'
-                : 'Take Control'
+            : disableTakeControl
+              ? 'Select a userinterface first to build navigation cache'
+              : isSelectedDeviceLocked
+                ? `Device is locked by another user`
+                : isControlActive
+                  ? 'Release Control'
+                  : 'Take Control'
         }
       >
         {isControlLoading ? 'Processing...' : isControlActive ? 'Release' : 'Control'}

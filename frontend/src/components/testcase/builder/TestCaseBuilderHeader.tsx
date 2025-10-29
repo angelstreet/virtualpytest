@@ -34,6 +34,8 @@ interface TestCaseBuilderHeaderProps {
   compatibleInterfaceNames: string[];
   userinterfaceName: string;
   setUserinterfaceName: (name: string) => void;
+  isLoadingTree: boolean; // NEW: Tree loading state
+  currentTreeId: string | null; // NEW: Current tree ID for cache building
   
   // Test Case
   testcaseName: string;
@@ -71,6 +73,8 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   compatibleInterfaceNames,
   userinterfaceName,
   setUserinterfaceName,
+  isLoadingTree,
+  currentTreeId,
   testcaseName,
   hasUnsavedChanges,
   handleNew,
@@ -206,6 +210,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
           onDeviceSelect={handleDeviceSelect as any}
           onTakeControl={handleDeviceControl as any}
           onToggleRemotePanel={handleToggleRemotePanel}
+          disableTakeControl={!userinterfaceName || isLoadingTree || !currentTreeId}
         />
       </Box>
       
@@ -218,8 +223,8 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
           label="Interface"
           size="small"
           fullWidth={false}
-          sx={{ minWidth: 180}}
-          disabled={!selectedDeviceId || !isControlActive}
+          sx={{ minWidth: 180, height: 32 }}
+          disabled={!selectedDeviceId}
         />
       </Box>
       

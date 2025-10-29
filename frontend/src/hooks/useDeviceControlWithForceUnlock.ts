@@ -68,8 +68,16 @@ export const useDeviceControlWithForceUnlock = ({
         onControlStateChange(false);
       }
     } else {
+      // ❌ FAIL FAST: Require tree_id for navigation cache building
+      if (!tree_id) {
+        const errorMsg = 'Cannot take control: Please select a userinterface first. The navigation cache requires a valid tree_id.';
+        console.error('[@useDeviceControlWithForceUnlock] ❌ Validation failed: tree_id is missing');
+        showError(errorMsg);
+        return;
+      }
+      
       // Take device control
-      console.log('[@useDeviceControlWithForceUnlock] Taking device control');
+      console.log('[@useDeviceControlWithForceUnlock] ✅ Taking device control with tree_id:', tree_id);
       const result = await handleTakeControl();
       
       // If take control succeeded
@@ -125,6 +133,7 @@ export const useDeviceControlWithForceUnlock = ({
     onControlStateChange,
     host,
     showError,
+    tree_id,
   ]);
 
   return {

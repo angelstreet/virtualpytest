@@ -62,8 +62,8 @@ import { useTestCaseBuilderPage } from '../hooks/pages/useTestCaseBuilderPage';
 // Constants
 import { TOAST_POSITION } from '../constants/toastConfig';
 
-// Node types for React Flow
-const nodeTypes = {
+// Node types for React Flow - memoized to prevent recreation warnings
+const NODE_TYPES = {
   start: StartBlock,
   success: SuccessBlock,
   failure: FailureBlock,
@@ -94,8 +94,8 @@ const nodeTypes = {
   loop: UniversalBlock,
 };
 
-// Edge types for React Flow
-const edgeTypes = {
+// Edge types for React Flow - memoized to prevent recreation warnings
+const EDGE_TYPES = {
   success: SuccessEdge,
   failure: FailureEdge,
   true: SuccessEdge,
@@ -141,6 +141,7 @@ const TestCaseBuilderContent: React.FC = () => {
     active: boolean;
     sourceBlockId: string;
     sourceHandle: string;
+    sourceType: 'input' | 'output';
   } | null>(null);
   
   // Use the consolidated hook for all business logic
@@ -224,7 +225,7 @@ const TestCaseBuilderContent: React.FC = () => {
           type: 'data',
         };
         
-        hookData.setEdges((eds) => addEdge(newEdge, eds));
+        hookData.setEdges((eds: any) => addEdge(newEdge, eds));
         setDataLinkingState(null);
       } else {
         // IN clicked when NOT in linking mode → Open dialog to set static value
@@ -342,6 +343,8 @@ const TestCaseBuilderContent: React.FC = () => {
         compatibleInterfaceNames={hookData.compatibleInterfaceNames}
         userinterfaceName={hookData.userinterfaceName}
         setUserinterfaceName={hookData.setUserinterfaceName}
+        isLoadingTree={hookData.isLoadingTree}
+        currentTreeId={hookData.currentTreeId}
         testcaseName={hookData.testcaseName}
         hasUnsavedChanges={hookData.hasUnsavedChanges}
         handleNew={hookData.handleNew}
@@ -489,8 +492,8 @@ const TestCaseBuilderContent: React.FC = () => {
             onNodeClick={onNodeClick}
             onNodeDoubleClick={onNodeDoubleClick}
             onInit={setReactFlowInstance}
-            nodeTypes={nodeTypes}
-            edgeTypes={edgeTypes}
+            nodeTypes={NODE_TYPES}
+            edgeTypes={EDGE_TYPES}
             defaultEdgeOptions={defaultEdgeOptions}
             nodesDraggable={true}
             nodesConnectable={true}

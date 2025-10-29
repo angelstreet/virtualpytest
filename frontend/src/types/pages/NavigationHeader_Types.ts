@@ -41,4 +41,5 @@ export interface NavigationEditorDeviceControlsProps {
   onDeviceSelect: (host: Host | null, deviceId: string | null) => void;
   onTakeControl: () => Promise<void>;
   onToggleRemotePanel: () => void;
+  disableTakeControl?: boolean; // Optional prop to disable Take Control button (e.g., until interface selected)
 }
