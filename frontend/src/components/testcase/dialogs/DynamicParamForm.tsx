@@ -16,8 +16,7 @@ import {
   FormControlLabel,
   Box,
   Typography,
-  Button,
-  Grid
+  Button
 } from '@mui/material';
 import { ParamDefinition, ParamType, getParamDisplayType } from '../../../types/paramTypes';
 
@@ -26,14 +25,18 @@ interface DynamicParamFormProps {
   values: Record<string, any>;
   onChange: (paramName: string, value: any) => void;
   onAreaSelect?: (paramName: string) => void;
+  layout?: 'vertical' | 'horizontal'; // NEW: Support horizontal layout for compact displays
 }
 
 export const DynamicParamForm: React.FC<DynamicParamFormProps> = ({
   params,
   values,
   onChange,
-  onAreaSelect
+  onAreaSelect,
+  layout = 'vertical' // Default to vertical layout
 }) => {
+  const isHorizontal = layout === 'horizontal';
+  
   const renderParamField = (paramName: string, param: ParamDefinition) => {
     const displayType = getParamDisplayType(param);
     const value = values[paramName] ?? param.default;
@@ -42,21 +45,28 @@ export const DynamicParamForm: React.FC<DynamicParamFormProps> = ({
       case 'text':
         return (
           <TextField
-            fullWidth
+            fullWidth={!isHorizontal}
             label={param.description}
             placeholder={param.placeholder || ''}
             value={value || ''}
             onChange={(e) => onChange(paramName, e.target.value)}
             required={param.required}
-            helperText={param.required ? 'Required' : ''}
+            helperText={isHorizontal ? '' : (param.required ? 'Required' : '')}
             size="small"
+            sx={isHorizontal ? {
+              minWidth: '120px',
+              '& .MuiInputBase-input': {
+                padding: '4px 8px',
+                fontSize: '0.8rem',
+              },
+            } : {}}
           />
         );
 
       case 'number':
         return (
           <TextField
-            fullWidth
+            fullWidth={!isHorizontal}
             type="number"
             label={param.description}
             placeholder={param.placeholder || ''}
@@ -66,19 +76,26 @@ export const DynamicParamForm: React.FC<DynamicParamFormProps> = ({
               onChange(paramName, numValue);
             }}
             required={param.required}
-            helperText={
+            helperText={isHorizontal ? '' : (
               param.required
                 ? 'Required'
                 : param.min !== undefined && param.max !== undefined
                 ? `Range: ${param.min} - ${param.max}`
                 : ''
-            }
+            )}
             inputProps={{
               min: param.min,
               max: param.max,
               step: param.type === ParamType.NUMBER && param.min !== undefined && param.min < 1 ? 0.1 : 1
             }}
             size="small"
+            sx={isHorizontal ? {
+              minWidth: '70px',
+              '& .MuiInputBase-input': {
+                padding: '4px 8px',
+                fontSize: '0.8rem',
+              },
+            } : {}}
           />
         );
 
@@ -97,13 +114,19 @@ export const DynamicParamForm: React.FC<DynamicParamFormProps> = ({
 
       case 'select':
         return (
-          <FormControl fullWidth size="small">
-            <InputLabel>{param.description}</InputLabel>
+          <FormControl fullWidth={!isHorizontal} size="small" sx={isHorizontal ? { minWidth: '120px' } : {}}>
+            <InputLabel sx={isHorizontal ? { fontSize: '0.8rem' } : {}}>{param.description}</InputLabel>
             <Select
               value={value ?? param.default ?? ''}
               onChange={(e) => onChange(paramName, e.target.value)}
               label={param.description}
               required={param.required}
+              sx={isHorizontal ? {
+                '& .MuiSelect-select': {
+                  padding: '4px 8px',
+                  fontSize: '0.8rem',
+                },
+              } : {}}
             >
               {param.options?.map((option) => (
                 <MenuItem key={option.value} value={option.value}>
@@ -171,7 +194,15 @@ export const DynamicParamForm: React.FC<DynamicParamFormProps> = ({
   };
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: isHorizontal ? 'row' : 'column', 
+      gap: isHorizontal ? 0.5 : 2,
+      alignItems: isHorizontal ? 'center' : 'stretch',
+      mb: isHorizontal ? 0 : 0,
+      px: isHorizontal ? 0 : 0,
+      mx: isHorizontal ? 0 : 0
+    }}>
       {Object.entries(params).map(([paramName, param]) => (
         <Box key={paramName}>
           {renderParamField(paramName, param)}
