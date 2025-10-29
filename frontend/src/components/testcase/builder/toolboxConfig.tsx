@@ -68,9 +68,10 @@ export const toolboxConfig: Record<string, TabConfig> = {
             defaultData: { 
               command: 'sleep', 
               action_type: 'standard_block',
-              params: { duration: 1.0 }
+              params: { duration: 1.0 },
+              hasInput: true
             },
-            description: 'Wait for specified duration'
+            description: 'Wait for specified duration (default: 1s)'
           },
           {
             type: 'custom_code',
@@ -83,7 +84,8 @@ export const toolboxConfig: Record<string, TabConfig> = {
               action_type: 'standard_block',
               params: { 
                 code: '# Write your Python code here\n# Available:\n#   - context: Execution context\n#   - device: Device instance\n'
-              }
+              },
+              hasInput: true
             },
             description: 'Execute custom Python code'
           },
@@ -93,7 +95,14 @@ export const toolboxConfig: Record<string, TabConfig> = {
             icon: <AccessTimeIcon fontSize="small" />,
             color: '#6b7280', // grey - standard operations
             outputs: ['success'],
-            description: 'Get current timestamp'
+            defaultData: { 
+              command: 'get_current_time', 
+              action_type: 'standard_block',
+              params: { format: 'formatted' },
+              hasInput: true,
+              hasOutput: true
+            },
+            description: 'Get timestamp (YYMMDD-HH:MM:SS.ms or unix)'
           },
           {
             type: 'condition',

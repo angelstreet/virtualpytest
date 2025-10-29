@@ -538,11 +538,15 @@ export const HDMIStream = React.memo(
         {isVerificationVisible && (
           <Box
             sx={{
-              position: 'fixed',
+              position: useAbsolutePositioning ? 'absolute' : 'fixed',
               zIndex: getZIndex('VERIFICATION_EDITOR'),
-              // Position right next to the main panel
-              bottom: panelLayout.collapsed.position.bottom || '20px',
-              left: `calc(${panelLayout.collapsed.position.left || '20px'} + ${getPanelWidth()})`,
+              // Position right next to the main panel - must match main panel's positioning logic
+              bottom: useAbsolutePositioning
+                ? positionBottom || '50px'
+                : panelLayout.collapsed.position.bottom || '20px',
+              left: useAbsolutePositioning
+                ? `calc(${positionLeft || '10px'} + ${getPanelWidth()})`
+                : `calc(${panelLayout.collapsed.position.left || '20px'} + ${getPanelWidth()})`,
               width: '400px', // Fixed width for verification editor
               height: getPanelHeight(),
               backgroundColor: '#1E1E1E',
