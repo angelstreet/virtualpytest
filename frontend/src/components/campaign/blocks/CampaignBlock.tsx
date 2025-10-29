@@ -217,13 +217,21 @@ export const CampaignBlock = memo(({ data, id }: NodeProps<CampaignNode['data']>
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 p: 0.5,
-                background: '#f3e5f5',
+                background: 'rgba(6, 182, 212, 0.05)',
                 borderRadius: 1,
                 cursor: 'pointer',
               }}
               onClick={() => setInputsExpanded(!inputsExpanded)}
             >
-              <Typography variant="caption" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontWeight: 600, 
+                  color: '#06b6d4',
+                  fontSize: '0.9rem',
+                  letterSpacing: '0.5px'
+                }}
+              >
                 INPUTS ({data.inputs.length})
               </Typography>
               {inputsExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -248,8 +256,8 @@ export const CampaignBlock = memo(({ data, id }: NodeProps<CampaignNode['data']>
                         alignItems: 'center',
                         gap: 0.5,
                         '&:hover': {
-                          borderColor: '#7b1fa2',
-                          background: linkedSource ? '#e8f5e9' : '#f3e5f5',
+                          borderColor: '#06b6d4',
+                          background: linkedSource ? '#e8f5e9' : 'rgba(6, 182, 212, 0.05)',
                         },
                       }}
                     >
@@ -290,13 +298,21 @@ export const CampaignBlock = memo(({ data, id }: NodeProps<CampaignNode['data']>
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 p: 0.5,
-                background: '#fff3e0',
+                background: 'rgba(249, 115, 22, 0.05)',
                 borderRadius: 1,
                 cursor: 'pointer',
               }}
               onClick={() => setOutputsExpanded(!outputsExpanded)}
             >
-              <Typography variant="caption" sx={{ fontWeight: 600, color: '#ef6c00' }}>
+              <Typography 
+                variant="caption" 
+                sx={{ 
+                  fontWeight: 600, 
+                  color: '#f97316',
+                  fontSize: '0.9rem',
+                  letterSpacing: '0.5px'
+                }}
+              >
                 OUTPUTS ({data.outputs.length})
               </Typography>
               {outputsExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
@@ -312,13 +328,14 @@ export const CampaignBlock = memo(({ data, id }: NodeProps<CampaignNode['data']>
                     draggable
                     onDragStart={(e) => handleOutputDragStart(e, output.name, output.type)}
                     sx={{
-                      background: '#ffecb3',
+                      background: '#f97316',
+                      color: 'white',
                       cursor: 'grab',
                       '&:active': {
                         cursor: 'grabbing',
                       },
                       '&:hover': {
-                        background: '#ffe082',
+                        background: '#ea580c',
                       },
                     }}
                   />

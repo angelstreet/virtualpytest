@@ -5,48 +5,103 @@
  * Allows users to create campaigns by dragging testcases and scripts onto a canvas,
  * connecting them visually, and linking data between blocks.
  * 
- * NOTE: This uses the EXACT same layout structure as TestCaseBuilder for consistency
+ * NOTE: Uses shared container components and TestCase terminal blocks for consistency
  */
 
 import React, { useCallback, DragEvent, useState } from 'react';
 import ReactFlow, {
-  Background,
-  Controls,
-  MiniMap,
-  BackgroundVariant,
+  ReactFlowProvider,
   ConnectionMode,
+  MarkerType,
 } from 'reactflow';
 import 'reactflow/dist/style.css';
+
+// Auto-layout utility
+import { getLayoutedElements } from '../components/testcase/ai/autoLayout';
+
+// Hide React Flow attribution
+const styles = `
+  .react-flow__panel.react-flow__attribution {
+    display: none !important;
+  }
+`;
 import {
   Box,
-  Button,
   Typography,
   IconButton,
 } from '@mui/material';
 import {
-  Save as SaveIcon,
-  PlayArrow as ExecuteIcon,
   ChevronLeft as ChevronLeftIcon,
-  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
+
+// Shared Container Components
+import {
+  BuilderPageLayout,
+  BuilderSidebarContainer,
+  BuilderMainContainer,
+  BuilderStatsBarContainer,
+} from '../components/common/builder';
+
+// Reuse TestCase terminal blocks and canvas for consistency
+import { StartBlock } from '../components/testcase/blocks/StartBlock';
+import { SuccessBlock } from '../components/testcase/blocks/SuccessBlock';
+import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
+import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
+import { FailureEdge } from '../components/testcase/edges/FailureEdge';
+import { TestCaseBuilderCanvas } from '../components/testcase/builder/TestCaseBuilderCanvas';
+import { TestCaseBuilderHeader } from '../components/testcase/builder/TestCaseBuilderHeader';
+
+// Campaign-specific components
 import { CampaignBuilderProvider, useCampaignBuilder } from '../contexts/campaign/CampaignBuilderContext';
 import { CampaignBlock } from '../components/campaign/blocks/CampaignBlock';
 import { CampaignToolbox } from '../components/campaign/builder/CampaignToolbox';
 import { CampaignNode, CampaignDragData } from '../types/pages/CampaignGraph_Types';
 import { useTheme } from '../contexts/ThemeContext';
 
-// Define node types for React Flow
+// Define node types for React Flow - reuse TestCase terminal blocks
 const nodeTypes = {
-  start: CampaignBlock,
-  success: CampaignBlock,
-  failure: CampaignBlock,
+  start: StartBlock,
+  success: SuccessBlock,
+  failure: FailureBlock,
   testcase: CampaignBlock,
   script: CampaignBlock,
 };
 
+// Reuse TestCase edge types for consistent styling
+const edgeTypes = {
+  success: SuccessEdge,
+  failure: FailureEdge,
+  control: SuccessEdge, // Campaign uses 'control' type for flow edges
+};
+
+// Default edge options - matching TestCaseBuilder
+const defaultEdgeOptions = {
+  type: 'success',
+  animated: false,
+  style: {
+    stroke: '#94a3b8',
+    strokeWidth: 2,
+  },
+  markerEnd: {
+    type: MarkerType.ArrowClosed,
+    width: 20,
+    height: 20,
+    color: '#94a3b8',
+  },
+};
+
 const CampaignBuilderContent: React.FC = () => {
-  const { mode } = useTheme();
-  const actualMode = mode === 'system' ? 'light' : mode;
+  // Inject styles to hide React Flow attribution
+  React.useEffect(() => {
+    const styleTag = document.createElement('style');
+    styleTag.innerHTML = styles;
+    document.head.appendChild(styleTag);
+    return () => {
+      document.head.removeChild(styleTag);
+    };
+  }, []);
+
+  const { actualMode } = useTheme();
   const {
     nodes,
     edges,
@@ -60,6 +115,91 @@ const CampaignBuilderContent: React.FC = () => {
   
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
+
+  // Handle save
+  const handleSave = async () => {
+    const success = await saveCampaign();
+    if (success) {
+      console.log('[@CampaignBuilder] Campaign saved successfully');
+    } else {
+      console.error('[@CampaignBuilder] Failed to save campaign');
+    }
+  };
+
+  // Handle execute
+  const handleExecute = () => {
+    console.log('[@CampaignBuilder] Execute campaign:', state);
+  };
+
+  // Placeholder props for header (will be fully implemented when campaign execution is added)
+  const [creationMode, setCreationMode] = useState<'visual' | 'ai'>('visual');
+  
+  // TODO: These will come from a proper hook when device control is implemented for campaigns
+  const headerProps = {
+    actualMode,
+    builderType: 'Campaign' as const,
+    creationMode,
+    setCreationMode,
+    selectedHost: null,
+    selectedDeviceId: null,
+    isControlActive: false,
+    isControlLoading: false,
+    isRemotePanelOpen: false,
+    availableHosts: [],
+    isDeviceLocked: () => false,
+    handleDeviceSelect: () => {},
+    handleDeviceControl: () => {},
+    handleToggleRemotePanel: () => {},
+    compatibleInterfaceNames: [],
+    userinterfaceName: '',
+    setUserinterfaceName: () => {},
+    isLoadingTree: false,
+    currentTreeId: null,
+    testcaseName: state.campaign_name || 'Untitled',
+    hasUnsavedChanges: false, // TODO: Track changes
+    handleNew: () => { console.log('New campaign'); },
+    handleLoadClick: async () => { console.log('Load campaign'); },
+    isLoadingTestCases: false,
+    setSaveDialogOpen: (open: boolean) => { if (open) handleSave(); },
+    handleExecute,
+    isExecuting: false, // TODO: Track execution state
+    isExecutable: nodes.length > 3,
+    onCloseProgressBar: () => {},
+    // Undo/Redo/Copy/Paste - Campaign builder will implement these
+    undo: () => { console.log('Undo - TODO: implement for campaigns'); },
+    redo: () => { console.log('Redo - TODO: implement for campaigns'); },
+    canUndo: false, // TODO: Track undo stack
+    canRedo: false, // TODO: Track redo stack
+    resetBuilder: () => { console.log('Reset - TODO: implement for campaigns'); },
+    copyBlock: () => { console.log('Copy - TODO: implement for campaigns'); },
+    pasteBlock: () => { console.log('Paste - TODO: implement for campaigns'); },
+  };
+
+  // Auto-layout handler - ALWAYS vertical (top to bottom)
+  const handleAutoLayout = useCallback(() => {
+    const { nodes: layoutedNodes } = getLayoutedElements(
+      nodes,
+      edges as any,
+      { direction: 'TB' } // Force vertical layout
+    );
+    
+    // Update nodes positions via React Flow's handlers
+    const nodeChanges = layoutedNodes.map((node) => ({
+      id: node.id,
+      type: 'position',
+      position: node.position,
+    }));
+    
+    onNodesChange(nodeChanges as any);
+    
+    // Fit view after layout with a small delay
+    if (reactFlowInstance) {
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+      }, 50);
+    }
+  }, [nodes, edges, onNodesChange, reactFlowInstance]);
 
   // Handle drop from toolbox onto canvas
   const handleDrop = useCallback((event: DragEvent<HTMLDivElement>) => {
@@ -110,190 +250,53 @@ const CampaignBuilderContent: React.FC = () => {
     event.dataTransfer.dropEffect = 'copy';
   }, []);
 
-  // Handle save
-  const handleSave = async () => {
-    const success = await saveCampaign();
-    if (success) {
-      console.log('[@CampaignBuilder] Campaign saved successfully');
-    } else {
-      console.error('[@CampaignBuilder] Failed to save campaign');
-    }
-  };
-
-  // Handle execute
-  const handleExecute = () => {
-    console.log('[@CampaignBuilder] Execute campaign:', state);
-  };
-
   return (
-    <Box sx={{ 
-      position: 'fixed',
-      top: 64,
-      left: 0,
-      right: 0,
-      bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
-      display: 'flex', 
-      flexDirection: 'column', 
-      overflow: 'hidden',
-      zIndex: 1,
-    }}>
-      {/* Header - EXACT same structure as TestCaseBuilderHeader */}
-      <Box
-        sx={{
-          px: 2,
-          py: 0,
-          borderBottom: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          background: actualMode === 'dark' ? '#111827' : '#ffffff',
-          height: '46px',
-          flexShrink: 0,
-        }}
-      >
-        {/* Title */}
-        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 260px', gap: 1 }}>
-          <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
-            Campaign Builder
-          </Typography>
-          {state.campaign_name && (
-            <>
-              <Typography variant="h6" sx={{ color: 'text.disabled' }}>
-                •
-              </Typography>
-              <Typography 
-                variant="h6" 
-                sx={{ 
-                  fontWeight: 600,
-                  color: 'primary.main',
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: 200,
-                }}
-              >
-                {state.campaign_name}
-              </Typography>
-            </>
-          )}
-        </Box>
-        
-        {/* Action Buttons */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          <Button 
-            size="small" 
-            variant="outlined" 
-            startIcon={<SaveIcon />} 
-            onClick={handleSave}
-          >
-            Save
-          </Button>
-          
-          <Button
-            size="small"
-            variant="contained"
-            startIcon={<ExecuteIcon />}
-            onClick={handleExecute}
-            disabled={nodes.length <= 3}
-          >
-            Execute
-          </Button>
-        </Box>
-      </Box>
+    <BuilderPageLayout>
+      {/* Header - Using EXACT same TestCaseBuilderHeader */}
+      <TestCaseBuilderHeader {...headerProps} />
 
-      {/* Main Container - EXACT same structure as TestCaseBuilder */}
-      <Box sx={{ 
-        flex: 1,
-        display: 'flex', 
-        overflow: 'hidden',
-        minHeight: 0,
-        position: 'relative',
-      }}>
-        {/* Sidebar - EXACT same structure as TestCaseBuilderSidebar */}
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 0,
-            top: 0,
-            bottom: 0,
-            width: isSidebarOpen ? '280px' : '0px',
-            transition: 'width 0.3s ease',
-            overflow: 'hidden',
-            borderRight: isSidebarOpen ? 1 : 0,
-            borderColor: 'divider',
-            display: 'flex',
-            flexDirection: 'column',
-            background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa',
-            zIndex: 5,
-          }}
+      {/* Main Container - Using shared container */}
+      <BuilderMainContainer>
+        {/* Sidebar - Using shared container */}
+        <BuilderSidebarContainer
+          actualMode={actualMode}
+          isOpen={isSidebarOpen}
+          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         >
-          {isSidebarOpen && (
-            <>
-              {/* Sidebar Header */}
-              <Box
-                sx={{
-                  px: 2,
-                  py: 1.5,
-                  height: '40px',
-                  borderBottom: 1,
-                  borderColor: 'divider',
-                  display: 'flex',
-                  justifyContent: 'space-between',
-                  alignItems: 'center',
-                  background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-                }}
-              >
-                <Typography variant="subtitle1" fontWeight="bold">
-                  Toolbox
-                </Typography>
-                <IconButton
-                  size="small"
-                  onClick={() => setIsSidebarOpen(false)}
-                  sx={{
-                    color: 'text.secondary',
-                    '&:hover': { color: 'primary.main' },
-                  }}
-                >
-                  <ChevronLeftIcon />
-                </IconButton>
-              </Box>
-              
-              {/* Sidebar Content */}
-              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-                <CampaignToolbox />
-              </Box>
-            </>
-          )}
-        </Box>
-        
-        {/* Toggle Button (when sidebar is closed) */}
-        {!isSidebarOpen && (
+          {/* Sidebar Header */}
           <Box
             sx={{
-              position: 'absolute',
-              left: 0,
-              top: '140px',
-              zIndex: 10,
+              px: 2,
+              py: 1.5,
+              height: '40px',
+              borderBottom: 1,
+              borderColor: 'divider',
+              display: 'flex',
+              justifyContent: 'space-between',
+              alignItems: 'center',
+              background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
             }}
           >
+            <Typography variant="subtitle1" fontWeight="bold">
+              Toolbox
+            </Typography>
             <IconButton
-              onClick={() => setIsSidebarOpen(true)}
+              size="small"
+              onClick={() => setIsSidebarOpen(false)}
               sx={{
-                borderRadius: '0 8px 8px 0',
-                background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-                border: 1,
-                borderLeft: 0,
-                borderColor: 'divider',
-                '&:hover': {
-                  background: actualMode === 'dark' ? '#334155' : '#f1f5f9',
-                },
+                color: 'text.secondary',
+                '&:hover': { color: 'primary.main' },
               }}
             >
-              <ChevronRightIcon />
+              <ChevronLeftIcon />
             </IconButton>
           </Box>
-        )}
+          
+          {/* Sidebar Content */}
+          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+            <CampaignToolbox />
+          </Box>
+        </BuilderSidebarContainer>
 
         {/* Canvas - EXACT same structure as TestCaseBuilder */}
         <Box 
@@ -308,61 +311,54 @@ const CampaignBuilderContent: React.FC = () => {
         >
           <ReactFlow
             nodes={nodes}
-            edges={edges}
+            edges={edges as any}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
             onConnect={onConnect}
+            onInit={setReactFlowInstance}
             nodeTypes={nodeTypes}
+            edgeTypes={edgeTypes}
+            defaultEdgeOptions={defaultEdgeOptions}
+            nodesDraggable={true}
+            nodesConnectable={true}
+            elementsSelectable={true}
+            panOnDrag={true}
+            zoomOnScroll={true}
+            zoomOnPinch={true}
             connectionMode={ConnectionMode.Loose}
             fitView
-            attributionPosition="bottom-left"
-            style={{ background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa' }}
           >
-            <Background 
-              variant={BackgroundVariant.Dots} 
-              gap={15} 
-              size={1}
-              color={actualMode === 'dark' ? '#334155' : '#cbd5e1'}
-            />
-            <Controls
-              showInteractive={false}
-              position="top-left"
-              style={{
-                background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-                border: `1px solid ${actualMode === 'dark' ? '#334155' : '#e2e8f0'}`,
-                borderRadius: '8px',
-                left: isSidebarOpen ? '290px' : '10px',
-                transition: 'left 0.3s ease',
-              }}
-            />
-            <MiniMap
-              nodeColor={(node) => {
-                if (node.id === 'start') return '#2196f3';
-                if (node.id === 'success') return '#4caf50';
-                if (node.id === 'failure') return '#f44336';
-                if (node.type === 'testcase') return '#9c27b0';
-                if (node.type === 'script') return '#ff9800';
-                return '#9e9e9e';
-              }}
-              style={{
-                background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-                border: `1px solid ${actualMode === 'dark' ? '#334155' : '#ddd'}`,
-              }}
-              position="bottom-right"
+            {/* Reuse TestCaseBuilderCanvas for consistent controls and minimap */}
+            <TestCaseBuilderCanvas
+              actualMode={actualMode}
+              isSidebarOpen={isSidebarOpen}
+              onAutoLayout={handleAutoLayout}
             />
           </ReactFlow>
         </Box>
-      </Box>
-    </Box>
+      </BuilderMainContainer>
+
+      {/* Stats Bar - Using shared container */}
+      <BuilderStatsBarContainer actualMode={actualMode}>
+        <Typography variant="caption" color="text.secondary">
+          {nodes.filter(n => !['start', 'success', 'failure'].includes(n.type || '')).length} blocks • {edges.length} connections
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {state.campaign_name ? `Campaign: ${state.campaign_name}` : 'Unsaved Campaign'}
+        </Typography>
+      </BuilderStatsBarContainer>
+    </BuilderPageLayout>
   );
 };
 
 // Main component wrapped in provider
 const CampaignBuilder: React.FC = () => {
   return (
-    <CampaignBuilderProvider>
-      <CampaignBuilderContent />
-    </CampaignBuilderProvider>
+    <ReactFlowProvider>
+      <CampaignBuilderProvider>
+        <CampaignBuilderContent />
+      </CampaignBuilderProvider>
+    </ReactFlowProvider>
   );
 };
 

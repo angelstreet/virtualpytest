@@ -11,27 +11,22 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  TextField,
-  Collapse,
-  IconButton,
-  Button,
-  Chip,
-  Select,
-  MenuItem,
-  FormControl,
-  InputLabel,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
-  Add as AddIcon,
-  Delete as DeleteIcon,
   AccountTree as TestCaseIcon,
   PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import { useCampaignBuilder } from '../../../contexts/campaign/CampaignBuilderContext';
 import { CampaignToolboxItem, CampaignDragData } from '../../../types/pages/CampaignGraph_Types';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
+import { ScriptIOSections } from '../../testcase/builder/ScriptIOSections';
+import { ToolboxSearchBox } from '../../common/builder/ToolboxSearchBox';
+import { toolboxConfig as sharedToolboxConfig } from '../../testcase/builder/toolboxConfig';
+import { DraggableCommand } from '../../common/builder/DraggableCommand';
 
 interface CampaignToolboxProps {
   onDragStart?: (item: CampaignToolboxItem) => void;
@@ -55,20 +50,18 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart })
   const [testCases, setTestCases] = useState<CampaignToolboxItem[]>([]);
   const [scripts, setScripts] = useState<CampaignToolboxItem[]>([]);
   
-  // Expanded sections
-  const [testCasesExpanded, setTestCasesExpanded] = useState(true);
-  const [scriptsExpanded, setScriptsExpanded] = useState(true);
-  const [inputsExpanded, setInputsExpanded] = useState(false);
-  const [outputsExpanded, setOutputsExpanded] = useState(false);
-  const [reportsExpanded, setReportsExpanded] = useState(false);
-
-  // New field inputs
-  const [newInputName, setNewInputName] = useState('');
-  const [newOutputName, setNewOutputName] = useState('');
-  const [newReportFieldName, setNewReportFieldName] = useState('');
-
   // Search
   const [searchQuery, setSearchQuery] = useState('');
+
+  // Category colors - matching TestCase Builder style
+  const categoryColors = {
+    standard: '#6b7280',  // Grey - for STANDARD commands (shared with TestCase)
+    testcases: '#9c27b0', // Purple - matching testcase blocks
+    scripts: '#ff9800',   // Orange - matching script blocks
+  };
+
+  // Get STANDARD commands from shared toolbox config
+  const standardCommands = sharedToolboxConfig.standard;
 
   // Load available executables
   useEffect(() => {
@@ -154,75 +147,273 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart })
   const filteredTestCases = filterItems(testCases);
   const filteredScripts = filterItems(scripts);
 
-  // Add Campaign Input
+  // Transform campaign data to match ScriptIOSections interface
+  const inputs = campaignInputs.map(input => ({
+    name: input.name,
+    type: input.type || 'string',
+    required: false,
+    default: input.defaultValue,
+  }));
+
+  const outputs = campaignOutputs.map(output => ({
+    name: output.name,
+    type: 'string',
+  }));
+
+  const metadata = campaignReports.fields.map(field => ({
+    name: field.name,
+    value: undefined,
+  }));
+
+  // I/O Section handlers
   const handleAddInput = () => {
-    if (!newInputName.trim()) return;
-    
-    addCampaignInput({
-      name: newInputName.trim(),
-      type: 'string',
-      defaultValue: '',
-    });
-    setNewInputName('');
+    const name = prompt('Enter input name:');
+    if (name && name.trim()) {
+      addCampaignInput({
+        name: name.trim(),
+        type: 'string',
+        defaultValue: '',
+      });
+    }
   };
 
-  // Add Campaign Output
   const handleAddOutput = () => {
-    if (!newOutputName.trim()) return;
-    
-    addCampaignOutput({
-      name: newOutputName.trim(),
-    });
-    setNewOutputName('');
+    const name = prompt('Enter output name:');
+    if (name && name.trim()) {
+      addCampaignOutput({
+        name: name.trim(),
+      });
+    }
   };
 
-  // Add Report Field
-  const handleAddReportField = () => {
-    if (!newReportFieldName.trim()) return;
-    
-    addCampaignReportField({
-      name: newReportFieldName.trim(),
-    });
-    setNewReportFieldName('');
+  const handleAddMetadata = () => {
+    const name = prompt('Enter report field name:');
+    if (name && name.trim()) {
+      addCampaignReportField({
+        name: name.trim(),
+      });
+    }
+  };
+
+  const handleRemoveInput = (name: string) => {
+    removeCampaignInput(name);
+  };
+
+  const handleRemoveOutput = (name: string) => {
+    removeCampaignOutput(name);
+  };
+
+  const handleRemoveMetadata = (name: string) => {
+    removeCampaignReportField(name);
+  };
+
+  const handleFocusSourceBlock = (blockId: string) => {
+    console.log('[@CampaignToolbox] Focus source block:', blockId);
+    // TODO: Implement focus/zoom to block
+  };
+
+  const handleUpdateOutputs = (updatedOutputs: any[]) => {
+    console.log('[@CampaignToolbox] Update outputs:', updatedOutputs);
+    // TODO: Update campaign outputs with linked data
+  };
+
+  const handleUpdateMetadata = (updatedMetadata: any[]) => {
+    console.log('[@CampaignToolbox] Update metadata:', updatedMetadata);
+    // TODO: Update campaign report fields with linked data
   };
 
   return (
     <>
-      {/* Search */}
-      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', background: 'inherit' }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Search executables..."
-          value={searchQuery}
-          onChange={(e) => setSearchQuery(e.target.value)}
-        />
-      </Box>
+      {/* Search - Using shared component */}
+      <ToolboxSearchBox
+        value={searchQuery}
+        onChange={setSearchQuery}
+        placeholder="Search executables..."
+      />
 
-      {/* Scrollable Content */}
-      <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
-        {/* TESTCASES Category */}
-        <Box sx={{ mb: 1.5 }}>
-          <Box
+      {/* Scrollable Content - Using Accordion like TestCase Builder */}
+      <Box
+        sx={{
+          flex: 1,
+          overflowY: 'auto',
+          p: 0.5,
+        }}
+      >
+        {/* STANDARD Category - Shared with TestCase Builder */}
+        <Accordion
+          defaultExpanded={searchQuery.trim() !== ''}
+          sx={{
+            boxShadow: 'none',
+            '&:before': { display: 'none'},
+            padding: '2px !important',
+            margin: '4px !important',
+            mb: 1,
+            borderLeft: `4px solid ${categoryColors.standard}`,
+            backgroundColor: `${categoryColors.standard}08`,
+            '& .MuiAccordionDetails-root': {
+              padding: '8px !important',
+              margin: '0px !important',
+            },
+            '&.Mui-expanded': {
+              padding: '2px !important',
+              margin: '4px !important',
+              minHeight: '0 !important',
+            }
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon sx={{ fontSize: 18, color: categoryColors.standard }} />}
             sx={{
-              p: 1,
-              background: '#f3e5f5',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
+              minHeight: '28px !important',
+              height: '28px',
+              py: '20px !important',
+              px: 1,
+              '& .MuiAccordionSummary-content': {
+                my: '0 !important',
+                minHeight: '28px !important',
+                py: '20px !important',
+              },
+              '&.Mui-expanded': {
+                minHeight: '28px !important',
+                height: '28px',
+                my: '0 !important',
+                py: '20px !important',
+              }
             }}
-            onClick={() => setTestCasesExpanded(!testCasesExpanded)}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+            <Typography 
+              fontSize={14} 
+              fontWeight="bold" 
+              sx={{ 
+                color: categoryColors.standard,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
+              STANDARD
+            </Typography>
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 1 }}>
+            {/* Render each group with nested accordion */}
+            {standardCommands.groups.map((group: any, groupIdx: number) => (
+              <Accordion
+                key={`standard-group-${groupIdx}`}
+                defaultExpanded={true}
+                sx={{
+                  boxShadow: 'none',
+                  '&:before': { display: 'none'},
+                  margin: '0 !important',
+                  marginBottom: '2px !important',
+                  padding: '0 !important',
+                  backgroundColor: 'transparent',
+                  '&.Mui-expanded': {
+                    margin: '0 !important',
+                    marginBottom: '2px !important',
+                    minHeight: '0 !important',
+                  }
+                }}
+              >
+                <AccordionSummary
+                  expandIcon={<ExpandMoreIcon sx={{ fontSize: 14 }} />}
+                  sx={{
+                    minHeight: '20px !important',
+                    height: '20px',
+                    padding: '0 4px !important',
+                    margin: '0 !important',
+                    '& .MuiAccordionSummary-content': {
+                      margin: '0 !important',
+                      minHeight: '20px !important',
+                    },
+                    '&.Mui-expanded': {
+                      minHeight: '20px !important',
+                      height: '20px',
+                      margin: '0 !important',
+                    }
+                  }}
+                >
+                  <Typography 
+                    fontSize={12} 
+                    fontWeight="bold" 
+                    padding={0.5}
+                    sx={{ 
+                      color: 'text.secondary',
+                      textTransform: 'uppercase',
+                      letterSpacing: '0.5px',
+                      opacity: 0.8
+                    }}
+                  >
+                    {group.groupName} ({group.commands.length})
+                  </Typography>
+                </AccordionSummary>
+                <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
+                  {group.commands.map((command: any, cmdIdx: number) => (
+                    <DraggableCommand 
+                      key={`${group.groupName}-${cmdIdx}`} 
+                      command={command}
+                    />
+                  ))}
+                </AccordionDetails>
+              </Accordion>
+            ))}
+          </AccordionDetails>
+        </Accordion>
+
+        {/* TESTCASES Category - Exact same style as TestCase Builder tabs */}
+        <Accordion
+          defaultExpanded={searchQuery.trim() !== ''}
+          sx={{
+            boxShadow: 'none',
+            '&:before': { display: 'none'},
+            padding: '2px !important',
+            margin: '4px !important',
+            mb: 1,
+            borderLeft: `4px solid ${categoryColors.testcases}`,
+            backgroundColor: `${categoryColors.testcases}08`,
+            '& .MuiAccordionDetails-root': {
+              padding: '8px !important',
+              margin: '0px !important',
+            },
+            '&.Mui-expanded': {
+              padding: '2px !important',
+              margin: '4px !important',
+              minHeight: '0 !important',
+            }
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon sx={{ fontSize: 18, color: categoryColors.testcases }} />}
+            sx={{
+              minHeight: '28px !important',
+              height: '28px',
+              py: '20px !important',
+              px: 1,
+              '& .MuiAccordionSummary-content': {
+                my: '0 !important',
+                minHeight: '28px !important',
+                py: '20px !important',
+              },
+              '&.Mui-expanded': {
+                minHeight: '28px !important',
+                height: '28px',
+                my: '0 !important',
+                py: '20px !important',
+              }
+            }}
+          >
+            <Typography 
+              fontSize={14} 
+              fontWeight="bold" 
+              sx={{ 
+                color: categoryColors.testcases,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
               TESTCASES ({filteredTestCases.length})
             </Typography>
-            {testCasesExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </Box>
-          
-          <Collapse in={testCasesExpanded}>
-            <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {filteredTestCases.map((item) => (
                 <Box
                   key={item.id}
@@ -239,15 +430,15 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart })
                     alignItems: 'center',
                     gap: 1,
                     '&:hover': {
-                      background: '#f3e5f5',
-                      borderColor: '#9c27b0',
+                      background: `${categoryColors.testcases}15`,
+                      borderColor: categoryColors.testcases,
                     },
                     '&:active': {
                       cursor: 'grabbing',
                     },
                   }}
                 >
-                  <TestCaseIcon sx={{ color: '#7b1fa2', fontSize: '1.2rem' }} />
+                  <TestCaseIcon sx={{ color: categoryColors.testcases, fontSize: '1.2rem' }} />
                   <Box sx={{ flex: 1, minWidth: 0 }}>
                     <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', fontSize: '0.75rem' }} noWrap>
                       {item.label}
@@ -261,31 +452,65 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart })
                 </Box>
               ))}
             </Box>
-          </Collapse>
-        </Box>
+          </AccordionDetails>
+        </Accordion>
 
-        {/* SCRIPTS Category */}
-        <Box sx={{ mb: 1.5 }}>
-          <Box
+        {/* SCRIPTS Category - Exact same style as TestCase Builder tabs */}
+        <Accordion
+          defaultExpanded={searchQuery.trim() !== ''}
+          sx={{
+            boxShadow: 'none',
+            '&:before': { display: 'none'},
+            padding: '2px !important',
+            margin: '4px !important',
+            mb: 1,
+            borderLeft: `4px solid ${categoryColors.scripts}`,
+            backgroundColor: `${categoryColors.scripts}08`,
+            '& .MuiAccordionDetails-root': {
+              padding: '8px !important',
+              margin: '0px !important',
+            },
+            '&.Mui-expanded': {
+              padding: '2px !important',
+              margin: '4px !important',
+              minHeight: '0 !important',
+            }
+          }}
+        >
+          <AccordionSummary
+            expandIcon={<ExpandMoreIcon sx={{ fontSize: 18, color: categoryColors.scripts }} />}
             sx={{
-              p: 1,
-              background: '#fff3e0',
-              borderRadius: 1,
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              cursor: 'pointer',
+              minHeight: '28px !important',
+              height: '28px',
+              py: '20px !important',
+              px: 1,
+              '& .MuiAccordionSummary-content': {
+                my: '0 !important',
+                minHeight: '28px !important',
+                py: '20px !important',
+              },
+              '&.Mui-expanded': {
+                minHeight: '28px !important',
+                height: '28px',
+                my: '0 !important',
+                py: '20px !important',
+              }
             }}
-            onClick={() => setScriptsExpanded(!scriptsExpanded)}
           >
-            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#ef6c00' }}>
+            <Typography 
+              fontSize={14} 
+              fontWeight="bold" 
+              sx={{ 
+                color: categoryColors.scripts,
+                textTransform: 'uppercase',
+                letterSpacing: '0.5px'
+              }}
+            >
               SCRIPTS ({filteredScripts.length})
             </Typography>
-            {scriptsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-          </Box>
-          
-          <Collapse in={scriptsExpanded}>
-            <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          </AccordionSummary>
+          <AccordionDetails sx={{ p: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
               {filteredScripts.map((item) => (
                 <Box
                   key={item.id}
@@ -302,192 +527,40 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart })
                     alignItems: 'center',
                     gap: 1,
                     '&:hover': {
-                      background: '#fff3e0',
-                      borderColor: '#ff9800',
+                      background: `${categoryColors.scripts}15`,
+                      borderColor: categoryColors.scripts,
                     },
                     '&:active': {
                       cursor: 'grabbing',
                     },
                   }}
                 >
-                  <ScriptIcon sx={{ color: '#ef6c00', fontSize: '1.2rem' }} />
+                  <ScriptIcon sx={{ color: categoryColors.scripts, fontSize: '1.2rem' }} />
                   <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }} noWrap>
                     {item.label}
                   </Typography>
                 </Box>
               ))}
             </Box>
-          </Collapse>
-        </Box>
-
-              {/* CAMPAIGN INPUTS Section */}
-              <Box sx={{ mb: 1.5 }}>
-                <Box
-                  sx={{
-                    p: 1,
-                    background: '#e0f7fa',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setInputsExpanded(!inputsExpanded)}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#00838f' }}>
-                    CAMPAIGN INPUTS
-                  </Typography>
-                  {inputsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </Box>
-                
-                <Collapse in={inputsExpanded}>
-                  <Box sx={{ mt: 0.5, p: 1, background: 'background.paper', borderRadius: 1 }}>
-                    {campaignInputs.map((input) => (
-                      <Box key={input.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <Chip
-                          label={input.name}
-                          size="small"
-                          sx={{ flex: 1, background: '#b2ebf2' }}
-                        />
-                        <IconButton size="small" onClick={() => removeCampaignInput(input.name)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ))}
-                    
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder="Input name"
-                        value={newInputName}
-                        onChange={(e) => setNewInputName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddInput()}
-                        sx={{ flex: 1 }}
-                      />
-                      <IconButton size="small" color="primary" onClick={handleAddInput}>
-                        <AddIcon />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </Collapse>
-              </Box>
-
-              {/* CAMPAIGN OUTPUTS Section */}
-              <Box sx={{ mb: 1.5 }}>
-                <Box
-                  sx={{
-                    p: 1,
-                    background: '#fff3e0',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setOutputsExpanded(!outputsExpanded)}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#ef6c00' }}>
-                    CAMPAIGN OUTPUTS
-                  </Typography>
-                  {outputsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </Box>
-                
-                <Collapse in={outputsExpanded}>
-                  <Box sx={{ mt: 0.5, p: 1, background: 'background.paper', borderRadius: 1 }}>
-                    {campaignOutputs.map((output) => (
-                      <Box key={output.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <Chip
-                          label={output.name}
-                          size="small"
-                          sx={{ flex: 1, background: '#ffecb3' }}
-                        />
-                        <IconButton size="small" onClick={() => removeCampaignOutput(output.name)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ))}
-                    
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder="Output name"
-                        value={newOutputName}
-                        onChange={(e) => setNewOutputName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddOutput()}
-                        sx={{ flex: 1 }}
-                      />
-                      <IconButton size="small" color="primary" onClick={handleAddOutput}>
-                        <AddIcon />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </Collapse>
-              </Box>
-
-              {/* CAMPAIGN REPORTS Section */}
-              <Box sx={{ mb: 1.5 }}>
-                <Box
-                  sx={{
-                    p: 1,
-                    background: '#f3e5f5',
-                    borderRadius: 1,
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                  }}
-                  onClick={() => setReportsExpanded(!reportsExpanded)}
-                >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
-                    CAMPAIGN REPORTS
-                  </Typography>
-                  {reportsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </Box>
-                
-                <Collapse in={reportsExpanded}>
-                  <Box sx={{ mt: 0.5, p: 1, background: 'background.paper', borderRadius: 1 }}>
-                    <FormControl size="small" fullWidth sx={{ mb: 1 }}>
-                      <InputLabel>Mode</InputLabel>
-                      <Select
-                        value={campaignReports.mode}
-                        label="Mode"
-                        onChange={(e) => setCampaignReportsMode(e.target.value as 'set' | 'aggregate')}
-                      >
-                        <MenuItem value="set">Set (Replace)</MenuItem>
-                        <MenuItem value="aggregate">Aggregate (Merge)</MenuItem>
-                      </Select>
-                    </FormControl>
-                    
-                    {campaignReports.fields.map((field) => (
-                      <Box key={field.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                        <Chip
-                          label={field.name}
-                          size="small"
-                          sx={{ flex: 1, background: '#e1bee7' }}
-                        />
-                        <IconButton size="small" onClick={() => removeCampaignReportField(field.name)}>
-                          <DeleteIcon fontSize="small" />
-                        </IconButton>
-                      </Box>
-                    ))}
-                    
-                    <Box sx={{ display: 'flex', gap: 0.5, mt: 1 }}>
-                      <TextField
-                        size="small"
-                        placeholder="Report field"
-                        value={newReportFieldName}
-                        onChange={(e) => setNewReportFieldName(e.target.value)}
-                        onKeyPress={(e) => e.key === 'Enter' && handleAddReportField()}
-                        sx={{ flex: 1 }}
-                      />
-                      <IconButton size="small" color="primary" onClick={handleAddReportField}>
-                        <AddIcon />
-                      </IconButton>
-                    </Box>
-                  </Box>
-                </Collapse>
-              </Box>
+          </AccordionDetails>
+        </Accordion>
       </Box>
+
+      {/* I/O Sections - Reusing TestCase component for consistent styling */}
+      <ScriptIOSections
+        inputs={inputs}
+        outputs={outputs}
+        metadata={metadata}
+        onAddInput={handleAddInput}
+        onAddOutput={handleAddOutput}
+        onAddMetadataField={handleAddMetadata}
+        onRemoveInput={handleRemoveInput}
+        onRemoveOutput={handleRemoveOutput}
+        onRemoveMetadataField={handleRemoveMetadata}
+        onFocusSourceBlock={handleFocusSourceBlock}
+        onUpdateOutputs={handleUpdateOutputs}
+        onUpdateMetadata={handleUpdateMetadata}
+      />
     </>
   );
 };

@@ -697,6 +697,7 @@ export const UniversalBlock: React.FC<NodeProps & {
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'space-between',
+                    gap: 0.5,
                     cursor: 'pointer',
                     py: 0.5,
                     px: 1,
@@ -709,10 +710,61 @@ export const UniversalBlock: React.FC<NodeProps & {
                     },
                   }}
                 >
-                  <Typography fontSize={11} fontWeight="bold" color="#8b5cf6">
-                    📋 INPUTS ({Object.keys(data.params).length})
-                  </Typography>
-                  {inputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6' }} />}
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                    <Typography fontSize={11} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
+                      📋 INPUTS ({Object.keys(data.params).length})
+                    </Typography>
+                    {/* Preview: Show first 1-3 inputs inline when collapsed */}
+                    {!inputsExpanded && (
+                      <Box sx={{ 
+                        display: 'flex', 
+                        alignItems: 'center', 
+                        gap: 0.5, 
+                        overflow: 'hidden',
+                        flex: 1,
+                        minWidth: 0,
+                      }}>
+                        {Object.entries(data.params).slice(0, 3).map(([key, value], idx) => {
+                          const link = data.paramLinks?.[key];
+                          const isLinked = Boolean(link);
+                          const displayText = isLinked 
+                            ? `${key}←${link.sourceOutputName}` 
+                            : `${key}:${String(value).substring(0, 8)}`;
+                          
+                          return (
+                            <Chip
+                              key={key}
+                              label={displayText}
+                              size="small"
+                              icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
+                              sx={{ 
+                                fontSize: 9, 
+                                height: 18,
+                                maxWidth: '80px',
+                                bgcolor: isLinked 
+                                  ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                                  : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
+                                borderColor: isLinked ? '#10b981' : '#8b5cf6',
+                                '& .MuiChip-label': {
+                                  px: 0.5,
+                                  overflow: 'hidden',
+                                  textOverflow: 'ellipsis',
+                                  whiteSpace: 'nowrap',
+                                }
+                              }}
+                              variant="outlined"
+                            />
+                          );
+                        })}
+                        {Object.keys(data.params).length > 3 && (
+                          <Typography fontSize={9} color="#8b5cf6" sx={{ flexShrink: 0 }}>
+                            +{Object.keys(data.params).length - 3}
+                          </Typography>
+                        )}
+                      </Box>
+                    )}
+                  </Box>
+                  {inputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} />}
                 </Box>
                 <Collapse in={inputsExpanded}>
                   <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>

@@ -58,6 +58,7 @@ import { useTheme } from '../contexts/ThemeContext';
 
 // Hook
 import { useTestCaseBuilderPage } from '../hooks/pages/useTestCaseBuilderPage';
+import { useTestCaseBuilder } from '../contexts/testcase/TestCaseBuilderContext';
 
 // Constants
 import { TOAST_POSITION } from '../constants/toastConfig';
@@ -146,6 +147,9 @@ const TestCaseBuilderContent: React.FC = () => {
   
   // Use the consolidated hook for all business logic
   const hookData = useTestCaseBuilderPage();
+
+  // Get undo/redo/copy/paste from context
+  const { undo, redo, canUndo, canRedo, resetBuilder, copyBlock, pasteBlock } = useTestCaseBuilder();
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
@@ -328,6 +332,7 @@ const TestCaseBuilderContent: React.FC = () => {
       {/* Header */}
       <TestCaseBuilderHeader
         actualMode={actualMode}
+        builderType="TestCase"
         creationMode={hookData.creationMode}
         setCreationMode={hookData.setCreationMode}
         selectedHost={hookData.selectedHost}
@@ -355,6 +360,13 @@ const TestCaseBuilderContent: React.FC = () => {
         isExecuting={hookData.executionState.isExecuting}
         isExecutable={hookData.isExecutable}
         onCloseProgressBar={() => hookData.unifiedExecution.resetExecution()}
+        undo={undo}
+        redo={redo}
+        canUndo={canUndo}
+        canRedo={canRedo}
+        resetBuilder={resetBuilder}
+        copyBlock={copyBlock}
+        pasteBlock={pasteBlock}
       />
 
       {/* Main Container */}

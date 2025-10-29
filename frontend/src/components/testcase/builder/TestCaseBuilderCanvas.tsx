@@ -94,7 +94,7 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
       <MiniMap
         nodeColor={(node) => {
           const colorMap: Record<string, string> = {
-            start: '#10b981',
+            start: '#2196f3',
             success: '#10b981',
             failure: '#ef4444',
             action: '#f97316',

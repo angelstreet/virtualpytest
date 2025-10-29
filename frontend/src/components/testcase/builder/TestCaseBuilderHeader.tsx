@@ -8,11 +8,13 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome';
 import { UserinterfaceSelector } from '../../common/UserinterfaceSelector';
 import { NavigationEditorDeviceControls } from '../../navigation/Navigation_NavigationEditor_DeviceControls';
 import { UndoRedoDiscardButtons } from '../../common/UndoRedoDiscardButtons';
-import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 
 interface TestCaseBuilderHeaderProps {
   // Theme
   actualMode: 'light' | 'dark';
+  
+  // Builder Type (for display)
+  builderType?: 'TestCase' | 'Campaign'; // NEW: Configurable builder type
   
   // Creation Mode
   creationMode: 'visual' | 'ai';
@@ -52,12 +54,22 @@ interface TestCaseBuilderHeaderProps {
   isExecuting: boolean;
   isExecutable: boolean;
   
+  // Undo/Redo/Copy/Paste
+  undo: () => void;
+  redo: () => void;
+  canUndo: boolean;
+  canRedo: boolean;
+  resetBuilder: () => void;
+  copyBlock: () => void;
+  pasteBlock: () => void;
+  
   // Progress Bar Control
   onCloseProgressBar?: () => void;
 }
 
 export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   actualMode,
+  builderType = 'TestCase', // Default to TestCase for backward compatibility
   creationMode,
   setCreationMode,
   selectedHost,
@@ -85,10 +97,14 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   isExecuting,
   isExecutable,
   onCloseProgressBar,
+  undo = () => {},
+  redo = () => {},
+  canUndo = false,
+  canRedo = false,
+  resetBuilder = () => {},
+  copyBlock = () => {},
+  pasteBlock = () => {},
 }) => {
-  // Get undo/redo from context
-  const { undo, redo, canUndo, canRedo, resetBuilder, copyBlock, pasteBlock } = useTestCaseBuilder();
-
   // Keyboard shortcuts for undo/redo and copy/paste
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -133,7 +149,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
       {/* SECTION 1: Title with Test Case Name */}
       <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 260px', gap: 1 }}>
         <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
-          TestCase Builder
+          {builderType}
         </Typography>
         {testcaseName && (
           <>

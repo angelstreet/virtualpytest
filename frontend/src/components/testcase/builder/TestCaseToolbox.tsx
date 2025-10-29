@@ -2,72 +2,17 @@ import React, { useState, useMemo } from 'react';
 import {
   Box,
   Typography,
-  Paper,
   Accordion,
   AccordionSummary,
   AccordionDetails,
-  TextField,
-  InputAdornment,
-  IconButton,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import SearchIcon from '@mui/icons-material/Search';
-import ClearIcon from '@mui/icons-material/Clear';
-import { toolboxConfig as staticToolboxConfig, CommandConfig } from './toolboxConfig';
+import { toolboxConfig as staticToolboxConfig } from './toolboxConfig';
 import { ScriptIOSections } from './ScriptIOSections';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { useReactFlow } from 'reactflow';
-
-interface DraggableCommandProps {
-  command: CommandConfig;
-  onCloseProgressBar?: () => void;
-}
-
-const DraggableCommand: React.FC<DraggableCommandProps> = ({ command, onCloseProgressBar }) => {
-  const onDragStart = (event: React.DragEvent) => {
-    // Close progress bar when starting to drag a command
-    onCloseProgressBar?.();
-    
-    const dragData = JSON.stringify({
-      type: command.type,
-      defaultData: command.defaultData || {}
-    });
-    event.dataTransfer.setData('application/reactflow', dragData);
-    event.dataTransfer.effectAllowed = 'move';
-  };
-
-  return (
-    <Paper
-      onDragStart={onDragStart}
-      draggable
-      sx={{
-        py: 0.5,
-        px: 0.5,
-        mb: 0.5,
-        cursor: 'grab',
-        display: 'flex',
-        alignItems: 'center',
-        lineHeight: 1.5,
-        minHeight: '0 !important',
-        height: 'auto',
-        '&:hover': {
-          boxShadow: 1,
-          transform: 'translateX(12px)',
-        },
-        '&:active': {
-          cursor: 'grabbing',
-        },
-        transition: 'all 0.15s',
-        borderLeft: `3px solid ${command.color}`,
-      }}
-      title={command.description}
-    >
-      <Typography fontSize={13} noWrap sx={{ lineHeight: 1, mb: 0 }}>
-        {command.label}
-      </Typography>
-    </Paper>
-  );
-};
+import { ToolboxSearchBox } from '../../common/builder/ToolboxSearchBox';
+import { DraggableCommand } from '../../common/builder/DraggableCommand';
 
 interface TestCaseToolboxProps {
   toolboxConfig?: any;  // Optional dynamic config
@@ -190,42 +135,12 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         overflow: 'hidden',
       }}
     >
-      {/* Filter/Search Box */}
-      <Box sx={{ p: 1, borderBottom: 1, borderColor: 'divider' }}>
-        <TextField
-          size="small"
-          fullWidth
-          placeholder="Search commands..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          InputProps={{
-            startAdornment: (
-              <InputAdornment position="start">
-                <SearchIcon fontSize="small" />
-              </InputAdornment>
-            ),
-            endAdornment: searchTerm && (
-              <InputAdornment position="end">
-                <IconButton
-                  size="small"
-                  onClick={() => setSearchTerm('')}
-                  edge="end"
-                >
-                  <ClearIcon fontSize="small" />
-                </IconButton>
-              </InputAdornment>
-            ),
-            sx: { fontSize: '0.875rem' }
-          }}
-          sx={{
-            '& .MuiOutlinedInput-root': {
-              '&:hover fieldset': {
-                borderColor: 'primary.main',
-              },
-            },
-          }}
-        />
-      </Box>
+      {/* Filter/Search Box - Using shared component */}
+      <ToolboxSearchBox
+        value={searchTerm}
+        onChange={setSearchTerm}
+        placeholder="Search commands..."
+      />
 
       {/* All Tabs - Scrollable */}
       <Box
