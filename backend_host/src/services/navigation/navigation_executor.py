@@ -1345,17 +1345,29 @@ class NavigationExecutor:
         team_id: Optional[str]
     ):
         """Execute navigation in background thread with progress tracking"""
-        # Capture logs for single navigation execution
+        # Capture logs for single navigation execution with Tee (terminal + buffer)
         import sys
         import io
         log_buffer = io.StringIO()
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         
+        # Tee class to write to multiple streams (terminal + buffer)
+        class Tee:
+            def __init__(self, *streams):
+                self.streams = streams
+            def write(self, data):
+                for stream in self.streams:
+                    stream.write(data)
+                    stream.flush()
+            def flush(self):
+                for stream in self.streams:
+                    stream.flush()
+        
         try:
-            # Start log capture
-            sys.stdout = log_buffer
-            sys.stderr = log_buffer
+            # Redirect stdout/stderr to BOTH terminal and buffer
+            sys.stdout = Tee(old_stdout, log_buffer)
+            sys.stderr = Tee(old_stderr, log_buffer)
             
             # Update status
             with self._lock:
