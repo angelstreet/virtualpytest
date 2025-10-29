@@ -184,7 +184,7 @@ export const useTestCaseExecution = () => {
           console.log(`[useTestCaseExecution] Execution ${executionId} ${status.status} - STOPPING POLL`);
           
           if (status.result) {
-            // Return final result
+            // Return final result with ALL fields including report/logs URLs
             return {
               success: status.result.success,
               result_type: status.result.result_type,
@@ -192,7 +192,9 @@ export const useTestCaseExecution = () => {
               step_count: status.result.step_count,
               script_result_id: status.result.script_result_id,
               error: status.result.error,
-              step_results: status.result.step_results
+              step_results: status.result.step_results,
+              report_url: status.result.report_url,  // ✅ Include report URL
+              logs_url: status.result.logs_url        // ✅ Include logs URL
             };
           } else {
             // Execution failed before producing result

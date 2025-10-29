@@ -349,6 +349,50 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                   </Typography>
                 </>
               )}
+              
+              {/* Report and Logs Links (inline with status) */}
+              {executionResult && (executionResult.report_url || executionResult.logs_url) && (
+                <Box sx={{ display: 'flex', gap: 1.5, ml: 2 }}>
+                  {executionResult.report_url && (
+                    <Typography
+                      variant="caption"
+                      component="a"
+                      href={executionResult.report_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        color: '#3b82f6',
+                        textDecoration: 'none',
+                        fontWeight: 'bold',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                        },
+                      }}
+                    >
+                      📊 Report
+                    </Typography>
+                  )}
+                  {executionResult.logs_url && (
+                    <Typography
+                      variant="caption"
+                      component="a"
+                      href={executionResult.logs_url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{
+                        color: '#10b981',
+                        textDecoration: 'none',
+                        fontWeight: 'bold',
+                        '&:hover': {
+                          textDecoration: 'underline',
+                        },
+                      }}
+                    >
+                      📝 Logs
+                    </Typography>
+                  )}
+                </Box>
+              )}
             </>
           )}
         </Box>
@@ -451,50 +495,6 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
             {Math.round(progress)}%
           </Typography>
         </Box>
-
-        {/* Report and Logs Links (shown after execution completes) */}
-        {!isExecuting && executionResult && (executionResult.report_url || executionResult.logs_url) && (
-          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
-            {executionResult.report_url && (
-              <Typography
-                variant="caption"
-                component="a"
-                href={executionResult.report_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  color: '#3b82f6',
-                  textDecoration: 'none',
-                  fontWeight: 'bold',
-                  '&:hover': {
-                    textDecoration: 'underline',
-                  },
-                }}
-              >
-                📊 Report
-              </Typography>
-            )}
-            {executionResult.logs_url && (
-              <Typography
-                variant="caption"
-                component="a"
-                href={executionResult.logs_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                sx={{
-                  color: '#10b981',
-                  textDecoration: 'none',
-                  fontWeight: 'bold',
-                  '&:hover': {
-                    textDecoration: 'underline',
-                  },
-                }}
-              >
-                📝 Logs
-              </Typography>
-            )}
-          </Box>
-        )}
       </Box>
 
       {/* AI Reasoning Section (Optional) */}

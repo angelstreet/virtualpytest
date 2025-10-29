@@ -34,6 +34,8 @@ export interface UnifiedExecutionState {
     execution_time_ms: number;
     error?: string;
     step_count?: number;
+    report_url?: string;  // 🆕 R2 report URL
+    logs_url?: string;    // 🆕 R2 logs URL
   } | null;
   startTime?: number;
 }

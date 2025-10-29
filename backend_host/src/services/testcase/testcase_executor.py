@@ -533,6 +533,10 @@ class TestCaseExecutor:
             context.team_id = team_id
             context.userinterface_name = userinterface_name
             
+            # Start stdout capture for logs (CRITICAL for log upload)
+            context.start_stdout_capture()
+            print(f"[@testcase_executor:{execution_id}] Started stdout capture for logs")
+            
             # Get device
             from backend_host.src.controllers.controller_manager import get_host
             host = get_host(device_ids=[device_id])

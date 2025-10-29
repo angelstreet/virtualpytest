@@ -535,6 +535,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         execution_time_ms: response.execution_time_ms || 0,
         error: response.error,
         step_count: response.step_count,
+        report_url: response.report_url,  // ✅ Include report URL from backend
+        logs_url: response.logs_url        // ✅ Include logs URL from backend
       });
       
       // ✅ KEEP: Legacy state updates
