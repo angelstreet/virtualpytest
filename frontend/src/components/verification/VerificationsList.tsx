@@ -283,11 +283,24 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
         }
 
         if (selectedVerification) {
-          // Use the cleaned params from the selectedVerification (already processed by useVerification hook)
+          // Extract default values from typed params (backend sends {type, required, default} structure)
+          const cleanParams: any = {};
+          if (selectedVerification.params) {
+            Object.entries(selectedVerification.params).forEach(([key, value]: [string, any]) => {
+              // Check if this is a typed param object (has 'default' field)
+              if (value && typeof value === 'object' && 'default' in value) {
+                cleanParams[key] = value.default;
+              } else {
+                // Already a simple value
+                cleanParams[key] = value;
+              }
+            });
+          }
+          
           updateVerification(index, {
             command: selectedVerification.command,
             verification_type: selectedVerification.verification_type,
-            params: { ...selectedVerification.params },
+            params: cleanParams,
           });
         }
       },
