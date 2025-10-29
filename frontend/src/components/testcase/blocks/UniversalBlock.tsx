@@ -165,7 +165,7 @@ export const UniversalBlock: React.FC<NodeProps & {
         // Use shared navigation execution utility (same as useNode)
         const navResult = await executeNavigationAsync({
           treeId: tree_id,
-          targetNodeId: data.target_node_id || data.target_node_label, // Use UUID first, fallback to label for backward compatibility
+          targetNodeLabel: data.target_node_label,
           hostName: currentHost.host_name,
           deviceId: currentDeviceId || 'device1',
           userinterfaceName: interfaceName,

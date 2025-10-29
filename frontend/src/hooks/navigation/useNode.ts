@@ -383,7 +383,7 @@ export const useNode = (props?: UseNodeProps) => {
         // ✅ REUSE: Use shared navigation execution utility
         const response = await executeNavigationAsync({
           treeId: executionTreeId,
-          targetNodeId: selectedNode.id, // Use node UUID for execution
+          targetNodeLabel: selectedNode.id, // Use node ID (not label) to avoid duplicate label issues
           hostName: props.selectedHost.host_name,
           deviceId: currentDeviceId || 'device1',
           userinterfaceName: userInterface?.name || '',

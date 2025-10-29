@@ -25,7 +25,7 @@ export interface NavigationExecuteResponse {
  */
 export async function executeNavigationAsync(params: {
   treeId: string;
-  targetNodeId: string; // Changed from targetNodeLabel to targetNodeId (UUID)
+  targetNodeLabel: string;
   hostName: string;
   deviceId: string;
   userinterfaceName: string;
@@ -34,7 +34,7 @@ export async function executeNavigationAsync(params: {
 }): Promise<NavigationExecuteResponse> {
   const {
     treeId,
-    targetNodeId,
+    targetNodeLabel,
     hostName,
     deviceId,
     userinterfaceName,
@@ -42,8 +42,8 @@ export async function executeNavigationAsync(params: {
     onProgress
   } = params;
 
-  // Start async execution using UUID instead of label
-  const executionUrl = buildServerUrl(`/server/navigation/execute/${treeId}/${targetNodeId}`);
+  // Start async execution
+  const executionUrl = buildServerUrl(`/server/navigation/execute/${treeId}/${targetNodeLabel}`);
   
   const startResult = await fetch(executionUrl, {
     method: 'POST',
@@ -67,7 +67,7 @@ export async function executeNavigationAsync(params: {
   console.log('[@navigationExecutionUtils] ✅ Async execution started:', executionId);
   
   if (onProgress) {
-    onProgress(`Navigating to target node...`);
+    onProgress(`Navigating to ${targetNodeLabel}...`);
   }
 
   // Poll for completion
@@ -101,7 +101,7 @@ export async function executeNavigationAsync(params: {
       }
 
       if (onProgress) {
-        onProgress(`Navigation completed successfully`);
+        onProgress(`Navigation to ${targetNodeLabel} completed successfully`);
       }
 
       return response;
