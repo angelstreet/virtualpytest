@@ -716,10 +716,10 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                         <AccordionSummary
                           expandIcon={<ExpandMoreIcon sx={{ color: '#ef4444', fontSize: 16 }} />}
                           sx={{
-                            minHeight: 'auto',
-                            padding: '8px 12px',
+                            minHeight: '30px !important',
+                            padding: '2px 12px !important',
                             '& .MuiAccordionSummary-content': {
-                              margin: 0,
+                              margin: '0 !important',
                             },
                           }}
                         >
@@ -732,18 +732,11 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                             </Typography>
                           </Box>
                         </AccordionSummary>
-                        <AccordionDetails sx={{ padding: '8px 12px', paddingTop: 0 }}>
-                          {/* Full Error Message */}
-                          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem', mb: 1 }}>
-                            {step.state.error}
-                          </Typography>
-                          
+                        <AccordionDetails sx={{ padding: '0px 12px !important' }}>
                           {/* Execution Logs */}
                           {step.state.result?.logs && (
                             <Box
                               sx={{
-                                mt: 1,
-                                p: 1,
                                 backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
                                 borderRadius: 0.5,
                                 maxHeight: 200,
@@ -762,10 +755,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                                 },
                               }}
                             >
-                              <Typography variant="caption" sx={{ display: 'block', color: '#10b981', fontWeight: 'bold', mb: 0.5 }}>
-                                📋 Execution Logs
-                              </Typography>
-                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#d1d5db' : '#374151' }}>
+                              <pre style={{ margin: 0, padding: '4px', whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#d1d5db' : '#374151' }}>
                                 {typeof step.state.result.logs === 'string' 
                                   ? step.state.result.logs 
                                   : JSON.stringify(step.state.result.logs, null, 2)}
@@ -779,7 +769,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                   
                   {/* Success Logs - Show logs even when there's no error */}
                   {!step.state.error && step.state.result?.logs && (
-                    <Box sx={{ mt: 1 }}>
+                    <Box>
                       <Accordion 
                         defaultExpanded={false}
                         sx={{
@@ -792,10 +782,10 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                         <AccordionSummary
                           expandIcon={<ExpandMoreIcon sx={{ color: '#10b981', fontSize: 16 }} />}
                           sx={{
-                            minHeight: 'auto',
-                            padding: '8px 12px',
+                            minHeight: '30px !important',
+                            padding: '2px 12px !important',
                             '& .MuiAccordionSummary-content': {
-                              margin: 0,
+                              margin: '0 !important',
                             },
                           }}
                         >
@@ -808,13 +798,11 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                             </Typography>
                           </Box>
                         </AccordionSummary>
-                        <AccordionDetails sx={{ padding: '8px 12px', paddingTop: 0 }}>
+                        <AccordionDetails sx={{ padding: '0px 12px !important' }}>
                           {/* Execution Logs */}
                           {step.state.result?.logs && (
                             <Box
                               sx={{
-                                mt: 1,
-                                p: 1,
                                 backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
                                 borderRadius: 0.5,
                                 maxHeight: 200,
@@ -833,10 +821,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                                 },
                               }}
                             >
-                              <Typography variant="caption" sx={{ display: 'block', color: '#10b981', fontWeight: 'bold', mb: 0.5 }}>
-                                📋 Execution Logs
-                              </Typography>
-                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#d1d5db' : '#374151' }}>
+                              <pre style={{ margin: 0, padding: '4px', whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#d1d5db' : '#374151' }}>
                                 {typeof step.state.result.logs === 'string' 
                                   ? step.state.result.logs 
                                   : JSON.stringify(step.state.result.logs, null, 2)}
