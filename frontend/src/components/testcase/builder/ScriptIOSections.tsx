@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, Collapse, Select, MenuItem, FormControl } from '@mui/material';
+import { Box, Typography, Chip, IconButton, Collapse } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
@@ -23,22 +23,22 @@ interface ScriptOutput {
 
 interface MetadataField {
   name: string;
-  sourceBlockId?: string;
+  value?: any; // Direct value (if not linked)
+  sourceBlockId?: string; // OR linked to block output
   sourceOutputName?: string;
+  sourceOutputType?: string;
 }
 
 interface ScriptIOSectionsProps {
   inputs: ScriptInput[];
   outputs: ScriptOutput[];
   metadata: MetadataField[];
-  metadataMode: 'set' | 'append';
   onAddInput: () => void;
   onAddOutput: () => void;
   onAddMetadataField: () => void;
   onRemoveInput: (name: string) => void;
   onRemoveOutput: (name: string) => void;
   onRemoveMetadataField: (name: string) => void;
-  onMetadataModeChange: (mode: 'set' | 'append') => void;
   onFocusSourceBlock: (blockId: string) => void;
   onUpdateOutputs: (outputs: ScriptOutput[]) => void;
   onUpdateMetadata: (metadata: MetadataField[]) => void;
@@ -48,14 +48,12 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   inputs,
   outputs,
   metadata,
-  metadataMode,
   onAddInput,
   onAddOutput,
   onAddMetadataField,
   onRemoveInput,
   onRemoveOutput,
   onRemoveMetadataField,
-  onMetadataModeChange,
   onFocusSourceBlock,
   onUpdateOutputs,
   onUpdateMetadata,
@@ -89,9 +87,9 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
             <Typography
               variant="caption"
               fontWeight="bold"
-              sx={{ color: '#06b6d4', fontSize: '0.75rem', letterSpacing: '0.5px' }}
+              sx={{ color: '#06b6d4', fontSize: '0.9rem', letterSpacing: '0.5px' }}
             >
-              📥 INPUTS ({inputs.length})
+              INPUTS ({inputs.length})
             </Typography>
           </Box>
           <IconButton size="small">
@@ -157,9 +155,9 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
             <Typography
               variant="caption"
               fontWeight="bold"
-              sx={{ color: '#f97316', fontSize: '0.75rem', letterSpacing: '0.5px' }}
+              sx={{ color: '#f97316', fontSize: '0.9rem', letterSpacing: '0.5px' }}
             >
-              📤 OUTPUTS ({outputs.length})
+              OUTPUTS ({outputs.length})
             </Typography>
           </Box>
           <IconButton size="small">
@@ -287,9 +285,9 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
             <Typography
               variant="caption"
               fontWeight="bold"
-              sx={{ color: '#a855f7', fontSize: '0.75rem', letterSpacing: '0.5px' }}
+              sx={{ color: '#a855f7', fontSize: '0.9rem', letterSpacing: '0.5px' }}
             >
-              💾 METADATA ({metadata.length})
+              METADATA ({metadata.length})
             </Typography>
           </Box>
           <IconButton size="small">
@@ -299,23 +297,6 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
         
         <Collapse in={metadataExpanded}>
           <Box sx={{ px: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {/* Mode Selector */}
-            <FormControl size="small" fullWidth sx={{ mb: 1 }}>
-              <Select
-                value={metadataMode}
-                onChange={(e) => onMetadataModeChange(e.target.value as 'set' | 'append')}
-                sx={{
-                  fontSize: '0.75rem',
-                  height: '28px',
-                  backgroundColor: 'white',
-                  '& .MuiSelect-select': { py: 0.5 }
-                }}
-              >
-                <MenuItem value="append" sx={{ fontSize: '0.75rem' }}>Append (Merge)</MenuItem>
-                <MenuItem value="set" sx={{ fontSize: '0.75rem' }}>Set (Replace)</MenuItem>
-              </Select>
-            </FormControl>
-
             {metadata.map((field) => (
               <Box
                 key={field.name}
@@ -398,7 +379,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
             ))}
             <Chip
               icon={<AddIcon />}
-              label="Add Field"
+              label="Add Metadata"
               size="small"
               onClick={onAddMetadataField}
               sx={{

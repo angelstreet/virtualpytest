@@ -28,7 +28,6 @@ import {
   Delete as DeleteIcon,
   AccountTree as TestCaseIcon,
   PlayArrow as ScriptIcon,
-  ChevronLeft as ChevronLeftIcon,
 } from '@mui/icons-material';
 import { useCampaignBuilder } from '../../../contexts/campaign/CampaignBuilderContext';
 import { CampaignToolboxItem, CampaignDragData } from '../../../types/pages/CampaignGraph_Types';
@@ -36,12 +35,9 @@ import { buildServerUrl } from '../../../utils/buildUrlUtils';
 
 interface CampaignToolboxProps {
   onDragStart?: (item: CampaignToolboxItem) => void;
-  isSidebarOpen: boolean;
-  toggleSidebar: () => void;
-  actualMode: 'light' | 'dark';
 }
 
-export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart, isSidebarOpen, toggleSidebar, actualMode }) => {
+export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart }) => {
   const {
     campaignInputs,
     campaignOutputs,
@@ -192,186 +188,137 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart, i
 
   return (
     <>
-      {/* Sidebar */}
-      <Box
-        sx={{
-          position: 'absolute',
-          left: 0,
-          top: 0,
-          bottom: 0,
-          width: isSidebarOpen ? '380px' : '0px',
-          transition: 'width 0.3s ease',
-          overflow: 'hidden',
-          borderRight: isSidebarOpen ? 1 : 0,
-          borderColor: 'divider',
-          display: 'flex',
-          flexDirection: 'column',
-          background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa',
-          zIndex: 5,
-        }}
-      >
-        {isSidebarOpen && (
-          <>
-            {/* Sidebar Header */}
-            <Box
-              sx={{
-                px: 2,
-                py: 1.5,
-                height: '40px',
-                borderBottom: 1,
-                borderColor: 'divider',
-                display: 'flex',
-                justifyContent: 'space-between',
-                alignItems: 'center',
-                background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-              }}
-            >
-              <Typography variant="subtitle1" fontWeight="bold">
-                Toolbox
-              </Typography>
-              <IconButton
-                size="small"
-                onClick={toggleSidebar}
-                sx={{
-                  color: 'text.secondary',
-                  '&:hover': { color: 'primary.main' },
-                }}
-              >
-                <ChevronLeftIcon />
-              </IconButton>
-            </Box>
-            
-            {/* Search */}
-            <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', background: actualMode === 'dark' ? '#1e293b' : '#ffffff' }}>
-              <TextField
-                size="small"
-                fullWidth
-                placeholder="Search executables..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-              />
-            </Box>
+      {/* Search */}
+      <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', background: 'inherit' }}>
+        <TextField
+          size="small"
+          fullWidth
+          placeholder="Search executables..."
+          value={searchQuery}
+          onChange={(e) => setSearchQuery(e.target.value)}
+        />
+      </Box>
 
-            {/* Scrollable Content */}
-            <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
-              {/* TESTCASES Category */}
-              <Box sx={{ mb: 1.5 }}>
+      {/* Scrollable Content */}
+      <Box sx={{ flex: 1, overflowY: 'auto', p: 1.5 }}>
+        {/* TESTCASES Category */}
+        <Box sx={{ mb: 1.5 }}>
+          <Box
+            sx={{
+              p: 1,
+              background: '#f3e5f5',
+              borderRadius: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+            }}
+            onClick={() => setTestCasesExpanded(!testCasesExpanded)}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
+              TESTCASES ({filteredTestCases.length})
+            </Typography>
+            {testCasesExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </Box>
+          
+          <Collapse in={testCasesExpanded}>
+            <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {filteredTestCases.map((item) => (
                 <Box
+                  key={item.id}
+                  draggable
+                  onDragStart={(e) => handleToolboxItemDragStart(e, item)}
                   sx={{
                     p: 1,
-                    background: '#f3e5f5',
+                    background: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
                     borderRadius: 1,
+                    cursor: 'grab',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
+                    gap: 1,
+                    '&:hover': {
+                      background: '#f3e5f5',
+                      borderColor: '#9c27b0',
+                    },
+                    '&:active': {
+                      cursor: 'grabbing',
+                    },
                   }}
-                  onClick={() => setTestCasesExpanded(!testCasesExpanded)}
                 >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#7b1fa2' }}>
-                    TESTCASES ({filteredTestCases.length})
-                  </Typography>
-                  {testCasesExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
-                </Box>
-                
-                <Collapse in={testCasesExpanded}>
-                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {filteredTestCases.map((item) => (
-                      <Box
-                        key={item.id}
-                        draggable
-                        onDragStart={(e) => handleToolboxItemDragStart(e, item)}
-                        sx={{
-                          p: 1,
-                          background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-                          border: '1px solid',
-                          borderColor: actualMode === 'dark' ? '#334155' : '#e0e0e0',
-                          borderRadius: 1,
-                          cursor: 'grab',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          '&:hover': {
-                            background: '#f3e5f5',
-                            borderColor: '#9c27b0',
-                          },
-                          '&:active': {
-                            cursor: 'grabbing',
-                          },
-                        }}
-                      >
-                        <TestCaseIcon sx={{ color: '#7b1fa2', fontSize: '1.2rem' }} />
-                        <Box sx={{ flex: 1, minWidth: 0 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', fontSize: '0.75rem' }} noWrap>
-                            {item.label}
-                          </Typography>
-                          {item.folder && (
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }} noWrap>
-                              {item.folder}
-                            </Typography>
-                          )}
-                        </Box>
-                      </Box>
-                    ))}
+                  <TestCaseIcon sx={{ color: '#7b1fa2', fontSize: '1.2rem' }} />
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 600, display: 'block', fontSize: '0.75rem' }} noWrap>
+                      {item.label}
+                    </Typography>
+                    {item.folder && (
+                      <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem' }} noWrap>
+                        {item.folder}
+                      </Typography>
+                    )}
                   </Box>
-                </Collapse>
-              </Box>
+                </Box>
+              ))}
+            </Box>
+          </Collapse>
+        </Box>
 
-              {/* SCRIPTS Category */}
-              <Box sx={{ mb: 1.5 }}>
+        {/* SCRIPTS Category */}
+        <Box sx={{ mb: 1.5 }}>
+          <Box
+            sx={{
+              p: 1,
+              background: '#fff3e0',
+              borderRadius: 1,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              cursor: 'pointer',
+            }}
+            onClick={() => setScriptsExpanded(!scriptsExpanded)}
+          >
+            <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#ef6c00' }}>
+              SCRIPTS ({filteredScripts.length})
+            </Typography>
+            {scriptsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
+          </Box>
+          
+          <Collapse in={scriptsExpanded}>
+            <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              {filteredScripts.map((item) => (
                 <Box
+                  key={item.id}
+                  draggable
+                  onDragStart={(e) => handleToolboxItemDragStart(e, item)}
                   sx={{
                     p: 1,
-                    background: '#fff3e0',
+                    background: 'background.paper',
+                    border: '1px solid',
+                    borderColor: 'divider',
                     borderRadius: 1,
+                    cursor: 'grab',
                     display: 'flex',
                     alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
+                    gap: 1,
+                    '&:hover': {
+                      background: '#fff3e0',
+                      borderColor: '#ff9800',
+                    },
+                    '&:active': {
+                      cursor: 'grabbing',
+                    },
                   }}
-                  onClick={() => setScriptsExpanded(!scriptsExpanded)}
                 >
-                  <Typography variant="subtitle2" sx={{ fontWeight: 600, color: '#ef6c00' }}>
-                    SCRIPTS ({filteredScripts.length})
+                  <ScriptIcon sx={{ color: '#ef6c00', fontSize: '1.2rem' }} />
+                  <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }} noWrap>
+                    {item.label}
                   </Typography>
-                  {scriptsExpanded ? <ExpandLessIcon /> : <ExpandMoreIcon />}
                 </Box>
-                
-                <Collapse in={scriptsExpanded}>
-                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {filteredScripts.map((item) => (
-                      <Box
-                        key={item.id}
-                        draggable
-                        onDragStart={(e) => handleToolboxItemDragStart(e, item)}
-                        sx={{
-                          p: 1,
-                          background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-                          border: '1px solid',
-                          borderColor: actualMode === 'dark' ? '#334155' : '#e0e0e0',
-                          borderRadius: 1,
-                          cursor: 'grab',
-                          display: 'flex',
-                          alignItems: 'center',
-                          gap: 1,
-                          '&:hover': {
-                            background: '#fff3e0',
-                            borderColor: '#ff9800',
-                          },
-                          '&:active': {
-                            cursor: 'grabbing',
-                          },
-                        }}
-                      >
-                        <ScriptIcon sx={{ color: '#ef6c00', fontSize: '1.2rem' }} />
-                        <Typography variant="caption" sx={{ fontWeight: 600, fontSize: '0.75rem' }} noWrap>
-                          {item.label}
-                        </Typography>
-                      </Box>
-                    ))}
-                  </Box>
-                </Collapse>
-              </Box>
+              ))}
+            </Box>
+          </Collapse>
+        </Box>
 
               {/* CAMPAIGN INPUTS Section */}
               <Box sx={{ mb: 1.5 }}>
@@ -394,7 +341,7 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart, i
                 </Box>
                 
                 <Collapse in={inputsExpanded}>
-                  <Box sx={{ mt: 0.5, p: 1, background: actualMode === 'dark' ? '#1e293b' : '#ffffff', borderRadius: 1 }}>
+                  <Box sx={{ mt: 0.5, p: 1, background: 'background.paper', borderRadius: 1 }}>
                     {campaignInputs.map((input) => (
                       <Box key={input.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                         <Chip
@@ -446,7 +393,7 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart, i
                 </Box>
                 
                 <Collapse in={outputsExpanded}>
-                  <Box sx={{ mt: 0.5, p: 1, background: actualMode === 'dark' ? '#1e293b' : '#ffffff', borderRadius: 1 }}>
+                  <Box sx={{ mt: 0.5, p: 1, background: 'background.paper', borderRadius: 1 }}>
                     {campaignOutputs.map((output) => (
                       <Box key={output.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
                         <Chip
@@ -498,7 +445,7 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart, i
                 </Box>
                 
                 <Collapse in={reportsExpanded}>
-                  <Box sx={{ mt: 0.5, p: 1, background: actualMode === 'dark' ? '#1e293b' : '#ffffff', borderRadius: 1 }}>
+                  <Box sx={{ mt: 0.5, p: 1, background: 'background.paper', borderRadius: 1 }}>
                     <FormControl size="small" fullWidth sx={{ mb: 1 }}>
                       <InputLabel>Mode</InputLabel>
                       <Select
@@ -540,37 +487,7 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart, i
                   </Box>
                 </Collapse>
               </Box>
-            </Box>
-          </>
-        )}
       </Box>
-      
-      {/* Toggle Button (when sidebar is closed) */}
-      {!isSidebarOpen && (
-        <Box
-          sx={{
-            position: 'absolute',
-            left: 0,
-            top: '140px',
-            zIndex: 10,
-          }}
-        >
-          <IconButton
-            onClick={toggleSidebar}
-            sx={{
-              background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-              border: 1,
-              borderColor: 'divider',
-              borderRadius: '0 8px 8px 0',
-              '&:hover': {
-                background: actualMode === 'dark' ? '#334155' : '#f1f5f9',
-              },
-            }}
-          >
-            <ExpandMoreIcon sx={{ transform: 'rotate(-90deg)' }} />
-          </IconButton>
-        </Box>
-      )}
     </>
   );
 };

@@ -829,7 +829,7 @@ export const UniversalBlock: React.FC<NodeProps & {
                   }}
                 >
                   <Typography fontSize={11} fontWeight="bold" color="#f97316">
-                    📤 OUTPUTS ({data.blockOutputs.length})
+                    OUTPUTS ({data.blockOutputs.length})
                   </Typography>
                   {outputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#f97316' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#f97316' }} />}
                 </Box>

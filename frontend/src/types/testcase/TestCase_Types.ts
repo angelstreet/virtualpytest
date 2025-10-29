@@ -89,7 +89,8 @@ export interface ScriptOutput {
 
 export interface MetadataField {
   name: string;
-  sourceBlockId?: string;
+  value?: any; // Direct value (if not linked)
+  sourceBlockId?: string; // OR linked to block output
   sourceOutputName?: string;
   sourceOutputType?: string;
   description?: string;
@@ -98,10 +99,7 @@ export interface MetadataField {
 export interface ScriptConfig {
   inputs: ScriptInput[];
   outputs: ScriptOutput[];
-  metadata: {
-    mode: 'set' | 'append';
-    fields: MetadataField[];
-  };
+  metadata: MetadataField[]; // Changed: direct array, no mode wrapper
 }
 
 // Complete testcase graph

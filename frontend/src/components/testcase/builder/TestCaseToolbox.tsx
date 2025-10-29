@@ -89,8 +89,6 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     setScriptOutputs,
     scriptMetadata,
     setScriptMetadata,
-    metadataMode,
-    setMetadataMode,
   } = useTestCaseBuilder();
 
   // Define tab colors (matching block type colors)
@@ -383,14 +381,12 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         inputs={scriptInputs}
         outputs={scriptOutputs}
         metadata={scriptMetadata}
-        metadataMode={metadataMode}
         onAddInput={handleAddInput}
         onAddOutput={handleAddOutput}
         onAddMetadataField={handleAddMetadataField}
         onRemoveInput={handleRemoveInput}
         onRemoveOutput={handleRemoveOutput}
         onRemoveMetadataField={handleRemoveMetadataField}
-        onMetadataModeChange={setMetadataMode}
         onFocusSourceBlock={handleFocusSourceBlock}
         onUpdateOutputs={setScriptOutputs}
         onUpdateMetadata={setScriptMetadata}

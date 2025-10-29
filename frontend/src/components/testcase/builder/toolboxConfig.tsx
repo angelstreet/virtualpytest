@@ -102,8 +102,9 @@ export const toolboxConfig: Record<string, TabConfig> = {
             outputs: ['success'],
             defaultData: {
               hasInput: true,
+              hasOutput: true,
             },
-            description: 'Push variables to metadata'
+            description: 'Set metadata fields'
           },
         ]
       }
@@ -204,9 +205,9 @@ export const toolboxConfig: Record<string, TabConfig> = {
             defaultData: { 
               command: 'getMenuInfo', 
               verification_type: 'text',
-              hasOutput: false,  // Changed: no output handle needed (auto-stores to metadata)
+              hasOutput: true,
             },
-            description: 'OCR menu, parse key-values, auto-store to metadata'
+            description: 'OCR menu and parse key-values'
           },
         ]
       },

@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef, useMemo } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
-import { BlockType, ExecutionState, TestCaseGraph } from '../../types/testcase/TestCase_Types';
+import { BlockType, ExecutionState, TestCaseGraph, MetadataField, ScriptConfig } from '../../types/testcase/TestCase_Types';
 import { 
   useTestCaseSave, 
   useTestCaseExecution,
@@ -41,8 +41,6 @@ interface TestCaseBuilderContextType {
   setScriptOutputs: React.Dispatch<React.SetStateAction<any[]>>;
   scriptMetadata: any[];
   setScriptMetadata: React.Dispatch<React.SetStateAction<any[]>>;
-  metadataMode: 'set' | 'append';
-  setMetadataMode: React.Dispatch<React.SetStateAction<'set' | 'append'>>;
   
   // Unsaved changes tracking
   hasUnsavedChanges: boolean;
@@ -196,7 +194,6 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [scriptInputs, setScriptInputs] = useState<any[]>([]);
   const [scriptOutputs, setScriptOutputs] = useState<any[]>([]);
   const [scriptMetadata, setScriptMetadata] = useState<any[]>([]);
-  const [metadataMode, setMetadataMode] = useState<'set' | 'append'>('append');
   
   // Available options for dropdowns
   const [availableInterfaces, setAvailableInterfaces] = useState<UserInterface[]>([]);
@@ -649,11 +646,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       scriptConfig: {
         inputs: scriptInputs,
         outputs: scriptOutputs,
-        metadata: {
-          mode: metadataMode,
-          fields: scriptMetadata
-        }
-      }
+        metadata: scriptMetadata as MetadataField[]
+      } as ScriptConfig
     };
     
     // DEBUG: Log what we're saving
@@ -732,15 +726,16 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         if (graph.scriptConfig) {
           setScriptInputs(graph.scriptConfig.inputs || []);
           setScriptOutputs(graph.scriptConfig.outputs || []);
-          setScriptMetadata(graph.scriptConfig.metadata?.fields || []);
-          setMetadataMode(graph.scriptConfig.metadata?.mode || 'append');
+          // Support both old format (metadata.fields) and new format (metadata array)
+          setScriptMetadata(Array.isArray(graph.scriptConfig.metadata) 
+            ? graph.scriptConfig.metadata 
+            : graph.scriptConfig.metadata?.fields || []);
           console.log('[@TestCaseBuilder] Loaded scriptConfig:', graph.scriptConfig);
         } else {
           // Reset to defaults if no scriptConfig
           setScriptInputs([]);
           setScriptOutputs([]);
           setScriptMetadata([]);
-          setMetadataMode('append');
         }
         
         // Recalculate block counters from loaded nodes
@@ -837,7 +832,6 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setScriptInputs([]);
     setScriptOutputs([]);
     setScriptMetadata([]);
-    setMetadataMode('append');
   }, []);
 
   // Fetch navigation nodes when userinterface changes
@@ -932,8 +926,6 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setScriptOutputs,
     scriptMetadata,
     setScriptMetadata,
-    metadataMode,
-    setMetadataMode,
     hasUnsavedChanges,
     setHasUnsavedChanges,
     undo,

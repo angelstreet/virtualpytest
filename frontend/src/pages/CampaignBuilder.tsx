@@ -4,6 +4,8 @@
  * Visual campaign builder with React Flow canvas.
  * Allows users to create campaigns by dragging testcases and scripts onto a canvas,
  * connecting them visually, and linking data between blocks.
+ * 
+ * NOTE: This uses the EXACT same layout structure as TestCaseBuilder for consistency
  */
 
 import React, { useCallback, DragEvent, useState } from 'react';
@@ -17,14 +19,15 @@ import ReactFlow, {
 import 'reactflow/dist/style.css';
 import {
   Box,
-  Typography,
   Button,
-  AppBar,
-  Toolbar,
+  Typography,
+  IconButton,
 } from '@mui/material';
 import {
   Save as SaveIcon,
   PlayArrow as ExecuteIcon,
+  ChevronLeft as ChevronLeftIcon,
+  ChevronRight as ChevronRightIcon,
 } from '@mui/icons-material';
 import { CampaignBuilderProvider, useCampaignBuilder } from '../contexts/campaign/CampaignBuilderContext';
 import { CampaignBlock } from '../components/campaign/blocks/CampaignBlock';
@@ -42,7 +45,8 @@ const nodeTypes = {
 };
 
 const CampaignBuilderContent: React.FC = () => {
-  const { mode: actualMode } = useTheme();
+  const { mode } = useTheme();
+  const actualMode = mode === 'system' ? 'light' : mode;
   const {
     nodes,
     edges,
@@ -71,7 +75,7 @@ const CampaignBuilderContent: React.FC = () => {
       // Get the drop position
       const reactFlowBounds = event.currentTarget.getBoundingClientRect();
       const position = {
-        x: event.clientX - reactFlowBounds.left - 140, // Center horizontally (block width ~280)
+        x: event.clientX - reactFlowBounds.left - 140,
         y: event.clientY - reactFlowBounds.top,
       };
 
@@ -88,7 +92,6 @@ const CampaignBuilderContent: React.FC = () => {
           executableType: item.executableType,
           executableName: item.executableName,
           parameters: {},
-          // TODO: Fetch testcase scriptConfig to populate inputs/outputs
           inputs: item.executableType === 'testcase' ? [] : undefined,
           outputs: item.executableType === 'testcase' ? [] : undefined,
         },
@@ -112,53 +115,94 @@ const CampaignBuilderContent: React.FC = () => {
     const success = await saveCampaign();
     if (success) {
       console.log('[@CampaignBuilder] Campaign saved successfully');
-      // TODO: Show success toast
     } else {
       console.error('[@CampaignBuilder] Failed to save campaign');
-      // TODO: Show error toast
     }
   };
 
-  // Handle execute (TODO)
+  // Handle execute
   const handleExecute = () => {
     console.log('[@CampaignBuilder] Execute campaign:', state);
-    // TODO: Convert graph to linear campaign config and execute
   };
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa' }}>
-      {/* Top App Bar */}
-      <AppBar position="static" color="default" elevation={0} sx={{ 
-        borderBottom: 1, 
-        borderColor: 'divider',
-        background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-      }}>
-        <Toolbar variant="dense" sx={{ minHeight: '40px', px: 2 }}>
-          <Typography variant="h6" sx={{ flex: 1, fontWeight: 600 }}>
+    <Box sx={{ 
+      position: 'fixed',
+      top: 64,
+      left: 0,
+      right: 0,
+      bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
+      display: 'flex', 
+      flexDirection: 'column', 
+      overflow: 'hidden',
+      zIndex: 1,
+    }}>
+      {/* Header - EXACT same structure as TestCaseBuilderHeader */}
+      <Box
+        sx={{
+          px: 2,
+          py: 0,
+          borderBottom: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          background: actualMode === 'dark' ? '#111827' : '#ffffff',
+          height: '46px',
+          flexShrink: 0,
+        }}
+      >
+        {/* Title */}
+        <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 0, flex: '0 0 260px', gap: 1 }}>
+          <Typography variant="h6" fontWeight="bold" sx={{ whiteSpace: 'nowrap' }}>
             Campaign Builder
-            {state.campaign_name && `: ${state.campaign_name}`}
           </Typography>
-
-          <Button
-            startIcon={<SaveIcon />}
+          {state.campaign_name && (
+            <>
+              <Typography variant="h6" sx={{ color: 'text.disabled' }}>
+                •
+              </Typography>
+              <Typography 
+                variant="h6" 
+                sx={{ 
+                  fontWeight: 600,
+                  color: 'primary.main',
+                  whiteSpace: 'nowrap',
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  maxWidth: 200,
+                }}
+              >
+                {state.campaign_name}
+              </Typography>
+            </>
+          )}
+        </Box>
+        
+        {/* Action Buttons */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+          <Button 
+            size="small" 
+            variant="outlined" 
+            startIcon={<SaveIcon />} 
             onClick={handleSave}
-            sx={{ mr: 1 }}
           >
             Save
           </Button>
-
+          
           <Button
+            size="small"
             variant="contained"
             startIcon={<ExecuteIcon />}
             onClick={handleExecute}
-            disabled={nodes.length <= 3} // Only START, SUCCESS, FAILURE
+            disabled={nodes.length <= 3}
           >
             Execute
           </Button>
-        </Toolbar>
-      </AppBar>
+        </Box>
+      </Box>
 
-      {/* Main Content Area */}
+      {/* Main Container - EXACT same structure as TestCaseBuilder */}
       <Box sx={{ 
         flex: 1,
         display: 'flex', 
@@ -166,18 +210,100 @@ const CampaignBuilderContent: React.FC = () => {
         minHeight: 0,
         position: 'relative',
       }}>
-        {/* Left Toolbox */}
-        <CampaignToolbox isSidebarOpen={isSidebarOpen} toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)} actualMode={actualMode} />
-
-        {/* React Flow Canvas */}
+        {/* Sidebar - EXACT same structure as TestCaseBuilderSidebar */}
         <Box
+          sx={{
+            position: 'absolute',
+            left: 0,
+            top: 0,
+            bottom: 0,
+            width: isSidebarOpen ? '280px' : '0px',
+            transition: 'width 0.3s ease',
+            overflow: 'hidden',
+            borderRight: isSidebarOpen ? 1 : 0,
+            borderColor: 'divider',
+            display: 'flex',
+            flexDirection: 'column',
+            background: actualMode === 'dark' ? '#0f172a' : '#f8f9fa',
+            zIndex: 5,
+          }}
+        >
+          {isSidebarOpen && (
+            <>
+              {/* Sidebar Header */}
+              <Box
+                sx={{
+                  px: 2,
+                  py: 1.5,
+                  height: '40px',
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  display: 'flex',
+                  justifyContent: 'space-between',
+                  alignItems: 'center',
+                  background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
+                }}
+              >
+                <Typography variant="subtitle1" fontWeight="bold">
+                  Toolbox
+                </Typography>
+                <IconButton
+                  size="small"
+                  onClick={() => setIsSidebarOpen(false)}
+                  sx={{
+                    color: 'text.secondary',
+                    '&:hover': { color: 'primary.main' },
+                  }}
+                >
+                  <ChevronLeftIcon />
+                </IconButton>
+              </Box>
+              
+              {/* Sidebar Content */}
+              <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
+                <CampaignToolbox />
+              </Box>
+            </>
+          )}
+        </Box>
+        
+        {/* Toggle Button (when sidebar is closed) */}
+        {!isSidebarOpen && (
+          <Box
+            sx={{
+              position: 'absolute',
+              left: 0,
+              top: '140px',
+              zIndex: 10,
+            }}
+          >
+            <IconButton
+              onClick={() => setIsSidebarOpen(true)}
+              sx={{
+                borderRadius: '0 8px 8px 0',
+                background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
+                border: 1,
+                borderLeft: 0,
+                borderColor: 'divider',
+                '&:hover': {
+                  background: actualMode === 'dark' ? '#334155' : '#f1f5f9',
+                },
+              }}
+            >
+              <ChevronRightIcon />
+            </IconButton>
+          </Box>
+        )}
+
+        {/* Canvas - EXACT same structure as TestCaseBuilder */}
+        <Box 
           sx={{ 
             flex: 1, 
             height: '100%',
             minWidth: 0,
             overflow: 'hidden',
-          }}
-          onDrop={handleDrop}
+          }} 
+          onDrop={handleDrop} 
           onDragOver={handleDragOver}
         >
           <ReactFlow
@@ -205,7 +331,7 @@ const CampaignBuilderContent: React.FC = () => {
                 background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
                 border: `1px solid ${actualMode === 'dark' ? '#334155' : '#e2e8f0'}`,
                 borderRadius: '8px',
-                left: isSidebarOpen ? '390px' : '10px',
+                left: isSidebarOpen ? '290px' : '10px',
                 transition: 'left 0.3s ease',
               }}
             />
@@ -241,4 +367,3 @@ const CampaignBuilder: React.FC = () => {
 };
 
 export default CampaignBuilder;
-
