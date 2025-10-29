@@ -219,15 +219,27 @@ class VerificationExecutor:
         Returns:
             Dict with success status, results, and execution statistics
         """
-        # Start capturing logs
+        # Start capturing logs with Tee (print to both terminal and buffer)
         log_buffer = io.StringIO()
         old_stdout = sys.stdout
         old_stderr = sys.stderr
         
+        # Tee class to write to multiple streams (terminal + buffer)
+        class Tee:
+            def __init__(self, *streams):
+                self.streams = streams
+            def write(self, data):
+                for stream in self.streams:
+                    stream.write(data)
+                    stream.flush()
+            def flush(self):
+                for stream in self.streams:
+                    stream.flush()
+        
         try:
-            # Redirect stdout/stderr to buffer
-            sys.stdout = log_buffer
-            sys.stderr = log_buffer
+            # Redirect stdout/stderr to BOTH terminal and buffer
+            sys.stdout = Tee(old_stdout, log_buffer)
+            sys.stderr = Tee(old_stderr, log_buffer)
             
             # Reduced logging for cleaner output during KPI scans
             

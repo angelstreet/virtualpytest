@@ -178,9 +178,19 @@ export const UniversalBlock: React.FC<NodeProps & {
         result = navResult;
       } else {
         // Execute action or verification
+        // Filter out null/undefined values from params
+        const cleanParams: Record<string, any> = {};
+        if (data.params) {
+          Object.entries(data.params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+              cleanParams[key] = value;
+            }
+          });
+        }
+        
         const actionPayload = {
           command: data.command,
-          params: data.params || {},
+          params: cleanParams,
           action_type: data.action_type,
           verification_type: data.verification_type,
           threshold: data.threshold,
@@ -188,7 +198,7 @@ export const UniversalBlock: React.FC<NodeProps & {
         };
         
         const endpoint = '/server/action/execute'; // Both actions and verifications use same endpoint
-        const response = await fetch(buildServerUrl(`${endpoint}?team_id=default-team-id`), {
+        const response = await fetch(buildServerUrl(`${endpoint}`), {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({

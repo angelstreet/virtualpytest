@@ -204,6 +204,7 @@ export const toolboxConfig: Record<string, TabConfig> = {
             outputs: ['success', 'failure'],
             defaultData: { 
               command: 'getMenuInfo', 
+              action_type: 'verification',
               verification_type: 'text',
               hasOutput: true,
             },
