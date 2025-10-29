@@ -249,12 +249,13 @@ def action_execute_single():
         # Convert single action to batch format
         actions = [action]
         
-        # Prepare execution payload
+        # Prepare execution payload - FORCE SYNC mode since we're waiting for result
         execution_payload = {
             'actions': actions,
             'device_id': device_id,
             'retry_actions': [],
-            'team_id': team_id
+            'team_id': team_id,
+            'async_execution': False  # ✅ Force sync execution - we wait for logs
         }
         
         # Extract parameters for query string
