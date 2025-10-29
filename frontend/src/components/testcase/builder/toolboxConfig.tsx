@@ -13,6 +13,7 @@ import StorageIcon from '@mui/icons-material/Storage';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import CheckCircleOutlineIcon from '@mui/icons-material/CheckCircleOutline';
 import TextFieldsIcon from '@mui/icons-material/TextFields';
+import CodeIcon from '@mui/icons-material/Code';
 import SaveIcon from '@mui/icons-material/Save';
 import { BlockType } from '../../../types/testcase/TestCase_Types';
 
@@ -64,7 +65,27 @@ export const toolboxConfig: Record<string, TabConfig> = {
             icon: <AccessTimeIcon fontSize="small" />,
             color: '#6b7280', // grey - standard operations
             outputs: ['success'],
+            defaultData: { 
+              command: 'sleep', 
+              action_type: 'standard_block',
+              params: { duration: 1.0 }
+            },
             description: 'Wait for specified duration'
+          },
+          {
+            type: 'custom_code',
+            label: 'Custom Python Code',
+            icon: <CodeIcon fontSize="small" />,
+            color: '#10b981', // green - custom/advanced
+            outputs: ['success', 'failure'],
+            defaultData: { 
+              command: 'custom_code', 
+              action_type: 'standard_block',
+              params: { 
+                code: '# Write your Python code here\n# Available:\n#   - context: Execution context\n#   - device: Device instance\n'
+              }
+            },
+            description: 'Execute custom Python code'
           },
           {
             type: 'get_current_time',

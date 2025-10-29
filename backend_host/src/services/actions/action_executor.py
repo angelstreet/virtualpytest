@@ -648,6 +648,23 @@ class ActionExecutor:
                         'params': params,
                         'device_id': self.device_id
                     }
+                elif action_type == 'standard_block':
+                    # Execute standard block directly via block registry (no HTTP)
+                    from backend_host.src.builder import execute_block
+                    
+                    if iteration == 0:  # Only log once
+                        print(f"[@lib:action_executor:_execute_single_action] Executing standard block: {action.get('command')}")
+                    
+                    # Execute block with context
+                    response_data = execute_block(
+                        command=action.get('command'),
+                        params=params,
+                        context=context
+                    )
+                    
+                    # Standard blocks return response_data directly (no HTTP call needed)
+                    endpoint = None
+                    status_code = 200 if response_data.get('success', False) else 500
                 else:
                     # Route to remote endpoint (default behavior for remote actions)
                     endpoint = '/host/remote/executeCommand'
