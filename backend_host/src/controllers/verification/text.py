@@ -689,9 +689,9 @@ class TextVerificationController:
         Typical use: Extract device info (serial number, MAC, firmware, etc.)
         
         Args:
-            area: Optional area dict {'x', 'y', 'width', 'height'} for OCR region
+            area: Optional area dict {'x', 'y', 'width', 'height'} for OCR region (None = full screenshot)
             context: Execution context (for metadata storage)
-            source_path: Screenshot path (already provided by execute_verification)
+            source_path: Screenshot path (None = auto-capture)
             
         Returns:
             Dict with:
@@ -709,15 +709,36 @@ class TextVerificationController:
                 "device_name": "device1"
             }
         """
-        print(f"[@controller:TextVerification:getMenuInfo] Extracting menu info with auto-parsing")
+        print(f"[@controller:TextVerification:getMenuInfo] Params: area={area}, source_path={source_path}, context={context is not None}")
         
         try:
+            # Auto-capture screenshot if no source_path provided (same as OCR function)
+            if not source_path:
+                print(f"[@controller:TextVerification:getMenuInfo] No source_path → auto-capturing screenshot")
+                source_path = self.av_controller.take_screenshot()
+                if not source_path or not os.path.exists(source_path):
+                    return {
+                        'success': False,
+                        'output_data': {'ocr_text': ''},
+                        'message': 'Failed to auto-capture screenshot'
+                    }
+                print(f"[@controller:TextVerification:getMenuInfo] Auto-captured: {source_path}")
+            
+            # Validate source path exists
+            if not os.path.exists(source_path):
+                return {
+                    'success': False,
+                    'output_data': {'ocr_text': ''},
+                    'message': f'Source image not found: {source_path}'
+                }
+            
             # Extract text using helper
+            print(f"[@controller:TextVerification:getMenuInfo] OCR extraction...")
             result = self.helpers.detect_text_in_area(source_path, area)
             extracted_text = result.get('extracted_text', '')
             
             if not extracted_text:
-                print(f"[@controller:TextVerification:getMenuInfo] No text extracted from area")
+                print(f"[@controller:TextVerification:getMenuInfo] FAIL: No text extracted")
                 return {
                     'success': False,
                     'output_data': {'ocr_text': ''},
@@ -730,6 +751,7 @@ class TextVerificationController:
             print(f"--- OCR TEXT END ---")
             
             # Parse key-value pairs using helper
+            print(f"[@controller:TextVerification:getMenuInfo] Parsing key-value pairs...")
             parsed_data = self.helpers.parse_menu_info(extracted_text)
             
             print(f"[@controller:TextVerification:getMenuInfo] Parsed {len(parsed_data)} key-value pairs")
@@ -738,6 +760,7 @@ class TextVerificationController:
             
             if not parsed_data:
                 print(f"[@controller:TextVerification:getMenuInfo] WARNING: No key-value pairs found in OCR text")
+
             
             # Auto-store to context.metadata (FLAT JSON)
             if context:
@@ -769,6 +792,7 @@ class TextVerificationController:
                 print(f"[@controller:TextVerification:getMenuInfo] New fields added: {list(parsed_data.keys())}")
             else:
                 print(f"[@controller:TextVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
+
             
             # Prepare output data
             output_data = {
