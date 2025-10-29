@@ -11,7 +11,6 @@ import AccessTimeIcon from '@mui/icons-material/AccessTime';
 import AccountTreeIcon from '@mui/icons-material/AccountTree';
 import StorageIcon from '@mui/icons-material/Storage';
 import SaveIcon from '@mui/icons-material/Save';
-import TextFieldsIcon from '@mui/icons-material/TextFields';
 import type { Actions } from '../types/controller/Action_Types';
 import type { Verifications } from '../types/verification/Verification_Types';
 
@@ -40,12 +39,21 @@ function sortCommands(commands: any[]): any[] {
  * - Verifications: from DeviceDataContext availableVerificationTypes
  * 
  * Returns structure matching toolboxConfig.tsx format
+ * 
+ * @param isControlActive - Only build toolbox when control is active (not just device selected)
  */
 export function buildToolboxFromNavigationData(
   nodes: any[],
   availableActions: Actions,
-  availableVerifications: Verifications
+  availableVerifications: Verifications,
+  isControlActive: boolean = false
 ) {
+  // Only show toolbox after taking control, not just on device selection
+  if (!isControlActive) {
+    console.log('[@toolboxBuilder] Control not active - toolbox not available');
+    return null;
+  }
+  
   // Note: userInterface is optional - only nodes and availableActions are required
   if (!nodes || nodes.length === 0) {
     console.log('[@toolboxBuilder] Cannot build toolbox - no nodes provided');

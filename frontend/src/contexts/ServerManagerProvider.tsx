@@ -23,7 +23,7 @@ interface CachedData {
  * - Server selection with localStorage persistence
  * - Fetches server info and hosts from all configured servers
  * - Provides centralized server state management
- * - Caches server data for 1 hour to reduce unnecessary API calls
+ * - Caches server data for 30 seconds to show fresh host status after reboot
  */
 export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ children }) => {
   // ========================================
@@ -50,8 +50,8 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
       if (cached) {
         const { data, timestamp }: CachedData = JSON.parse(cached);
         const age = Date.now() - timestamp;
-        if (age < CACHE_CONFIG.SHORT_TTL) {
-          console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000 / 60)}min)`);
+        if (age < CACHE_CONFIG.VERY_SHORT_TTL) {
+          console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000)}s)`);
           return data;
         }
       }
@@ -68,7 +68,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
       if (cached) {
         const { timestamp }: CachedData = JSON.parse(cached);
         const age = Date.now() - timestamp;
-        return age < CACHE_CONFIG.SHORT_TTL;
+        return age < CACHE_CONFIG.VERY_SHORT_TTL;
       }
     } catch {
       return false;
@@ -115,8 +115,8 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
         if (cached) {
           const { data, timestamp }: CachedData = JSON.parse(cached);
           const age = Date.now() - timestamp;
-          if (age < CACHE_CONFIG.SHORT_TTL) {
-            console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000 / 60)}min)`);
+          if (age < CACHE_CONFIG.VERY_SHORT_TTL) {
+            console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000)}s)`);
             setServerHostsData(data);
             setIsLoading(false);
             isRequestInProgress.current = false;

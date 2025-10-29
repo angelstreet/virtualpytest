@@ -366,8 +366,9 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       return null;
     }
     
-    return buildToolboxFromNavigationData(navNodes, availableActions, availableVerifications);
-  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions, availableVerifications]);
+    // Only show toolbox after taking control, not just on device selection
+    return buildToolboxFromNavigationData(navNodes, availableActions, availableVerifications, isControlActive);
+  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions, availableVerifications, isControlActive]);
   
   // ==================== TEST CASE CONTEXT ====================
   const {

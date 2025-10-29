@@ -81,13 +81,13 @@ export const SERVER_CONFIG = {
 export const CACHE_CONFIG = {
   /**
    * Very short cache - for frequently changing data (30 seconds)
-   * Used for: Host restart status
+   * Used for: Host restart status, server/host data
    */
   VERY_SHORT_TTL: 30 * 1000,
 
   /**
    * Short cache - for dynamic data (2 minutes)
-   * Used for: Server hosts data
+   * Used for: Currently unused (previously used for server hosts)
    */
   SHORT_TTL: 2 * 60 * 1000,
 
