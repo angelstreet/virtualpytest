@@ -1,264 +1,66 @@
-import React from 'react';
-import { Box, TextField } from '@mui/material';
+import React, { useMemo } from 'react';
+import { Box } from '@mui/material';
 
 import { Verification } from '../../types/verification/Verification_Types';
+import { ParamDefinition } from '../../types/paramTypes';
+import { DynamicParamForm } from '../testcase/dialogs/DynamicParamForm';
 
 interface VerificationControlsProps {
   verification: Verification;
   index: number;
   onUpdateVerification: (index: number, updates: Partial<Verification>) => void;
+  availableVerifications?: Record<string, any>;
 }
 
 export const VerificationControls: React.FC<VerificationControlsProps> = ({
   verification,
   index,
   onUpdateVerification,
+  availableVerifications,
 }) => {
+  // Find typed params for this verification
+  const typedParams = useMemo(() => {
+    if (!availableVerifications || !verification.command) return null;
+    
+    // Find the verification definition from available verifications
+    const verificationDef = Object.values(availableVerifications)
+      .flat()
+      .find((v: any) => v.command === verification.command);
+    
+    if (!verificationDef?.params) return null;
+    
+    // Check if params have typed structure (has 'type', 'required', 'default' fields)
+    const firstParam = Object.values(verificationDef.params)[0] as any;
+    if (firstParam && typeof firstParam === 'object' && 'type' in firstParam && 'required' in firstParam) {
+      return verificationDef.params as Record<string, ParamDefinition>;
+    }
+    
+    return null;
+  }, [availableVerifications, verification.command]);
+
+  // Always use DynamicParamForm - no fallback
+  if (!typedParams) {
+    return null; // No params to display
+  }
+
   return (
-    <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', mb: 0, px: 0, mx: 0 }}>
-      {verification.command && (
-        <TextField
-          size="small"
-          type="number"
-          label="Timeout (s)"
-          value={verification.params?.timeout !== undefined ? verification.params.timeout : 0}
-          autoComplete="off"
-          onChange={(e) => {
-            const value = parseInt(e.target.value, 10);
-            onUpdateVerification(index, {
-              params: {
-                ...verification.params,
-                timeout: isNaN(value) ? 0 : value,
-              },
-            });
-          }}
-          sx={{
-            width: 80,
-            '& .MuiInputBase-input': {
-              padding: '4px 8px',
-              fontSize: '0.8rem',
+    <Box sx={{ mb: 0.5 }}>
+      <DynamicParamForm
+        params={typedParams}
+        values={verification.params || {}}
+        onChange={(paramName, value) => {
+          onUpdateVerification(index, {
+            params: {
+              ...verification.params,
+              [paramName]: value,
             },
-          }}
-          inputProps={{ min: 0, max: 60, step: 1 }}
-        />
-      )}
-
-      {verification.command && verification.verification_type === 'adb' && (
-        <TextField
-          size="small"
-          label="Element Criteria"
-          placeholder="text=Button"
-          value={
-            typeof verification.params?.search_term === 'string'
-              ? verification.params.search_term
-              : ''
-          }
-          autoComplete="off"
-          onChange={(e) =>
-            onUpdateVerification(index, {
-              params: { ...verification.params, search_term: e.target.value },
-            })
-          }
-          sx={{
-            flex: 1,
-            '& .MuiInputBase-input': {
-              padding: '4px 8px',
-              fontSize: '0.8rem',
-            },
-          }}
-        />
-      )}
-
-      {verification.command && verification.verification_type === 'appium' && (
-        <TextField
-          size="small"
-          label="Element Text/ID"
-          placeholder="Log out, #element-id"
-          value={
-            verification.verification_type === 'appium' && typeof verification.params?.search_term === 'string'
-              ? verification.params.search_term
-              : ''
-          }
-          autoComplete="off"
-          onChange={(e) =>
-            onUpdateVerification(index, {
-              params: { ...verification.params, search_term: e.target.value },
-            })
-          }
-          sx={{
-            flex: 1,
-            '& .MuiInputBase-input': {
-              padding: '4px 8px',
-              fontSize: '0.8rem',
-            },
-          }}
-        />
-      )}
-
-      {verification.command &&
-        (verification.verification_type === 'image' ||
-          verification.verification_type === 'text') && (
-          <TextField
-            size="small"
-            type="number"
-            label="Threshold"
-            value={verification.params?.threshold || 0.8}
-            autoComplete="off"
-            onChange={(e) =>
-              onUpdateVerification(index, {
-                params: {
-                  ...verification.params,
-                  threshold: parseFloat(e.target.value) || 0.8,
-                },
-              })
-            }
-            sx={{
-              width: 80,
-              '& .MuiInputBase-input': {
-                padding: '4px 8px',
-                fontSize: '0.8rem',
-              },
-            }}
-            inputProps={{ min: 0.1, max: 1.0, step: 0.05 }}
-          />
-        )}
-
-      {verification.command && verification.verification_type === 'text' && (
-        <TextField
-          size="small"
-          type="number"
-          label="Confidence"
-          value={verification.params?.confidence || 0.8}
-          autoComplete="off"
-          onChange={(e) =>
-            onUpdateVerification(index, {
-              params: {
-                ...verification.params,
-                confidence: parseFloat(e.target.value) || 0.8,
-              },
-            })
-          }
-          sx={{
-            width: 80,
-            '& .MuiInputBase-input': {
-              padding: '4px 8px',
-              fontSize: '0.8rem',
-            },
-          }}
-          inputProps={{ min: 0.1, max: 1.0, step: 0.05 }}
-        />
-      )}
-
-      {verification.command &&
-        (verification.verification_type === 'image' ||
-          verification.verification_type === 'text') && (
-          <>
-            <TextField
-              size="small"
-              type="number"
-              label="X"
-              value={Math.round(verification.params?.area?.x || 0)}
-              autoComplete="off"
-              onChange={(e) =>
-                onUpdateVerification(index, {
-                  params: {
-                    ...verification.params,
-                    area: {
-                      ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      x: Math.round(parseFloat(e.target.value) || 0),
-                    },
-                  },
-                })
-              }
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '4px 8px',
-                  fontSize: '0.8rem',
-                },
-              }}
-              inputProps={{ min: 0, step: 1 }}
-            />
-            <TextField
-              size="small"
-              type="number"
-              label="Y"
-              value={Math.round(verification.params?.area?.y || 0)}
-              autoComplete="off"
-              onChange={(e) =>
-                onUpdateVerification(index, {
-                  params: {
-                    ...verification.params,
-                    area: {
-                      ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      y: Math.round(parseFloat(e.target.value) || 0),
-                    },
-                  },
-                })
-              }
-              sx={{
-                width: 70,
-                '& .MuiInputBase-input': {
-                  padding: '4px 8px',
-                  fontSize: '0.8rem',
-                },
-              }}
-              inputProps={{ min: 0, step: 1 }}
-            />
-            <TextField
-              size="small"
-              type="number"
-              label="Width"
-              value={Math.round(verification.params?.area?.width || 100)}
-              autoComplete="off"
-              onChange={(e) =>
-                onUpdateVerification(index, {
-                  params: {
-                    ...verification.params,
-                    area: {
-                      ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      width: Math.round(parseFloat(e.target.value) || 100),
-                    },
-                  },
-                })
-              }
-              sx={{
-                width: 80,
-                '& .MuiInputBase-input': {
-                  padding: '4px 8px',
-                  fontSize: '0.8rem',
-                },
-              }}
-              inputProps={{ min: 1, step: 1 }}
-            />
-            <TextField
-              size="small"
-              type="number"
-              label="Height"
-              value={Math.round(verification.params?.area?.height || 100)}
-              autoComplete="off"
-              onChange={(e) =>
-                onUpdateVerification(index, {
-                  params: {
-                    ...verification.params,
-                    area: {
-                      ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      height: Math.round(parseFloat(e.target.value) || 100),
-                    },
-                  },
-                })
-              }
-              sx={{
-                width: 80,
-                '& .MuiInputBase-input': {
-                  padding: '4px 8px',
-                  fontSize: '0.8rem',
-                },
-              }}
-              inputProps={{ min: 1, step: 1 }}
-            />
-          </>
-        )}
+          });
+        }}
+        onAreaSelect={(paramName) => {
+          // TODO: Implement area selection dialog
+          console.log('Area selection requested for', paramName);
+        }}
+      />
     </Box>
   );
 };

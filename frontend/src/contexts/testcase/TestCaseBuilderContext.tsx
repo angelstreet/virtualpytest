@@ -34,6 +34,16 @@ interface TestCaseBuilderContextType {
   currentTestcaseId: string | null;
   setCurrentTestcaseId: React.Dispatch<React.SetStateAction<string | null>>;
   
+  // Script I/O configuration
+  scriptInputs: any[];
+  setScriptInputs: React.Dispatch<React.SetStateAction<any[]>>;
+  scriptOutputs: any[];
+  setScriptOutputs: React.Dispatch<React.SetStateAction<any[]>>;
+  scriptMetadata: any[];
+  setScriptMetadata: React.Dispatch<React.SetStateAction<any[]>>;
+  metadataMode: 'set' | 'append';
+  setMetadataMode: React.Dispatch<React.SetStateAction<'set' | 'append'>>;
+  
   // Unsaved changes tracking
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
@@ -181,6 +191,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   
   // Unsaved changes tracking
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
+  
+  // Script I/O configuration
+  const [scriptInputs, setScriptInputs] = useState<any[]>([]);
+  const [scriptOutputs, setScriptOutputs] = useState<any[]>([]);
+  const [scriptMetadata, setScriptMetadata] = useState<any[]>([]);
+  const [metadataMode, setMetadataMode] = useState<'set' | 'append'>('append');
   
   // Available options for dropdowns
   const [availableInterfaces, setAvailableInterfaces] = useState<UserInterface[]>([]);
@@ -628,7 +644,16 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         target: edge.target,
         sourceHandle: edge.sourceHandle as 'success' | 'failure',
         type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
-      }))
+      })),
+      // Include Script I/O Configuration
+      scriptConfig: {
+        inputs: scriptInputs,
+        outputs: scriptOutputs,
+        metadata: {
+          mode: metadataMode,
+          fields: scriptMetadata
+        }
+      }
     };
     
     // DEBUG: Log what we're saving
@@ -702,6 +727,21 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
             strokeWidth: 2
           }
         })));
+        
+        // Load Script I/O Configuration (if present)
+        if (graph.scriptConfig) {
+          setScriptInputs(graph.scriptConfig.inputs || []);
+          setScriptOutputs(graph.scriptConfig.outputs || []);
+          setScriptMetadata(graph.scriptConfig.metadata?.fields || []);
+          setMetadataMode(graph.scriptConfig.metadata?.mode || 'append');
+          console.log('[@TestCaseBuilder] Loaded scriptConfig:', graph.scriptConfig);
+        } else {
+          // Reset to defaults if no scriptConfig
+          setScriptInputs([]);
+          setScriptOutputs([]);
+          setScriptMetadata([]);
+          setMetadataMode('append');
+        }
         
         // Recalculate block counters from loaded nodes
         blockCounters.current = {};
@@ -793,6 +833,11 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setSelectedBlock(null);
     setHasUnsavedChanges(false); // Reset on new test case
     blockCounters.current = {}; // Reset block counters
+    // Reset Script I/O Configuration
+    setScriptInputs([]);
+    setScriptOutputs([]);
+    setScriptMetadata([]);
+    setMetadataMode('append');
   }, []);
 
   // Fetch navigation nodes when userinterface changes
@@ -881,6 +926,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setUserinterfaceName,
     currentTestcaseId,
     setCurrentTestcaseId,
+    scriptInputs,
+    setScriptInputs,
+    scriptOutputs,
+    setScriptOutputs,
+    scriptMetadata,
+    setScriptMetadata,
+    metadataMode,
+    setMetadataMode,
     hasUnsavedChanges,
     setHasUnsavedChanges,
     undo,

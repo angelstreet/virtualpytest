@@ -1972,17 +1972,67 @@ class PlaywrightWebController(WebControllerInterface):
             return False, f"Element '{search_term}' not found", {'search_term': search_term, 'error': result.get('error', '')}
     
     def get_available_verifications(self) -> List[Dict[str, Any]]:
-        """Get available verifications for Playwright (web element checks)."""
+        """Get available verifications for Playwright with typed parameters."""
+        from shared.src.lib.schemas.param_types import create_param, ParamType
+        
         return [
             {
                 'command': 'waitForElementToAppear',
-                'params': {'search_term': '', 'timeout': 10.0, 'check_interval': 1.0},
+                'params': {
+                    'search_term': create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default='',
+                        description="Element search term (text, selector, aria-label)",
+                        placeholder="Enter element identifier"
+                    ),
+                    'timeout': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10.0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    'check_interval': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=1.0,
+                        description="Interval between checks (seconds)",
+                        min=0.1,
+                        max=10.0
+                    )
+                },
                 'verification_type': 'web',
                 'description': 'Wait for web element to appear (by text, selector, or aria-label)'
             },
             {
                 'command': 'waitForElementToDisappear',
-                'params': {'search_term': '', 'timeout': 10.0, 'check_interval': 1.0},
+                'params': {
+                    'search_term': create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default='',
+                        description="Element search term (text, selector, aria-label)",
+                        placeholder="Enter element identifier"
+                    ),
+                    'timeout': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10.0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    'check_interval': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=1.0,
+                        description="Interval between checks (seconds)",
+                        min=0.1,
+                        max=10.0
+                    )
+                },
                 'verification_type': 'web',
                 'description': 'Wait for web element to disappear'
             }

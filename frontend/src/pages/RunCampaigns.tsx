@@ -31,11 +31,13 @@ import {
 import {
   PlayArrow as LaunchIcon,
   Link as LinkIcon,
+  AccountTree as VisualBuilderIcon,
 } from '@mui/icons-material';
 
 import { useCampaign } from '../hooks/pages/useCampaign';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
+import { useNavigate } from 'react-router-dom';
 import { CampaignConfigForm } from '../components/campaigns/CampaignConfigForm';
 import { ScriptSequenceBuilder } from '../components/campaigns/ScriptSequenceBuilder';
 
@@ -45,6 +47,8 @@ import { CampaignConfig } from '../types/pages/Campaign_Types';
 import { getScriptDisplayName, formatExecutionDuration, getLogsUrl, getStatusChip } from '../utils/executionUtils';
 
 const RunCampaigns: React.FC = () => {
+  const navigate = useNavigate();
+  
   // Hooks
   const {
     campaignConfig,
@@ -239,6 +243,21 @@ const RunCampaigns: React.FC = () => {
       <Typography variant="h5" sx={{ mb: 0.5 }}>
         Campaign Runner
       </Typography>
+
+      {/* Visual Builder Button */}
+      <Box sx={{ mb: 2 }}>
+        <Button
+          variant="outlined"
+          startIcon={<VisualBuilderIcon />}
+          onClick={() => navigate('/builder/campaign-builder')}
+          size="large"
+        >
+          Visual Campaign Builder
+        </Button>
+        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+          Create campaigns visually by dragging testcases and scripts onto a canvas
+        </Typography>
+      </Box>
 
       {/* Error Display */}
       {error && (

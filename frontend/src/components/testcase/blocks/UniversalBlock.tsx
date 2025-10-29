@@ -1,10 +1,13 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, CircularProgress, TextField } from '@mui/material';
+import { Box, Typography, Chip, IconButton, CircularProgress, TextField, Collapse, Tooltip } from '@mui/material';
 import { Handle, Position, NodeProps } from 'reactflow';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ExpandLessIcon from '@mui/icons-material/ExpandLess';
+import LinkIcon from '@mui/icons-material/Link';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
@@ -39,6 +42,9 @@ export const UniversalBlock: React.FC<NodeProps & {
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editedLabel, setEditedLabel] = useState(data.label || '');
+  const [inputsExpanded, setInputsExpanded] = useState(false);
+  const [outputsExpanded, setOutputsExpanded] = useState(false);
+  const [draggedOutput, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
   
   // Get command configuration from toolbox config
   const commandConfig = getCommandConfig(type as string);
@@ -267,120 +273,8 @@ export const UniversalBlock: React.FC<NodeProps & {
     }
   };
   
-  // Render I/O handles for data flow (ABOVE block, at top)
-  const renderIOHandles = () => {
-    const hasInput = data.hasInput === true;
-    const hasOutput = data.hasOutput === true;
-    
-    if (!hasInput && !hasOutput) return null;
-    
-    // Get handler and linking state from data (passed from TestCaseBuilder)
-    const onDataHandleClick = data.onDataHandleClick;
-    const dataLinkingState = data.dataLinkingState;
-    
-    // Check if this block is the linking source
-    const isLinkingSource = dataLinkingState?.active && dataLinkingState?.sourceBlockId === id;
-    const isActive = dataLinkingState?.active;
-    
-    return (
-      <>
-        {/* Input handle - TOP LEFT (purple, same style as pass/fail) */}
-        {hasInput && (
-          <Handle
-            type="target"
-            position={Position.Top}
-            id="data-input"
-            isConnectable={true} // Can receive connections
-            isConnectableStart={false} // ✅ CANNOT start drag from here
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onDataHandleClick) {
-                onDataHandleClick(id as string, 'data-input', 'input');
-              }
-            }}
-            style={{
-              left: '25%',
-              background: isActive ? '#7c3aed' : '#8b5cf6', // Purple
-              width: isActive ? 80 : 70,
-              height: isActive ? 34 : 28,
-              borderRadius: 4,
-              border: isActive ? '4px solid white' : '2px solid white',
-              top: isActive ? -36 : -32,
-              transform: 'translateX(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: 11,
-              cursor: isActive ? 'crosshair' : 'pointer',
-              boxShadow: isActive ? '0 0 20px #8b5cf6' : 'none',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0.5,
-                pointerEvents: 'none',
-              }}
-            >
-              <Typography fontSize={10} fontWeight="bold">IN</Typography>
-            </Box>
-          </Handle>
-        )}
-        
-        {/* Output handle - TOP RIGHT (orange, same style as pass/fail) */}
-        {hasOutput && (
-          <Handle
-            type="source"
-            position={Position.Top}
-            id="data-output"
-            isConnectable={true} // ✅ CAN start drag from here
-            onClick={(e) => {
-              e.stopPropagation();
-              if (onDataHandleClick) {
-                onDataHandleClick(id as string, 'data-output', 'output');
-              }
-            }}
-            style={{
-              left: '75%',
-              background: isLinkingSource ? '#ea580c' : '#f97316', // Orange
-              width: isLinkingSource ? 80 : 70,
-              height: isLinkingSource ? 34 : 28,
-              borderRadius: 4,
-              border: isLinkingSource ? '4px solid white' : '2px solid white',
-              top: isLinkingSource ? -36 : -32,
-              transform: 'translateX(-50%)',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontWeight: 'bold',
-              fontSize: 11,
-              cursor: 'pointer',
-              boxShadow: isLinkingSource ? '0 0 20px #f97316' : 'none',
-              transition: 'all 0.3s ease',
-            }}
-          >
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'center',
-                gap: 0.5,
-                pointerEvents: 'none',
-              }}
-            >
-              <Typography fontSize={10} fontWeight="bold">OUT</Typography>
-            </Box>
-          </Handle>
-        )}
-      </>
-    );
-  };
+  // Render I/O handles for data flow - REMOVED (now using collapsible sections inside block)
+  // Old IN/OUT handles above block are no longer needed
   
   // Determine header and content based on block type
   let headerLabel = categoryLabel;
@@ -790,21 +684,199 @@ export const UniversalBlock: React.FC<NodeProps & {
       <Box sx={{ p: 1.5 }}>
         {isConfigured ? (
           <>
-            <Typography fontSize={14} fontWeight="medium">
+            <Typography fontSize={14} fontWeight="medium" mb={1}>
               {contentLabel}
             </Typography>
+            
+            {/* Collapsible INPUTS section */}
             {data.params && Object.keys(data.params).length > 0 && (
-              <Box sx={{ mt: 0.5, display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
-                {Object.entries(data.params).slice(0, 2).map(([key, value]) => (
-                  <Chip
-                    key={key}
-                    label={`${key}: ${String(value).substring(0, 15)}${String(value).length > 15 ? '...' : ''}`}
-                    size="small"
-                    sx={{ fontSize: 10, height: 20 }}
-                  />
-                ))}
+              <Box sx={{ mb: 1 }}>
+                <Box
+                  onClick={() => setInputsExpanded(!inputsExpanded)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    py: 0.5,
+                    px: 1,
+                    bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+                    '&:hover': {
+                      bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+                    },
+                  }}
+                >
+                  <Typography fontSize={11} fontWeight="bold" color="#8b5cf6">
+                    📋 INPUTS ({Object.keys(data.params).length})
+                  </Typography>
+                  {inputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6' }} />}
+                </Box>
+                <Collapse in={inputsExpanded}>
+                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {Object.entries(data.params).map(([key, value]) => {
+                      // Check if this param is linked to an output
+                      const link = data.paramLinks?.[key];
+                      const isLinked = Boolean(link);
+                      
+                      return (
+                        <Box
+                          key={key}
+                          onDragOver={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                          }}
+                          onDrop={(e) => {
+                            e.preventDefault();
+                            e.stopPropagation();
+                            if (draggedOutput) {
+                              // Create link: this param <- draggedOutput
+                              updateBlock(id as string, {
+                                paramLinks: {
+                                  ...data.paramLinks,
+                                  [key]: {
+                                    sourceBlockId: draggedOutput.blockId,
+                                    sourceOutputName: draggedOutput.outputName,
+                                    sourceOutputType: draggedOutput.outputType
+                                  }
+                                }
+                              });
+                              setDraggedOutput(null);
+                              showSuccess(`Linked ${key} ← ${draggedOutput.outputName}`);
+                            }
+                          }}
+                          sx={{ position: 'relative' }}
+                        >
+                          <Chip
+                            label={
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                                {isLinked && (
+                                  <Tooltip title={`Linked to ${link.sourceBlockId}.${link.sourceOutputName}`} arrow>
+                                    <LinkIcon 
+                                      sx={{ fontSize: 12, color: '#10b981', cursor: 'pointer' }} 
+                                      onClick={(e) => {
+                                        e.stopPropagation();
+                                        // Focus on source block (React Flow fitView to specific node)
+                                        const sourceNode = document.querySelector(`[data-id="${link.sourceBlockId}"]`);
+                                        if (sourceNode) {
+                                          sourceNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                                        }
+                                      }}
+                                    />
+                                  </Tooltip>
+                                )}
+                                <span>
+                                  {isLinked 
+                                    ? `${key} ← ${link.sourceOutputName}` 
+                                    : `${key}: ${String(value).substring(0, 30)}${String(value).length > 30 ? '...' : ''}`
+                                  }
+                                </span>
+                              </Box>
+                            }
+                            size="small"
+                            onDelete={isLinked ? () => {
+                              // Remove link
+                              const newLinks = { ...data.paramLinks };
+                              delete newLinks[key];
+                              updateBlock(id as string, { paramLinks: newLinks });
+                              showSuccess(`Unlinked ${key}`);
+                            } : undefined}
+                            sx={{ 
+                              fontSize: 10, 
+                              height: 24,
+                              bgcolor: isLinked 
+                                ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                                : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
+                              borderColor: isLinked ? '#10b981' : '#8b5cf6',
+                              cursor: 'pointer',
+                              '&:hover': {
+                                bgcolor: isLinked
+                                  ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)')
+                                  : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'),
+                              }
+                            }}
+                            variant="outlined"
+                          />
+                        </Box>
+                      );
+                    })}
+                  </Box>
+                </Collapse>
               </Box>
             )}
+            
+            {/* Collapsible OUTPUTS section */}
+            {data.blockOutputs && data.blockOutputs.length > 0 && (
+              <Box>
+                <Box
+                  onClick={() => setOutputsExpanded(!outputsExpanded)}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    cursor: 'pointer',
+                    py: 0.5,
+                    px: 1,
+                    bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.1)',
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.2)',
+                    '&:hover': {
+                      bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
+                    },
+                  }}
+                >
+                  <Typography fontSize={11} fontWeight="bold" color="#f97316">
+                    📤 OUTPUTS ({data.blockOutputs.length})
+                  </Typography>
+                  {outputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#f97316' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#f97316' }} />}
+                </Box>
+                <Collapse in={outputsExpanded}>
+                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    {data.blockOutputs.map((output: any, idx: number) => (
+                      <Chip
+                        key={output.name || idx}
+                        label={`${output.name}: ${output.type}`}
+                        size="small"
+                        draggable
+                        onDragStart={(e) => {
+                          e.stopPropagation();
+                          const dragData = {
+                            blockId: id as string,
+                            outputName: output.name,
+                            outputType: output.type
+                          };
+                          setDraggedOutput(dragData);
+                          // Set data for drop handlers
+                          e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                          e.dataTransfer.effectAllowed = 'link';
+                        }}
+                        onDragEnd={() => {
+                          setDraggedOutput(null);
+                        }}
+                        sx={{ 
+                          fontSize: 10, 
+                          height: 24,
+                          bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
+                          borderColor: '#f97316',
+                          cursor: 'grab',
+                          '&:hover': {
+                            bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
+                          },
+                          '&:active': {
+                            cursor: 'grabbing',
+                          }
+                        }}
+                        variant="outlined"
+                      />
+                    ))}
+                  </Box>
+                </Collapse>
+              </Box>
+            )}
+            
             {data.iterations && data.iterations > 1 && (
               <Typography fontSize={11} color="text.secondary" mt={0.5}>
                 × {data.iterations} iterations
@@ -857,9 +929,6 @@ export const UniversalBlock: React.FC<NodeProps & {
       
       {/* Output handles at bottom - rectangles with icons */}
       {renderOutputHandles()}
-      
-      {/* I/O handles for data flow - below flow handles */}
-      {renderIOHandles()}
     </Box>
   );
 };

@@ -19,6 +19,7 @@ import {
   Dashboard as DashboardIcon,
   SmartToy as AIIcon,
   Api as ApiIcon,
+  Build as BuildIcon, // NEW: For Builder section
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -33,9 +34,15 @@ const NavigationBar: React.FC = () => {
   // Navigation menu configuration
   const testGroups = [
     {
+      sectionLabel: 'Builder',
+      items: [
+        { label: 'Test Builder', path: '/builder/test-builder', icon: <TreeIcon fontSize="small" /> },
+        { label: 'Campaign Builder', path: '/builder/campaign-builder', icon: <BuildIcon fontSize="small" /> },
+      ],
+    },
+    {
       sectionLabel: 'Test Plan',
       items: [
-        { label: 'Builder', path: '/test-plan/testcase-builder', icon: <TreeIcon fontSize="small" /> },
         { label: 'Test Cases', path: '/test-plan/test-cases', icon: <TestIcon fontSize="small" /> },
         { label: 'Campaigns', path: '/test-plan/campaigns', icon: <CampaignIcon fontSize="small" /> },
         {
@@ -62,7 +69,7 @@ const NavigationBar: React.FC = () => {
       ],
     },
     {
-      sectionLabel: 'Results',
+      sectionLabel: 'Reporting',
       items: [
         {
           label: 'Test Reports',

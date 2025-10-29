@@ -13,7 +13,63 @@ Functions:
 import os
 import io
 import sys
-from typing import Dict, Any, Optional
+from typing import Dict, Any, Optional, List
+
+
+def get_available_standard_blocks() -> List[Dict[str, Any]]:
+    """
+    Get available standard blocks with typed parameters.
+    This is called by the toolbox builder to populate the standard blocks section.
+    """
+    from shared.src.lib.schemas.param_types import create_param, ParamType
+    
+    return [
+        {
+            'command': 'set_variable',
+            'params': {
+                'variable_name': create_param(
+                    ParamType.STRING,
+                    required=True,
+                    default='',
+                    description="Variable name to set",
+                    placeholder="Enter variable name"
+                ),
+                'variable_value': create_param(
+                    ParamType.STRING,
+                    required=True,
+                    default='',
+                    description="Value to store in the variable",
+                    placeholder="Enter value"
+                )
+            },
+            'block_type': 'standard',
+            'description': 'Set a variable value'
+        },
+        {
+            'command': 'set_metadata',
+            'params': {
+                'source_variable': create_param(
+                    ParamType.STRING,
+                    required=False,
+                    default=None,
+                    description="Variable to push (leave empty for all)",
+                    placeholder="Enter variable name or leave empty"
+                ),
+                'mode': create_param(
+                    ParamType.SELECT,
+                    required=False,
+                    default='append',
+                    description="How to update metadata",
+                    options=[
+                        {'label': 'Append (merge)', 'value': 'append'},
+                        {'label': 'Set (replace)', 'value': 'set'}
+                    ]
+                )
+            },
+            'block_type': 'standard',
+            'description': 'Push variables to metadata for DB storage'
+        }
+    ]
 
 
 def _capture_logs(func):

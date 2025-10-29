@@ -28,7 +28,7 @@ import {
   Delete as DeleteIcon,
   DragIndicator as DragIcon,
   ExpandMore as ExpandMoreIcon,
-
+  AccountTree as TestCaseIcon,
   PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import { ScriptConfiguration } from '../../types/pages/Campaign_Types';
@@ -44,7 +44,7 @@ interface ScriptSequenceBuilderProps {
   deviceModel?: string; // Device model for userinterface selection
   userinterfaceName?: string; // For edge selector (kpi_measurement)
   hostName?: string; // For edge selector (kpi_measurement)
-  onAddScript: (scriptName: string) => void;
+  onAddScript: (executableId: string, executableType?: 'script' | 'testcase', executableName?: string) => void;
   onRemoveScript: (index: number) => void;
 
   onUpdateScript: (index: number, updates: Partial<ScriptConfiguration>) => void;
@@ -70,7 +70,12 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
 
   const handleAddScript = () => {
     if (selectedExecutableToAdd) {
-      onAddScript(selectedExecutableToAdd.id); // Use the executable ID (script filename or testcase UUID)
+      // Pass type and name for testcases
+      onAddScript(
+        selectedExecutableToAdd.id, 
+        selectedExecutableToAdd.type,
+        selectedExecutableToAdd.name
+      );
       setSelectedExecutableToAdd(null);
       setAddScriptDialogOpen(false);
     }
@@ -99,6 +104,33 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
   };
 
   const renderScriptParameters = (script: ScriptConfiguration, scriptIndex: number) => {
+    // NEW: For testcases, show inputs with template support instead of script parameters
+    if (script.script_type === 'testcase') {
+      return (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          <Typography variant="body2" color="text.secondary">
+            TestCase inputs can reference previous script outputs using template syntax:
+          </Typography>
+          <Box sx={{ 
+            p: 1, 
+            bgcolor: 'background.default', 
+            borderRadius: 1,
+            fontFamily: 'monospace',
+            fontSize: '0.85rem'
+          }}>
+            <div>{'${previous.output_name}'} - Get from previous script</div>
+            <div>{'${script_1.output_name}'} - Get from script #1</div>
+          </Box>
+          
+          {/* TODO: Fetch testcase scriptConfig to show declared inputs */}
+          <Typography variant="caption" color="text.secondary">
+            Input parameter configuration coming soon...
+          </Typography>
+        </Box>
+      );
+    }
+    
+    // EXISTING: Script parameters
     const analysis = scriptAnalysisCache[script.script_name];
     if (!analysis || !analysis.parameters) {
       return (
@@ -194,10 +226,17 @@ export const ScriptSequenceBuilder: React.FC<ScriptSequenceBuilderProps> = ({
                     />
                     
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-                      <ScriptIcon sx={{ color: 'text.secondary' }} />
+                      {script.script_type === 'testcase' ? (
+                        <TestCaseIcon sx={{ color: 'primary.main' }} />
+                      ) : (
+                        <ScriptIcon sx={{ color: 'text.secondary' }} />
+                      )}
                       <Typography variant="body1">
                         {getScriptDisplayName(script.script_name, aiTestCasesInfo)}
                       </Typography>
+                      {script.script_type === 'testcase' && (
+                        <Chip label="TestCase" size="small" color="primary" />
+                      )}
                       {isAIScript(script.script_name) && (
                         <Chip label="AI" size="small" color="primary" />
                       )}

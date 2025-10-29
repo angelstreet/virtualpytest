@@ -27,6 +27,7 @@ export interface CampaignExecutionConfig {
 export interface ScriptConfiguration {
   script_name: string;
   script_type: string;
+  testcase_id?: string;  // NEW: For testcase execution
   description?: string;
   parameters: { [key: string]: any };
   order: number;
@@ -103,6 +104,21 @@ export interface ScriptParameter {
   suggestions?: {
     suggested?: string;
     confidence?: string;
+  };
+}
+
+// NEW: TestCase information for campaign builder
+export interface TestCaseInfo {
+  id: string;
+  name: string;
+  description?: string;
+  scriptConfig?: {
+    inputs?: Array<{ name: string; type?: string }>;
+    outputs?: Array<{ name: string; type?: string }>;
+    metadata?: {
+      mode: 'set' | 'append';
+      fields: Array<{ name: string }>;
+    };
   };
 }
 

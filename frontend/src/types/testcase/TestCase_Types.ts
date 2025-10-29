@@ -69,10 +69,46 @@ export interface TestCaseConnection {
   };
 }
 
+// Script I/O Configuration (for campaign orchestration)
+export interface ScriptInput {
+  name: string;
+  type: string;
+  required: boolean;
+  default?: any;
+  description?: string;
+}
+
+export interface ScriptOutput {
+  name: string;
+  type: string;
+  sourceBlockId?: string;
+  sourceOutputName?: string;
+  sourceOutputPath?: string;
+  description?: string;
+}
+
+export interface MetadataField {
+  name: string;
+  sourceBlockId?: string;
+  sourceOutputName?: string;
+  sourceOutputType?: string;
+  description?: string;
+}
+
+export interface ScriptConfig {
+  inputs: ScriptInput[];
+  outputs: ScriptOutput[];
+  metadata: {
+    mode: 'set' | 'append';
+    fields: MetadataField[];
+  };
+}
+
 // Complete testcase graph
 export interface TestCaseGraph {
   nodes: TestCaseBlock[];
   edges: TestCaseConnection[];
+  scriptConfig?: ScriptConfig; // Optional for backward compatibility
 }
 
 // Saved testcase (with metadata)

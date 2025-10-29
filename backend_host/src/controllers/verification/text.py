@@ -498,14 +498,34 @@ class TextVerificationController:
             }
 
     def get_available_verifications(self) -> list:
-        """Get list of available verification types."""
+        """Get list of available verification types with typed parameters."""
+        from shared.src.lib.schemas.param_types import create_param, create_output, ParamType, OutputType
+        
         return [
             {
                 "command": "waitForTextToAppear",
                 "params": {
-                    "text": "",             # Empty string for user input
-                    "timeout": 0,           # Default: single check, no polling
-                    "area": None            # Optional area
+                    "text": create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default="",
+                        description="Text to search for",
+                        placeholder="Enter text to detect"
+                    ),
+                    "timeout": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to search in"
+                    )
                 },
                 "verification_type": "text",
                 "description": "Wait for text to appear"
@@ -513,9 +533,27 @@ class TextVerificationController:
             {
                 "command": "waitForTextToDisappear",
                 "params": {
-                    "text": "",             # Empty string for user input
-                    "timeout": 0,           # Default: single check, no polling
-                    "area": None            # Optional area
+                    "text": create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default="",
+                        description="Text to search for",
+                        placeholder="Enter text to detect"
+                    ),
+                    "timeout": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to search in"
+                    )
                 },
                 "verification_type": "text",
                 "description": "Wait for text to disappear"
@@ -523,10 +561,27 @@ class TextVerificationController:
             {
                 "command": "getMenuInfo",
                 "params": {
-                    "area": None            # Optional area for OCR
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to extract menu information from"
+                    )
                 },
+                "outputs": [
+                    create_output(
+                        "parsed_data",
+                        OutputType.OBJECT,
+                        description="Parsed key-value pairs from menu"
+                    ),
+                    create_output(
+                        "ocr_text",
+                        OutputType.STRING,
+                        description="Raw OCR text extracted"
+                    )
+                ],
                 "verification_type": "text",
-                "description": "getMenuInfo"
+                "description": "OCR menu, parse key-values, auto-store to metadata"
             }
         ] 
 

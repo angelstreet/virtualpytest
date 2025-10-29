@@ -261,6 +261,7 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
         verification={verification}
         onUpdateVerification={onUpdateVerification}
         index={index}
+        availableVerifications={availableVerifications}
       />
 
       {/* Test Results Display using extracted component */}

@@ -45,7 +45,7 @@ interface UseCampaignReturn {
   availableScripts: string[];
   aiTestCasesInfo: any[];
   loadAvailableScripts: () => Promise<void>;
-  addScript: (scriptName: string) => void;
+  addScript: (executableId: string, executableType?: 'script' | 'testcase', executableName?: string) => void;
   removeScript: (index: number) => void;
   reorderScripts: (fromIndex: number, toIndex: number) => void;
   updateScriptConfiguration: (index: number, updates: Partial<ScriptConfiguration>) => void;
@@ -405,11 +405,18 @@ export const useCampaign = (): UseCampaignReturn => {
     }
   }, []);
 
-  const addScript = useCallback((scriptName: string) => {
+  const addScript = useCallback((executableId: string, executableType?: 'script' | 'testcase', executableName?: string) => {
+    // NEW: Handle both scripts and testcases
+    // For testcases: executableId is the UUID, executableType is 'testcase'
+    // For scripts: executableId is the script filename, executableType is 'script'
+    
+    const isTestCase = executableType === 'testcase' || executableId.match(/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i);
+    
     const newScript: ScriptConfiguration = {
-      script_name: scriptName,
-      script_type: scriptName.includes('fullzap') ? 'fullzap' : 'generic',
-      description: `Execute ${scriptName}`,
+      script_name: executableName || executableId,
+      script_type: isTestCase ? 'testcase' : (executableId.includes('fullzap') ? 'fullzap' : 'generic'),
+      testcase_id: isTestCase ? executableId : undefined,  // NEW: Store testcase ID
+      description: isTestCase ? `Execute TestCase: ${executableName || executableId}` : `Execute ${executableId}`,
       parameters: {},
       order: campaignConfig.script_configurations?.length || 0,
     };

@@ -482,14 +482,37 @@ class VideoVerificationHelpers:
     # =============================================================================
     
     def get_available_verifications(self) -> List[Dict[str, Any]]:
-        """Get available verifications for video controller."""
+        """Get available verifications for video controller with typed parameters."""
+        from shared.src.lib.schemas.param_types import create_param, ParamType
+        
         return [
             {
                 'command': 'WaitForVideoToAppear',
                 'params': {
-                    'motion_threshold': 5.0,    # Default motion threshold
-                    'duration': 3.0,            # Default duration
-                    'timeout': 10.0             # Default timeout
+                    'motion_threshold': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=5.0,
+                        description="Motion threshold for detection",
+                        min=0.0,
+                        max=100.0
+                    ),
+                    'duration': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=3.0,
+                        description="Duration to check (seconds)",
+                        min=0.1,
+                        max=30.0
+                    ),
+                    'timeout': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10.0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Wait for video to appear'
@@ -497,9 +520,30 @@ class VideoVerificationHelpers:
             {
                 'command': 'WaitForVideoToDisappear',
                 'params': {
-                    'motion_threshold': 5.0,    # Default motion threshold
-                    'duration': 3.0,            # Default duration
-                    'timeout': 10.0             # Default timeout
+                    'motion_threshold': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=5.0,
+                        description="Motion threshold for detection",
+                        min=0.0,
+                        max=100.0
+                    ),
+                    'duration': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=3.0,
+                        description="Duration to check (seconds)",
+                        min=0.1,
+                        max=30.0
+                    ),
+                    'timeout': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10.0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Wait for video to disappear'
@@ -507,8 +551,22 @@ class VideoVerificationHelpers:
             {
                 'command': 'DetectMotion',
                 'params': {
-                    'duration': 3.0,            # Default duration
-                    'threshold': 5.0            # Default threshold
+                    'duration': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=3.0,
+                        description="Duration to analyze (seconds)",
+                        min=0.1,
+                        max=30.0
+                    ),
+                    'threshold': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=5.0,
+                        description="Motion detection threshold",
+                        min=0.0,
+                        max=100.0
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Detect motion'
@@ -516,8 +574,20 @@ class VideoVerificationHelpers:
             {
                 'command': 'DetectMotionFromJson',
                 'params': {
-                    'json_count': 5,            # Default number of files to analyze
-                    'strict_mode': False        # Default to lenient mode
+                    'json_count': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=5,
+                        description="Number of JSON files to analyze",
+                        min=1,
+                        max=100
+                    ),
+                    'strict_mode': create_param(
+                        ParamType.BOOLEAN,
+                        required=False,
+                        default=False,
+                        description="Use strict mode for detection"
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Detect motion from JSON'
@@ -525,7 +595,14 @@ class VideoVerificationHelpers:
             {
                 'command': 'DetectFreeze',
                 'params': {
-                    'freeze_threshold': 1.0     # Default freeze threshold
+                    'freeze_threshold': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=1.0,
+                        description="Freeze detection threshold",
+                        min=0.0,
+                        max=100.0
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Detect freeze'
@@ -533,7 +610,12 @@ class VideoVerificationHelpers:
             {
                 'command': 'DetectSubtitles',
                 'params': {
-                    'extract_text': True        # Default to extract text
+                    'extract_text': create_param(
+                        ParamType.BOOLEAN,
+                        required=False,
+                        default=True,
+                        description="Extract subtitle text via OCR"
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Detect subtitles OCR'
@@ -541,7 +623,12 @@ class VideoVerificationHelpers:
             {
                 'command': 'DetectSubtitlesAI',
                 'params': {
-                    'extract_text': True        # Default to extract text
+                    'extract_text': create_param(
+                        ParamType.BOOLEAN,
+                        required=False,
+                        default=True,
+                        description="Extract subtitle text via AI"
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Detect subtitles AI'
@@ -549,10 +636,33 @@ class VideoVerificationHelpers:
             {
                 'command': 'DetectZapping',
                 'params': {
-                    'key_release_timestamp': 0.0,   # Timestamp when zapping key was released
-                    'analysis_rectangle': None,     # Rectangle for blackscreen analysis (exclude banner)
-                    'banner_region': None,          # Region where banner appears for AI analysis
-                    'max_images': 10                # Maximum images to analyze
+                    'key_release_timestamp': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0.0,
+                        description="Timestamp when zapping key was released",
+                        min=0.0
+                    ),
+                    'analysis_rectangle': create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Rectangle for blackscreen analysis (exclude banner)"
+                    ),
+                    'banner_region': create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Region where banner appears for AI analysis"
+                    ),
+                    'max_images': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10,
+                        description="Maximum images to analyze",
+                        min=1,
+                        max=100
+                    )
                 },
                 'verification_type': 'video',
                 'description': 'Detect zapping'

@@ -26,6 +26,7 @@ const Models = React.lazy(() => import('./pages/Models'));
 const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
 const RunCampaigns = React.lazy(() => import('./pages/RunCampaigns'));
+const CampaignBuilder = React.lazy(() => import('./pages/CampaignBuilder'));
 const Deployments = React.lazy(() => import('./pages/Deployments'));
 const TestReports = React.lazy(() => import('./pages/TestReports'));
 const CampaignReports = React.lazy(() => import('./pages/CampaignReports'));
@@ -171,15 +172,20 @@ const App: React.FC = () => {
                   {/* Rec Page */}
                   <Route path="/rec" element={<Rec />} />
 
+                  {/* Builder Routes */}
+                  <Route path="/builder/test-builder" element={<TestCaseBuilder />} />
+                  <Route path="/builder/campaign-builder" element={<CampaignBuilder />} />
+
                   {/* Test Plan Routes */}
                   <Route path="/test-plan/test-cases" element={<TestCaseEditor />} />
-                  <Route path="/test-plan/testcase-builder" element={<TestCaseBuilder />} />
+                  <Route path="/test-plan/testcase-builder" element={<TestCaseBuilder />} /> {/* Legacy redirect */}
                   <Route path="/test-plan/campaigns" element={<CampaignEditor />} />
                   <Route path="/test-plan/collections" element={<Collections />} />
 
                   {/* Test Execution Routes */}
                   <Route path="/test-execution/run-tests" element={<RunTests />} />
                   <Route path="/test-execution/run-campaigns" element={<RunCampaigns />} />
+                  <Route path="/campaign-builder" element={<CampaignBuilder />} /> {/* Legacy redirect */}
                   <Route path="/test-execution/deployments" element={<Deployments />} />
 
                   {/* Monitoring Routes */}

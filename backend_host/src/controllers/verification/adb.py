@@ -454,13 +454,28 @@ class ADBVerificationController(VerificationControllerInterface):
             return False, error_msg, result_data
     
     def get_available_verifications(self) -> List[Dict[str, Any]]:
-        """Get available verifications for ADB controller."""
+        """Get available verifications for ADB controller with typed parameters."""
+        from shared.src.lib.schemas.param_types import create_param, ParamType
+        
         return [
             {
                 'command': 'waitForElementToAppear',
                 'params': {
-                    'search_term': '',      # Empty string for user input
-                    'timeout': 0.0,         # Default: single check, no polling
+                    'search_term': create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default='',
+                        description="Element search term (text, id, xpath)",
+                        placeholder="Enter element identifier"
+                    ),
+                    'timeout': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0.0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    )
                 },
                 'verification_type': 'adb',
                 'description': 'Wait for element to appear'
@@ -468,8 +483,21 @@ class ADBVerificationController(VerificationControllerInterface):
             {
                 'command': 'waitForElementToDisappear',
                 'params': {
-                    'search_term': '',      # Empty string for user input
-                    'timeout': 0.0,         # Default: single check, no polling
+                    'search_term': create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default='',
+                        description="Element search term (text, id, xpath)",
+                        placeholder="Enter element identifier"
+                    ),
+                    'timeout': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0.0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    )
                 },
                 'verification_type': 'adb',
                 'description': 'Wait for element to disappear'

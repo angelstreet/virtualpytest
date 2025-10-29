@@ -14,6 +14,9 @@ import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import SearchIcon from '@mui/icons-material/Search';
 import ClearIcon from '@mui/icons-material/Clear';
 import { toolboxConfig as staticToolboxConfig, CommandConfig } from './toolboxConfig';
+import { ScriptIOSections } from './ScriptIOSections';
+import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
+import { useReactFlow } from 'reactflow';
 
 interface DraggableCommandProps {
   command: CommandConfig;
@@ -76,6 +79,19 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
   onCloseProgressBar
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const reactFlowInstance = useReactFlow();
+  
+  // Access Script I/O state from context
+  const {
+    scriptInputs,
+    setScriptInputs,
+    scriptOutputs,
+    setScriptOutputs,
+    scriptMetadata,
+    setScriptMetadata,
+    metadataMode,
+    setMetadataMode,
+  } = useTestCaseBuilder();
 
   // Define tab colors (matching block type colors)
   const tabColors: Record<string, string> = {
@@ -122,6 +138,50 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
 
     return filtered;
   }, [toolboxConfig, searchTerm]);
+  
+  // I/O Section Handlers
+  const handleAddInput = () => {
+    const newInput = {
+      name: `input_${scriptInputs.length + 1}`,
+      type: 'string',
+      required: false,
+    };
+    setScriptInputs([...scriptInputs, newInput]);
+  };
+  
+  const handleAddOutput = () => {
+    const newOutput = {
+      name: `output_${scriptOutputs.length + 1}`,
+      type: 'string',
+    };
+    setScriptOutputs([...scriptOutputs, newOutput]);
+  };
+  
+  const handleAddMetadataField = () => {
+    const newField = {
+      name: `field_${scriptMetadata.length + 1}`,
+    };
+    setScriptMetadata([...scriptMetadata, newField]);
+  };
+  
+  const handleRemoveInput = (name: string) => {
+    setScriptInputs(scriptInputs.filter(input => input.name !== name));
+  };
+  
+  const handleRemoveOutput = (name: string) => {
+    setScriptOutputs(scriptOutputs.filter(output => output.name !== name));
+  };
+  
+  const handleRemoveMetadataField = (name: string) => {
+    setScriptMetadata(scriptMetadata.filter(field => field.name !== name));
+  };
+  
+  const handleFocusSourceBlock = (blockId: string) => {
+    const node = reactFlowInstance?.getNode(blockId);
+    if (node && reactFlowInstance) {
+      reactFlowInstance.setCenter(node.position.x + 100, node.position.y + 50, { zoom: 1.5, duration: 800 });
+    }
+  };
 
   return (
     <Box
@@ -318,6 +378,23 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         )}
       </Box>
 
+      {/* Script I/O Sections (Fixed at bottom) */}
+      <ScriptIOSections
+        inputs={scriptInputs}
+        outputs={scriptOutputs}
+        metadata={scriptMetadata}
+        metadataMode={metadataMode}
+        onAddInput={handleAddInput}
+        onAddOutput={handleAddOutput}
+        onAddMetadataField={handleAddMetadataField}
+        onRemoveInput={handleRemoveInput}
+        onRemoveOutput={handleRemoveOutput}
+        onRemoveMetadataField={handleRemoveMetadataField}
+        onMetadataModeChange={setMetadataMode}
+        onFocusSourceBlock={handleFocusSourceBlock}
+        onUpdateOutputs={setScriptOutputs}
+        onUpdateMetadata={setScriptMetadata}
+      />
     </Box>
   );
 };

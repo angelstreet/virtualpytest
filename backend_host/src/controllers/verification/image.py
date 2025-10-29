@@ -817,15 +817,42 @@ class ImageVerificationController:
             }
 
     def get_available_verifications(self) -> list:
-        """Get list of available verification types."""
+        """Get list of available verification types with typed parameters."""
+        from shared.src.lib.schemas.param_types import create_param, ParamType
+        
         return [
             {
                 "command": "waitForImageToAppear",
                 "params": {
-                    "image_path": "",       # Empty string for user input
-                    "timeout": 0,           # Default: single check, no polling
-                    "threshold": 0.8,      # Default value
-                    "area": None            # Optional area
+                    "image_path": create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default="",
+                        description="Path or URL to reference image",
+                        placeholder="Select or upload reference image"
+                    ),
+                    "timeout": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    "threshold": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0.8,
+                        description="Match threshold (0.0 to 1.0)",
+                        min=0.0,
+                        max=1.0
+                    ),
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to search in"
+                    )
                 },
                 "verification_type": "image",
                 "description": "Wait for image to appear"
@@ -833,10 +860,35 @@ class ImageVerificationController:
             {
                 "command": "waitForImageToDisappear",
                 "params": {
-                    "image_path": "",       # Empty string for user input
-                    "timeout": 0,           # Default: single check, no polling
-                    "threshold": 0.8,      # Default value
-                    "area": None            # Optional area
+                    "image_path": create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default="",
+                        description="Path or URL to reference image",
+                        placeholder="Select or upload reference image"
+                    ),
+                    "timeout": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    "threshold": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0.8,
+                        description="Match threshold (0.0 to 1.0)",
+                        min=0.0,
+                        max=1.0
+                    ),
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to search in"
+                    )
                 },
                 "verification_type": "image",
                 "description": "Wait for image to disappear"
@@ -844,10 +896,35 @@ class ImageVerificationController:
             {
                 "command": "waitForImageToAppearThenDisappear",
                 "params": {
-                    "image_path": "",       # Empty string for user input
-                    "timeout": 10,          # Default: 10s window for both events
-                    "threshold": 0.8,      # Default value
-                    "area": None            # Optional area
+                    "image_path": create_param(
+                        ParamType.STRING,
+                        required=True,
+                        default="",
+                        description="Path or URL to reference image",
+                        placeholder="Select or upload reference image"
+                    ),
+                    "timeout": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10,
+                        description="Maximum time to wait (seconds)",
+                        min=0,
+                        max=30
+                    ),
+                    "threshold": create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=0.8,
+                        description="Match threshold (0.0 to 1.0)",
+                        min=0.0,
+                        max=1.0
+                    ),
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to search in"
+                    )
                 },
                 "verification_type": "image",
                 "description": "Wait for image to appear then disappear"

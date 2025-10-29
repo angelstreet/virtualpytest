@@ -256,14 +256,28 @@ class CampaignExecutor:
     
     def _execute_single_script(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any], 
                              script_config: Dict[str, Any], execution_order: int) -> Dict[str, Any]:
-        """Execute a single script within the campaign using host-level script execution"""
+        """Execute a single script or testcase within the campaign"""
         script_start_time = time.time()
         script_name = script_config.get("script_name")
         script_type = script_config.get("script_type", script_name)
         parameters = script_config.get("parameters", {})
+        testcase_id = script_config.get("testcase_id")  # NEW: For testcase execution
+        
+        # NEW: Resolve template variables in parameters (${previous.X}, ${script_N.X})
+        resolved_parameters = self._resolve_template_parameters(context, parameters, execution_order)
         
         try:
-            # Use host-level script execution via device script executor
+            # NEW: Handle testcase execution differently
+            if script_type == "testcase" and testcase_id:
+                return self._execute_testcase(
+                    context, 
+                    campaign_config, 
+                    script_config, 
+                    execution_order,
+                    resolved_parameters
+                )
+            
+            # EXISTING: Script execution via ScriptExecutor
             print(f"🚀 [Campaign] Executing script via host device script executor")
             
             # Use shared script executor instead of device-specific one
@@ -390,6 +404,185 @@ class CampaignExecutor:
                 "execution_order": execution_order,
                 "report_url": None,
                 "logs_url": None
+            }
+    
+    def _resolve_template_parameters(self, context: CampaignExecutionContext, 
+                                    parameters: Dict[str, Any], current_order: int) -> Dict[str, Any]:
+        """
+        Resolve template variables in parameters.
+        Supports: ${previous.output_name} and ${script_N.output_name}
+        
+        Args:
+            context: Campaign execution context with script_executions history
+            parameters: Parameters dict with potential template strings
+            current_order: Current script execution order (1-based)
+            
+        Returns:
+            Dict with resolved parameter values
+        """
+        import re
+        
+        resolved = {}
+        template_pattern = r'\$\{([^}]+)\}'  # Matches ${...}
+        
+        for param_name, param_value in parameters.items():
+            # Only process string values
+            if not isinstance(param_value, str):
+                resolved[param_name] = param_value
+                continue
+            
+            # Find all template variables in the string
+            matches = re.findall(template_pattern, param_value)
+            
+            if not matches:
+                # No templates, use as-is
+                resolved[param_name] = param_value
+                continue
+            
+            # Resolve each template
+            resolved_value = param_value
+            for match in matches:
+                template_var = f"${{{match}}}"
+                
+                # Parse template: "previous.output_name" or "script_N.output_name"
+                parts = match.split('.')
+                if len(parts) != 2:
+                    print(f"⚠️ [Campaign] Invalid template format: {template_var}")
+                    continue
+                
+                source, output_name = parts
+                
+                # Resolve based on source
+                if source == "previous":
+                    # Get previous script's outputs
+                    if current_order > 1 and len(context.script_executions) >= current_order - 1:
+                        prev_script = context.script_executions[current_order - 2]  # 0-indexed
+                        output_value = prev_script.get('script_outputs', {}).get(output_name)
+                        if output_value is not None:
+                            resolved_value = resolved_value.replace(template_var, str(output_value))
+                            print(f"✓ [Campaign] Resolved {template_var} = {output_value}")
+                        else:
+                            print(f"⚠️ [Campaign] Output not found: {template_var}")
+                    else:
+                        print(f"⚠️ [Campaign] No previous script for: {template_var}")
+                
+                elif source.startswith("script_"):
+                    # Get specific script's outputs by order
+                    try:
+                        script_order = int(source.split('_')[1])
+                        if script_order >= 1 and len(context.script_executions) >= script_order:
+                            target_script = context.script_executions[script_order - 1]  # 0-indexed
+                            output_value = target_script.get('script_outputs', {}).get(output_name)
+                            if output_value is not None:
+                                resolved_value = resolved_value.replace(template_var, str(output_value))
+                                print(f"✓ [Campaign] Resolved {template_var} = {output_value}")
+                            else:
+                                print(f"⚠️ [Campaign] Output not found: {template_var}")
+                        else:
+                            print(f"⚠️ [Campaign] Script order out of range: {template_var}")
+                    except (ValueError, IndexError) as e:
+                        print(f"⚠️ [Campaign] Invalid script reference: {template_var} - {e}")
+                else:
+                    print(f"⚠️ [Campaign] Unknown template source: {template_var}")
+            
+            resolved[param_name] = resolved_value
+        
+        return resolved
+    
+    def _execute_testcase(self, context: CampaignExecutionContext, campaign_config: Dict[str, Any],
+                         script_config: Dict[str, Any], execution_order: int,
+                         resolved_parameters: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute a testcase within the campaign.
+        
+        Args:
+            context: Campaign execution context
+            campaign_config: Overall campaign configuration
+            script_config: Testcase script configuration
+            execution_order: Execution order number
+            resolved_parameters: Resolved input parameters
+            
+        Returns:
+            Dict with execution result including script_outputs
+        """
+        script_start_time = time.time()
+        testcase_id = script_config.get("testcase_id")
+        script_name = script_config.get("script_name", f"testcase_{testcase_id}")
+        
+        print(f"🎯 [Campaign] Executing TestCase: {script_name} (ID: {testcase_id})")
+        print(f"📥 [Campaign] Resolved Inputs: {resolved_parameters}")
+        
+        try:
+            # Import testcase executor
+            from backend_host.src.services.testcase.testcase_executor import TestCaseExecutor
+            
+            # Get device info
+            device_id = campaign_config.get("device", "device1")
+            device_name = device_id
+            device_model = "unknown"
+            
+            try:
+                from backend_host.src.lib.utils.host_utils import get_device_by_id
+                device = get_device_by_id(device_id)
+                if device:
+                    device_model = device.device_model
+                    device_name = device.device_name
+            except Exception as e:
+                print(f"🔍 [Campaign] Could not get device info: {e}")
+            
+            # Create testcase executor
+            testcase_executor = TestCaseExecutor()
+            
+            # Execute testcase by ID
+            # TODO: Add input parameter support to testcase_executor.execute_testcase()
+            # For now, testcases run without explicit inputs
+            result = testcase_executor.execute_testcase(
+                testcase_id=testcase_id,
+                team_id=context.team_id,
+                host_name=context.host.host_name,
+                device_id=device_id,
+                device_name=device_name,
+                device_model=device_model,
+                userinterface_name=campaign_config.get("userinterface_name", "")
+            )
+            
+            execution_time_ms = int((time.time() - script_start_time) * 1000)
+            
+            # Extract script_outputs from testcase execution result
+            script_outputs = result.get('script_outputs', {})
+            
+            print(f"📤 [Campaign] TestCase Outputs: {script_outputs}")
+            
+            return {
+                "script_name": script_name,
+                "script_type": "testcase",
+                "testcase_id": testcase_id,
+                "execution_order": execution_order,
+                "success": result.get('success', False),
+                "execution_time_ms": execution_time_ms,
+                "error": result.get('error'),
+                "report_url": result.get('report_url'),
+                "logs_url": result.get('logs_url'),
+                "script_outputs": script_outputs,  # NEW: For campaign chaining
+                "result_type": result.get('result_type')
+            }
+            
+        except Exception as e:
+            execution_time_ms = int((time.time() - script_start_time) * 1000)
+            error_msg = f"TestCase execution error: {str(e)}"
+            print(f"💥 [Campaign] {error_msg}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                "script_name": script_name,
+                "script_type": "testcase",
+                "testcase_id": testcase_id,
+                "execution_order": execution_order,
+                "success": False,
+                "execution_time_ms": execution_time_ms,
+                "error": error_msg,
+                "script_outputs": {}
             }
     
     def _build_success_result(self, context: CampaignExecutionContext) -> Dict[str, Any]:

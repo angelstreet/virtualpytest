@@ -206,7 +206,8 @@ class TestCaseExecutor:
                 'script_result_id': script_result_id,
                 'step_results': context.step_results,
                 'report_url': report_url,
-                'logs_url': logs_url
+                'logs_url': logs_url,
+                'script_outputs': getattr(context, 'script_outputs', {})  # NEW: For campaign chaining
             }
             
         except Exception as e:
@@ -404,7 +405,8 @@ class TestCaseExecutor:
                 'script_result_id': script_result_id,
                 'step_results': context.step_results,
                 'report_url': report_url,
-                'logs_url': logs_url
+                'logs_url': logs_url,
+                'script_outputs': getattr(context, 'script_outputs', {})  # NEW: For campaign chaining
             }
             
         except Exception as e:
@@ -874,6 +876,10 @@ class TestCaseExecutor:
             if node_type == 'success':
                 context.overall_success = True
                 print(f"[@testcase_executor] Reached SUCCESS terminal block - test passed")
+                
+                # Resolve scriptConfig outputs and metadata before returning
+                self._resolve_script_outputs_and_metadata(graph, context)
+                
                 return {'success': True, 'result_type': 'success'}
             
             if node_type == 'failure':
@@ -882,6 +888,7 @@ class TestCaseExecutor:
                 return {'success': False, 'result_type': 'failure', 'error': 'Test case reached FAILURE block'}
             
             # Execute block
+            self.current_block_id = current_node_id  # Set for output storage
             try:
                 block_result = self._execute_block(current_node, context)
             except Exception as e:
@@ -1050,6 +1057,15 @@ class TestCaseExecutor:
             
             execution_time_ms = int((time.time() - start_time) * 1000)
             
+            # Store block output_data for scriptConfig resolution
+            if result.get('output_data'):
+                if not hasattr(context, 'block_outputs'):
+                    context.block_outputs = {}
+                # Store with current block ID
+                if self.current_block_id:
+                    context.block_outputs[self.current_block_id] = result['output_data']
+                    print(f"[@testcase_executor] Stored block outputs for {self.current_block_id}: {list(result['output_data'].keys())}")
+            
             return {
                 'success': result['success'],
                 'execution_time_ms': execution_time_ms,
@@ -1200,6 +1216,121 @@ class TestCaseExecutor:
                 'execution_time_ms': execution_time_ms,
                 'error': f'Loop execution error: {str(e)}'
             }
+    
+    def _resolve_script_outputs_and_metadata(self, graph: Dict[str, Any], context: ScriptExecutionContext):
+        """
+        Resolve scriptConfig outputs and metadata from block outputs.
+        Populates context.script_outputs and context.metadata based on links.
+        
+        Args:
+            graph: Graph JSON with scriptConfig
+            context: Execution context with block_outputs
+        """
+        script_config = graph.get('scriptConfig')
+        if not script_config:
+            print(f"[@testcase_executor] No scriptConfig found - skipping output/metadata resolution")
+            return
+        
+        print(f"[@testcase_executor] ========== RESOLVING SCRIPT OUTPUTS & METADATA ==========")
+        
+        # Resolve Script Outputs
+        script_outputs_config = script_config.get('outputs', [])
+        if script_outputs_config:
+            print(f"[@testcase_executor] Resolving {len(script_outputs_config)} script outputs...")
+            
+            for output_config in script_outputs_config:
+                output_name = output_config.get('name')
+                source_block_id = output_config.get('sourceBlockId')
+                source_output_name = output_config.get('sourceOutputName')
+                source_output_path = output_config.get('sourceOutputPath')  # JSONPath for nested access
+                
+                if not output_name:
+                    print(f"[@testcase_executor] Warning: Output config missing 'name', skipping")
+                    continue
+                
+                if not source_block_id or not source_output_name:
+                    print(f"[@testcase_executor] Warning: Output '{output_name}' has no source link, skipping")
+                    continue
+                
+                # Get block output from context
+                block_outputs = getattr(context, 'block_outputs', {})
+                block_data = block_outputs.get(source_block_id, {})
+                output_value = block_data.get(source_output_name)
+                
+                if output_value is None:
+                    print(f"[@testcase_executor] Warning: Block '{source_block_id}' has no output '{source_output_name}'")
+                    continue
+                
+                # Apply JSONPath if specified (for nested access like parsed_data.serial)
+                if source_output_path and isinstance(output_value, dict):
+                    try:
+                        # Simple dot-notation path (e.g., "serial" or "device.serial")
+                        for key in source_output_path.split('.'):
+                            output_value = output_value.get(key)
+                            if output_value is None:
+                                break
+                    except Exception as e:
+                        print(f"[@testcase_executor] Error accessing path '{source_output_path}': {e}")
+                        output_value = None
+                
+                if output_value is not None:
+                    # Store in context.script_outputs (for campaign chaining)
+                    if not hasattr(context, 'script_outputs'):
+                        context.script_outputs = {}
+                    context.script_outputs[output_name] = output_value
+                    print(f"[@testcase_executor]   ✓ {output_name} = {output_value}")
+                else:
+                    print(f"[@testcase_executor]   ✗ {output_name} = None (path not found)")
+        
+        # Resolve Metadata
+        metadata_config = script_config.get('metadata', {})
+        metadata_mode = metadata_config.get('mode', 'append')
+        metadata_fields = metadata_config.get('fields', [])
+        
+        if metadata_fields:
+            print(f"[@testcase_executor] Resolving {len(metadata_fields)} metadata fields (mode: {metadata_mode})...")
+            
+            resolved_metadata = {}
+            
+            for field_config in metadata_fields:
+                field_name = field_config.get('name')
+                source_block_id = field_config.get('sourceBlockId')
+                source_output_name = field_config.get('sourceOutputName')
+                
+                if not field_name:
+                    print(f"[@testcase_executor] Warning: Metadata field missing 'name', skipping")
+                    continue
+                
+                if not source_block_id or not source_output_name:
+                    print(f"[@testcase_executor] Warning: Metadata field '{field_name}' has no source link, skipping")
+                    continue
+                
+                # Get block output from context
+                block_outputs = getattr(context, 'block_outputs', {})
+                block_data = block_outputs.get(source_block_id, {})
+                field_value = block_data.get(source_output_name)
+                
+                if field_value is not None:
+                    resolved_metadata[field_name] = field_value
+                    print(f"[@testcase_executor]   ✓ {field_name} = {field_value if not isinstance(field_value, dict) else '{...}'}")
+                else:
+                    print(f"[@testcase_executor]   ✗ {field_name} = None (not found)")
+            
+            # Apply to context.metadata based on mode
+            if metadata_mode == 'set':
+                # Replace entire metadata
+                context.metadata = resolved_metadata
+                print(f"[@testcase_executor] Metadata mode 'set': replaced with {len(resolved_metadata)} fields")
+            else:  # append (default)
+                # Merge into existing metadata
+                if not hasattr(context, 'metadata'):
+                    context.metadata = {}
+                context.metadata.update(resolved_metadata)
+                print(f"[@testcase_executor] Metadata mode 'append': added {len(resolved_metadata)} fields")
+        
+        print(f"[@testcase_executor] ========== RESOLUTION COMPLETE ==========")
+        print(f"[@testcase_executor] Script Outputs: {getattr(context, 'script_outputs', {})}")
+        print(f"[@testcase_executor] Metadata: {context.metadata}")
     
     def _find_next_node(self, current_node_id: str, edge_type: str, edges: List[Dict]) -> Optional[str]:
         """

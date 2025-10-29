@@ -447,14 +447,36 @@ class AudioVerificationController(VerificationControllerInterface):
         }
     
     def get_available_verifications(self) -> List[Dict[str, Any]]:
-        """Get available verifications for audio controller."""
+        """Get available verifications for audio controller with typed parameters."""
+        from shared.src.lib.schemas.param_types import create_param, ParamType
+        
         return [
             {
                 'command': 'DetectSilence',
                 'params': {
-                    'threshold': 10.0,      # Default threshold percentage
-                    'duration': 2.0,        # Default duration in seconds
-                    'audio_file': ''        # Optional audio file path
+                    'threshold': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10.0,
+                        description="Silence threshold percentage",
+                        min=0.0,
+                        max=100.0
+                    ),
+                    'duration': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=2.0,
+                        description="Duration to check (seconds)",
+                        min=0.1,
+                        max=30.0
+                    ),
+                    'audio_file': create_param(
+                        ParamType.STRING,
+                        required=False,
+                        default='',
+                        description="Optional audio file path",
+                        placeholder="Path to audio file"
+                    )
                 },
                 'verification_type': 'audio',
                 'description': 'Detect silence in audio stream'
@@ -462,8 +484,22 @@ class AudioVerificationController(VerificationControllerInterface):
             {
                 'command': 'WaitForAudioToAppear',
                 'params': {
-                    'min_level': 10.0,      # Default minimum level
-                    'duration': 2.0         # Default duration
+                    'min_level': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=10.0,
+                        description="Minimum audio level",
+                        min=0.0,
+                        max=100.0
+                    ),
+                    'duration': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=2.0,
+                        description="Duration to check (seconds)",
+                        min=0.1,
+                        max=30.0
+                    )
                 },
                 'verification_type': 'audio',
                 'description': 'Wait for audio to appear'
@@ -471,8 +507,20 @@ class AudioVerificationController(VerificationControllerInterface):
             {
                 'command': 'DetectAudioFromJson',
                 'params': {
-                    'json_count': 5,        # Number of JSON files to analyze
-                    'strict_mode': True     # Strict mode (all files must be clean)
+                    'json_count': create_param(
+                        ParamType.NUMBER,
+                        required=False,
+                        default=5,
+                        description="Number of JSON files to analyze",
+                        min=1,
+                        max=100
+                    ),
+                    'strict_mode': create_param(
+                        ParamType.BOOLEAN,
+                        required=False,
+                        default=True,
+                        description="Strict mode (all files must be clean)"
+                    )
                 },
                 'verification_type': 'audio',
                 'description': 'Detect audio'

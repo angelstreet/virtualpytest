@@ -56,17 +56,17 @@ const NavigationGroupedDropdown: React.FC<NavigationGroupedDropdownProps> = ({ l
         PaperProps={{
           sx: {
             mt: 1,
-            minWidth: 600,
-            maxWidth: 720,
+            minWidth: 800,
+            maxWidth: 960,
             boxShadow: '0 4px 20px rgba(0,0,0,0.1)',
           },
         }}
       >
-        {/* Three-column grid layout */}
+        {/* Four-column grid layout */}
         <Box
           sx={{
             display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
+            gridTemplateColumns: 'repeat(4, 1fr)',
             gap: 0,
             p: 0,
           }}
