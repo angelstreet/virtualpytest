@@ -13,6 +13,8 @@ import time
 import threading
 import uuid
 import logging
+import io
+import sys
 from typing import Dict, List, Optional, Any
 from shared.src.lib.database.execution_results_db import record_edge_execution
 
@@ -204,153 +206,170 @@ class ActionExecutor:
         Returns:
             Dict with success status, results, and execution statistics
         """
-        # Build action summary for consolidated logging
-        action_summary = f"{len(actions)} actions"
-        if retry_actions:
-            action_summary += f", {len(retry_actions)} retry"
-        if failure_actions:
-            action_summary += f", {len(failure_actions)} failure"
+        # Start capturing logs
+        log_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
         
-        print(f"[@lib:action_executor:execute_actions] Executing {action_summary} on {self.host_name}")
-        
-        # Clear screenshots from previous step - ActionExecutor is reused across navigation steps
-        self.action_screenshots = []
-        
-        # Validate inputs
-        if not actions:
-            return {
-                'success': True,
-                'message': 'No actions to execute',
-                'results': [],
-                'passed_count': 0,
-                'total_count': 0,
-                'main_actions_succeeded': True
-            }
-        
-        # Filter valid actions
-        valid_actions = self._filter_valid_actions(actions)
-        valid_retry_actions = self._filter_valid_actions(retry_actions or [])
-        valid_failure_actions = self._filter_valid_actions(failure_actions or [])
-        
-        if not valid_actions:
-            return {
-                'success': False,
-                'error': 'All actions were invalid and filtered out',
-                'results': [],
-                'passed_count': 0,
-                'total_count': 0,
-                'main_actions_succeeded': False
-            }
-        
-        results = []
-        passed_count = 0
-        execution_order = 1
-        
-        # Execute main actions - stop on first failure
-        main_actions_failed = False
-        
-        # Capture "before action" screenshot BEFORE executing last action (for KPI report)
-        # Store separately - DON'T add to action_screenshots (which is used for validation report counting)
-        before_action_screenshot = ""
-        if valid_actions:
-            from shared.src.lib.utils.device_utils import capture_screenshot
-            before_action_screenshot = capture_screenshot(self.device, context=None) or ""
-            if before_action_screenshot:
-                # Store in separate variable for KPI use - not in action_screenshots list
-                print(f"[@lib:action_executor:execute_actions] 📸 Captured before-action screenshot (for KPI, not for validation report)")
-        
-        for i, action in enumerate(valid_actions):
-            result = self._execute_single_action(action, execution_order, i+1, 'main', team_id, context)
-            results.append(result)
+        try:
+            # Redirect stdout/stderr to buffer
+            sys.stdout = log_buffer
+            sys.stderr = log_buffer
             
-            if result.get('success'):
-                passed_count += 1
-            else:
-                # First action failed - stop executing remaining main actions
-                print(f"[@lib:action_executor:execute_actions] Main action {i+1} failed, stopping main action execution")
-                main_actions_failed = True
-                break
+            # Build action summary for consolidated logging
+            action_summary = f"{len(actions)} actions"
+            if retry_actions:
+                action_summary += f", {len(retry_actions)} retry"
+            if failure_actions:
+                action_summary += f", {len(failure_actions)} failure"
+            
+            print(f"[@lib:action_executor:execute_actions] Executing {action_summary} on {self.host_name}")
+            
+            # Clear screenshots from previous step - ActionExecutor is reused across navigation steps
+            self.action_screenshots = []
+            
+            # Validate inputs
+            if not actions:
+                return {
+                    'success': True,
+                    'message': 'No actions to execute',
+                    'results': [],
+                    'passed_count': 0,
+                    'total_count': 0,
+                    'main_actions_succeeded': True,
+                    'logs': ''
+                }
+            
+            # Filter valid actions
+            valid_actions = self._filter_valid_actions(actions)
+            valid_retry_actions = self._filter_valid_actions(retry_actions or [])
+            valid_failure_actions = self._filter_valid_actions(failure_actions or [])
+            
+            if not valid_actions:
+                return {
+                    'success': False,
+                    'error': 'All actions were invalid and filtered out',
+                    'results': [],
+                    'passed_count': 0,
+                    'total_count': 0,
+                    'main_actions_succeeded': False,
+                    'logs': log_buffer.getvalue()
+                }
+            
+            results = []
+            passed_count = 0
+            execution_order = 1
+            
+            # Execute main actions - stop on first failure
+            main_actions_failed = False
+            
+            # Capture "before action" screenshot BEFORE executing last action (for KPI report)
+            # Store separately - DON'T add to action_screenshots (which is used for validation report counting)
+            before_action_screenshot = ""
+            if valid_actions:
+                from shared.src.lib.utils.device_utils import capture_screenshot
+                before_action_screenshot = capture_screenshot(self.device, context=None) or ""
+                if before_action_screenshot:
+                    # Store in separate variable for KPI use - not in action_screenshots list
+                    print(f"[@lib:action_executor:execute_actions] 📸 Captured before-action screenshot (for KPI, not for validation report)")
+            
+            for i, action in enumerate(valid_actions):
+                result = self._execute_single_action(action, execution_order, i+1, 'main', team_id, context)
+                results.append(result)
                 
-            execution_order += 1
-        
-        # Execute retry actions if any main action failed
-        retry_actions_passed = 0
-        retry_actions_failed = False
-        if main_actions_failed and valid_retry_actions:
-            print(f"[@lib:action_executor:execute_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
-            for i, retry_action in enumerate(valid_retry_actions):
-                result = self._execute_single_action(retry_action, execution_order, i+1, 'retry', team_id, context)
-                results.append(result)
                 if result.get('success'):
-                    retry_actions_passed += 1
+                    passed_count += 1
                 else:
-                    # Stop on first retry failure
-                    print(f"[@lib:action_executor:execute_actions] Retry action {i+1} failed, stopping retry execution")
-                    retry_actions_failed = True
+                    # First action failed - stop executing remaining main actions
+                    print(f"[@lib:action_executor:execute_actions] Main action {i+1} failed, stopping main action execution")
+                    main_actions_failed = True
                     break
+                    
                 execution_order += 1
+            
+            # Execute retry actions if any main action failed
+            retry_actions_passed = 0
+            retry_actions_failed = False
+            if main_actions_failed and valid_retry_actions:
+                print(f"[@lib:action_executor:execute_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
+                for i, retry_action in enumerate(valid_retry_actions):
+                    result = self._execute_single_action(retry_action, execution_order, i+1, 'retry', team_id, context)
+                    results.append(result)
+                    if result.get('success'):
+                        retry_actions_passed += 1
+                    else:
+                        # Stop on first retry failure
+                        print(f"[@lib:action_executor:execute_actions] Retry action {i+1} failed, stopping retry execution")
+                        retry_actions_failed = True
+                        break
+                    execution_order += 1
 
-        # Execute failure actions if retry actions also failed
-        failure_actions_passed = 0
-        failure_actions_failed = False
-        if main_actions_failed and retry_actions_failed and valid_failure_actions:
-            print(f"[@lib:action_executor:execute_actions] Retry actions failed, executing {len(valid_failure_actions)} failure actions")
-            for i, failure_action in enumerate(valid_failure_actions):
-                result = self._execute_single_action(failure_action, execution_order, i+1, 'failure', team_id, context)
-                results.append(result)
-                if result.get('success'):
-                    failure_actions_passed += 1
+            # Execute failure actions if retry actions also failed
+            failure_actions_passed = 0
+            failure_actions_failed = False
+            if main_actions_failed and retry_actions_failed and valid_failure_actions:
+                print(f"[@lib:action_executor:execute_actions] Retry actions failed, executing {len(valid_failure_actions)} failure actions")
+                for i, failure_action in enumerate(valid_failure_actions):
+                    result = self._execute_single_action(failure_action, execution_order, i+1, 'failure', team_id, context)
+                    results.append(result)
+                    if result.get('success'):
+                        failure_actions_passed += 1
+                    else:
+                        # Stop on first failure action failure
+                        print(f"[@lib:action_executor:execute_actions] Failure action {i+1} failed, stopping failure execution")
+                        failure_actions_failed = True
+                        break
+                    execution_order += 1
+
+            # Calculate overall success: main actions must pass OR ALL retry actions must pass if main failed
+            if main_actions_failed:
+                # If main failed but we have retry actions, success depends on retry actions
+                if valid_retry_actions:
+                    overall_success = not retry_actions_failed and retry_actions_passed == len(valid_retry_actions)
                 else:
-                    # Stop on first failure action failure
-                    print(f"[@lib:action_executor:execute_actions] Failure action {i+1} failed, stopping failure execution")
-                    failure_actions_failed = True
-                    break
-                execution_order += 1
-
-        # Calculate overall success: main actions must pass OR ALL retry actions must pass if main failed
-        if main_actions_failed:
-            # If main failed but we have retry actions, success depends on retry actions
-            if valid_retry_actions:
-                overall_success = not retry_actions_failed and retry_actions_passed == len(valid_retry_actions)
+                    # If main failed and no retry actions available, it's a failure
+                    overall_success = False
             else:
-                # If main failed and no retry actions available, it's a failure
-                overall_success = False
-        else:
-            overall_success = passed_count >= len(valid_actions)
-        
-        if main_actions_failed and valid_retry_actions:
-            print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, {retry_actions_passed}/{len(valid_retry_actions)} retry actions passed, overall success: {overall_success}")
-        else:
-            print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, overall success: {overall_success}")
-        
-        # Build simple error message showing which actions failed
-        failed_actions = [r for r in results if not r.get('success')]
-        
-        if failed_actions:
-            failed_names = [f.get('message', 'Unknown action') for f in failed_actions]
-            error_message = f"Actions failed: {', '.join(failed_names)}"
-        else:
-            error_message = None
-        
-        # Calculate total execution time
-        total_execution_time = sum(r.get('execution_time_ms', 0) for r in results)
-        
-        # Individual action recording is handled in _execute_single_action()
-        # No batch-level recording needed
-        
-        return {
-            'success': overall_success,
-            'total_count': len(valid_actions),
-            'passed_count': passed_count,
-            'failed_count': len(valid_actions) - passed_count,
-            'results': results,
-            'action_screenshots': self.action_screenshots,  # Only actual action screenshots (for validation report)
-            'before_action_screenshot': before_action_screenshot,  # Separate for KPI use only
-            'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
-            'error': error_message,
-            'execution_time_ms': total_execution_time,
-            'main_actions_succeeded': not main_actions_failed
-        }
+                overall_success = passed_count >= len(valid_actions)
+            
+            if main_actions_failed and valid_retry_actions:
+                print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, {retry_actions_passed}/{len(valid_retry_actions)} retry actions passed, overall success: {overall_success}")
+            else:
+                print(f"[@lib:action_executor:execute_actions] Batch completed: {passed_count}/{len(valid_actions)} main actions passed, overall success: {overall_success}")
+            
+            # Build simple error message showing which actions failed
+            failed_actions = [r for r in results if not r.get('success')]
+            
+            if failed_actions:
+                failed_names = [f.get('message', 'Unknown action') for f in failed_actions]
+                error_message = f"Actions failed: {', '.join(failed_names)}"
+            else:
+                error_message = None
+            
+            # Calculate total execution time
+            total_execution_time = sum(r.get('execution_time_ms', 0) for r in results)
+            
+            # Individual action recording is handled in _execute_single_action()
+            # No batch-level recording needed
+            
+            return {
+                'success': overall_success,
+                'total_count': len(valid_actions),
+                'passed_count': passed_count,
+                'failed_count': len(valid_actions) - passed_count,
+                'results': results,
+                'action_screenshots': self.action_screenshots,  # Only actual action screenshots (for validation report)
+                'before_action_screenshot': before_action_screenshot,  # Separate for KPI use only
+                'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
+                'error': error_message,
+                'execution_time_ms': total_execution_time,
+                'main_actions_succeeded': not main_actions_failed,
+                'logs': log_buffer.getvalue()  # ✅ NEW: Include captured logs
+            }
+        finally:
+            # Always restore stdout/stderr
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
     
     # ========================================
     # ASYNC EXECUTION METHODS (for polling support)

@@ -105,6 +105,9 @@ class TestCaseExecutor:
             context.team_id = team_id
             context.userinterface_name = userinterface_name
             
+            # Start stdout capture for logs
+            context.start_stdout_capture()
+            
             # Get device from controller manager
             from backend_host.src.controllers.controller_manager import get_host
             host = get_host(device_ids=[device_id])
@@ -141,11 +144,54 @@ class TestCaseExecutor:
             else:
                 print(f"[@testcase_executor] Execution completed: ERROR - {execution_result.get('error')}")
             
-            # Update script_results with final result
+            # Use ScriptExecutor's cleanup to generate report (same as @script decorator does)
+            print(f"[@testcase_executor] Generating execution report using ScriptExecutor cleanup...")
+            report_url = ""
+            logs_url = ""
+            report_path = ""
+            logs_path = ""
+            
+            try:
+                from shared.src.lib.executors.script_executor import ScriptExecutor
+                executor = ScriptExecutor('unsaved_testcase')
+                
+                # Set overall_success in context before cleanup
+                context.overall_success = execution_result['success']
+                
+                # Capture final screenshot before report generation (like cleanup_and_exit does)
+                if context.host and context.selected_device:
+                    print(f"📸 [{executor.script_name}] Capturing final state screenshot...")
+                    from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                    screenshot_id = capture_screenshot_for_script(context.selected_device, context, "final_state")
+                    if screenshot_id:
+                        print(f"✅ [{executor.script_name}] Final screenshot captured: {screenshot_id}")
+                
+                # Use the same report generation flow as @script decorator
+                device_info = executor.get_device_info_for_report_context(context)
+                host_info = executor.get_host_info_for_report_context(context)
+                
+                report_result = executor.generate_report_for_context(context, device_info, host_info, userinterface_name)
+                
+                if report_result.get('success'):
+                    report_url = report_result.get('report_url', '')
+                    logs_url = report_result.get('logs_url', '')
+                    report_path = report_result.get('report_path', '')
+                    logs_path = report_result.get('logs_path', '')
+                    
+            except Exception as e:
+                print(f"[@testcase_executor] Error generating report: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Update script_results with final result including report URLs
             update_script_execution_result(
                 script_result_id=script_result_id,
                 success=execution_result['success'],
                 execution_time_ms=execution_time_ms,
+                html_report_r2_path=report_path,
+                html_report_r2_url=report_url,
+                logs_r2_path=logs_path,
+                logs_r2_url=logs_url,
                 error_msg=execution_result.get('error')
             )
             
@@ -156,7 +202,9 @@ class TestCaseExecutor:
                 'step_count': len(context.step_results),
                 'error': execution_result.get('error'),
                 'script_result_id': script_result_id,
-                'step_results': context.step_results
+                'step_results': context.step_results,
+                'report_url': report_url,
+                'logs_url': logs_url
             }
             
         except Exception as e:
@@ -294,11 +342,54 @@ class TestCaseExecutor:
             else:
                 print(f"[@testcase_executor] Execution completed: ERROR - {execution_result.get('error')}")
             
-            # Update script_results with final result
+            # Use ScriptExecutor's cleanup to generate report (same as @script decorator does)
+            print(f"[@testcase_executor] Generating execution report using ScriptExecutor cleanup...")
+            report_url = ""
+            logs_url = ""
+            report_path = ""
+            logs_path = ""
+            
+            try:
+                from shared.src.lib.executors.script_executor import ScriptExecutor
+                executor = ScriptExecutor('unsaved_testcase')
+                
+                # Set overall_success in context before cleanup
+                context.overall_success = execution_result['success']
+                
+                # Capture final screenshot before report generation (like cleanup_and_exit does)
+                if context.host and context.selected_device:
+                    print(f"📸 [{executor.script_name}] Capturing final state screenshot...")
+                    from shared.src.lib.utils.device_utils import capture_screenshot_for_script
+                    screenshot_id = capture_screenshot_for_script(context.selected_device, context, "final_state")
+                    if screenshot_id:
+                        print(f"✅ [{executor.script_name}] Final screenshot captured: {screenshot_id}")
+                
+                # Use the same report generation flow as @script decorator
+                device_info = executor.get_device_info_for_report_context(context)
+                host_info = executor.get_host_info_for_report_context(context)
+                
+                report_result = executor.generate_report_for_context(context, device_info, host_info, userinterface_name)
+                
+                if report_result.get('success'):
+                    report_url = report_result.get('report_url', '')
+                    logs_url = report_result.get('logs_url', '')
+                    report_path = report_result.get('report_path', '')
+                    logs_path = report_result.get('logs_path', '')
+                    
+            except Exception as e:
+                print(f"[@testcase_executor] Error generating report: {e}")
+                import traceback
+                traceback.print_exc()
+            
+            # Update script_results with final result including report URLs
             update_script_execution_result(
                 script_result_id=script_result_id,
                 success=execution_result['success'],
                 execution_time_ms=execution_time_ms,
+                html_report_r2_path=report_path,
+                html_report_r2_url=report_url,
+                logs_r2_path=logs_path,
+                logs_r2_url=logs_url,
                 error_msg=execution_result.get('error')
             )
             
@@ -309,7 +400,9 @@ class TestCaseExecutor:
                 'step_count': len(context.step_results),
                 'error': execution_result.get('error'),
                 'script_result_id': script_result_id,
-                'step_results': context.step_results
+                'step_results': context.step_results,
+                'report_url': report_url,
+                'logs_url': logs_url
             }
             
         except Exception as e:

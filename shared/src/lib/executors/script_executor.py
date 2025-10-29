@@ -889,6 +889,71 @@ class ScriptExecutor:
         
         return context
     
+    def generate_report_for_context(self, context: ScriptExecutionContext, device_info: Dict[str, Any], host_info: Dict[str, Any], userinterface_name: str = "") -> Dict[str, str]:
+        """
+        Generate and upload report for a context (reusable by script_executor and testcase_executor).
+        
+        Args:
+            context: Script execution context with step results and screenshots
+            device_info: Device information dict
+            host_info: Host information dict
+            userinterface_name: Optional userinterface name
+            
+        Returns:
+            Dict with 'success', 'report_url', 'logs_url', 'report_path', 'logs_path'
+        """
+        try:
+            # Capture execution time BEFORE any additional processing
+            actual_execution_time_ms = context.get_execution_time_ms()
+            context.baseline_execution_time_ms = actual_execution_time_ms
+            
+            # Batch upload all screenshots to R2 BEFORE report generation
+            url_mapping = context.upload_screenshots_to_r2()
+            context.screenshot_url_mapping = url_mapping
+            
+            # Stop stdout capture and get logs
+            context.stop_stdout_capture()
+            captured_stdout = context.get_captured_stdout()
+            
+            # Generate and upload report using device info
+            report_result = generate_and_upload_script_report(
+                script_name=f"{self.script_name}.py",
+                device_info=device_info,
+                host_info=host_info,
+                execution_time=actual_execution_time_ms,
+                success=context.overall_success,
+                step_results=context.step_results,
+                screenshot_paths=context.screenshot_paths,
+                screenshot_url_mapping=url_mapping,
+                error_message=context.error_message,
+                userinterface_name=userinterface_name,
+                execution_summary=getattr(context, 'execution_summary', ''),
+                test_video_url=getattr(context, 'test_video_url', '') or '',
+                stdout=captured_stdout,
+                script_result_id=context.script_result_id,
+                custom_data=context.custom_data,
+                zap_detailed_summary=getattr(context, 'zap_detailed_summary', '')
+            )
+            
+            if report_result.get('success'):
+                print(f"📊 [{self.script_name}] Report generated: {report_result.get('report_url')}")
+                if report_result.get('logs_url'):
+                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result.get('logs_url')}")
+            
+            return report_result
+            
+        except Exception as e:
+            print(f"⚠️ [{self.script_name}] Error in report generation: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False,
+                'report_url': '',
+                'report_path': '',
+                'logs_url': '',
+                'logs_path': ''
+            }
+    
     def cleanup_and_exit(self, context: ScriptExecutionContext, userinterface_name: str):
         """Cleanup resources and exit with appropriate code - NO DEVICE UNLOCKING"""
         try:
@@ -896,9 +961,9 @@ class ScriptExecutor:
             success_str = str(context.overall_success).lower()
             print(f"SCRIPT_SUCCESS:{success_str}")
             import sys
-            sys.stdout.flush()  # Force immediate output so it gets captured even if process crashes
+            sys.stdout.flush()
             
-            # Capture final screenshot BEFORE batch upload so it gets included
+            # Capture final screenshot BEFORE report generation
             if context.host and context.selected_device:
                 print(f"📸 [{self.script_name}] Capturing final state screenshot...")
                 from shared.src.lib.utils.device_utils import capture_screenshot_for_script
@@ -906,26 +971,17 @@ class ScriptExecutor:
                 if screenshot_id:
                     print(f"✅ [{self.script_name}] Final screenshot captured: {screenshot_id}")
             
-            # Batch upload all screenshots to R2 BEFORE report generation (now includes final screenshot)
-            url_mapping = context.upload_screenshots_to_r2()
-            context.screenshot_url_mapping = url_mapping  # Store for report generation
+            # Generate report using reusable method
+            device_info = self.get_device_info_for_report_context(context)
+            host_info = self.get_host_info_for_report_context(context)
             
-            # Generate report AFTER outputting success marker
-            report_result = None
-            if context.host and context.selected_device:
-                print(f"📊 [{self.script_name}] Generating report...")
-                report_result = self.generate_final_report(context, userinterface_name)
-                
+            report_result = self.generate_report_for_context(context, device_info, host_info, userinterface_name)
+            
+            # Store report URLs for final summary
             if report_result and report_result.get('success') and report_result.get('report_url'):
-                print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
-                # Display log URL right after report URL
-                if report_result.get('logs_url'):
-                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
-                # Store report URL and logs URL for final summary
                 if not hasattr(context, 'custom_data'):
                     context.custom_data = {}
                 context.custom_data['report_url'] = report_result['report_url']
-                # Store logs URL in context for later display
                 if report_result.get('logs_url'):
                     context.logs_url = report_result['logs_url']
             
@@ -996,101 +1052,25 @@ class ScriptExecutor:
         sys.exit(0)
     
     def generate_final_report(self, context: ScriptExecutionContext, userinterface_name: str) -> Dict[str, str]:
-        """Generate and upload final execution report using device info"""
+        """Generate and upload final execution report using device info (DEPRECATED - use generate_report_for_context)"""
+        print(f"[@script_executor] DEPRECATED: generate_final_report() called, use generate_report_for_context() instead")
+        
+        # Capture test execution video (testcase_executor doesn't need this yet)
         try:
-            # Capture execution time BEFORE any additional processing
-            actual_execution_time_ms = context.get_execution_time_ms()
-            actual_test_duration_seconds = actual_execution_time_ms / 1000.0
-            # Store in context for use in cleanup_and_exit
-            context.baseline_execution_time_ms = actual_execution_time_ms
-            
-            # Final screenshot already captured in cleanup_and_exit before batch upload
-            
-            # Capture test execution video using device AV controller
-            print(f"🎥 [{self.script_name}] Capturing test execution video...")
-            try:
-                av_controller = context.selected_device._get_controller('av')
-                
-                # Use the captured baseline execution time
-                video_duration = max(10.0, actual_test_duration_seconds)
-                
-                # Use hybrid video capture for reports (combines HOT + COLD storage)
-                test_video_url = av_controller.take_video_for_report(video_duration, context.start_time)
-                context.test_video_url = test_video_url
-                print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
-            except Exception as e:
-                print(f"⚠️ [{self.script_name}] Video capture failed: {e}")
-                context.test_video_url = ""
-            
-            # Generate and upload report using device info
-            device_info = self.get_device_info_for_report_context(context)
-            host_info = self.get_host_info_for_report_context(context)
-            
-            # Stop stdout capture before generating report
-            context.stop_stdout_capture()
-            captured_stdout = context.get_captured_stdout()
-            
-            # Capture report generation output to get URLs
-            import io
-            import sys
-            
-            # Capture the report generation output
-            old_stdout = sys.stdout
-            report_output = io.StringIO()
-            sys.stdout = report_output
-            
-            report_result = generate_and_upload_script_report(
-                script_name=f"{self.script_name}.py",
-                device_info=device_info,
-                host_info=host_info,
-                execution_time=actual_execution_time_ms,  # Use captured baseline time
-                success=context.overall_success,
-                step_results=context.step_results,
-                screenshot_paths=context.screenshot_paths,
-                screenshot_url_mapping=getattr(context, 'screenshot_url_mapping', {}),  # NEW: Pass mapping
-                error_message=context.error_message,
-                userinterface_name=userinterface_name,
-                execution_summary=getattr(context, 'execution_summary', ''),
-                test_video_url=getattr(context, 'test_video_url', '') or '',
-                stdout=captured_stdout,
-                script_result_id=context.script_result_id,
-                custom_data=context.custom_data,
-                zap_detailed_summary=getattr(context, 'zap_detailed_summary', '')
-            )
-            
-            # Restore stdout and get the captured output
-            sys.stdout = old_stdout
-            report_generation_output = report_output.getvalue()
-            
-            # Print the captured output so it appears in logs
-            print(report_generation_output, end='')
-            
-            # Extract logs URL from the captured output
-            if 'Logs uploaded:' in report_generation_output:
-                try:
-                    logs_line = [line for line in report_generation_output.split('\n') if 'Logs uploaded:' in line][0]
-                    logs_url = logs_line.split('Logs uploaded: ')[1].strip()
-                    # Add logs_url to report_result if not already there
-                    if report_result and not report_result.get('logs_url'):
-                        report_result['logs_url'] = logs_url
-                        print(f"[@script_executor] Extracted logs URL: {logs_url}")
-                except Exception as e:
-                    print(f"[@script_executor] Failed to extract logs URL: {e}")
-            
-            if report_result.get('success') and report_result.get('report_url'):
-                print(f"📊 [{self.script_name}] Report generated: {report_result['report_url']}")
-                if report_result.get('logs_url'):
-                    print(f"📝 [{self.script_name}] Logs uploaded: {report_result['logs_url']}")
-            
-            return report_result
-            
+            actual_test_duration_seconds = context.get_execution_time_ms() / 1000.0
+            av_controller = context.selected_device._get_controller('av')
+            video_duration = max(10.0, actual_test_duration_seconds)
+            test_video_url = av_controller.take_video_for_report(video_duration, context.start_time)
+            context.test_video_url = test_video_url
+            print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
         except Exception as e:
-            print(f"⚠️ [{self.script_name}] Error in report generation: {e}")
-            return {
-                'success': False,
-                'report_url': '',
-                'report_path': ''
-            }
+            print(f"⚠️ [{self.script_name}] Video capture failed: {e}")
+            context.test_video_url = ""
+        
+        # Use the new reusable method
+        device_info = self.get_device_info_for_report_context(context)
+        host_info = self.get_host_info_for_report_context(context)
+        return self.generate_report_for_context(context, device_info, host_info, userinterface_name)
     
     def get_device_info_for_report_context(self, context: ScriptExecutionContext) -> Dict[str, Any]:
         """Get device information for report generation from context"""

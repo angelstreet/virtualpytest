@@ -10,6 +10,8 @@ The core logic is the same as /server/verification/executeBatch but available as
 """
 
 import time
+import io
+import sys
 from typing import Dict, List, Optional, Any, Tuple
 from shared.src.lib.database.execution_results_db import record_node_execution
 
@@ -217,118 +219,135 @@ class VerificationExecutor:
         Returns:
             Dict with success status, results, and execution statistics
         """
-        # Reduced logging for cleaner output during KPI scans
+        # Start capturing logs
+        log_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
         
-        # Clear screenshots from previous verification batch (VerificationExecutor is a singleton per device)
-        self.verification_screenshots = []
-        
-        # Validate inputs
-        if not verifications:
-            return {
-                'success': True,
-                'message': 'No verifications to execute',
-                'results': [],
-                'passed_count': 0,
-                'total_count': 0
-            }
-        
-        # Filter valid verifications
-        valid_verifications = self._filter_valid_verifications(verifications)
-        
-        if not valid_verifications:
-            return {
-                'success': False,
-                'error': 'All verifications were invalid and filtered out',
-                'results': [],
-                'passed_count': 0,
-                'total_count': 0
-            }
-        
-        results = []
-        passed_count = 0
-        
-        # Execute each verification
-        for i, verification in enumerate(valid_verifications):
-            verification_type = verification.get('verification_type', 'text')
+        try:
+            # Redirect stdout/stderr to buffer
+            sys.stdout = log_buffer
+            sys.stderr = log_buffer
             
-            start_time = time.time()
-            result = self._execute_single_verification(verification, userinterface_name, image_source_url, context, team_id)
-            execution_time = int((time.time() - start_time) * 1000)
+            # Reduced logging for cleaner output during KPI scans
             
-                        # Add execution time to result
-            result['execution_time_ms'] = execution_time
-            results.append(result)
+            # Clear screenshots from previous verification batch (VerificationExecutor is a singleton per device)
+            self.verification_screenshots = []
             
-            # Count successful verifications
-            if result.get('success'):
-                passed_count += 1
+            # Validate inputs
+            if not verifications:
+                return {
+                    'success': True,
+                    'message': 'No verifications to execute',
+                    'results': [],
+                    'passed_count': 0,
+                    'total_count': 0,
+                    'logs': ''
+                }
             
-            # Record execution directly to database
-            self._record_verification_to_database(
-                success=result.get('success', False),
-                execution_time_ms=execution_time,
-                message=result.get('message', ''),
-                error_details={'error': result.get('error')} if result.get('error') else None,
-                team_id=team_id,
-                tree_id=tree_id,
-                node_id=node_id
-            )
-        
+            # Filter valid verifications
+            valid_verifications = self._filter_valid_verifications(verifications)
+            
+            if not valid_verifications:
+                return {
+                    'success': False,
+                    'error': 'All verifications were invalid and filtered out',
+                    'results': [],
+                    'passed_count': 0,
+                    'total_count': 0,
+                    'logs': log_buffer.getvalue()
+                }
+            
+            results = []
+            passed_count = 0
+            
+            # Execute each verification
+            for i, verification in enumerate(valid_verifications):
+                verification_type = verification.get('verification_type', 'text')
+                
+                start_time = time.time()
+                result = self._execute_single_verification(verification, userinterface_name, image_source_url, context, team_id)
+                execution_time = int((time.time() - start_time) * 1000)
+                
+                            # Add execution time to result
+                result['execution_time_ms'] = execution_time
+                results.append(result)
+                
+                # Count successful verifications
+                if result.get('success'):
+                    passed_count += 1
+                
+                # Record execution directly to database
+                self._record_verification_to_database(
+                    success=result.get('success', False),
+                    execution_time_ms=execution_time,
+                    message=result.get('message', ''),
+                    error_details={'error': result.get('error')} if result.get('error') else None,
+                    team_id=team_id,
+                    tree_id=tree_id,
+                    node_id=node_id
+                )
+            
 
-        
-        # Calculate overall success based on verification_pass_condition
-        if verification_pass_condition == 'any':
-            # Pass if ANY verification passed (at least one)
-            overall_success = passed_count > 0
-            print(f"[@lib:verification_executor:execute_verifications] 'any can pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
-        else:
-            # Default: Pass only if ALL verifications passed
-            overall_success = passed_count == len(valid_verifications)
-            print(f"[@lib:verification_executor:execute_verifications] 'all must pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
-        
-        # Extract detailed error information from failed verifications
-        error_info = None
-        debug_report_path = None  # ✅ Track first debug report path (local path)
-        debug_report_url = None  # ✅ Track first debug report URL (HTTP URL)
-        if not overall_success and results:
-            # Get the first failed verification's message as the primary error
-            for result in results:
-                if not result.get('success', False):
-                    error_info = result.get('message', 'Verification failed')
-                    # ✅ Capture debug report path and URL from first failed verification
-                    if result.get('debug_report_path'):
-                        debug_report_path = result.get('debug_report_path')
-                    if result.get('debug_report_url'):
-                        debug_report_url = result.get('debug_report_url')
-                    break
-        
-        # Collect all verification evidence for KPI report
-        verification_evidence_list = []
-        for result in results:
-            if 'verification_evidence' in result:
-                verification_evidence_list.append(result['verification_evidence'])
-        
-        result = {
-            'success': overall_success,
-            'total_count': len(valid_verifications),
-            'passed_count': passed_count,
-            'failed_count': len(valid_verifications) - passed_count,
-            'results': results,
-            'verification_screenshots': self.verification_screenshots,  # NEW: Include screenshots
-            'verification_evidence_list': verification_evidence_list,  # ✅ NEW: All verification evidence for KPI
-            'message': f'Batch verification completed: {passed_count}/{len(valid_verifications)} passed'
-        }
-        
-        # Add error information if verifications failed
-        if error_info:
-            result['error'] = error_info
-            # ✅ Include debug report path and URL if available
-            if debug_report_path:
-                result['debug_report_path'] = debug_report_path
-            if debug_report_url:
-                result['debug_report_url'] = debug_report_url
             
-        return result
+            # Calculate overall success based on verification_pass_condition
+            if verification_pass_condition == 'any':
+                # Pass if ANY verification passed (at least one)
+                overall_success = passed_count > 0
+                print(f"[@lib:verification_executor:execute_verifications] 'any can pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
+            else:
+                # Default: Pass only if ALL verifications passed
+                overall_success = passed_count == len(valid_verifications)
+                print(f"[@lib:verification_executor:execute_verifications] 'all must pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
+            
+            # Extract detailed error information from failed verifications
+            error_info = None
+            debug_report_path = None  # ✅ Track first debug report path (local path)
+            debug_report_url = None  # ✅ Track first debug report URL (HTTP URL)
+            if not overall_success and results:
+                # Get the first failed verification's message as the primary error
+                for result in results:
+                    if not result.get('success', False):
+                        error_info = result.get('message', 'Verification failed')
+                        # ✅ Capture debug report path and URL from first failed verification
+                        if result.get('debug_report_path'):
+                            debug_report_path = result.get('debug_report_path')
+                        if result.get('debug_report_url'):
+                            debug_report_url = result.get('debug_report_url')
+                        break
+            
+            # Collect all verification evidence for KPI report
+            verification_evidence_list = []
+            for result in results:
+                if 'verification_evidence' in result:
+                    verification_evidence_list.append(result['verification_evidence'])
+            
+            result = {
+                'success': overall_success,
+                'total_count': len(valid_verifications),
+                'passed_count': passed_count,
+                'failed_count': len(valid_verifications) - passed_count,
+                'results': results,
+                'verification_screenshots': self.verification_screenshots,  # NEW: Include screenshots
+                'verification_evidence_list': verification_evidence_list,  # ✅ NEW: All verification evidence for KPI
+                'message': f'Batch verification completed: {passed_count}/{len(valid_verifications)} passed',
+                'logs': log_buffer.getvalue()  # ✅ NEW: Include captured logs
+            }
+            
+            # Add error information if verifications failed
+            if error_info:
+                result['error'] = error_info
+                # ✅ Include debug report path and URL if available
+                if debug_report_path:
+                    result['debug_report_path'] = debug_report_path
+                if debug_report_url:
+                    result['debug_report_url'] = debug_report_url
+                
+            return result
+        finally:
+            # Always restore stdout/stderr
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
     
     def verify_node(self, node_id: str, userinterface_name: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
         """

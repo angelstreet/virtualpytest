@@ -16,6 +16,8 @@ export interface TestCaseExecutionResult {
   script_result_id: string;
   error?: string;
   step_results?: any[];
+  report_url?: string;  // 🆕 Report URL from R2
+  logs_url?: string;    // 🆕 Logs URL from R2
 }
 
 export interface TestCaseExecutionResponse {
@@ -28,6 +30,8 @@ export interface TestCaseExecutionResponse {
   error?: string;
   step_results?: any[];
   message?: string;
+  report_url?: string;  // 🆕 Report URL from R2
+  logs_url?: string;    // 🆕 Logs URL from R2
 }
 
 export interface ExecutionStatus {

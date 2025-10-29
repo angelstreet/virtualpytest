@@ -86,10 +86,15 @@ export const useExecutionState = () => {
       const newBlockStates = new Map(prev.blockStates);
       const current = newBlockStates.get(blockId) || { status: 'idle' };
       
-      // Calculate duration if endTime is set
-      const duration = updates.endTime && current.startTime
-        ? updates.endTime - current.startTime
-        : current.duration;
+      // Calculate duration based on priority:
+      // 1. Use updates.duration if explicitly provided
+      // 2. Calculate from endTime and startTime if both exist
+      // 3. Keep current.duration as fallback
+      const duration = updates.duration !== undefined
+        ? updates.duration
+        : (updates.endTime && current.startTime
+            ? updates.endTime - current.startTime
+            : current.duration);
       
       newBlockStates.set(blockId, { 
         ...current, 

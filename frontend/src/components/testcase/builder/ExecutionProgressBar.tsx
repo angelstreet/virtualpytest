@@ -9,7 +9,7 @@
  */
 
 import React, { useEffect, useState, useRef } from 'react';
-import { Box, Typography, LinearProgress, IconButton, Tooltip, Collapse } from '@mui/material';
+import { Box, Typography, LinearProgress, IconButton, Tooltip, Collapse, Accordion, AccordionSummary, AccordionDetails } from '@mui/material';
 import StopIcon from '@mui/icons-material/Stop';
 import CloseIcon from '@mui/icons-material/Close';
 import CheckCircleIcon from '@mui/icons-material/CheckCircle';
@@ -54,6 +54,8 @@ interface ExecutionProgressBarProps {
     execution_time_ms: number;
     error?: string;
     step_count?: number;
+    report_url?: string;  // 🆕 R2 report URL
+    logs_url?: string;    // 🆕 R2 logs URL
   } | null;
   aiReasoning?: AIReasoning | null; // 🆕 Optional AI reasoning
   stepDetails?: StepDetail[]; // 🆕 Detailed step information
@@ -320,7 +322,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                 }}
               />
               <Typography variant="subtitle2" fontWeight="bold" color="#3b82f6">
-                ⚡ EXECUTING TEST CASE
+                ⚡ EXECUTING
               </Typography>
             </>
           ) : (
@@ -449,6 +451,50 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
             {Math.round(progress)}%
           </Typography>
         </Box>
+
+        {/* Report and Logs Links (shown after execution completes) */}
+        {!isExecuting && executionResult && (executionResult.report_url || executionResult.logs_url) && (
+          <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+            {executionResult.report_url && (
+              <Typography
+                variant="caption"
+                component="a"
+                href={executionResult.report_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#3b82f6',
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                📊 Report
+              </Typography>
+            )}
+            {executionResult.logs_url && (
+              <Typography
+                variant="caption"
+                component="a"
+                href={executionResult.logs_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{
+                  color: '#10b981',
+                  textDecoration: 'none',
+                  fontWeight: 'bold',
+                  '&:hover': {
+                    textDecoration: 'underline',
+                  },
+                }}
+              >
+                📝 Logs
+              </Typography>
+            )}
+          </Box>
+        )}
       </Box>
 
       {/* AI Reasoning Section (Optional) */}
@@ -608,12 +654,10 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                       🔵
                     </Typography>
                     <Typography variant="caption" fontWeight="bold" sx={{ color: '#3b82f6' }}>
-                      STEP {currentStepNumber}- {currentExecutingStep.label} EXECUTING
+                      STEP {currentStepNumber}- {currentExecutingStep.label}      EXECUTING...
                     </Typography>
                   </Box>
-                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                    Running...
-                  </Typography>
+                
                 </Box>
               </Box>
             )}
@@ -643,7 +687,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                   }}
                 >
                 {/* Step Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: step.state.error ? 1 : 0 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: (step.state.error || step.state.result?.logs) ? 1 : 0 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
                       {statusIcon}
@@ -657,23 +701,216 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                   </Typography>
                 </Box>
 
-                  {/* Error Message */}
+                  {/* Error Message with Collapsible Logs */}
                   {step.state.error && (
-                    <Box
-                      sx={{
-                        mt: 1,
-                        p: 1,
-                        borderRadius: 0.5,
-                        backgroundColor: 'rgba(239, 68, 68, 0.1)',
-                        borderLeft: '3px solid #ef4444',
-                      }}
-                    >
-                      <Typography variant="caption" sx={{ display: 'block', color: '#ef4444', fontWeight: 'bold', mb: 0.5 }}>
-                        ⚠️ Error
-                      </Typography>
-                      <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem' }}>
-                        {step.state.error}
-                      </Typography>
+                    <Box sx={{ mt: 1 }}>
+                      <Accordion 
+                        defaultExpanded={false}
+                        sx={{
+                          backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                          borderLeft: '3px solid #ef4444',
+                          boxShadow: 'none',
+                          '&:before': { display: 'none' },
+                        }}
+                      >
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon sx={{ color: '#ef4444', fontSize: 16 }} />}
+                          sx={{
+                            minHeight: 'auto',
+                            padding: '8px 12px',
+                            '& .MuiAccordionSummary-content': {
+                              margin: 0,
+                            },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                            <Typography variant="caption" sx={{ color: '#ef4444', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                              ⚠️ Error
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              {step.state.error.length > 120 ? `${step.state.error.substring(0, 120)}...` : step.state.error}
+                            </Typography>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ padding: '8px 12px', paddingTop: 0 }}>
+                          {/* Full Error Message */}
+                          <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem', mb: 1 }}>
+                            {step.state.error}
+                          </Typography>
+                          
+                          {/* Execution Logs */}
+                          {step.state.result?.logs && (
+                            <Box
+                              sx={{
+                                mt: 1,
+                                p: 1,
+                                backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                                borderRadius: 0.5,
+                                maxHeight: 200,
+                                overflowY: 'auto',
+                                fontFamily: 'monospace',
+                                fontSize: '0.7rem',
+                                '&::-webkit-scrollbar': {
+                                  width: '4px',
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                  background: actualMode === 'dark' ? '#374151' : '#e5e7eb',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                  background: actualMode === 'dark' ? '#6b7280' : '#9ca3af',
+                                  borderRadius: '2px',
+                                },
+                              }}
+                            >
+                              <Typography variant="caption" sx={{ display: 'block', color: '#10b981', fontWeight: 'bold', mb: 0.5 }}>
+                                📋 Execution Logs
+                              </Typography>
+                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#d1d5db' : '#374151' }}>
+                                {typeof step.state.result.logs === 'string' 
+                                  ? step.state.result.logs 
+                                  : JSON.stringify(step.state.result.logs, null, 2)}
+                              </pre>
+                            </Box>
+                          )}
+                          
+                          {/* Full Result Object (for debugging) */}
+                          {step.state.result && (
+                            <Box
+                              sx={{
+                                mt: 1,
+                                p: 1,
+                                backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                                borderRadius: 0.5,
+                                maxHeight: 150,
+                                overflowY: 'auto',
+                                fontFamily: 'monospace',
+                                fontSize: '0.65rem',
+                                '&::-webkit-scrollbar': {
+                                  width: '4px',
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                  background: actualMode === 'dark' ? '#374151' : '#e5e7eb',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                  background: actualMode === 'dark' ? '#6b7280' : '#9ca3af',
+                                  borderRadius: '2px',
+                                },
+                              }}
+                            >
+                              <Typography variant="caption" sx={{ display: 'block', color: '#8b5cf6', fontWeight: 'bold', mb: 0.5 }}>
+                                🔍 Full Response
+                              </Typography>
+                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#9ca3af' : '#6b7280' }}>
+                                {JSON.stringify(step.state.result, null, 2)}
+                              </pre>
+                            </Box>
+                          )}
+                        </AccordionDetails>
+                      </Accordion>
+                    </Box>
+                  )}
+                  
+                  {/* Success Logs - Show logs even when there's no error */}
+                  {!step.state.error && step.state.result?.logs && (
+                    <Box sx={{ mt: 1 }}>
+                      <Accordion 
+                        defaultExpanded={false}
+                        sx={{
+                          backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                          borderLeft: '3px solid #10b981',
+                          boxShadow: 'none',
+                          '&:before': { display: 'none' },
+                        }}
+                      >
+                        <AccordionSummary
+                          expandIcon={<ExpandMoreIcon sx={{ color: '#10b981', fontSize: 16 }} />}
+                          sx={{
+                            minHeight: 'auto',
+                            padding: '8px 12px',
+                            '& .MuiAccordionSummary-content': {
+                              margin: 0,
+                            },
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
+                            <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
+                              📋 Execution Details
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', flex: 1 }}>
+                              Click to view execution logs and response
+                            </Typography>
+                          </Box>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ padding: '8px 12px', paddingTop: 0 }}>
+                          {/* Execution Logs */}
+                          {step.state.result?.logs && (
+                            <Box
+                              sx={{
+                                mt: 1,
+                                p: 1,
+                                backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                                borderRadius: 0.5,
+                                maxHeight: 200,
+                                overflowY: 'auto',
+                                fontFamily: 'monospace',
+                                fontSize: '0.7rem',
+                                '&::-webkit-scrollbar': {
+                                  width: '4px',
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                  background: actualMode === 'dark' ? '#374151' : '#e5e7eb',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                  background: actualMode === 'dark' ? '#6b7280' : '#9ca3af',
+                                  borderRadius: '2px',
+                                },
+                              }}
+                            >
+                              <Typography variant="caption" sx={{ display: 'block', color: '#10b981', fontWeight: 'bold', mb: 0.5 }}>
+                                📋 Execution Logs
+                              </Typography>
+                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#d1d5db' : '#374151' }}>
+                                {typeof step.state.result.logs === 'string' 
+                                  ? step.state.result.logs 
+                                  : JSON.stringify(step.state.result.logs, null, 2)}
+                              </pre>
+                            </Box>
+                          )}
+                          
+                          {/* Full Result Object (for debugging) */}
+                          {step.state.result && (
+                            <Box
+                              sx={{
+                                mt: 1,
+                                p: 1,
+                                backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
+                                borderRadius: 0.5,
+                                maxHeight: 150,
+                                overflowY: 'auto',
+                                fontFamily: 'monospace',
+                                fontSize: '0.65rem',
+                                '&::-webkit-scrollbar': {
+                                  width: '4px',
+                                },
+                                '&::-webkit-scrollbar-track': {
+                                  background: actualMode === 'dark' ? '#374151' : '#e5e7eb',
+                                },
+                                '&::-webkit-scrollbar-thumb': {
+                                  background: actualMode === 'dark' ? '#6b7280' : '#9ca3af',
+                                  borderRadius: '2px',
+                                },
+                              }}
+                            >
+                              <Typography variant="caption" sx={{ display: 'block', color: '#8b5cf6', fontWeight: 'bold', mb: 0.5 }}>
+                                🔍 Full Response
+                              </Typography>
+                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#9ca3af' : '#6b7280' }}>
+                                {JSON.stringify(step.state.result, null, 2)}
+                              </pre>
+                            </Box>
+                          )}
+                        </AccordionDetails>
+                      </Accordion>
                     </Box>
                   )}
                 </Box>

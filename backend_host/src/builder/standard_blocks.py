@@ -11,9 +11,41 @@ Functions:
 """
 
 import os
+import io
+import sys
 from typing import Dict, Any, Optional
 
 
+def _capture_logs(func):
+    """Decorator to capture logs from standard block execution"""
+    def wrapper(*args, **kwargs):
+        # Start capturing logs
+        log_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        
+        try:
+            # Redirect stdout/stderr to buffer
+            sys.stdout = log_buffer
+            sys.stderr = log_buffer
+            
+            # Execute function
+            result = func(*args, **kwargs)
+            
+            # Add captured logs to result
+            if isinstance(result, dict):
+                result['logs'] = log_buffer.getvalue()
+            
+            return result
+        finally:
+            # Always restore stdout/stderr
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+    
+    return wrapper
+
+
+@_capture_logs
 def getMenuInfo(area: Optional[Dict[str, Any]] = None, context=None, **kwargs) -> Dict[str, Any]:
     """
     Extract menu information from screen using OCR, parse key-value pairs, and auto-store to metadata.
@@ -205,6 +237,7 @@ def getMenuInfo(area: Optional[Dict[str, Any]] = None, context=None, **kwargs) -
         }
 
 
+@_capture_logs
 def set_variable(variable_name: str, variable_value: Any, context=None, **kwargs) -> Dict[str, Any]:
     """
     Set a variable in execution context.
@@ -253,6 +286,7 @@ def set_variable(variable_name: str, variable_value: Any, context=None, **kwargs
         }
 
 
+@_capture_logs
 def set_metadata(source_variable: Optional[str] = None, mode: str = 'set', context=None, **kwargs) -> Dict[str, Any]:
     """
     Push variables to metadata for DB storage.
