@@ -9,6 +9,8 @@ Supports async execution with real-time progress tracking.
 import time
 import threading
 import uuid
+import sys
+import io
 from typing import Dict, List, Any, Optional
 from shared.src.lib.executors.script_executor import ScriptExecutionContext
 from shared.src.lib.database.testcase_db import get_testcase_by_name, get_testcase
@@ -707,6 +709,7 @@ class TestCaseExecutor:
                 'execution_time_ms': block_result.get('execution_time_ms', 0),
                 'message': block_result.get('message', ''),
                 'error': block_result.get('error'),
+                'logs': block_result.get('logs', ''),  # Include captured logs
                 'step_category': 'testcase_block'
             })
             
@@ -851,6 +854,7 @@ class TestCaseExecutor:
                 'execution_time_ms': block_result.get('execution_time_ms', 0),
                 'message': block_result.get('message', ''),
                 'error': block_result.get('error'),
+                'logs': block_result.get('logs', ''),  # Include captured logs
                 'step_category': 'testcase_block'
             })
             
@@ -886,31 +890,48 @@ class TestCaseExecutor:
     def _execute_block(self, node: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """
         Execute a single block by delegating to appropriate executor.
+        Captures all stdout/stderr logs during execution.
         
         Returns:
-            {success: bool, execution_time_ms: int, message: str, error: str}
+            {success: bool, execution_time_ms: int, message: str, error: str, logs: str}
         """
-        node_type = node['type']
-        data = node.get('data', {})
+        # Capture logs during block execution
+        log_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
         
-        # START block should never reach here - it's skipped in _execute_graph
-        if node_type == 'start':
-            raise Exception('START block should not be executed - it is only an entry point marker')
-        
-        if node_type == 'action':
-            return self._execute_action_block(data, context)
-        
-        elif node_type == 'verification':
-            return self._execute_verification_block(data, context)
-        
-        elif node_type == 'navigation':
-            return self._execute_navigation_block(data, context)
-        
-        elif node_type == 'loop':
-            return self._execute_loop_block(node, context)
-        
-        else:
-            return {'success': False, 'error': f'Unknown block type: {node_type}'}
+        try:
+            # Redirect stdout/stderr to buffer
+            sys.stdout = log_buffer
+            sys.stderr = log_buffer
+            
+            node_type = node['type']
+            data = node.get('data', {})
+            
+            # START block should never reach here - it's skipped in _execute_graph
+            if node_type == 'start':
+                raise Exception('START block should not be executed - it is only an entry point marker')
+            
+            # Execute based on type
+            if node_type == 'action':
+                result = self._execute_action_block(data, context)
+            elif node_type == 'verification':
+                result = self._execute_verification_block(data, context)
+            elif node_type == 'navigation':
+                result = self._execute_navigation_block(data, context)
+            elif node_type == 'loop':
+                result = self._execute_loop_block(node, context)
+            else:
+                result = {'success': False, 'error': f'Unknown block type: {node_type}'}
+            
+            # Add captured logs to result
+            result['logs'] = log_buffer.getvalue()
+            return result
+            
+        finally:
+            # Always restore stdout/stderr
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
     
     def _execute_action_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """Execute action block using ActionExecutor"""

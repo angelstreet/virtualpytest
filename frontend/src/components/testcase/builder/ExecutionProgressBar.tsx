@@ -772,39 +772,6 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                               </pre>
                             </Box>
                           )}
-                          
-                          {/* Full Result Object (for debugging) */}
-                          {step.state.result && (
-                            <Box
-                              sx={{
-                                mt: 1,
-                                p: 1,
-                                backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-                                borderRadius: 0.5,
-                                maxHeight: 150,
-                                overflowY: 'auto',
-                                fontFamily: 'monospace',
-                                fontSize: '0.65rem',
-                                '&::-webkit-scrollbar': {
-                                  width: '4px',
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                  background: actualMode === 'dark' ? '#374151' : '#e5e7eb',
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                  background: actualMode === 'dark' ? '#6b7280' : '#9ca3af',
-                                  borderRadius: '2px',
-                                },
-                              }}
-                            >
-                              <Typography variant="caption" sx={{ display: 'block', color: '#8b5cf6', fontWeight: 'bold', mb: 0.5 }}>
-                                🔍 Full Response
-                              </Typography>
-                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#9ca3af' : '#6b7280' }}>
-                                {JSON.stringify(step.state.result, null, 2)}
-                              </pre>
-                            </Box>
-                          )}
                         </AccordionDetails>
                       </Accordion>
                     </Box>
@@ -834,10 +801,10 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                         >
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
                             <Typography variant="caption" sx={{ color: '#10b981', fontWeight: 'bold', whiteSpace: 'nowrap' }}>
-                              📋 Execution Details
+                              📋 Execution Logs
                             </Typography>
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', flex: 1 }}>
-                              Click to view execution logs and response
+                              Click to view execution logs
                             </Typography>
                           </Box>
                         </AccordionSummary>
@@ -873,39 +840,6 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                                 {typeof step.state.result.logs === 'string' 
                                   ? step.state.result.logs 
                                   : JSON.stringify(step.state.result.logs, null, 2)}
-                              </pre>
-                            </Box>
-                          )}
-                          
-                          {/* Full Result Object (for debugging) */}
-                          {step.state.result && (
-                            <Box
-                              sx={{
-                                mt: 1,
-                                p: 1,
-                                backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-                                borderRadius: 0.5,
-                                maxHeight: 150,
-                                overflowY: 'auto',
-                                fontFamily: 'monospace',
-                                fontSize: '0.65rem',
-                                '&::-webkit-scrollbar': {
-                                  width: '4px',
-                                },
-                                '&::-webkit-scrollbar-track': {
-                                  background: actualMode === 'dark' ? '#374151' : '#e5e7eb',
-                                },
-                                '&::-webkit-scrollbar-thumb': {
-                                  background: actualMode === 'dark' ? '#6b7280' : '#9ca3af',
-                                  borderRadius: '2px',
-                                },
-                              }}
-                            >
-                              <Typography variant="caption" sx={{ display: 'block', color: '#8b5cf6', fontWeight: 'bold', mb: 0.5 }}>
-                                🔍 Full Response
-                              </Typography>
-                              <pre style={{ margin: 0, whiteSpace: 'pre-wrap', color: actualMode === 'dark' ? '#9ca3af' : '#6b7280' }}>
-                                {JSON.stringify(step.state.result, null, 2)}
                               </pre>
                             </Box>
                           )}
