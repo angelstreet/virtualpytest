@@ -1345,7 +1345,18 @@ class NavigationExecutor:
         team_id: Optional[str]
     ):
         """Execute navigation in background thread with progress tracking"""
+        # Capture logs for single navigation execution
+        import sys
+        import io
+        log_buffer = io.StringIO()
+        old_stdout = sys.stdout
+        old_stderr = sys.stderr
+        
         try:
+            # Start log capture
+            sys.stdout = log_buffer
+            sys.stderr = log_buffer
+            
             # Update status
             with self._lock:
                 self._executions[execution_id]['message'] = 'Executing navigation...'
@@ -1362,6 +1373,13 @@ class NavigationExecutor:
                 team_id=team_id
             )
             
+            # Stop log capture and add logs to result
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            captured_logs = log_buffer.getvalue()
+            if captured_logs:
+                result['logs'] = captured_logs
+            
             # Update with result
             with self._lock:
                 if result.get('success'):
@@ -1377,12 +1395,22 @@ class NavigationExecutor:
                     self._executions[execution_id]['message'] = 'Navigation failed'
         
         except Exception as e:
+            # Restore stdout/stderr
+            sys.stdout = old_stdout
+            sys.stderr = old_stderr
+            
             # Update with error
             with self._lock:
                 self._executions[execution_id]['status'] = 'error'
                 self._executions[execution_id]['error'] = str(e)
                 self._executions[execution_id]['progress'] = 100
                 self._executions[execution_id]['message'] = f'Navigation error: {str(e)}'
+        finally:
+            # Always restore stdout/stderr
+            if sys.stdout != old_stdout:
+                sys.stdout = old_stdout
+            if sys.stderr != old_stderr:
+                sys.stderr = old_stderr
     
     def get_navigation_preview(self, tree_id: str, target_node_id: str, 
                              current_node_id: Optional[str] = None, team_id: str = None) -> Dict[str, Any]:
