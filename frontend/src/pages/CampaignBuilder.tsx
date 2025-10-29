@@ -28,11 +28,7 @@ const styles = `
 import {
   Box,
   Typography,
-  IconButton,
 } from '@mui/material';
-import {
-  ChevronLeft as ChevronLeftIcon,
-} from '@mui/icons-material';
 
 // Shared Container Components
 import {
@@ -263,39 +259,10 @@ const CampaignBuilderContent: React.FC = () => {
           isOpen={isSidebarOpen}
           onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
         >
-          {/* Sidebar Header */}
-          <Box
-            sx={{
-              px: 2,
-              py: 1.5,
-              height: '40px',
-              borderBottom: 1,
-              borderColor: 'divider',
-              display: 'flex',
-              justifyContent: 'space-between',
-              alignItems: 'center',
-              background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
-            }}
-          >
-            <Typography variant="subtitle1" fontWeight="bold">
-              Toolbox
-            </Typography>
-            <IconButton
-              size="small"
-              onClick={() => setIsSidebarOpen(false)}
-              sx={{
-                color: 'text.secondary',
-                '&:hover': { color: 'primary.main' },
-              }}
-            >
-              <ChevronLeftIcon />
-            </IconButton>
-          </Box>
-          
-          {/* Sidebar Content */}
-          <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
-            <CampaignToolbox />
-          </Box>
+          <CampaignToolbox
+            actualMode={actualMode}
+            toggleSidebar={() => setIsSidebarOpen(false)}
+          />
         </BuilderSidebarContainer>
 
         {/* Canvas - EXACT same structure as TestCaseBuilder */}

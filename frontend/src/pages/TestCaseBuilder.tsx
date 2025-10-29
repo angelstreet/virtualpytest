@@ -50,6 +50,14 @@ import { TestCaseBuilderDialogs } from '../components/testcase/builder/TestCaseB
 import { AIGenerationResultPanel } from '../components/testcase/builder/AIGenerationResultPanel';
 import { PromptDisambiguation } from '../components/ai/PromptDisambiguation';
 
+// Shared Container Components
+import {
+  BuilderPageLayout,
+  BuilderSidebarContainer,
+  BuilderMainContainer,
+  BuilderStatsBarContainer,
+} from '../components/common/builder';
+
 // Context
 import { TestCaseBuilderProvider } from '../contexts/testcase/TestCaseBuilderContext';
 import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
@@ -318,17 +326,7 @@ const TestCaseBuilderContent: React.FC = () => {
   }, [reactFlowInstance]);
 
   return (
-    <Box sx={{ 
-      position: 'fixed',
-      top: 64,
-      left: 0,
-      right: 0,
-      bottom: 32, // Leave space for shared Footer (minHeight 24 + py 8 = 32px)
-      display: 'flex', 
-      flexDirection: 'column', 
-      overflow: 'hidden',
-      zIndex: 1,
-    }}>
+    <BuilderPageLayout>
       {/* Header */}
       <TestCaseBuilderHeader
         actualMode={actualMode}
@@ -369,15 +367,9 @@ const TestCaseBuilderContent: React.FC = () => {
         pasteBlock={pasteBlock}
       />
 
-      {/* Main Container */}
-      <Box sx={{ 
-        flex: 1,
-        display: 'flex', 
-        overflow: 'hidden',
-        minHeight: 0,
-        position: 'relative',
-      }}>
-        {/* 🆕 NEW: Execution Progress Bar (floating, non-blocking) */}
+      {/* Main Container - Using shared container */}
+      <BuilderMainContainer>
+        {/* Execution Progress Bar (floating, non-blocking) */}
         {(hookData.unifiedExecution.state.isExecuting || hookData.unifiedExecution.state.blockStates.size > 0) && (
           <ExecutionProgressBar
             currentBlockId={hookData.unifiedExecution.state.currentBlockId}
@@ -396,8 +388,13 @@ const TestCaseBuilderContent: React.FC = () => {
           />
         )}
         
-        {/* Sidebar */}
-        <TestCaseBuilderSidebar
+        {/* Sidebar - Using shared container */}
+        <BuilderSidebarContainer
+          actualMode={actualMode}
+          isOpen={isSidebarOpen}
+          onToggle={() => setIsSidebarOpen(!isSidebarOpen)}
+        >
+          <TestCaseBuilderSidebar
           actualMode={actualMode}
           creationMode={hookData.creationMode}
           isSidebarOpen={isSidebarOpen}
@@ -412,9 +409,10 @@ const TestCaseBuilderContent: React.FC = () => {
           setAiPrompt={hookData.setAiPrompt}
           isGenerating={hookData.isGenerating}
           handleGenerateWithAI={hookData.handleGenerateWithAI}
-          hasLastGeneration={!!hookData.aiGenerationResult}
-          handleShowLastGeneration={hookData.handleShowLastGeneration}
-        />
+            hasLastGeneration={!!hookData.aiGenerationResult}
+            handleShowLastGeneration={hookData.handleShowLastGeneration}
+          />
+        </BuilderSidebarContainer>
 
         {/* Canvas */}
         <Box 
@@ -523,22 +521,10 @@ const TestCaseBuilderContent: React.FC = () => {
             />
           </ReactFlow>
         </Box>
-      </Box>
+      </BuilderMainContainer>
 
-      {/* Stats Bar - Page-specific info above shared footer */}
-      <Box
-        sx={{
-          height: '32px',
-          borderTop: 1,
-          borderColor: 'divider',
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          px: 2,
-          background: actualMode === 'dark' ? '#1e293b' : '#f1f5f9',
-          flexShrink: 0,
-        }}
-      >
+      {/* Stats Bar - Using shared container */}
+      <BuilderStatsBarContainer actualMode={actualMode}>
         <Typography variant="caption" color="text.secondary">
           {hookData.nodes.filter(n => !['start', 'success', 'failure'].includes(n.type)).length} blocks • {hookData.edges.length} connections
         </Typography>
@@ -557,7 +543,7 @@ const TestCaseBuilderContent: React.FC = () => {
             }
           })()}
         </Typography>
-      </Box>
+      </BuilderStatsBarContainer>
 
       {/* Configuration Dialogs */}
       {hookData.selectedBlock?.type === 'action' && (
@@ -771,7 +757,7 @@ const TestCaseBuilderContent: React.FC = () => {
       )}
       
       {/* 🗑️ REMOVED: ExecutionOverlay - replaced by ExecutionProgressBar + ExecutionLog */}
-    </Box>
+    </BuilderPageLayout>
   );
 };
 

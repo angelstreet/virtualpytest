@@ -14,11 +14,13 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  IconButton,
 } from '@mui/material';
 import {
   ExpandMore as ExpandMoreIcon,
   AccountTree as TestCaseIcon,
   PlayArrow as ScriptIcon,
+  ChevronLeft as ChevronLeftIcon,
 } from '@mui/icons-material';
 import { useCampaignBuilder } from '../../../contexts/campaign/CampaignBuilderContext';
 import { CampaignToolboxItem, CampaignDragData } from '../../../types/pages/CampaignGraph_Types';
@@ -29,10 +31,12 @@ import { toolboxConfig as sharedToolboxConfig } from '../../testcase/builder/too
 import { DraggableCommand } from '../../common/builder/DraggableCommand';
 
 interface CampaignToolboxProps {
+  actualMode: 'light' | 'dark';
+  toggleSidebar: () => void;
   onDragStart?: (item: CampaignToolboxItem) => void;
 }
 
-export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart }) => {
+export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, toggleSidebar, onDragStart }) => {
   const {
     campaignInputs,
     campaignOutputs,
@@ -224,6 +228,35 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ onDragStart })
 
   return (
     <>
+      {/* Sidebar Header - Using same structure as TestCaseBuilderSidebar */}
+      <Box
+        sx={{
+          px: 2,
+          py: 1.5,
+          height: '40px',
+          borderBottom: 1,
+          borderColor: 'divider',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center',
+          background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
+        }}
+      >
+        <Typography variant="subtitle1" fontWeight="bold">
+          Toolbox
+        </Typography>
+        <IconButton
+          size="small"
+          onClick={toggleSidebar}
+          sx={{
+            color: 'text.secondary',
+            '&:hover': { color: 'primary.main' },
+          }}
+        >
+          <ChevronLeftIcon />
+        </IconButton>
+      </Box>
+
       {/* Search - Using shared component */}
       <ToolboxSearchBox
         value={searchQuery}
