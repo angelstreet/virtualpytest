@@ -120,8 +120,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
     }
   }, [startTime, isExecuting]);
 
-  // Calculate progress
-  const total = nodes.length; // Use total nodes, not just blocks in execution state
+  // Calculate progress - only count blocks in execution (exclude START/terminals)
+  const total = blockStates.size; // Only count blocks being executed
   const completed = Array.from(blockStates.values()).filter(
     s => ['success', 'failure', 'error'].includes(s.status)
   ).length;
@@ -132,14 +132,45 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const failureCount = Array.from(blockStates.values()).filter(s => s.status === 'failure').length;
   const errorCount = Array.from(blockStates.values()).filter(s => s.status === 'error').length;
 
-  // 🆕 Calculate current step NUMBER (not just completed count)
+  // 🆕 Calculate current step NUMBER (only from blocks being executed)
   const allSteps = Array.from(blockStates.entries()).map(([blockId, state]) => ({
     blockId,
     state,
   }));
   const currentStepNumber = currentBlockId 
     ? allSteps.findIndex(s => s.blockId === currentBlockId) + 1 
-    : completed + 1;
+    : Math.min(completed + 1, total);
+
+  // Helper function to get full block label (same logic as UniversalBlock)
+  const getFullBlockLabel = (node: any) => {
+    if (!node) return 'Unknown';
+    
+    const data = node.data;
+    const type = node.type;
+    
+    // If custom label exists, use it
+    if (data?.label) {
+      return data.label;
+    }
+    
+    // Otherwise construct based on block type (same as UniversalBlock headerLabel logic)
+    if (type === 'navigation' && data?.target_node_label) {
+      if (data.block_label) {
+        return data.block_label;
+      } else {
+        return `navigation:${data.target_node_label}`;
+      }
+    } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type as string)) {
+      return 'STANDARD';
+    } else if (type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string)) {
+      return 'ACTION';
+    } else if (type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string)) {
+      return 'VERIFICATION';
+    }
+    
+    // Fallback
+    return data?.command || type || 'Unknown';
+  };
 
   // 🆕 Separate current executing step from completed history
   const currentExecutingStep = currentBlockId && isExecuting ? (() => {
@@ -148,7 +179,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
     if (!state) return null;
     return {
       blockId: currentBlockId,
-      label: node?.data?.label || node?.data?.command || node?.type || currentBlockId,
+      label: getFullBlockLabel(node),
       type: node?.type || 'unknown',
       command: node?.data?.command,
       state,
@@ -161,7 +192,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
       const node = nodes.find(n => n.id === blockId);
       return {
         blockId,
-        label: node?.data?.label || node?.data?.command || node?.type || blockId,
+        label: getFullBlockLabel(node),
         type: node?.type || 'unknown',
         command: node?.data?.command,
         state,
@@ -571,30 +602,19 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                 }}
               >
                 {/* Step Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
                       🔵
                     </Typography>
                     <Typography variant="caption" fontWeight="bold" sx={{ color: '#3b82f6' }}>
-                      STEP {currentStepNumber}: EXECUTING
+                      STEP {currentStepNumber}- {currentExecutingStep.label} EXECUTING
                     </Typography>
                   </Box>
                   <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
                     Running...
                   </Typography>
                 </Box>
-
-                {/* Step Details */}
-                <Typography variant="caption" sx={{ display: 'block', color: 'text.primary', mb: 0.5 }}>
-                  {currentExecutingStep.label}
-                </Typography>
-                
-                {currentExecutingStep.command && (
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem' }}>
-                    Command: {currentExecutingStep.command}
-                  </Typography>
-                )}
               </Box>
             )}
 
@@ -622,31 +642,20 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                     borderColor: actualMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                   }}
                 >
-                  {/* Step Header */}
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
-                        {statusIcon}
-                      </Typography>
-                      <Typography variant="caption" fontWeight="bold" sx={{ color: statusColor }}>
-                        STEP {stepNumber}: {statusText}
-                      </Typography>
-                    </Box>
-                    <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
-                      ⏱ {((step.state.duration || 0) / 1000).toFixed(2)}s
+                {/* Step Header */}
+                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: step.state.error ? 1 : 0 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
+                      {statusIcon}
+                    </Typography>
+                    <Typography variant="caption" fontWeight="bold" sx={{ color: statusColor }}>
+                      STEP {stepNumber}: {step.label} {statusText}
                     </Typography>
                   </Box>
-
-                  {/* Step Details */}
-                  <Typography variant="caption" sx={{ display: 'block', color: 'text.primary', mb: 0.5 }}>
-                    {step.label}
+                  <Typography variant="caption" sx={{ fontFamily: 'monospace', color: 'text.secondary' }}>
+                    ⏱ {((step.state.duration || 0) / 1000).toFixed(2)}s
                   </Typography>
-                  
-                  {step.command && (
-                    <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.75rem' }}>
-                      Command: {step.command}
-                    </Typography>
-                  )}
+                </Box>
 
                   {/* Error Message */}
                   {step.state.error && (
