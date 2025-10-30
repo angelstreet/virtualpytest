@@ -310,36 +310,10 @@ def list_scripts():
         regular_scripts = list_available_scripts()
         scripts_dir = get_scripts_directory()
         
-        # Get AI test cases from database
+        # NOTE: AI test cases are loaded separately via /server/testcase/list endpoint
+        # No need to mix them with scripts here
         ai_scripts = []
         ai_test_cases_info = []
-        
-        try:
-            from shared.src.lib.database.testcase_db import get_all_test_cases
-            
-            all_test_cases = get_all_test_cases(team_id)
-            
-            # Filter for AI-created test cases and format as script names
-            for tc in all_test_cases:
-                if tc.get('creator') == 'ai':
-                    script_name = f"ai_testcase_{tc['test_id']}"
-                    ai_scripts.append(script_name)
-                    
-                    # Store metadata for frontend display
-                    ai_test_cases_info.append({
-                        'script_name': script_name,
-                        'test_case_id': tc['test_id'],
-                        'name': tc.get('name', 'Unnamed AI Test Case'),
-                        'original_prompt': tc.get('original_prompt', ''),
-                        'compatible_userinterfaces': tc.get('compatible_userinterfaces', []),
-                        'created_at': tc.get('created_at', '')
-                    })
-            
-            print(f"[@server_script_routes:list_scripts] Found {len(ai_scripts)} AI test cases")
-            
-        except Exception as e:
-            print(f"[@server_script_routes:list_scripts] Error loading AI test cases: {e}")
-            # Continue without AI test cases if there's an error
         
         # Combine both types
         all_scripts = regular_scripts + ai_scripts

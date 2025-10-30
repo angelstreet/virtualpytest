@@ -6,11 +6,7 @@
 import NavigationIcon from '@mui/icons-material/Navigation';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import VerifiedIcon from '@mui/icons-material/Verified';
-import LoopIcon from '@mui/icons-material/Loop';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
-import AccountTreeIcon from '@mui/icons-material/AccountTree';
-import StorageIcon from '@mui/icons-material/Storage';
-import SaveIcon from '@mui/icons-material/Save';
 import type { Actions } from '../types/controller/Action_Types';
 import type { Verifications } from '../types/verification/Verification_Types';
 
@@ -46,6 +42,7 @@ export function buildToolboxFromNavigationData(
   nodes: any[],
   availableActions: Actions,
   availableVerifications: Verifications,
+  standardBlocks: any[],
   isControlActive: boolean = false
 ) {
   // Only show toolbox after taking control, not just on device selection
@@ -63,78 +60,7 @@ export function buildToolboxFromNavigationData(
   return {
     standard: {
       tabName: 'Standard',
-      groups: [
-        {
-          groupName: 'Standard',
-          commands: sortCommands([
-            { 
-              type: 'loop', 
-              label: 'Loop', 
-              icon: LoopIcon, 
-              color: '#6b7280', 
-              outputs: ['complete', 'break'], 
-              defaultData: { iterations: 1 },
-              description: 'Repeat steps multiple times' 
-            },
-            { 
-              type: 'sleep', 
-              label: 'Sleep', 
-              icon: AccessTimeIcon, 
-              color: '#6b7280', 
-              outputs: ['success'], 
-              description: 'Wait for specified duration' 
-            },
-            { 
-              type: 'get_current_time', 
-              label: 'Get Current Time', 
-              icon: AccessTimeIcon, 
-              color: '#6b7280', 
-              outputs: ['success'], 
-              description: 'Get current timestamp' 
-            },
-            { 
-              type: 'condition', 
-              label: 'Evaluate Condition', 
-              icon: AccountTreeIcon, 
-              color: '#6b7280', 
-              outputs: ['true', 'false'], 
-              description: 'Conditional branching' 
-            },
-            { 
-              type: 'set_variable', 
-              label: 'Common Operation', 
-              icon: LoopIcon, 
-              color: '#6b7280', 
-              outputs: ['success'], 
-              description: 'Set variable' 
-            },
-            // NEW: Additional blocks with I/O capabilities
-            { 
-              type: 'set_variable_io', 
-              label: 'Set Variable', 
-              icon: StorageIcon, 
-              color: '#6b7280', 
-              outputs: ['success'], 
-              defaultData: { 
-                hasInput: true,
-                hasOutput: true,
-              },
-              description: 'Store value with data flow' 
-            },
-            { 
-              type: 'set_metadata', 
-              label: 'Set Metadata', 
-              icon: SaveIcon, 
-              color: '#6b7280', 
-              outputs: ['success'], 
-              defaultData: {
-                hasInput: true,
-              },
-              description: 'Push variables to metadata' 
-            },
-          ])
-        }
-      ]
+      groups: extractStandardBlockGroups(standardBlocks)
     },
     navigation: {
       tabName: 'Navigation',
@@ -300,4 +226,56 @@ function formatGroupName(name: string): string {
     .split('_')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1).toLowerCase())
     .join(' ');
+}
+
+/**
+ * Extract standard block groups from BuilderContext
+ * Converts standard blocks from backend into toolbox format
+ */
+function extractStandardBlockGroups(standardBlocks: any[]) {
+  const groups: any[] = [];
+
+  if (!standardBlocks || standardBlocks.length === 0) {
+    console.log(`[@toolboxBuilder] No standard blocks provided`);
+    return groups;
+  }
+
+  // Map each standard block to toolbox format
+  const commands = standardBlocks.map((blockDef: any) => {
+    // Extract default values from param schemas
+    const defaultParams: Record<string, any> = {};
+    if (blockDef.params && typeof blockDef.params === 'object') {
+      for (const [key, paramSchema] of Object.entries(blockDef.params)) {
+        const schema = paramSchema as any;
+        // Get default value from schema
+        if (schema && typeof schema === 'object' && 'default' in schema) {
+          defaultParams[key] = schema.default;
+        }
+      }
+    }
+
+    return {
+      type: blockDef.command,
+      label: blockDef.label || blockDef.description || blockDef.command,  // Use short label
+      icon: AccessTimeIcon, // Default icon (could be customized per block type)
+      color: '#6b7280', // grey - standard operations
+      outputs: ['success', 'failure'], // Standard blocks can succeed or fail
+      defaultData: {
+        command: blockDef.command,
+        action_type: 'standard_block',
+        params: defaultParams, // ← EXTRACTED DEFAULT VALUES
+      },
+      description: blockDef.description || `Execute ${blockDef.command}`  // Long description
+    };
+  });
+
+  groups.push({
+    groupName: 'Standard',
+    commands: sortCommands(commands)
+  });
+
+  const totalBlocks = commands.length;
+  console.log(`[@toolboxBuilder] Extracted ${totalBlocks} standard blocks`);
+  
+  return groups;
 }

@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, CircularProgress, TextField, Collapse, Tooltip } from '@mui/material';
+import { Box, Typography, Chip, IconButton, CircularProgress, TextField, Collapse } from '@mui/material';
 import { Handle, Position, NodeProps } from 'reactflow';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
@@ -14,9 +14,10 @@ import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { useNavigationConfig } from '../../../contexts/navigation/NavigationConfigContext';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
-import { getCommandConfig, OutputType } from '../builder/toolboxConfig';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 import { executeNavigationAsync } from '../../../utils/navigationExecutionUtils';
+
+export type OutputType = 'success' | 'failure' | 'true' | 'false' | 'complete' | 'break';
 
 /**
  * Universal Block - Renders any command type with appropriate handles
@@ -46,29 +47,28 @@ export const UniversalBlock: React.FC<NodeProps & {
   const [outputsExpanded, setOutputsExpanded] = useState(false);
   const [draggedOutput, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
   
-  // Get command configuration from toolbox config
-  const commandConfig = getCommandConfig(type as string);
+  // Metadata fields to hide from parameter display
+  const HIDDEN_METADATA_FIELDS = ['description', 'default', 'key', 'type', 'required', 'optional', 'placeholder', 'hidden', 'min', 'max'];
   
-  // Determine color based on type category (fallback if not in static config)
-  let color = commandConfig?.color;
-  if (!color) {
-    // Generic types from toolboxBuilder need color assignment
-    if (type === 'navigation') {
-      color = '#8b5cf6'; // purple
-    } else if (type === 'action') {
-      color = '#f97316'; // orange - distinguishable from failure (red)
-    } else if (type === 'verification') {
-      color = '#3b82f6'; // blue - distinguishable from success (green)
-    } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type as string)) {
-      color = '#6b7280'; // grey (standard)
-    } else {
-      color = '#6b7280'; // gray fallback
-    }
+  // Get command configuration from toolbox config
+  // Determine color based on type category
+  let color: string;
+  if (type === 'navigation') {
+    color = '#8b5cf6'; // purple
+  } else if (type === 'action') {
+    color = '#f97316'; // orange
+  } else if (type === 'verification') {
+    color = '#3b82f6'; // blue
+  } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code'].includes(type as string)) {
+    color = '#6b7280'; // grey (standard blocks)
+  } else {
+    color = '#6b7280'; // default
   }
   
-  const categoryLabel = commandConfig?.label || data.command || type;
-  const icon = commandConfig?.icon || null;
-  const outputs: OutputType[] = commandConfig?.outputs || ['success', 'failure'];
+  const categoryLabel = data.label || data.command || type;
+  
+  // Determine outputs based on type or data
+  const outputs: OutputType[] = data.outputs || (type === 'loop' ? ['complete', 'break'] : (type === 'condition' ? ['true', 'false'] : ['success', 'failure']));
   
   // Label editing handlers
   const handleLabelEdit = (e: React.MouseEvent) => {
@@ -121,6 +121,7 @@ export const UniversalBlock: React.FC<NodeProps & {
     const isAction = type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string);
     const isVerification = type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string);
     const isNavigation = type === 'navigation';
+    const isStandardBlock = ['sleep', 'get_current_time', 'condition', 'set_variable', 'loop', 'custom_code', 'common_operation', 'evaluate_condition', 'set_metadata'].includes(type as string);
     
     // Validate based on type
     if (isNavigation) {
@@ -133,8 +134,8 @@ export const UniversalBlock: React.FC<NodeProps & {
       return;
     }
     
-    if (!isAction && !isVerification && !isNavigation) {
-      showError('Only actions, verifications, and navigation can be executed');
+    if (!isAction && !isVerification && !isNavigation && !isStandardBlock) {
+      showError('Unknown block type');
       return;
     }
     
@@ -176,6 +177,31 @@ export const UniversalBlock: React.FC<NodeProps & {
         
         // Convert to response format expected by result handling below
         result = navResult;
+      } else if (isStandardBlock) {
+        // Execute standard block (sleep, loop, set_variable, etc.)
+        // Filter out null/undefined values from params
+        const cleanParams: Record<string, any> = {};
+        if (data.params) {
+          Object.entries(data.params).forEach(([key, value]) => {
+            if (value !== null && value !== undefined) {
+              cleanParams[key] = value;
+            }
+          });
+        }
+        
+        const endpoint = '/server/builder/execute';
+        const response = await fetch(buildServerUrl(`${endpoint}`), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            command: data.command,
+            params: cleanParams,
+            host_name: currentHost.host_name,
+            device_id: currentDeviceId || 'device1',
+          }),
+        });
+        
+        result = await response.json();
       } else {
         // Execute action or verification
         // Filter out null/undefined values from params
@@ -309,6 +335,10 @@ export const UniversalBlock: React.FC<NodeProps & {
   ) || Boolean(
     // Navigation blocks
     type === 'navigation' && data.target_node_label
+  ) || Boolean(
+    // Standard blocks
+    ['sleep', 'get_current_time', 'condition', 'set_variable', 'loop', 'custom_code', 'common_operation', 'evaluate_condition', 'set_metadata'].includes(type as string) &&
+    data.command
   );
   
   if (isConfigured) {
@@ -601,39 +631,52 @@ export const UniversalBlock: React.FC<NodeProps & {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flex: 1 }}>
-          {icon && (
-            <Box sx={{ color: 'white', display: 'flex', alignItems: 'center' }}>
-              {icon}
-            </Box>
-          )}
           {isEditingLabel ? (
-            <TextField
-              value={editedLabel}
-              onChange={(e) => setEditedLabel(e.target.value)}
-              onKeyDown={handleLabelKeyDown}
-              onBlur={handleLabelSave}
-              autoFocus
-              size="small"
-              inputProps={{
-                maxLength: 20,
-                style: { color: 'white', fontSize: 13, fontWeight: 'bold', padding: '2px 4px' }
-              }}
-              sx={{
-                '& .MuiOutlinedInput-root': {
-                  '& fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.5)',
+            <>
+              <TextField
+                value={editedLabel}
+                onChange={(e) => setEditedLabel(e.target.value)}
+                onKeyDown={handleLabelKeyDown}
+                onBlur={handleLabelSave}
+                autoFocus
+                size="small"
+                inputProps={{
+                  maxLength: 20,
+                  style: { color: 'white', fontSize: 13, fontWeight: 'bold', padding: '2px 4px' }
+                }}
+                sx={{
+                  '& .MuiOutlinedInput-root': {
+                    '& fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.5)',
+                    },
+                    '&:hover fieldset': {
+                      borderColor: 'rgba(255, 255, 255, 0.8)',
+                    },
+                    '&.Mui-focused fieldset': {
+                      borderColor: 'white',
+                    },
                   },
-                  '&:hover fieldset': {
-                    borderColor: 'rgba(255, 255, 255, 0.8)',
+                  flex: 1,
+                  maxWidth: '150px',
+                }}
+              />
+              <IconButton
+                size="small"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  handleLabelCancel();
+                }}
+                sx={{
+                  color: 'white',
+                  padding: '2px',
+                  '&:hover': {
+                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
                   },
-                  '&.Mui-focused fieldset': {
-                    borderColor: 'white',
-                  },
-                },
-                flex: 1,
-                maxWidth: '150px',
-              }}
-            />
+                }}
+              >
+                <CloseIcon sx={{ fontSize: 14 }} />
+              </IconButton>
+            </>
           ) : (
             <>
               <Typography color="white" fontWeight="bold" fontSize={13}>
@@ -656,18 +699,6 @@ export const UniversalBlock: React.FC<NodeProps & {
           )}
         </Box>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-          {(data.action_type || data.verification_type) && (
-            <Chip
-              label={data.action_type || data.verification_type}
-              size="small"
-              sx={{ 
-                fontSize: 10, 
-                height: 20,
-                backgroundColor: 'rgba(255, 255, 255, 0.2)',
-                color: 'white',
-              }}
-            />
-          )}
           {canExecute && (
             <IconButton
               size="small"
@@ -699,175 +730,185 @@ export const UniversalBlock: React.FC<NodeProps & {
             </Typography>
             
             {/* Collapsible INPUTS section */}
-            {data.params && Object.keys(data.params).length > 0 && (
-              <Box sx={{ mb: 1 }}>
-                <Box
-                  onClick={() => setInputsExpanded(!inputsExpanded)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    gap: 0.5,
-                    cursor: 'pointer',
-                    py: 0.5,
-                    px: 1,
-                    bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)',
-                    borderRadius: 1,
-                    border: '1px solid',
-                    borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
-                    '&:hover': {
-                      bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
-                    },
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
-                    <Typography fontSize={11} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
-                      📋 INPUTS ({Object.keys(data.params).length})
-                    </Typography>
-                    {/* Preview: Show first 1-3 inputs inline when collapsed */}
-                    {!inputsExpanded && (
-                      <Box sx={{ 
-                        display: 'flex', 
-                        alignItems: 'center', 
-                        gap: 0.5, 
-                        overflow: 'hidden',
-                        flex: 1,
-                        minWidth: 0,
-                      }}>
-                        {Object.entries(data.params).slice(0, 3).map(([key, value], idx) => {
-                          const link = data.paramLinks?.[key];
-                          const isLinked = Boolean(link);
-                          const displayText = isLinked 
-                            ? `${key}←${link.sourceOutputName}` 
-                            : `${key}:${String(value).substring(0, 8)}`;
-                          
-                          return (
+            {data.params && Object.keys(data.params).length > 0 && (() => {
+              // Filter out metadata fields
+              const displayParams = Object.entries(data.params).filter(([key]) => !HIDDEN_METADATA_FIELDS.includes(key));
+              if (displayParams.length === 0) return null;
+              
+              return (
+                <Box sx={{ mb: 1 }}>
+                  <Box
+                    onClick={() => setInputsExpanded(!inputsExpanded)}
+                    sx={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'space-between',
+                      gap: 0.5,
+                      cursor: 'pointer',
+                      py: 0.5,
+                      px: 1,
+                      bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)',
+                      borderRadius: 1,
+                      border: '1px solid',
+                      borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+                      '&:hover': {
+                        bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+                      },
+                    }}
+                  >
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+                      <Typography fontSize={11} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
+                        📋 INPUTS ({displayParams.length})
+                      </Typography>
+                      {/* Preview: Show first 1-3 inputs inline when collapsed */}
+                      {!inputsExpanded && (
+                        <Box sx={{ 
+                          display: 'flex', 
+                          alignItems: 'center', 
+                          gap: 0.5, 
+                          overflow: 'hidden',
+                          flex: 1,
+                          minWidth: 0,
+                        }}>
+                          {displayParams.slice(0, 3).map(([key]) => {
+                            const link = data.paramLinks?.[key];
+                            const isLinked = Boolean(link);
+                            
+                            return (
+                              <Chip
+                                key={key}
+                                label={key}
+                                size="small"
+                                icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
+                                sx={{ 
+                                  fontSize: 9, 
+                                  height: 18,
+                                  maxWidth: '80px',
+                                  bgcolor: isLinked 
+                                    ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                                    : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
+                                  borderColor: isLinked ? '#10b981' : '#8b5cf6',
+                                  '& .MuiChip-label': {
+                                    px: 0.5,
+                                    overflow: 'hidden',
+                                    textOverflow: 'ellipsis',
+                                    whiteSpace: 'nowrap',
+                                  }
+                                }}
+                                variant="outlined"
+                              />
+                            );
+                          })}
+                          {displayParams.length > 3 && (
+                            <Typography fontSize={9} color="#8b5cf6" sx={{ flexShrink: 0 }}>
+                              +{displayParams.length - 3}
+                            </Typography>
+                          )}
+                        </Box>
+                      )}
+                    </Box>
+                    {inputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} />}
+                  </Box>
+                  <Collapse in={inputsExpanded}>
+                    <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                      {displayParams.map(([key, value]) => {
+                        // Check if this param is linked to an output
+                        const link = data.paramLinks?.[key];
+                        const isLinked = Boolean(link);
+                        
+                        return (
+                          <Box
+                            key={key}
+                            onDragOver={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                            }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                                e.stopPropagation();
+                              if (draggedOutput) {
+                                // Create link: this param <- draggedOutput
+                                updateBlock(id as string, {
+                                  paramLinks: {
+                                    ...data.paramLinks,
+                                    [key]: {
+                                      sourceBlockId: draggedOutput.blockId,
+                                      sourceOutputName: draggedOutput.outputName,
+                                      sourceOutputType: draggedOutput.outputType
+                                    }
+                                  }
+                                });
+                                setDraggedOutput(null);
+                                showSuccess(`Linked ${key} ← ${draggedOutput.outputName}`);
+                              }
+                            }}
+                            sx={{ position: 'relative' }}
+                          >
                             <Chip
-                              key={key}
-                              label={displayText}
+                              label={isLinked 
+                                ? `${key} ← ${link.sourceOutputName}` 
+                                : (() => {
+                                    // Extract actual value from object structure
+                                    let actualValue = value;
+                                    if (typeof value === 'object' && value !== null) {
+                                      // If object has a 'value' property, use that
+                                      actualValue = (value as any).value !== undefined ? (value as any).value : value;
+                                      
+                                      // If still an object, filter out metadata fields
+                                      if (typeof actualValue === 'object' && actualValue !== null) {
+                                        const filtered: Record<string, any> = {};
+                                        Object.entries(actualValue).forEach(([k, v]) => {
+                                          if (!HIDDEN_METADATA_FIELDS.includes(k)) {
+                                            filtered[k] = v;
+                                          }
+                                        });
+                                        // If filtered object is empty or only has metadata, show the value property
+                                        if (Object.keys(filtered).length === 0 && (value as any).value !== undefined) {
+                                          actualValue = (value as any).value;
+                                        } else {
+                                          actualValue = filtered;
+                                        }
+                                      }
+                                    }
+                                    const displayValue = typeof actualValue === 'object' 
+                                      ? JSON.stringify(actualValue) 
+                                      : String(actualValue);
+                                    return `${key}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}`;
+                                  })()
+                              }
                               size="small"
-                              icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
+                              icon={isLinked ? <LinkIcon sx={{ fontSize: 12, color: '#10b981' }} /> : undefined}
+                              onDelete={isLinked ? () => {
+                                // Remove link
+                                const newLinks = { ...data.paramLinks };
+                                delete newLinks[key];
+                                updateBlock(id as string, { paramLinks: newLinks });
+                                showSuccess(`Unlinked ${key}`);
+                              } : undefined}
                               sx={{ 
-                                fontSize: 9, 
-                                height: 18,
-                                maxWidth: '80px',
+                                fontSize: 10, 
+                                height: 24,
                                 bgcolor: isLinked 
                                   ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
                                   : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
                                 borderColor: isLinked ? '#10b981' : '#8b5cf6',
-                                '& .MuiChip-label': {
-                                  px: 0.5,
-                                  overflow: 'hidden',
-                                  textOverflow: 'ellipsis',
-                                  whiteSpace: 'nowrap',
+                                cursor: 'pointer',
+                                '&:hover': {
+                                  bgcolor: isLinked
+                                    ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)')
+                                    : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'),
                                 }
                               }}
                               variant="outlined"
                             />
-                          );
-                        })}
-                        {Object.keys(data.params).length > 3 && (
-                          <Typography fontSize={9} color="#8b5cf6" sx={{ flexShrink: 0 }}>
-                            +{Object.keys(data.params).length - 3}
-                          </Typography>
-                        )}
-                      </Box>
-                    )}
-                  </Box>
-                  {inputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} />}
+                          </Box>
+                        );
+                      })}
+                    </Box>
+                  </Collapse>
                 </Box>
-                <Collapse in={inputsExpanded}>
-                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {Object.entries(data.params).map(([key, value]) => {
-                      // Check if this param is linked to an output
-                      const link = data.paramLinks?.[key];
-                      const isLinked = Boolean(link);
-                      
-                      return (
-                        <Box
-                          key={key}
-                          onDragOver={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                          }}
-                          onDrop={(e) => {
-                            e.preventDefault();
-                            e.stopPropagation();
-                            if (draggedOutput) {
-                              // Create link: this param <- draggedOutput
-                              updateBlock(id as string, {
-                                paramLinks: {
-                                  ...data.paramLinks,
-                                  [key]: {
-                                    sourceBlockId: draggedOutput.blockId,
-                                    sourceOutputName: draggedOutput.outputName,
-                                    sourceOutputType: draggedOutput.outputType
-                                  }
-                                }
-                              });
-                              setDraggedOutput(null);
-                              showSuccess(`Linked ${key} ← ${draggedOutput.outputName}`);
-                            }
-                          }}
-                          sx={{ position: 'relative' }}
-                        >
-                          <Chip
-                            label={
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                                {isLinked && (
-                                  <Tooltip title={`Linked to ${link.sourceBlockId}.${link.sourceOutputName}`} arrow>
-                                    <LinkIcon 
-                                      sx={{ fontSize: 12, color: '#10b981', cursor: 'pointer' }} 
-                                      onClick={(e) => {
-                                        e.stopPropagation();
-                                        // Focus on source block (React Flow fitView to specific node)
-                                        const sourceNode = document.querySelector(`[data-id="${link.sourceBlockId}"]`);
-                                        if (sourceNode) {
-                                          sourceNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                                        }
-                                      }}
-                                    />
-                                  </Tooltip>
-                                )}
-                                <span>
-                                  {isLinked 
-                                    ? `${key} ← ${link.sourceOutputName}` 
-                                    : `${key}: ${String(value).substring(0, 30)}${String(value).length > 30 ? '...' : ''}`
-                                  }
-                                </span>
-                              </Box>
-                            }
-                            size="small"
-                            onDelete={isLinked ? () => {
-                              // Remove link
-                              const newLinks = { ...data.paramLinks };
-                              delete newLinks[key];
-                              updateBlock(id as string, { paramLinks: newLinks });
-                              showSuccess(`Unlinked ${key}`);
-                            } : undefined}
-                            sx={{ 
-                              fontSize: 10, 
-                              height: 24,
-                              bgcolor: isLinked 
-                                ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
-                                : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
-                              borderColor: isLinked ? '#10b981' : '#8b5cf6',
-                              cursor: 'pointer',
-                              '&:hover': {
-                                bgcolor: isLinked
-                                  ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)')
-                                  : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'),
-                              }
-                            }}
-                            variant="outlined"
-                          />
-                        </Box>
-                      );
-                    })}
-                  </Box>
-                </Collapse>
-              </Box>
-            )}
+              );
+            })()}
             
             {/* Collapsible OUTPUTS section */}
             {data.blockOutputs && data.blockOutputs.length > 0 && (

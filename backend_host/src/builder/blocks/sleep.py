@@ -14,6 +14,8 @@ def get_block_info() -> Dict[str, Any]:
     """Return block metadata for registration"""
     return {
         'command': 'sleep',
+        'label': 'Sleep',  # Short name for toolbox
+        'description': 'Wait for specified duration',  # Longer description
         'params': {
             'duration': create_param(
                 ParamType.NUMBER,
@@ -25,8 +27,7 @@ def get_block_info() -> Dict[str, Any]:
                 max=60.0
             )
         },
-        'block_type': 'standard',
-        'description': 'Wait for specified duration'
+        'block_type': 'standard'
     }
 
 

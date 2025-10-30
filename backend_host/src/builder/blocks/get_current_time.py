@@ -15,20 +15,21 @@ def get_block_info() -> Dict[str, Any]:
     """Return block metadata for registration"""
     return {
         'command': 'get_current_time',
+        'label': 'Get Current Time',  # Short name for toolbox
+        'description': 'Get current timestamp',  # Longer description
         'params': {
             'format': create_param(
-                ParamType.SELECT,
+                ParamType.ENUM,
                 required=False,
                 default='formatted',
-                options=[
+                choices=[
                     {'label': 'Formatted (YYMMDD-HH:MM:SS.ms)', 'value': 'formatted'},
                     {'label': 'Unix timestamp', 'value': 'unix'}
                 ],
                 description="Time format to return"
             )
         },
-        'block_type': 'standard',
-        'description': 'Get current timestamp'
+        'block_type': 'standard'
     }
 
 

@@ -13,6 +13,8 @@ def get_block_info() -> Dict[str, Any]:
     """Return block metadata for registration"""
     return {
         'command': 'set_variable',
+        'label': 'Set Variable',  # Short name for toolbox
+        'description': 'Set a variable value',  # Longer description
         'params': {
             'variable_name': create_param(
                 ParamType.STRING,
@@ -29,8 +31,7 @@ def get_block_info() -> Dict[str, Any]:
                 placeholder="Enter value"
             )
         },
-        'block_type': 'standard',
-        'description': 'Set a variable value'
+        'block_type': 'standard'
     }
 
 

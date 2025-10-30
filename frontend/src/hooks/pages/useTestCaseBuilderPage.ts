@@ -19,6 +19,7 @@ import { useUserInterface } from './useUserInterface';
 import { useTestCaseBuilder } from '../../contexts/testcase/TestCaseBuilderContext';
 import { useTestCaseAI } from '../testcase';
 import { buildToolboxFromNavigationData } from '../../utils/toolboxBuilder';
+import { useBuilder } from '../../contexts/builder/BuilderContext';
 
 export interface UseTestCaseBuilderPageReturn {
   // Device & Host
@@ -151,6 +152,9 @@ export interface UseTestCaseBuilderPageReturn {
 }
 
 export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
+  // ==================== BUILDER CONTEXT ====================
+  const { standardBlocks, fetchStandardBlocks } = useBuilder();
+  
   // ==================== HOST & DEVICE ====================
   const {
     selectedHost,
@@ -242,10 +246,14 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     
     const timer = setTimeout(async () => {
       await fetchAvailableActions(true);
+      // Fetch standard blocks after control with host_name
+      if (selectedHost?.host_name) {
+        await fetchStandardBlocks(selectedHost.host_name, true);
+      }
     }, 1000);
 
     return () => clearTimeout(timer);
-  }, [isControlActive, selectedHost, selectedDeviceId, fetchAvailableActions]);
+  }, [isControlActive, selectedHost, selectedDeviceId, fetchAvailableActions, fetchStandardBlocks]);
   
   const availableActions = getAvailableActions();
   const availableVerifications = getAvailableVerificationTypes();
@@ -367,8 +375,8 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     }
     
     // Only show toolbox after taking control, not just on device selection
-    return buildToolboxFromNavigationData(navNodes, availableActions, availableVerifications, isControlActive);
-  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions, availableVerifications, isControlActive]);
+    return buildToolboxFromNavigationData(navNodes, availableActions, availableVerifications, standardBlocks, isControlActive);
+  }, [selectedDeviceId, userinterfaceName, navNodes, availableActions, availableVerifications, standardBlocks, isControlActive]);
   
   // ==================== TEST CASE CONTEXT ====================
   const {

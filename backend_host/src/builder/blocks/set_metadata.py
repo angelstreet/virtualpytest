@@ -13,6 +13,8 @@ def get_block_info() -> Dict[str, Any]:
     """Return block metadata for registration"""
     return {
         'command': 'set_metadata',
+        'label': 'Set Metadata',  # Short name for toolbox
+        'description': 'Push variables to metadata',  # Longer description
         'params': {
             'source_variable': create_param(
                 ParamType.STRING,
@@ -22,10 +24,10 @@ def get_block_info() -> Dict[str, Any]:
                 placeholder="Enter variable name or leave empty"
             ),
             'mode': create_param(
-                ParamType.SELECT,
+                ParamType.ENUM,
                 required=False,
                 default='set',
-                options=[
+                choices=[
                     {'label': 'Set (replace all)', 'value': 'set'},
                     {'label': 'Append (merge)', 'value': 'append'}
                 ],

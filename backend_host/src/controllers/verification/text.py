@@ -581,7 +581,7 @@ class TextVerificationController:
                     )
                 ],
                 "verification_type": "text",
-                "description": "OCR menu, parse key-values, auto-store to metadata"
+                "description": "Get Menu Info"
             }
         ] 
 

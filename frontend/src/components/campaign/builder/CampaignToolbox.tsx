@@ -27,16 +27,21 @@ import { CampaignToolboxItem, CampaignDragData } from '../../../types/pages/Camp
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { ScriptIOSections } from '../../testcase/builder/ScriptIOSections';
 import { ToolboxSearchBox } from '../../common/builder/ToolboxSearchBox';
-import { toolboxConfig as sharedToolboxConfig } from '../../testcase/builder/toolboxConfig';
 import { DraggableCommand } from '../../common/builder/DraggableCommand';
 
 interface CampaignToolboxProps {
   actualMode: 'light' | 'dark';
   toggleSidebar: () => void;
   onDragStart?: (item: CampaignToolboxItem) => void;
+  standardBlocks?: any[]; // 🆕 NEW: Standard blocks from BuilderContext
 }
 
-export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, toggleSidebar, onDragStart }) => {
+export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ 
+  actualMode, 
+  toggleSidebar, 
+  onDragStart,
+  standardBlocks = [], // 🆕 NEW: Standard blocks from BuilderContext
+}) => {
   const {
     campaignInputs,
     campaignOutputs,
@@ -64,9 +69,6 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, to
     scripts: '#ff9800',   // Orange - matching script blocks
   };
 
-  // Get STANDARD commands from shared toolbox config
-  const standardCommands = sharedToolboxConfig.standard;
-
   // Load available executables
   useEffect(() => {
     loadTestCases();
@@ -75,26 +77,37 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, to
 
   const loadTestCases = async () => {
     try {
-      const apiUrl = buildServerUrl('/api/testcases');
+      // Use same endpoint as TestCase builder
+      const apiUrl = buildServerUrl('/server/testcase/list');
       const response = await fetch(apiUrl);
-      if (!response.ok) return;
+      if (!response.ok) {
+        console.error('[@CampaignToolbox] Failed to load testcases:', response.status);
+        return;
+      }
       
       const data = await response.json();
+      if (!data.success || !data.testcases) {
+        console.error('[@CampaignToolbox] Invalid response format:', data);
+        return;
+      }
+      
+      // Map testcases to toolbox items
       const items: CampaignToolboxItem[] = data.testcases.map((tc: any) => ({
-        id: tc.id,
+        id: tc.testcase_id,
         type: 'testcase' as const,
-        label: tc.name,
+        label: tc.testcase_name,
         icon: '🌳',
         category: 'testcases' as const,
-        executableId: tc.id,
+        executableId: tc.testcase_id,
         executableType: 'testcase' as const,
-        executableName: tc.name,
+        executableName: tc.testcase_name,
         description: tc.description,
-        tags: tc.tags,
+        tags: tc.tags || [],
         folder: tc.folder,
       }));
       
       setTestCases(items);
+      console.log('[@CampaignToolbox] Loaded testcases:', items.length);
     } catch (error) {
       console.error('[@CampaignToolbox] Error loading testcases:', error);
     }
@@ -102,12 +115,22 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, to
 
   const loadScripts = async () => {
     try {
-      const apiUrl = buildServerUrl('/api/test-scripts/available');
+      // Use same endpoint as RunTests page
+      const apiUrl = buildServerUrl('/server/script/list');
       const response = await fetch(apiUrl);
-      if (!response.ok) return;
+      if (!response.ok) {
+        console.error('[@CampaignToolbox] Failed to load scripts:', response.status);
+        return;
+      }
       
       const data = await response.json();
-      const items: CampaignToolboxItem[] = (data.scripts || []).map((scriptName: string) => ({
+      if (!data.success || !data.scripts) {
+        console.error('[@CampaignToolbox] Invalid response format:', data);
+        return;
+      }
+      
+      // Map scripts to toolbox items
+      const items: CampaignToolboxItem[] = data.scripts.map((scriptName: string) => ({
         id: scriptName,
         type: 'script' as const,
         label: scriptName,
@@ -119,6 +142,7 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, to
       }));
       
       setScripts(items);
+      console.log('[@CampaignToolbox] Loaded scripts:', items.length);
     } catch (error) {
       console.error('[@CampaignToolbox] Error loading scripts:', error);
     }
@@ -272,124 +296,126 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({ actualMode, to
           p: 0.5,
         }}
       >
-        {/* STANDARD Category - Shared with TestCase Builder */}
-        <Accordion
-          defaultExpanded={searchQuery.trim() !== ''}
-          sx={{
-            boxShadow: 'none',
-            '&:before': { display: 'none'},
-            padding: '2px !important',
-            margin: '4px !important',
-            mb: 1,
-            borderLeft: `4px solid ${categoryColors.standard}`,
-            backgroundColor: `${categoryColors.standard}08`,
-            '& .MuiAccordionDetails-root': {
-              padding: '8px !important',
-              margin: '0px !important',
-            },
-            '&.Mui-expanded': {
+        {/* STANDARD Category - Same as TestCase Builder */}
+        {standardBlocks && standardBlocks.length > 0 && (
+          <Accordion
+            defaultExpanded={searchQuery.trim() !== ''}
+            sx={{
+              boxShadow: 'none',
+              '&:before': { display: 'none'},
               padding: '2px !important',
               margin: '4px !important',
-              minHeight: '0 !important',
-            }
-          }}
-        >
-          <AccordionSummary
-            expandIcon={<ExpandMoreIcon sx={{ fontSize: 18, color: categoryColors.standard }} />}
-            sx={{
-              minHeight: '28px !important',
-              height: '28px',
-              py: '20px !important',
-              px: 1,
-              '& .MuiAccordionSummary-content': {
-                my: '0 !important',
-                minHeight: '28px !important',
-                py: '20px !important',
+              mb: 1,
+              borderLeft: `4px solid ${categoryColors.standard}`,
+              backgroundColor: `${categoryColors.standard}08`,
+              '& .MuiAccordionDetails-root': {
+                padding: '8px !important',
+                margin: '0px !important',
               },
               '&.Mui-expanded': {
-                minHeight: '28px !important',
-                height: '28px',
-                my: '0 !important',
-                py: '20px !important',
+                padding: '2px !important',
+                margin: '4px !important',
+                minHeight: '0 !important',
               }
             }}
           >
-            <Typography 
-              fontSize={14} 
-              fontWeight="bold" 
-              sx={{ 
-                color: categoryColors.standard,
-                textTransform: 'uppercase',
-                letterSpacing: '0.5px'
+            <AccordionSummary
+              expandIcon={<ExpandMoreIcon sx={{ fontSize: 18, color: categoryColors.standard }} />}
+              sx={{
+                minHeight: '28px !important',
+                height: '28px',
+                py: '20px !important',
+                px: 1,
+                '& .MuiAccordionSummary-content': {
+                  my: '0 !important',
+                  minHeight: '28px !important',
+                  py: '20px !important',
+                },
+                '&.Mui-expanded': {
+                  minHeight: '28px !important',
+                  height: '28px',
+                  my: '0 !important',
+                  py: '20px !important',
+                }
               }}
             >
-              STANDARD
-            </Typography>
-          </AccordionSummary>
-          <AccordionDetails sx={{ p: 1 }}>
-            {/* Render each group with nested accordion */}
-            {standardCommands.groups.map((group: any, groupIdx: number) => (
-              <Accordion
-                key={`standard-group-${groupIdx}`}
-                defaultExpanded={true}
-                sx={{
-                  boxShadow: 'none',
-                  '&:before': { display: 'none'},
-                  margin: '0 !important',
-                  marginBottom: '2px !important',
-                  padding: '0 !important',
-                  backgroundColor: 'transparent',
-                  '&.Mui-expanded': {
-                    margin: '0 !important',
-                    marginBottom: '2px !important',
-                    minHeight: '0 !important',
-                  }
+              <Typography 
+                fontSize={14} 
+                fontWeight="bold" 
+                sx={{ 
+                  color: categoryColors.standard,
+                  textTransform: 'uppercase',
+                  letterSpacing: '0.5px'
                 }}
               >
-                <AccordionSummary
-                  expandIcon={<ExpandMoreIcon sx={{ fontSize: 14 }} />}
+                STANDARD
+              </Typography>
+            </AccordionSummary>
+            <AccordionDetails sx={{ p: 1 }}>
+              {/* Render each group with nested accordion */}
+              {standardBlocks.map((group: any, groupIdx: number) => (
+                <Accordion
+                  key={`standard-group-${groupIdx}`}
+                  defaultExpanded={true}
                   sx={{
-                    minHeight: '20px !important',
-                    height: '20px',
-                    padding: '0 4px !important',
+                    boxShadow: 'none',
+                    '&:before': { display: 'none'},
                     margin: '0 !important',
-                    '& .MuiAccordionSummary-content': {
-                      margin: '0 !important',
-                      minHeight: '20px !important',
-                    },
+                    marginBottom: '2px !important',
+                    padding: '0 !important',
+                    backgroundColor: 'transparent',
                     '&.Mui-expanded': {
-                      minHeight: '20px !important',
-                      height: '20px',
                       margin: '0 !important',
+                      marginBottom: '2px !important',
+                      minHeight: '0 !important',
                     }
                   }}
                 >
-                  <Typography 
-                    fontSize={12} 
-                    fontWeight="bold" 
-                    padding={0.5}
-                    sx={{ 
-                      color: 'text.secondary',
-                      textTransform: 'uppercase',
-                      letterSpacing: '0.5px',
-                      opacity: 0.8
+                  <AccordionSummary
+                    expandIcon={<ExpandMoreIcon sx={{ fontSize: 14 }} />}
+                    sx={{
+                      minHeight: '20px !important',
+                      height: '20px',
+                      padding: '0 4px !important',
+                      margin: '0 !important',
+                      '& .MuiAccordionSummary-content': {
+                        margin: '0 !important',
+                        minHeight: '20px !important',
+                      },
+                      '&.Mui-expanded': {
+                        minHeight: '20px !important',
+                        height: '20px',
+                        margin: '0 !important',
+                      }
                     }}
                   >
-                    {group.groupName} ({group.commands.length})
-                  </Typography>
-                </AccordionSummary>
-                <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
-                  {group.commands.map((command: any, cmdIdx: number) => (
-                    <DraggableCommand 
-                      key={`${group.groupName}-${cmdIdx}`} 
-                      command={command}
-                    />
-                  ))}
-                </AccordionDetails>
-              </Accordion>
-            ))}
-          </AccordionDetails>
-        </Accordion>
+                    <Typography 
+                      fontSize={12} 
+                      fontWeight="bold" 
+                      padding={0.5}
+                      sx={{ 
+                        color: 'text.secondary',
+                        textTransform: 'uppercase',
+                        letterSpacing: '0.5px',
+                        opacity: 0.8
+                      }}
+                    >
+                      {group.groupName} ({group.commands.length})
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
+                    {group.commands.map((command: any, cmdIdx: number) => (
+                      <DraggableCommand 
+                        key={`${group.groupName}-${cmdIdx}`} 
+                        command={command}
+                      />
+                    ))}
+                  </AccordionDetails>
+                </Accordion>
+              ))}
+            </AccordionDetails>
+          </Accordion>
+        )}
 
         {/* TESTCASES Category - Exact same style as TestCase Builder tabs */}
         <Accordion

@@ -110,7 +110,8 @@ def register_host_routes(app):
             host_testcase_routes,
             host_campaign_routes,
             host_transcript_routes,
-            host_deployment_routes  # This should work now with lazy imports
+            host_deployment_routes,
+            host_builder_routes  # Standard blocks
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
@@ -149,7 +150,8 @@ def register_host_routes(app):
         (host_testcase_routes.host_testcase_bp, 'TestCase Builder'),
         (host_campaign_routes.host_campaign_bp, 'Campaign execution'),
         (host_transcript_routes.host_transcript_bp, 'Transcript services'),
-        (host_deployment_routes.host_deployment_bp, 'Deployment scheduling')
+        (host_deployment_routes.host_deployment_bp, 'Deployment scheduling'),
+        (host_builder_routes.host_builder_bp, 'Standard blocks')
     ]
     
     for blueprint, description in blueprints:

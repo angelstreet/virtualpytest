@@ -12,6 +12,7 @@ import { MCPTaskInput } from './components/mcp/MCPTaskInput';
 import { HostManagerProvider } from './contexts/HostManagerProvider';
 import { ServerManagerProvider } from './contexts/ServerManagerProvider';
 import { ToastProvider } from './contexts/ToastContext';
+import { BuilderProvider } from './contexts/builder/BuilderContext';
 
 // Lazy load all pages for better performance and to avoid loading everything at once
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -137,9 +138,10 @@ const App: React.FC = () => {
   return (
         <Router basename={getBasename()}>
       <ToastProvider>
-        <ServerManagerProvider>
-          <HostManagerProvider>
-            <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <BuilderProvider>
+          <ServerManagerProvider>
+            <HostManagerProvider>
+              <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
             <AppBar position="static" elevation={1}>
               <Toolbar>
                 <Science sx={{ mr: 2 }} />
@@ -247,6 +249,7 @@ const App: React.FC = () => {
           </Box>
           </HostManagerProvider>
         </ServerManagerProvider>
+        </BuilderProvider>
       </ToastProvider>
     </Router>
   );

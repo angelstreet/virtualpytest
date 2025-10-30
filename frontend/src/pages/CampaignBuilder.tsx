@@ -8,7 +8,7 @@
  * NOTE: Uses shared container components and TestCase terminal blocks for consistency
  */
 
-import React, { useCallback, DragEvent, useState } from 'react';
+import React, { useCallback, DragEvent, useState, useEffect } from 'react';
 import ReactFlow, {
   ReactFlowProvider,
   ConnectionMode,
@@ -53,6 +53,13 @@ import { CampaignBlock } from '../components/campaign/blocks/CampaignBlock';
 import { CampaignToolbox } from '../components/campaign/builder/CampaignToolbox';
 import { CampaignNode, CampaignDragData } from '../types/pages/CampaignGraph_Types';
 import { useTheme } from '../contexts/ThemeContext';
+import { useHostManager } from '../contexts/index';
+import { useUserInterface } from '../hooks/pages/useUserInterface';
+import { useBuilder } from '../contexts/builder/BuilderContext';
+import { useDeviceControlWithForceUnlock } from '../hooks/useDeviceControlWithForceUnlock';
+import { useNavigationConfig, NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
+import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
+import { useDeviceData } from '../contexts/device/DeviceDataContext';
 
 // Define node types for React Flow - reuse TestCase terminal blocks
 const nodeTypes = {
@@ -109,6 +116,154 @@ const CampaignBuilderContent: React.FC = () => {
     state,
   } = useCampaignBuilder();
   
+  // 🆕 Get standard blocks from BuilderContext (same as TestCase builder)
+  const { standardBlocks, fetchStandardBlocks } = useBuilder();
+  
+  // 🆕 Get device control from HostManager (same as TestCase builder)
+  const {
+    selectedHost,
+    selectedDeviceId,
+    isControlActive,
+    isRemotePanelOpen,
+    availableHosts,
+    handleDeviceSelect,
+    handleToggleRemotePanel,
+    handleControlStateChange,
+    isDeviceLocked: hostManagerIsDeviceLocked,
+  } = useHostManager();
+  
+  // 🆕 Get userinterface management (same as TestCase builder)
+  const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
+  const { loadTreeByUserInterface } = useNavigationConfig();
+  
+  // 🆕 Interface state (same as TestCase builder workflow)
+  const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
+  const [userinterfaceName, setUserinterfaceName] = useState<string>('');
+  const [currentTreeId, setCurrentTreeId] = useState<string | null>(null);
+  const [isLoadingTree, setIsLoadingTree] = useState(false);
+  
+  // 🆕 Device control hook (EXACT same as TestCase builder)
+  const {
+    isControlLoading,
+    handleDeviceControl,
+  } = useDeviceControlWithForceUnlock({
+    host: selectedHost,
+    device_id: selectedDeviceId,
+    sessionId: 'campaign-builder-session',
+    autoCleanup: true,
+    tree_id: currentTreeId || undefined,
+    onControlStateChange: handleControlStateChange,
+  });
+  
+  // 🆕 Device data (EXACT same as TestCase builder)
+  const { 
+    setControlState, 
+    fetchAvailableActions,
+  } = useDeviceData();
+  
+  useEffect(() => {
+    setControlState(selectedHost, selectedDeviceId, isControlActive);
+  }, [selectedHost, selectedDeviceId, isControlActive, setControlState]);
+  
+  // 🆕 Fetch actions and standard blocks after control (EXACT same as TestCase builder)
+  useEffect(() => {
+    if (!isControlActive || !selectedHost || !selectedDeviceId) return;
+    
+    const timer = setTimeout(async () => {
+      await fetchAvailableActions(true);
+      // Fetch standard blocks after control with host_name
+      if (selectedHost?.host_name) {
+        await fetchStandardBlocks(selectedHost.host_name, true);
+      }
+    }, 1000);
+
+    return () => clearTimeout(timer);
+  }, [isControlActive, selectedHost, selectedDeviceId, fetchAvailableActions, fetchStandardBlocks]);
+  
+  // 🆕 Load compatible interfaces (EXACT same as TestCase builder)
+  useEffect(() => {
+    const loadCompatibleInterfaces = async () => {
+      if (!selectedDeviceId || !selectedHost) {
+        setCompatibleInterfaceNames([]);
+        setUserinterfaceName('');
+        return;
+      }
+      
+      try {
+        const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
+        const deviceModel = selectedDevice?.device_model;
+        
+        const interfaces = await getAllUserInterfaces();
+        
+        const compatibleInterfaces = interfaces.filter((ui: any) => {
+          const hasTree = !!ui.root_tree;
+          const isCompatible = ui.models?.includes(deviceModel);
+          return hasTree && isCompatible;
+        });
+        
+        const names = compatibleInterfaces.map((ui: any) => ui.name);
+        
+        setCompatibleInterfaceNames(names);
+        
+        // Auto-select first compatible interface
+        if (names.length > 0 && !names.includes(userinterfaceName)) {
+          setUserinterfaceName(names[0]);
+          console.log('[@CampaignBuilder] Auto-selected interface:', names[0]);
+        }
+      } catch (error) {
+        console.error('[@CampaignBuilder] Failed to load compatible interfaces:', error);
+      }
+    };
+    
+    loadCompatibleInterfaces();
+  }, [selectedDeviceId, selectedHost, getAllUserInterfaces, userinterfaceName]);
+  
+  // 🆕 Load navigation tree (EXACT same as TestCase builder)
+  useEffect(() => {
+    const loadNavigationTree = async () => {
+      if (!selectedDeviceId || !userinterfaceName) {
+        setCurrentTreeId(null);
+        setIsLoadingTree(false);
+        return;
+      }
+      
+      setIsLoadingTree(true);
+      
+      try {
+        const userInterface = await getUserInterfaceByName(userinterfaceName);
+        
+        if (userInterface) {
+          const result = await loadTreeByUserInterface(userInterface.id);
+          const treeId = result?.tree?.id || userInterface.root_tree;
+          
+          setCurrentTreeId(treeId);
+          
+          console.log('[@CampaignBuilder] ✅ Loaded navigation tree:', {
+            interface: userinterfaceName,
+            treeId: treeId,
+          });
+        }
+      } catch (error) {
+        console.error('[@CampaignBuilder] ❌ Failed to load tree:', error);
+        setCurrentTreeId(null);
+      } finally {
+        setIsLoadingTree(false);
+      }
+    };
+    
+    loadNavigationTree();
+  }, [selectedDeviceId, userinterfaceName, getUserInterfaceByName, loadTreeByUserInterface]);
+  
+  // Wrapper for isDeviceLocked to match expected signature
+  const isDeviceLocked = useCallback((deviceKey: string) => {
+    const [hostName, deviceId] = deviceKey.includes(':')
+      ? deviceKey.split(':')
+      : [deviceKey, 'device1'];
+    
+    const host = availableHosts.find((h: any) => h.host_name === hostName);
+    return hostManagerIsDeviceLocked(host || null, deviceId);
+  }, [availableHosts, hostManagerIsDeviceLocked]);
+  
   // Sidebar state
   const [isSidebarOpen, setIsSidebarOpen] = useState(true);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
@@ -128,30 +283,32 @@ const CampaignBuilderContent: React.FC = () => {
     console.log('[@CampaignBuilder] Execute campaign:', state);
   };
 
-  // Placeholder props for header (will be fully implemented when campaign execution is added)
+  // Header props - now with REAL device control AND userinterface (same workflow as TestCase builder)
   const [creationMode, setCreationMode] = useState<'visual' | 'ai'>('visual');
   
-  // TODO: These will come from a proper hook when device control is implemented for campaigns
   const headerProps = {
     actualMode,
     builderType: 'Campaign' as const,
     creationMode,
     setCreationMode,
-    selectedHost: null,
-    selectedDeviceId: null,
-    isControlActive: false,
-    isControlLoading: false,
-    isRemotePanelOpen: false,
-    availableHosts: [],
-    isDeviceLocked: () => false,
-    handleDeviceSelect: () => {},
-    handleDeviceControl: () => {},
-    handleToggleRemotePanel: () => {},
-    compatibleInterfaceNames: [],
-    userinterfaceName: '',
-    setUserinterfaceName: () => {},
-    isLoadingTree: false,
-    currentTreeId: null,
+    // EXACT same as TestCase builder
+    selectedHost,
+    selectedDeviceId,
+    isControlActive,
+    isControlLoading,
+    isRemotePanelOpen,
+    availableHosts,
+    isDeviceLocked,
+    handleDeviceSelect,
+    handleDeviceControl,
+    handleToggleRemotePanel,
+    // EXACT same as TestCase builder
+    compatibleInterfaceNames,
+    userinterfaceName,
+    setUserinterfaceName,
+    isLoadingTree,
+    currentTreeId,
+    // Campaign operations
     testcaseName: state.campaign_name || 'Untitled',
     hasUnsavedChanges: false, // TODO: Track changes
     handleNew: () => { console.log('New campaign'); },
@@ -262,6 +419,7 @@ const CampaignBuilderContent: React.FC = () => {
           <CampaignToolbox
             actualMode={actualMode}
             toggleSidebar={() => setIsSidebarOpen(false)}
+            standardBlocks={standardBlocks}
           />
         </BuilderSidebarContainer>
 
@@ -318,13 +476,17 @@ const CampaignBuilderContent: React.FC = () => {
   );
 };
 
-// Main component wrapped in provider
+// Main component wrapped in provider (EXACT same as TestCase builder)
 const CampaignBuilder: React.FC = () => {
   return (
     <ReactFlowProvider>
-      <CampaignBuilderProvider>
-        <CampaignBuilderContent />
-      </CampaignBuilderProvider>
+      <NavigationConfigProvider>
+        <NavigationEditorProvider>
+          <CampaignBuilderProvider>
+            <CampaignBuilderContent />
+          </CampaignBuilderProvider>
+        </NavigationEditorProvider>
+      </NavigationConfigProvider>
     </ReactFlowProvider>
   );
 };

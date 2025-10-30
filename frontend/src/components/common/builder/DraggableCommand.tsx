@@ -7,7 +7,15 @@
 
 import React from 'react';
 import { Paper, Typography } from '@mui/material';
-import { CommandConfig } from '../../testcase/builder/toolboxConfig';
+
+interface CommandConfig {
+  type: string;
+  label: string;
+  icon?: any;
+  color?: string;
+  description?: string;
+  defaultData?: any;
+}
 
 interface DraggableCommandProps {
   command: CommandConfig;

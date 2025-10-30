@@ -7,7 +7,6 @@ import {
   AccordionDetails,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import { toolboxConfig as staticToolboxConfig } from './toolboxConfig';
 import { ScriptIOSections } from './ScriptIOSections';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { useReactFlow } from 'reactflow';
@@ -15,12 +14,12 @@ import { ToolboxSearchBox } from '../../common/builder/ToolboxSearchBox';
 import { DraggableCommand } from '../../common/builder/DraggableCommand';
 
 interface TestCaseToolboxProps {
-  toolboxConfig?: any;  // Optional dynamic config
+  toolboxConfig: any;  // Dynamic config from backend
   onCloseProgressBar?: () => void;
 }
 
 export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ 
-  toolboxConfig = staticToolboxConfig,  // Fallback to static config
+  toolboxConfig,  // No fallback - must provide dynamic config
   onCloseProgressBar
 }) => {
   const [searchTerm, setSearchTerm] = useState('');

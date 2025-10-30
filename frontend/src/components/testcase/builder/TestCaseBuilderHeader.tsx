@@ -230,7 +230,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
         />
       </Box>
       
-      {/* SECTION 3: Interface Selector */}
+      {/* SECTION 3: Interface Selector - Shown for both TestCase and Campaign */}
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flex: '0 1 auto', ml: 0, justifyContent: 'center' }}>
         <UserinterfaceSelector
           compatibleInterfaces={compatibleInterfaceNames}
@@ -267,7 +267,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
               handleNew();
             }}
             disabled={!userinterfaceName}
-            title={!userinterfaceName ? 'Select a userinterface first' : 'Create new test case'}
+            title={!userinterfaceName ? 'Select a userinterface first' : `Create new ${builderType.toLowerCase()}`}
           >
             New
           </Button>

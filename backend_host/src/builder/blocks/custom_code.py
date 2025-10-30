@@ -16,17 +16,18 @@ def get_block_info() -> Dict[str, Any]:
     """Return block metadata for registration"""
     return {
         'command': 'custom_code',
+        'label': 'Custom Code',  # Short name for toolbox
+        'description': 'Execute custom Python code',  # Longer description
         'params': {
             'code': create_param(
-                ParamType.TEXT,
+                ParamType.STRING,
                 required=True,
                 default='# Write your Python code here\n# Available variables:\n#   - context: Execution context\n#   - device: Device instance\n#\n# Example:\n# device.remote_controller.press_key("HOME")\n# context.metadata["custom_value"] = "hello"\n',
                 description="Python code to execute",
                 placeholder="Enter Python code"
             )
         },
-        'block_type': 'standard',
-        'description': 'Execute custom Python code'
+        'block_type': 'standard'
     }
 
 
