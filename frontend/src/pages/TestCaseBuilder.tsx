@@ -324,6 +324,16 @@ const TestCaseBuilderContent: React.FC = () => {
     }
   }, [reactFlowInstance]);
 
+  // Fit view when test case is loaded (when currentTestcaseId changes and nodes exist)
+  React.useEffect(() => {
+    if (reactFlowInstance && hookData.currentTestcaseId && hookData.nodes.length > 0) {
+      // Small delay to ensure nodes are rendered
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+      }, 150);
+    }
+  }, [reactFlowInstance, hookData.currentTestcaseId, hookData.nodes.length]);
+
   return (
     <BuilderPageLayout>
       {/* Header */}

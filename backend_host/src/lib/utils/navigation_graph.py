@@ -129,13 +129,10 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
                 reverse_actions = reverse_set.get('actions', [])
                 has_reverse_actions = bool(reverse_actions)
             
-            # Don't skip conditional edges (edges with shared action_set_id)
-            # Conditional edges might not have actions populated yet but need graph representation
-            is_conditional_edge = default_action_set_id is not None
-            
-            # Skip edges only if no actions AND not conditional
-            if not has_forward_actions and not has_reverse_actions and not is_conditional_edge:
-                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions")
+            # Skip edges without any actions - you can't navigate an edge without actions
+            # Forward actions are required for pathfinding (reverse is optional)
+            if not has_forward_actions and not has_reverse_actions:
+                print(f"[@navigation:graph:create_networkx_graph] SKIPPING edge {source_id} → {target_id}: No actions defined")
                 edges_skipped += 1
                 continue
         
@@ -169,13 +166,9 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         print(f"[@navigation:graph:create_networkx_graph]   Default Retry Actions ({len(retry_actions_list)}): {[a.get('command') for a in retry_actions_list]}")
         print(f"[@navigation:graph:create_networkx_graph]   Default Failure Actions ({len(failure_actions_list)}): {[a.get('command') for a in failure_actions_list]}")
         
-        # Create forward edge if it has actions OR if it's a conditional edge
-        # Conditional edges need graph representation for pathfinding (multiple destinations, same action)
-        if has_forward_actions or is_conditional_edge:
-            if is_conditional_edge and not has_forward_actions:
-                print(f"[@navigation:graph:create_networkx_graph] Creating FORWARD edge (conditional): {source_label} → {target_label} [action_set_id: {default_action_set_id}]")
-            else:
-                print(f"[@navigation:graph:create_networkx_graph] Creating FORWARD edge: {source_label} → {target_label}")
+        # Create forward edge only if it has forward actions
+        if has_forward_actions:
+            print(f"[@navigation:graph:create_networkx_graph] Creating FORWARD edge: {source_label} → {target_label}")
             G.add_edge(source_id, target_id, **{
                 'edge_id': edge.get('edge_id'),
                 'action_sets': [action_sets[0]],  # Only include forward action set
@@ -183,8 +176,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
                 'edge_type': edge.get('edge_type', 'navigation'),
                 'final_wait_time': edge.get('final_wait_time', 2000),
                 'weight': 1,
-                'is_forward_edge': True,
-                'is_conditional': is_conditional_edge  # Mark conditional edges for executor
+                'is_forward_edge': True
             })
             edges_added += 1
         else:
