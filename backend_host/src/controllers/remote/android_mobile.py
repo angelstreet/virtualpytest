@@ -776,36 +776,9 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
     
     def get_available_verifications(self) -> list:
         """Get list of available verification commands with typed parameters."""
-        from shared.src.lib.schemas.param_types import create_param, create_output, ParamType, OutputType
-        
-        return [
-            {
-                "command": "getMenuInfo",
-                "label": "Get Menu Info",
-                "description": "Extract key-value pairs from menu/info screen using ADB UI dump and parse automatically",
-                "params": {
-                    "area": create_param(
-                        ParamType.AREA,
-                        required=False,
-                        default=None,
-                        description="Screen area to extract menu information from"
-                    )
-                },
-                "outputs": [
-                    create_output(
-                        "parsed_data",
-                        OutputType.OBJECT,
-                        description="Parsed key-value pairs from UI elements"
-                    ),
-                    create_output(
-                        "element_count",
-                        OutputType.NUMBER,
-                        description="Number of UI elements extracted"
-                    )
-                ],
-                "verification_type": "adb"
-            }
-        ]
+        # Android Mobile remote controller no longer provides verifications
+        # All ADB verifications (including getMenuInfo) are now in ADBVerificationController
+        return []
     
     def get_available_actions(self) -> Dict[str, Any]:
         """Get available actions for this Android mobile controller."""
@@ -1159,37 +1132,3 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             time.sleep(wait_seconds)
         
         return result
-    
-    def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute verification command (called by verification routes)
-        
-        Args:
-            verification_config: Verification configuration with command and params
-            
-        Returns:
-            Dict with success, message, and output_data
-        """
-        try:
-            command = verification_config.get('command')
-            params = verification_config.get('params', {})
-            context = verification_config.get('context')
-            
-            print(f"[@controller:RemoteMobile:execute_verification] Executing {command}")
-            
-            if command == 'getMenuInfo':
-                area = params.get('area')
-                result = self.getMenuInfo(area=area, context=context)
-                return result
-            else:
-                return {
-                    'success': False,
-                    'message': f'Unknown verification command: {command}'
-                }
-                
-        except Exception as e:
-            print(f"[@controller:RemoteMobile:execute_verification] Error: {e}")
-            return {
-                'success': False,
-                'message': f'Verification execution error: {str(e)}'
-            }

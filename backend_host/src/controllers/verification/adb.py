@@ -453,9 +453,160 @@ class ADBVerificationController(VerificationControllerInterface):
             
             return False, error_msg, result_data
     
+    def getMenuInfo(self, area: dict = None, context = None) -> Dict[str, Any]:
+        """
+        Extract menu info from UI dump (ADB-based alternative to OCR getMenuInfo).
+        Same interface as text.getMenuInfo but uses UI dump instead of OCR.
+        
+        Args:
+            area: Optional area to filter elements (x, y, width, height)
+            context: Execution context for metadata storage
+            
+        Returns:
+            Same format as text.getMenuInfo:
+            {
+                success: bool,
+                output_data: {
+                    parsed_data: dict,
+                    raw_output: str,
+                    element_count: int
+                },
+                message: str
+            }
+        """
+        print(f"[@controller:ADBVerification:getMenuInfo] Params: area={area}, context={context is not None}")
+        
+        try:
+            # 1. Dump UI elements using adb_utils
+            print(f"[@controller:ADBVerification:getMenuInfo] Dumping UI elements...")
+            success, elements, error = self.adb_utils.dump_ui_elements(self.device_id)
+            
+            if not success:
+                print(f"[@controller:ADBVerification:getMenuInfo] FAIL: UI dump failed: {error}")
+                return {
+                    'success': False,
+                    'output_data': {},
+                    'message': f'Failed to dump UI: {error}'
+                }
+            
+            print(f"[@controller:ADBVerification:getMenuInfo] Dumped {len(elements)} UI elements")
+            
+            # 2. Filter by area if specified
+            filtered_elements = elements
+            if area:
+                filtered_elements = []
+                import re
+                for elem in elements:
+                    # Parse bounds to get x, y, width, height (elem is AndroidElement object)
+                    if hasattr(elem, 'bounds') and isinstance(elem.bounds, str) and elem.bounds:
+                        bounds_match = re.match(r'\[(\d+),(\d+)\]\[(\d+),(\d+)\]', elem.bounds)
+                        if bounds_match:
+                            x1, y1, x2, y2 = map(int, bounds_match.groups())
+                            elem_x, elem_y = x1, y1
+                            elem_width, elem_height = x2 - x1, y2 - y1
+                            
+                            # Check if element overlaps with area
+                            area_x = area.get('x', 0)
+                            area_y = area.get('y', 0)
+                            area_width = area.get('width', 99999)
+                            area_height = area.get('height', 99999)
+                            
+                            # Element is in area if it overlaps
+                            if (elem_x < area_x + area_width and
+                                elem_x + elem_width > area_x and
+                                elem_y < area_y + area_height and
+                                elem_y + elem_height > area_y):
+                                filtered_elements.append(elem)
+                
+                print(f"[@controller:ADBVerification:getMenuInfo] Filtered to {len(filtered_elements)} elements in area")
+            
+            # 3. Parse key-value pairs from element text
+            parsed_data = {}
+            for elem in filtered_elements:
+                text = elem.text.strip() if hasattr(elem, 'text') and elem.text else ''
+                
+                # Skip empty or placeholder text
+                if not text or text == '<no text>':
+                    continue
+                
+                # Parse key-value pairs (format: "Key\nValue")
+                if '\n' in text:
+                    lines = text.split('\n')
+                    if len(lines) >= 2:
+                        key = lines[0].strip().replace(' ', '_').replace('-', '_')
+                        value = '\n'.join(lines[1:]).strip()  # Handle multi-line values
+                        parsed_data[key] = value
+                        print(f"  • {key} = {value}")
+            
+            print(f"[@controller:ADBVerification:getMenuInfo] Parsed {len(parsed_data)} key-value pairs")
+            
+            if not parsed_data:
+                print(f"[@controller:ADBVerification:getMenuInfo] WARNING: No key-value pairs found in UI dump")
+            
+            # 4. Auto-store to context.metadata (same as OCR version)
+            if context:
+                from datetime import datetime
+                
+                # Initialize metadata if not exists
+                if not hasattr(context, 'metadata'):
+                    context.metadata = {}
+                
+                # Append parsed data directly to metadata (flat structure)
+                for key, value in parsed_data.items():
+                    context.metadata[key] = value
+                
+                # Add extraction metadata
+                context.metadata['extraction_method'] = 'ui_dump'
+                context.metadata['extraction_timestamp'] = datetime.now().isoformat()
+                context.metadata['element_count'] = len(filtered_elements)
+                
+                # Add device info if available
+                if hasattr(self, 'device_id'):
+                    context.metadata['device_id'] = self.device_id
+                
+                if area:
+                    context.metadata['extraction_area'] = str(area)
+                
+                print(f"[@controller:ADBVerification:getMenuInfo] ✅ AUTO-APPENDED to context.metadata (FLAT)")
+                print(f"[@controller:ADBVerification:getMenuInfo] Metadata keys: {list(context.metadata.keys())}")
+                print(f"[@controller:ADBVerification:getMenuInfo] New fields added: {list(parsed_data.keys())}")
+            else:
+                print(f"[@controller:ADBVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
+            
+            # 5. Prepare output data
+            output_data = {
+                'parsed_data': parsed_data,
+                'raw_output': str([{'text': e.text, 'index': e.id} for e in filtered_elements]),
+                'element_count': len(filtered_elements),
+                'area': area
+            }
+            
+            # 6. Return same format as text.getMenuInfo
+            message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} UI elements'
+            
+            print(f"[@controller:ADBVerification:getMenuInfo] ✅ SUCCESS: {message}")
+            
+            return {
+                'success': True,
+                'output_data': output_data,
+                'message': message
+            }
+            
+        except Exception as e:
+            error_msg = f"Error extracting menu info from UI dump: {str(e)}"
+            print(f"[@controller:ADBVerification:getMenuInfo] ERROR: {error_msg}")
+            import traceback
+            traceback.print_exc()
+            
+            return {
+                'success': False,
+                'output_data': {},
+                'message': error_msg
+            }
+    
     def get_available_verifications(self) -> List[Dict[str, Any]]:
         """Get available verifications for ADB controller with typed parameters."""
-        from shared.src.lib.schemas.param_types import create_param, ParamType
+        from shared.src.lib.schemas.param_types import create_param, create_output, ParamType, OutputType
         
         return [
             {
@@ -499,6 +650,32 @@ class ADBVerificationController(VerificationControllerInterface):
                     )
                 },
                 'verification_type': 'adb'
+            },
+            {
+                'command': 'getMenuInfo',
+                'label': 'Get Menu Info',
+                'description': 'Extract key-value pairs from menu/info screen using ADB UI dump and parse automatically',
+                'params': {
+                    'area': create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to extract menu information from"
+                    )
+                },
+                'outputs': [
+                    create_output(
+                        'parsed_data',
+                        OutputType.OBJECT,
+                        description="Parsed key-value pairs from UI elements"
+                    ),
+                    create_output(
+                        'element_count',
+                        OutputType.NUMBER,
+                        description="Number of UI elements extracted"
+                    )
+                ],
+                'verification_type': 'adb'
             }
         ]
 
@@ -508,11 +685,8 @@ class ADBVerificationController(VerificationControllerInterface):
         
         Args:
             verification_config: {
-                'command': 'waitForElementToAppear',
-                'params': {
-                    'search_term': 'Settings',
-                    'timeout': 10.0
-                }
+                'command': 'waitForElementToAppear' | 'getMenuInfo',
+                'params': {...}
             }
             
         Returns:
@@ -523,7 +697,23 @@ class ADBVerificationController(VerificationControllerInterface):
             params = verification_config.get('params', {})
             command = verification_config.get('command', 'waitForElementToAppear')
             
-            # Required parameters
+            print(f"[@controller:ADBVerification] Executing {command}")
+            
+            # Handle getMenuInfo separately (different params)
+            if command == 'getMenuInfo':
+                area = params.get('area')
+                context = verification_config.get('context')
+                menu_result = self.getMenuInfo(area=area, context=context)
+                
+                # Convert to standard verification format for consistent logging
+                return {
+                    'success': menu_result['success'],
+                    'message': menu_result['message'],
+                    'output_data': menu_result.get('output_data', {}),
+                    'details': menu_result.get('output_data', {})  # For route processing
+                }
+            
+            # Handle wait commands (require search_term)
             search_term = params.get('search_term', '')
             if not search_term:
                 return {
