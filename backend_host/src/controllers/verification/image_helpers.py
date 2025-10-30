@@ -193,72 +193,90 @@ class ImageHelpers:
     def smart_fuzzy_search(self, source_img: np.ndarray, reference_img: np.ndarray, 
                           exact_area: Dict[str, Any], fuzzy_area: Dict[str, Any], 
                           threshold: float = 0.8) -> Tuple[bool, float, Optional[Dict[str, int]]]:
-        ref_h, ref_w = reference_img.shape[:2]
-        ex, ey = int(exact_area['x']), int(exact_area['y'])
-        ew, eh = int(exact_area['width']), int(exact_area['height'])
-        
-        # Step 1: Try exact position first
-        exact_confidence = 0.0
-        exact_region = source_img[ey:ey+eh, ex:ex+ew]
-        if exact_region.shape[:2] == (ref_h, ref_w):
-            result = cv2.matchTemplate(exact_region, reference_img, cv2.TM_CCOEFF_NORMED)
-            exact_confidence = float(result[0][0])
-            if exact_confidence >= threshold:
-                print(f"[@fuzzy] Exact match: {exact_confidence:.3f}")
-                return True, exact_confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
-        
-        # Step 2: Smart expanding search
-        exact_cx = ex + ew / 2
-        exact_cy = ey + eh / 2
-        
-        fx, fy = int(fuzzy_area['fx']), int(fuzzy_area['fy'])
-        fw, fh = int(fuzzy_area['fwidth']), int(fuzzy_area['fheight'])
-        
-        max_expansion = min(
-            exact_cx - fx,
-            (fx + fw) - exact_cx,
-            exact_cy - fy,
-            (fy + fh) - exact_cy
-        )
-        
-        # Start with exact position confidence
-        best_confidence = exact_confidence
-        best_location = {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h} if exact_confidence > 0 else None
-        
-        # Balanced search steps: fine-grained for small shifts (2-10px), then wider jumps
-        # Reduces iterations while catching common UI element shifts
-        for expansion in [1, 2, 5, 10, 20]:
-            if expansion > max_expansion:
-                break
+        try:
+            ref_h, ref_w = reference_img.shape[:2]
+            ex, ey = int(exact_area['x']), int(exact_area['y'])
+            ew, eh = int(exact_area['width']), int(exact_area['height'])
             
-            roi_x1 = max(int(exact_cx - ref_w/2 - expansion), fx)
-            roi_y1 = max(int(exact_cy - ref_h/2 - expansion), fy)
-            roi_x2 = min(int(exact_cx + ref_w/2 + expansion), fx + fw)
-            roi_y2 = min(int(exact_cy + ref_h/2 + expansion), fy + fh)
+            print(f"[@fuzzy] Starting fuzzy search - ref size: {ref_w}x{ref_h}, exact: ({ex},{ey}) {ew}x{eh}, threshold: {threshold}")
             
-            search_region = source_img[roi_y1:roi_y2, roi_x1:roi_x2]
+            # Step 1: Try exact position first
+            exact_confidence = 0.0
+            exact_region = source_img[ey:ey+eh, ex:ex+ew]
+            if exact_region.shape[:2] == (ref_h, ref_w):
+                result = cv2.matchTemplate(exact_region, reference_img, cv2.TM_CCOEFF_NORMED)
+                exact_confidence = float(result[0][0])
+                print(f"[@fuzzy] Exact position confidence: {exact_confidence:.3f}")
+                if exact_confidence >= threshold:
+                    print(f"[@fuzzy] ✓ Exact match passed: {exact_confidence:.3f}")
+                    return True, exact_confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
             
-            if search_region.shape[0] < ref_h or search_region.shape[1] < ref_w:
-                continue
+            # Step 2: Smart expanding search
+            exact_cx = ex + ew / 2
+            exact_cy = ey + eh / 2
             
-            result = cv2.matchTemplate(search_region, reference_img, cv2.TM_CCOEFF_NORMED)
-            min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+            fx, fy = int(fuzzy_area['fx']), int(fuzzy_area['fy'])
+            fw, fh = int(fuzzy_area['fwidth']), int(fuzzy_area['fheight'])
             
-            if max_val > best_confidence:
-                best_confidence = max_val
-                best_location = {
-                    'x': roi_x1 + max_loc[0],
-                    'y': roi_y1 + max_loc[1],
-                    'width': ref_w,
-                    'height': ref_h
-                }
+            print(f"[@fuzzy] Fuzzy search area: ({fx},{fy}) {fw}x{fh}")
             
-            if max_val >= threshold:
-                print(f"[@fuzzy] Match at +{expansion}px: {max_val:.3f}")
-                return True, max_val, best_location
-        
-        print(f"[@fuzzy] No match. Best: {best_confidence:.3f}")
-        return False, best_confidence, best_location
+            max_expansion = min(
+                exact_cx - fx,
+                (fx + fw) - exact_cx,
+                exact_cy - fy,
+                (fy + fh) - exact_cy
+            )
+            
+            print(f"[@fuzzy] Max expansion allowed: {max_expansion:.1f}px")
+            
+            # Start with exact position confidence
+            best_confidence = exact_confidence
+            best_location = {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h} if exact_confidence > 0 else None
+            
+            # Balanced search steps: fine-grained for small shifts (2-10px), then wider jumps
+            # Reduces iterations while catching common UI element shifts
+            for expansion in [1, 2, 5, 10, 20]:
+                if expansion > max_expansion:
+                    print(f"[@fuzzy] Stopping at expansion={expansion}px (exceeds max={max_expansion:.1f}px)")
+                    break
+                
+                roi_x1 = max(int(exact_cx - ref_w/2 - expansion), fx)
+                roi_y1 = max(int(exact_cy - ref_h/2 - expansion), fy)
+                roi_x2 = min(int(exact_cx + ref_w/2 + expansion), fx + fw)
+                roi_y2 = min(int(exact_cy + ref_h/2 + expansion), fy + fh)
+                
+                search_region = source_img[roi_y1:roi_y2, roi_x1:roi_x2]
+                
+                if search_region.shape[0] < ref_h or search_region.shape[1] < ref_w:
+                    print(f"[@fuzzy] Expansion {expansion}px: search region too small {search_region.shape}, skipping")
+                    continue
+                
+                result = cv2.matchTemplate(search_region, reference_img, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                
+                print(f"[@fuzzy] Expansion {expansion}px: confidence={max_val:.3f}, location=({roi_x1 + max_loc[0]},{roi_y1 + max_loc[1]})")
+                
+                if max_val > best_confidence:
+                    best_confidence = max_val
+                    best_location = {
+                        'x': roi_x1 + max_loc[0],
+                        'y': roi_y1 + max_loc[1],
+                        'width': ref_w,
+                        'height': ref_h
+                    }
+                
+                if max_val >= threshold:
+                    print(f"[@fuzzy] ✓ Match found at +{expansion}px: {max_val:.3f} (location: {best_location})")
+                    return True, max_val, best_location
+            
+            print(f"[@fuzzy] ✗ No match found. Best confidence: {best_confidence:.3f} at {best_location}")
+            return False, best_confidence, best_location
+            
+        except Exception as e:
+            print(f"[@fuzzy] ERROR: Fuzzy search crashed: {e}")
+            import traceback
+            traceback.print_exc()
+            return False, 0.0, None
 
 
     # =============================================================================

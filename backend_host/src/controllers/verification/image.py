@@ -1020,6 +1020,14 @@ class ImageVerificationController:
             pixel_threshold = 10  # Pixels with difference <= 10 are considered matching
             matching_mask = diff <= pixel_threshold
             
+            # Calculate pixel-based match percentage
+            matching_pixels = np.sum(matching_mask)
+            total_pixels = source_gray.shape[0] * source_gray.shape[1]
+            pixel_match_percentage = (matching_pixels / total_pixels) * 100
+            
+            print(f"[@overlay] Pixel comparison: {matching_pixels}/{total_pixels} = {pixel_match_percentage:.1f}% matching")
+            print(f"[@overlay] Image size: {source_img.shape[1]}x{source_img.shape[0]}, pixel threshold: {pixel_threshold}")
+            
             # Create BGRA overlay (BGR + Alpha channel for transparency)
             height, width = source_img.shape[:2]
             overlay = np.zeros((height, width, 4), dtype=np.uint8)
@@ -1039,8 +1047,8 @@ class ImageVerificationController:
             if np.any(small_diff_mask):
                 overlay[small_diff_mask] = [0, 255, 0, transparency // 2]  # More transparent green
             
-            matching_pixels = np.sum(matching_mask)
-            total_pixels = height * width
+            print(f"[@overlay] ⚠️  WARNING: Pixel-based match ({pixel_match_percentage:.1f}%) may differ from template matching score!")
+            print(f"[@overlay] Template matching (TM_CCOEFF_NORMED) is sensitive to contrast/brightness, while pixel comparison uses absolute difference")
             
             return overlay
             
@@ -1247,7 +1255,9 @@ class ImageVerificationController:
             return max_val, location
             
         except Exception as e:
-            print(f"[@controller:ImageVerification] Template matching error: {e}")
+            print(f"[@controller:ImageVerification] ERROR: Template matching error: {e}")
+            import traceback
+            traceback.print_exc()
             return 0.0, None
     
     def _get_next_capture(self, filepath: str, offset: int) -> str:
