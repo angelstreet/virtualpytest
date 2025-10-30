@@ -61,10 +61,17 @@ def execute_adb_verification():
         
         print(f"[@route:host_verification_adb:execute] Executing ADB verification for device: {device_id}")
         
-        # Get ADB verification controller using helper
+        # Try to get ADB verification controller first
         adb_controller, _, error_response = get_verification_controller(device_id, 'verification_adb')
+        
+        # If no dedicated ADB controller, try remote controller (Android Mobile has getMenuInfo)
         if error_response:
-            return error_response
+            print(f"[@route:host_verification_adb:execute] No verification_adb controller, trying remote controller")
+            remote_controller = get_controller(device_id, 'remote')
+            if remote_controller and hasattr(remote_controller, 'execute_verification'):
+                adb_controller = remote_controller
+            else:
+                return error_response
         
         verification = data.get('verification')
         if not verification:
