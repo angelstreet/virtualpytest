@@ -18,24 +18,53 @@ from  backend_server.src.lib.utils.route_utils import proxy_to_host, proxy_to_ho
 server_navigation_execution_bp = Blueprint('server_navigation_execution', __name__, url_prefix='/server/navigation')
 
 
-@server_navigation_execution_bp.route('/execute/<tree_id>/<node_id>', methods=['POST'])
-def execute_navigation(tree_id, node_id):
+@server_navigation_execution_bp.route('/execute/<tree_id>', methods=['POST'])
+def execute_navigation(tree_id):
     """
     Execute navigation using standardized NavigationExecutor
     
-    Expected JSON payload:
+    Required JSON payload (provide EXACTLY ONE of target_node_id or target_node_label):
+    
+    Option 1 - Navigate by UUID:
     {
-        "host": {"host_name": "...", "device_model": "...", ...},
+        "target_node_id": "46854a27-57d2-43ee-bb8d-925b29b83843",
+        "host_name": "...",
         "device_id": "optional_device_id",
-        "team_id": "optional_team_id",
         "current_node_id": "optional_current_node",
+        "userinterface_name": "interface_name",
+        "image_source_url": "optional_image_source"
+    }
+    
+    Option 2 - Navigate by label:
+    {
+        "target_node_label": "home",
+        "host_name": "...",
+        "device_id": "optional_device_id",
+        "current_node_id": "optional_current_node",
+        "userinterface_name": "interface_name",
         "image_source_url": "optional_image_source"
     }
     """
     try:
-        print(f"[@route:navigation_execution:execute_navigation] Executing navigation to {node_id} in tree {tree_id}")
-        
         data = request.get_json() or {}
+        
+        # Get explicit target parameters
+        target_node_id = data.get('target_node_id')
+        target_node_label = data.get('target_node_label')
+        
+        # Validate: Must provide exactly one
+        if not target_node_id and not target_node_label:
+            return jsonify({
+                'success': False,
+                'error': 'Either target_node_id or target_node_label is required in request body'
+            }), 400
+        
+        if target_node_id and target_node_label:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot provide both target_node_id and target_node_label'
+            }), 400
+        
         host_name = data.get('host_name')
         device_id = data.get('device_id')
         team_id = request.args.get('team_id')
@@ -80,12 +109,13 @@ def execute_navigation(tree_id, node_id):
         
         # Proxy to host navigation execution endpoint
         execution_payload = {
+            'target_node_id': target_node_id,
+            'target_node_label': target_node_label,
             'device_id': device_id,
             'current_node_id': current_node_id,
             'image_source_url': image_source_url,
             'host_name': host_name,
-            'userinterface_name': userinterface_name,  # MANDATORY for reference resolution
-            'async_execution': data.get('async_execution', True)  # Default to async to prevent timeouts
+            'userinterface_name': userinterface_name
         }
         
         # Pass team_id as query parameter to host
@@ -93,9 +123,9 @@ def execute_navigation(tree_id, node_id):
         if team_id:
             query_params['team_id'] = team_id
         
-        # Use shorter timeout for async (only for initial response), longer for sync
-        timeout = 10 if execution_payload['async_execution'] else 180
-        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}/{node_id}', 'POST', execution_payload, query_params, timeout=timeout)
+        # Use short timeout - only for initial async response (execution_id)
+        timeout = 10
+        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}', 'POST', execution_payload, query_params, timeout=timeout)
         
         print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={response_data.get('success')}")
         

@@ -361,6 +361,51 @@ class VerificationExecutor:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
     
+    def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
+        """
+        Get status of async verification execution (called by route polling).
+        
+        Returns:
+            {
+                'success': bool,
+                'execution_id': str,
+                'status': 'running' | 'completed' | 'error',
+                'result': dict (if completed),
+                'error': str (if error),
+                'progress': int,
+                'message': str
+            }
+        """
+        import threading
+        if not hasattr(self, '_executions'):
+            return {
+                'success': False,
+                'error': f'Execution {execution_id} not found'
+            }
+        
+        if not hasattr(self, '_lock'):
+            self._lock = threading.Lock()
+        
+        with self._lock:
+            if execution_id not in self._executions:
+                return {
+                    'success': False,
+                    'error': f'Execution {execution_id} not found'
+                }
+            
+            execution = self._executions[execution_id].copy()
+        
+        return {
+            'success': True,
+            'execution_id': execution['execution_id'],
+            'status': execution['status'],
+            'result': execution.get('result'),
+            'error': execution.get('error'),
+            'progress': execution.get('progress', 0),
+            'message': execution.get('message', ''),
+            'elapsed_time_ms': int((time.time() - execution['start_time']) * 1000)
+        }
+    
     def verify_node(self, node_id: str, userinterface_name: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute verifications for a specific node during navigation.

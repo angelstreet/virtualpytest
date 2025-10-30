@@ -18,14 +18,14 @@ export interface NavigationExecuteResponse {
 
 /**
  * Execute navigation with async polling - REUSABLE UTILITY
- * Extracted from useNode.ts to avoid code duplication
  * 
  * @param params Navigation execution parameters
  * @returns Navigation execution result
  */
 export async function executeNavigationAsync(params: {
   treeId: string;
-  targetNodeLabel: string;
+  targetNodeId?: string;  // UUID parameter
+  targetNodeLabel?: string;  // Label parameter
   hostName: string;
   deviceId: string;
   userinterfaceName: string;
@@ -34,6 +34,7 @@ export async function executeNavigationAsync(params: {
 }): Promise<NavigationExecuteResponse> {
   const {
     treeId,
+    targetNodeId,
     targetNodeLabel,
     hostName,
     deviceId,
@@ -42,18 +43,23 @@ export async function executeNavigationAsync(params: {
     onProgress
   } = params;
 
-  // Start async execution
-  const executionUrl = buildServerUrl(`/server/navigation/execute/${treeId}/${targetNodeLabel}`);
+  // Validate: must provide either targetNodeId OR targetNodeLabel
+  if (!targetNodeId && !targetNodeLabel) {
+    throw new Error('Either targetNodeId or targetNodeLabel must be provided');
+  }
+
+  const executionUrl = buildServerUrl(`/server/navigation/execute/${treeId}`);
   
   const startResult = await fetch(executionUrl, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      target_node_id: targetNodeId,
+      target_node_label: targetNodeLabel,
       host_name: hostName,
       device_id: deviceId,
       current_node_id: currentNodeId,
-      userinterface_name: userinterfaceName,
-      async_execution: true, // Enable async execution
+      userinterface_name: userinterfaceName
     }),
   });
 
@@ -67,7 +73,7 @@ export async function executeNavigationAsync(params: {
   console.log('[@navigationExecutionUtils] ✅ Async execution started:', executionId);
   
   if (onProgress) {
-    onProgress(`Navigating to ${targetNodeLabel}...`);
+    onProgress(`Navigating to ${targetNodeLabel || targetNodeId}...`);
   }
 
   // Poll for completion

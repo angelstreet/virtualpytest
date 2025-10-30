@@ -10,36 +10,71 @@ from flask import Blueprint, request, jsonify, current_app
 # Create blueprint
 host_navigation_bp = Blueprint('host_navigation', __name__, url_prefix='/host/navigation')
 
-@host_navigation_bp.route('/execute/<tree_id>/<target_node_id>', methods=['POST'])
-def navigation_execute(tree_id, target_node_id):
+@host_navigation_bp.route('/execute/<tree_id>', methods=['POST'])
+def navigation_execute(tree_id):
     """
     Execute navigation using device's NavigationExecutor - supports async execution
     
-    NOTE: target_node_id in URL can be EITHER a node ID (UUID) or a node label.
-    The executor will resolve labels to IDs internally.
+    Required body parameters (provide EXACTLY ONE of target_node_id or target_node_label):
+    
+    Option 1 - Navigate by UUID:
+    {
+        "target_node_id": "46854a27-57d2-43ee-bb8d-925b29b83843",
+        "device_id": "device1",
+        "current_node_id": "optional_uuid",
+        "userinterface_name": "horizon_android_tv",
+        "async_execution": true
+    }
+    
+    Option 2 - Navigate by label:
+    {
+        "target_node_label": "home",
+        "device_id": "device1",
+        "current_node_id": "optional_uuid",
+        "userinterface_name": "horizon_android_tv",
+        "async_execution": true
+    }
     """
     try:
         print(f"\n{'='*80}")
         print(f"[@route:host_navigation:navigation_execute] 🚀 NAVIGATION EXECUTION STARTED")
         print(f"{'='*80}")
-        print(f"[@route:host_navigation:navigation_execute]   → Target Node ID: {target_node_id}")
         
         # Get request data
         data = request.get_json() or {}
+        
+        # Get explicit target parameters
+        target_node_id = data.get('target_node_id')
+        target_node_label = data.get('target_node_label')
+        
+        # Validate: Must provide exactly one
+        if not target_node_id and not target_node_label:
+            return jsonify({
+                'success': False,
+                'error': 'Either target_node_id or target_node_label is required in request body'
+            }), 400
+        
+        if target_node_id and target_node_label:
+            return jsonify({
+                'success': False,
+                'error': 'Cannot provide both target_node_id and target_node_label'
+            }), 400
+        
         device_id = data.get('device_id', 'device1')
         team_id = request.args.get('team_id')
-        # Check if frontend explicitly sent current_node_id (even if None)
         frontend_sent_position = 'current_node_id' in data
         current_node_id = data.get('current_node_id') if frontend_sent_position else None
         image_source_url = data.get('image_source_url')
-        userinterface_name = data.get('userinterface_name')  # MANDATORY for reference resolution
-        async_execution = data.get('async_execution', True)  # Default to async to prevent timeouts
+        userinterface_name = data.get('userinterface_name')
+        async_execution = data.get('async_execution', True)
         
+        print(f"[@route:host_navigation:navigation_execute]   → Target Node ID: {target_node_id}")
+        print(f"[@route:host_navigation:navigation_execute]   → Target Node Label: {target_node_label}")
         print(f"[@route:host_navigation:navigation_execute]   → Tree ID: {tree_id}")
         print(f"[@route:host_navigation:navigation_execute]   → Device ID: {device_id}")
         print(f"[@route:host_navigation:navigation_execute]   → Team ID: {team_id}")
         print(f"[@route:host_navigation:navigation_execute]   → UserInterface: {userinterface_name}")
-        print(f"[@route:host_navigation:navigation_execute]   → Current Node ID: {current_node_id if frontend_sent_position else 'Not provided (will use device position)'}")
+        print(f"[@route:host_navigation:navigation_execute]   → Current Node ID: {current_node_id if frontend_sent_position else 'Not provided'}")
         print(f"[@route:host_navigation:navigation_execute]   → Frontend Sent Position: {frontend_sent_position}")
         print(f"[@route:host_navigation:navigation_execute]   → Async Execution: {async_execution}")
         print(f"{'='*80}\n")
@@ -71,34 +106,47 @@ def navigation_execute(tree_id, target_node_id):
                 'error': f'Device {device_id} does not have NavigationExecutor initialized'
             }), 500
         
-        # Execute navigation: async or sync
-        # Note: target_node_id parameter can be either a node ID or a label
-        # The pathfinding logic in the executor handles label resolution automatically
-        if async_execution:
-            # Async execution - returns immediately with execution_id
-            result = device.navigation_executor.execute_navigation_async(
-                tree_id=tree_id,
-                userinterface_name=userinterface_name,
-                target_node_id=target_node_id,
-                current_node_id=current_node_id,
-                frontend_sent_position=frontend_sent_position,
-                team_id=team_id
-            )
-            print(f"[@route:host_navigation:navigation_execute] Async execution started: {result.get('execution_id')}")
-        else:
-            # Sync execution - waits for completion (may timeout)
-            result = device.navigation_executor.execute_navigation(
-                tree_id=tree_id,
-                userinterface_name=userinterface_name,
-                target_node_id=target_node_id,
-                current_node_id=current_node_id,
-                frontend_sent_position=frontend_sent_position,
-                image_source_url=image_source_url,
-                team_id=team_id
-            )
-            print(f"[@route:host_navigation:navigation_execute] Sync execution completed: success={result.get('success')}")
+        # Always execute asynchronously to prevent HTTP timeouts
+        # Generate execution ID
+        import uuid
+        execution_id = str(uuid.uuid4())
         
-        return jsonify(result)
+        # Store execution state
+        if not hasattr(device.navigation_executor, '_executions'):
+            device.navigation_executor._executions = {}
+            device.navigation_executor._lock = threading.Lock()
+        
+        with device.navigation_executor._lock:
+            device.navigation_executor._executions[execution_id] = {
+                'execution_id': execution_id,
+                'status': 'running',
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'target_node_label': target_node_label,
+                'result': None,
+                'error': None,
+                'start_time': time.time(),
+                'progress': 0,
+                'message': 'Navigation starting...'
+            }
+        
+        # Start execution in background thread
+        import threading
+        thread = threading.Thread(
+            target=_execute_navigation_thread,
+            args=(device, execution_id, tree_id, userinterface_name, target_node_id, target_node_label, 
+                  current_node_id, frontend_sent_position, image_source_url, team_id),
+            daemon=True
+        )
+        thread.start()
+        
+        print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
+        
+        return jsonify({
+            'success': True,
+            'execution_id': execution_id,
+            'message': 'Navigation started'
+        })
         
     except Exception as e:
         print(f"[@route:host_navigation:navigation_execute] Error: {e}")
@@ -648,3 +696,101 @@ def health_check():
         'success': True,
         'message': 'Host navigation service is running'
     })
+
+# ========================================
+# BACKGROUND EXECUTION THREAD
+# ========================================
+
+def _execute_navigation_thread(
+    device,
+    execution_id: str,
+    tree_id: str,
+    userinterface_name: str,
+    target_node_id: str,
+    target_node_label: str,
+    current_node_id: str,
+    frontend_sent_position: bool,
+    image_source_url: str,
+    team_id: str
+):
+    """Execute navigation in background thread with progress tracking"""
+    import sys
+    import io
+    import time
+    
+    # Capture logs for single navigation execution
+    log_buffer = io.StringIO()
+    old_stdout = sys.stdout
+    old_stderr = sys.stderr
+    
+    class Tee:
+        def __init__(self, *streams):
+            self.streams = streams
+        def write(self, data):
+            for stream in self.streams:
+                stream.write(data)
+                stream.flush()
+        def flush(self):
+            for stream in self.streams:
+                stream.flush()
+    
+    try:
+        # Redirect stdout/stderr to BOTH terminal and buffer
+        sys.stdout = Tee(old_stdout, log_buffer)
+        sys.stderr = Tee(old_stderr, log_buffer)
+        
+        # Update status
+        with device.navigation_executor._lock:
+            device.navigation_executor._executions[execution_id]['message'] = 'Executing navigation...'
+            device.navigation_executor._executions[execution_id]['progress'] = 50
+        
+        # Execute navigation (synchronous call in background thread)
+        result = device.navigation_executor.execute_navigation(
+            tree_id=tree_id,
+            userinterface_name=userinterface_name,
+            target_node_id=target_node_id,
+            target_node_label=target_node_label,
+            current_node_id=current_node_id,
+            frontend_sent_position=frontend_sent_position,
+            image_source_url=image_source_url,
+            team_id=team_id
+        )
+        
+        # Stop log capture and add logs to result
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+        captured_logs = log_buffer.getvalue()
+        if captured_logs:
+            result['logs'] = captured_logs
+        
+        # Update with result
+        with device.navigation_executor._lock:
+            if result.get('success'):
+                device.navigation_executor._executions[execution_id]['status'] = 'completed'
+                device.navigation_executor._executions[execution_id]['result'] = result
+                device.navigation_executor._executions[execution_id]['progress'] = 100
+                device.navigation_executor._executions[execution_id]['message'] = 'Navigation completed'
+            else:
+                device.navigation_executor._executions[execution_id]['status'] = 'error'
+                device.navigation_executor._executions[execution_id]['error'] = result.get('error', 'Navigation failed')
+                device.navigation_executor._executions[execution_id]['result'] = result
+                device.navigation_executor._executions[execution_id]['progress'] = 100
+                device.navigation_executor._executions[execution_id]['message'] = 'Navigation failed'
+    
+    except Exception as e:
+        # Restore stdout/stderr
+        sys.stdout = old_stdout
+        sys.stderr = old_stderr
+        
+        # Update with error
+        with device.navigation_executor._lock:
+            device.navigation_executor._executions[execution_id]['status'] = 'error'
+            device.navigation_executor._executions[execution_id]['error'] = str(e)
+            device.navigation_executor._executions[execution_id]['progress'] = 100
+            device.navigation_executor._executions[execution_id]['message'] = f'Navigation error: {str(e)}'
+    finally:
+        # Always restore stdout/stderr
+        if sys.stdout != old_stdout:
+            sys.stdout = old_stdout
+        if sys.stderr != old_stderr:
+            sys.stderr = old_stderr

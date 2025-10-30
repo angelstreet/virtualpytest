@@ -131,8 +131,7 @@ def action_execute_batch():
                 'edge_id': edge_id,
                 'action_set_id': action_set_id,
                 'skip_db_recording': skip_db_recording,
-                'team_id': team_id,
-                'async_execution': data.get('async_execution', True)  # Default to async to prevent timeouts
+                'team_id': team_id
             }
             
             # Extract parameters for query string
@@ -142,8 +141,8 @@ def action_execute_batch():
             if team_id:
                 query_params['team_id'] = team_id
             
-            # Use shorter timeout for async (only for initial response), longer for sync
-            timeout = 10 if execution_payload['async_execution'] else 30
+            # Use short timeout - only for initial async response (execution_id)
+            timeout = 10
             
             # Proxy to host action execution endpoint with parameters
             response_data, status_code = proxy_to_host_with_params(
@@ -249,13 +248,12 @@ def action_execute_single():
         # Convert single action to batch format
         actions = [action]
         
-        # Prepare execution payload - FORCE SYNC mode since we're waiting for result
+        # Prepare execution payload - always async (no HTTP timeout risk)
         execution_payload = {
             'actions': actions,
             'device_id': device_id,
             'retry_actions': [],
-            'team_id': team_id,
-            'async_execution': False  # ✅ Force sync execution - we wait for logs
+            'team_id': team_id
         }
         
         # Extract parameters for query string
@@ -267,13 +265,13 @@ def action_execute_single():
         
         print(f"[@route:server_actions:action_execute_single] Proxying to host: {host_name}")
         
-        # Proxy to host with parameters
+        # Proxy to host with parameters (short timeout for async start)
         response_data, status_code = proxy_to_host_with_params(
             '/host/action/executeBatch',
             'POST',
             execution_payload,
             query_params,
-            timeout=90  # 1 minute timeout for single action
+            timeout=10
         )
         
         if response_data.get('success'):

@@ -383,59 +383,9 @@ class ActionExecutor:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
     
-    # ========================================
-    # ASYNC EXECUTION METHODS (for polling support)
-    # ========================================
-    
-    def execute_actions_async(
-        self,
-        actions: List[Dict[str, Any]],
-        retry_actions: Optional[List[Dict[str, Any]]] = None,
-        failure_actions: Optional[List[Dict[str, Any]]] = None,
-        team_id: str = None
-    ) -> Dict[str, Any]:
-        """
-        Start async action execution.
-        Returns immediately with execution_id for polling.
-        
-        Returns:
-            {
-                'success': True,
-                'execution_id': str,
-                'message': 'Execution started'
-            }
-        """
-        execution_id = str(uuid.uuid4())
-        
-        # Initialize execution state
-        with self._lock:
-            self._executions[execution_id] = {
-                'execution_id': execution_id,
-                'status': 'running',
-                'result': None,
-                'error': None,
-                'start_time': time.time(),
-                'progress': 0,
-                'message': 'Action execution starting...'
-            }
-        
-        # Start execution in background thread
-        thread = threading.Thread(
-            target=self._execute_actions_with_tracking,
-            args=(execution_id, actions, retry_actions, failure_actions, team_id),
-            daemon=True
-        )
-        thread.start()
-        
-        return {
-            'success': True,
-            'execution_id': execution_id,
-            'message': 'Action execution started'
-        }
-    
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:
         """
-        Get status of async action execution.
+        Get status of async action execution (called by route polling).
         
         Returns:
             {
@@ -467,55 +417,6 @@ class ActionExecutor:
             'message': execution.get('message', ''),
             'elapsed_time_ms': int((time.time() - execution['start_time']) * 1000)
         }
-    
-    def _execute_actions_with_tracking(
-        self,
-        execution_id: str,
-        actions: List[Dict[str, Any]],
-        retry_actions: Optional[List[Dict[str, Any]]],
-        failure_actions: Optional[List[Dict[str, Any]]],
-        team_id: str
-    ):
-        """Execute actions in background thread with progress tracking"""
-        try:
-            # Update status
-            with self._lock:
-                self._executions[execution_id]['message'] = 'Executing actions...'
-                self._executions[execution_id]['progress'] = 50
-            
-            # Execute actions (synchronous call)
-            result = self.execute_actions(
-                actions=actions,
-                retry_actions=retry_actions,
-                failure_actions=failure_actions,
-                team_id=team_id
-            )
-            
-            # Update with result
-            with self._lock:
-                if result.get('success'):
-                    self._executions[execution_id]['status'] = 'completed'
-                    self._executions[execution_id]['result'] = result
-                    self._executions[execution_id]['progress'] = 100
-                    self._executions[execution_id]['message'] = 'Action execution completed'
-                    # 🆕 Update position after successful execution (3 lines)
-                    target_node_id = self.device.navigation_context.get('target_node_id')
-                    if target_node_id:
-                        self.device.navigation_context['current_node_id'] = target_node_id
-                else:
-                    self._executions[execution_id]['status'] = 'error'
-                    self._executions[execution_id]['error'] = result.get('error', 'Action execution failed')
-                    self._executions[execution_id]['result'] = result
-                    self._executions[execution_id]['progress'] = 100
-                    self._executions[execution_id]['message'] = 'Action execution failed'
-        
-        except Exception as e:
-            # Update with error
-            with self._lock:
-                self._executions[execution_id]['status'] = 'error'
-                self._executions[execution_id]['error'] = str(e)
-                self._executions[execution_id]['progress'] = 100
-                self._executions[execution_id]['message'] = f'Action execution error: {str(e)}'
     
     def _filter_valid_actions(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Filter out invalid actions"""
