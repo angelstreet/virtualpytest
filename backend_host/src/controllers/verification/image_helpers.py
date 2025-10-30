@@ -198,13 +198,14 @@ class ImageHelpers:
         ew, eh = int(exact_area['width']), int(exact_area['height'])
         
         # Step 1: Try exact position first
+        exact_confidence = 0.0
         exact_region = source_img[ey:ey+eh, ex:ex+ew]
         if exact_region.shape[:2] == (ref_h, ref_w):
             result = cv2.matchTemplate(exact_region, reference_img, cv2.TM_CCOEFF_NORMED)
-            confidence = float(result[0][0])
-            if confidence >= threshold:
-                print(f"[@fuzzy] Exact match: {confidence:.3f}")
-                return True, confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
+            exact_confidence = float(result[0][0])
+            if exact_confidence >= threshold:
+                print(f"[@fuzzy] Exact match: {exact_confidence:.3f}")
+                return True, exact_confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
         
         # Step 2: Smart expanding search
         exact_cx = ex + ew / 2
@@ -220,10 +221,13 @@ class ImageHelpers:
             (fy + fh) - exact_cy
         )
         
-        best_confidence = confidence if 'confidence' in locals() else 0.0
-        best_location = None
+        # Start with exact position confidence
+        best_confidence = exact_confidence
+        best_location = {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h} if exact_confidence > 0 else None
         
-        for expansion in [10, 20, 30, 40, 50, 75, 100, 150, 200]:
+        # Use finer-grained steps for better detection
+        # Critical: Small reference images (like 4px high indicators) need 1-2px precision
+        for expansion in [1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200]:
             if expansion > max_expansion:
                 break
             
