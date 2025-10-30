@@ -236,6 +236,13 @@ export const useVerification = ({
         };
 
         console.log('[useVerification] Batch payload:', batchPayload);
+        console.log('[useVerification] Verification areas with fuzzy coordinates:', 
+          verificationsWithUserInterface.map(v => ({ 
+            command: v.command, 
+            area: v.params?.area,
+            hasFuzzy: !!(v.params?.area?.fx !== undefined || v.params?.area?.fy !== undefined)
+          }))
+        );
 
         const response = await fetch(buildServerUrl('/server/verification/executeBatch'), {
           method: 'POST',

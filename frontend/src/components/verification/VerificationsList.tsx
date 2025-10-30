@@ -351,6 +351,8 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
             },
           };
 
+          console.log('[@component:VerificationsList] baseParams area with fuzzy:', baseParams.area);
+
           if (selectedRef.type === 'image') {
             // Image reference parameters - use original database name for backend
             updateVerification(index, {
