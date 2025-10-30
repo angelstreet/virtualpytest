@@ -258,17 +258,68 @@ export const useVerification = ({
         const result = await response.json();
         console.log('[useVerification] Batch test result:', result);
 
-        // Always set test results regardless of overall batch success/failure
-        setTestResults(result.results || []);
-        console.log('[useVerification] Test results set:', result.results);
+        // Check if response is async (execution_id present)
+        if (result.execution_id) {
+          console.log('[useVerification] ✅ Async execution started:', result.execution_id);
 
-        const passedCount = result.passed_count || 0;
-        const totalCount = result.total_count || 0;
+          // Poll for completion
+          const statusUrl = buildServerUrl(`/server/verification/execution/${result.execution_id}/status?host_name=${currentHost?.host_name}&device_id=${currentDeviceId}`);
+          
+          let attempts = 0;
+          const maxAttempts = 30; // 30 * 1000ms = 30 seconds max
+          
+          while (attempts < maxAttempts) {
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
+            attempts++;
+            
+            const statusResult = await fetch(statusUrl);
+            const statusResponse = await statusResult.json();
+            
+            if (!statusResponse.success) {
+              throw new Error(statusResponse.error || 'Failed to get execution status');
+            }
+            
+            if (statusResponse.status === 'completed') {
+              const finalResult = statusResponse.result;
+              
+              // Always set test results regardless of overall batch success/failure
+              setTestResults(finalResult.results || []);
+              console.log('[useVerification] Test results set:', finalResult.results);
 
-        if (result.success) {
-          setSuccessMessage(`Verification completed: ${passedCount}/${totalCount} passed`);
+              const passedCount = finalResult.passed_count || 0;
+              const totalCount = finalResult.total_count || 0;
+
+              if (finalResult.success) {
+                setSuccessMessage(`Verification completed: ${passedCount}/${totalCount} passed`);
+              } else {
+                setSuccessMessage(`Test completed: ${passedCount}/${totalCount} passed`);
+              }
+              return;
+            } else if (statusResponse.status === 'error') {
+              throw new Error(statusResponse.error || 'Verification execution failed');
+            }
+            
+            // Still running, continue polling
+            console.log(`[useVerification] 🔄 Polling attempt ${attempts}/${maxAttempts} - Status: ${statusResponse.status}`);
+          }
+          
+          if (attempts >= maxAttempts) {
+            throw new Error('Verification execution timeout - no response after 30 seconds');
+          }
         } else {
-          setSuccessMessage(`Test completed: ${passedCount}/${totalCount} passed`);
+          // Synchronous response (backward compatibility)
+          // Always set test results regardless of overall batch success/failure
+          setTestResults(result.results || []);
+          console.log('[useVerification] Test results set:', result.results);
+
+          const passedCount = result.passed_count || 0;
+          const totalCount = result.total_count || 0;
+
+          if (result.success) {
+            setSuccessMessage(`Verification completed: ${passedCount}/${totalCount} passed`);
+          } else {
+            setSuccessMessage(`Test completed: ${passedCount}/${totalCount} passed`);
+          }
         }
       } catch (error) {
         console.error('[useVerification] Error during verification test:', error);
