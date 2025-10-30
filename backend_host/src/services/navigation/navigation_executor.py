@@ -1228,6 +1228,109 @@ class NavigationExecutor:
             'elapsed_time_ms': int((time.time() - execution['start_time']) * 1000)
         }
     
+    def get_navigation_preview(self, tree_id: str, target_node_id: str, 
+                             current_node_id: Optional[str] = None, team_id: str = None) -> Dict[str, Any]:
+        """
+        Get navigation preview without executing - used by frontend NodeGotoPanel
+        Expects unified cache to be pre-populated by tree loading
+        
+        Args:
+            tree_id: Tree ID for pathfinding
+            target_node_id: Target node UUID
+            current_node_id: Optional current position
+            team_id: Team ID
+            
+        Returns:
+            {
+                'success': bool,
+                'error': str (if failed),
+                'tree_id': str,
+                'target_node_id': str,
+                'current_node_id': str,
+                'transitions': List[Dict],  # Navigation path
+                'total_transitions': int,
+                'total_actions': int
+            }
+        """
+        # Check cache first (pure function: same inputs = same outputs until tree changes)
+        cache_key = (tree_id, current_node_id or 'root', target_node_id)
+        if cache_key in self._preview_cache:
+            print(f"[@navigation_executor:get_navigation_preview] ✅ Cache HIT for {target_node_id} from {current_node_id or 'root'}")
+            return self._preview_cache[cache_key]
+        
+        print(f"[@navigation_executor:get_navigation_preview] ❌ Cache MISS for {target_node_id} from {current_node_id or 'root'} - calculating path")
+        
+        try:
+            # Get navigation path using unified cache (should be pre-populated by tree loading)
+            transitions = find_shortest_path(tree_id, target_node_id, team_id, current_node_id)
+            
+            success = bool(transitions)
+            error_message = 'No navigation path found' if not success else ''
+            
+            result = {
+                'success': success,
+                'error': error_message if not success else None,
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'transitions': transitions or [],
+                'total_transitions': len(transitions) if transitions else 0,
+                'total_actions': sum(len(t.get('actions', [])) for t in transitions) if transitions else 0
+            }
+            
+            # Cache the result (invalidated when tree changes via populate_cache)
+            self._preview_cache[cache_key] = result
+            print(f"[@navigation_executor:get_navigation_preview] Cached preview for {target_node_id}")
+            
+            return result
+            
+        except PathfindingError as e:
+            # No path found - target node may not exist or be unreachable
+            error_message = str(e)
+            print(f"[@navigation_executor:get_navigation_preview] ❌ Pathfinding error: {error_message}")
+            result = {
+                'success': False,
+                'error': error_message,
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'transitions': [],
+                'total_transitions': 0,
+                'total_actions': 0
+            }
+            # Don't cache errors
+            return result
+        
+        except UnifiedCacheError as e:
+            # Cache missing - this indicates the tree wasn't loaded properly
+            print(f"[@navigation_executor:get_navigation_preview] Unified cache missing for tree {tree_id}")
+            print(f"[@navigation_executor:get_navigation_preview] This indicates the NavigationEditor didn't load the tree properly")
+            result = {
+                'success': False,
+                'error': f'Navigation tree {tree_id} not loaded. Please reload the NavigationEditor to populate the navigation cache.',
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'transitions': [],
+                'total_transitions': 0,
+                'total_actions': 0
+            }
+            # Don't cache errors
+            return result
+        
+        except Exception as e:
+            print(f"[@navigation_executor:get_navigation_preview] Unexpected error: {str(e)}")
+            return {
+                'success': False,
+                'error': f'Navigation preview error: {str(e)}',
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'current_node_id': current_node_id,
+                'transitions': [],
+                'total_transitions': 0,
+                'total_actions': 0
+            }
+    
     # ========================================
     # NAVIGATION TREE MANAGEMENT METHODS
     # Note: Core tree management moved to navigation_executor_tree_manager.py for maintainability
