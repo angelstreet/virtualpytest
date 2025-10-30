@@ -181,10 +181,9 @@ const TestCaseBuilderContent: React.FC = () => {
           return;
         }
 
-        const reactFlowBounds = reactFlowWrapper.current?.getBoundingClientRect();
-        const position = reactFlowInstance.project({
-          x: event.clientX - (reactFlowBounds?.left || 0),
-          y: event.clientY - (reactFlowBounds?.top || 0),
+        const position = reactFlowInstance.screenToFlowPosition({
+          x: event.clientX,
+          y: event.clientY,
         });
 
         hookData.addBlock(type, position, defaultData);
