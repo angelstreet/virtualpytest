@@ -460,6 +460,8 @@ class ADBVerificationController(VerificationControllerInterface):
         return [
             {
                 'command': 'waitForElementToAppear',
+                'label': 'Wait for Element to Appear',
+                'description': 'Wait for UI element to appear using ADB UI dump',
                 'params': {
                     'search_term': create_param(
                         ParamType.STRING,
@@ -475,11 +477,12 @@ class ADBVerificationController(VerificationControllerInterface):
                         description="Maximum time to wait (seconds)"
                     )
                 },
-                'verification_type': 'adb',
-                'description': 'Wait for element to appear'
+                'verification_type': 'adb'
             },
             {
                 'command': 'waitForElementToDisappear',
+                'label': 'Wait for Element to Disappear',
+                'description': 'Wait for UI element to disappear using ADB UI dump',
                 'params': {
                     'search_term': create_param(
                         ParamType.STRING,
@@ -495,8 +498,7 @@ class ADBVerificationController(VerificationControllerInterface):
                         description="Maximum time to wait (seconds)"
                     )
                 },
-                'verification_type': 'adb',
-                'description': 'Wait for element to disappear'
+                'verification_type': 'adb'
             }
         ]
 

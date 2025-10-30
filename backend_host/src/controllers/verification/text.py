@@ -512,6 +512,8 @@ class TextVerificationController:
         return [
             {
                 "command": "waitForTextToAppear",
+                "label": "Wait for Text to Appear",
+                "description": "Wait for specific text to appear on screen using OCR",
                 "params": {
                     "text": create_param(
                         ParamType.STRING,
@@ -533,11 +535,12 @@ class TextVerificationController:
                         description="Screen area to search in"
                     )
                 },
-                "verification_type": "text",
-                "description": "Wait for text to appear"
+                "verification_type": "text"
             },
             {
                 "command": "waitForTextToDisappear",
+                "label": "Wait for Text to Disappear",
+                "description": "Wait for specific text to disappear from screen using OCR",
                 "params": {
                     "text": create_param(
                         ParamType.STRING,
@@ -559,11 +562,12 @@ class TextVerificationController:
                         description="Screen area to search in"
                     )
                 },
-                "verification_type": "text",
-                "description": "Wait for text to disappear"
+                "verification_type": "text"
             },
             {
                 "command": "getMenuInfo",
+                "label": "Get Menu Info",
+                "description": "Extract key-value pairs from menu/info screen using OCR and parse automatically",
                 "params": {
                     "area": create_param(
                         ParamType.AREA,
@@ -584,8 +588,7 @@ class TextVerificationController:
                         description="Raw OCR text extracted"
                     )
                 ],
-                "verification_type": "text",
-                "description": "Get Menu Info"
+                "verification_type": "text"
             }
         ] 
 

@@ -1828,6 +1828,8 @@ class PlaywrightWebController(WebControllerInterface):
         return [
             {
                 "command": "getMenuInfo",
+                "label": "Get Menu Info (Web Elements)",
+                "description": "Extract key-value pairs from menu/info screen using web element dump and parse automatically",
                 "params": {
                     "area": create_param(
                         ParamType.AREA,
@@ -1848,8 +1850,7 @@ class PlaywrightWebController(WebControllerInterface):
                         description="Number of web elements extracted"
                     )
                 ],
-                "verification_type": "web",
-                "description": "Get Menu Info (Web Elements)"
+                "verification_type": "web"
             }
         ]
     

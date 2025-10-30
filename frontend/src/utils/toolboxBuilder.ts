@@ -194,7 +194,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
     
     const commands = verifications.map((verificationDef: any) => ({
       type: 'verification',
-      label: verificationDef.description || verificationDef.command,
+      label: verificationDef.label || verificationDef.command,  // Use label (required), fallback to command
       icon: VerifiedIcon,
       color: '#3b82f6', // blue - distinguishable from success (green)
       outputs: ['success', 'failure'],
@@ -204,7 +204,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
         verification_type: verificationDef.verification_type || verificationType,
         params: { ...verificationDef.params },
       },
-      description: verificationDef.description || `Verify ${verificationDef.command}`
+      description: verificationDef.description || verificationDef.label || `Verify ${verificationDef.command}`
     }));
 
     groups.push({

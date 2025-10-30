@@ -830,6 +830,8 @@ class ImageVerificationController:
         return [
             {
                 "command": "waitForImageToAppear",
+                "label": "Wait for Image to Appear",
+                "description": "Wait for reference image to appear on screen using template matching",
                 "params": {
                     "image_path": create_param(
                         ParamType.STRING,
@@ -859,11 +861,12 @@ class ImageVerificationController:
                         description="Screen area to search in"
                     )
                 },
-                "verification_type": "image",
-                "description": "Wait for image to appear"
+                "verification_type": "image"
             },
             {
                 "command": "waitForImageToDisappear",
+                "label": "Wait for Image to Disappear",
+                "description": "Wait for reference image to disappear from screen using template matching",
                 "params": {
                     "image_path": create_param(
                         ParamType.STRING,
@@ -893,11 +896,12 @@ class ImageVerificationController:
                         description="Screen area to search in"
                     )
                 },
-                "verification_type": "image",
-                "description": "Wait for image to disappear"
+                "verification_type": "image"
             },
             {
                 "command": "waitForImageToAppearThenDisappear",
+                "label": "Wait for Image to Appear Then Disappear",
+                "description": "Wait for reference image to appear and then disappear within timeout window",
                 "params": {
                     "image_path": create_param(
                         ParamType.STRING,
@@ -927,8 +931,7 @@ class ImageVerificationController:
                         description="Screen area to search in"
                     )
                 },
-                "verification_type": "image",
-                "description": "Wait for image to appear then disappear"
+                "verification_type": "image"
             }
         ]
 
