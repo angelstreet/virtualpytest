@@ -411,17 +411,18 @@ class ADBUtils:
         """
         try:
             # Dump UI to file then read it (more compatible)
+            # Use SHORT_TIMEOUT (30s) instead of ULTRA_SHORT (3s) for uiautomator dump which can be slow
             dump_command = f"adb -s {device_id} shell uiautomator dump --compressed /sdcard/ui_dump.xml"
-            success, stdout, stderr, exit_code = self.execute_command(dump_command)
+            success, stdout, stderr, exit_code = self.execute_command(dump_command, timeout=HTTP_CONFIG['SHORT_TIMEOUT'])
             
             if not success or exit_code != 0:
                 error_msg = f"Failed to dump UI: {stderr}"
                 print(f"[@lib:adbUtils:dump_ui_elements] {error_msg}")
                 return False, [], error_msg
                 
-            # Read the dumped file
+            # Read the dumped file (use SHORT_TIMEOUT as well)
             read_command = f"adb -s {device_id} shell cat /sdcard/ui_dump.xml"
-            success, stdout, stderr, exit_code = self.execute_command(read_command)
+            success, stdout, stderr, exit_code = self.execute_command(read_command, timeout=HTTP_CONFIG['SHORT_TIMEOUT'])
             
             if not success or exit_code != 0:
                 error_msg = f"Failed to read UI dump: {stderr}"
