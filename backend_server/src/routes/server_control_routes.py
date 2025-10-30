@@ -340,8 +340,8 @@ def execute_navigation():
         if not host_data:
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
-        # Forward request to host
-        host_endpoint = '/host/navigation/execute'
+        # Forward request to host orchestrator
+        host_endpoint = '/execute/navigation'
         host_url = buildHostUrl(host_data, host_endpoint)
         
         print(f"📡 [NAVIGATION] Forwarding to: {host_url}")

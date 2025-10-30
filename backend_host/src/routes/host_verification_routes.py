@@ -252,8 +252,10 @@ def _execute_verifications_thread(
             device.verification_executor._executions[execution_id]['message'] = 'Executing verifications...'
             device.verification_executor._executions[execution_id]['progress'] = 50
         
-        # Execute verifications (synchronous call in background thread)
-        result = device.verification_executor.execute_verifications(
+        # Execute verifications via orchestrator (includes logging + screenshots)
+        from backend_host.src.orchestrator import ExecutionOrchestrator
+        result = ExecutionOrchestrator.execute_verifications(
+            device=device,
             verifications=verifications,
             userinterface_name=userinterface_name,
             image_source_url=image_source_url,
@@ -262,12 +264,10 @@ def _execute_verifications_thread(
             node_id=node_id
         )
         
-        # Stop log capture and add logs to result
+        # Stop log capture (orchestrator already captured logs in result['logs'])
         sys.stdout = old_stdout
         sys.stderr = old_stderr
-        captured_logs = log_buffer.getvalue()
-        if captured_logs:
-            result['logs'] = captured_logs
+        # Note: logs already in result from orchestrator, no need to add again
         
         # Update with result
         with device.verification_executor._lock:

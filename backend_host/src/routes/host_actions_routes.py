@@ -1,20 +1,19 @@
 """
-Host Action Routes - Device Action Execution
+Host Action Routes - Device Action Execution (Legacy API - uses Orchestrator internally)
 
-This module receives action execution requests from the server and routes them
-to the appropriate device's ActionExecutor.
+This module maintains backward compatibility for existing API consumers
+while using the new ExecutionOrchestrator internally.
 """
 
-import time
-import threading
 from flask import Blueprint, request, jsonify, current_app
+from backend_host.src.orchestrator import ExecutionOrchestrator
 
 # Create blueprint
 host_actions_bp = Blueprint('host_actions', __name__, url_prefix='/host/action')
 
 @host_actions_bp.route('/executeBatch', methods=['POST'])
 def action_execute_batch():
-    """Execute batch of actions using device's ActionExecutor - supports async execution"""
+    """Execute batch of actions using ExecutionOrchestrator"""
     try:
         print("[@route:host_actions:action_execute_batch] Starting batch action execution")
         
@@ -22,145 +21,44 @@ def action_execute_batch():
         data = request.get_json() or {}
         actions = data.get('actions', [])
         retry_actions = data.get('retry_actions', [])
+        failure_actions = data.get('failure_actions', [])
         device_id = data.get('device_id', 'device1')
         team_id = request.args.get('team_id')
-        tree_id = data.get('tree_id')
-        edge_id = data.get('edge_id')
-        action_set_id = data.get('action_set_id')
-        target_node_id = data.get('target_node_id')  # 🆕 Target node to update position
-        skip_db_recording = data.get('skip_db_recording', False)
         
         print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} actions for device: {device_id}, team: {team_id}")
         
         # Validate
         if not actions:
             return jsonify({'success': False, 'error': 'actions are required'}), 400
-        
         if not device_id:
             return jsonify({'success': False, 'error': 'device_id is required'}), 400
-            
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
         # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
         if device_id not in host_devices:
-            return jsonify({
-                'success': False, 
-                'error': f'Device {device_id} not found in host'
-            }), 404
+            return jsonify({'success': False, 'error': f'Device {device_id} not found in host'}), 404
         
         device = host_devices[device_id]
         
-        # Check if device has action_executor
-        if not hasattr(device, 'action_executor') or not device.action_executor:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} does not have ActionExecutor initialized'
-            }), 500
-        
-        # Set navigation context on ActionExecutor for proper metrics recording
-        if tree_id:
-            device.action_executor.tree_id = tree_id
-        if edge_id:
-            device.action_executor.edge_id = edge_id
-        if action_set_id:
-            device.action_executor.action_set_id = action_set_id
-        
-        # Set skip_db_recording flag in device's navigation_context (for frontend testing)
-        if skip_db_recording:
-            device.navigation_context['skip_db_recording'] = True
-            print(f"[@route:host_actions:action_execute_batch] Frontend testing mode - DB recording disabled")
-        else:
-            # Clear the flag if it was previously set
-            device.navigation_context.pop('skip_db_recording', None)
-        
-        print(f"[@route:host_actions:action_execute_batch] Set navigation context: tree_id={tree_id}, edge_id={edge_id}, action_set_id={action_set_id}, skip_db_recording={skip_db_recording}")
-        
-        # 🆕 Store target_node_id for position update after execution
-        if target_node_id:
-            device.navigation_context['target_node_id'] = target_node_id
-        
-        # Always execute asynchronously to prevent HTTP timeouts
-        # Generate execution ID
-        import uuid
-        execution_id = str(uuid.uuid4())
-        
-        # Store execution state
-        if not hasattr(device.action_executor, '_executions'):
-            device.action_executor._executions = {}
-            device.action_executor._lock = threading.Lock()
-        
-        with device.action_executor._lock:
-            device.action_executor._executions[execution_id] = {
-                'execution_id': execution_id,
-                'status': 'running',
-                'result': None,
-                'error': None,
-                'start_time': time.time(),
-                'progress': 0,
-                'message': 'Action execution starting...'
-            }
-        
-        # Start execution in background thread
-        import threading
-        thread = threading.Thread(
-            target=_execute_actions_thread,
-            args=(device, execution_id, actions, retry_actions, team_id),
-            daemon=True
+        # Execute actions through orchestrator (unified architecture)
+        result = ExecutionOrchestrator.execute_actions(
+            device=device,
+            actions=actions,
+            retry_actions=retry_actions,
+            failure_actions=failure_actions,
+            team_id=team_id
         )
-        thread.start()
         
-        print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}")
-        
-        return jsonify({
-            'success': True,
-            'execution_id': execution_id,
-            'message': 'Action execution started'
-        })
+        return jsonify(result), 200
         
     except Exception as e:
         print(f"[@route:host_actions:action_execute_batch] Error: {e}")
-        return jsonify({
-            'success': False,
-            'error': f'Host action execution failed: {str(e)}'
-        }), 500
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
-
-@host_actions_bp.route('/execution/<execution_id>/status', methods=['GET'])
-def action_execution_status(execution_id):
-    """Get status of async action execution"""
-    try:
-        # Get query parameters
-        device_id = request.args.get('device_id', 'device1')
-        
-        # Get host device registry from app context
-        host_devices = getattr(current_app, 'host_devices', {})
-        if device_id not in host_devices:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} not found in host'
-            }), 404
-        
-        device = host_devices[device_id]
-        
-        # Check if device has action_executor
-        if not hasattr(device, 'action_executor') or not device.action_executor:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} does not have ActionExecutor initialized'
-            }), 500
-        
-        # Get execution status
-        status = device.action_executor.get_execution_status(execution_id)
-        return jsonify(status)
-        
-    except Exception as e:
-        print(f"[@route:host_actions:execution_status] Error: {e}")
-        return jsonify({
-            'success': False,
-            'error': f'Failed to get execution status: {str(e)}'
-        }), 500
 
 @host_actions_bp.route('/health', methods=['GET'])
 def health_check():
@@ -169,95 +67,3 @@ def health_check():
         'success': True,
         'message': 'Host action service is running'
     })
-
-# ========================================
-# BACKGROUND EXECUTION THREAD
-# ========================================
-
-def _execute_actions_thread(
-    device,
-    execution_id: str,
-    actions: list,
-    retry_actions: list,
-    team_id: str
-):
-    """Execute actions in background thread with progress tracking"""
-    import sys
-    import io
-    import time
-    
-    # Capture logs for single action execution
-    log_buffer = io.StringIO()
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
-    
-    class Tee:
-        def __init__(self, *streams):
-            self.streams = streams
-        def write(self, data):
-            for stream in self.streams:
-                stream.write(data)
-                stream.flush()
-        def flush(self):
-            for stream in self.streams:
-                stream.flush()
-    
-    try:
-        # Redirect stdout/stderr to BOTH terminal and buffer
-        sys.stdout = Tee(old_stdout, log_buffer)
-        sys.stderr = Tee(old_stderr, log_buffer)
-        
-        # Update status
-        with device.action_executor._lock:
-            device.action_executor._executions[execution_id]['message'] = 'Executing actions...'
-            device.action_executor._executions[execution_id]['progress'] = 50
-        
-        # Execute actions (synchronous call in background thread)
-        result = device.action_executor.execute_actions(
-            actions=actions,
-            retry_actions=retry_actions,
-            team_id=team_id
-        )
-        
-        # Stop log capture and add logs to result
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
-        captured_logs = log_buffer.getvalue()
-        if captured_logs:
-            result['logs'] = captured_logs
-        
-        # Update with result
-        with device.action_executor._lock:
-            if result.get('success'):
-                device.action_executor._executions[execution_id]['status'] = 'completed'
-                device.action_executor._executions[execution_id]['result'] = result
-                device.action_executor._executions[execution_id]['progress'] = 100
-                device.action_executor._executions[execution_id]['message'] = 'Action execution completed'
-                # Update position after successful execution
-                target_node_id = device.navigation_context.get('target_node_id')
-                if target_node_id:
-                    device.navigation_context['current_node_id'] = target_node_id
-            else:
-                device.action_executor._executions[execution_id]['status'] = 'error'
-                device.action_executor._executions[execution_id]['error'] = result.get('error', 'Action execution failed')
-                device.action_executor._executions[execution_id]['result'] = result
-                device.action_executor._executions[execution_id]['progress'] = 100
-                device.action_executor._executions[execution_id]['message'] = 'Action execution failed'
-    
-    except Exception as e:
-        # Restore stdout/stderr
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
-        
-        # Update with error
-        with device.action_executor._lock:
-            device.action_executor._executions[execution_id]['status'] = 'error'
-            device.action_executor._executions[execution_id]['error'] = str(e)
-            device.action_executor._executions[execution_id]['progress'] = 100
-            device.action_executor._executions[execution_id]['message'] = f'Action execution error: {str(e)}'
-    finally:
-        # Always restore stdout/stderr
-        if sys.stdout != old_stdout:
-            sys.stdout = old_stdout
-        if sys.stderr != old_stderr:
-            sys.stderr = old_stderr

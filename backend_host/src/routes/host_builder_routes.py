@@ -58,19 +58,23 @@ def get_blocks():
 @host_builder_bp.route('/execute', methods=['POST', 'OPTIONS'])
 def execute_standard_block():
     """
-    Execute a standard block (sleep, loop, set_variable, etc.)
+    Execute a standard block using ExecutionOrchestrator (unified logging + screenshots)
     
     Request body:
         {
             "command": "sleep",
             "params": {"duration": 2.0},
-            "device_id": "device1"
+            "device_id": "device1",
+            "team_id": "team1"  // Optional
         }
     
     Returns:
         {
             "success": true/false,
             "message": "...",
+            "logs": "...",  // Captured stdout/stderr
+            "before_screenshot_url": "...",  // Optional
+            "after_screenshot_url": "...",  // Optional
             "result": {...}  // Optional result data
         }
     """
@@ -88,6 +92,7 @@ def execute_standard_block():
         command = data.get('command')
         params = data.get('params', {})
         device_id = data.get('device_id', 'device1')
+        team_id = data.get('team_id')
         
         print(f"[@route:host_builder:execute] Executing standard block: {command}")
         print(f"[@route:host_builder:execute] Params: {params}")
@@ -100,28 +105,31 @@ def execute_standard_block():
                 'error': 'command is required'
             }), 400
         
-        # Get device context (optional - some blocks may not need it)
-        context = None
-        try:
-            from backend_host.src.devices.device_manager import DeviceManager
-            device_manager = DeviceManager()
-            device = device_manager.get_device(device_id)
-            
-            # Create minimal context object
-            context = type('Context', (), {
-                'device': device,
-                'device_id': device_id,
-                'variables': {},
-                'metadata': {}
-            })()
-            
-            print(f"[@route:host_builder:execute] Device context created for {device_id}")
-        except Exception as e:
-            print(f"[@route:host_builder:execute] Warning: Could not create device context: {e}")
-            # Continue without device context - some blocks don't need it
+        # Get device from app context
+        from flask import current_app
+        host_devices = getattr(current_app, 'host_devices', {})
+        if device_id not in host_devices:
+            return jsonify({
+                'success': False,
+                'error': f'Device {device_id} not found'
+            }), 404
         
-        # Execute block using registry
-        result = execute_block(command, params=params, context=context)
+        device = host_devices[device_id]
+        
+        # Build blocks array (single block)
+        blocks = [{
+            'command': command,
+            'params': params
+        }]
+        
+        # Execute via orchestrator for unified logging + screenshots
+        from backend_host.src.orchestrator import ExecutionOrchestrator
+        result = ExecutionOrchestrator.execute_blocks(
+            device=device,
+            blocks=blocks,
+            team_id=team_id,
+            context=None
+        )
         
         print(f"[@route:host_builder:execute] Block execution completed: success={result.get('success')}")
         

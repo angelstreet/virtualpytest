@@ -992,12 +992,10 @@ class TestCaseExecutor:
             sys.stderr = old_stderr
     
     def _execute_action_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
-        """Execute action block using ActionExecutor"""
+        """Execute action block using Orchestrator"""
         start_time = time.time()
         
         try:
-            action_executor = self.device.action_executor
-            
             command = data.get('command')
             params = data.get('params', {})
             retry_actions = data.get('retry_actions', [])
@@ -1009,8 +1007,10 @@ class TestCaseExecutor:
                 'params': params
             }]
             
-            # Execute actions using same method as single block execution
-            result = action_executor.execute_actions(
+            # Use orchestrator for unified logging
+            from backend_host.src.orchestrator import ExecutionOrchestrator
+            result = ExecutionOrchestrator.execute_actions(
+                device=self.device,
                 actions=actions,
                 retry_actions=retry_actions,
                 failure_actions=failure_actions,

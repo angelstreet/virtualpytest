@@ -442,6 +442,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         from  backend_host.src.services.actions.action_executor import ActionExecutor
         from  backend_host.src.services.navigation.navigation_executor import NavigationExecutor
         from  backend_host.src.services.verifications.verification_executor import VerificationExecutor
+        from  backend_host.src.services.blocks.standard_block_executor import StandardBlockExecutor  # 🆕 NEW
         from  backend_host.src.services.ai import AIGraphBuilder
         
         # Create executors - device has everything they need
@@ -449,6 +450,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         device.action_executor = ActionExecutor(device, _from_device_init=True)
         device.navigation_executor = NavigationExecutor(device, _from_device_init=True)
         device.verification_executor = VerificationExecutor(device, _from_device_init=True)
+        device.standard_block_executor = StandardBlockExecutor(device)  # 🆕 NEW
         device.ai_builder = AIGraphBuilder(device)
         
     except Exception as e:

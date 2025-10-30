@@ -111,7 +111,8 @@ def register_host_routes(app):
             host_campaign_routes,
             host_transcript_routes,
             host_deployment_routes,
-            host_builder_routes  # Standard blocks
+            host_builder_routes,  # Standard blocks
+            host_execution_routes  # 🆕 Unified execution orchestrator
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
@@ -151,7 +152,8 @@ def register_host_routes(app):
         (host_campaign_routes.host_campaign_bp, 'Campaign execution'),
         (host_transcript_routes.host_transcript_bp, 'Transcript services'),
         (host_deployment_routes.host_deployment_bp, 'Deployment scheduling'),
-        (host_builder_routes.host_builder_bp, 'Standard blocks')
+        (host_builder_routes.host_builder_bp, 'Standard blocks'),
+        (host_execution_routes.host_execution_bp, '🆕 Unified Execution Orchestrator')  # 🆕 NEW
     ]
     
     for blueprint, description in blueprints:
@@ -250,13 +252,15 @@ def main():
                 app.host_devices[device.device_id] = device
                 print(f"[@backend_host:main] ✓ Registered device: {device.device_id} ({device.device_model})")
                 
-                # Verify executors were created
+            # Verify executors were created
                 if hasattr(device, 'action_executor') and device.action_executor:
                     print(f"[@backend_host:main]   ✓ ActionExecutor ready")
                 if hasattr(device, 'navigation_executor') and device.navigation_executor:
                     print(f"[@backend_host:main]   ✓ NavigationExecutor ready")
                 if hasattr(device, 'verification_executor') and device.verification_executor:
                     print(f"[@backend_host:main]   ✓ VerificationExecutor ready")
+                if hasattr(device, 'standard_block_executor') and device.standard_block_executor:
+                    print(f"[@backend_host:main]   ✓ StandardBlockExecutor ready")
                 if hasattr(device, 'ai_executor') and device.ai_executor:
                     print(f"[@backend_host:main]   ✓ AIExecutor ready")
             

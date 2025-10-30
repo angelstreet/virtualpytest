@@ -712,10 +712,11 @@ class NavigationExecutor:
                     self.device.action_executor.tree_id = tree_id
                     self.device.action_executor.edge_id = step.get('edge_id')
                     self.device.action_executor.action_set_id = step.get('action_set_id')
-                    # Script context is automatically available in device navigation_context
-                    # ActionExecutor will read it directly from there - no need to pass it
                     
-                    result = self.device.action_executor.execute_actions(
+                    # Use orchestrator for unified logging
+                    from backend_host.src.orchestrator import ExecutionOrchestrator
+                    result = ExecutionOrchestrator.execute_actions(
+                        device=self.device,
                         actions=actions,
                         retry_actions=retry_actions,
                         failure_actions=failure_actions,
@@ -741,9 +742,12 @@ class NavigationExecutor:
                 if step_verifications:
                     print(f"[@navigation_executor:execute_navigation] Executing {len(step_verifications)} verifications for step")
                     
-                    verification_result = self.device.verification_executor.execute_verifications(
+                    # Use orchestrator for unified logging
+                    from backend_host.src.orchestrator import ExecutionOrchestrator
+                    verification_result = ExecutionOrchestrator.execute_verifications(
+                        device=self.device,
                         verifications=step_verifications,
-                        userinterface_name=userinterface_name,  # Pass as mandatory parameter
+                        userinterface_name=userinterface_name,
                         team_id=team_id,
                         tree_id=tree_id,
                         node_id=step.get('to_node_id'),
@@ -762,10 +766,12 @@ class NavigationExecutor:
                         print(f"[@navigation_executor:execute_navigation] ⚠️ Main actions succeeded but verifications failed - attempting retry actions")
                         
                         # Execute retry actions as main actions (no retry/failure for retry)
-                        retry_result = self.device.action_executor.execute_actions(
+                        from backend_host.src.orchestrator import ExecutionOrchestrator
+                        retry_result = ExecutionOrchestrator.execute_actions(
+                            device=self.device,
                             actions=retry_actions,
-                            retry_actions=[],  # No nested retries
-                            failure_actions=[],  # No failure actions for retry attempt
+                            retry_actions=[],
+                            failure_actions=[],
                             team_id=team_id,
                             context=context
                         )
@@ -780,7 +786,9 @@ class NavigationExecutor:
                         # Re-execute verifications after retry actions
                         if retry_result.get('success', False):
                             print(f"[@navigation_executor:execute_navigation] Retry actions succeeded - re-executing verifications")
-                            verification_result = self.device.verification_executor.execute_verifications(
+                            from backend_host.src.orchestrator import ExecutionOrchestrator
+                            verification_result = ExecutionOrchestrator.execute_verifications(
+                                device=self.device,
                                 verifications=step_verifications,
                                 userinterface_name=userinterface_name,
                                 team_id=team_id,

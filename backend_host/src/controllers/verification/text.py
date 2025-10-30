@@ -806,10 +806,15 @@ class TextVerificationController:
                 'processed_image': result.get('image_textdetected_path', '')
             }
             
+            # Construct success message
+            message = f'Parsed {len(parsed_data)} fields and auto-stored to metadata'
+            
+            print(f"[@controller:TextVerification:getMenuInfo] ✅ SUCCESS: {message}")
+            
             return {
                 'success': True,
                 'output_data': output_data,
-                'message': f'Parsed {len(parsed_data)} fields and auto-stored to metadata'
+                'message': message
             }
             
         except Exception as e:
