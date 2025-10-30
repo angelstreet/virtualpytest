@@ -542,143 +542,106 @@ class NavigationExecutor:
                     nav_context['current_node_label'] = None
                     nav_context['last_verified_timestamp'] = 0
             elif not current_position and not navigation_path:
-                # Current position is null - check if we might already be at destination
-                # Skip this optimization if using pre-computed path (validation mode)
-                # OPTIMIZATION: For "home" target specifically, always verify first to avoid expensive entry flow
-                # IMPORTANT: Only match EXACTLY "home", not "home_settings", "home_menu", etc.
-                is_home_target = (target_node_label and target_node_label.lower() == 'home') or \
-                                (target_node_id and target_node_id.lower() == 'home')
+                # No current position - verify if already at destination before starting navigation
+                print(f"[@navigation_executor:execute_navigation] No current position - checking if already at target '{target_node_label or target_node_id}'")
                 
-                if is_home_target:
-                    print(f"[@navigation_executor:execute_navigation] 🏠 No current position + target is HOME - verifying if already at home to avoid expensive entry flow")
-                    verification_result = self.device.verification_executor.verify_node(
-                        node_id=target_node_id,
-                        userinterface_name=userinterface_name,  # MANDATORY parameter
-                        team_id=team_id,
-                        tree_id=tree_id  # Unified tree - only one tree
-                    )
+                verification_result = self.device.verification_executor.verify_node(
+                    node_id=target_node_id,
+                    userinterface_name=userinterface_name,
+                    team_id=team_id,
+                    tree_id=tree_id
+                )
+                
+                # Only skip navigation if verifications exist AND passed
+                if verification_result.get('success') and verification_result.get('has_verifications', True):
+                    print(f"[@navigation_executor:execute_navigation] ✅ Already at target '{target_node_label or target_node_id}' - no navigation needed")
+                    nav_context['last_verified_timestamp'] = time.time()
+                    self.update_current_position(target_node_id, tree_id, target_node_label)
+                    nav_context['current_node_navigation_success'] = True
                     
-                    # Only skip entry flow if verifications exist AND passed
-                    if verification_result.get('success') and verification_result.get('has_verifications', True):
-                        print(f"[@navigation_executor:execute_navigation] ✅ Already at home '{target_node_label or target_node_id}' - skipping systematic entry flow")
-                        nav_context['last_verified_timestamp'] = time.time()
-                        self.update_current_position(target_node_id, tree_id, target_node_label)
-                        nav_context['current_node_navigation_success'] = True
+                    # Record dummy step to show from/target nodes in report
+                    if context:
+                        from datetime import datetime
+                        from shared.src.lib.utils.device_utils import capture_screenshot_for_script
                         
-                        # Record dummy step to show from/target nodes in report
-                        if context:
-                            from datetime import datetime
-                            from shared.src.lib.utils.device_utils import capture_screenshot_for_script
-                            
-                            # Capture screenshot to show verified destination state
-                            screenshot_path = ""
-                            screenshot_id = capture_screenshot_for_script(self.device, context, f"already_at_{target_node_label or target_node_id}")
-                            if screenshot_id and context.screenshot_paths:
-                                screenshot_path = context.screenshot_paths[-1]
-                                print(f"📸 [@navigation_executor:execute_navigation] Screenshot captured for 'already at destination': {screenshot_id}")
-                            
-                            dummy_step_result = {
-                                'success': True,
-                                'from_node': target_node_label or target_node_id,
-                                'to_node': target_node_label or target_node_id,
-                                'message': f"{target_node_label or target_node_id} → {target_node_label or target_node_id}",
-                                'already_at_destination': True,
-                                'execution_time_ms': 0,
-                                'start_time': datetime.now().strftime('%H:%M:%S'),
-                                'end_time': datetime.now().strftime('%H:%M:%S'),
-                                'actions': [],
-                                'step_category': 'navigation',
-                                'step_end_screenshot_path': screenshot_path,
-                                'screenshot_path': screenshot_path
-                            }
-                            context.record_step_immediately(dummy_step_result)
-                            # Auto-write to running.log for frontend overlay
-                            if hasattr(context, 'write_running_log'):
-                                context.write_running_log()
+                        screenshot_path = ""
+                        screenshot_id = capture_screenshot_for_script(self.device, context, f"already_at_{target_node_label or target_node_id}")
+                        if screenshot_id and context.screenshot_paths:
+                            screenshot_path = context.screenshot_paths[-1]
+                            print(f"📸 [@navigation_executor:execute_navigation] Screenshot captured for 'already at destination': {screenshot_id}")
                         
-                        return self._build_result(
-                            True,
-                            f"Already at home '{target_node_label or target_node_id}' - avoided systematic entry",
-                            tree_id, target_node_id, current_node_id, start_time,
-                            transitions_executed=0,
-                            total_transitions=0,
-                            actions_executed=0,
-                            total_actions=0,
-                            path_length=0,
-                            already_at_target=True,
-                            systematic_entry_avoided=True,
-                            unified_pathfinding_used=True,
-                            navigation_path=[]
-                        )
-                    elif not verification_result.get('has_verifications', True):
-                        print(f"[@navigation_executor:execute_navigation] No verifications defined for home node - cannot verify, proceeding with systematic entry flow")
-                    else:
-                        print(f"[@navigation_executor:execute_navigation] Not at home - proceeding with systematic entry flow")
+                        dummy_step_result = {
+                            'success': True,
+                            'from_node': target_node_label or target_node_id,
+                            'to_node': target_node_label or target_node_id,
+                            'message': f"{target_node_label or target_node_id} → {target_node_label or target_node_id}",
+                            'already_at_destination': True,
+                            'execution_time_ms': 0,
+                            'start_time': datetime.now().strftime('%H:%M:%S'),
+                            'end_time': datetime.now().strftime('%H:%M:%S'),
+                            'actions': [],
+                            'step_category': 'navigation',
+                            'step_end_screenshot_path': screenshot_path,
+                            'screenshot_path': screenshot_path
+                        }
+                        context.record_step_immediately(dummy_step_result)
+                        if hasattr(context, 'write_running_log'):
+                            context.write_running_log()
+                    
+                    return self._build_result(
+                        True,
+                        f"Already at target '{target_node_label or target_node_id}'",
+                        tree_id, target_node_id, current_node_id, start_time,
+                        transitions_executed=0,
+                        total_transitions=0,
+                        actions_executed=0,
+                        total_actions=0,
+                        path_length=0,
+                        already_at_target=True,
+                        unified_pathfinding_used=True,
+                        navigation_path=[]
+                    )
+                elif not verification_result.get('has_verifications', True):
+                    print(f"[@navigation_executor:execute_navigation] ⚠️ No verifications defined for '{target_node_label or target_node_id}' - cannot verify position, proceeding with navigation from entry")
                 else:
-                    # Not home target - quick check if already at destination
-                    print(f"[@navigation_executor:execute_navigation] No current position - checking if already at target '{target_node_label or target_node_id}'")
-                    verification_result = self.device.verification_executor.verify_node(
-                        node_id=target_node_id,
-                        userinterface_name=userinterface_name,  # MANDATORY parameter
-                        team_id=team_id,
-                        tree_id=tree_id
-                    )
+                    # Not at target - check if at home as fallback starting position
+                    # IMPORTANT: Only check home if target is NOT home (avoid duplicate verification)
+                    print(f"[@navigation_executor:execute_navigation] Not at target '{target_node_label or target_node_id}' - checking if at HOME as fallback position")
                     
-                    # Only skip navigation if verifications exist AND passed
-                    if verification_result.get('success') and verification_result.get('has_verifications', True):
-                        print(f"[@navigation_executor:execute_navigation] ✅ Already at target '{target_node_label or target_node_id}' - no navigation needed")
-                        nav_context['last_verified_timestamp'] = time.time()
-                        self.update_current_position(target_node_id, tree_id, target_node_label)
-                        nav_context['current_node_navigation_success'] = True
-                        
-                        # Record dummy step to show from/target nodes in report
-                        if context:
-                            from datetime import datetime
-                            from shared.src.lib.utils.device_utils import capture_screenshot_for_script
-                            
-                            # Capture screenshot to show verified destination state
-                            screenshot_path = ""
-                            screenshot_id = capture_screenshot_for_script(self.device, context, f"already_at_{target_node_label or target_node_id}")
-                            if screenshot_id and context.screenshot_paths:
-                                screenshot_path = context.screenshot_paths[-1]
-                                print(f"📸 [@navigation_executor:execute_navigation] Screenshot captured for 'already at destination': {screenshot_id}")
-                            
-                            dummy_step_result = {
-                                'success': True,
-                                'from_node': target_node_label or target_node_id,
-                                'to_node': target_node_label or target_node_id,
-                                'message': f"{target_node_label or target_node_id} → {target_node_label or target_node_id}",
-                                'already_at_destination': True,
-                                'execution_time_ms': 0,
-                                'start_time': datetime.now().strftime('%H:%M:%S'),
-                                'end_time': datetime.now().strftime('%H:%M:%S'),
-                                'actions': [],
-                                'step_category': 'navigation',
-                                'step_end_screenshot_path': screenshot_path,
-                                'screenshot_path': screenshot_path
-                            }
-                            context.record_step_immediately(dummy_step_result)
-                            # Auto-write to running.log for frontend overlay
-                            if hasattr(context, 'write_running_log'):
-                                context.write_running_log()
-                        
-                        return self._build_result(
-                            True,
-                            f"Already at target '{target_node_label or target_node_id}'",
-                            tree_id, target_node_id, current_node_id, start_time,
-                            transitions_executed=0,
-                            total_transitions=0,
-                            actions_executed=0,
-                            total_actions=0,
-                            path_length=0,
-                            already_at_target=True,
-                            unified_pathfinding_used=True,
-                            navigation_path=[]
+                    # Find home node by trying common variations: "home", "Home", "HOME"
+                    home_node_id = None
+                    home_node_label = None
+                    for potential_home_label in ["home", "Home", "HOME"]:
+                        try:
+                            home_node_id = self.get_node_id(potential_home_label, tree_id, team_id)
+                            home_node_label = potential_home_label
+                            print(f"[@navigation_executor:execute_navigation] Found home node: {home_node_id} (label: {home_node_label})")
+                            break
+                        except ValueError:
+                            continue
+                    
+                    # Only verify home if: (1) home exists, (2) target is NOT home
+                    if home_node_id and home_node_id != target_node_id:
+                        print(f"[@navigation_executor:execute_navigation] Target is not home - verifying if at home")
+                        home_verification = self.device.verification_executor.verify_node(
+                            node_id=home_node_id,
+                            userinterface_name=userinterface_name,
+                            team_id=team_id,
+                            tree_id=tree_id
                         )
-                    elif not verification_result.get('has_verifications', True):
-                        print(f"[@navigation_executor:execute_navigation] ⚠️ No verifications defined for '{target_node_label or target_node_id}' - cannot verify position, proceeding with navigation from entry")
+                        
+                        if home_verification.get('success') and home_verification.get('has_verifications', True):
+                            print(f"[@navigation_executor:execute_navigation] ✅ Already at HOME - will navigate from HOME → {target_node_label or target_node_id}")
+                            # Update position to home so pathfinding starts from there
+                            self.update_current_position(home_node_id, tree_id, home_node_label)
+                            nav_context['last_verified_timestamp'] = time.time()
+                            # Continue to pathfinding (don't return)
+                        else:
+                            print(f"[@navigation_executor:execute_navigation] Not at home - will navigate from entry")
+                    elif home_node_id == target_node_id:
+                        print(f"[@navigation_executor:execute_navigation] Target IS home - skipping duplicate home verification")
                     else:
-                        print(f"[@navigation_executor:execute_navigation] Not at target '{target_node_label or target_node_id}' - proceeding with navigation from entry")
+                        print(f"[@navigation_executor:execute_navigation] No home node found in tree - will navigate from entry")
             else:
                 # Positions don't match - proceed with navigation
                 print(f"[@navigation_executor:execute_navigation] Current position ({current_position}) != target ({target_node_id}) - proceeding with navigation")

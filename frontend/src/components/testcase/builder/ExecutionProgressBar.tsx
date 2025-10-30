@@ -17,6 +17,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import DragIndicatorIcon from '@mui/icons-material/DragIndicator';
+import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 import { useTheme } from '../../../contexts/ThemeContext';
 
@@ -77,11 +78,24 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const [finalTime, setFinalTime] = useState<number | null>(null);
   const [lastBlockLabel, setLastBlockLabel] = useState<string | null>(null);
   const [isAIReasoningExpanded, setIsAIReasoningExpanded] = useState(true);
+  const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
   
   // Draggable state
   const [position, setPosition] = useState({ x: 0, y: 120 });
   const [isDragging, setIsDragging] = useState(false);
   const dragRef = useRef<{ startX: number; startY: number; initialX: number; initialY: number } | null>(null);
+
+  // Copy logs to clipboard
+  const handleCopyLogs = (logs: any, logId: string, event: React.MouseEvent) => {
+    event.stopPropagation(); // Prevent accordion toggle
+    const logsText = typeof logs === 'string' ? logs : JSON.stringify(logs, null, 2);
+    navigator.clipboard.writeText(logsText).then(() => {
+      setCopiedLogId(logId);
+      setTimeout(() => setCopiedLogId(null), 2000);
+    }).catch((err) => {
+      console.error('Failed to copy logs:', err);
+    });
+  };
 
   // Get block label from node data
   const getCurrentBlockLabel = () => {
@@ -730,6 +744,23 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', flex: 1, overflow: 'hidden', textOverflow: 'ellipsis' }}>
                               {step.state.error.length > 120 ? `${step.state.error.substring(0, 120)}...` : step.state.error}
                             </Typography>
+                            {step.state.result?.logs && (
+                              <Tooltip title={copiedLogId === `error-${step.blockId}` ? "Copied!" : "Copy logs"}>
+                                <IconButton
+                                  size="small"
+                                  onClick={(e) => handleCopyLogs(step.state.result.logs, `error-${step.blockId}`, e)}
+                                  sx={{
+                                    color: copiedLogId === `error-${step.blockId}` ? '#10b981' : '#ef4444',
+                                    padding: '2px',
+                                    '&:hover': {
+                                      backgroundColor: 'rgba(239, 68, 68, 0.1)',
+                                    },
+                                  }}
+                                >
+                                  <ContentCopyIcon sx={{ fontSize: 14 }} />
+                                </IconButton>
+                              </Tooltip>
+                            )}
                           </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ padding: '0px 12px !important' }}>
@@ -796,6 +827,21 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                             <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.75rem', flex: 1 }}>
                               Click to view execution logs
                             </Typography>
+                            <Tooltip title={copiedLogId === `success-${step.blockId}` ? "Copied!" : "Copy logs"}>
+                              <IconButton
+                                size="small"
+                                onClick={(e) => handleCopyLogs(step.state.result.logs, `success-${step.blockId}`, e)}
+                                sx={{
+                                  color: copiedLogId === `success-${step.blockId}` ? '#3b82f6' : '#10b981',
+                                  padding: '2px',
+                                  '&:hover': {
+                                    backgroundColor: 'rgba(16, 185, 129, 0.1)',
+                                  },
+                                }}
+                              >
+                                <ContentCopyIcon sx={{ fontSize: 14 }} />
+                              </IconButton>
+                            </Tooltip>
                           </Box>
                         </AccordionSummary>
                         <AccordionDetails sx={{ padding: '0px 12px !important' }}>
