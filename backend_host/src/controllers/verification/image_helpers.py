@@ -225,9 +225,9 @@ class ImageHelpers:
         best_confidence = exact_confidence
         best_location = {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h} if exact_confidence > 0 else None
         
-        # Use finer-grained steps for better detection
-        # Critical: Small reference images (like 4px high indicators) need 1-2px precision
-        for expansion in [1, 2, 3, 5, 7, 10, 15, 20, 30, 40, 50, 75, 100, 150, 200]:
+        # Balanced search steps: fine-grained for small shifts (2-10px), then wider jumps
+        # Reduces iterations while catching common UI element shifts
+        for expansion in [1, 2, 5, 10, 20]:
             if expansion > max_expansion:
                 break
             
