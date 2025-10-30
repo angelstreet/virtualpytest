@@ -69,11 +69,47 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   // Check if there are verifications to run
   const hasVerifications = nodeEdit.verification.verifications.length > 0;
 
-  // Helper function to format verification results similar to edge dialog
-  const formatVerificationResult = (result: any) => {
+  // Helper function to render verification results with debug links
+  const renderVerificationResult = (result: any, index: number) => {
     const prefix = result.success ? '✅' : '❌';
     const message = result.message || result.error || 'No details';
-    return `${prefix} ${result.verification_type}: ${message}`;
+    
+    return (
+      <Box key={index} sx={{ mb: 0.5 }}>
+        <Typography
+          variant="caption"
+          sx={{
+            fontFamily: 'monospace',
+            fontSize: '0.7rem',
+            lineHeight: 1.2,
+            display: 'block',
+          }}
+        >
+          {prefix} {result.verification_type}: {message}
+        </Typography>
+        {!result.success && result.debug_report_url && (
+          <Typography
+            variant="caption"
+            sx={{
+              fontFamily: 'monospace',
+              fontSize: '0.65rem',
+              lineHeight: 1.2,
+              display: 'block',
+              ml: 2,
+            }}
+          >
+            <a
+              href={result.debug_report_url}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{ color: 'inherit', textDecoration: 'underline' }}
+            >
+              📊 View Debug Report
+            </a>
+          </Typography>
+        )}
+      </Box>
+    );
   };
 
   return (
@@ -242,17 +278,9 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
                 </span>
               )}
             </Typography>
-            <Typography
-              variant="caption"
-              sx={{
-                fontFamily: 'monospace',
-                whiteSpace: 'pre-line',
-                fontSize: '0.7rem',
-                lineHeight: 1.2,
-              }}
-            >
-              {nodeEdit.verification.testResults.map(formatVerificationResult).join('\n')}
-            </Typography>
+            {nodeEdit.verification.testResults.map((result: any, index: number) => 
+              renderVerificationResult(result, index)
+            )}
           </Box>
         )}
       </DialogContent>
