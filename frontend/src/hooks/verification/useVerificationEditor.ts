@@ -136,14 +136,23 @@ export const useVerificationEditor = ({
 
       // Auto-populate capture area and reference name for image references
       if (referenceData.area && _onAreaSelected) {
-        const { x, y, width, height } = referenceData.area;
+        const { x, y, width, height, fx, fy, fwidth, fheight } = referenceData.area;
         console.log('[@hook:useVerificationEditor] Auto-populating capture area from image reference:', {
           referenceName,
-          area: { x, y, width, height }
+          area: { x, y, width, height, fx, fy, fwidth, fheight }
         });
         
-        // Set the capture area coordinates
-        _onAreaSelected({ x, y, width, height });
+        // Set the capture area coordinates including fuzzy search area if present
+        _onAreaSelected({ 
+          x, 
+          y, 
+          width, 
+          height,
+          ...(fx !== undefined && { fx }),
+          ...(fy !== undefined && { fy }),
+          ...(fwidth !== undefined && { fwidth }),
+          ...(fheight !== undefined && { fheight }),
+        });
       }
 
       // Auto-populate the reference name in the capture field

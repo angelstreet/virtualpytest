@@ -74,12 +74,16 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
           const currentArea = (params as any).area;
           const dbArea = selectedRef.area;
           
-          // Check if areas are different (need resolution)
+          // Check if areas are different (need resolution) - including fuzzy coordinates
           const needsResolution = !currentArea || 
             currentArea.x !== dbArea?.x || 
             currentArea.y !== dbArea?.y || 
             currentArea.width !== dbArea?.width || 
-            currentArea.height !== dbArea?.height;
+            currentArea.height !== dbArea?.height ||
+            currentArea.fx !== dbArea?.fx ||
+            currentArea.fy !== dbArea?.fy ||
+            currentArea.fwidth !== dbArea?.fwidth ||
+            currentArea.fheight !== dbArea?.fheight;
             
           if (needsResolution && dbArea) {
             console.log(`[VerificationsList] Auto-resolving area for ${referenceName}:`, dbArea);
@@ -94,6 +98,11 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
                   y: dbArea.y,
                   width: dbArea.width,
                   height: dbArea.height,
+                  // Include fuzzy search coordinates if present
+                  ...(dbArea.fx !== undefined && { fx: dbArea.fx }),
+                  ...(dbArea.fy !== undefined && { fy: dbArea.fy }),
+                  ...(dbArea.fwidth !== undefined && { fwidth: dbArea.fwidth }),
+                  ...(dbArea.fheight !== undefined && { fheight: dbArea.fheight }),
                 },
               },
             };
@@ -334,6 +343,11 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
               y: selectedRef.area.y,
               width: selectedRef.area.width,
               height: selectedRef.area.height,
+              // Include fuzzy search coordinates if present
+              ...(selectedRef.area.fx !== undefined && { fx: selectedRef.area.fx }),
+              ...(selectedRef.area.fy !== undefined && { fy: selectedRef.area.fy }),
+              ...(selectedRef.area.fwidth !== undefined && { fwidth: selectedRef.area.fwidth }),
+              ...(selectedRef.area.fheight !== undefined && { fheight: selectedRef.area.fheight }),
             },
           };
 
