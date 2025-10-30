@@ -275,12 +275,27 @@ export const useVerification = ({
             const statusResult = await fetch(statusUrl);
             const statusResponse = await statusResult.json();
             
-            if (!statusResponse.success) {
-              throw new Error(statusResponse.error || 'Failed to get execution status');
-            }
+            console.log(`[useVerification] 🔄 Polling attempt ${attempts}/${maxAttempts}:`, {
+              status: statusResponse.status,
+              progress: statusResponse.progress,
+              success: statusResponse.success
+            });
             
-            if (statusResponse.status === 'completed') {
+            // Check if execution is complete (status: completed or error with results)
+            // "error" status means verification failed (not met), but execution completed successfully
+            const isCompleted = statusResponse.status === 'completed' || 
+                               (statusResponse.status === 'error' && statusResponse.progress === 100);
+            
+            if (isCompleted && statusResponse.result) {
               const finalResult = statusResponse.result;
+              
+              console.log('[useVerification] ✅ Execution completed with results:', {
+                status: statusResponse.status,
+                totalCount: finalResult.total_count,
+                passedCount: finalResult.passed_count,
+                failedCount: finalResult.failed_count,
+                hasResults: !!finalResult.results
+              });
               
               // Always set test results regardless of overall batch success/failure
               setTestResults(finalResult.results || []);
@@ -295,12 +310,18 @@ export const useVerification = ({
                 setSuccessMessage(`Test completed: ${passedCount}/${totalCount} passed`);
               }
               return;
-            } else if (statusResponse.status === 'error') {
+            } else if (statusResponse.status === 'error' && !statusResponse.result) {
+              // Only throw error if there's no result data (actual execution failure)
               throw new Error(statusResponse.error || 'Verification execution failed');
+            } else if (!statusResponse.success && statusResponse.status === 'pending') {
+              // Still running, continue polling
+              console.log(`[useVerification] ⏳ Still running (progress: ${statusResponse.progress || 0}%)`);
             }
             
-            // Still running, continue polling
-            console.log(`[useVerification] 🔄 Polling attempt ${attempts}/${maxAttempts} - Status: ${statusResponse.status}`);
+            // Check for timeout or other terminal states
+            if (statusResponse.status === 'timeout') {
+              throw new Error('Verification execution timeout');
+            }
           }
           
           if (attempts >= maxAttempts) {
