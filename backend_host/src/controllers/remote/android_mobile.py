@@ -781,7 +781,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         return [
             {
                 "command": "getMenuInfo",
-                "label": "Get Menu Info (UI Dump)",
+                "label": "Get Menu Info",
                 "description": "Extract key-value pairs from menu/info screen using ADB UI dump and parse automatically",
                 "params": {
                     "area": create_param(
