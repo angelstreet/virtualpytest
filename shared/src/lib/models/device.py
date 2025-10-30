@@ -180,41 +180,57 @@ class Device:
                 capabilities.append(controller_type)
         return capabilities
     
-    def get_available_verification_types(self) -> Dict[str, Any]:
+    def get_available_verifications(self) -> Dict[str, Any]:
         """
-        Get available verification types from all verification controllers.
+        Get available verifications from ALL controllers that implement get_available_verifications().
+        
+        This method doesn't hardcode which controller types can provide verifications.
+        Instead, it checks ALL controller types and lets each controller declare its own verifications.
         
         Returns:
-            Dictionary mapping verification controller types to their available verifications
+            Dictionary mapping verification_type to list of verification definitions
+            Example: {'adb': [...], 'text': [...], 'web': [...]}
         """
         verification_types = {}
         
-        # Get verification controllers
-        verification_controllers = self.get_controllers('verification')
-        
-        for controller in verification_controllers:
-            # Check if controller has get_available_verifications method
-            if hasattr(controller, 'get_available_verifications'):
-                try:
-                    controller_verifications = controller.get_available_verifications()
-                    # Use the controller's implementation name as the key
-                    if hasattr(controller, 'verification_type'):
-                        verification_types[controller.verification_type] = controller_verifications
-                    else:
-                        # Fallback to class name
-                        controller_name = controller.__class__.__name__.lower().replace('verificationcontroller', '')
-                        verification_types[controller_name] = controller_verifications
-                except Exception as e:
-                    print(f"[@device:get_available_verification_types] Error getting verifications from {controller.__class__.__name__}: {e}")
+        # Check ALL controller types - don't hardcode which can provide verifications
+        for controller_type, controllers in self._controllers.items():
+            for controller in controllers:
+                # If controller has the method, it can provide verifications
+                if hasattr(controller, 'get_available_verifications'):
+                    try:
+                        controller_verifications = controller.get_available_verifications()
+                        
+                        if not controller_verifications:
+                            continue  # Skip empty lists
+                        
+                        # Group verifications by their verification_type field
+                        for verification in controller_verifications:
+                            v_type = verification.get('verification_type')
+                            
+                            if not v_type:
+                                print(f"[@device:get_available_verifications] WARNING: Verification '{verification.get('command')}' from {controller.__class__.__name__} missing 'verification_type' field")
+                                continue
+                            
+                            if v_type not in verification_types:
+                                verification_types[v_type] = []
+                            
+                            verification_types[v_type].append(verification)
+                        
+                        print(f"[@device:get_available_verifications] Added {len(controller_verifications)} verifications from {controller.__class__.__name__} (controller_type: {controller_type})")
+                        
+                    except Exception as e:
+                        print(f"[@device:get_available_verifications] Error getting verifications from {controller.__class__.__name__}: {e}")
         
         return verification_types
     
-    def get_available_action_types(self) -> Dict[str, Any]:
+    def get_available_actions(self) -> Dict[str, Any]:
         """
-        Get available action types from all action controllers (remote, av, power, etc.).
+        Get available actions from all action controllers (remote, av, power, etc.).
         
         Returns:
-            Dictionary mapping action controller types to their available actions
+            Dictionary mapping action categories to their available actions
+            Example: {'Remote': [...], 'Power': [...]}
         """
         action_types = {}
         
@@ -235,7 +251,7 @@ class Device:
                                 action_types[action_category] = []
                             action_types[action_category].extend(actions)
                     except Exception as e:
-                        print(f"[@device:get_available_action_types] Error getting actions from {controller.__class__.__name__}: {e}")
+                        print(f"[@device:get_available_actions] Error getting actions from {controller.__class__.__name__}: {e}")
         
         return action_types
 
@@ -320,8 +336,8 @@ class Device:
         
         
         # Collect available verification types and action types from controllers
-        device_verification_types = self.get_available_verification_types()
-        device_action_types = self.get_available_action_types()
+        device_verification_types = self.get_available_verifications()
+        device_action_types = self.get_available_actions()
         
         
         # Base device information
