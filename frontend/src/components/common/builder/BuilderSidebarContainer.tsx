@@ -1,6 +1,6 @@
 import React from 'react';
 import { Box, IconButton } from '@mui/material';
-import { ChevronLeft as ChevronLeftIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material';
+import { ChevronRight as ChevronRightIcon } from '@mui/icons-material';
 
 /**
  * BuilderSidebarContainer - Collapsible sidebar container

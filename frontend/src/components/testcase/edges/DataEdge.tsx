@@ -26,7 +26,6 @@ export const DataEdge: React.FC<EdgeProps & {
   style = {},
   markerEnd,
   selected,
-  data,
 }) => {
   const [edgePath] = getBezierPath({
     sourceX,

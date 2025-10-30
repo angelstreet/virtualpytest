@@ -54,7 +54,6 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
     removeCampaignInput,
     removeCampaignOutput,
     removeCampaignReportField,
-    setCampaignReportsMode,
   } = useCampaignBuilder();
 
   // Toolbox items

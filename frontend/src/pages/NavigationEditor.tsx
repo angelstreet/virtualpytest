@@ -1261,7 +1261,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceId={selectedDeviceId}
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
-                userinterfaceName={userInterface?.name} // Pass userinterface name for reference saving
+                userinterfaceName={treeName} // Use treeName directly from URL (always available, no race condition)
                 onCollapsedChange={handleAVPanelCollapsedChange}
                 onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}
@@ -1274,7 +1274,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 deviceId={selectedDeviceId}
                 deviceModel={deviceModel}
                 isControlActive={isControlActive}
-                userinterfaceName={userInterface?.name} // Pass userinterface name for reference saving
+                userinterfaceName={treeName} // Use treeName directly from URL (always available, no race condition)
                 onCollapsedChange={handleAVPanelCollapsedChange}
                 onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}

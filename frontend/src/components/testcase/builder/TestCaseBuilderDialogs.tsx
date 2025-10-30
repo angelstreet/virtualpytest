@@ -60,6 +60,7 @@ interface TestCaseBuilderDialogsProps {
   availableTestcases: any[]; // DEPRECATED: Now loaded in TestCaseSelector, kept for backward compatibility
   handleLoad: (testcaseId: string) => void;
   handleDelete?: (testcaseId: string, testcaseName: string) => void;
+  // Note: availableTestcases parameter is deprecated but kept for backward compatibility
   
   // Edit Dialog
   editDialogOpen: boolean;
@@ -89,7 +90,6 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   handleSave,
   loadDialogOpen,
   setLoadDialogOpen,
-  availableTestcases,
   handleLoad,
   handleDelete,
   editDialogOpen,

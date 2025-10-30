@@ -1,15 +1,12 @@
 import React from 'react';
 import { Box, Typography } from '@mui/material';
 import { Handle, Position, NodeProps } from 'reactflow';
-import { useTheme } from '../../../contexts/ThemeContext';
 
 /**
  * Start Block - Entry point for testcase execution
  * Only has output handles (success/failure)
  */
 export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
-  const { actualMode } = useTheme();
-  
   return (
     <Box
       sx={{

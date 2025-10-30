@@ -29,7 +29,7 @@ import { CampaignNode, CampaignDragData } from '../../../types/pages/CampaignGra
 import { useCampaignBuilder } from '../../../contexts/campaign/CampaignBuilderContext';
 
 export const CampaignBlock = memo(({ data, id }: NodeProps<CampaignNode['data']>) => {
-  const { deleteNode, selectNode, linkOutputToInput, unlinkInput, nodes } = useCampaignBuilder();
+  const { deleteNode, selectNode, linkOutputToInput, nodes } = useCampaignBuilder();
   const [inputsExpanded, setInputsExpanded] = useState(false);
   const [outputsExpanded, setOutputsExpanded] = useState(false);
   

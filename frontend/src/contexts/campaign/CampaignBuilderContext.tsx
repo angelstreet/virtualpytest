@@ -14,7 +14,6 @@ import {
   CampaignNode,
   CampaignEdge,
   CampaignBuilderState,
-  CampaignGraphConfig,
   CampaignInput,
   CampaignOutput,
   CampaignReportField,
@@ -140,7 +139,7 @@ export const CampaignBuilderProvider: React.FC<CampaignBuilderProviderProps> = (
       ...prev,
       graph: {
         ...prev.graph,
-        edges: applyEdgeChanges(changes, prev.graph.edges) as CampaignEdge[],
+        edges: applyEdgeChanges(changes, prev.graph.edges as any) as CampaignEdge[],
       },
     }));
   }, []);
@@ -150,7 +149,7 @@ export const CampaignBuilderProvider: React.FC<CampaignBuilderProviderProps> = (
       ...prev,
       graph: {
         ...prev.graph,
-        edges: addEdge({ ...connection, type: 'control' }, prev.graph.edges) as CampaignEdge[],
+        edges: addEdge({ ...connection, type: 'control' } as any, prev.graph.edges as any) as CampaignEdge[],
       },
     }));
   }, []);

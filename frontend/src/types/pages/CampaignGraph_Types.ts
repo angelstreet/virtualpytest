@@ -5,7 +5,7 @@
  * Defines the structure for campaign graphs, nodes, edges, and data linking.
  */
 
-import { Node, Edge } from 'reactflow';
+import { Node } from 'reactflow';
 
 // Campaign Graph Structure
 export interface CampaignGraph {
@@ -111,8 +111,17 @@ export type CampaignEdgeType =
   | 'pass'        // Success branch
   | 'fail';       // Failure branch
 
-export interface CampaignEdge extends Edge {
+export interface CampaignEdge {
+  id: string;
+  source: string;
+  target: string;
+  sourceHandle?: string | null;
+  targetHandle?: string | null;
   type: CampaignEdgeType;
+  animated?: boolean;
+  style?: React.CSSProperties;
+  label?: string;
+  data?: any;
 }
 
 // Toolbox Item (for drag-drop)
