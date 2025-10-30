@@ -29,6 +29,30 @@ class ImageHelpers:
         """Initialize image helpers with captures path and AV controller."""
         self.captures_path = captures_path
         self.av_controller = av_controller
+    
+    def round_area_coordinates(self, area: Dict[str, Any], max_decimals: int = 2) -> Dict[str, Any]:
+        """
+        Round area coordinates to specified decimal places.
+        
+        Args:
+            area: Area dictionary with coordinates
+            max_decimals: Maximum decimal places (default: 2)
+        
+        Returns:
+            Area dict with rounded coordinates
+        """
+        if not area:
+            return area
+        
+        rounded_area = {}
+        for key, value in area.items():
+            if isinstance(value, (int, float)):
+                # Round to max_decimals places
+                rounded_area[key] = round(value, max_decimals)
+            else:
+                rounded_area[key] = value
+        
+        return rounded_area
        
     def download_image(self, source_url: str) -> str:
         """Download image from URL only."""
@@ -61,10 +85,10 @@ class ImageHelpers:
         try:
             print(f"[@image_helpers] Uploading reference to R2: {reference_name} for userinterface: {userinterface_name}")
             
-            # Round all area coordinates to integers (pixels should always be integers)
+            # Round all area coordinates to 2 decimal places (max precision needed)
             if area:
-                area = {k: round(v) if isinstance(v, (int, float)) else v for k, v in area.items()}
-                print(f"[@image_helpers] Rounded area coordinates: {area}")
+                area = self.round_area_coordinates(area, max_decimals=2)
+                print(f"[@image_helpers] Rounded area coordinates (2 decimals): {area}")
             
             # Upload to R2 using cloudflare utils
             from shared.src.lib.utils.cloudflare_utils import upload_reference_image

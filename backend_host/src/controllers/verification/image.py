@@ -667,6 +667,11 @@ class ImageVerificationController:
             if not team_id:
                 return {'success': False, 'message': 'team_id is required for saving reference'}
             
+            # Round area coordinates to 2 decimal places before saving
+            if area:
+                area = self.helpers.round_area_coordinates(area, max_decimals=2)
+                print(f"[@controller:ImageVerification] Rounded area for saving: {area}")
+            
             # Save reference using helpers (handles R2 upload and database save)
             save_result = self.helpers.save_image_reference(image_saved_path, reference_name, userinterface_name, team_id, area)
             
