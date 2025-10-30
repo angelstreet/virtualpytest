@@ -11,16 +11,6 @@ from backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 server_builder_bp = Blueprint('server_builder', __name__, url_prefix='/server/builder')
 
 
-@server_builder_bp.route('/blocks', methods=['GET'])
-def get_blocks():
-    """
-    Proxy: Get all available standard blocks from host.
-    
-    Already implemented in auto_proxy.py - this is just documentation.
-    """
-    pass  # Handled by auto_proxy
-
-
 @server_builder_bp.route('/execute', methods=['POST'])
 def execute_standard_block():
     """
