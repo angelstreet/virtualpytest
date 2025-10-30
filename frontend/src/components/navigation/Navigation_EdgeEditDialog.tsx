@@ -547,7 +547,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
               sx={{
                 mt: 1,
                 p: 1,
-                bgcolor: edgeHook.runResult.includes('❌ FAILED')
+                bgcolor: edgeHook.runResult.includes('❌ FAILED') || edgeHook.runResult.toLowerCase().includes('failed')
                   ? 'error.light'
                   : edgeHook.runResult.includes('✅ SUCCESS')
                     ? 'success.light'
@@ -555,7 +555,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
                       ? 'error.light'
                       : edgeHook.runResult.includes('⚠️')
                         ? 'warning.light'
-                        : 'success.light',
+                        : 'error.light',
                 borderRadius: 1,
                 maxHeight: '200px', // Slightly taller in dialog
                 overflow: 'auto',

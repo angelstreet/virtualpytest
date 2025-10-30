@@ -322,9 +322,11 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
     def click_element(self, element_identifier: str) -> bool:
         """
         Click element directly by text, resource_id, or content_desc using simple ADB command.
+        Supports pipe-separated fallback: "Settings|Preferences|Options"
         
         Args:
             element_identifier: Text, resource ID, or content description to click
+                                Can use pipe "|" to specify multiple options (tries each until one succeeds)
             
         Returns:
             bool: True if click successful
@@ -333,27 +335,48 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         try:
             print(f"Remote[{self.device_type.upper()}]: Direct click on element: '{element_identifier}'")
             
-            # Find element using single UI dump
-            exists, element, error = self.adb_utils.check_element_exists(self.android_device_id, element_identifier)
+            # Parse pipe-separated terms for fallback support
+            terms = [t.strip() for t in element_identifier.split('|')] if '|' in element_identifier else [element_identifier]
             
-            if exists and element:
-                # Directly click the found element instead of re-searching (avoids double UI dump)
-                success = self.adb_utils.click_element(self.android_device_id, element)
+            if len(terms) > 1:
+                print(f"Remote[{self.device_type.upper()}]: Using fallback strategy with {len(terms)} terms: {terms}")
+            
+            # Try each term until one succeeds
+            last_error = None
+            for i, term in enumerate(terms):
+                if len(terms) > 1:
+                    print(f"Remote[{self.device_type.upper()}]: Attempt {i+1}/{len(terms)}: Searching for '{term}'")
                 
-                if success:
-                    print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
-                    self.last_error = None
-                    return True
+                # Find element using single UI dump
+                exists, element, error = self.adb_utils.check_element_exists(self.android_device_id, term)
+                
+                if exists and element:
+                    # Directly click the found element instead of re-searching (avoids double UI dump)
+                    success = self.adb_utils.click_element(self.android_device_id, element)
+                    
+                    if success:
+                        if len(terms) > 1:
+                            print(f"Remote[{self.device_type.upper()}]: Successfully clicked using term '{term}'")
+                        else:
+                            print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
+                        self.last_error = None
+                        return True
+                    else:
+                        error_msg = f"Element found but click failed for '{term}'"
+                        print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+                        last_error = error_msg
+                        # Continue to next term
                 else:
-                    error_msg = f"Element found but click failed for '{element_identifier}'"
+                    error_msg = f"Element '{term}' not found: {error}"
                     print(f"Remote[{self.device_type.upper()}]: {error_msg}")
-                    self.last_error = error_msg
-                    return False
-            else:
-                error_msg = f"Element '{element_identifier}' not found: {error}"
-                print(f"Remote[{self.device_type.upper()}]: {error_msg}")
-                self.last_error = error_msg
-                return False
+                    last_error = error_msg
+                    if len(terms) > 1:
+                        print(f"Remote[{self.device_type.upper()}]: Term '{term}' not found, trying next...")
+            
+            # All terms failed
+            print(f"Remote[{self.device_type.upper()}]: All terms failed. Last error: {last_error}")
+            self.last_error = last_error
+            return False
                 
         except Exception as e:
             error_msg = f"Element click error: {str(e)}"

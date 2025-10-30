@@ -516,9 +516,7 @@ class TextVerificationController:
                         ParamType.NUMBER,
                         required=False,
                         default=0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     "area": create_param(
                         ParamType.AREA,
@@ -544,9 +542,7 @@ class TextVerificationController:
                         ParamType.NUMBER,
                         required=False,
                         default=0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     "area": create_param(
                         ParamType.AREA,

@@ -1990,9 +1990,7 @@ class PlaywrightWebController(WebControllerInterface):
                         ParamType.NUMBER,
                         required=False,
                         default=10.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     'check_interval': create_param(
                         ParamType.NUMBER,
@@ -2020,9 +2018,7 @@ class PlaywrightWebController(WebControllerInterface):
                         ParamType.NUMBER,
                         required=False,
                         default=10.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     'check_interval': create_param(
                         ParamType.NUMBER,

@@ -509,9 +509,7 @@ class VideoVerificationHelpers:
                         ParamType.NUMBER,
                         required=False,
                         default=10.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     )
                 },
                 'verification_type': 'video',
@@ -540,9 +538,7 @@ class VideoVerificationHelpers:
                         ParamType.NUMBER,
                         required=False,
                         default=10.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     )
                 },
                 'verification_type': 'video',

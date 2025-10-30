@@ -15,6 +15,11 @@ export interface ReferenceArea {
   y: number;
   width: number;
   height: number;
+  // Optional fuzzy search coordinates
+  fx?: number;
+  fy?: number;
+  fwidth?: number;
+  fheight?: number;
 }
 
 // Image verification parameters

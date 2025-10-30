@@ -627,9 +627,7 @@ class AppiumVerificationController(VerificationControllerInterface):
                         ParamType.NUMBER,
                         required=False,
                         default=0.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     'check_interval': create_param(
                         ParamType.NUMBER,
@@ -657,9 +655,7 @@ class AppiumVerificationController(VerificationControllerInterface):
                         ParamType.NUMBER,
                         required=False,
                         default=0.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     'check_interval': create_param(
                         ParamType.NUMBER,

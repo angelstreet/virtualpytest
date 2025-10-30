@@ -390,9 +390,11 @@ class AppiumRemoteController(RemoteControllerInterface):
     def click_element(self, element_identifier: str) -> bool:
         """
         Click element directly by text, identifier, or content description using Appium search.
+        Supports pipe-separated fallback: "Settings|Preferences|Options"
         
         Args:
             element_identifier: Text, identifier, or content description to click
+                                Can use pipe "|" to specify multiple options (tries each until one succeeds)
             
         Returns:
             bool: True if click successful
@@ -404,26 +406,47 @@ class AppiumRemoteController(RemoteControllerInterface):
         try:
             print(f"Remote[{self.device_type.upper()}]: Direct click on element: '{element_identifier}'")
             
-            # Try to find element by text first
-            element = self.find_element_by_text(element_identifier)
-            if not element:
-                # Try by identifier
-                element = self.find_element_by_identifier(element_identifier)
-            if not element:
-                # Try by content description
-                element = self.find_element_by_content_desc(element_identifier)
+            # Parse pipe-separated terms for fallback support
+            terms = [t.strip() for t in element_identifier.split('|')] if '|' in element_identifier else [element_identifier]
             
-            if element:
-                success = self.appium_utils.click_element(self.appium_device_id, element)
-                if success:
-                    print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
-                else:
-                    print(f"Remote[{self.device_type.upper()}]: Failed to click element: '{element_identifier}'")
+            if len(terms) > 1:
+                print(f"Remote[{self.device_type.upper()}]: Using fallback strategy with {len(terms)} terms: {terms}")
+            
+            # Try each term until one succeeds
+            last_error = None
+            for i, term in enumerate(terms):
+                if len(terms) > 1:
+                    print(f"Remote[{self.device_type.upper()}]: Attempt {i+1}/{len(terms)}: Searching for '{term}'")
                 
-                return success
-            else:
-                print(f"Remote[{self.device_type.upper()}]: Element not found: '{element_identifier}'")
-                return False
+                # Try to find element by text first
+                element = self.find_element_by_text(term)
+                if not element:
+                    # Try by identifier
+                    element = self.find_element_by_identifier(term)
+                if not element:
+                    # Try by content description
+                    element = self.find_element_by_content_desc(term)
+                
+                if element:
+                    success = self.appium_utils.click_element(self.appium_device_id, element)
+                    if success:
+                        if len(terms) > 1:
+                            print(f"Remote[{self.device_type.upper()}]: Successfully clicked using term '{term}'")
+                        else:
+                            print(f"Remote[{self.device_type.upper()}]: Successfully clicked element: '{element_identifier}'")
+                        return True
+                    else:
+                        last_error = f"Element found but click failed for '{term}'"
+                        print(f"Remote[{self.device_type.upper()}]: {last_error}")
+                        # Continue to next term
+                else:
+                    last_error = f"Element not found: '{term}'"
+                    if len(terms) > 1:
+                        print(f"Remote[{self.device_type.upper()}]: Term '{term}' not found, trying next...")
+            
+            # All terms failed
+            print(f"Remote[{self.device_type.upper()}]: All terms failed. Last error: {last_error}")
+            return False
                 
         except Exception as e:
             print(f"Remote[{self.device_type.upper()}]: Direct element click error: {e}")

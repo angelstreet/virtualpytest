@@ -842,9 +842,7 @@ class ImageVerificationController:
                         ParamType.NUMBER,
                         required=False,
                         default=0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     "threshold": create_param(
                         ParamType.NUMBER,
@@ -878,9 +876,7 @@ class ImageVerificationController:
                         ParamType.NUMBER,
                         required=False,
                         default=0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     "threshold": create_param(
                         ParamType.NUMBER,
@@ -914,9 +910,7 @@ class ImageVerificationController:
                         ParamType.NUMBER,
                         required=False,
                         default=10,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     ),
                     "threshold": create_param(
                         ParamType.NUMBER,

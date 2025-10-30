@@ -472,9 +472,7 @@ class ADBVerificationController(VerificationControllerInterface):
                         ParamType.NUMBER,
                         required=False,
                         default=0.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     )
                 },
                 'verification_type': 'adb',
@@ -494,9 +492,7 @@ class ADBVerificationController(VerificationControllerInterface):
                         ParamType.NUMBER,
                         required=False,
                         default=0.0,
-                        description="Maximum time to wait (seconds)",
-                        min=0,
-                        max=30
+                        description="Maximum time to wait (seconds)"
                     )
                 },
                 'verification_type': 'adb',
