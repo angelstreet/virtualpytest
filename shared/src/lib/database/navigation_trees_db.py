@@ -253,6 +253,14 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         node_data['team_id'] = team_id
         node_data['updated_at'] = datetime.now(timezone.utc).isoformat()
         
+        # Ensure data field is never null - database constraint requires it
+        if 'data' not in node_data or node_data['data'] is None:
+            node_data['data'] = {}
+        
+        # Ensure style field is never null - database constraint requires it
+        if 'style' not in node_data or node_data['style'] is None:
+            node_data['style'] = {}
+        
         # Check if node exists
         existing = supabase.table('navigation_nodes').select('id')\
             .eq('tree_id', tree_id)\

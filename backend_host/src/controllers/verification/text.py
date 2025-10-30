@@ -418,8 +418,16 @@ class TextVerificationController:
                 # Get Menu Info: OCR + parse key-values + auto-store to metadata
                 area = params.get('area')
                 context = verification_config.get('context')
-                result = self.getMenuInfo(area=area, context=context, source_path=source_path)
-                return result  # Return directly (already in correct format)
+                menu_result = self.getMenuInfo(area=area, context=context, source_path=source_path)
+                
+                # Convert to standard verification format for consistent logging
+                return {
+                    'success': menu_result['success'],
+                    'message': menu_result['message'],
+                    'screenshot_path': source_path,
+                    'output_data': menu_result.get('output_data', {}),
+                    'details': menu_result.get('output_data', {})  # For route processing
+                }
             
             # Required parameters for standard text verifications
             text = params.get('text', '')

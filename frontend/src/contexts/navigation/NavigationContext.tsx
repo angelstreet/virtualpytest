@@ -1115,15 +1115,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               data: {
                 // Only include non-verification data to avoid duplication
                 // NOTE: node_type is saved at top-level, NOT in data object
-                description: updatedNodeData.data.description,
-                screenshot: updatedNodeData.data.screenshot,
-                depth: updatedNodeData.data.depth,
-                parent: updatedNodeData.data.parent,
-                menu_type: updatedNodeData.data.menu_type,
-                priority: updatedNodeData.data.priority,
-                is_root: updatedNodeData.data.is_root,
-                isParentReference: updatedNodeData.data.isParentReference,
-                originalTreeId: updatedNodeData.data.originalTreeId,
+                description: updatedNodeData.data.description || '',
+                screenshot: updatedNodeData.data.screenshot || '',
+                depth: updatedNodeData.data.depth ?? 0,
+                parent: updatedNodeData.data.parent || [],
+                menu_type: updatedNodeData.data.menu_type || '',
+                priority: updatedNodeData.data.priority || 'p3',
+                is_root: updatedNodeData.data.is_root || false,
+                isParentReference: updatedNodeData.data.isParentReference || false,
+                originalTreeId: updatedNodeData.data.originalTreeId || '',
                 // DO NOT include verifications here - they're already at top level
               },
             };

@@ -200,6 +200,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
       outputs: ['success', 'failure'],
       defaultData: {
         command: verificationDef.command,
+        action_type: 'verification', // ✅ Required for backend routing
         verification_type: verificationDef.verification_type || verificationType,
         params: { ...verificationDef.params },
       },
