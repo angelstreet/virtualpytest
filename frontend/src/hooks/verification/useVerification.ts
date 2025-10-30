@@ -239,8 +239,8 @@ export const useVerification = ({
         console.log('[useVerification] Verification areas with fuzzy coordinates:', 
           verificationsWithUserInterface.map(v => ({ 
             command: v.command, 
-            area: v.params?.area,
-            hasFuzzy: !!(v.params?.area?.fx !== undefined || v.params?.area?.fy !== undefined)
+            area: (v.params as any)?.area,
+            hasFuzzy: !!((v.params as any)?.area?.fx !== undefined || (v.params as any)?.area?.fy !== undefined)
           }))
         );
 
