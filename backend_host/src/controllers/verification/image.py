@@ -182,7 +182,8 @@ class ImageVerificationController:
                 if source_img is None:
                     continue
                 
-                threshold_score, match_location = self._match_template(ref_img, source_img, area)
+                # Get match result: found flag tells us if we can exit early!
+                is_found, threshold_score, match_location = self._match_template(ref_img, source_img, area, threshold)
                 
                 # Always set first valid source as best_source_path, then update if better threshold score found
                 if best_source_path is None or threshold_score > max_threshold_score:
@@ -190,7 +191,8 @@ class ImageVerificationController:
                     best_source_path = source_path
                     best_match_location = match_location
                 
-                if threshold_score >= threshold:
+                # Early exit if found! No need to check more images
+                if is_found:
                     # Save actual threshold score (separate from user threshold)
                     additional_data["matching_result"] = threshold_score  # Actual threshold score
                     
@@ -1212,19 +1214,29 @@ class ImageVerificationController:
             traceback.print_exc()
             return None, None
 
-    def _match_template(self, ref_img, source_img, area: dict = None) -> Tuple[float, Optional[dict]]:
+    def _match_template(self, ref_img, source_img, area: dict = None, threshold: float = 0.8) -> Tuple[bool, float, Optional[dict]]:
         """
         Match template and return confidence + actual match location.
         
+        Args:
+            ref_img: Reference image
+            source_img: Source image to search in
+            area: Search area (may include fuzzy parameters)
+            threshold: Matching threshold (used for early exit in fuzzy search)
+        
         Returns:
-            Tuple of (confidence, location) where location is the actual match area in source image
+            Tuple of (found, confidence, location) where:
+                - found: True if confidence >= threshold (for early exit)
+                - confidence: Actual matching score
+                - location: Actual match area in source image
         """
         try:
             if area and 'fx' in area and area.get('fx') is not None:
                 exact_area = {'x': area['x'], 'y': area['y'], 'width': area['width'], 'height': area['height']}
                 fuzzy_area = {'fx': area['fx'], 'fy': area['fy'], 'fwidth': area['fwidth'], 'fheight': area['fheight']}
-                found, confidence, location = self.helpers.smart_fuzzy_search(source_img, ref_img, exact_area, fuzzy_area, 0.0)
-                return confidence, location
+                # Pass threshold for early exit on exact match
+                found, confidence, location = self.helpers.smart_fuzzy_search(source_img, ref_img, exact_area, fuzzy_area, threshold)
+                return found, confidence, location  # Return 'found' flag for early exit!
             
             if area:
                 x, y, w, h = int(area['x']), int(area['y']), int(area['width']), int(area['height'])
@@ -1244,7 +1256,8 @@ class ImageVerificationController:
                 pixel_score = matching_pixels / total_pixels
                 
                 print(f"[@controller:ImageVerification] Pixel match: {matching_pixels}/{total_pixels} = {pixel_score:.1%}")
-                return pixel_score, location
+                found = pixel_score >= threshold
+                return found, pixel_score, location
             
             # No area specified - full image search
             result = cv2.matchTemplate(source_img, ref_img, cv2.TM_CCOEFF_NORMED)
@@ -1252,13 +1265,14 @@ class ImageVerificationController:
             
             ref_h, ref_w = ref_img.shape[:2]
             location = {'x': max_loc[0], 'y': max_loc[1], 'width': ref_w, 'height': ref_h}
-            return max_val, location
+            found = max_val >= threshold
+            return found, max_val, location
             
         except Exception as e:
             print(f"[@controller:ImageVerification] ERROR: Template matching error: {e}")
             import traceback
             traceback.print_exc()
-            return 0.0, None
+            return False, 0.0, None
     
     def _get_next_capture(self, filepath: str, offset: int) -> str:
         """Get next sequential capture filename"""
