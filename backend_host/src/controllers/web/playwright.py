@@ -423,73 +423,87 @@ class PlaywrightWebController(WebControllerInterface):
     
     def click_element(self, element_id: str) -> Dict[str, Any]:
         """Click an element using dump-first approach (like Android mobile).
+        Supports pipe-separated fallback: "Settings|Preferences|Options"
         
         Args:
             element_id: Element text, CSS selector, or aria-label to search for (unified with Android parameter name)
+                        Can use pipe "|" to specify multiple options (tries each until one succeeds)
         """
         try:
             print(f"[PLAYWRIGHT]: Clicking element using dump-first approach: {element_id}")
             start_time = time.time()
             
-            # Step 1: Find element using dump-first (same as Android mobile)
-            find_result = self.find_element(element_id)
+            # Parse pipe-separated terms for fallback support
+            terms = [t.strip() for t in element_id.split('|')] if '|' in element_id else [element_id]
             
-            if not find_result.get('success'):
-                execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Element not found: {find_result.get('error', 'Unknown error')}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': execution_time
-                }
+            if len(terms) > 1:
+                print(f"[PLAYWRIGHT]: Using fallback strategy with {len(terms)} terms: {terms}")
             
-            # Step 2: Click the found element using coordinates (like Android mobile)
-            element_info = find_result.get('element_info', {})
-            position = element_info.get('position', {})
+            # Try each term until one succeeds
+            last_error = None
+            for i, term in enumerate(terms):
+                if len(terms) > 1:
+                    print(f"[PLAYWRIGHT]: Attempt {i+1}/{len(terms)}: Searching for '{term}'")
+                
+                # Step 1: Find element using dump-first (same as Android mobile)
+                find_result = self.find_element(term)
+                
+                if not find_result.get('success'):
+                    last_error = f"Element not found: {find_result.get('error', 'Unknown error')}"
+                    if len(terms) > 1:
+                        print(f"[PLAYWRIGHT]: Term '{term}' not found, trying next...")
+                    continue
+                
+                # Step 2: Click the found element using coordinates (like Android mobile)
+                element_info = find_result.get('element_info', {})
+                position = element_info.get('position', {})
+                
+                if not position or 'x' not in position:
+                    last_error = f"Element found but no coordinates available"
+                    if len(terms) > 1:
+                        print(f"[PLAYWRIGHT]: Term '{term}' found but no coordinates, trying next...")
+                    continue
+                
+                # Calculate center coordinates
+                center_x = position['x'] + (position.get('width', 0) / 2)
+                center_y = position['y'] + (position.get('height', 0) / 2)
+                
+                # Log with element_id for consistency
+                found_element_id = element_info.get('element_id', 'unknown')
+                matched_value = element_info.get('matched_value', '')
+                print(f"[PLAYWRIGHT]: Found element (ID={found_element_id}, value='{matched_value}'), clicking at coordinates ({center_x:.0f}, {center_y:.0f})")
+                
+                # Step 3: Click using coordinates (reuse tap_x_y logic)
+                tap_result = self.tap_x_y(int(center_x), int(center_y))
+                
+                if tap_result.get('success'):
+                    execution_time = int((time.time() - start_time) * 1000)
+                    if len(terms) > 1:
+                        print(f"[PLAYWRIGHT]: Click successful using term '{term}'")
+                    else:
+                        print(f"[PLAYWRIGHT]: Click successful using dump-first approach")
+                    return {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time,
+                        'method': 'dump_search_click',
+                        'coordinates': {'x': int(center_x), 'y': int(center_y)},
+                        'element_info': element_info
+                    }
+                else:
+                    last_error = f"Element found but click failed: {tap_result.get('error', 'Unknown error')}"
+                    if len(terms) > 1:
+                        print(f"[PLAYWRIGHT]: Term '{term}' click failed, trying next...")
+                    continue
             
-            if not position or 'x' not in position:
-                execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Element found but no coordinates available"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': execution_time
-                }
-            
-            # Calculate center coordinates
-            center_x = position['x'] + (position.get('width', 0) / 2)
-            center_y = position['y'] + (position.get('height', 0) / 2)
-            
-            # Log with element_id for consistency
-            element_id = element_info.get('element_id', 'unknown')
-            matched_value = element_info.get('matched_value', '')
-            print(f"[PLAYWRIGHT]: Found element (ID={element_id}, value='{matched_value}'), clicking at coordinates ({center_x:.0f}, {center_y:.0f})")
-            
-            # Step 3: Click using coordinates (reuse tap_x_y logic)
-            tap_result = self.tap_x_y(int(center_x), int(center_y))
-            
-            if tap_result.get('success'):
-                execution_time = int((time.time() - start_time) * 1000)
-                print(f"[PLAYWRIGHT]: Click successful using dump-first approach")
-                return {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'method': 'dump_search_click',
-                    'coordinates': {'x': int(center_x), 'y': int(center_y)},
-                    'element_info': element_info
-                }
-            else:
-                execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Element found but click failed: {tap_result.get('error', 'Unknown error')}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': execution_time
-                }
+            # All terms failed
+            execution_time = int((time.time() - start_time) * 1000)
+            print(f"[PLAYWRIGHT]: All terms failed. Last error: {last_error}")
+            return {
+                'success': False,
+                'error': last_error or 'Element not found',
+                'execution_time': execution_time
+            }
                 
         except Exception as e:
             execution_time = int((time.time() - start_time) * 1000)
@@ -499,7 +513,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'success': False,
                 'error': error_msg,
                 'execution_time': execution_time,
-                'selector_attempted': selector
+                'selector_attempted': element_id
             }
     
     def hover_element(self, selector: str) -> Dict[str, Any]:
