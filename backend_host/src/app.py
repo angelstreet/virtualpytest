@@ -111,8 +111,7 @@ def register_host_routes(app):
             host_campaign_routes,
             host_transcript_routes,
             host_deployment_routes,
-            host_builder_routes,  # Standard blocks
-            host_execution_routes  # 🆕 Unified execution orchestrator
+            host_builder_routes  # Standard blocks
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
@@ -152,8 +151,7 @@ def register_host_routes(app):
         (host_campaign_routes.host_campaign_bp, 'Campaign execution'),
         (host_transcript_routes.host_transcript_bp, 'Transcript services'),
         (host_deployment_routes.host_deployment_bp, 'Deployment scheduling'),
-        (host_builder_routes.host_builder_bp, 'Standard blocks'),
-        (host_execution_routes.host_execution_bp, '🆕 Unified Execution Orchestrator')  # 🆕 NEW
+        (host_builder_routes.host_builder_bp, 'Standard blocks')
     ]
     
     for blueprint, description in blueprints:

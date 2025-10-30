@@ -144,9 +144,9 @@ def action_execute_batch():
             # Use short timeout - only for initial async response (execution_id)
             timeout = 10
             
-            # Proxy to host orchestrator execution endpoint
+            # Proxy to host action execution endpoint with async support
             response_data, status_code = proxy_to_host_with_params(
-                '/execute/actions', 
+                '/host/action/executeBatch', 
                 'POST', 
                 execution_payload, 
                 query_params, 
@@ -265,9 +265,9 @@ def action_execute_single():
         
         print(f"[@route:server_actions:action_execute_single] Proxying to host: {host_name}")
         
-        # Proxy to orchestrator execution endpoint (short timeout for async start)
+        # Proxy to host action execution endpoint with async support
         response_data, status_code = proxy_to_host_with_params(
-            '/execute/actions',
+            '/host/action/executeBatch',
             'POST',
             execution_payload,
             query_params,

@@ -109,6 +109,7 @@ def execute_navigation(tree_id):
         
         # Proxy to host navigation execution endpoint
         execution_payload = {
+            'tree_id': tree_id,  # CRITICAL: Include tree_id in body
             'target_node_id': target_node_id,
             'target_node_label': target_node_label,
             'device_id': device_id,
@@ -125,7 +126,7 @@ def execute_navigation(tree_id):
         
         # Use short timeout - only for initial async response (execution_id)
         timeout = 10
-        response_data, status_code = proxy_to_host_with_params(f'/execute/navigation', 'POST', execution_payload, query_params, timeout=timeout)
+        response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}', 'POST', execution_payload, query_params, timeout=timeout)
         
         print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={response_data.get('success')}")
         
@@ -334,6 +335,9 @@ def batch_execute_navigation():
                 
                 # Proxy to host for actual navigation execution
                 batch_payload = {
+                    'tree_id': tree_id,  # CRITICAL: Include tree_id in body
+                    'target_node_id': target_node_id,  # CRITICAL: Include target_node_id
+                    'userinterface_name': userinterface_name,  # CRITICAL: Include userinterface_name
                     'device_id': device_id,
                     'current_node_id': current_node_id,
                     'host_name': host_name
@@ -344,7 +348,7 @@ def batch_execute_navigation():
                 if team_id:
                     batch_query_params['team_id'] = team_id
                 
-                proxy_result, proxy_status = proxy_to_host_with_params(f'/execute/navigation', 'POST', batch_payload, batch_query_params, timeout=180)
+                proxy_result, proxy_status = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}', 'POST', batch_payload, batch_query_params, timeout=180)
                 
                 result = proxy_result if proxy_result else {'success': False, 'error': 'Host proxy failed'}
                 result['navigation_index'] = i

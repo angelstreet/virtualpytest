@@ -112,8 +112,8 @@ def proxy_verification():
         if not host_data:
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
-        # Forward request to host orchestrator
-        host_url = buildHostUrl(host_data, '/execute/verifications')
+        # Forward request to host with async support
+        host_url = buildHostUrl(host_data, '/host/verification/execute')
         
         print(f"📡 [PROXY] Forwarding verification request to: {host_url}")
         
