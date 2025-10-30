@@ -28,6 +28,8 @@ import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { ScriptIOSections } from '../../testcase/builder/ScriptIOSections';
 import { ToolboxSearchBox } from '../../common/builder/ToolboxSearchBox';
 import { DraggableCommand } from '../../common/builder/DraggableCommand';
+import { extractStandardBlockGroups } from '../../../utils/toolboxBuilder';
+import { useMemo } from 'react';
 
 interface CampaignToolboxProps {
   actualMode: 'light' | 'dark';
@@ -68,6 +70,12 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
     testcases: '#9c27b0', // Purple - matching testcase blocks
     scripts: '#ff9800',   // Orange - matching script blocks
   };
+
+  // Transform standardBlocks using toolboxBuilder utility (same as TestCase)
+  const standardToolboxGroups = useMemo(() => {
+    if (!standardBlocks || standardBlocks.length === 0) return [];
+    return extractStandardBlockGroups(standardBlocks);
+  }, [standardBlocks]);
 
   // Load available executables
   useEffect(() => {
@@ -296,8 +304,8 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
           p: 0.5,
         }}
       >
-        {/* STANDARD Category - Same as TestCase Builder */}
-        {standardBlocks && standardBlocks.length > 0 && (
+        {/* STANDARD Category - Using toolbox builder utility (same as TestCase) */}
+        {standardToolboxGroups && standardToolboxGroups.length > 0 && (
           <Accordion
             defaultExpanded={searchQuery.trim() !== ''}
             sx={{
@@ -348,12 +356,12 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
                   letterSpacing: '0.5px'
                 }}
               >
-                STANDARD
+                {standardToolboxGroups[0]?.groupName || 'STANDARD'}
               </Typography>
             </AccordionSummary>
             <AccordionDetails sx={{ p: 1 }}>
               {/* Render each group with nested accordion */}
-              {standardBlocks.map((group: any, groupIdx: number) => (
+              {standardToolboxGroups.map((group: any, groupIdx: number) => (
                 <Accordion
                   key={`standard-group-${groupIdx}`}
                   defaultExpanded={true}

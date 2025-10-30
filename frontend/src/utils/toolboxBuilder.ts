@@ -231,8 +231,10 @@ function formatGroupName(name: string): string {
 /**
  * Extract standard block groups from BuilderContext
  * Converts standard blocks from backend into toolbox format
+ * 
+ * EXPORTED for use in Campaign builder (which doesn't have navigation nodes)
  */
-function extractStandardBlockGroups(standardBlocks: any[]) {
+export function extractStandardBlockGroups(standardBlocks: any[]) {
   const groups: any[] = [];
 
   if (!standardBlocks || standardBlocks.length === 0) {
