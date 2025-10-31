@@ -88,9 +88,9 @@ CREATE TRIGGER sync_parent_node_to_subtrees_trigger
     AFTER UPDATE ON navigation_nodes
     FOR EACH ROW
     WHEN (
-        -- Fire when label, screenshot, or verifications changes
+        -- Fire when label, data (including screenshot), or verifications changes
         OLD.label IS DISTINCT FROM NEW.label OR
-        OLD.data->>'screenshot' IS DISTINCT FROM NEW.data->>'screenshot' OR
+        OLD.data IS DISTINCT FROM NEW.data OR
         OLD.verifications IS DISTINCT FROM NEW.verifications
     )
     EXECUTE FUNCTION sync_parent_node_to_subtrees();
@@ -110,20 +110,20 @@ CREATE TRIGGER cascade_delete_subtrees_trigger
 CREATE OR REPLACE FUNCTION sync_subtree_to_parent_node()
 RETURNS TRIGGER AS $$
 DECLARE
-    parent_tree_id UUID;
-    parent_node_id TEXT;
+    v_parent_tree_id UUID;
+    v_parent_node_id TEXT;
 BEGIN
     -- Check if this node is an entry node in a subtree (node exists in a tree that has a parent)
-    SELECT parent_tree_id, parent_node_id 
-    INTO parent_tree_id, parent_node_id
-    FROM navigation_trees 
-    WHERE id = NEW.tree_id 
-    AND team_id = NEW.team_id
-    AND parent_tree_id IS NOT NULL
-    AND parent_node_id IS NOT NULL;
+    SELECT nt.parent_tree_id, nt.parent_node_id 
+    INTO v_parent_tree_id, v_parent_node_id
+    FROM navigation_trees nt
+    WHERE nt.id = NEW.tree_id 
+    AND nt.team_id = NEW.team_id
+    AND nt.parent_tree_id IS NOT NULL
+    AND nt.parent_node_id IS NOT NULL;
     
     -- If this is a subtree entry node, sync back to parent
-    IF parent_tree_id IS NOT NULL AND parent_node_id IS NOT NULL THEN
+    IF v_parent_tree_id IS NOT NULL AND v_parent_node_id IS NOT NULL THEN
         -- Update the parent node in the parent tree with same node_id
         UPDATE navigation_nodes 
         SET 
@@ -137,14 +137,14 @@ BEGIN
             updated_at = NOW()
         WHERE 
             node_id = NEW.node_id
-            AND tree_id = parent_tree_id
+            AND tree_id = v_parent_tree_id
             AND team_id = NEW.team_id;
             
         -- Log sync operation for debugging
         IF FOUND THEN
             RAISE NOTICE 'Synced screenshot/label/verifications from subtree entry node % back to parent node in tree %', 
                          NEW.node_id, 
-                         parent_tree_id;
+                         v_parent_tree_id;
         END IF;
     END IF;
     
@@ -158,9 +158,9 @@ CREATE TRIGGER sync_subtree_to_parent_trigger
     AFTER UPDATE ON navigation_nodes
     FOR EACH ROW
     WHEN (
-        -- Fire when label, screenshot, or verifications changes
+        -- Fire when label, data (including screenshot), or verifications changes
         OLD.label IS DISTINCT FROM NEW.label OR
-        OLD.data->>'screenshot' IS DISTINCT FROM NEW.data->>'screenshot' OR
+        OLD.data IS DISTINCT FROM NEW.data OR
         OLD.verifications IS DISTINCT FROM NEW.verifications
     )
     EXECUTE FUNCTION sync_subtree_to_parent_node();
