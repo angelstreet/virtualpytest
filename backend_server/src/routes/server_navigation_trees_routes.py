@@ -795,6 +795,8 @@ def get_tree_by_userinterface_id(userinterface_id):
     Query parameters:
         include_metrics: boolean (default: false) - Include metrics data with tree data
                         Set to true to get tree + metrics in a single call (reduces 2 calls to 1)
+        include_nested: boolean (default: false) - Include all nested subtrees
+                        Set to true to get complete hierarchy (root + all nested trees)
     """
     try:
         team_id = request.args.get('team_id') 
@@ -807,13 +809,57 @@ def get_tree_by_userinterface_id(userinterface_id):
         # Check if we should include metrics (defaults to false for backward compatibility)
         include_metrics = request.args.get('include_metrics', 'false').lower() == 'true'
         
+        # Check if we should include nested trees (defaults to false for backward compatibility)
+        include_nested = request.args.get('include_nested', 'false').lower() == 'true'
+        
         # Get the root tree for this user interface
         tree = get_root_tree_for_interface(userinterface_id, team_id)
         
         if tree:
             tree_id = tree['id']
             
-            # Try cache first (avoids 3 DB queries!)
+            # If nested trees requested, load complete hierarchy (no cache for now)
+            if include_nested:
+                print(f"[@route:navigation_trees] Loading complete hierarchy for tree {tree_id}")
+                from shared.src.lib.database.navigation_trees_db import get_complete_tree_hierarchy
+                
+                hierarchy_result = get_complete_tree_hierarchy(tree_id, team_id)
+                
+                if hierarchy_result.get('success'):
+                    all_trees_data = hierarchy_result.get('all_trees_data', [])
+                    
+                    # Flatten all nodes from all trees into a single list
+                    all_nodes = []
+                    all_edges = []
+                    for tree_data in all_trees_data:
+                        all_nodes.extend(tree_data.get('nodes', []))
+                        all_edges.extend(tree_data.get('edges', []))
+                    
+                    response_data = {
+                        'success': True,
+                        'tree': {
+                            'id': tree['id'],
+                            'name': tree['name'],
+                            'viewport_x': tree.get('viewport_x', 0),
+                            'viewport_y': tree.get('viewport_y', 0),
+                            'viewport_zoom': tree.get('viewport_zoom', 1),
+                            'metadata': {
+                                'nodes': all_nodes,
+                                'edges': all_edges
+                            }
+                        },
+                        'nested_trees_count': len(all_trees_data)
+                    }
+                    
+                    print(f"[@route:navigation_trees] Loaded {len(all_trees_data)} trees with {len(all_nodes)} total nodes")
+                    return jsonify(response_data)
+                else:
+                    return jsonify({
+                        'success': False,
+                        'error': f'Failed to load tree hierarchy: {hierarchy_result.get("error", "Unknown error")}'
+                    })
+            
+            # Try cache first (avoids 3 DB queries!) - only for non-nested requests
             cached_result = get_cached_tree(tree_id, team_id)
             if cached_result:
                 # If metrics requested and not in cache, fetch and add them

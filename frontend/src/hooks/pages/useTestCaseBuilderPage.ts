@@ -326,12 +326,15 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
         const userInterface = await getUserInterfaceByName(userinterfaceName);
         
         if (userInterface) {
-          const result = await loadTreeByUserInterface(userInterface.id);
+          // Load tree with nested trees included so we can navigate to any node
+          const result = await loadTreeByUserInterface(userInterface.id, { includeNested: true });
           setUserInterfaceFromProps(userInterface);
           
           console.log('[@useTestCaseBuilderPage] 🔍 DEBUG result structure:', {
             result_tree_id: result?.tree?.id,
             userInterface_root_tree: userInterface.root_tree,
+            nested_trees_count: result?.nested_trees_count,
+            total_nodes: result?.tree?.metadata?.nodes?.length,
             full_result: result
           });
           
@@ -341,9 +344,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
           setNavNodes(nodes);
           setCurrentTreeId(treeId);
           
-          console.log('[@useTestCaseBuilderPage] ✅ Loaded navigation tree:', {
+          console.log('[@useTestCaseBuilderPage] ✅ Loaded navigation tree with nested trees:', {
             interface: userinterfaceName,
             treeId: treeId,
+            nestedTreesCount: result?.nested_trees_count || 0,
             nodeCount: nodes.length
           });
           

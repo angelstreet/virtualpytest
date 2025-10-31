@@ -145,7 +145,7 @@ interface NavigationConfigContextType {
   // Load operations
   loadTreeMetadata: (treeId: string) => Promise<NavigationTree>;
   loadTreeData: (treeId: string) => Promise<any>;
-  loadTreeByUserInterface: (userInterfaceId: string, options?: { includeMetrics?: boolean }) => Promise<any>;
+  loadTreeByUserInterface: (userInterfaceId: string, options?: { includeMetrics?: boolean; includeNested?: boolean }) => Promise<any>;
   loadTreeNodes: (treeId: string, page?: number, limit?: number) => Promise<NavigationNode[]>;
   loadTreeEdges: (treeId: string, nodeIds?: string[]) => Promise<NavigationEdge[]>;
 
@@ -241,13 +241,14 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     }
   };
 
-  const loadTreeByUserInterface = async (userInterfaceId: string, options?: { includeMetrics?: boolean }): Promise<any> => {
+  const loadTreeByUserInterface = async (userInterfaceId: string, options?: { includeMetrics?: boolean; includeNested?: boolean }): Promise<any> => {
     const includeMetrics = options?.includeMetrics || false;
+    const includeNested = options?.includeNested || false;
     
     // Include server URL in cache key to prevent cross-server cache pollution
     // When user switches servers, cache from different server should not be used
     const selectedServer = localStorage.getItem('selectedServer') || 'default';
-    const cacheKey = `${selectedServer}|${userInterfaceId}|metrics:${includeMetrics}`;
+    const cacheKey = `${selectedServer}|${userInterfaceId}|metrics:${includeMetrics}|nested:${includeNested}`;
     
     // Check cache first
     const cached = treeCache.current.get(cacheKey);
@@ -255,7 +256,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
       const age = Date.now() - cached.timestamp;
       if (age < CACHE_CONFIG.MEDIUM_TTL) {
         const ageSeconds = Math.floor(age / 1000);
-        console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} from ${selectedServer} (age: ${ageSeconds}s, metrics: ${includeMetrics})`);
+        console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} from ${selectedServer} (age: ${ageSeconds}s, metrics: ${includeMetrics}, nested: ${includeNested})`);
         
         // Still set the tree ID from cache
         if (cached.data.tree) {
@@ -274,9 +275,15 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     // Cache miss or expired - fetch from server
     setIsLoading(true);
     try {
-      const url = buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}${includeMetrics ? '?include_metrics=true' : ''}`);
+      // Build query parameters
+      const params = new URLSearchParams();
+      if (includeMetrics) params.append('include_metrics', 'true');
+      if (includeNested) params.append('include_nested', 'true');
+      const queryString = params.toString() ? `?${params.toString()}` : '';
       
-      console.log(`[@TreeCache] 🌐 FETCH: interface ${userInterfaceId} from ${selectedServer} (metrics: ${includeMetrics})`);
+      const url = buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${userInterfaceId}${queryString}`);
+      
+      console.log(`[@TreeCache] 🌐 FETCH: interface ${userInterfaceId} from ${selectedServer} (metrics: ${includeMetrics}, nested: ${includeNested})`);
       
       const response = await fetch(url);
       const result = await response.json();
@@ -291,7 +298,9 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
         });
         scheduleCacheSave();
         
-        if (result.metrics) {
+        if (includeNested && result.nested_trees_count) {
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with ${result.nested_trees_count} trees, ${result.tree.metadata.nodes.length} total nodes (TTL: 5min)`);
+        } else if (result.metrics) {
           console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with metrics (nodes: ${Object.keys(result.metrics.nodes || {}).length}, edges: ${Object.keys(result.metrics.edges || {}).length}, TTL: 5min)`);
         } else {
           console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} (total: ${treeCache.current.size}, TTL: 5min)`);
