@@ -806,7 +806,8 @@ class ActionExecutor:
             'screenshot_path': screenshot_path,  # Always present
             'action_timestamp': action_completion_timestamp,  # ✅ NEW: Timestamp for zapping detection sync
             'iterations': iteration_results if iterator_count > 1 else None,
-            'action_details': action_details  # ✅ NEW: Detailed action info for KPI report
+            'action_details': action_details,  # ✅ NEW: Detailed action info for KPI report
+            'output_data': response_data.get('output_data', {})  # ✅ Include output_data from verification/action response
         }
     
     def _detect_action_type_from_device(self, command: str) -> str:
