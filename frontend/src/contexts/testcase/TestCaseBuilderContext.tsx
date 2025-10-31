@@ -44,6 +44,12 @@ interface TestCaseBuilderContextType {
   scriptMetadata: any[];
   setScriptMetadata: React.Dispatch<React.SetStateAction<any[]>>;
   
+  // Execution output values (from last execution)
+  executionOutputValues: Record<string, any>;
+  setExecutionOutputValues: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  executionBlockOutputs: Record<string, Record<string, any>>;
+  setExecutionBlockOutputs: React.Dispatch<React.SetStateAction<Record<string, Record<string, any>>>>;
+  
   // Unsaved changes tracking
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
@@ -197,6 +203,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [scriptOutputs, setScriptOutputs] = useState<any[]>([]);
   const [scriptVariables, setScriptVariables] = useState<any[]>([]);
   const [scriptMetadata, setScriptMetadata] = useState<any[]>([]);
+  
+  // Execution output values (from last execution)
+  const [executionOutputValues, setExecutionOutputValues] = useState<Record<string, any>>({});
+  const [executionBlockOutputs, setExecutionBlockOutputs] = useState<Record<string, Record<string, any>>>({});
   
   // Available options for dropdowns
   const [availableInterfaces, setAvailableInterfaces] = useState<UserInterface[]>([]);
@@ -557,6 +567,17 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       
       // ✅ KEEP: Legacy state updates
       if (response.success) {
+        // Store execution output values for display in Output Value Dialog
+        if (response.script_outputs) {
+          setExecutionOutputValues(response.script_outputs);
+          console.log('[@TestCaseBuilder] Stored script output values:', response.script_outputs);
+        }
+        // Store block outputs (for debugging and detailed view)
+        if (response.block_outputs) {
+          setExecutionBlockOutputs(response.block_outputs);
+          console.log('[@TestCaseBuilder] Stored block output values:', response.block_outputs);
+        }
+        
         setExecutionState({
           isExecuting: false,
           currentBlockId: null,
@@ -839,6 +860,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setScriptOutputs([]);
     setScriptVariables([]);
     setScriptMetadata([]);
+    // Reset execution output values
+    setExecutionOutputValues({});
+    setExecutionBlockOutputs({});
   }, []);
 
   // Fetch navigation nodes when userinterface changes
@@ -935,6 +959,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setScriptVariables,
     scriptMetadata,
     setScriptMetadata,
+    executionOutputValues,
+    setExecutionOutputValues,
+    executionBlockOutputs,
+    setExecutionBlockOutputs,
     hasUnsavedChanges,
     setHasUnsavedChanges,
     undo,

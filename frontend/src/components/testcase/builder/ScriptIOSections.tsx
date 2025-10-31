@@ -5,6 +5,8 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
 import CloseIcon from '@mui/icons-material/Close';
+import OutputValueDialog from './OutputValueDialog';
+import { useTestCaseBuilder as useTestCaseBuilderContext } from '../../../contexts/testcase/TestCaseBuilderContext';
 
 interface ScriptInput {
   name: string;
@@ -80,9 +82,30 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const [outputsExpanded, setOutputsExpanded] = useState(false);
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
+  
+  // Dialog state for showing output values
+  const [valueDialogOpen, setValueDialogOpen] = useState(false);
+  const [selectedOutput, setSelectedOutput] = useState<ScriptOutput | null>(null);
+  
+  // Get execution values from context
+  const { executionOutputValues, executionBlockOutputs } = useTestCaseBuilderContext();
+  
+  const handleOutputClick = (output: ScriptOutput) => {
+    setSelectedOutput(output);
+    setValueDialogOpen(true);
+  };
 
   return (
     <Box sx={{ borderTop: 2, borderColor: 'divider', mt: 'auto' }}>
+      {/* Output Value Dialog */}
+      <OutputValueDialog
+        open={valueDialogOpen}
+        onClose={() => setValueDialogOpen(false)}
+        output={selectedOutput}
+        executionValue={selectedOutput ? executionOutputValues[selectedOutput.name] : undefined}
+        blockOutputs={executionBlockOutputs}
+      />
+      
       {/* INPUTS Section */}
       <Box
         sx={{
@@ -282,8 +305,13 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       e.dataTransfer.setData('application/json', JSON.stringify(dragData));
                       e.dataTransfer.effectAllowed = 'link';
                     }}
-                    onClick={() => {
-                      if (output.sourceBlockId) {
+                    onClick={(e) => {
+                      // If linked and clicking on chip body (not icon), show value dialog
+                      const target = e.target as HTMLElement;
+                      if (!target.closest('.MuiChip-icon')) {
+                        handleOutputClick(output);
+                      } else if (output.sourceBlockId) {
+                        // If clicking icon and linked, focus source block
                         onFocusSourceBlock(output.sourceBlockId);
                       }
                     }}
@@ -294,9 +322,13 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       fontSize: '0.7rem',
                       height: '24px',
                       justifyContent: 'space-between',
-                      cursor: output.sourceBlockId ? 'pointer' : 'grab',
+                      cursor: 'pointer',
                       border: '2px dashed transparent',
-                      '& .MuiChip-icon': { color: 'white' },
+                      '& .MuiChip-icon': { color: 'white', cursor: output.sourceBlockId ? 'pointer' : 'default' },
+                      '&:hover': {
+                        opacity: 0.9,
+                        border: '2px dashed rgba(255,255,255,0.5)'
+                      },
                       '&:active': {
                         cursor: 'grabbing',
                       }
