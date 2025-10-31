@@ -170,6 +170,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                   placement="left"
                 >
                   <Chip
+                    className="nodrag"
                     label={hasValue ? `${output.name}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}` : `${output.name}: ${output.type}`}
                     size="small"
                     onClick={(e) => {
@@ -190,14 +191,22 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                       }
                     }}
                     onMouseDown={(e) => {
-                      // ✅ CRITICAL: Always stop mouseDown from propagating to parent
+                      // ✅ CRITICAL: Always stop mouseDown from propagating to parent to prevent block drag
                       console.log('[@OutputDisplay] MouseDown - preventing propagation');
                       e.stopPropagation();
+                      // Don't preventDefault - it blocks the drag from starting!
+                    }}
+                    onMouseMove={(e) => {
+                      // Stop mouse move from propagating to prevent block hover effects
+                      if (blockId && onDragStart) {
+                        e.stopPropagation();
+                      }
                     }}
                     draggable={Boolean(blockId && onDragStart)}
                     onDragStart={(e) => {
                       console.log('[@OutputDisplay] Drag START:', output.name);
                       e.stopPropagation(); // ✅ Prevent block drag
+                      
                       if (blockId && onDragStart) {
                         const dragData = {
                           blockId: blockId,
@@ -207,6 +216,24 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                         onDragStart(dragData);
                         e.dataTransfer.setData('application/json', JSON.stringify(dragData));
                         e.dataTransfer.effectAllowed = 'link';
+                        
+                        // Create a custom drag image with chip styling
+                        const dragImg = document.createElement('div');
+                        dragImg.textContent = `🔗 ${output.name}`;
+                        dragImg.style.position = 'absolute';
+                        dragImg.style.top = '-1000px';
+                        dragImg.style.padding = '4px 12px';
+                        dragImg.style.backgroundColor = 'rgba(0, 0, 0, 0.9)';
+                        dragImg.style.color = '#f97316';
+                        dragImg.style.borderRadius = '16px'; // Rounded like MUI Chip
+                        dragImg.style.fontSize = '11px';
+                        dragImg.style.fontWeight = '500';
+                        dragImg.style.border = '2px solid #f97316';
+                        dragImg.style.boxShadow = '0 4px 12px rgba(249, 115, 22, 0.4)';
+                        dragImg.style.whiteSpace = 'nowrap';
+                        document.body.appendChild(dragImg);
+                        e.dataTransfer.setDragImage(dragImg, 20, 10);
+                        setTimeout(() => document.body.removeChild(dragImg), 0);
                       }
                     }}
                     onDrag={(e) => {

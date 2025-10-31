@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, Collapse } from '@mui/material';
+import { Box, Typography, Chip, IconButton, Collapse, TextField } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
 import CloseIcon from '@mui/icons-material/Close';
+import EditIcon from '@mui/icons-material/Edit';
 import { VerificationConfigDialog } from '../dialogs/VerificationConfigDialog';
 import { useTestCaseBuilder as useTestCaseBuilderContext } from '../../../contexts/testcase/TestCaseBuilderContext';
 
@@ -83,6 +84,12 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
   
+  // Editing state
+  const [editingMetadataField, setEditingMetadataField] = useState<string | null>(null);
+  const [editingVariableName, setEditingVariableName] = useState<string | null>(null);
+  const [editingOutputName, setEditingOutputName] = useState<string | null>(null);
+  const [editValue, setEditValue] = useState('');
+  
   // Dialog state for showing output values
   const [valueDialogOpen, setValueDialogOpen] = useState(false);
   const [selectedOutput, setSelectedOutput] = useState<ScriptOutput | null>(null);
@@ -93,6 +100,57 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const handleOutputClick = (output: ScriptOutput) => {
     setSelectedOutput(output);
     setValueDialogOpen(true);
+  };
+
+  const handleStartEditMetadata = (fieldName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingMetadataField(fieldName);
+    setEditValue(fieldName);
+  };
+
+  const handleSaveMetadataEdit = (oldName: string) => {
+    if (editValue && editValue !== oldName) {
+      const updatedMetadata = metadata.map(f => 
+        f.name === oldName ? { ...f, name: editValue } : f
+      );
+      onUpdateMetadata(updatedMetadata);
+    }
+    setEditingMetadataField(null);
+    setEditValue('');
+  };
+
+  const handleStartEditVariable = (variableName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingVariableName(variableName);
+    setEditValue(variableName);
+  };
+
+  const handleSaveVariableEdit = (oldName: string) => {
+    if (editValue && editValue !== oldName) {
+      const updatedVariables = variables.map(v => 
+        v.name === oldName ? { ...v, name: editValue } : v
+      );
+      onUpdateVariables(updatedVariables);
+    }
+    setEditingVariableName(null);
+    setEditValue('');
+  };
+
+  const handleStartEditOutput = (outputName: string, e: React.MouseEvent) => {
+    e.stopPropagation();
+    setEditingOutputName(outputName);
+    setEditValue(outputName);
+  };
+
+  const handleSaveOutputEdit = (oldName: string) => {
+    if (editValue && editValue !== oldName) {
+      const updatedOutputs = outputs.map(o => 
+        o.name === oldName ? { ...o, name: editValue } : o
+      );
+      onUpdateOutputs(updatedOutputs);
+    }
+    setEditingOutputName(null);
+    setEditValue('');
   };
 
   return (
@@ -249,6 +307,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
+                  position: 'relative',
                 }}
               >
                 <Box
@@ -336,6 +395,49 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                     }}
                   />
                 </Box>
+                {editingOutputName === output.name ? (
+                  <TextField
+                    autoFocus
+                    size="small"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => handleSaveOutputEdit(output.name)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveOutputEdit(output.name);
+                      } else if (e.key === 'Escape') {
+                        setEditingOutputName(null);
+                        setEditValue('');
+                      }
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 60,
+                      '& .MuiInputBase-root': {
+                        height: '24px',
+                        fontSize: '0.7rem',
+                        backgroundColor: 'transparent',
+                        color: 'white',
+                      },
+                      '& .MuiInputBase-input': {
+                        color: 'white',
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                      },
+                    }}
+                  />
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleStartEditOutput(output.name, e)}
+                    sx={{ padding: 0, color: '#f97316', mr: 0.5 }}
+                  >
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                )}
                 <IconButton
                   size="small"
                   onClick={() => onRemoveOutput(output.name)}
@@ -404,6 +506,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
+                  position: 'relative',
                 }}
               >
                 <Box
@@ -485,6 +588,49 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                     }}
                   />
                 </Box>
+                {editingVariableName === variable.name ? (
+                  <TextField
+                    autoFocus
+                    size="small"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => handleSaveVariableEdit(variable.name)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveVariableEdit(variable.name);
+                      } else if (e.key === 'Escape') {
+                        setEditingVariableName(null);
+                        setEditValue('');
+                      }
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 60,
+                      '& .MuiInputBase-root': {
+                        height: '24px',
+                        fontSize: '0.7rem',
+                        backgroundColor: 'transparent',
+                        color: 'white',
+                      },
+                      '& .MuiInputBase-input': {
+                        color: 'white',
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                      },
+                    }}
+                  />
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleStartEditVariable(variable.name, e)}
+                    sx={{ padding: 0, color: '#22c55e', mr: 0.5 }}
+                  >
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                )}
                 <IconButton
                   size="small"
                   onClick={() => onRemoveVariable(variable.name)}
@@ -551,6 +697,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
+                  position: 'relative',
                 }}
               >
                 <Box
@@ -604,17 +751,71 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                     }}
                     sx={{
                       width: '100%',
-                      backgroundColor: field.sourceBlockId ? '#10b981' : '#a855f7',
+                      backgroundColor: '#a855f7', // Always purple for metadata
                       color: 'white',
                       fontSize: '0.7rem',
                       height: '24px',
                       justifyContent: 'space-between',
                       cursor: field.sourceBlockId ? 'pointer' : 'default',
-                      border: '2px dashed transparent',
-                      '& .MuiChip-icon': { color: 'white' }
+                      border: field.sourceBlockId ? '2px solid rgba(16, 185, 129, 0.6)' : '2px dashed transparent', // Green border when linked
+                      '& .MuiChip-icon': { 
+                        color: 'white',
+                        marginLeft: '4px',
+                        marginRight: '0px',
+                      },
+                      '& .MuiChip-label': {
+                        paddingLeft: field.sourceBlockId ? '4px' : '12px',
+                      },
+                      '&:hover': field.sourceBlockId ? {
+                        opacity: 0.9,
+                        border: '2px solid rgba(16, 185, 129, 0.8)'
+                      } : {}
                     }}
                   />
                 </Box>
+                {editingMetadataField === field.name ? (
+                  <TextField
+                    autoFocus
+                    size="small"
+                    value={editValue}
+                    onChange={(e) => setEditValue(e.target.value)}
+                    onBlur={() => handleSaveMetadataEdit(field.name)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter') {
+                        handleSaveMetadataEdit(field.name);
+                      } else if (e.key === 'Escape') {
+                        setEditingMetadataField(null);
+                        setEditValue('');
+                      }
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: field.sourceBlockId ? '32px' : 0, // Start after icon if linked
+                      right: 30,
+                      '& .MuiInputBase-root': {
+                        height: '24px',
+                        fontSize: '0.7rem',
+                        backgroundColor: 'transparent',
+                        color: 'white',
+                      },
+                      '& .MuiInputBase-input': {
+                        color: 'white',
+                      },
+                      '& .MuiOutlinedInput-notchedOutline': {
+                        border: 'none',
+                      },
+                    }}
+                  />
+                ) : (
+                  <IconButton
+                    size="small"
+                    onClick={(e) => handleStartEditMetadata(field.name, e)}
+                    sx={{ padding: 0, color: '#a855f7', mr: 0.5 }}
+                  >
+                    <EditIcon sx={{ fontSize: 14 }} />
+                  </IconButton>
+                )}
                 <IconButton
                   size="small"
                   onClick={() => onRemoveMetadataField(field.name)}
