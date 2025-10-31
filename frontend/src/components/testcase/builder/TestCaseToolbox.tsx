@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import {
   Box,
   Typography,
@@ -16,11 +16,18 @@ import { DraggableCommand } from '../../common/builder/DraggableCommand';
 interface TestCaseToolboxProps {
   toolboxConfig: any;  // Dynamic config from backend
   onCloseProgressBar?: () => void;
+  // Take control data for initializing default inputs
+  selectedHost?: any;
+  selectedDeviceId?: string | null;
+  userinterfaceName?: string;
 }
 
 export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({ 
   toolboxConfig,  // No fallback - must provide dynamic config
-  onCloseProgressBar
+  onCloseProgressBar,
+  selectedHost,
+  selectedDeviceId,
+  userinterfaceName: userinterface
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
   const reactFlowInstance = useReactFlow();
@@ -31,9 +38,86 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     setScriptInputs,
     scriptOutputs,
     setScriptOutputs,
+    scriptVariables,
+    setScriptVariables,
     scriptMetadata,
     setScriptMetadata,
   } = useTestCaseBuilder();
+
+  // Initialize default inputs from take control data
+  // These 3 inputs are protected and cannot be deleted
+  useEffect(() => {
+    // Get current values
+    const hostName = selectedHost?.host_name || '';
+    const deviceName = selectedDeviceId || '';
+    const userinterfaceName = userinterface || '';
+
+    // Check if default inputs already exist
+    const hasHostInput = scriptInputs.some(input => input.name === 'host_name');
+    const hasDeviceInput = scriptInputs.some(input => input.name === 'device_name');
+    const hasUserinterfaceInput = scriptInputs.some(input => input.name === 'userinterface_name');
+
+    // Initialize default inputs if they don't exist
+    const defaultInputs = [];
+    
+    if (!hasHostInput) {
+      defaultInputs.push({
+        name: 'host_name',
+        type: 'string',
+        required: true,
+        protected: true,
+        default: hostName,
+      });
+    }
+    
+    if (!hasDeviceInput) {
+      defaultInputs.push({
+        name: 'device_name',
+        type: 'string',
+        required: true,
+        protected: true,
+        default: deviceName,
+      });
+    }
+    
+    if (!hasUserinterfaceInput) {
+      defaultInputs.push({
+        name: 'userinterface_name',
+        type: 'string',
+        required: true,
+        protected: true,
+        default: userinterfaceName,
+      });
+    }
+
+    // Add default inputs if any are missing (prepend them to the beginning)
+    if (defaultInputs.length > 0) {
+      setScriptInputs([...defaultInputs, ...scriptInputs]);
+    } else {
+      // Update default values if inputs already exist
+      const updatedInputs = scriptInputs.map(input => {
+        if (input.name === 'host_name' && input.protected) {
+          return { ...input, default: hostName };
+        }
+        if (input.name === 'device_name' && input.protected) {
+          return { ...input, default: deviceName };
+        }
+        if (input.name === 'userinterface_name' && input.protected) {
+          return { ...input, default: userinterfaceName };
+        }
+        return input;
+      });
+      
+      // Only update if values changed
+      const hasChanged = updatedInputs.some((input, idx) => 
+        input.default !== scriptInputs[idx].default
+      );
+      
+      if (hasChanged) {
+        setScriptInputs(updatedInputs);
+      }
+    }
+  }, [selectedHost, selectedDeviceId, userinterface]); // Don't include scriptInputs to avoid infinite loop
 
   // Define tab colors (matching block type colors)
   const tabColors: Record<string, string> = {
@@ -99,6 +183,14 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     setScriptOutputs([...scriptOutputs, newOutput]);
   };
   
+  const handleAddVariable = () => {
+    const newVariable = {
+      name: `var_${scriptVariables.length + 1}`,
+      type: 'string',
+    };
+    setScriptVariables([...scriptVariables, newVariable]);
+  };
+  
   const handleAddMetadataField = () => {
     const newField = {
       name: `field_${scriptMetadata.length + 1}`,
@@ -112,6 +204,10 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
   
   const handleRemoveOutput = (name: string) => {
     setScriptOutputs(scriptOutputs.filter(output => output.name !== name));
+  };
+  
+  const handleRemoveVariable = (name: string) => {
+    setScriptVariables(scriptVariables.filter((variable: any) => variable.name !== name));
   };
   
   const handleRemoveMetadataField = (name: string) => {
@@ -294,15 +390,19 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
       <ScriptIOSections
         inputs={scriptInputs}
         outputs={scriptOutputs}
+        variables={scriptVariables}
         metadata={scriptMetadata}
         onAddInput={handleAddInput}
         onAddOutput={handleAddOutput}
+        onAddVariable={handleAddVariable}
         onAddMetadataField={handleAddMetadataField}
         onRemoveInput={handleRemoveInput}
         onRemoveOutput={handleRemoveOutput}
+        onRemoveVariable={handleRemoveVariable}
         onRemoveMetadataField={handleRemoveMetadataField}
         onFocusSourceBlock={handleFocusSourceBlock}
         onUpdateOutputs={setScriptOutputs}
+        onUpdateVariables={setScriptVariables}
         onUpdateMetadata={setScriptMetadata}
       />
     </Box>

@@ -1788,15 +1788,36 @@ class PlaywrightWebController(WebControllerInterface):
             else:
                 print(f"[@controller:PlaywrightWeb:getMenuInfo] WARNING: No context provided, metadata not stored")
             
-            # 5. Prepare output data
+            # 5. Prepare output data with FULL raw dump for debugging
+            raw_dump = []
+            for elem in filtered_elements:
+                raw_dump.append({
+                    'index': elem.get('index'),
+                    'tagName': elem.get('tagName'),
+                    'selector': elem.get('selector'),
+                    'textContent': elem.get('textContent'),
+                    'className': elem.get('className'),
+                    'id': elem.get('id'),
+                    'attributes': elem.get('attributes', {}),
+                    'position': elem.get('position', {}),
+                    'isVisible': elem.get('isVisible'),
+                    'aria-label': elem.get('attributes', {}).get('aria-label'),
+                    'role': elem.get('attributes', {}).get('role'),
+                    'href': elem.get('attributes', {}).get('href'),
+                    'title': elem.get('attributes', {}).get('title')
+                })
+            
             output_data = {
                 'parsed_data': parsed_data,
-                'raw_output': str([{'text': e.get('textContent'), 'index': e.get('index')} for e in filtered_elements]),
+                'raw_output': str(raw_dump),  # Keep as string for backward compatibility
+                'raw_dump': raw_dump,  # Full structured dump for debugging
                 'element_count': len(filtered_elements),
                 'area': area,
                 'page_title': dump_result.get('summary', {}).get('page_title'),
                 'page_url': dump_result.get('summary', {}).get('page_url')
             }
+            
+            print(f"[@controller:PlaywrightWeb:getMenuInfo] Full raw dump available with {len(raw_dump)} elements")
             
             # 6. Return same format as text.getMenuInfo
             message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} web elements'

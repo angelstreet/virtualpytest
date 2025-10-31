@@ -11,6 +11,7 @@ interface ScriptInput {
   type: string;
   required: boolean;
   default?: any;
+  protected?: boolean; // Protected inputs cannot be deleted
 }
 
 interface ScriptOutput {
@@ -21,10 +22,19 @@ interface ScriptOutput {
   sourceOutputPath?: string;
 }
 
+interface Variable {
+  name: string;
+  type: string;
+  value?: any; // Direct static value (if not linked)
+  sourceBlockId?: string; // OR linked to input/output/block
+  sourceOutputName?: string;
+  sourceOutputType?: string;
+}
+
 interface MetadataField {
   name: string;
   value?: any; // Direct value (if not linked)
-  sourceBlockId?: string; // OR linked to block output
+  sourceBlockId?: string; // OR linked to block output/variable
   sourceOutputName?: string;
   sourceOutputType?: string;
 }
@@ -32,34 +42,43 @@ interface MetadataField {
 interface ScriptIOSectionsProps {
   inputs: ScriptInput[];
   outputs: ScriptOutput[];
+  variables: Variable[];
   metadata: MetadataField[];
   onAddInput: () => void;
   onAddOutput: () => void;
+  onAddVariable: () => void;
   onAddMetadataField: () => void;
   onRemoveInput: (name: string) => void;
   onRemoveOutput: (name: string) => void;
+  onRemoveVariable: (name: string) => void;
   onRemoveMetadataField: (name: string) => void;
   onFocusSourceBlock: (blockId: string) => void;
   onUpdateOutputs: (outputs: ScriptOutput[]) => void;
+  onUpdateVariables: (variables: Variable[]) => void;
   onUpdateMetadata: (metadata: MetadataField[]) => void;
 }
 
 export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   inputs,
   outputs,
+  variables,
   metadata,
   onAddInput,
   onAddOutput,
+  onAddVariable,
   onAddMetadataField,
   onRemoveInput,
   onRemoveOutput,
+  onRemoveVariable,
   onRemoveMetadataField,
   onFocusSourceBlock,
   onUpdateOutputs,
+  onUpdateVariables,
   onUpdateMetadata,
 }) => {
   const [inputsExpanded, setInputsExpanded] = useState(false);
   const [outputsExpanded, setOutputsExpanded] = useState(false);
+  const [variablesExpanded, setVariablesExpanded] = useState(false);
   const [metadataExpanded, setMetadataExpanded] = useState(false);
 
   return (
@@ -99,22 +118,54 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
         
         <Collapse in={inputsExpanded}>
           <Box sx={{ px: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {inputs.map((input) => (
-              <Chip
-                key={input.name}
-                label={`${input.name}: ${input.type}${input.required ? ' *' : ''}`}
-                size="small"
-                onDelete={() => onRemoveInput(input.name)}
-                sx={{
-                  backgroundColor: '#06b6d4',
-                  color: 'white',
-                  fontSize: '0.7rem',
-                  height: '24px',
-                  justifyContent: 'space-between',
-                  '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
-                }}
-              />
-            ))}
+            {inputs.map((input) => {
+              // Display label: remove "_name" suffix if present
+              let displayName = input.name.endsWith('_name') 
+                ? input.name.slice(0, -5) 
+                : input.name;
+              
+              // Special case: rename userinterface to interface
+              if (displayName === 'userinterface') {
+                displayName = 'interface';
+              }
+              
+              // Display value: show default value if available, otherwise show type
+              const displayValue = input.default !== undefined && input.default !== '' 
+                ? `${input.default}` 
+                : input.type;
+              
+              return (
+                <Chip
+                  key={input.name}
+                  label={`${displayName}: ${displayValue}`}
+                  size="small"
+                  draggable
+                  onDragStart={(e) => {
+                    e.stopPropagation();
+                    const dragData = {
+                      blockId: 'script_inputs',
+                      outputName: input.name,
+                      outputType: input.type
+                    };
+                    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                    e.dataTransfer.effectAllowed = 'link';
+                  }}
+                  onDelete={input.protected ? undefined : () => onRemoveInput(input.name)}
+                  sx={{
+                    backgroundColor: '#06b6d4',
+                    color: 'white',
+                    fontSize: '0.7rem',
+                    height: '24px',
+                    justifyContent: 'space-between',
+                    cursor: input.protected ? 'default' : 'grab',
+                    '&:active': {
+                      cursor: 'grabbing',
+                    },
+                    '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                  }}
+                />
+              );
+            })}
             <Chip
               icon={<AddIcon />}
               label="Add Input"
@@ -220,6 +271,17 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                         : output.name
                     }
                     size="small"
+                    draggable
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      const dragData = {
+                        blockId: output.sourceBlockId || 'script_outputs',
+                        outputName: output.name,
+                        outputType: output.type
+                      };
+                      e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                      e.dataTransfer.effectAllowed = 'link';
+                    }}
                     onClick={() => {
                       if (output.sourceBlockId) {
                         onFocusSourceBlock(output.sourceBlockId);
@@ -232,9 +294,12 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       fontSize: '0.7rem',
                       height: '24px',
                       justifyContent: 'space-between',
-                      cursor: output.sourceBlockId ? 'pointer' : 'default',
+                      cursor: output.sourceBlockId ? 'pointer' : 'grab',
                       border: '2px dashed transparent',
-                      '& .MuiChip-icon': { color: 'white' }
+                      '& .MuiChip-icon': { color: 'white' },
+                      '&:active': {
+                        cursor: 'grabbing',
+                      }
                     }}
                   />
                 </Box>
@@ -256,6 +321,155 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                 backgroundColor: 'rgba(249, 115, 22, 0.1)',
                 border: '1px dashed #f97316',
                 color: '#f97316',
+                fontSize: '0.7rem',
+                height: '24px',
+              }}
+            />
+          </Box>
+        </Collapse>
+      </Box>
+
+      {/* VARIABLES Section */}
+      <Box
+        sx={{
+          borderBottom: 1,
+          borderColor: 'divider',
+          backgroundColor: 'rgba(34, 197, 94, 0.05)',
+        }}
+      >
+        <Box
+          sx={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            px: 2,
+            py: 1,
+            cursor: 'pointer',
+          }}
+          onClick={() => setVariablesExpanded(!variablesExpanded)}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography
+              variant="caption"
+              fontWeight="bold"
+              sx={{ color: '#22c55e', fontSize: '0.9rem', letterSpacing: '0.5px' }}
+            >
+              VARIABLES ({variables.length})
+            </Typography>
+          </Box>
+          <IconButton size="small">
+            {variablesExpanded ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+          </IconButton>
+        </Box>
+        
+        <Collapse in={variablesExpanded}>
+          <Box sx={{ px: 2, pb: 1, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {variables.map((variable) => (
+              <Box
+                key={variable.name}
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.5,
+                }}
+              >
+                <Box
+                  sx={{ flex: 1 }}
+                  onDragOver={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                  }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    
+                    // Get drag data from event
+                    const dragData = e.dataTransfer.getData('application/json');
+                    if (dragData) {
+                      try {
+                        const { blockId, outputName, outputType } = JSON.parse(dragData);
+                        
+                        // Update variable with link info
+                        const updatedVariables = variables.map(v => 
+                          v.name === variable.name 
+                            ? { 
+                                ...v, 
+                                sourceBlockId: blockId, 
+                                sourceOutputName: outputName,
+                                sourceOutputType: outputType,
+                                value: undefined // Clear static value when linked
+                              }
+                            : v
+                        );
+                        
+                        // Trigger parent update
+                        onUpdateVariables(updatedVariables);
+                      } catch (err) {
+                        console.error('Failed to parse drag data:', err);
+                      }
+                    }
+                  }}
+                >
+                  <Chip
+                    icon={variable.sourceBlockId ? <LinkIcon /> : undefined}
+                    label={
+                      variable.sourceBlockId
+                        ? `${variable.name} ← ${variable.sourceOutputName}`
+                        : variable.value !== undefined
+                        ? `${variable.name} = ${variable.value}`
+                        : variable.name
+                    }
+                    size="small"
+                    draggable
+                    onDragStart={(e) => {
+                      e.stopPropagation();
+                      const dragData = {
+                        blockId: variable.sourceBlockId || 'script_variables',
+                        outputName: variable.name,
+                        outputType: variable.type
+                      };
+                      e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                      e.dataTransfer.effectAllowed = 'link';
+                    }}
+                    onClick={() => {
+                      if (variable.sourceBlockId) {
+                        onFocusSourceBlock(variable.sourceBlockId);
+                      }
+                    }}
+                    sx={{
+                      width: '100%',
+                      backgroundColor: variable.sourceBlockId ? '#10b981' : '#22c55e',
+                      color: 'white',
+                      fontSize: '0.7rem',
+                      height: '24px',
+                      justifyContent: 'space-between',
+                      cursor: variable.sourceBlockId ? 'pointer' : 'grab',
+                      border: '2px dashed transparent',
+                      '& .MuiChip-icon': { color: 'white' },
+                      '&:active': {
+                        cursor: 'grabbing',
+                      }
+                    }}
+                  />
+                </Box>
+                <IconButton
+                  size="small"
+                  onClick={() => onRemoveVariable(variable.name)}
+                  sx={{ padding: 0, color: '#ef4444' }}
+                >
+                  <CloseIcon fontSize="small" />
+                </IconButton>
+              </Box>
+            ))}
+            <Chip
+              icon={<AddIcon />}
+              label="Add Variable"
+              size="small"
+              onClick={onAddVariable}
+              sx={{
+                backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                border: '1px dashed #22c55e',
+                color: '#22c55e',
                 fontSize: '0.7rem',
                 height: '24px',
               }}

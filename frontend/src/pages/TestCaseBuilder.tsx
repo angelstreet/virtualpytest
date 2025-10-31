@@ -409,6 +409,7 @@ const TestCaseBuilderContent: React.FC = () => {
           isSidebarOpen={isSidebarOpen}
           toggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           toolboxConfig={hookData.dynamicToolboxConfig}
+          selectedHost={hookData.selectedHost}
           selectedDeviceId={hookData.selectedDeviceId}
           isControlActive={hookData.isControlActive}
           areActionsLoaded={hookData.areActionsLoaded}

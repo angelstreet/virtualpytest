@@ -223,7 +223,7 @@ def get_action_execution_status(execution_id):
 def action_execute_single():
     """Execute a single action with embedded action object"""
     try:
-        print("[@route:server_actions:action_execute_single] Starting single action execution")
+        print("[@route:server_actions:action_execute_single] Starting single command execution")
         
         # Get request data
         data = request.get_json() or {}
@@ -232,7 +232,7 @@ def action_execute_single():
         device_id = data.get('device_id', 'device1')
         team_id = request.args.get('team_id')
         
-        print(f"[@route:server_actions:action_execute_single] Executing action: {action.get('command', 'unknown_command')}")
+        print(f"[@route:server_actions:action_execute_single] Executing command: {action.get('command', 'unknown_command')}")
         print(f"[@route:server_actions:action_execute_single] Host: {host_name}, Device ID: {device_id}")
         
         # Validate

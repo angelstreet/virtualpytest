@@ -573,13 +573,30 @@ class ADBVerificationController(VerificationControllerInterface):
             else:
                 print(f"[@controller:ADBVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
             
-            # 5. Prepare output data
+            # 5. Prepare output data with FULL raw dump for debugging
+            raw_dump = []
+            for elem in filtered_elements:
+                raw_dump.append({
+                    'index': elem.id,
+                    'tag': elem.tag,
+                    'text': elem.text,
+                    'resource_id': elem.resource_id,
+                    'content_desc': elem.content_desc,
+                    'class_name': elem.class_name,
+                    'bounds': elem.bounds,
+                    'clickable': elem.clickable,
+                    'enabled': elem.enabled
+                })
+            
             output_data = {
                 'parsed_data': parsed_data,
-                'raw_output': str([{'text': e.text, 'index': e.id} for e in filtered_elements]),
+                'raw_output': str(raw_dump),  # Keep as string for backward compatibility
+                'raw_dump': raw_dump,  # Full structured dump for debugging
                 'element_count': len(filtered_elements),
                 'area': area
             }
+            
+            print(f"[@controller:ADBVerification:getMenuInfo] Full raw dump available with {len(raw_dump)} elements")
             
             # 6. Return same format as text.getMenuInfo
             message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} UI elements'

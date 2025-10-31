@@ -89,7 +89,7 @@ class ExecutionOrchestrator:
         Returns:
             Dict with success status, logs, and action results
         """
-        print(f"[@ExecutionOrchestrator] Executing {len(actions)} action(s)")
+        print(f"[@ExecutionOrchestrator] Executing {len(actions)} command(s)")
         
         def execute():
             return device.action_executor.execute_actions(

@@ -39,6 +39,8 @@ interface TestCaseBuilderContextType {
   setScriptInputs: React.Dispatch<React.SetStateAction<any[]>>;
   scriptOutputs: any[];
   setScriptOutputs: React.Dispatch<React.SetStateAction<any[]>>;
+  scriptVariables: any[];
+  setScriptVariables: React.Dispatch<React.SetStateAction<any[]>>;
   scriptMetadata: any[];
   setScriptMetadata: React.Dispatch<React.SetStateAction<any[]>>;
   
@@ -193,6 +195,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Script I/O configuration
   const [scriptInputs, setScriptInputs] = useState<any[]>([]);
   const [scriptOutputs, setScriptOutputs] = useState<any[]>([]);
+  const [scriptVariables, setScriptVariables] = useState<any[]>([]);
   const [scriptMetadata, setScriptMetadata] = useState<any[]>([]);
   
   // Available options for dropdowns
@@ -646,6 +649,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       scriptConfig: {
         inputs: scriptInputs,
         outputs: scriptOutputs,
+        variables: scriptVariables,
         metadata: scriptMetadata as MetadataField[]
       } as ScriptConfig
     };
@@ -726,6 +730,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         if (graph.scriptConfig) {
           setScriptInputs(graph.scriptConfig.inputs || []);
           setScriptOutputs(graph.scriptConfig.outputs || []);
+          setScriptVariables(graph.scriptConfig.variables || []);
           // Support both old format (metadata.fields) and new format (metadata array)
           setScriptMetadata(Array.isArray(graph.scriptConfig.metadata) 
             ? graph.scriptConfig.metadata 
@@ -735,6 +740,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           // Reset to defaults if no scriptConfig
           setScriptInputs([]);
           setScriptOutputs([]);
+          setScriptVariables([]);
           setScriptMetadata([]);
         }
         
@@ -831,6 +837,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     // Reset Script I/O Configuration
     setScriptInputs([]);
     setScriptOutputs([]);
+    setScriptVariables([]);
     setScriptMetadata([]);
   }, []);
 
@@ -924,6 +931,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setScriptInputs,
     scriptOutputs,
     setScriptOutputs,
+    scriptVariables,
+    setScriptVariables,
     scriptMetadata,
     setScriptMetadata,
     hasUnsavedChanges,

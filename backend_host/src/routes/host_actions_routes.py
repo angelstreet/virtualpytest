@@ -69,7 +69,7 @@ def action_execute_batch():
         device_id = data.get('device_id', 'device1')
         team_id = request.args.get('team_id')
         
-        print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} actions for device: {device_id}, team: {team_id}")
+        print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} command(s) for device: {device_id}, team: {team_id}")
         
         # Validate
         if not actions:

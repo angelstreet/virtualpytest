@@ -127,6 +127,9 @@ class TestCaseExecutor:
             nav_context['script_name'] = 'unsaved_testcase'
             nav_context['script_context'] = 'testcase'
             
+            # Initialize scriptConfig inputs and variables in context
+            self._initialize_script_inputs_and_variables(graph, context)
+            
             # Execute the graph
             print(f"[@testcase_executor] Executing test case from graph...")
             self.context = context
@@ -555,6 +558,9 @@ class TestCaseExecutor:
             nav_context['script_id'] = script_result_id
             nav_context['script_name'] = 'unsaved_testcase'
             nav_context['script_context'] = 'testcase'
+            
+            # Initialize scriptConfig inputs and variables in context
+            self._initialize_script_inputs_and_variables(graph, context)
             
             # Store context for block execution callbacks
             self.context = context
@@ -1216,6 +1222,84 @@ class TestCaseExecutor:
                 'execution_time_ms': execution_time_ms,
                 'error': f'Loop execution error: {str(e)}'
             }
+    
+    def _initialize_script_inputs_and_variables(self, graph: Dict[str, Any], context: ScriptExecutionContext):
+        """
+        Initialize scriptConfig inputs and variables at start of execution.
+        Populates context.variables with default values and links to inputs.
+        
+        Args:
+            graph: Graph JSON with scriptConfig
+            context: Execution context
+        """
+        script_config = graph.get('scriptConfig')
+        if not script_config:
+            print(f"[@testcase_executor] No scriptConfig found - skipping input/variable initialization")
+            return
+        
+        print(f"[@testcase_executor] ========== INITIALIZING SCRIPT INPUTS & VARIABLES ==========")
+        
+        # Initialize Script Inputs in context.variables
+        script_inputs_config = script_config.get('inputs', [])
+        if script_inputs_config:
+            print(f"[@testcase_executor] Initializing {len(script_inputs_config)} script inputs...")
+            
+            for input_config in script_inputs_config:
+                input_name = input_config.get('name')
+                input_default = input_config.get('default')
+                input_type = input_config.get('type', 'string')
+                
+                if not input_name:
+                    print(f"[@testcase_executor] Warning: Input config missing 'name', skipping")
+                    continue
+                
+                # Initialize context.variables with default value
+                if input_default is not None:
+                    context.variables[input_name] = input_default
+                    print(f"[@testcase_executor]   ✓ {input_name} = {input_default} ({input_type})")
+                else:
+                    # If no default value, initialize based on type
+                    if input_type == 'string':
+                        context.variables[input_name] = ''
+                    elif input_type == 'number':
+                        context.variables[input_name] = 0
+                    elif input_type == 'boolean':
+                        context.variables[input_name] = False
+                    else:
+                        context.variables[input_name] = None
+                    print(f"[@testcase_executor]   ✓ {input_name} = {context.variables[input_name]} (default for {input_type})")
+        
+        # Initialize Script Variables (with or without source links)
+        script_variables_config = script_config.get('variables', [])
+        if script_variables_config:
+            print(f"[@testcase_executor] Initializing {len(script_variables_config)} script variables...")
+            
+            for variable_config in script_variables_config:
+                variable_name = variable_config.get('name')
+                variable_value = variable_config.get('value')
+                variable_type = variable_config.get('type', 'string')
+                
+                if not variable_name:
+                    print(f"[@testcase_executor] Warning: Variable config missing 'name', skipping")
+                    continue
+                
+                # Initialize context.variables with value if set
+                if variable_value is not None:
+                    context.variables[variable_name] = variable_value
+                    print(f"[@testcase_executor]   ✓ {variable_name} = {variable_value}")
+                else:
+                    # Initialize with type default (will be overwritten if linked to block output)
+                    if variable_type == 'string':
+                        context.variables[variable_name] = ''
+                    elif variable_type == 'number':
+                        context.variables[variable_name] = 0
+                    elif variable_type == 'boolean':
+                        context.variables[variable_name] = False
+                    else:
+                        context.variables[variable_name] = None
+                    print(f"[@testcase_executor]   ✓ {variable_name} = {context.variables[variable_name]} (default for {variable_type})")
+        
+        print(f"[@testcase_executor] ========================================================")
     
     def _resolve_script_outputs_and_metadata(self, graph: Dict[str, Any], context: ScriptExecutionContext):
         """

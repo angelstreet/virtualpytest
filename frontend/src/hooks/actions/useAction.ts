@@ -176,7 +176,7 @@ export const useAction = () => {
         const statusUrl = buildServerUrl(`/server/action/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId}`);
         
         let attempts = 0;
-        const maxAttempts = 30; // 30 * 1000ms = 30 seconds max (actions are typically faster than navigation)
+        const maxAttempts = 180; // 120 * 1000ms = 120 seconds max (allow for long-running actions)
         
         while (attempts < maxAttempts) {
           await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s

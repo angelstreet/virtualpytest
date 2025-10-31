@@ -19,6 +19,7 @@ interface TestCaseBuilderSidebarProps {
   isControlActive?: boolean;
   areActionsLoaded?: boolean;
   userinterfaceName?: string;
+  selectedHost?: any; // Add selectedHost for take control data
   
   // Progress Bar Control
   onCloseProgressBar?: () => void;
@@ -41,6 +42,7 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
   isControlActive,
   areActionsLoaded,
   userinterfaceName,
+  selectedHost,
   onCloseProgressBar,
   aiPrompt,
   setAiPrompt,
@@ -84,7 +86,13 @@ export const TestCaseBuilderSidebar: React.FC<TestCaseBuilderSidebarProps> = ({
       <Box sx={{ flex: 1, overflow: 'hidden', display: 'flex', flexDirection: 'column' }}>
         {creationMode === 'visual' ? (
           toolboxConfig ? (
-            <TestCaseToolbox toolboxConfig={toolboxConfig} onCloseProgressBar={onCloseProgressBar} />
+            <TestCaseToolbox 
+              toolboxConfig={toolboxConfig} 
+              onCloseProgressBar={onCloseProgressBar}
+              selectedHost={selectedHost}
+              selectedDeviceId={selectedDeviceId}
+              userinterfaceName={userinterfaceName}
+            />
           ) : (
             <Box sx={{ p: 2, textAlign: 'center'}}>
               <Typography variant="caption" fontSize={16} fontWeight="bold" color="text.secondary">

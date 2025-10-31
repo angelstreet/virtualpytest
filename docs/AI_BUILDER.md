@@ -26,6 +26,643 @@ NO legacy code, NO backward compatibility - Pure, efficient implementation.
 
 ---
 
+## Script I/O & Variables System (NEW)
+
+### Overview
+
+**Pure declarative data flow** - NO imperative blocks, NO backward compatibility.
+
+The TestCase Builder now includes a complete **Script I/O & Variables** system that allows you to define and manage data flow visually, without needing separate blocks.
+
+### Architecture
+
+```
+┌──────────────┐
+│   INPUTS     │ ← 3 Protected defaults + custom inputs
+└──────┬───────┘
+       │
+       ↓ (can link to)
+┌──────────────┐
+│   OUTPUTS    │ ← Linked to block outputs
+└──────┬───────┘
+       │
+       ↓ (can link to)
+┌──────────────┐
+│  VARIABLES   │ ← NEW: Data transformation layer
+└──────┬───────┘
+       │
+       ↓ (can link to)
+┌──────────────┐
+│   METADATA   │ ← Stored in database after execution
+└──────────────┘
+```
+
+### 4 Sections (All in UI)
+
+#### 1. INPUTS
+- **3 Protected defaults** (automatically filled on take control):
+  - `host_name` - From selected host
+  - `device_name` - From selected device  
+  - `userinterface_name` - From selected interface
+- **Custom inputs** - User-defined parameters
+- **Cannot delete protected inputs** - Ensures consistency
+- **Draggable** - Can be used throughout the flow
+
+#### 2. OUTPUTS
+- Link to block outputs (e.g., `output_1 ← action_1.result`)
+- Drag & drop from block output handles
+- Click to focus source block
+- Shows link status (green = linked, orange = unlinked)
+
+#### 3. VARIABLES (NEW)
+- **Purpose**: Transform and combine data before metadata
+- **Sources**: Can link from:
+  - Inputs (e.g., `my_var ← host_name`)
+  - Outputs (e.g., `my_var ← output_1`)
+  - Block outputs (e.g., `my_var ← action_1.result`)
+  - Static values (e.g., `my_var = "hello"`)
+- **Usage**: Can be used as:
+  - Block inputs
+  - Metadata sources
+  - Other variable sources
+- **Visual**: Green chips, link icon when connected
+
+#### 4. METADATA
+- **Purpose**: Store data in database after execution
+- **Sources**: Can link from:
+  - Variables (e.g., `field_1 ← my_var`)
+  - Outputs (e.g., `field_2 ← output_1`)
+  - Block outputs (e.g., `field_3 ← action_1.result`)
+- **Storage**: Automatically saved to `script_results_metadata` table
+
+### Data Flow Example
+
+```typescript
+// User defines in UI (no code, just drag & drop):
+
+INPUTS:
+  - host_name (protected)
+  - device_name (protected)
+  - userinterface_name (protected)
+  - retry_count (custom)
+
+OUTPUTS:
+  - test_result ← verification_1.result
+  - final_screen ← navigation_3.current_node
+
+VARIABLES:
+  - execution_info = {
+      host: host_name,        // Link from input
+      device: device_name,    // Link from input
+      retries: retry_count    // Link from input
+    }
+  - test_summary = {
+      passed: test_result,      // Link from output
+      screen: final_screen      // Link from output
+    }
+
+METADATA:
+  - environment ← execution_info    // Link from variable
+  - results ← test_summary          // Link from variable
+  - timestamp = "auto"              // Static value
+```
+
+### Benefits
+
+| Before (Imperative) | After (Declarative) |
+|---------------------|---------------------|
+| ❌ Need `set_variable` block | ✅ Define in UI |
+| ❌ Need `set_metadata` block | ✅ Visual linking |
+| ❌ Hidden in flow | ✅ Visible at bottom |
+| ❌ Hard to track | ✅ Clear data flow |
+| ❌ Two ways to do things | ✅ One way (UI) |
+
+### Implementation
+
+**Frontend Files:**
+- `ScriptIOSections.tsx` - 4-section UI component
+- `TestCaseBuilderContext.tsx` - State management
+- `TestCaseToolbox.tsx` - Protected defaults initialization
+
+**Backend:**
+- ✅ Removed `set_variable.py` (no longer needed)
+- ✅ Removed `set_metadata.py` (no longer needed)
+- All data flow handled declaratively in UI
+- Execution engine reads from `scriptConfig`
+
+**Database Schema:**
+```typescript
+{
+  scriptConfig: {
+    inputs: [
+      { name: 'host_name', type: 'string', required: true, protected: true, default: '...' },
+      { name: 'device_name', type: 'string', required: true, protected: true, default: '...' },
+      { name: 'userinterface_name', type: 'string', required: true, protected: true, default: '...' }
+    ],
+    outputs: [
+      { name: 'output_1', type: 'string', sourceBlockId: 'block_1', sourceOutputName: 'result' }
+    ],
+    variables: [
+      { name: 'var_1', type: 'string', sourceBlockId: 'block_1', sourceOutputName: 'result' },
+      { name: 'var_2', type: 'string', value: 'static_value' }
+    ],
+    metadata: [
+      { name: 'field_1', sourceBlockId: 'var_id', sourceOutputName: 'var_1' }
+    ]
+  }
+}
+```
+
+### Usage Patterns
+
+**Pattern 1: Pass-through (Input → Metadata)**
+```
+Input: retry_count
+         ↓
+Metadata: retry_count ← retry_count
+```
+
+**Pattern 2: Transform (Output → Variable → Metadata)**
+```
+Output: test_result ← verification_1.result
+         ↓
+Variable: formatted_result = process(test_result)
+         ↓
+Metadata: final_result ← formatted_result
+```
+
+**Pattern 3: Combine (Multiple sources → Variable → Metadata)**
+```
+Input: host_name
+Output: test_result ← verification_1.result
+         ↓
+Variable: summary = {host: host_name, result: test_result}
+         ↓
+Metadata: execution_summary ← summary
+```
+
+### Protected Defaults
+
+The 3 protected input fields ensure every script has access to runtime context:
+
+```typescript
+// Always available (cannot be deleted):
+scriptInputs = [
+  { name: 'host_name', protected: true, default: 'selected_host' },
+  { name: 'device_name', protected: true, default: 'selected_device' },
+  { name: 'userinterface_name', protected: true, default: 'selected_ui' }
+]
+
+// Can be used anywhere in the flow:
+- Block inputs: action.params.target = ${host_name}
+- Variables: execution_env = {host: ${host_name}, device: ${device_name}}
+- Metadata: executed_on ← host_name
+```
+
+---
+
+## Data Flow Linking System
+
+### How Linking Works (Drag & Drop)
+
+The system uses **HTML5 Drag and Drop API** to establish data flow connections between Script I/O sections and block fields.
+
+### Complete Linking Flow
+
+```
+┌─────────────────────────────────────────────────────────┐
+│  DRAG SOURCE (What you drag)                            │
+├─────────────────────────────────────────────────────────┤
+│  1. Script INPUTS chips      (cyan)                     │
+│  2. Script OUTPUTS chips     (orange/green)             │
+│  3. Script VARIABLES chips   (green)                    │
+│  4. Block OUTPUT handles     (right side of blocks)     │
+└─────────────────────────────────────────────────────────┘
+                        ↓ DRAG
+┌─────────────────────────────────────────────────────────┐
+│  DROP TARGET (Where you drop)                           │
+├─────────────────────────────────────────────────────────┤
+│  1. Block INPUT fields       (in UniversalBlock)        │
+│  2. Script OUTPUT drop zones (in ScriptIOSections)      │
+│  3. Script VARIABLE drop zones                          │
+│  4. Script METADATA drop zones                          │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Implementation Details
+
+#### 1. Making Chips Draggable (ScriptIOSections.tsx)
+
+**INPUTS Section:**
+```typescript
+<Chip
+  draggable
+  onDragStart={(e) => {
+    e.stopPropagation();
+    const dragData = {
+      blockId: 'script_inputs',      // Source identifier
+      outputName: input.name,         // e.g., "host_name"
+      outputType: input.type          // e.g., "string"
+    };
+    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = 'link';
+  }}
+  sx={{ cursor: 'grab' }}
+/>
+```
+
+**OUTPUTS Section:**
+```typescript
+<Chip
+  draggable
+  onDragStart={(e) => {
+    e.stopPropagation();
+    const dragData = {
+      blockId: output.sourceBlockId || 'script_outputs',
+      outputName: output.name,
+      outputType: output.type
+    };
+    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = 'link';
+  }}
+/>
+```
+
+**VARIABLES Section:**
+```typescript
+<Chip
+  draggable
+  onDragStart={(e) => {
+    e.stopPropagation();
+    const dragData = {
+      blockId: variable.sourceBlockId || 'script_variables',
+      outputName: variable.name,
+      outputType: variable.type
+    };
+    e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    e.dataTransfer.effectAllowed = 'link';
+  }}
+/>
+```
+
+#### 2. Block Output Handles (standard_blocks.py)
+
+**Backend blocks define outputs:**
+```python
+# In standard_blocks.py
+@register_block(
+    block_type="action",
+    outputs=[
+        {"name": "result", "type": "string"},
+        {"name": "success", "type": "boolean"}
+    ]
+)
+def execute_action(context, params):
+    # ... execution logic
+    return {
+        "success": True,
+        "output_data": {
+            "result": "Action completed",
+            "success": True
+        }
+    }
+```
+
+**Frontend renders output handles:**
+```typescript
+// In UniversalBlock.tsx
+{block.outputs?.map((output, index) => (
+  <Handle
+    key={output.name}
+    type="source"
+    position={Position.Right}
+    id={`output-${output.name}`}
+    onDragStart={(e) => {
+      const dragData = {
+        blockId: node.id,              // e.g., "action_1"
+        outputName: output.name,       // e.g., "result"
+        outputType: output.type        // e.g., "string"
+      };
+      e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+    }}
+  />
+))}
+```
+
+#### 3. Block Input Fields (UniversalBlock.tsx)
+
+**Drop zones for linking:**
+```typescript
+<Box
+  onDragOver={(e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'link';
+  }}
+  onDrop={(e) => {
+    e.preventDefault();
+    const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+    
+    // Update block input to link from source
+    onUpdateBlock(node.id, {
+      ...node.data,
+      inputs: {
+        ...node.data.inputs,
+        [inputField.name]: {
+          source: 'link',
+          sourceBlockId: dragData.blockId,
+          sourceOutputName: dragData.outputName
+        }
+      }
+    });
+  }}
+>
+  <TextField
+    label={inputField.name}
+    value={inputValue}
+    // Shows linked status
+    InputProps={{
+      startAdornment: inputValue?.source === 'link' ? (
+        <LinkIcon />
+      ) : null
+    }}
+  />
+</Box>
+```
+
+#### 4. Script I/O Drop Zones (ScriptIOSections.tsx)
+
+**OUTPUTS can receive from blocks:**
+```typescript
+<Box
+  onDragOver={(e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'link';
+  }}
+  onDrop={(e) => {
+    e.preventDefault();
+    const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+    
+    // Link output to block output
+    onUpdateOutputs([
+      ...outputs.map(out => 
+        out.name === output.name 
+          ? {
+              ...out,
+              sourceBlockId: dragData.blockId,
+              sourceOutputName: dragData.outputName
+            }
+          : out
+      )
+    ]);
+  }}
+>
+  <Chip label={output.name} />
+</Box>
+```
+
+**VARIABLES can receive from anywhere:**
+```typescript
+<Box
+  onDragOver={(e) => {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'link';
+  }}
+  onDrop={(e) => {
+    e.preventDefault();
+    const dragData = JSON.parse(e.dataTransfer.getData('application/json'));
+    
+    // Link variable to source
+    onUpdateVariables([
+      ...variables.map(v => 
+        v.name === variable.name 
+          ? {
+              ...v,
+              sourceBlockId: dragData.blockId,
+              sourceOutputName: dragData.outputName
+            }
+          : v
+      )
+    ]);
+  }}
+>
+  <Chip label={variable.name} />
+</Box>
+```
+
+### Data Flow Examples
+
+#### Example 1: Input → Block Field
+
+```
+USER ACTION:
+1. Drag "host_name" chip from INPUTS
+2. Drop on "target_host" field in action_1 block
+
+RESULT:
+action_1.data.inputs.target_host = {
+  source: 'link',
+  sourceBlockId: 'script_inputs',
+  sourceOutputName: 'host_name'
+}
+
+EXECUTION:
+- Backend reads scriptConfig.inputs[host_name].default
+- Passes value to action_1 block
+- Block uses ${host_name} value
+```
+
+#### Example 2: Block Output → Script Output
+
+```
+USER ACTION:
+1. Drag output handle from verification_1 block
+2. Drop on "test_result" in OUTPUTS section
+
+RESULT:
+scriptConfig.outputs[0] = {
+  name: 'test_result',
+  sourceBlockId: 'verification_1',
+  sourceOutputName: 'result',
+  type: 'boolean'
+}
+
+EXECUTION:
+- verification_1 executes → returns {result: true}
+- Backend stores in context.block_outputs['verification_1']
+- At end, resolves test_result from verification_1.result
+- Stored in context.script_outputs['test_result'] = true
+```
+
+#### Example 3: Block Output → Variable → Metadata
+
+```
+USER ACTION:
+1. Drag output handle from action_1
+2. Drop on "formatted_data" in VARIABLES
+3. Drag "formatted_data" chip
+4. Drop on "execution_data" in METADATA
+
+RESULT:
+scriptConfig.variables[0] = {
+  name: 'formatted_data',
+  sourceBlockId: 'action_1',
+  sourceOutputName: 'result',
+  type: 'string'
+}
+scriptConfig.metadata[0] = {
+  name: 'execution_data',
+  sourceBlockId: 'script_variables',
+  sourceOutputName: 'formatted_data'
+}
+
+EXECUTION:
+- action_1 executes → returns {result: "data123"}
+- Backend stores in context.block_outputs['action_1']
+- Variable resolves: formatted_data = "data123"
+- Metadata resolves: execution_data = "data123"
+- Saved to script_results_metadata table
+```
+
+### Backend Execution Flow
+
+#### Initialization (testcase_executor.py)
+
+```python
+def _initialize_script_inputs_and_variables(graph, context):
+    """Called BEFORE graph execution"""
+    script_config = graph.get('scriptConfig', {})
+    
+    # Initialize INPUTS in context.variables
+    for input_config in script_config.get('inputs', []):
+        input_name = input_config['name']
+        input_default = input_config.get('default')
+        context.variables[input_name] = input_default
+        # Now blocks can access ${host_name}, ${device_name}, etc.
+    
+    # Initialize VARIABLES with default values
+    for var_config in script_config.get('variables', []):
+        var_name = var_config['name']
+        var_value = var_config.get('value')
+        context.variables[var_name] = var_value
+```
+
+#### Block Execution
+
+```python
+def _execute_block(node, context):
+    """Called for each block during execution"""
+    block_inputs = node['data'].get('inputs', {})
+    
+    # Resolve linked inputs
+    resolved_params = {}
+    for input_name, input_config in block_inputs.items():
+        if input_config.get('source') == 'link':
+            source_block = input_config['sourceBlockId']
+            source_output = input_config['sourceOutputName']
+            
+            if source_block == 'script_inputs':
+                # From Script INPUTS
+                resolved_params[input_name] = context.variables[source_output]
+            elif source_block in context.block_outputs:
+                # From another block
+                resolved_params[input_name] = context.block_outputs[source_block][source_output]
+        else:
+            # Static value
+            resolved_params[input_name] = input_config.get('value')
+    
+    # Execute block with resolved params
+    result = block_executor.execute(node['type'], context, resolved_params)
+    
+    # Store outputs for future linking
+    if result.get('output_data'):
+        context.block_outputs[node['id']] = result['output_data']
+    
+    return result
+```
+
+#### Resolution (After SUCCESS block)
+
+```python
+def _resolve_script_outputs_and_metadata(graph, context):
+    """Called AFTER reaching SUCCESS block"""
+    script_config = graph.get('scriptConfig', {})
+    
+    # Resolve OUTPUTS
+    for output_config in script_config.get('outputs', []):
+        output_name = output_config['name']
+        source_block = output_config['sourceBlockId']
+        source_output = output_config['sourceOutputName']
+        
+        # Get value from block outputs
+        value = context.block_outputs[source_block][source_output]
+        context.script_outputs[output_name] = value
+    
+    # Resolve VARIABLES (update from links)
+    for var_config in script_config.get('variables', []):
+        if var_config.get('sourceBlockId'):
+            var_name = var_config['name']
+            source_block = var_config['sourceBlockId']
+            source_output = var_config['sourceOutputName']
+            
+            value = context.block_outputs[source_block][source_output]
+            context.variables[var_name] = value
+    
+    # Resolve METADATA
+    for meta_config in script_config.get('metadata', []):
+        field_name = meta_config['name']
+        source_block = meta_config['sourceBlockId']
+        source_output = meta_config['sourceOutputName']
+        
+        if source_block == 'script_variables':
+            # From VARIABLES
+            value = context.variables[source_output]
+        else:
+            # From block outputs
+            value = context.block_outputs[source_block][source_output]
+        
+        context.metadata[field_name] = value
+```
+
+### Visual Indicators
+
+**Link Status Colors:**
+- 🔵 **Cyan** - Script INPUTS (always available)
+- 🟠 **Orange** - Unlinked OUTPUTS (needs connection)
+- 🟢 **Green** - Linked OUTPUTS/VARIABLES (connected to source)
+- 🔗 **Link Icon** - Shows active connection
+
+**Cursor States:**
+- `cursor: grab` - Chip is draggable
+- `cursor: grabbing` - Currently being dragged
+- `cursor: pointer` - Click to focus source block
+
+### Key Files
+
+**Frontend:**
+- `ScriptIOSections.tsx` - Draggable chips + drop zones (lines 142-152, 274-284, 423-433)
+- `UniversalBlock.tsx` - Block input fields + output handles
+- `TestCaseBuilderContext.tsx` - State management for scriptConfig
+
+**Backend:**
+- `testcase_executor.py` - Initialization + resolution (lines 1223-1299, 1301-1360)
+- `standard_blocks.py` - Block output definitions
+- `evaluate_condition.py` - Conditional block with dynamic outputs
+
+### Complete Linking Reference
+
+| From | To | Use Case |
+|------|----|----|
+| INPUTS → Block Field | Action needs host name | Dynamic host selection |
+| Block Output → OUTPUTS | Export test result | Campaign chaining |
+| Block Output → VARIABLES | Store intermediate data | Multi-stage processing |
+| INPUTS → VARIABLES | Copy input to variable | Data transformation |
+| VARIABLES → METADATA | Save execution context | Database storage |
+| Block Output → METADATA | Direct save | Skip variables layer |
+| OUTPUTS → Block Field | Reuse previous output | Sequential processing |
+| VARIABLES → Block Field | Use transformed data | Complex workflows |
+
+---
+
 ## Use Cases
 
 ### Use Case 1: TestCase Builder (Visual Editor)
