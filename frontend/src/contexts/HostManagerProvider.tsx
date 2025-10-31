@@ -5,6 +5,7 @@ import { useUserSession } from '../hooks/useUserSession';
 import { useServerManager } from '../hooks/useServerManager';
 import { Host, Device } from '../types/common/Host_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { clearUserInterfaceCaches } from '../hooks/pages/useUserInterface';
 
 import { HostManagerContext } from './HostManagerContext';
 import { HostDataContext } from './HostDataContext';
@@ -354,6 +355,10 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         const result = await response.json();
 
         if (response.ok && result.success) {
+          // Clear user interface caches to fetch fresh data on take-control
+          // This ensures multi-user scenarios get latest data when taking control
+          clearUserInterfaceCaches();
+          
           console.log(
             `[@context:HostManagerProvider] Successfully took control of device: ${host.host_name}:${effectiveDeviceId}`,
           );

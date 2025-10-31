@@ -11,18 +11,16 @@ import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/Use
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { CACHE_CONFIG } from '../../config/constants';
 
-// 24-hour cache for userinterfaces
+// 1-hour cache for user interfaces (reduced from 24h for multi-user scenarios)
+const USER_INTERFACE_TTL = 60 * 60 * 1000; // 1 hour
+
 const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();
-
-// 24-hour cache for all interfaces
 const allInterfacesCache: {data: UserInterface[] | null, timestamp: number} = {data: null, timestamp: 0};
-
-// 24-hour cache for compatible interfaces
 const compatibleInterfacesCache = new Map<string, {data: UserInterface[], timestamp: number}>();
 
 function getCachedInterface(name: string) {
   const cached = userInterfaceCache.get(name);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_CONFIG.LONG_TTL) {
+  if (cached && (Date.now() - cached.timestamp) < USER_INTERFACE_TTL) {
     return cached.data;
   }
   if (cached) {
@@ -37,7 +35,7 @@ function setCachedInterface(name: string, data: Promise<UserInterface>) {
 
 function getCachedCompatibleInterfaces(deviceModel: string) {
   const cached = compatibleInterfacesCache.get(deviceModel);
-  if (cached && (Date.now() - cached.timestamp) < CACHE_CONFIG.LONG_TTL) {
+  if (cached && (Date.now() - cached.timestamp) < USER_INTERFACE_TTL) {
     return cached.data;
   }
   if (cached) {
@@ -50,16 +48,28 @@ function setCachedCompatibleInterfaces(deviceModel: string, data: UserInterface[
   compatibleInterfacesCache.set(deviceModel, {data, timestamp: Date.now()});
 }
 
+/**
+ * Clear all user interface caches
+ * Call this when taking control to ensure fresh data
+ */
+export function clearUserInterfaceCaches() {
+  userInterfaceCache.clear();
+  allInterfacesCache.data = null;
+  allInterfacesCache.timestamp = 0;
+  compatibleInterfacesCache.clear();
+  console.log('[@hook:useUserInterface] 🧹 All UI caches cleared (take-control)');
+}
+
 export const useUserInterface = () => {
   /**
    * Get all user interfaces
    */
   const getAllUserInterfaces = useMemo(
     () => async (): Promise<UserInterface[]> => {
-      // Check 24-hour cache first
-      if (allInterfacesCache.data && (Date.now() - allInterfacesCache.timestamp) < CACHE_CONFIG.LONG_TTL) {
+      // Check 1-hour cache first
+      if (allInterfacesCache.data && (Date.now() - allInterfacesCache.timestamp) < USER_INTERFACE_TTL) {
         console.log(
-          `[@hook:useUserInterface:getAllUserInterfaces] Using 24h cached data (age: ${((Date.now() - allInterfacesCache.timestamp) / (1000 * 60 * 60)).toFixed(1)}h)`,
+          `[@hook:useUserInterface:getAllUserInterfaces] Using 1h cached data (age: ${((Date.now() - allInterfacesCache.timestamp) / (1000 * 60)).toFixed(1)}m)`,
         );
         return allInterfacesCache.data;
       }
@@ -123,10 +133,10 @@ export const useUserInterface = () => {
           `[@hook:useUserInterface:getAllUserInterfaces] Successfully loaded ${userInterfaces?.length || 0} user interfaces`,
         );
         
-        // Cache the data for 24 hours
+        // Cache the data for 1 hour
         allInterfacesCache.data = userInterfaces || [];
         allInterfacesCache.timestamp = Date.now();
-        console.log('[@hook:useUserInterface:getAllUserInterfaces] Cached data for 24h');
+        console.log('[@hook:useUserInterface:getAllUserInterfaces] Cached data for 1h');
         
         return userInterfaces || [];
       } catch (error) {
@@ -183,11 +193,11 @@ export const useUserInterface = () => {
   const getUserInterfaceByName = useMemo(
     () =>
       async (name: string): Promise<UserInterface> => {
-        // Check 24-hour cache first
+        // Check 1-hour cache first
         const cached = getCachedInterface(name);
         if (cached) {
           console.log(
-            `[@hook:useUserInterface:getUserInterfaceByName] Using 24h cached user interface for name: ${name}`,
+            `[@hook:useUserInterface:getUserInterfaceByName] Using 1h cached user interface for name: ${name}`,
           );
           return cached;
         }
@@ -223,7 +233,7 @@ export const useUserInterface = () => {
           }
         })();
 
-        // Cache for 24 hours
+        // Cache for 1 hour
         setCachedInterface(name, fetchPromise);
         return fetchPromise;
       },
