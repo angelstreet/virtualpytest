@@ -279,14 +279,20 @@ export const UniversalBlock: React.FC<NodeProps & {
         const actionResult = await executeActions([action], [], []);
         
         // Convert to expected result format
+        // ✅ logs and output_data are now passed through directly from backend
         result = {
           success: actionResult.success,
           message: actionResult.message,
           error: actionResult.error,
-          // Extract output_data and logs from first result if available
-          output_data: actionResult.results?.[0]?.output_data || {},
-          logs: actionResult.results?.[0]?.logs || '', // ✅ Include logs for ExecutionProgressBar
+          output_data: actionResult.output_data || actionResult.results?.[0]?.output_data || {},
+          logs: actionResult.logs || '', // ✅ Now available at top level from useAction
         };
+        
+        console.log('[@UniversalBlock] Action result with logs:', { 
+          hasLogs: Boolean(actionResult.logs), 
+          logsLength: actionResult.logs?.length || 0,
+          logs: actionResult.logs 
+        });
       }
       
       const duration = Date.now() - startTime;

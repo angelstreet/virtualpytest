@@ -12,6 +12,8 @@ interface ActionExecutionResult {
   passed_count?: number;
   total_count?: number;
   error?: string;
+  logs?: string;  // ✅ Add logs field
+  output_data?: any;  // ✅ Add output_data field
 }
 
 export const useAction = () => {
@@ -207,6 +209,8 @@ export const useAction = () => {
                 results: result.results,
                 passed_count: passedCount,
                 total_count: totalCount,
+                logs: result.logs,  // ✅ Pass through logs from backend
+                output_data: result.output_data,  // ✅ Also pass through output_data
               };
             } else {
               const errorMsg = result.error || 'Action execution failed';

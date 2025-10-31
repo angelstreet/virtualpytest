@@ -5,7 +5,7 @@ import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
 import LinkIcon from '@mui/icons-material/Link';
 import CloseIcon from '@mui/icons-material/Close';
-import OutputValueDialog from './OutputValueDialog';
+import { VerificationConfigDialog } from '../dialogs/VerificationConfigDialog';
 import { useTestCaseBuilder as useTestCaseBuilderContext } from '../../../contexts/testcase/TestCaseBuilderContext';
 
 interface ScriptInput {
@@ -88,7 +88,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const [selectedOutput, setSelectedOutput] = useState<ScriptOutput | null>(null);
   
   // Get execution values from context
-  const { executionOutputValues, executionBlockOutputs } = useTestCaseBuilderContext();
+  const { executionOutputValues } = useTestCaseBuilderContext();
   
   const handleOutputClick = (output: ScriptOutput) => {
     setSelectedOutput(output);
@@ -97,13 +97,14 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
 
   return (
     <Box sx={{ borderTop: 2, borderColor: 'divider', mt: 'auto' }}>
-      {/* Output Value Dialog */}
-      <OutputValueDialog
+      {/* Output Value Dialog - Reusing VerificationConfigDialog */}
+      <VerificationConfigDialog
         open={valueDialogOpen}
-        onClose={() => setValueDialogOpen(false)}
-        output={selectedOutput}
-        executionValue={selectedOutput ? executionOutputValues[selectedOutput.name] : undefined}
-        blockOutputs={executionBlockOutputs}
+        onCancel={() => setValueDialogOpen(false)}
+        onSave={() => {}}
+        mode="viewValue"
+        outputName={selectedOutput?.name}
+        outputValue={selectedOutput ? executionOutputValues[selectedOutput.name] : undefined}
       />
       
       {/* INPUTS Section */}
