@@ -426,6 +426,7 @@ class ActionExecutor:
         all_iterations_successful = True
         total_execution_time = 0
         iteration_results = []
+        action_output_data = {}  # ✅ Capture output_data from last successful iteration
         
         for iteration in range(iterator_count):
             iteration_start_time = time.time()
@@ -699,6 +700,12 @@ class ActionExecutor:
                     'message': message
                 })
                 
+                # ✅ Capture output_data from this iteration (will be overwritten by next iteration if multiple)
+                # This ensures we always have the last successful iteration's output_data
+                if 'output_data' in response_data:
+                    action_output_data = response_data['output_data']
+                    print(f"[@lib:action_executor:_execute_single_action] ✅ Captured output_data with keys: {list(action_output_data.keys())}")
+                
                 # If any iteration fails, mark overall action as failed
                 if not iteration_success:
                     all_iterations_successful = False
@@ -807,7 +814,7 @@ class ActionExecutor:
             'action_timestamp': action_completion_timestamp,  # ✅ NEW: Timestamp for zapping detection sync
             'iterations': iteration_results if iterator_count > 1 else None,
             'action_details': action_details,  # ✅ NEW: Detailed action info for KPI report
-            'output_data': response_data.get('output_data', {})  # ✅ Include output_data from verification/action response
+            'output_data': action_output_data  # ✅ Use captured output_data from iteration loop
         }
     
     def _detect_action_type_from_device(self, command: str) -> str:
