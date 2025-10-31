@@ -309,17 +309,19 @@ export const UniversalBlock: React.FC<NodeProps & {
         if (result.output_data && data.blockOutputs) {
           const outputData = result.output_data;
           
-          // Handle nested parsed_data (e.g., getMenuInfo returns { parsed_data: {...} })
-          const actualData = outputData.parsed_data || outputData;
-          
-          console.log('[@UniversalBlock] Actual data for mapping:', JSON.stringify(actualData, null, 2));
-          console.log('[@UniversalBlock] Available keys:', Object.keys(actualData));
+          console.log('[@UniversalBlock] Mapping outputs from output_data:', {
+            outputDataKeys: Object.keys(outputData),
+            blockOutputNames: data.blockOutputs.map((o: any) => o.name)
+          });
           
           const updatedOutputs = data.blockOutputs.map((output: any) => {
-            const mappedValue = actualData[output.name];
+            // Map output directly from top-level output_data keys
+            const mappedValue = outputData[output.name];
             console.log(`[@UniversalBlock] Mapping ${output.name}:`, {
               found: mappedValue !== undefined,
-              value: mappedValue
+              valueType: typeof mappedValue,
+              isObject: typeof mappedValue === 'object',
+              keys: typeof mappedValue === 'object' && mappedValue !== null ? Object.keys(mappedValue).slice(0, 5) : 'N/A'
             });
             return {
               ...output,

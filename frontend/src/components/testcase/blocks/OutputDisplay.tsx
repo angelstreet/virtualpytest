@@ -52,9 +52,14 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
       hasValue: output.value !== undefined,
       value: output.value 
     });
+    console.log('[@OutputDisplay] Setting dialog data and opening...');
     setViewDialogData({ name: output.name, value: output.value });
     setViewDialogOpen(true);
-    console.log('[@OutputDisplay] Dialog should open now');
+    console.log('[@OutputDisplay] Dialog state set to open, viewDialogOpen should be true');
+    // Debug: Check state after a tick
+    setTimeout(() => {
+      console.log('[@OutputDisplay] Dialog open state after timeout:', viewDialogOpen);
+    }, 100);
   };
 
   return (
@@ -68,18 +73,29 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
           cursor: 'pointer',
           py: 0.5,
           px: 1,
-          bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.1)',
+          background: actualMode === 'dark' 
+            ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(249, 115, 22, 0.08) 100%)'
+            : 'linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(249, 115, 22, 0.06) 100%)',
           borderRadius: 1,
-          border: '1px solid',
-          borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.2)',
+          border: '2px solid',
+          borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.3)',
+          boxShadow: actualMode === 'dark'
+            ? '0 2px 8px rgba(249, 115, 22, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            : '0 2px 8px rgba(249, 115, 22, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+          transition: 'all 0.2s ease-in-out',
           '&:hover': {
             bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
+            borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.6)' : 'rgba(249, 115, 22, 0.5)',
+            boxShadow: actualMode === 'dark'
+              ? '0 4px 12px rgba(249, 115, 22, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
+              : '0 4px 12px rgba(249, 115, 22, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+            transform: 'translateY(-1px)',
           },
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
           <Typography fontSize={11} fontWeight="bold" color="#f97316" sx={{ flexShrink: 0 }}>
-            📤 OUTPUTS ({blockOutputs.length})
+            OUTPUTS ({blockOutputs.length})
           </Typography>
           
           {/* Preview: Show first 1-3 outputs inline when collapsed */}
@@ -151,22 +167,23 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                       console.log('[@OutputDisplay] Chip onClick:', { 
                         hasValue, 
                         outputName: output.name,
-                        defaultPrevented: e.defaultPrevented 
+                        defaultPrevented: e.defaultPrevented,
+                        value: output.value
                       });
                       e.stopPropagation(); // Prevent block selection
-                      // Only handle click if not dragging
+                      
+                      // Only handle click if has value and not dragging
                       if (hasValue && !e.defaultPrevented) {
+                        console.log('[@OutputDisplay] Calling handleViewOutput for:', output.name);
                         handleViewOutput(output, e);
                       } else if (!hasValue) {
                         console.log('[@OutputDisplay] No value to display. Execute block first.');
                       }
                     }}
                     onMouseDown={(e) => {
-                      // ✅ CRITICAL: Stop mouseDown from reaching ReactFlow to prevent node drag
-                      if (blockId && onDragStart) {
-                        console.log('[@OutputDisplay] MouseDown - preventing node drag');
-                        e.stopPropagation();
-                      }
+                      // ✅ CRITICAL: Always stop mouseDown from propagating to parent
+                      console.log('[@OutputDisplay] MouseDown - preventing propagation');
+                      e.stopPropagation();
                     }}
                     draggable={Boolean(blockId && onDragStart)}
                     onDragStart={(e) => {

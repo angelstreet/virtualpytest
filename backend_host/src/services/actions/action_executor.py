@@ -338,6 +338,15 @@ class ActionExecutor:
         # Individual action recording is handled in _execute_single_action()
         # No batch-level recording needed
         
+        # ✅ Aggregate output_data from ALL actions (including failed ones for debugging)
+        # For single action: use that action's output_data
+        # For multiple actions: combine all output_data (later actions can override earlier ones)
+        # Even failed actions can return valuable debug data (e.g., raw extracted text)
+        aggregated_output_data = {}
+        for result in results:
+            if result.get('output_data'):
+                aggregated_output_data.update(result['output_data'])
+        
         return {
             'success': overall_success,
             'total_count': len(valid_actions),
@@ -349,7 +358,8 @@ class ActionExecutor:
             'message': f'Batch action execution completed: {passed_count}/{len(valid_actions)} passed',
             'error': error_message,
             'execution_time_ms': total_execution_time,
-            'main_actions_succeeded': not main_actions_failed
+            'main_actions_succeeded': not main_actions_failed,
+            'output_data': aggregated_output_data  # ✅ Include aggregated output_data at top level
         }
     
     def get_execution_status(self, execution_id: str) -> Dict[str, Any]:

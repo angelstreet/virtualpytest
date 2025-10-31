@@ -90,18 +90,29 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
           cursor: 'pointer',
           py: 0.5,
           px: 1,
-          bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)',
+          background: actualMode === 'dark' 
+            ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%)'
+            : 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.06) 100%)',
           borderRadius: 1,
-          border: '1px solid',
-          borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+          border: '2px solid',
+          borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.3)',
+          boxShadow: actualMode === 'dark'
+            ? '0 2px 8px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            : '0 2px 8px rgba(139, 92, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+          transition: 'all 0.2s ease-in-out',
           '&:hover': {
             bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+            borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.6)' : 'rgba(139, 92, 246, 0.5)',
+            boxShadow: actualMode === 'dark'
+              ? '0 4px 12px rgba(139, 92, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
+              : '0 4px 12px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+            transform: 'translateY(-1px)',
           },
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
           <Typography fontSize={11} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
-            📋 INPUTS ({displayParams.length})
+            INPUTS ({displayParams.length})
           </Typography>
           
           {/* Preview: Show first 1-3 inputs inline when collapsed */}

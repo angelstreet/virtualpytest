@@ -634,7 +634,8 @@ class VerificationExecutor:
                 'execution_time_ms': verification_result.get('execution_time_ms'),
                 'details': verification_result.get('details', {}),
                 'screenshot_path': screenshot_path,  # Always present
-                'verification_evidence': verification_evidence  # ✅ NEW: Evidence data for KPI report
+                'verification_evidence': verification_evidence,  # ✅ NEW: Evidence data for KPI report
+                'output_data': verification_result.get('output_data', {})  # ✅ Include output_data from controller (getMenuInfo, etc.)
             }
             
             # Clean up context reference to avoid memory leaks
