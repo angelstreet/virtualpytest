@@ -477,7 +477,7 @@ class ADBVerificationController(VerificationControllerInterface):
         print(f"[@controller:ADBVerification:getMenuInfo] Params: area={area}, context={context is not None}")
         
         try:
-            # 1. Dump UI elements using adb_utils
+            # 1. Dump UI elements using adb_utils (REUSE EXISTING LOGIC)
             print(f"[@controller:ADBVerification:getMenuInfo] Dumping UI elements...")
             success, elements, error = self.adb_utils.dump_ui_elements(self.device_id)
             
@@ -520,13 +520,18 @@ class ADBVerificationController(VerificationControllerInterface):
                 
                 print(f"[@controller:ADBVerification:getMenuInfo] Filtered to {len(filtered_elements)} elements in area")
             
-            # 3. Parse key-value pairs from element text
+            # 3. Parse key-value pairs from element text OR content_desc (check both!)
             parsed_data = {}
             for elem in filtered_elements:
-                text = elem.text.strip() if hasattr(elem, 'text') and elem.text else ''
+                # Get text from either text or content_desc field
+                text = ''
+                if hasattr(elem, 'text') and elem.text and elem.text != '<no text>':
+                    text = elem.text.strip()
+                elif hasattr(elem, 'content_desc') and elem.content_desc and elem.content_desc != '<no content-desc>':
+                    text = elem.content_desc.strip()
                 
-                # Skip empty or placeholder text
-                if not text or text == '<no text>':
+                # Skip if no useful text
+                if not text:
                     continue
                 
                 # Parse key-value pairs (format: "Key\nValue")
@@ -596,7 +601,20 @@ class ADBVerificationController(VerificationControllerInterface):
                 'area': area
             }
             
+            # Print raw dump for debugging
             print(f"[@controller:ADBVerification:getMenuInfo] Full raw dump available with {len(raw_dump)} elements")
+            print(f"[@controller:ADBVerification:getMenuInfo] === RAW DUMP START ===")
+            for i, elem_data in enumerate(raw_dump, 1):
+                print(f"[@controller:ADBVerification:getMenuInfo]   Element {i}/{len(raw_dump)}:")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Index: {elem_data['index']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Tag: {elem_data['tag']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Text: {repr(elem_data['text'])}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Resource ID: {elem_data['resource_id']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Content Desc: {elem_data['content_desc']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Class: {elem_data['class_name']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Bounds: {elem_data['bounds']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Clickable: {elem_data['clickable']}, Enabled: {elem_data['enabled']}")
+            print(f"[@controller:ADBVerification:getMenuInfo] === RAW DUMP END ===")
             
             # 6. Return same format as text.getMenuInfo
             message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} UI elements'
