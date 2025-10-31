@@ -78,6 +78,15 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
     setViewDialogOpen(true);
   };
 
+  const getValueType = (value: any): string => {
+    if (value === null) return 'null';
+    if (value === undefined) return 'undefined';
+    if (Array.isArray(value)) return 'array';
+    if (typeof value === 'object') return 'dict';
+    if (typeof value === 'number') return Number.isInteger(value) ? 'int' : 'float';
+    return typeof value; // string, boolean, etc.
+  };
+
   return (
     <Box sx={{ mb: 1 }} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
       <Box
@@ -270,22 +279,88 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
         onClose={() => setViewDialogOpen(false)}
         maxWidth="md"
         fullWidth
+        PaperProps={{
+          sx: {
+            borderRadius: 2,
+            border: '2px solid',
+            borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.5)' : 'rgba(139, 92, 246, 0.4)',
+            background: actualMode === 'dark'
+              ? 'linear-gradient(135deg, rgba(30, 30, 30, 0.98) 0%, rgba(40, 40, 40, 0.98) 100%)'
+              : 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 248, 248, 0.98) 100%)',
+            boxShadow: actualMode === 'dark'
+              ? '0 8px 32px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.2) inset'
+              : '0 8px 32px rgba(139, 92, 246, 0.2), 0 0 0 1px rgba(139, 92, 246, 0.1) inset',
+          }
+        }}
       >
-        <DialogTitle>
-          {viewDialogData?.key}
+        <DialogTitle
+          sx={{
+            background: actualMode === 'dark'
+              ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%)'
+              : 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.06) 100%)',
+            borderBottom: '2px solid',
+            borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
+            color: '#8b5cf6',
+            fontWeight: 600,
+            fontSize: '1.1rem',
+            py: 2,
+            mb: 1,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+          }}
+        >
+          <span>{viewDialogData?.key}</span>
+          {viewDialogData && (
+            <Chip
+              label={getValueType(viewDialogData.value)}
+              size="small"
+              sx={{
+                fontSize: '0.7rem',
+                height: '20px',
+                fontWeight: 500,
+                textTransform: 'uppercase',
+                bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.25)' : 'rgba(139, 92, 246, 0.15)',
+                color: '#8b5cf6',
+                border: '1px solid',
+                borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.3)',
+              }}
+            />
+          )}
         </DialogTitle>
-        <DialogContent>
+        <DialogContent sx={{ pt: 2 }}>
           <Box
             sx={{
-              backgroundColor: actualMode === 'dark' ? 'rgba(0,0,0,0.3)' : 'rgba(0,0,0,0.05)',
-              borderRadius: 1,
-              p: 2,
+              background: actualMode === 'dark' 
+                ? 'linear-gradient(135deg, rgba(0, 0, 0, 0.4) 0%, rgba(20, 20, 20, 0.4) 100%)'
+                : 'linear-gradient(135deg, rgba(0, 0, 0, 0.05) 0%, rgba(240, 240, 240, 0.5) 100%)',
+              borderRadius: 2,
+              border: '1px solid',
+              borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+              p: 2.5,
               fontFamily: 'monospace',
               fontSize: '0.875rem',
               maxHeight: '400px',
               overflowY: 'auto',
               whiteSpace: 'pre-wrap',
               wordBreak: 'break-word',
+              boxShadow: actualMode === 'dark'
+                ? 'inset 0 2px 8px rgba(0, 0, 0, 0.3)'
+                : 'inset 0 2px 8px rgba(0, 0, 0, 0.08)',
+              '&::-webkit-scrollbar': {
+                width: '8px',
+              },
+              '&::-webkit-scrollbar-track': {
+                background: actualMode === 'dark' ? 'rgba(0, 0, 0, 0.2)' : 'rgba(0, 0, 0, 0.05)',
+                borderRadius: '4px',
+              },
+              '&::-webkit-scrollbar-thumb': {
+                background: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.3)',
+                borderRadius: '4px',
+                '&:hover': {
+                  background: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.6)' : 'rgba(139, 92, 246, 0.5)',
+                },
+              },
             }}
           >
             {viewDialogData && (
@@ -295,18 +370,48 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
             )}
           </Box>
         </DialogContent>
-        <DialogActions>
-          <Button onClick={() => {
-            if (viewDialogData) {
-              const textToCopy = typeof viewDialogData.value === 'object'
-                ? JSON.stringify(viewDialogData.value, null, 2)
-                : String(viewDialogData.value);
-              navigator.clipboard.writeText(textToCopy);
-            }
-          }}>
+        <DialogActions
+          sx={{
+            borderTop: '1px solid',
+            borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+            px: 3,
+            py: 2,
+            gap: 1,
+          }}
+        >
+          <Button 
+            onClick={() => {
+              if (viewDialogData) {
+                const textToCopy = typeof viewDialogData.value === 'object'
+                  ? JSON.stringify(viewDialogData.value, null, 2)
+                  : String(viewDialogData.value);
+                navigator.clipboard.writeText(textToCopy);
+              }
+            }}
+            variant="outlined"
+            sx={{
+              borderColor: '#8b5cf6',
+              color: '#8b5cf6',
+              '&:hover': {
+                borderColor: '#7c3aed',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
+              },
+            }}
+          >
             Copy
           </Button>
-          <Button onClick={() => setViewDialogOpen(false)}>Close</Button>
+          <Button 
+            onClick={() => setViewDialogOpen(false)}
+            variant="contained"
+            sx={{
+              backgroundColor: '#8b5cf6',
+              '&:hover': {
+                backgroundColor: '#7c3aed',
+              },
+            }}
+          >
+            Close
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>
