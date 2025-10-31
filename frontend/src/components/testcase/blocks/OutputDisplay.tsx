@@ -47,8 +47,14 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
 
   const handleViewOutput = (output: { name: string; value?: any }, e: React.MouseEvent) => {
     e.stopPropagation();
+    console.log('[@OutputDisplay] handleViewOutput called:', { 
+      name: output.name, 
+      hasValue: output.value !== undefined,
+      value: output.value 
+    });
     setViewDialogData({ name: output.name, value: output.value });
     setViewDialogOpen(true);
+    console.log('[@OutputDisplay] Dialog should open now');
   };
 
   return (
@@ -142,14 +148,29 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                     label={hasValue ? `${output.name}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}` : `${output.name}: ${output.type}`}
                     size="small"
                     onClick={(e) => {
+                      console.log('[@OutputDisplay] Chip onClick:', { 
+                        hasValue, 
+                        outputName: output.name,
+                        defaultPrevented: e.defaultPrevented 
+                      });
                       e.stopPropagation(); // Prevent block selection
                       // Only handle click if not dragging
                       if (hasValue && !e.defaultPrevented) {
                         handleViewOutput(output, e);
+                      } else if (!hasValue) {
+                        console.log('[@OutputDisplay] No value to display. Execute block first.');
+                      }
+                    }}
+                    onMouseDown={(e) => {
+                      // ✅ CRITICAL: Stop mouseDown from reaching ReactFlow to prevent node drag
+                      if (blockId && onDragStart) {
+                        console.log('[@OutputDisplay] MouseDown - preventing node drag');
+                        e.stopPropagation();
                       }
                     }}
                     draggable={Boolean(blockId && onDragStart)}
                     onDragStart={(e) => {
+                      console.log('[@OutputDisplay] Drag START:', output.name);
                       e.stopPropagation(); // ✅ Prevent block drag
                       if (blockId && onDragStart) {
                         const dragData = {
@@ -166,6 +187,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                       e.stopPropagation(); // ✅ Prevent block drag during drag
                     }}
                     onDragEnd={(e) => {
+                      console.log('[@OutputDisplay] Drag END:', output.name);
                       e.stopPropagation(); // ✅ Prevent block drag on end
                       if (onDragEnd) {
                         onDragEnd();

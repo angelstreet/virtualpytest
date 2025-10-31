@@ -641,7 +641,8 @@ class ActionExecutor:
                             'success': result.get('success', False),
                             'message': result.get('message', ''),
                             'error': result.get('error'),
-                            'verification_type': verification_type
+                            'verification_type': verification_type,
+                            'output_data': result.get('output_data', {})  # ✅ Include output_data from verification
                         }
                         status_code = 200 if result.get('success', False) else 500
                     else:

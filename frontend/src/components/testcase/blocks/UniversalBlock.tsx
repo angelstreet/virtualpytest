@@ -298,21 +298,37 @@ export const UniversalBlock: React.FC<NodeProps & {
         unifiedExecution.completeBlockExecution(id, true, undefined, result);
         
         // ✅ Update block outputs with actual values from execution
+        console.log('[@UniversalBlock] Checking output update:', {
+          hasOutputData: Boolean(result.output_data),
+          hasBlockOutputs: Boolean(data.blockOutputs),
+          outputDataKeys: result.output_data ? Object.keys(result.output_data) : [],
+          blockOutputs: data.blockOutputs
+        });
+        console.log('[@UniversalBlock] Full result.output_data:', JSON.stringify(result.output_data, null, 2));
+        
         if (result.output_data && data.blockOutputs) {
           const outputData = result.output_data;
           
           // Handle nested parsed_data (e.g., getMenuInfo returns { parsed_data: {...} })
           const actualData = outputData.parsed_data || outputData;
           
-          const updatedOutputs = data.blockOutputs.map((output: any) => ({
-            ...output,
-            value: actualData[output.name] !== undefined 
-              ? actualData[output.name]
-              : output.value
-          }));
+          console.log('[@UniversalBlock] Actual data for mapping:', JSON.stringify(actualData, null, 2));
+          console.log('[@UniversalBlock] Available keys:', Object.keys(actualData));
           
+          const updatedOutputs = data.blockOutputs.map((output: any) => {
+            const mappedValue = actualData[output.name];
+            console.log(`[@UniversalBlock] Mapping ${output.name}:`, {
+              found: mappedValue !== undefined,
+              value: mappedValue
+            });
+            return {
+              ...output,
+              value: mappedValue !== undefined ? mappedValue : output.value
+            };
+          });
+          
+          console.log('[@UniversalBlock] Updated outputs:', updatedOutputs);
           updateBlock(id as string, { blockOutputs: updatedOutputs });
-          console.log('[@UniversalBlock] Updated block outputs with values:', updatedOutputs);
         }
         
         setAnimateHandle('success');
