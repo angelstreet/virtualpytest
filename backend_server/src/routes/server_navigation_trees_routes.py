@@ -828,10 +828,14 @@ def get_tree_by_userinterface_id(userinterface_id):
                 if hierarchy_result.get('success'):
                     all_trees_data = hierarchy_result.get('all_trees_data', [])
                     
-                    # Flatten all nodes from all trees, but exclude entry nodes from nested trees
-                    # Entry nodes in nested trees are duplicates of parent nodes with has_subtree=true
+                    # Flatten all nodes from all trees, but exclude duplicate nodes from nested trees
+                    # Duplicates occur when a parent node (with has_subtree=true) also exists as entry in the subtree
                     all_nodes = []
                     all_edges = []
+                    
+                    # Track seen node IDs and labels to avoid duplicates
+                    seen_node_ids = set()
+                    seen_labels = set()
                     
                     for tree_data in all_trees_data:
                         tree_info = tree_data.get('tree_info', {})
@@ -841,22 +845,32 @@ def get_tree_by_userinterface_id(userinterface_id):
                         edges = tree_data.get('edges', [])
                         
                         if is_root_tree:
-                            # For root tree, include all nodes
-                            all_nodes.extend(nodes)
+                            # For root tree, include all nodes and track them
+                            for node in nodes:
+                                all_nodes.append(node)
+                                seen_node_ids.add(node.get('node_id'))
+                                seen_labels.add(node.get('label'))
                             print(f"[@route:navigation_trees] Root tree: added {len(nodes)} nodes")
                         else:
-                            # For nested trees, exclude entry/root nodes
-                            # Entry nodes typically have node_type='entry' or are the first node
-                            non_entry_nodes = []
+                            # For nested trees, skip nodes that already exist in parent
+                            unique_nodes = []
+                            skipped_count = 0
                             for node in nodes:
-                                # Skip nodes with type='entry' as they're gateways in subtrees
-                                if node.get('node_type') == 'entry':
-                                    print(f"[@route:navigation_trees] Skipping entry node: {node.get('label')} (duplicate of parent node)")
+                                node_id = node.get('node_id')
+                                label = node.get('label')
+                                
+                                # Skip if we've already seen this node_id or label
+                                if node_id in seen_node_ids or label in seen_labels:
+                                    print(f"[@route:navigation_trees] Skipping duplicate node: {label} (already in parent tree)")
+                                    skipped_count += 1
                                     continue
-                                non_entry_nodes.append(node)
+                                
+                                unique_nodes.append(node)
+                                seen_node_ids.add(node_id)
+                                seen_labels.add(label)
                             
-                            all_nodes.extend(non_entry_nodes)
-                            print(f"[@route:navigation_trees] Nested tree '{tree_info.get('name', 'unknown')}': added {len(non_entry_nodes)} nodes (skipped {len(nodes) - len(non_entry_nodes)} entry nodes)")
+                            all_nodes.extend(unique_nodes)
+                            print(f"[@route:navigation_trees] Nested tree '{tree_info.get('name', 'unknown')}': added {len(unique_nodes)} nodes (skipped {skipped_count} duplicates)")
                         
                         # Include all edges from all trees
                         all_edges.extend(edges)
@@ -877,7 +891,7 @@ def get_tree_by_userinterface_id(userinterface_id):
                         'nested_trees_count': len(all_trees_data)
                     }
                     
-                    print(f"[@route:navigation_trees] Loaded {len(all_trees_data)} trees with {len(all_nodes)} total nodes (entry nodes excluded)")
+                    print(f"[@route:navigation_trees] Loaded {len(all_trees_data)} trees with {len(all_nodes)} total unique nodes")
                     return jsonify(response_data)
                 else:
                     return jsonify({
