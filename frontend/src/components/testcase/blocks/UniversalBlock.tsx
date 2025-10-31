@@ -1,13 +1,10 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, CircularProgress, TextField, Collapse } from '@mui/material';
+import { Box, Typography, IconButton, CircularProgress, TextField } from '@mui/material';
 import { Handle, Position, NodeProps } from 'reactflow';
 import PlayArrowIcon from '@mui/icons-material/PlayArrow';
 import CheckIcon from '@mui/icons-material/Check';
 import CloseIcon from '@mui/icons-material/Close';
 import EditIcon from '@mui/icons-material/Edit';
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
-import ExpandLessIcon from '@mui/icons-material/ExpandLess';
-import LinkIcon from '@mui/icons-material/Link';
 import { useTheme } from '../../../contexts/ThemeContext';
 import { useToastContext } from '../../../contexts/ToastContext';
 import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
@@ -17,6 +14,8 @@ import { useAction } from '../../../hooks/actions/useAction';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 import { executeNavigationAsync } from '../../../utils/navigationExecutionUtils';
+import { InputDisplay } from './InputDisplay';
+import { OutputDisplay } from './OutputDisplay';
 
 export type OutputType = 'success' | 'failure' | 'true' | 'false' | 'complete' | 'break';
 
@@ -45,12 +44,7 @@ export const UniversalBlock: React.FC<NodeProps & {
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editedLabel, setEditedLabel] = useState(data.label || '');
-  const [inputsExpanded, setInputsExpanded] = useState(false);
-  const [outputsExpanded, setOutputsExpanded] = useState(false);
   const [draggedOutput, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
-  
-  // Metadata fields to hide from parameter display
-  const HIDDEN_METADATA_FIELDS = ['description', 'default', 'key', 'type', 'required', 'optional', 'placeholder', 'hidden', 'min', 'max'];
   
   // Get command configuration from toolbox config
   // Determine color based on type category
@@ -302,6 +296,24 @@ export const UniversalBlock: React.FC<NodeProps & {
       if (result.success) {
         // 🆕 Complete block execution with success
         unifiedExecution.completeBlockExecution(id, true, undefined, result);
+        
+        // ✅ Update block outputs with actual values from execution
+        if (result.output_data && data.blockOutputs) {
+          const outputData = result.output_data;
+          
+          // Handle nested parsed_data (e.g., getMenuInfo returns { parsed_data: {...} })
+          const actualData = outputData.parsed_data || outputData;
+          
+          const updatedOutputs = data.blockOutputs.map((output: any) => ({
+            ...output,
+            value: actualData[output.name] !== undefined 
+              ? actualData[output.name]
+              : output.value
+          }));
+          
+          updateBlock(id as string, { blockOutputs: updatedOutputs });
+          console.log('[@UniversalBlock] Updated block outputs with values:', updatedOutputs);
+        }
         
         setAnimateHandle('success');
         
@@ -819,256 +831,45 @@ export const UniversalBlock: React.FC<NodeProps & {
               {contentLabel}
             </Typography>
             
-            {/* Collapsible INPUTS section */}
-            {data.params && Object.keys(data.params).length > 0 && (() => {
-              // Filter out metadata fields
-              const displayParams = Object.entries(data.params).filter(([key]) => !HIDDEN_METADATA_FIELDS.includes(key));
-              if (displayParams.length === 0) return null;
-              
-              return (
-                <Box sx={{ mb: 1 }}>
-                  <Box
-                    onClick={() => setInputsExpanded(!inputsExpanded)}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      gap: 0.5,
-                      cursor: 'pointer',
-                      py: 0.5,
-                      px: 1,
-                      bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.15)' : 'rgba(139, 92, 246, 0.1)',
-                      borderRadius: 1,
-                      border: '1px solid',
-                      borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
-                      '&:hover': {
-                        bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
-                      },
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
-                      <Typography fontSize={11} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
-                        📋 INPUTS ({displayParams.length})
-                      </Typography>
-                      {/* Preview: Show first 1-3 inputs inline when collapsed */}
-                      {!inputsExpanded && (
-                        <Box sx={{ 
-                          display: 'flex', 
-                          alignItems: 'center', 
-                          gap: 0.5, 
-                          overflow: 'hidden',
-                          flex: 1,
-                          minWidth: 0,
-                        }}>
-                          {displayParams.slice(0, 3).map(([key]) => {
-                            const link = data.paramLinks?.[key];
-                            const isLinked = Boolean(link);
-                            
-                            return (
-                              <Chip
-                                key={key}
-                                label={key}
-                                size="small"
-                                icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
-                                sx={{ 
-                                  fontSize: 9, 
-                                  height: 18,
-                                  maxWidth: '80px',
-                                  bgcolor: isLinked 
-                                    ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
-                                    : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
-                                  borderColor: isLinked ? '#10b981' : '#8b5cf6',
-                                  '& .MuiChip-label': {
-                                    px: 0.5,
-                                    overflow: 'hidden',
-                                    textOverflow: 'ellipsis',
-                                    whiteSpace: 'nowrap',
-                                  }
-                                }}
-                                variant="outlined"
-                              />
-                            );
-                          })}
-                          {displayParams.length > 3 && (
-                            <Typography fontSize={9} color="#8b5cf6" sx={{ flexShrink: 0 }}>
-                              +{displayParams.length - 3}
-                            </Typography>
-                          )}
-                        </Box>
-                      )}
-                    </Box>
-                    {inputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} />}
-                  </Box>
-                  <Collapse in={inputsExpanded}>
-                    <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                      {displayParams.map(([key, value]) => {
-                        // Check if this param is linked to an output
-                        const link = data.paramLinks?.[key];
-                        const isLinked = Boolean(link);
-                        
-                        return (
-                          <Box
-                            key={key}
-                            onDragOver={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                            }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                                e.stopPropagation();
-                              if (draggedOutput) {
-                                // Create link: this param <- draggedOutput
-                                updateBlock(id as string, {
-                                  paramLinks: {
-                                    ...data.paramLinks,
-                                    [key]: {
-                                      sourceBlockId: draggedOutput.blockId,
-                                      sourceOutputName: draggedOutput.outputName,
-                                      sourceOutputType: draggedOutput.outputType
-                                    }
-                                  }
-                                });
-                                setDraggedOutput(null);
-                                showSuccess(`Linked ${key} ← ${draggedOutput.outputName}`);
-                              }
-                            }}
-                            sx={{ position: 'relative' }}
-                          >
-                            <Chip
-                              label={isLinked 
-                                ? `${key} ← ${link.sourceOutputName}` 
-                                : (() => {
-                                    // Extract actual value from object structure
-                                    let actualValue = value;
-                                    if (typeof value === 'object' && value !== null) {
-                                      // If object has a 'value' property, use that
-                                      actualValue = (value as any).value !== undefined ? (value as any).value : value;
-                                      
-                                      // If still an object, filter out metadata fields
-                                      if (typeof actualValue === 'object' && actualValue !== null) {
-                                        const filtered: Record<string, any> = {};
-                                        Object.entries(actualValue).forEach(([k, v]) => {
-                                          if (!HIDDEN_METADATA_FIELDS.includes(k)) {
-                                            filtered[k] = v;
-                                          }
-                                        });
-                                        // If filtered object is empty or only has metadata, show the value property
-                                        if (Object.keys(filtered).length === 0 && (value as any).value !== undefined) {
-                                          actualValue = (value as any).value;
-                                        } else {
-                                          actualValue = filtered;
-                                        }
-                                      }
-                                    }
-                                    const displayValue = typeof actualValue === 'object' 
-                                      ? JSON.stringify(actualValue) 
-                                      : String(actualValue);
-                                    return `${key}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}`;
-                                  })()
-                              }
-                              size="small"
-                              icon={isLinked ? <LinkIcon sx={{ fontSize: 12, color: '#10b981' }} /> : undefined}
-                              onDelete={isLinked ? () => {
-                                // Remove link
-                                const newLinks = { ...data.paramLinks };
-                                delete newLinks[key];
-                                updateBlock(id as string, { paramLinks: newLinks });
-                                showSuccess(`Unlinked ${key}`);
-                              } : undefined}
-                              sx={{ 
-                                fontSize: 10, 
-                                height: 24,
-                                bgcolor: isLinked 
-                                  ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
-                                  : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
-                                borderColor: isLinked ? '#10b981' : '#8b5cf6',
-                                cursor: 'pointer',
-                                '&:hover': {
-                                  bgcolor: isLinked
-                                    ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)')
-                                    : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'),
-                                }
-                              }}
-                              variant="outlined"
-                            />
-                          </Box>
-                        );
-                      })}
-                    </Box>
-                  </Collapse>
-                </Box>
-              );
-            })()}
+            {/* Universal Input Display */}
+            <InputDisplay
+              params={data.params}
+              paramLinks={data.paramLinks}
+              command={data.command} 
+              draggedOutput={draggedOutput}
+              onDrop={(paramKey, dragData) => {
+                updateBlock(id as string, {
+                  paramLinks: {
+                    ...data.paramLinks,
+                    [paramKey]: {
+                      sourceBlockId: dragData.blockId,
+                      sourceOutputName: dragData.outputName,
+                      sourceOutputType: dragData.outputType
+                    }
+                  }
+                });
+                setDraggedOutput(null);
+                showSuccess(`Linked ${paramKey} ← ${dragData.outputName}`);
+              }}
+              onUnlink={(paramKey) => {
+                const newLinks = { ...data.paramLinks };
+                delete newLinks[paramKey];
+                updateBlock(id as string, { paramLinks: newLinks });
+                showSuccess(`Unlinked ${paramKey}`);
+              }}
+            />
             
-            {/* Collapsible OUTPUTS section */}
-            {data.blockOutputs && data.blockOutputs.length > 0 && (
-              <Box>
-                <Box
-                  onClick={() => setOutputsExpanded(!outputsExpanded)}
-                  sx={{
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                    cursor: 'pointer',
-                    py: 0.5,
-                    px: 1,
-                    bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.15)' : 'rgba(249, 115, 22, 0.1)',
-                    borderRadius: 1,
-                    border: '1px solid',
-                    borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.2)',
-                    '&:hover': {
-                      bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
-                    },
-                  }}
-                >
-                  <Typography fontSize={11} fontWeight="bold" color="#f97316">
-                    OUTPUTS ({data.blockOutputs.length})
-                  </Typography>
-                  {outputsExpanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#f97316' }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#f97316' }} />}
-                </Box>
-                <Collapse in={outputsExpanded}>
-                  <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                    {data.blockOutputs.map((output: any, idx: number) => (
-                      <Chip
-                        key={output.name || idx}
-                        label={`${output.name}: ${output.type}`}
-                        size="small"
-                        draggable
-                        onDragStart={(e) => {
-                          e.stopPropagation();
-                          const dragData = {
-                            blockId: id as string,
-                            outputName: output.name,
-                            outputType: output.type
-                          };
-                          setDraggedOutput(dragData);
-                          // Set data for drop handlers
-                          e.dataTransfer.setData('application/json', JSON.stringify(dragData));
-                          e.dataTransfer.effectAllowed = 'link';
-                        }}
-                        onDragEnd={() => {
-                          setDraggedOutput(null);
-                        }}
-                        sx={{ 
-                          fontSize: 10, 
-                          height: 24,
-                          bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
-                          borderColor: '#f97316',
-                          cursor: 'grab',
-                          '&:hover': {
-                            bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
-                          },
-                          '&:active': {
-                            cursor: 'grabbing',
-                          }
-                        }}
-                        variant="outlined"
-                      />
-                    ))}
-                  </Box>
-                </Collapse>
-              </Box>
-            )}
+            {/* Universal Output Display */}
+            <OutputDisplay
+              blockOutputs={data.blockOutputs}
+              blockId={id as string}
+              onDragStart={(dragData) => {
+                setDraggedOutput(dragData);
+              }}
+              onDragEnd={() => {
+                setDraggedOutput(null);
+              }}
+            />
             
             {data.iterations && data.iterations > 1 && (
               <Typography fontSize={11} color="text.secondary" mt={0.5}>

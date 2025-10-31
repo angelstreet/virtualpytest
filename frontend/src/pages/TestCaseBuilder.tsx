@@ -269,17 +269,14 @@ const TestCaseBuilderContent: React.FC = () => {
   );
 
   // Handle block double click - open configuration dialog
+  // Double-click handler removed - blocks now show inputs/outputs inline
+  // Configuration is done via InputDisplay/OutputDisplay components
   const onNodeDoubleClick = useCallback(
-    (_event: React.MouseEvent, node: any) => {
-      // Don't open dialog for terminal blocks or navigation blocks
-      if (node.type === 'start' || node.type === 'success' || node.type === 'failure' || node.type === 'navigation') {
-        return;
-      }
-
-      hookData.setSelectedBlock(node);
-      hookData.setIsConfigDialogOpen(true);
+    (_event: React.MouseEvent, _node: any) => {
+      // No-op - double-click is disabled to prevent accidental config dialog opening
+      // Users interact directly with InputDisplay/OutputDisplay on the block
     },
-    [hookData.setSelectedBlock, hookData.setIsConfigDialogOpen]
+    []
   );
 
   // Handle config save
