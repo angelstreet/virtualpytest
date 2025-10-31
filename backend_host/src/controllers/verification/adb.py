@@ -521,6 +521,13 @@ class ADBVerificationController(VerificationControllerInterface):
                 print(f"[@controller:ADBVerification:getMenuInfo] Filtered to {len(filtered_elements)} elements in area")
             
             # 3. Parse key-value pairs from element text OR content_desc (check both!)
+            # Handle multiple separator patterns common in mobile settings/info screens:
+            # - "Key\nValue" or "Key&#10;Value" (newline, HTML-encoded)
+            # - "Key: Value" (colon + space)
+            # - "Key - Value" (dash)
+            # - "Key\tValue" (tab)
+            import html
+            
             parsed_data = {}
             for elem in filtered_elements:
                 # Get text from either text or content_desc field
@@ -534,19 +541,66 @@ class ADBVerificationController(VerificationControllerInterface):
                 if not text:
                     continue
                 
-                # Parse key-value pairs (format: "Key\nValue")
+                # Decode HTML entities (e.g., &#10; -> \n)
+                text = html.unescape(text)
+                
+                # Try different separator patterns
+                key = None
+                value = None
+                
+                # Pattern 1: "Key\nValue" (newline - most common in Android)
                 if '\n' in text:
                     lines = text.split('\n')
                     if len(lines) >= 2:
-                        key = lines[0].strip().replace(' ', '_').replace('-', '_')
-                        value = '\n'.join(lines[1:]).strip()  # Handle multi-line values
-                        parsed_data[key] = value
-                        print(f"  • {key} = {value}")
+                        key = lines[0].strip()
+                        value = '\n'.join(lines[1:]).strip()
+                
+                # Pattern 2: "Key: Value" (colon + space)
+                elif ': ' in text and len(text) < 200:  # Reasonable length
+                    parts = text.split(': ', 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                
+                # Pattern 3: "Key - Value" (dash separator)
+                elif ' - ' in text and len(text) < 200:
+                    parts = text.split(' - ', 1)
+                    if len(parts) == 2:
+                        key = parts[0].strip()
+                        value = parts[1].strip()
+                
+                # Pattern 4: "Key\tValue" (tab)
+                elif '\t' in text:
+                    parts = text.split('\t')
+                    if len(parts) >= 2:
+                        key = parts[0].strip()
+                        value = '\t'.join(parts[1:]).strip()
+                
+                # Store if we found a valid key-value pair
+                if key and value:
+                    # Normalize key: replace spaces and special chars with underscore
+                    normalized_key = key.replace(' ', '_').replace('-', '_').replace(':', '')
+                    parsed_data[normalized_key] = value
+                    print(f"  • {normalized_key} = {value}")
             
             print(f"[@controller:ADBVerification:getMenuInfo] Parsed {len(parsed_data)} key-value pairs")
             
+            # ALWAYS log this summary - even if empty
+            print(f"[@controller:ADBVerification:getMenuInfo] === PARSED DATA SUMMARY ===")
+            print(f"[@controller:ADBVerification:getMenuInfo] Total pairs parsed: {len(parsed_data)}")
+            print(f"[@controller:ADBVerification:getMenuInfo] Keys: {list(parsed_data.keys())}")
+            print(f"[@controller:ADBVerification:getMenuInfo] =============================")
+            
             if not parsed_data:
                 print(f"[@controller:ADBVerification:getMenuInfo] WARNING: No key-value pairs found in UI dump")
+            else:
+                # Log all parsed key-value pairs for visibility
+                print(f"[@controller:ADBVerification:getMenuInfo] === PARSED DATA START ===")
+                for key, value in parsed_data.items():
+                    # Truncate long values for readability
+                    display_value = value if len(value) <= 100 else f"{value[:100]}..."
+                    print(f"[@controller:ADBVerification:getMenuInfo]   {key} = {display_value}")
+                print(f"[@controller:ADBVerification:getMenuInfo] === PARSED DATA END ===")
             
             # 4. Auto-store to context.metadata (same as OCR version)
             if context:
@@ -620,6 +674,8 @@ class ADBVerificationController(VerificationControllerInterface):
             message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} UI elements'
             
             print(f"[@controller:ADBVerification:getMenuInfo] ✅ SUCCESS: {message}")
+            print(f"[@controller:ADBVerification:getMenuInfo] 📤 RETURNING output_data with {len(parsed_data)} parsed_data entries")
+            print(f"[@controller:ADBVerification:getMenuInfo] 📤 output_data keys: {list(output_data.keys())}")
             
             return {
                 'success': True,
@@ -703,6 +759,11 @@ class ADBVerificationController(VerificationControllerInterface):
                         'parsed_data',
                         OutputType.OBJECT,
                         description="Parsed key-value pairs from UI elements"
+                    ),
+                    create_output(
+                        'raw_dump',
+                        OutputType.ARRAY,
+                        description="Full raw UI element dump for debugging"
                     ),
                     create_output(
                         'element_count',

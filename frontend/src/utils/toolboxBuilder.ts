@@ -158,6 +158,7 @@ function extractActionGroups(availableActions: Actions) {
           action_type: actionDef.action_type,
           params: { ...actionDef.params },
           device_model: actionDef.device_model,
+          blockOutputs: actionDef.outputs || [], // ✅ Add outputs for data flow
         },
         description: actionDef.description || `Execute ${actionDef.label}`
       });
@@ -203,6 +204,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
         action_type: 'verification', // ✅ Required for backend routing
         verification_type: verificationDef.verification_type || verificationType,
         params: { ...verificationDef.params },
+        blockOutputs: verificationDef.outputs || [], // ✅ Add outputs for data flow (getMenuInfo, etc.)
       },
       description: verificationDef.description || verificationDef.label || `Verify ${verificationDef.command}`
     }));

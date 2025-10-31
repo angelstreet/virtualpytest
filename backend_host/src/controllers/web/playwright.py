@@ -1879,6 +1879,11 @@ class PlaywrightWebController(WebControllerInterface):
                         description="Parsed key-value pairs from web elements"
                     ),
                     create_output(
+                        "raw_dump",
+                        OutputType.ARRAY,
+                        description="Full raw web element dump for debugging"
+                    ),
+                    create_output(
                         "element_count",
                         OutputType.NUMBER,
                         description="Number of web elements extracted"

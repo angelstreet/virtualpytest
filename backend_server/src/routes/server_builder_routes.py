@@ -14,9 +14,10 @@ server_builder_bp = Blueprint('server_builder', __name__, url_prefix='/server/bu
 @server_builder_bp.route('/execute', methods=['POST'])
 def execute_standard_block():
     """
-    Execute a standard block (sleep, loop, set_variable, etc.)
+    Execute a standard block asynchronously (sleep, loop, set_variable, etc.)
+    Returns execution_id immediately for polling.
     
-    Proxies to /host/builder/execute
+    Proxies to /host/builder/execute (which returns execution_id)
     
     Request body:
         {
@@ -25,9 +26,16 @@ def execute_standard_block():
             "host_name": "pi1",
             "device_id": "device1"
         }
+    
+    Returns:
+        {
+            "success": true,
+            "execution_id": "...",
+            "message": "Block execution started"
+        }
     """
     try:
-        print("[@route:server_builder:execute] Starting standard block execution")
+        print("[@route:server_builder:execute] Starting async standard block execution")
         
         # Get request data
         data = request.get_json() or {}
@@ -62,21 +70,21 @@ def execute_standard_block():
         if device_id:
             query_params['device_id'] = device_id
         
-        print(f"[@route:server_builder:execute] Proxying to host...")
+        print(f"[@route:server_builder:execute] Proxying to host (async)...")
         
-        # Proxy to host with parameters
+        # Proxy to host - now returns execution_id immediately
         response_data, status_code = proxy_to_host_with_params(
             '/host/builder/execute',
             'POST',
             execution_payload,
             query_params,
-            timeout=60  # Standard blocks might take time (e.g., sleep)
+            timeout=10  # Quick timeout since this just starts execution
         )
         
         if response_data.get('success'):
-            print(f"[@route:server_builder:execute] Block execution completed successfully")
+            print(f"[@route:server_builder:execute] Block execution started: {response_data.get('execution_id')}")
         else:
-            print(f"[@route:server_builder:execute] Block execution failed: {response_data.get('error', 'Unknown error')}")
+            print(f"[@route:server_builder:execute] Failed to start: {response_data.get('error', 'Unknown error')}")
         
         return jsonify(response_data), status_code
         
@@ -88,5 +96,67 @@ def execute_standard_block():
         return jsonify({
             'success': False,
             'error': f'Server error during block execution: {str(e)}'
+        }), 500
+
+
+@server_builder_bp.route('/execution/<execution_id>/status', methods=['GET'])
+def get_execution_status(execution_id):
+    """
+    Get status of async standard block execution
+    
+    Query params:
+        - host_name: Host to check status on
+        - device_id: Device ID
+        - team_id: Team ID
+    
+    Returns:
+        {
+            "success": true,
+            "status": "completed",  # or "running", "error"
+            "result": {...},         # Only when completed
+            "error": "...",          # Only when error
+            "progress": 50,          # 0-100
+            "message": "..."
+        }
+    """
+    try:
+        host_name = request.args.get('host_name')
+        device_id = request.args.get('device_id', 'device1')
+        team_id = request.args.get('team_id')
+        
+        print(f"[@route:server_builder:status] Checking status: {execution_id}")
+        
+        # Validate
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name is required'}), 400
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        # Query params
+        query_params = {
+            'team_id': team_id,
+            'device_id': device_id
+        }
+        
+        # Proxy to host status endpoint
+        response_data, status_code = proxy_to_host_with_params(
+            f'/host/builder/execution/{execution_id}/status',
+            'GET',
+            None,
+            query_params,
+            timeout=5
+        )
+        
+        return jsonify(response_data), status_code
+        
+    except Exception as e:
+        print(f"[@route:server_builder:status] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        return jsonify({
+            'success': False,
+            'error': f'Server error getting status: {str(e)}'
         }), 500
 

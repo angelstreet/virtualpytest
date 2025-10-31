@@ -13,6 +13,7 @@ import { useToastContext } from '../../../contexts/ToastContext';
 import { useDeviceData } from '../../../contexts/device/DeviceDataContext';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { useNavigationConfig } from '../../../contexts/navigation/NavigationConfigContext';
+import { useAction } from '../../../hooks/actions/useAction';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 import { executeNavigationAsync } from '../../../utils/navigationExecutionUtils';
@@ -39,6 +40,7 @@ export const UniversalBlock: React.FC<NodeProps & {
   const { currentHost, currentDeviceId } = useDeviceData();
   const { updateBlock, userinterfaceName, unifiedExecution } = useTestCaseBuilder();
   const { actualTreeId } = useNavigationConfig();
+  const { executeActions } = useAction(); // ✅ Use existing hook with async polling
   const [isExecuting, setIsExecuting] = useState(false);
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
@@ -178,7 +180,7 @@ export const UniversalBlock: React.FC<NodeProps & {
         // Convert to response format expected by result handling below
         result = navResult;
       } else if (isStandardBlock) {
-        // Execute standard block (sleep, loop, set_variable, etc.)
+        // ✅ Execute standard block using async polling (same as actions/verifications)
         // Filter out null/undefined values from params
         const cleanParams: Record<string, any> = {};
         if (data.params) {
@@ -189,21 +191,69 @@ export const UniversalBlock: React.FC<NodeProps & {
           });
         }
         
-        const endpoint = '/server/builder/execute';
-        const response = await fetch(buildServerUrl(`${endpoint}`), {
+        // Build action in EdgeAction format (standard blocks use same executor)
+        const block = {
+          command: data.command,
+          params: cleanParams,
+        };
+        
+        // Standard blocks should use async pattern too (e.g., sleep(60) would timeout with sync)
+        // Start async execution (team_id is automatically added by buildServerUrl)
+        const executionUrl = buildServerUrl(`/server/builder/execute`);
+        
+        const startResult = await fetch(executionUrl, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            command: data.command,
-            params: cleanParams,
+            command: block.command,
+            params: block.params,
             host_name: currentHost.host_name,
             device_id: currentDeviceId || 'device1',
           }),
         });
-        
-        result = await response.json();
+
+        const startResponse = await startResult.json();
+
+        if (!startResponse.success) {
+          throw new Error(startResponse.error || 'Failed to start block execution');
+        }
+
+        const executionId = startResponse.execution_id;
+        console.log('[@UniversalBlock] ✅ Async block execution started:', executionId);
+
+        // Poll for completion
+        const statusUrl = buildServerUrl(
+          `/server/builder/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId || 'device1'}`
+        );
+
+        let attempts = 0;
+        const maxAttempts = 120; // 120 * 1000ms = 120 seconds (for long sleep, etc.)
+
+        while (attempts < maxAttempts) {
+          await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every 1s
+          attempts++;
+
+          const statusResult = await fetch(statusUrl);
+          const statusResponse = await statusResult.json();
+
+          if (!statusResponse.success) {
+            throw new Error(statusResponse.error || 'Failed to get execution status');
+          }
+
+          if (statusResponse.status === 'completed') {
+            result = statusResponse.result;
+            console.log('[@UniversalBlock] Block execution completed:', result);
+            break;
+          } else if (statusResponse.status === 'error') {
+            throw new Error(statusResponse.error || 'Block execution failed');
+          }
+        }
+
+        if (attempts >= maxAttempts) {
+          throw new Error('Block execution timeout - took too long');
+        }
       } else {
-        // Execute action or verification
+        // ✅ Execute action or verification using existing useAction hook (async polling built-in)
         // Filter out null/undefined values from params
         const cleanParams: Record<string, any> = {};
         if (data.params) {
@@ -214,8 +264,10 @@ export const UniversalBlock: React.FC<NodeProps & {
           });
         }
         
-        const actionPayload = {
+        // Build action in EdgeAction format for useAction hook
+        const action = {
           command: data.command,
+          name: data.label || data.command, // EdgeAction requires name field
           params: cleanParams,
           action_type: data.action_type,
           verification_type: data.verification_type,
@@ -223,18 +275,18 @@ export const UniversalBlock: React.FC<NodeProps & {
           reference: data.reference,
         };
         
-        const endpoint = '/server/action/execute'; // Both actions and verifications use same endpoint
-        const response = await fetch(buildServerUrl(`${endpoint}`), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            action: actionPayload,
-            host_name: currentHost.host_name,
-            device_id: currentDeviceId || 'device1',
-          }),
-        });
+        // Use existing hook which already handles async + polling
+        const actionResult = await executeActions([action], [], []);
         
-        result = await response.json();
+        // Convert to expected result format
+        result = {
+          success: actionResult.success,
+          message: actionResult.message,
+          error: actionResult.error,
+          // Extract output_data and logs from first result if available
+          output_data: actionResult.results?.[0]?.output_data || {},
+          logs: actionResult.results?.[0]?.logs || '', // ✅ Include logs for ExecutionProgressBar
+        };
       }
       
       const duration = Date.now() - startTime;
@@ -251,7 +303,39 @@ export const UniversalBlock: React.FC<NodeProps & {
         if (isNavigation && result.already_at_target) {
           showSuccess(`ℹ️ Already at ${data.target_node_label} - ${durationText}`);
         } else {
-          showSuccess(`✓ ${commandLabel} - ${durationText}`);
+          // Build success message with output data if available
+          let successMessage = `✓ ${commandLabel} - ${durationText}`;
+          
+          // If verification has output_data (like getMenuInfo), show key count
+          if (result.output_data && typeof result.output_data === 'object') {
+            const outputData = result.output_data;
+            
+            // Check for parsed_data (getMenuInfo, etc.)
+            if (outputData.parsed_data && typeof outputData.parsed_data === 'object') {
+              const parsedCount = Object.keys(outputData.parsed_data).length;
+              successMessage += `\n📋 Extracted ${parsedCount} fields`;
+              
+              // Show first 3 key-value pairs as preview
+              const entries = Object.entries(outputData.parsed_data).slice(0, 3);
+              if (entries.length > 0) {
+                successMessage += '\n' + entries.map(([k, v]) => {
+                  const displayValue = typeof v === 'string' && v.length > 30 
+                    ? `${v.substring(0, 30)}...` 
+                    : String(v);
+                  return `  • ${k}: ${displayValue}`;
+                }).join('\n');
+                
+                if (Object.keys(outputData.parsed_data).length > 3) {
+                  successMessage += `\n  ... +${Object.keys(outputData.parsed_data).length - 3} more`;
+                }
+              }
+            }
+            
+            // Log full output to console for debugging
+            console.log('[@UniversalBlock] Verification output_data:', outputData);
+          }
+          
+          showSuccess(successMessage);
         }
         
         // Clear animation after 2 seconds
