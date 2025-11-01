@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { resolveGraphVariables } from '../../utils/variableResolutionUtils';
 
 export interface TestCaseExecutionResult {
   success: boolean;
@@ -61,15 +62,21 @@ export const useTestCaseExecution = () => {
     deviceId: string,
     hostName: string,
     userinterfaceName?: string,
+    scriptInputs?: any[],  // NEW: Script inputs for variable resolution
+    scriptVariables?: any[],  // NEW: Script variables for variable resolution
     onProgress?: (status: ExecutionStatus) => void  // Real-time progress callback
   ): Promise<TestCaseExecutionResponse> => {
     try {
-      // Step 1: Start async execution
+      // ✅ NEW: Resolve all {variable} references BEFORE sending to backend
+      console.log('[useTestCaseExecution] Resolving graph variables before execution...');
+      const resolvedGraph = resolveGraphVariables(graph, scriptInputs, scriptVariables);
+      
+      // Step 1: Start async execution with RESOLVED graph
       const response = await fetch(buildServerUrl(`/server/testcase/execute`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ 
-          graph_json: graph,
+          graph_json: resolvedGraph,  // ✅ Send resolved graph (not raw graph)
           device_id: deviceId,
           host_name: hostName,
           userinterface_name: userinterfaceName || '',

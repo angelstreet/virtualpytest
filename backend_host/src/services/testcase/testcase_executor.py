@@ -1005,14 +1005,14 @@ class TestCaseExecutor:
         
         try:
             command = data.get('command')
-            params = data.get('params', {})
+            params = data.get('params', {})  # ✅ Already resolved by frontend
             retry_actions = data.get('retry_actions', [])
             failure_actions = data.get('failure_actions', [])
             
             # Build actions array from single action
             actions = [{
                 'command': command,
-                'params': params
+                'params': params  # ✅ Use directly - frontend already resolved {variables}
             }]
             
             # Use orchestrator for unified logging
@@ -1101,12 +1101,12 @@ class TestCaseExecutor:
         
         try:
             command = data.get('command')
-            params = data.get('params', {})
+            params = data.get('params', {})  # ✅ Already resolved by frontend
             
             # Build blocks array from single block
             blocks = [{
                 'command': command,
-                'params': params
+                'params': params  # ✅ Use directly - frontend already resolved {variables}
             }]
             
             # Use orchestrator for unified logging (same pattern as actions/verifications)

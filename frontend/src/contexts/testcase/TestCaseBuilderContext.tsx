@@ -520,11 +520,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
 
     try {
       // Execute with async polling and real-time progress updates
+      // ✅ Pass scriptInputs and scriptVariables for frontend variable resolution
       const response = await executeTestCase(
         graph,
         'device1',
         hostName,
         userinterfaceName,
+        scriptInputs,  // NEW: Pass scriptInputs for variable resolution
+        scriptVariables,  // NEW: Pass scriptVariables for variable resolution
         // Real-time progress callback
         (status) => {
           // Update current block ID
