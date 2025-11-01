@@ -67,10 +67,12 @@ export const resolveVariableInValue = (
  * Resolve all {variable} references in a params object.
  * Used for manual block execution in UniversalBlock.
  * 
+ * ALSO cleans schema-style params (extracts .default values).
+ * 
  * @param params - Object with parameter key-value pairs
  * @param scriptInputs - Array of script inputs
  * @param scriptVariables - Array of script variables
- * @returns New object with all variables resolved
+ * @returns New object with all variables resolved and schema cleaned
  */
 export const resolveParamsVariables = (
   params: Record<string, any>,
@@ -80,7 +82,16 @@ export const resolveParamsVariables = (
   const resolvedParams: Record<string, any> = {};
   
   Object.entries(params).forEach(([key, value]) => {
-    resolvedParams[key] = resolveVariableInValue(value, scriptInputs, scriptVariables);
+    // ✅ CLEAN SCHEMA: If value is schema object {default, type, description, required}, extract .default
+    // This matches VerificationsList.tsx lines 298-306
+    if (value && typeof value === 'object' && 'default' in value && 'type' in value) {
+      console.log(`[variableResolution] Cleaning schema param ${key}: extracting .default from schema`);
+      const cleanedValue = value.default;
+      resolvedParams[key] = resolveVariableInValue(cleanedValue, scriptInputs, scriptVariables);
+    } else {
+      // Regular value - resolve directly
+      resolvedParams[key] = resolveVariableInValue(value, scriptInputs, scriptVariables);
+    }
   });
   
   return resolvedParams;

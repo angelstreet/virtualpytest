@@ -980,7 +980,9 @@ class TestCaseExecutor:
             if node_type == 'action':
                 result = self._execute_action_block(data, context)
             elif node_type == 'verification':
-                result = self._execute_verification_block(data, context)
+                # ✅ Verifications ARE actions (same as UniversalBlock.tsx line 302)
+                # Just execute as action - no special handling needed
+                result = self._execute_action_block(data, context)
             elif node_type == 'navigation':
                 result = self._execute_navigation_block(data, context)
             elif node_type == 'loop':
@@ -1041,62 +1043,6 @@ class TestCaseExecutor:
                 'success': False,
                 'execution_time_ms': execution_time_ms,
                 'error': f'Action execution error: {str(e)}'
-            }
-    
-    def _execute_verification_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
-        """Execute verification block using Orchestrator"""
-        start_time = time.time()
-        
-        try:
-            command = data.get('command')  # ✅ ADD: Extract command (e.g., 'getMenuInfo')
-            verification_type = data.get('verification_type')
-            reference = data.get('reference')
-            threshold = data.get('threshold', 0.8)
-            params = data.get('params', {})  # ✅ ADD: Extract params (already resolved by frontend)
-            
-            # Build verifications array from single verification
-            verifications = [{
-                'command': command,  # ✅ ADD: Include command for controller
-                'verification_type': verification_type,
-                'reference': reference,
-                'threshold': threshold,
-                'params': params  # ✅ ADD: Include params for controller
-            }]
-            
-            # Use orchestrator for unified logging (same pattern as actions)
-            from backend_host.src.orchestrator import ExecutionOrchestrator
-            result = ExecutionOrchestrator.execute_verifications(
-                device=self.device,
-                verifications=verifications,
-                userinterface_name=context.userinterface_name,
-                team_id=context.team_id,
-                context=context
-            )
-            
-            execution_time_ms = int((time.time() - start_time) * 1000)
-            
-            # Store block output_data for scriptConfig resolution
-            if result.get('output_data'):
-                if not hasattr(context, 'block_outputs'):
-                    context.block_outputs = {}
-                # Store with current block ID
-                if self.current_block_id:
-                    context.block_outputs[self.current_block_id] = result['output_data']
-                    print(f"[@testcase_executor] Stored block outputs for {self.current_block_id}: {list(result['output_data'].keys())}")
-            
-            return {
-                'success': result['success'],
-                'execution_time_ms': execution_time_ms,
-                'message': f"Verification: {verification_type}",
-                'error': result.get('error')
-            }
-            
-        except Exception as e:
-            execution_time_ms = int((time.time() - start_time) * 1000)
-            return {
-                'success': False,
-                'execution_time_ms': execution_time_ms,
-                'error': f'Verification execution error: {str(e)}'
             }
     
     def _execute_standard_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
