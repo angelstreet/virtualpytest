@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Box, Typography, Chip, IconButton, Collapse, TextField } from '@mui/material';
+import { Box, Typography, Chip, IconButton, Collapse, TextField, Tooltip, Menu, MenuItem, Badge } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import AddIcon from '@mui/icons-material/Add';
@@ -25,13 +25,26 @@ interface ScriptOutput {
   sourceOutputPath?: string;
 }
 
+// ✅ NEW: Support for multiple source links
+interface SourceLink {
+  sourceBlockId: string;
+  sourceOutputName: string;
+  sourceOutputType: string;
+  blockLabel?: string;
+}
+
 interface Variable {
   name: string;
   type: string;
   value?: any; // Direct static value (if not linked)
-  sourceBlockId?: string; // OR linked to input/output/block
+  
+  // ❌ OLD: Single link (kept for backward compatibility)
+  sourceBlockId?: string;
   sourceOutputName?: string;
   sourceOutputType?: string;
+  
+  // ✅ NEW: Multiple links
+  sourceLinks?: SourceLink[];
 }
 
 interface MetadataField {
@@ -94,8 +107,94 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const [valueDialogOpen, setValueDialogOpen] = useState(false);
   const [selectedOutput, setSelectedOutput] = useState<ScriptOutput | null>(null);
   
-  // Get execution values from context
-  const { executionOutputValues } = useTestCaseBuilderContext();
+  // ✅ NEW: Menu state for multi-source variables
+  const [sourcesMenuAnchor, setSourcesMenuAnchor] = useState<null | HTMLElement>(null);
+  const [sourcesMenuVariable, setSourcesMenuVariable] = useState<Variable | null>(null);
+  
+  // Get execution values and blocks from context
+  const { executionOutputValues, nodes } = useTestCaseBuilderContext();
+  
+  // ✅ NEW: Helper function to get block label from block ID
+  const getBlockLabel = (blockId: string): string => {
+    if (blockId === 'script_inputs') return 'INPUTS';
+    if (blockId === 'script_outputs') return 'OUTPUTS';
+    if (blockId === 'script_variables') return 'VARIABLES';
+    
+    const block = nodes.find((n: any) => n.id === blockId);
+    if (!block) return blockId;
+    
+    const label = block.data?.label || blockId;
+    // Extract short name: "action_1:getMenuInfoADB" -> "getMenuInfoADB"
+    const parts = label.split(':');
+    return parts.length > 1 ? parts[1] : parts[0];
+  };
+  
+  // ✅ NEW: Helper to migrate old format to new format
+  const normalizeSourceLinks = (variable: Variable): SourceLink[] => {
+    // If new format exists, use it
+    if (variable.sourceLinks && variable.sourceLinks.length > 0) {
+      return variable.sourceLinks;
+    }
+    
+    // If old format exists, convert it
+    if (variable.sourceBlockId && variable.sourceOutputName) {
+      return [{
+        sourceBlockId: variable.sourceBlockId,
+        sourceOutputName: variable.sourceOutputName,
+        sourceOutputType: variable.sourceOutputType || 'unknown',
+        blockLabel: getBlockLabel(variable.sourceBlockId)
+      }];
+    }
+    
+    return [];
+  };
+  
+  // ✅ NEW: Helper to generate display label for multi-source variable
+  const getVariableDisplayLabel = (variable: Variable): string => {
+    const sources = normalizeSourceLinks(variable);
+    
+    if (sources.length === 0) {
+      // No links, show static value or just name
+      if (variable.value !== undefined) {
+        return `${variable.name} = ${variable.value}`;
+      }
+      return variable.name;
+    }
+    
+    if (sources.length === 1) {
+      // Single source: "info ← ADB"
+      const source = sources[0];
+      const blockLabel = source.blockLabel || getBlockLabel(source.sourceBlockId);
+      return `${variable.name} ← ${blockLabel}`;
+    }
+    
+    // ✅ Multiple sources: Just show count badge, not all names
+    // "info (3)" - compact!
+    return variable.name;
+  };
+  
+  // ✅ NEW: Helper to get tooltip text for multi-source variable
+  const getVariableTooltip = (variable: Variable): string => {
+    const sources = normalizeSourceLinks(variable);
+    
+    if (sources.length === 0) {
+      return 'No sources linked. Drag block outputs here to link.';
+    }
+    
+    if (sources.length === 1) {
+      const source = sources[0];
+      const blockLabel = source.blockLabel || getBlockLabel(source.sourceBlockId);
+      return `Source: ${blockLabel} → ${source.sourceOutputName}\nClick to focus block`;
+    }
+    
+    // Multiple sources
+    const lines = sources.map((source, idx) => {
+      const blockLabel = source.blockLabel || getBlockLabel(source.sourceBlockId);
+      return `${idx + 1}. ${blockLabel} → ${source.sourceOutputName}`;
+    });
+    
+    return `Multiple Sources (${sources.length}):\n${lines.join('\n')}\n\nOnly one source will provide the value\nbased on runtime conditions.\n\nClick to view all sources.`;
+  };
   
   const handleOutputClick = (output: ScriptOutput) => {
     setSelectedOutput(output);
@@ -561,18 +660,44 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                         try {
                           const { blockId, outputName, outputType } = JSON.parse(dragData);
                           
-                          // Update variable with link info
-                          const updatedVariables = variables.map(v => 
-                            v.name === variable.name 
-                              ? { 
-                                  ...v, 
-                                  sourceBlockId: blockId, 
-                                  sourceOutputName: outputName,
-                                  sourceOutputType: outputType,
-                                  value: undefined // Clear static value when linked
-                                }
-                              : v
-                          );
+                          // ✅ NEW: Append to sourceLinks array instead of replacing
+                          const updatedVariables = variables.map(v => {
+                            if (v.name === variable.name) {
+                              // Normalize existing links
+                              const existingLinks = normalizeSourceLinks(v);
+                              
+                              // Check if already linked (prevent duplicates)
+                              const alreadyLinked = existingLinks.some(
+                                link => link.sourceBlockId === blockId && 
+                                        link.sourceOutputName === outputName
+                              );
+                              
+                              if (alreadyLinked) {
+                                console.log(`Already linked: ${blockId}.${outputName}`);
+                                return v;
+                              }
+                              
+                              // Add new link
+                              const newLink: SourceLink = {
+                                sourceBlockId: blockId,
+                                sourceOutputName: outputName,
+                                sourceOutputType: outputType,
+                                blockLabel: getBlockLabel(blockId)
+                              };
+                              
+                              return {
+                                ...v,
+                                sourceLinks: [...existingLinks, newLink],
+                                // Clear old single-link format
+                                sourceBlockId: undefined,
+                                sourceOutputName: undefined,
+                                sourceOutputType: undefined,
+                                // Clear static value when linked
+                                value: undefined
+                              };
+                            }
+                            return v;
+                          });
                           
                           // Trigger parent update
                           onUpdateVariables(updatedVariables);
@@ -582,47 +707,68 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }
                     }}
                   >
-                    <Chip
-                      icon={variable.sourceBlockId ? <LinkIcon /> : undefined}
-                      label={
-                        variable.sourceBlockId
-                          ? `${variable.name} ← ${variable.sourceOutputName}`
-                          : variable.value !== undefined
-                          ? `${variable.name} = ${variable.value}`
-                          : variable.name
-                      }
-                      size="small"
-                      draggable
-                      onDragStart={(e) => {
-                        e.stopPropagation();
-                        const dragData = {
-                          blockId: variable.sourceBlockId || 'script_variables',
-                          outputName: variable.name,
-                          outputType: variable.type
-                        };
-                        e.dataTransfer.setData('application/json', JSON.stringify(dragData));
-                        e.dataTransfer.effectAllowed = 'link';
-                      }}
-                      onClick={() => {
-                        if (variable.sourceBlockId) {
-                          onFocusSourceBlock(variable.sourceBlockId);
-                        }
-                      }}
-                      sx={{
-                        width: '100%',
-                        backgroundColor: variable.sourceBlockId ? '#10b981' : '#22c55e',
-                        color: 'white',
-                        fontSize: '0.7rem',
-                        height: '24px',
-                        justifyContent: 'space-between',
-                        cursor: variable.sourceBlockId ? 'pointer' : 'grab',
-                        border: '2px dashed transparent',
-                        '& .MuiChip-icon': { color: 'white' },
-                        '&:active': {
-                          cursor: 'grabbing',
-                        }
-                      }}
-                    />
+                    <Tooltip title={getVariableTooltip(variable)} placement="left">
+                      <Badge
+                        badgeContent={normalizeSourceLinks(variable).length > 1 ? normalizeSourceLinks(variable).length : 0}
+                        color="success"
+                        overlap="circular"
+                        anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                        sx={{
+                          width: '100%',
+                          '& .MuiBadge-badge': {
+                            fontSize: '0.6rem',
+                            height: '16px',
+                            minWidth: '16px',
+                            backgroundColor: '#10b981',
+                            color: 'white',
+                            fontWeight: 'bold',
+                          }
+                        }}
+                      >
+                        <Chip
+                          icon={normalizeSourceLinks(variable).length > 0 ? <LinkIcon /> : undefined}
+                          label={getVariableDisplayLabel(variable)}
+                          size="small"
+                          draggable
+                          onDragStart={(e) => {
+                            e.stopPropagation();
+                            const sources = normalizeSourceLinks(variable);
+                            const dragData = {
+                              blockId: sources.length > 0 ? sources[0].sourceBlockId : 'script_variables',
+                              outputName: variable.name,
+                              outputType: variable.type
+                            };
+                            e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                            e.dataTransfer.effectAllowed = 'link';
+                          }}
+                          onClick={(e) => {
+                            const sources = normalizeSourceLinks(variable);
+                            if (sources.length === 1) {
+                              // Single source: focus that block
+                              onFocusSourceBlock(sources[0].sourceBlockId);
+                            } else if (sources.length > 1) {
+                              // Multiple sources: show menu
+                              setSourcesMenuVariable(variable);
+                              setSourcesMenuAnchor(e.currentTarget);
+                            }
+                          }}
+                          sx={{
+                            width: '100%',
+                            backgroundColor: normalizeSourceLinks(variable).length > 0 ? '#10b981' : '#22c55e',
+                            color: 'white',
+                            fontSize: '0.7rem',
+                            height: '24px',
+                            justifyContent: 'space-between',
+                            cursor: normalizeSourceLinks(variable).length > 0 ? 'pointer' : 'grab',
+                            border: '2px dashed transparent',
+                            '& .MuiChip-icon': { color: 'white' },
+                            '&:active': {
+                              cursor: 'grabbing',
+                            }
+                          }}
+                        />
+                      </Badge>
+                    </Tooltip>
                   </Box>
                 )}
                 {editingVariableName !== variable.name && (
@@ -843,6 +989,52 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
           </Box>
         </Collapse>
       </Box>
+      
+      {/* ✅ NEW: Multi-source menu for variables */}
+      <Menu
+        anchorEl={sourcesMenuAnchor}
+        open={Boolean(sourcesMenuAnchor)}
+        onClose={() => {
+          setSourcesMenuAnchor(null);
+          setSourcesMenuVariable(null);
+        }}
+      >
+        <MenuItem disabled sx={{ fontSize: '0.75rem', fontWeight: 'bold', color: '#22c55e' }}>
+          Jump to source:
+        </MenuItem>
+        {sourcesMenuVariable && normalizeSourceLinks(sourcesMenuVariable).map((source, idx) => (
+          <MenuItem
+            key={idx}
+            onClick={() => {
+              onFocusSourceBlock(source.sourceBlockId);
+              setSourcesMenuAnchor(null);
+              setSourcesMenuVariable(null);
+            }}
+            sx={{ fontSize: '0.75rem' }}
+          >
+            {source.blockLabel || getBlockLabel(source.sourceBlockId)} → {source.sourceOutputName}
+          </MenuItem>
+        ))}
+        <MenuItem divider disabled />
+        <MenuItem
+          onClick={() => {
+            if (sourcesMenuVariable) {
+              // Unlink all sources
+              const updatedVariables = variables.map(v =>
+                v.name === sourcesMenuVariable.name
+                  ? { ...v, sourceLinks: [], sourceBlockId: undefined, sourceOutputName: undefined, sourceOutputType: undefined }
+                  : v
+              );
+              onUpdateVariables(updatedVariables);
+            }
+            setSourcesMenuAnchor(null);
+            setSourcesMenuVariable(null);
+          }}
+          sx={{ fontSize: '0.75rem', color: '#ef4444' }}
+        >
+          ✖ Unlink All
+        </MenuItem>
+      </Menu>
     </Box>
   );
 };

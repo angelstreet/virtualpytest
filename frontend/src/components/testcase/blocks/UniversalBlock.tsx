@@ -38,7 +38,7 @@ export const UniversalBlock: React.FC<NodeProps & {
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
-  const { updateBlock, userinterfaceName, unifiedExecution, scriptInputs, scriptVariables } = useTestCaseBuilder();
+  const { updateBlock, userinterfaceName, unifiedExecution, scriptInputs, scriptVariables, scriptOutputs, scriptMetadata, nodes } = useTestCaseBuilder();
   const { actualTreeId } = useNavigationConfig();
   const { executeActions } = useAction(); // ✅ Use existing hook with async polling
   
@@ -46,6 +46,64 @@ export const UniversalBlock: React.FC<NodeProps & {
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editedLabel, setEditedLabel] = useState(data.label || '');
+  
+  // ✅ NEW: Calculate what this block's outputs are linked to
+  const calculateLinkedTo = (): Record<string, Array<{ targetType: 'variable' | 'output' | 'metadata' | 'input'; targetName: string }>> => {
+    const linkedTo: Record<string, Array<{ targetType: 'variable' | 'output' | 'metadata' | 'input'; targetName: string }>> = {};
+    
+    // Check script variables
+    scriptVariables?.forEach((variable: any) => {
+      // Support both old single-link and new multi-link format
+      const links = variable.sourceLinks || (variable.sourceBlockId ? [{
+        sourceBlockId: variable.sourceBlockId,
+        sourceOutputName: variable.sourceOutputName
+      }] : []);
+      
+      links.forEach((link: any) => {
+        if (link.sourceBlockId === id) {
+          const outputName = link.sourceOutputName;
+          if (!linkedTo[outputName]) linkedTo[outputName] = [];
+          linkedTo[outputName].push({ targetType: 'variable', targetName: variable.name });
+        }
+      });
+    });
+    
+    // Check script outputs
+    scriptOutputs?.forEach((output: any) => {
+      if (output.sourceBlockId === id) {
+        const outputName = output.sourceOutputName;
+        if (!linkedTo[outputName]) linkedTo[outputName] = [];
+        linkedTo[outputName].push({ targetType: 'output', targetName: output.name });
+      }
+    });
+    
+    // Check script metadata
+    scriptMetadata?.forEach((meta: any) => {
+      if (meta.sourceBlockId === id) {
+        const outputName = meta.sourceOutputName;
+        if (!linkedTo[outputName]) linkedTo[outputName] = [];
+        linkedTo[outputName].push({ targetType: 'metadata', targetName: meta.name });
+      }
+    });
+    
+    // Check other blocks' paramLinks
+    nodes?.forEach((node: any) => {
+      if (node.id !== id && node.data?.paramLinks) {
+        Object.entries(node.data.paramLinks).forEach(([paramKey, linkInfo]: [string, any]) => {
+          if (linkInfo.sourceBlockId === id) {
+            const outputName = linkInfo.sourceOutputName;
+            if (!linkedTo[outputName]) linkedTo[outputName] = [];
+            linkedTo[outputName].push({ 
+              targetType: 'input', 
+              targetName: `${node.data?.label || node.id}.${paramKey}` 
+            });
+          }
+        });
+      }
+    });
+    
+    return linkedTo;
+  };
   const [draggedOutput, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
   
   // Get command configuration from toolbox config
@@ -967,6 +1025,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             <OutputDisplay
               blockOutputs={data.blockOutputs}
               blockId={id as string}
+              linkedTo={calculateLinkedTo()} // ✅ NEW: Pass linked information
               onDragStart={(dragData) => {
                 setDraggedOutput(dragData);
               }}

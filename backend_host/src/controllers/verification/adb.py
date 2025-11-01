@@ -520,22 +520,6 @@ class ADBVerificationController(VerificationControllerInterface):
                 
                 print(f"[@controller:ADBVerification:getMenuInfo] Filtered to {len(filtered_elements)} elements in area")
             
-            # 2.5. SHOW RAW DUMP FIRST (before parsing)
-            print(f"[@controller:ADBVerification:getMenuInfo] === RAW ELEMENT DUMP (BEFORE PARSING) ===")
-            print(f"[@controller:ADBVerification:getMenuInfo] Total elements to process: {len(filtered_elements)}")
-            for i, elem in enumerate(filtered_elements, 1):
-                print(f"[@controller:ADBVerification:getMenuInfo]   Element {i}/{len(filtered_elements)}:")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Index: {elem.id}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Tag: {elem.tag}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Text: {repr(elem.text)}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Resource ID: {elem.resource_id}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Content Desc: {elem.content_desc}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Class: {elem.class_name}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Bounds: {elem.bounds}")
-                print(f"[@controller:ADBVerification:getMenuInfo]     Clickable: {elem.clickable}, Enabled: {elem.enabled}")
-            print(f"[@controller:ADBVerification:getMenuInfo] === RAW ELEMENT DUMP END ===")
-            print()
-            
             # 3. Parse key-value pairs from element text OR content_desc (check both!)
             # Handle multiple separator patterns common in mobile settings/info screens:
             # - "Key\nValue" or "Key&#10;Value" (newline, HTML-encoded)
@@ -544,32 +528,18 @@ class ADBVerificationController(VerificationControllerInterface):
             # - "Key\tValue" (tab)
             import html
             
-            print(f"[@controller:ADBVerification:getMenuInfo] === PARSING KEY-VALUE PAIRS ===")
-            print(f"[@controller:ADBVerification:getMenuInfo] Examining {len(filtered_elements)} elements for key-value patterns...")
-            
             parsed_data = {}
-            elements_examined = 0
-            elements_with_text = 0
-            patterns_matched = 0
-            
             for elem in filtered_elements:
-                elements_examined += 1
-                
                 # Get text from either text or content_desc field
                 text = ''
-                text_source = None
                 if hasattr(elem, 'text') and elem.text and elem.text != '<no text>':
                     text = elem.text.strip()
-                    text_source = 'text'
                 elif hasattr(elem, 'content_desc') and elem.content_desc and elem.content_desc != '<no content-desc>':
                     text = elem.content_desc.strip()
-                    text_source = 'content_desc'
                 
                 # Skip if no useful text
                 if not text:
                     continue
-                
-                elements_with_text += 1
                 
                 # Decode HTML entities (e.g., &#10; -> \n)
                 text = html.unescape(text)
@@ -577,7 +547,6 @@ class ADBVerificationController(VerificationControllerInterface):
                 # Try different separator patterns
                 key = None
                 value = None
-                pattern_used = None
                 
                 # Pattern 1: "Key\nValue" (newline - most common in Android)
                 if '\n' in text:
@@ -585,7 +554,6 @@ class ADBVerificationController(VerificationControllerInterface):
                     if len(lines) >= 2:
                         key = lines[0].strip()
                         value = '\n'.join(lines[1:]).strip()
-                        pattern_used = "newline"
                 
                 # Pattern 2: "Key: Value" (colon + space)
                 elif ': ' in text and len(text) < 200:  # Reasonable length
@@ -593,7 +561,6 @@ class ADBVerificationController(VerificationControllerInterface):
                     if len(parts) == 2:
                         key = parts[0].strip()
                         value = parts[1].strip()
-                        pattern_used = "colon-space"
                 
                 # Pattern 3: "Key - Value" (dash separator)
                 elif ' - ' in text and len(text) < 200:
@@ -601,7 +568,6 @@ class ADBVerificationController(VerificationControllerInterface):
                     if len(parts) == 2:
                         key = parts[0].strip()
                         value = parts[1].strip()
-                        pattern_used = "dash"
                 
                 # Pattern 4: "Key\tValue" (tab)
                 elif '\t' in text:
@@ -609,26 +575,15 @@ class ADBVerificationController(VerificationControllerInterface):
                     if len(parts) >= 2:
                         key = parts[0].strip()
                         value = '\t'.join(parts[1:]).strip()
-                        pattern_used = "tab"
                 
                 # Store if we found a valid key-value pair
                 if key and value:
-                    patterns_matched += 1
                     # Normalize key: replace spaces and special chars with underscore
                     normalized_key = key.replace(' ', '_').replace('-', '_').replace(':', '')
                     parsed_data[normalized_key] = value
-                    
-                    # Truncate value for display
-                    display_value = value if len(value) <= 50 else f"{value[:50]}..."
-                    print(f"[@controller:ADBVerification:getMenuInfo]   ✓ Match #{patterns_matched} (pattern={pattern_used}, source={text_source}):")
-                    print(f"[@controller:ADBVerification:getMenuInfo]     Key: '{key}' -> Normalized: '{normalized_key}'")
-                    print(f"[@controller:ADBVerification:getMenuInfo]     Value: '{display_value}'")
+                    print(f"  • {normalized_key} = {value}")
             
-            print(f"[@controller:ADBVerification:getMenuInfo] === PARSING COMPLETE ===")
-            print(f"[@controller:ADBVerification:getMenuInfo] Elements examined: {elements_examined}")
-            print(f"[@controller:ADBVerification:getMenuInfo] Elements with text: {elements_with_text}")
-            print(f"[@controller:ADBVerification:getMenuInfo] Patterns matched: {patterns_matched}")
-            print(f"[@controller:ADBVerification:getMenuInfo] Key-value pairs parsed: {len(parsed_data)}")
+            print(f"[@controller:ADBVerification:getMenuInfo] Parsed {len(parsed_data)} key-value pairs")
             
             # ALWAYS log this summary - even if empty
             print(f"[@controller:ADBVerification:getMenuInfo] === PARSED DATA SUMMARY ===")
@@ -699,6 +654,21 @@ class ADBVerificationController(VerificationControllerInterface):
                 'element_count': len(filtered_elements),
                 'area': area
             }
+            
+            # Print raw dump for debugging
+            print(f"[@controller:ADBVerification:getMenuInfo] Full raw dump available with {len(raw_dump)} elements")
+            print(f"[@controller:ADBVerification:getMenuInfo] === RAW DUMP START ===")
+            for i, elem_data in enumerate(raw_dump, 1):
+                print(f"[@controller:ADBVerification:getMenuInfo]   Element {i}/{len(raw_dump)}:")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Index: {elem_data['index']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Tag: {elem_data['tag']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Text: {repr(elem_data['text'])}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Resource ID: {elem_data['resource_id']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Content Desc: {elem_data['content_desc']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Class: {elem_data['class_name']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Bounds: {elem_data['bounds']}")
+                print(f"[@controller:ADBVerification:getMenuInfo]     Clickable: {elem_data['clickable']}, Enabled: {elem_data['enabled']}")
+            print(f"[@controller:ADBVerification:getMenuInfo] === RAW DUMP END ===")
             
             # 6. Return same format as text.getMenuInfo
             message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} UI elements'
@@ -774,7 +744,7 @@ class ADBVerificationController(VerificationControllerInterface):
             },
             {
                 'command': 'getMenuInfo',
-                'label': 'Get Menu Info ADB',
+                'label': 'Get Menu Info',
                 'description': 'Extract key-value pairs from menu/info screen using ADB UI dump and parse automatically',
                 'params': {
                     'area': create_param(

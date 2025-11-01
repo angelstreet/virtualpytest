@@ -90,3 +90,4 @@ networkx
 tapo
 
 #sudo apt install epiphany-browser
+safety>=2.0.0

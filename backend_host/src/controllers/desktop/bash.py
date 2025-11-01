@@ -72,10 +72,11 @@ class BashDesktopController(DesktopControllerInterface):
             start_time = time.time()
             
             try:
-                # Use shell=True to execute bash commands with proper shell interpretation
+                # Execute bash commands safely without shell=True to prevent command injection
+                # Use ['bash', '-c', command] for proper bash interpretation
                 process = subprocess.Popen(
-                    bash_command,
-                    shell=True,
+                    ['bash', '-c', bash_command],
+                    shell=False,
                     stdout=subprocess.PIPE,
                     stderr=subprocess.PIPE,
                     text=True,

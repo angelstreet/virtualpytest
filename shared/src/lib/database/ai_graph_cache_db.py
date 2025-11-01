@@ -22,7 +22,7 @@ def _generate_fingerprint(prompt: str, context: Dict) -> str:
         context: Execution context (device, interface, nodes)
         
     Returns:
-        MD5 fingerprint (hex string)
+        SHA-256 fingerprint (hex string)
     """
     # Normalize prompt
     prompt_normalized = prompt.lower().strip()
@@ -34,9 +34,9 @@ def _generate_fingerprint(prompt: str, context: Dict) -> str:
         'available_nodes': sorted(context.get('available_nodes', []))
     }
     
-    # Generate fingerprint
+    # Generate fingerprint using SHA-256 (secure hash, prevents collision attacks)
     fingerprint_data = f"{prompt_normalized}:{json.dumps(context_signature, sort_keys=True)}"
-    return hashlib.md5(fingerprint_data.encode()).hexdigest()
+    return hashlib.sha256(fingerprint_data.encode()).hexdigest()
 
 
 def store_graph(fingerprint: str, 

@@ -6,17 +6,27 @@
  */
 
 import React, { useState } from 'react';
-import { Box, Typography, Chip, Collapse, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button } from '@mui/material';
+import { Box, Typography, Chip, Collapse, IconButton, Tooltip, Dialog, DialogTitle, DialogContent, DialogActions, Button, Badge } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
 import ContentCopyIcon from '@mui/icons-material/ContentCopy';
+import CallMadeIcon from '@mui/icons-material/CallMade'; // ✅ NEW: Outgoing link icon
 import { useTheme } from '../../../contexts/ThemeContext';
+
+// ✅ NEW: Information about where this output is linked to
+interface LinkedTo {
+  targetType: 'variable' | 'output' | 'metadata' | 'input';
+  targetName: string;
+  targetId?: string;
+}
 
 interface OutputDisplayProps {
   blockOutputs?: Array<{ name: string; type: string; value?: any }>;
   onDragStart?: (output: { blockId: string; outputName: string; outputType: string }) => void;
   onDragEnd?: () => void;
   blockId?: string;
+  // ✅ NEW: Track what each output is linked to
+  linkedTo?: Record<string, LinkedTo[]>; // { "parsed_data": [{ targetType: 'variable', targetName: 'info' }] }
 }
 
 export const OutputDisplay: React.FC<OutputDisplayProps> = ({
@@ -24,6 +34,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
   onDragStart,
   onDragEnd,
   blockId,
+  linkedTo = {}, // ✅ NEW: Default to empty object
 }) => {
   // ✅ ALWAYS call hooks at the top level - before any early returns
   const { actualMode } = useTheme();
@@ -31,6 +42,33 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
   const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [viewDialogData, setViewDialogData] = useState<{ name: string; value: any } | null>(null);
+
+  // ✅ NEW: Helper to format linked targets for tooltip
+  const getLinkedToTooltip = (outputName: string): string => {
+    const links = linkedTo[outputName];
+    if (!links || links.length === 0) {
+      return '';
+    }
+    
+    if (links.length === 1) {
+      const link = links[0];
+      const typeLabel = link.targetType.toUpperCase();
+      return `Linked to ${typeLabel}: ${link.targetName}`;
+    }
+    
+    // Multiple links
+    const lines = links.map(link => {
+      const typeLabel = link.targetType.toUpperCase();
+      return `  • ${typeLabel}: ${link.targetName}`;
+    });
+    return `Linked to (${links.length}):\n${lines.join('\n')}`;
+  };
+  
+  // ✅ NEW: Get link badge count
+  const getLinkCount = (outputName: string): number => {
+    const links = linkedTo[outputName];
+    return links ? links.length : 0;
+  };
 
   // Early return AFTER all hooks
   if (!blockOutputs || blockOutputs.length === 0) {
@@ -165,16 +203,43 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
               <Box key={output.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Tooltip 
                   title={
-                    hasValue 
-                      ? "Click to view • Drag to link to inputs" 
-                      : (blockId && onDragStart ? "Drag to link to inputs" : "")
+                    <>
+                      {hasValue 
+                        ? "Click to view • Drag to link to inputs" 
+                        : (blockId && onDragStart ? "Drag to link to inputs" : "")
+                      }
+                      {getLinkCount(output.name) > 0 && (
+                        <>
+                          <br />
+                          <strong>{getLinkedToTooltip(output.name)}</strong>
+                        </>
+                      )}
+                    </>
                   }
                   placement="left"
                 >
-                  <Chip
-                    className="nodrag"
-                    label={hasValue ? `${output.name}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}` : `${output.name}: ${output.type}`}
-                    size="small"
+                  <Badge
+                    badgeContent={getLinkCount(output.name)}
+                    color="success"
+                    overlap="circular"
+                    anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+                    sx={{
+                      flex: 1,
+                      '& .MuiBadge-badge': {
+                        fontSize: '0.6rem',
+                        height: '16px',
+                        minWidth: '16px',
+                        backgroundColor: '#10b981',
+                        color: 'white',
+                        fontWeight: 'bold',
+                      }
+                    }}
+                  >
+                    <Chip
+                      className="nodrag"
+                      icon={getLinkCount(output.name) > 0 ? <CallMadeIcon sx={{ fontSize: 12 }} /> : undefined}
+                      label={hasValue ? `${output.name}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}` : `${output.name}: ${output.type}`}
+                      size="small"
                     onClick={(e) => {
                       console.log('[@OutputDisplay] Chip onClick:', { 
                         hasValue, 
@@ -248,22 +313,23 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                         onDragEnd();
                       }
                     }}
-                    sx={{ 
-                      fontSize: 16, 
-                      height: 26,
-                      flex: 1,
-                      bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
-                      borderColor: '#f97316',
-                      cursor: blockId && onDragStart ? 'grab' : (hasValue ? 'pointer' : 'default'),
-                      '&:hover': {
-                        bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
-                      },
-                      '&:active': {
-                        cursor: blockId && onDragStart ? 'grabbing' : (hasValue ? 'pointer' : 'default'),
-                      }
-                    }}
-                    variant="outlined"
-                  />
+                      sx={{ 
+                        fontSize: 16, 
+                        height: 26,
+                        flex: 1,
+                        bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
+                        borderColor: getLinkCount(output.name) > 0 ? '#10b981' : '#f97316', // ✅ Green border if linked
+                        cursor: blockId && onDragStart ? 'grab' : (hasValue ? 'pointer' : 'default'),
+                        '&:hover': {
+                          bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
+                        },
+                        '&:active': {
+                          cursor: blockId && onDragStart ? 'grabbing' : (hasValue ? 'pointer' : 'default'),
+                        }
+                      }}
+                      variant="outlined"
+                    />
+                  </Badge>
                 </Tooltip>
                 
                 <Tooltip title={copiedOutput === output.name ? "Copied!" : "Copy output"}>

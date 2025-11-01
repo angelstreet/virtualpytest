@@ -112,8 +112,8 @@ class AppiumUtils:
         """
         try:
             result = subprocess.run(
-                command,
-                shell=True,
+                ['bash', '-c', command],
+                shell=False,
                 capture_output=True,
                 text=True,
                 timeout=30
