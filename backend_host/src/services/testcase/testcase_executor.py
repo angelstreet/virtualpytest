@@ -1048,15 +1048,19 @@ class TestCaseExecutor:
         start_time = time.time()
         
         try:
+            command = data.get('command')  # ✅ ADD: Extract command (e.g., 'getMenuInfo')
             verification_type = data.get('verification_type')
             reference = data.get('reference')
             threshold = data.get('threshold', 0.8)
+            params = data.get('params', {})  # ✅ ADD: Extract params (already resolved by frontend)
             
             # Build verifications array from single verification
             verifications = [{
+                'command': command,  # ✅ ADD: Include command for controller
                 'verification_type': verification_type,
                 'reference': reference,
-                'threshold': threshold
+                'threshold': threshold,
+                'params': params  # ✅ ADD: Include params for controller
             }]
             
             # Use orchestrator for unified logging (same pattern as actions)
