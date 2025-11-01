@@ -654,43 +654,48 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
             }}
           >
             {/* 🆕 Current Executing Step (always at top) */}
-            {currentExecutingStep && (
-              <Box
-                sx={{
-                  mb: completedSteps.length > 0 ? 1.5 : 0,
-                  p: 1.5,
-                  borderRadius: 1,
-                  backgroundColor: actualMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  borderWidth: '1px',
-                  borderStyle: 'solid',
-                  borderColor: '#3b82f6',
-                  animation: 'stepPulse 2s ease-in-out infinite',
-                  '@keyframes stepPulse': {
-                    '0%, 100%': {
-                      borderColor: '#3b82f6',
-                      boxShadow: `0 0 0 rgba(59, 130, 246, 0)`,
+            {currentExecutingStep && (() => {
+              // Calculate step number for current executing step (same logic as completed steps)
+              const executingStepNumber = allSteps.findIndex(s => s.blockId === currentExecutingStep.blockId) + 1;
+              
+              return (
+                <Box
+                  sx={{
+                    mb: completedSteps.length > 0 ? 1.5 : 0,
+                    p: 1.5,
+                    borderRadius: 1,
+                    backgroundColor: actualMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
+                    borderColor: '#3b82f6',
+                    animation: 'stepPulse 2s ease-in-out infinite',
+                    '@keyframes stepPulse': {
+                      '0%, 100%': {
+                        borderColor: '#3b82f6',
+                        boxShadow: `0 0 0 rgba(59, 130, 246, 0)`,
+                      },
+                      '50%': {
+                        borderColor: '#3b82f6',
+                        boxShadow: `0 0 8px rgba(59, 130, 246, 0.4)`,
+                      },
                     },
-                    '50%': {
-                      borderColor: '#3b82f6',
-                      boxShadow: `0 0 8px rgba(59, 130, 246, 0.4)`,
-                    },
-                  },
-                }}
-              >
-                {/* Step Header */}
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
-                      🔵
-                    </Typography>
-                    <Typography variant="caption" fontWeight="bold" sx={{ color: '#3b82f6' }}>
-                      STEP {currentStepNumber}: {currentExecutingStep.label} EXECUTING...
-                    </Typography>
+                  }}
+                >
+                  {/* Step Header */}
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Typography variant="caption" sx={{ fontSize: '0.875rem' }}>
+                        🔵
+                      </Typography>
+                      <Typography variant="caption" fontWeight="bold" sx={{ color: '#3b82f6' }}>
+                        STEP {executingStepNumber}: {currentExecutingStep.label} EXECUTING...
+                      </Typography>
+                    </Box>
+                  
                   </Box>
-                
                 </Box>
-              </Box>
-            )}
+              );
+            })()}
 
             {/* Completed Steps History */}
             {completedSteps.map((step, index) => {

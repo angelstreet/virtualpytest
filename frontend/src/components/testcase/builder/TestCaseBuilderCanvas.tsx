@@ -97,7 +97,8 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
             start: '#2196f3',
             success: '#10b981',
             failure: '#ef4444',
-            action: '#f97316',
+            navigation: '#8b5cf6', // purple
+            action: '#f97316', // orange
             verification: '#3b82f6',
             loop: '#6b7280',
             sleep: '#6b7280',
