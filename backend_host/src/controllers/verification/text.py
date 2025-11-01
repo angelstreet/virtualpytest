@@ -566,7 +566,7 @@ class TextVerificationController:
             },
             {
                 "command": "getMenuInfo",
-                "label": "Get Menu Info",
+                "label": "Get Menu Info (OCR)",
                 "description": "Extract key-value pairs from menu/info screen using OCR and parse automatically",
                 "params": {
                     "area": create_param(
@@ -580,7 +580,17 @@ class TextVerificationController:
                     create_output(
                         "parsed_data",
                         OutputType.OBJECT,
-                        description="Parsed key-value pairs from menu"
+                        description="Parsed key-value pairs from OCR text"
+                    ),
+                    create_output(
+                        "raw_dump",
+                        OutputType.ARRAY,
+                        description="Full raw OCR lines for debugging"
+                    ),
+                    create_output(
+                        "element_count",
+                        OutputType.NUMBER,
+                        description="Number of lines extracted from OCR"
                     ),
                     create_output(
                         "ocr_text",
@@ -801,17 +811,37 @@ class TextVerificationController:
                 print(f"[@controller:TextVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
 
             
-            # Prepare output data
+            # Prepare raw_dump structure (consistent with ADB/Playwright)
+            # Split OCR text into lines for structured debugging
+            ocr_lines = extracted_text.split('\n')
+            raw_dump = []
+            for idx, line in enumerate(ocr_lines):
+                raw_dump.append({
+                    'index': idx,
+                    'line_number': idx + 1,
+                    'text': line,
+                    'character_count': len(line),
+                    'is_empty': len(line.strip()) == 0
+                })
+            
+            # Prepare output data (consistent with ADB/Playwright)
             output_data = {
                 'parsed_data': parsed_data,
-                'ocr_text': extracted_text,
+                'raw_output': extracted_text,  # Keep as string for backward compatibility (same as ADB/Playwright)
+                'raw_dump': raw_dump,  # Full structured dump for debugging (same as ADB/Playwright)
+                'element_count': len(ocr_lines),  # Number of lines extracted (same as ADB/Playwright)
+                'area': area,
+                # OCR-specific extra fields
+                'ocr_text': extracted_text,  # Keep for backward compatibility
                 'character_count': result.get('character_count', 0),
                 'word_count': result.get('word_count', 0),
                 'language': result.get('language', 'en'),
-                'area': area,
                 'source_image': source_path,
                 'processed_image': result.get('image_textdetected_path', '')
             }
+            
+            print(f"[@controller:TextVerification:getMenuInfo] 📤 RETURNING output_data with {len(parsed_data)} parsed_data entries")
+            print(f"[@controller:TextVerification:getMenuInfo] 📤 output_data keys: {list(output_data.keys())}")
             
             # Construct success message
             message = f'Parsed {len(parsed_data)} fields and auto-stored to metadata'
