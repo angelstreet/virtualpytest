@@ -16,14 +16,22 @@ import os
 import importlib
 from typing import Dict, List, Any
 
+# ✅ Global cache for discovered blocks (prevents re-discovery on every execution)
+_BLOCK_CACHE: Dict[str, Any] = {}
+
 
 def discover_blocks() -> Dict[str, Any]:
     """
     Auto-discover all blocks from blocks/ and custom_blocks/ folders.
+    Uses caching to avoid re-discovery on every execution.
     
     Returns:
         Dict mapping command -> block_module
     """
+    # ✅ Return cached blocks if already discovered
+    if _BLOCK_CACHE:
+        return _BLOCK_CACHE
+    
     blocks = {}
     
     # Get builder directory
@@ -40,6 +48,9 @@ def discover_blocks() -> Dict[str, Any]:
         blocks.update(_discover_blocks_in_dir(custom_blocks_dir, 'backend_host.src.builder.custom_blocks'))
     
     print(f"[@block_registry] Discovered {len(blocks)} blocks: {list(blocks.keys())}")
+    
+    # ✅ Cache the discovered blocks
+    _BLOCK_CACHE.update(blocks)
     
     return blocks
 

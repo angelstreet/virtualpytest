@@ -379,106 +379,106 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
           const hasAny = filtered.length > 0;
           
           if (!hasAny) {
-            return (
-              <MenuItem disabled>
+            return [
+              <MenuItem key="no-vars" disabled>
                 <Typography variant="body2" color="text.secondary">
                   No compatible variables available
                 </Typography>
               </MenuItem>
-            );
+            ];
           }
           
-          return (
-            <>
-              {/* INPUTS */}
-              {groups.inputs.length > 0 && (
-                <>
-                  <ListSubheader>INPUTS ({groups.inputs.length})</ListSubheader>
-                  {groups.inputs.map((v) => (
-                    <MenuItem key={`input-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
-                      <Typography variant="body2">
-                        {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
-                        {v.value !== undefined && v.value !== '' && (
-                          <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
-                        )}
-                      </Typography>
-                    </MenuItem>
-                  ))}
-                </>
-              )}
+          const items: React.ReactNode[] = [];
+          
+          // INPUTS
+          if (groups.inputs.length > 0) {
+            items.push(<ListSubheader key="inputs-header">INPUTS ({groups.inputs.length})</ListSubheader>);
+            groups.inputs.forEach((v) => {
+              items.push(
+                <MenuItem key={`input-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
+                  <Typography variant="body2">
+                    {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                    {v.value !== undefined && v.value !== '' && (
+                      <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                    )}
+                  </Typography>
+                </MenuItem>
+              );
+            });
+          }
+          
+          // OUTPUTS
+          if (groups.outputs.length > 0) {
+            items.push(<ListSubheader key="outputs-header">OUTPUTS ({groups.outputs.length})</ListSubheader>);
+            groups.outputs.forEach((v) => {
+              items.push(
+                <MenuItem key={`output-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
+                  <Typography variant="body2">
+                    {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                    {v.value !== undefined && (
+                      <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                    )}
+                  </Typography>
+                </MenuItem>
+              );
+            });
+          }
+          
+          // VARIABLES
+          if (groups.variables.length > 0) {
+            items.push(<ListSubheader key="variables-header">VARIABLES ({groups.variables.length})</ListSubheader>);
+            groups.variables.forEach((v) => {
+              items.push(
+                <MenuItem key={`var-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
+                  <Typography variant="body2">
+                    {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                    {v.value !== undefined && (
+                      <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                    )}
+                  </Typography>
+                </MenuItem>
+              );
+            });
+          }
+          
+          // BLOCK OUTPUTS
+          if (groups.blockOutputs.length > 0) {
+            items.push(<ListSubheader key="block-outputs-header">BLOCK OUTPUTS</ListSubheader>);
+            
+            // Group by blockId
+            const byBlock: Record<string, AvailableVariable[]> = {};
+            groups.blockOutputs.forEach(v => {
+              if (v.blockId) {
+                if (!byBlock[v.blockId]) byBlock[v.blockId] = [];
+                byBlock[v.blockId].push(v);
+              }
+            });
+            
+            Object.entries(byBlock).forEach(([blockId, outputs]) => {
+              items.push(
+                <MenuItem key={`block-${blockId}-header`} disabled sx={{ pl: 2 }}>
+                  <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                    {blockId}
+                  </Typography>
+                </MenuItem>
+              );
               
-              {/* OUTPUTS */}
-              {groups.outputs.length > 0 && (
-                <>
-                  <ListSubheader>OUTPUTS ({groups.outputs.length})</ListSubheader>
-                  {groups.outputs.map((v) => (
-                    <MenuItem key={`output-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
-                      <Typography variant="body2">
-                        {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
-                        {v.value !== undefined && (
-                          <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
-                        )}
-                      </Typography>
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-              
-              {/* VARIABLES */}
-              {groups.variables.length > 0 && (
-                <>
-                  <ListSubheader>VARIABLES ({groups.variables.length})</ListSubheader>
-                  {groups.variables.map((v) => (
-                    <MenuItem key={`var-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
-                      <Typography variant="body2">
-                        {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
-                        {v.value !== undefined && (
-                          <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
-                        )}
-                      </Typography>
-                    </MenuItem>
-                  ))}
-                </>
-              )}
-              
-              {/* BLOCK OUTPUTS */}
-              {groups.blockOutputs.length > 0 && (
-                <>
-                  <ListSubheader>BLOCK OUTPUTS</ListSubheader>
-                  {/* Group by blockId */}
-                  {(() => {
-                    const byBlock: Record<string, AvailableVariable[]> = {};
-                    groups.blockOutputs.forEach(v => {
-                      if (v.blockId) {
-                        if (!byBlock[v.blockId]) byBlock[v.blockId] = [];
-                        byBlock[v.blockId].push(v);
-                      }
-                    });
-                    
-                    return Object.entries(byBlock).map(([blockId, outputs]) => (
-                      <Box key={blockId}>
-                        <MenuItem disabled sx={{ pl: 2 }}>
-                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
-                            {blockId}
-                          </Typography>
-                        </MenuItem>
-                        {outputs.map((v) => (
-                          <MenuItem key={`block-${blockId}-${v.name}`} onClick={() => handleSelectVariable(v.name)} sx={{ pl: 4 }}>
-                            <Typography variant="body2">
-                              {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
-                              {v.value !== undefined && (
-                                <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
-                              )}
-                            </Typography>
-                          </MenuItem>
-                        ))}
-                      </Box>
-                    ));
-                  })()}
-                </>
-              )}
-            </>
-          );
+              outputs.forEach((v) => {
+                items.push(
+                  <MenuItem key={`block-${blockId}-${v.name}`} onClick={() => handleSelectVariable(v.name)} sx={{ pl: 4 }}>
+                    <Typography variant="body2">
+                      {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                      {v.value !== undefined && (
+                        <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                      )}
+                    </Typography>
+                  </MenuItem>
+                );
+              });
+            });
+          }
+          
+          return items;
         })()}
       </Menu>
     </>

@@ -37,9 +37,38 @@ export const UniversalBlock: React.FC<NodeProps & {
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
   const { currentHost, currentDeviceId } = useDeviceData();
-  const { updateBlock, userinterfaceName, unifiedExecution } = useTestCaseBuilder();
+  const { updateBlock, userinterfaceName, unifiedExecution, scriptInputs, scriptVariables } = useTestCaseBuilder();
   const { actualTreeId } = useNavigationConfig();
   const { executeActions } = useAction(); // ✅ Use existing hook with async polling
+  
+  // ✅ Helper function to resolve {variable_name} references to actual values
+  const resolveVariableInValue = (value: any): any => {
+    if (typeof value !== 'string') return value;
+    
+    // Check if it's a variable reference: {variable_name}
+    const varMatch = value.match(/^\{(.+?)\}$/);
+    if (!varMatch) return value;
+    
+    const varName = varMatch[1].trim();
+    
+    // Try scriptInputs first (line 633 from TestCaseBuilder.tsx shows input.default is used)
+    const input = scriptInputs?.find((inp: any) => inp.name === varName);
+    if (input) {
+      console.log(`[@UniversalBlock] Resolved {${varName}} = ${JSON.stringify(input.default)} (from scriptInputs)`);
+      return input.default;
+    }
+    
+    // Try scriptVariables (line 653 from TestCaseBuilder.tsx shows variable.value is used)
+    const variable = scriptVariables?.find((v: any) => v.name === varName);
+    if (variable) {
+      console.log(`[@UniversalBlock] Resolved {${varName}} = ${JSON.stringify(variable.value)} (from scriptVariables)`);
+      return variable.value;
+    }
+    
+    // If not found, keep as-is and warn
+    console.warn(`[@UniversalBlock] Variable {${varName}} not found in scriptInputs or scriptVariables`);
+    return value;
+  };
   const [isExecuting, setIsExecuting] = useState(false);
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
@@ -185,10 +214,19 @@ export const UniversalBlock: React.FC<NodeProps & {
           });
         }
         
+        // ✅ Resolve {variable} references to actual values before sending to backend
+        const resolvedParams: Record<string, any> = {};
+        Object.entries(cleanParams).forEach(([key, value]) => {
+          resolvedParams[key] = resolveVariableInValue(value);
+        });
+        
+        console.log('[@UniversalBlock] Params before resolution:', cleanParams);
+        console.log('[@UniversalBlock] Params after resolution:', resolvedParams);
+        
         // Build action in EdgeAction format (standard blocks use same executor)
         const block = {
           command: data.command,
-          params: cleanParams,
+          params: resolvedParams, // ✅ Use resolved params
         };
         
         // Standard blocks should use async pattern too (e.g., sleep(60) would timeout with sync)

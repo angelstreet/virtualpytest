@@ -14,6 +14,8 @@ export interface NavigationExecuteResponse {
   final_position_node_id?: string;
   verification_results?: Array<{ success: boolean }>;
   transitions?: any[];
+  logs?: string; // ✅ Navigation execution logs
+  message?: string; // ✅ Result message
 }
 
 /**
@@ -96,19 +98,30 @@ export async function executeNavigationAsync(params: {
     }
 
     if (statusResponse.status === 'completed') {
-      const response: NavigationExecuteResponse = statusResponse.result;
+      const response: NavigationExecuteResponse = {
+        ...statusResponse.result,
+        // ✅ Extract logs from top-level statusResponse (same as action/verification pattern)
+        logs: statusResponse.result?.logs || statusResponse.logs || '',
+        message: statusResponse.result?.message || statusResponse.message,
+      };
 
       if (!response.success) {
         // ✅ Create error object with debug report URL if available
         const error: any = new Error(response.error || 'Navigation execution failed');
         error.debugReportUrl = response.error_details?.debug_report_url;
         error.errorDetails = response.error_details;
+        error.logs = response.logs; // ✅ Include logs in error
         throw error;
       }
 
       if (onProgress) {
         onProgress(`Navigation to ${targetNodeLabel} completed successfully`);
       }
+
+      console.log('[@navigationExecutionUtils] ✅ Navigation completed with logs:', {
+        hasLogs: Boolean(response.logs),
+        logsLength: response.logs?.length || 0
+      });
 
       return response;
     } else if (statusResponse.status === 'error') {
@@ -118,6 +131,8 @@ export async function executeNavigationAsync(params: {
         error.debugReportUrl = statusResponse.result.error_details.debug_report_url;
         error.errorDetails = statusResponse.result.error_details;
       }
+      // ✅ Extract logs from error response too
+      error.logs = statusResponse.result?.logs || statusResponse.logs || '';
       throw error;
     }
 
