@@ -152,8 +152,8 @@ class VerificationExecutor:
             
             print(f"[@verification_executor] Loading verification context for device: {self.device_id}, model: {self.device_model}")
             
-            # Get verification actions from verification controllers - direct device access
-            verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio']
+            # Get verification actions from verification controllers AND web controller
+            verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio', 'web']
             for v_type in verification_types:
                 try:
                     controller = getattr(self, f'{v_type}_controller', None)

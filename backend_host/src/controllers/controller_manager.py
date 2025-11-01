@@ -385,14 +385,10 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         implementation = controller_config['implementation']
         controller_params = controller_config['params']
         
-        # Special handling for 'web' verification - reuses existing Playwright web controller
+        # Skip 'web' verification - web controller already registered and has verification methods
+        # No need to register Playwright twice (it's already registered as 'web' controller)
         if implementation == 'web':
-            if web_controller:
-                # Add the web controller as a verification controller (it has verification methods)
-                device.add_controller('verification', web_controller)
-                print(f"[@controller_manager:_create_device_with_controllers] ✓ Registered Playwright web controller for web verification")
-            else:
-                print(f"[@controller_manager:_create_device_with_controllers] WARNING: web verification needs web controller but none available")
+            print(f"[@controller_manager:_create_device_with_controllers] ✓ Web verifications available via 'web' controller (Playwright)")
             continue
         
         # Add av_controller dependency for verification controllers that need it
