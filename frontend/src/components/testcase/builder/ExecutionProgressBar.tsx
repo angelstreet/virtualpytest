@@ -273,7 +273,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
         backgroundColor: actualMode === 'dark' ? '#1f2937' : '#ffffff',
         borderRadius: 2,
         boxShadow: isDragging ? '0 12px 24px rgba(0, 0, 0, 0.4)' : '0 8px 16px rgba(0, 0, 0, 0.3)',
-        border: '2px solid',
+        borderWidth: '2px',
+        borderStyle: 'solid',
         borderColor: '#3b82f6',
         cursor: isDragging ? 'grabbing' : 'default',
         userSelect: isDragging ? 'none' : 'auto',
@@ -646,7 +647,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                   p: 1.5,
                   borderRadius: 1,
                   backgroundColor: actualMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                  border: '1px solid',
+                  borderWidth: '1px',
+                  borderStyle: 'solid',
                   borderColor: '#3b82f6',
                   animation: 'stepPulse 2s ease-in-out infinite',
                   '@keyframes stepPulse': {
@@ -696,7 +698,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                     p: 1.5,
                     borderRadius: 1,
                     backgroundColor: actualMode === 'dark' ? 'rgba(255,255,255,0.03)' : 'rgba(0,0,0,0.02)',
-                    border: '1px solid',
+                    borderWidth: '1px',
+                    borderStyle: 'solid',
                     borderColor: actualMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
                   }}
                 >

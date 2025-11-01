@@ -260,6 +260,7 @@ export const UniversalBlock: React.FC<NodeProps & {
 
         let attempts = 0;
         const maxAttempts = 120; // 120 * 1000ms = 120 seconds (for long sleep, etc.)
+        let lastStatusResponse: any = null; // ✅ Capture last response for transformation
 
         while (attempts < maxAttempts) {
           await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every 1s
@@ -267,6 +268,7 @@ export const UniversalBlock: React.FC<NodeProps & {
 
           const statusResult = await fetch(statusUrl);
           const statusResponse = await statusResult.json();
+          lastStatusResponse = statusResponse; // ✅ Store for later use
 
           if (!statusResponse.success) {
             throw new Error(statusResponse.error || 'Failed to get execution status');
@@ -283,6 +285,25 @@ export const UniversalBlock: React.FC<NodeProps & {
 
         if (attempts >= maxAttempts) {
           throw new Error('Block execution timeout - took too long');
+        }
+        
+        // ✅ Transform standard block result to frontend format
+        // Standard blocks return: { result_success: 0/1/-1, result_output: any, error_msg: string }
+        // Frontend expects: { success: boolean, output_data: object }
+        if (lastStatusResponse?.result?.results?.[0]) {
+          const blockResult = lastStatusResponse.result.results[0];
+          result = {
+            success: blockResult.result_success === 0,
+            error: blockResult.error_msg || null,
+            message: blockResult.result_success === 0 ? 'Block executed successfully' : 'Block execution failed',
+            output_data: {
+              result: blockResult.result_output,
+              // Include other outputs if they exist
+              ...blockResult
+            },
+            logs: lastStatusResponse.result?.logs || blockResult.logs || ''
+          };
+          console.log('[@UniversalBlock] Transformed block result:', result);
         }
       } else {
         // ✅ Execute action or verification using existing useAction hook (async polling built-in)
@@ -652,7 +673,9 @@ export const UniversalBlock: React.FC<NodeProps & {
             width: 'auto',
             height: handleHeight,
             borderRadius: isLeft ? '0 0 0 4px' : '0 0 4px 0',
-            border: isActive ? '4px solid white' : '2px solid white',
+            borderLeft: isActive ? '4px solid white' : '2px solid white',
+            borderRight: isActive ? '4px solid white' : '2px solid white',
+            borderBottom: isActive ? '4px solid white' : '2px solid white',
             borderTop: 'none',
             bottom: bottomOffset,
             display: 'flex',

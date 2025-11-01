@@ -42,6 +42,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
   command,
   onConfigureClick, // ✅ NEW
 }) => {
+  // ✅ ALWAYS call hooks at the top level - before any early returns
   const { actualMode } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [copiedParam, setCopiedParam] = useState<string | null>(null);
@@ -62,6 +63,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
       })
     : [];
 
+  // Early return AFTER all hooks
   if (displayParams.length === 0) {
     return null;
   }

@@ -85,24 +85,24 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
   const [variableMenuAnchor, setVariableMenuAnchor] = useState<HTMLElement | null>(null);
   const [currentField, setCurrentField] = useState<string | null>(null);
   
-  // Type compatibility check - strict matching for evaluate_condition
-  const isTypeCompatible = (varType: string, expectedType: string): boolean => {
-    if (!expectedType || expectedType === 'any') return true;
-    if (varType === 'any') return true;
-    
-    // Type mapping: backend uses 'str', frontend inputs use 'string'
-    const normalizeType = (type: string) => {
-      if (type === 'string') return 'str';
-      if (type === 'str') return 'str';
-      return type;
-    };
-    
-    // Strict matching: only show exact type matches
-    return normalizeType(varType) === normalizeType(expectedType);
-  };
-  
   // Filter variables by type for evaluate_condition - memoized to update when operand_type changes
   const getFilteredVariables = useMemo(() => {
+    // Type compatibility check - strict matching for evaluate_condition
+    const isTypeCompatible = (varType: string, expectedType: string): boolean => {
+      if (!expectedType || expectedType === 'any') return true;
+      if (varType === 'any') return true;
+      
+      // Type mapping: backend uses 'str', frontend inputs use 'string'
+      const normalizeType = (type: string) => {
+        if (type === 'string') return 'str';
+        if (type === 'str') return 'str';
+        return type;
+      };
+      
+      // Strict matching: only show exact type matches
+      return normalizeType(varType) === normalizeType(expectedType);
+    };
+    
     return (paramName: string): AvailableVariable[] => {
       if (blockCommand !== 'evaluate_condition') return availableVariables;
       if (paramName !== 'left_operand' && paramName !== 'right_operand') return availableVariables;
@@ -110,7 +110,7 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
       const operandType = formData['operand_type'] || 'int';
       return availableVariables.filter(v => isTypeCompatible(v.type, operandType));
     };
-  }, [blockCommand, availableVariables, formData, isTypeCompatible]);
+  }, [blockCommand, availableVariables, formData]);
   
   // Group filtered variables by source
   const groupVariablesBySource = (variables: AvailableVariable[]) => {

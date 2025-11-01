@@ -65,8 +65,8 @@ class StandardBlockExecutor:
             result['block_type'] = block_type
             results.append(result)
             
-            # Count successful blocks
-            if result.get('success'):
+            # Count successful blocks (result_success: 0=success, 1=failure, -1=error)
+            if result.get('result_success') == 0:
                 passed_count += 1
         
         overall_success = passed_count == len(blocks)

@@ -25,12 +25,14 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
   onDragEnd,
   blockId,
 }) => {
+  // ✅ ALWAYS call hooks at the top level - before any early returns
   const { actualMode } = useTheme();
   const [expanded, setExpanded] = useState(false);
   const [copiedOutput, setCopiedOutput] = useState<string | null>(null);
   const [viewDialogOpen, setViewDialogOpen] = useState(false);
   const [viewDialogData, setViewDialogData] = useState<{ name: string; value: any } | null>(null);
 
+  // Early return AFTER all hooks
   if (!blockOutputs || blockOutputs.length === 0) {
     return null;
   }
