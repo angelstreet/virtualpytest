@@ -211,6 +211,11 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                 displayName = 'interface';
               }
               
+              // Special case: rename device_model to model
+              if (displayName === 'device_model') {
+                displayName = 'model';
+              }
+              
               // Display value: show default value if available, otherwise show type
               const displayValue = input.default !== undefined && input.default !== '' 
                 ? `${input.default}` 

@@ -340,15 +340,15 @@ const TestCaseBuilderContent: React.FC = () => {
     }
   }, [reactFlowInstance]);
 
-  // Fit view when test case is loaded (when currentTestcaseId changes and nodes exist)
+  // Fit view when test case is loaded (when currentTestcaseId changes)
   React.useEffect(() => {
-    if (reactFlowInstance && hookData.currentTestcaseId && hookData.nodes.length > 0) {
+    if (reactFlowInstance && hookData.currentTestcaseId) {
       // Small delay to ensure nodes are rendered
       setTimeout(() => {
         reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
       }, 150);
     }
-  }, [reactFlowInstance, hookData.currentTestcaseId, hookData.nodes.length]);
+  }, [reactFlowInstance, hookData.currentTestcaseId]);
 
   // Wrap handleNew to trigger fitView after reset
   const wrappedHandleNew = useCallback(() => {

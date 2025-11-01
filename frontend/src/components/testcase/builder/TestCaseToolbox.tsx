@@ -45,17 +45,20 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
   } = useTestCaseBuilder();
 
   // Initialize default inputs from take control data
-  // These 3 inputs are protected and cannot be deleted
+  // These 4 inputs are protected and cannot be deleted
   useEffect(() => {
     // Get current values
     const hostName = selectedHost?.host_name || '';
     const deviceName = selectedDeviceId || '';
     const userinterfaceName = userinterface || '';
+    const selectedDevice = selectedHost?.devices?.find((d: any) => d.device_id === selectedDeviceId);
+    const deviceModelName = selectedDevice?.device_model || '';
 
     // Check if default inputs already exist
     const hasHostInput = scriptInputs.some(input => input.name === 'host_name');
     const hasDeviceInput = scriptInputs.some(input => input.name === 'device_name');
     const hasUserinterfaceInput = scriptInputs.some(input => input.name === 'userinterface_name');
+    const hasDeviceModelInput = scriptInputs.some(input => input.name === 'device_model_name');
 
     // Initialize default inputs if they don't exist
     const defaultInputs = [];
@@ -89,6 +92,16 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         default: userinterfaceName,
       });
     }
+    
+    if (!hasDeviceModelInput) {
+      defaultInputs.push({
+        name: 'device_model_name',
+        type: 'string',
+        required: true,
+        protected: true,
+        default: deviceModelName,
+      });
+    }
 
     // Add default inputs if any are missing (prepend them to the beginning)
     if (defaultInputs.length > 0) {
@@ -104,6 +117,9 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         }
         if (input.name === 'userinterface_name' && input.protected) {
           return { ...input, default: userinterfaceName };
+        }
+        if (input.name === 'device_model_name' && input.protected) {
+          return { ...input, default: deviceModelName };
         }
         return input;
       });
