@@ -705,6 +705,16 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       edgeDetails: graph.edges
     });
     
+    // ✅ DEBUG: Log variables being saved (with sourceLinks)
+    console.log('[@TestCaseBuilder] Saving scriptVariables:', 
+      scriptVariables.map(v => ({
+        name: v.name,
+        type: v.type,
+        sourceLinks: v.sourceLinks,
+        oldFormat: { sourceBlockId: v.sourceBlockId, sourceOutputName: v.sourceOutputName }
+      }))
+    );
+    
     try {
       const result = await saveTestCase(
         testcaseName,
@@ -779,6 +789,16 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
             ? graph.scriptConfig.metadata 
             : graph.scriptConfig.metadata?.fields || []);
           console.log('[@TestCaseBuilder] Loaded scriptConfig:', graph.scriptConfig);
+          
+          // ✅ DEBUG: Log variables being loaded (with sourceLinks)
+          console.log('[@TestCaseBuilder] Loaded scriptVariables:', 
+            (graph.scriptConfig.variables || []).map((v: Variable) => ({
+              name: v.name,
+              type: v.type,
+              sourceLinks: v.sourceLinks,
+              oldFormat: { sourceBlockId: v.sourceBlockId, sourceOutputName: v.sourceOutputName }
+            }))
+          );
         } else {
           // Reset to defaults if no scriptConfig
           setScriptInputs([]);
