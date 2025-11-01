@@ -96,9 +96,33 @@ export interface MetadataField {
   description?: string;
 }
 
+// ✅ NEW: Source link for multi-source variables
+export interface SourceLink {
+  sourceBlockId: string;
+  sourceOutputName: string;
+  sourceOutputType: string;
+  blockLabel?: string;
+}
+
+// ✅ NEW: Variable interface (supports multiple source links)
+export interface Variable {
+  name: string;
+  type: string;
+  value?: any; // Direct static value (if not linked)
+  
+  // ❌ OLD: Single link (kept for backward compatibility)
+  sourceBlockId?: string;
+  sourceOutputName?: string;
+  sourceOutputType?: string;
+  
+  // ✅ NEW: Multiple links
+  sourceLinks?: SourceLink[];
+}
+
 export interface ScriptConfig {
   inputs: ScriptInput[];
   outputs: ScriptOutput[];
+  variables?: Variable[]; // ✅ NEW: Added variables field with proper typing
   metadata: MetadataField[]; // Changed: direct array, no mode wrapper
 }
 

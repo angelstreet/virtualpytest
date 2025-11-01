@@ -1,6 +1,6 @@
 import React, { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef, useMemo } from 'react';
 import { Node, Edge, addEdge, Connection, NodeChange, EdgeChange, applyNodeChanges, applyEdgeChanges } from 'reactflow';
-import { BlockType, ExecutionState, TestCaseGraph, MetadataField, ScriptConfig } from '../../types/testcase/TestCase_Types';
+import { BlockType, ExecutionState, TestCaseGraph, MetadataField, ScriptConfig, Variable, ScriptInput, ScriptOutput } from '../../types/testcase/TestCase_Types';
 import { 
   useTestCaseSave, 
   useTestCaseExecution,
@@ -35,14 +35,14 @@ interface TestCaseBuilderContextType {
   setCurrentTestcaseId: React.Dispatch<React.SetStateAction<string | null>>;
   
   // Script I/O configuration
-  scriptInputs: any[];
-  setScriptInputs: React.Dispatch<React.SetStateAction<any[]>>;
-  scriptOutputs: any[];
-  setScriptOutputs: React.Dispatch<React.SetStateAction<any[]>>;
-  scriptVariables: any[];
-  setScriptVariables: React.Dispatch<React.SetStateAction<any[]>>;
-  scriptMetadata: any[];
-  setScriptMetadata: React.Dispatch<React.SetStateAction<any[]>>;
+  scriptInputs: ScriptInput[];
+  setScriptInputs: React.Dispatch<React.SetStateAction<ScriptInput[]>>;
+  scriptOutputs: ScriptOutput[];
+  setScriptOutputs: React.Dispatch<React.SetStateAction<ScriptOutput[]>>;
+  scriptVariables: Variable[];
+  setScriptVariables: React.Dispatch<React.SetStateAction<Variable[]>>;
+  scriptMetadata: MetadataField[];
+  setScriptMetadata: React.Dispatch<React.SetStateAction<MetadataField[]>>;
   
   // Execution output values (from last execution)
   executionOutputValues: Record<string, any>;
@@ -199,10 +199,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
   
   // Script I/O configuration
-  const [scriptInputs, setScriptInputs] = useState<any[]>([]);
-  const [scriptOutputs, setScriptOutputs] = useState<any[]>([]);
-  const [scriptVariables, setScriptVariables] = useState<any[]>([]);
-  const [scriptMetadata, setScriptMetadata] = useState<any[]>([]);
+  const [scriptInputs, setScriptInputs] = useState<ScriptInput[]>([]);
+  const [scriptOutputs, setScriptOutputs] = useState<ScriptOutput[]>([]);
+  const [scriptVariables, setScriptVariables] = useState<Variable[]>([]);
+  const [scriptMetadata, setScriptMetadata] = useState<MetadataField[]>([]);
   
   // Execution output values (from last execution)
   const [executionOutputValues, setExecutionOutputValues] = useState<Record<string, any>>({});
