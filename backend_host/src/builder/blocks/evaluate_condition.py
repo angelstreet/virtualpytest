@@ -97,8 +97,6 @@ def get_block_info() -> Dict[str, Any]:
                 required=True,
                 default='equal',
                 choices=condition_choices['int'],  # Default to int conditions
-                depends_on='operand_type',  # Mark as dependent field
-                choices_map=condition_choices,  # All choices grouped by operand_type
                 description="Condition"
             ),
             'left_operand': create_param(

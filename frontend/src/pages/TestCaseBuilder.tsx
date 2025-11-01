@@ -618,6 +618,59 @@ const TestCaseBuilderContent: React.FC = () => {
           blockLabel={hookData.selectedBlock.data.label || hookData.selectedBlock.type}
           params={hookData.selectedBlock.data.paramSchema || {}}
           initialData={hookData.selectedBlock.data.params || {}}
+          availableVariables={(() => {
+            // Get script I/O from context
+            const { scriptInputs, scriptOutputs, scriptVariables, executionOutputValues } = useTestCaseBuilder();
+            
+            const variables: any[] = [];
+            
+            // Add script inputs with their default values
+            scriptInputs.forEach((input: any) => {
+              variables.push({
+                name: input.name,
+                type: input.type,
+                source: 'input',
+                value: input.default, // Show default value
+              });
+            });
+            
+            // Add script outputs with execution values if available
+            scriptOutputs.forEach((output: any) => {
+              variables.push({
+                name: output.name,
+                type: output.type,
+                source: 'output',
+                value: executionOutputValues[output.name], // Show runtime value
+              });
+            });
+            
+            // Add script variables
+            scriptVariables.forEach((variable: any) => {
+              variables.push({
+                name: variable.name,
+                type: variable.type,
+                source: 'variable',
+                value: variable.value, // Show variable value
+              });
+            });
+            
+            // Add block outputs from nodes
+            hookData.nodes.forEach((node: any) => {
+              if (node.data?.outputSchema && node.id !== hookData.selectedBlock?.id) {
+                Object.entries(node.data.outputSchema).forEach(([outputName, outputType]) => {
+                  variables.push({
+                    name: outputName,
+                    type: outputType as string,
+                    source: 'block_output',
+                    blockId: node.data.label || node.id,
+                    // Could add execution values here if available
+                  });
+                });
+              }
+            });
+            
+            return variables;
+          })()}
           onSave={(newParams) => {
             if (hookData.selectedBlock) {
               hookData.updateBlock(hookData.selectedBlock.id, { params: newParams });

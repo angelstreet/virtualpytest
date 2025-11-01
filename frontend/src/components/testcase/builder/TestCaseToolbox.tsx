@@ -46,6 +46,7 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
 
   // Initialize default inputs from take control data
   // These 4 inputs are protected and cannot be deleted
+  // This also runs after script load to restore protected inputs
   useEffect(() => {
     // Get current values
     const hostName = selectedHost?.host_name || '';
@@ -83,16 +84,6 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
       });
     }
     
-    if (!hasUserinterfaceInput) {
-      defaultInputs.push({
-        name: 'userinterface_name',
-        type: 'string',
-        required: true,
-        protected: true,
-        default: userinterfaceName,
-      });
-    }
-    
     if (!hasDeviceModelInput) {
       defaultInputs.push({
         name: 'device_model_name',
@@ -100,6 +91,16 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         required: true,
         protected: true,
         default: deviceModelName,
+      });
+    }
+    
+    if (!hasUserinterfaceInput) {
+      defaultInputs.push({
+        name: 'userinterface_name',
+        type: 'string',
+        required: true,
+        protected: true,
+        default: userinterfaceName,
       });
     }
 
@@ -133,7 +134,7 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         setScriptInputs(updatedInputs);
       }
     }
-  }, [selectedHost, selectedDeviceId, userinterface]); // Don't include scriptInputs to avoid infinite loop
+  }, [selectedHost, selectedDeviceId, userinterface, scriptInputs.length]); // Trigger when inputs count changes (e.g., after load)
 
   // Define tab colors (matching block type colors)
   const tabColors: Record<string, string> = {

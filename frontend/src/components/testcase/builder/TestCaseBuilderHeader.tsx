@@ -266,8 +266,13 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
               onCloseProgressBar?.();
               handleNew();
             }}
-            disabled={!userinterfaceName}
-            title={!userinterfaceName ? 'Select a userinterface first' : `Create new ${builderType.toLowerCase()}`}
+            disabled={!selectedDeviceId || !isControlActive || !userinterfaceName}
+            title={
+              !selectedDeviceId ? 'Select a device first' :
+              !isControlActive ? 'Take control of device first' :
+              !userinterfaceName ? 'Select a userinterface first' : 
+              `Create new ${builderType.toLowerCase()}`
+            }
           >
             New
           </Button>

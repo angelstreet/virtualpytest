@@ -18,8 +18,23 @@ import {
   Select,
   MenuItem,
   Box,
-  Typography
+  Typography,
+  Chip,
+  IconButton,
+  Menu,
+  ListSubheader,
+  InputAdornment,
 } from '@mui/material';
+import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+
+// Available variable for insertion
+interface AvailableVariable {
+  name: string;
+  type: string;
+  source: 'input' | 'output' | 'variable' | 'block_output';
+  blockId?: string; // For block outputs
+  value?: any; // Current/default value to display
+}
 
 interface ParamDef {
   type: string;
@@ -42,6 +57,7 @@ interface StandardBlockConfigDialogProps {
   initialData?: Record<string, any>;  // Initial values
   onSave: (data: Record<string, any>) => void;
   onCancel: () => void;
+  availableVariables?: AvailableVariable[];  // NEW: Variables that can be inserted
 }
 
 export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps> = ({
@@ -52,6 +68,7 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
   initialData = {},
   onSave,
   onCancel,
+  availableVariables = [],
 }) => {
   // Initialize form data from initial values or defaults
   const [formData, setFormData] = useState<Record<string, any>>(() => {
@@ -63,6 +80,56 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
     });
     return initial;
   });
+  
+  // Variable menu state
+  const [variableMenuAnchor, setVariableMenuAnchor] = useState<HTMLElement | null>(null);
+  const [currentField, setCurrentField] = useState<string | null>(null);
+  
+  // Type compatibility check
+  const isTypeCompatible = (varType: string, expectedType: string): boolean => {
+    if (!expectedType || expectedType === 'any') return true;
+    if (varType === 'any') return true;
+    if (varType === 'string' && expectedType === 'int') return true; // Can convert
+    return varType === expectedType;
+  };
+  
+  // Filter variables by type for evaluate_condition
+  const getFilteredVariables = (paramName: string): AvailableVariable[] => {
+    if (blockCommand !== 'evaluate_condition') return availableVariables;
+    if (paramName !== 'left_operand' && paramName !== 'right_operand') return availableVariables;
+    
+    const operandType = formData['operand_type'] || 'int';
+    return availableVariables.filter(v => isTypeCompatible(v.type, operandType));
+  };
+  
+  // Group filtered variables by source
+  const groupVariablesBySource = (variables: AvailableVariable[]) => {
+    const groups = {
+      inputs: variables.filter(v => v.source === 'input'),
+      outputs: variables.filter(v => v.source === 'output'),
+      variables: variables.filter(v => v.source === 'variable'),
+      blockOutputs: variables.filter(v => v.source === 'block_output'),
+    };
+    return groups;
+  };
+  
+  const handleOpenVariableMenu = (event: React.MouseEvent<HTMLElement>, paramName: string) => {
+    setVariableMenuAnchor(event.currentTarget);
+    setCurrentField(paramName);
+  };
+  
+  const handleCloseVariableMenu = () => {
+    setVariableMenuAnchor(null);
+    setCurrentField(null);
+  };
+  
+  const handleSelectVariable = (variableName: string) => {
+    if (currentField) {
+      // Just insert the variable reference
+      handleChange(currentField, `{${variableName}}`);
+    }
+    handleCloseVariableMenu();
+  };
 
   // Reset form data when dialog opens with new initial data
   useEffect(() => {
@@ -187,6 +254,49 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
     }
     
     // Default to STRING
+    // Check if this field should have variable insertion (operand fields)
+    const supportsVariables = blockCommand === 'evaluate_condition' && 
+                              (paramName === 'left_operand' || paramName === 'right_operand');
+    
+    if (supportsVariables) {
+      // Check if current value is a variable reference
+      const isVariableRef = typeof value === 'string' && value.match(/^\{(.+)\}$/);
+      const varName = isVariableRef ? value.match(/^\{(.+)\}$/)?.[1] : null;
+      const resolvedVar = varName ? availableVariables.find(v => v.name === varName) : null;
+      
+      return (
+        <Box key={paramName} sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 2 }}>
+          <TextField
+            fullWidth
+            label={paramDef.description || paramName}
+            value={value}
+            onChange={(e) => handleChange(paramName, e.target.value)}
+            placeholder={paramDef.placeholder}
+            required={paramDef.required}
+            InputProps={{
+              endAdornment: resolvedVar && resolvedVar.value !== undefined ? (
+                <InputAdornment position="end">
+                  <Typography variant="body2" sx={{ display: 'flex', gap: 0.5 }}>
+                    <Box component="span" sx={{ color: 'text.disabled' }}>|</Box>
+                    <Box component="span" sx={{ color: 'text.secondary' }}>{resolvedVar.type}</Box>
+                    <Box component="span" sx={{ color: 'info.main' }}>= {JSON.stringify(resolvedVar.value)}</Box>
+                  </Typography>
+                </InputAdornment>
+              ) : undefined
+            }}
+          />
+          <IconButton
+            size="small"
+            onClick={(e) => handleOpenVariableMenu(e, paramName)}
+            sx={{ mt: 1 }}
+            title="Insert variable"
+          >
+            <AddCircleOutlineIcon />
+          </IconButton>
+        </Box>
+      );
+    }
+    
     return (
       <TextField
         key={paramName}
@@ -202,24 +312,166 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
-      <DialogTitle>
-        Edit Input
-      </DialogTitle>
-      <DialogContent>
-        <Box sx={{ display: 'flex', flexDirection: 'column', pt: 1 }}>
-          {Object.entries(params).map(([paramName, paramDef]) => 
-            renderParam(paramName, paramDef)
-          )}
-        </Box>
-      </DialogContent>
-      <DialogActions>
-        <Button onClick={onCancel}>Cancel</Button>
-        <Button onClick={handleSave} variant="contained">
-          Save
-        </Button>
-      </DialogActions>
-    </Dialog>
+    <>
+      <Dialog 
+        open={open} 
+        onClose={onCancel} 
+        maxWidth="sm" 
+        fullWidth
+        PaperProps={{
+          sx: {
+            border: 2,
+            borderColor: 'divider',
+          }
+        }}
+      >
+        <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+            <Typography variant="h6">Configure {blockLabel}</Typography>
+            <Chip label="Standard" size="small" sx={{ bgcolor: '#6b7280', color: 'white' }} />
+          </Box>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 3 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column', pt: 1 }}>
+            {Object.entries(params).map(([paramName, paramDef]) => 
+              renderParam(paramName, paramDef)
+            )}
+          </Box>
+        </DialogContent>
+        <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+          <Button 
+            onClick={onCancel}
+            variant="outlined"
+          >
+            Cancel
+          </Button>
+          <Button 
+            onClick={handleSave} 
+            variant="contained"
+          >
+            Save
+          </Button>
+        </DialogActions>
+      </Dialog>
+      
+      {/* Variable Selection Menu */}
+      <Menu
+        anchorEl={variableMenuAnchor}
+        open={Boolean(variableMenuAnchor)}
+        onClose={handleCloseVariableMenu}
+        PaperProps={{
+          sx: { maxHeight: 400, width: 350 }
+        }}
+      >
+        {(() => {
+          const filtered = currentField ? getFilteredVariables(currentField) : [];
+          const groups = groupVariablesBySource(filtered);
+          const hasAny = filtered.length > 0;
+          
+          if (!hasAny) {
+            return (
+              <MenuItem disabled>
+                <Typography variant="body2" color="text.secondary">
+                  No compatible variables available
+                </Typography>
+              </MenuItem>
+            );
+          }
+          
+          return (
+            <>
+              {/* INPUTS */}
+              {groups.inputs.length > 0 && (
+                <>
+                  <ListSubheader>INPUTS ({groups.inputs.length})</ListSubheader>
+                  {groups.inputs.map((v) => (
+                    <MenuItem key={`input-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
+                      <Typography variant="body2">
+                        {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                        {v.value !== undefined && v.value !== '' && (
+                          <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                        )}
+                      </Typography>
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+              
+              {/* OUTPUTS */}
+              {groups.outputs.length > 0 && (
+                <>
+                  <ListSubheader>OUTPUTS ({groups.outputs.length})</ListSubheader>
+                  {groups.outputs.map((v) => (
+                    <MenuItem key={`output-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
+                      <Typography variant="body2">
+                        {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                        {v.value !== undefined && (
+                          <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                        )}
+                      </Typography>
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+              
+              {/* VARIABLES */}
+              {groups.variables.length > 0 && (
+                <>
+                  <ListSubheader>VARIABLES ({groups.variables.length})</ListSubheader>
+                  {groups.variables.map((v) => (
+                    <MenuItem key={`var-${v.name}`} onClick={() => handleSelectVariable(v.name)}>
+                      <Typography variant="body2">
+                        {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                        {v.value !== undefined && (
+                          <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                        )}
+                      </Typography>
+                    </MenuItem>
+                  ))}
+                </>
+              )}
+              
+              {/* BLOCK OUTPUTS */}
+              {groups.blockOutputs.length > 0 && (
+                <>
+                  <ListSubheader>BLOCK OUTPUTS</ListSubheader>
+                  {/* Group by blockId */}
+                  {(() => {
+                    const byBlock: Record<string, AvailableVariable[]> = {};
+                    groups.blockOutputs.forEach(v => {
+                      if (v.blockId) {
+                        if (!byBlock[v.blockId]) byBlock[v.blockId] = [];
+                        byBlock[v.blockId].push(v);
+                      }
+                    });
+                    
+                    return Object.entries(byBlock).map(([blockId, outputs]) => (
+                      <Box key={blockId}>
+                        <MenuItem disabled sx={{ pl: 2 }}>
+                          <Typography variant="caption" sx={{ fontWeight: 600 }}>
+                            {blockId}
+                          </Typography>
+                        </MenuItem>
+                        {outputs.map((v) => (
+                          <MenuItem key={`block-${blockId}-${v.name}`} onClick={() => handleSelectVariable(v.name)} sx={{ pl: 4 }}>
+                            <Typography variant="body2">
+                              {v.name}: <Box component="span" sx={{ color: 'text.secondary' }}>{v.type}</Box>
+                              {v.value !== undefined && (
+                                <Box component="span" sx={{ color: 'info.main' }}> = {JSON.stringify(v.value)}</Box>
+                              )}
+                            </Typography>
+                          </MenuItem>
+                        ))}
+                      </Box>
+                    ));
+                  })()}
+                </>
+              )}
+            </>
+          );
+        })()}
+      </Menu>
+    </>
   );
 };
 
