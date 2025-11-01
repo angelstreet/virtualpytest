@@ -220,7 +220,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                 >
                   <Badge
                     badgeContent={getLinkCount(output.name)}
-                    color="success"
+                    color="warning" // ✅ Orange badge (not green)
                     overlap="circular"
                     anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
                     sx={{
@@ -229,7 +229,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                         fontSize: '0.6rem',
                         height: '16px',
                         minWidth: '16px',
-                        backgroundColor: '#10b981',
+                        backgroundColor: '#f97316', // ✅ Orange (output color)
                         color: 'white',
                         fontWeight: 'bold',
                       }
@@ -318,7 +318,9 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                         height: 26,
                         flex: 1,
                         bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
-                        borderColor: getLinkCount(output.name) > 0 ? '#10b981' : '#f97316', // ✅ Green border if linked
+                        borderColor: '#f97316', // ✅ Always orange (output color)
+                        borderWidth: getLinkCount(output.name) > 0 ? '2px' : '1px', // ✅ Thicker when linked
+                        fontWeight: getLinkCount(output.name) > 0 ? 600 : 400, // ✅ Bolder when linked
                         cursor: blockId && onDragStart ? 'grab' : (hasValue ? 'pointer' : 'default'),
                         '&:hover': {
                           bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',

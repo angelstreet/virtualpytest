@@ -153,9 +153,19 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
     blockId,
     state,
   }));
-  const currentStepNumber = currentBlockId 
-    ? allSteps.findIndex(s => s.blockId === currentBlockId) + 1 
-    : Math.min(completed + 1, total);
+  
+  // Calculate current step number based on execution order
+  let currentStepNumber = 1;
+  if (currentBlockId) {
+    const index = allSteps.findIndex(s => s.blockId === currentBlockId);
+    currentStepNumber = index >= 0 ? index + 1 : 1;
+  } else if (!isExecuting) {
+    // When execution is complete, show the total
+    currentStepNumber = total;
+  } else {
+    // During execution, use completed + 1
+    currentStepNumber = Math.min(completed + 1, total);
+  }
 
   // Helper function to get full block label (same logic as UniversalBlock)
   const getFullBlockLabel = (node: any) => {
@@ -504,7 +514,11 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
           }}
         >
           <Typography variant="caption" color="text.secondary">
-            Step {currentStepNumber}/{total} {(currentBlockLabel || lastBlockLabel) && `• ${currentBlockLabel || lastBlockLabel}`}
+            {/* Hide total during execution, show only at the end */}
+            {isExecuting 
+              ? `Step ${currentStepNumber} ${(currentBlockLabel || lastBlockLabel) ? `• ${currentBlockLabel || lastBlockLabel}` : ''}`
+              : `Step ${currentStepNumber}/${total} ${(currentBlockLabel || lastBlockLabel) ? `• ${currentBlockLabel || lastBlockLabel}` : ''}`
+            }
           </Typography>
           <Typography variant="caption" color="text.secondary" fontWeight="bold">
             {Math.round(progress)}%
@@ -670,7 +684,7 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
                       🔵
                     </Typography>
                     <Typography variant="caption" fontWeight="bold" sx={{ color: '#3b82f6' }}>
-                      STEP {currentStepNumber}- {currentExecutingStep.label}      EXECUTING...
+                      STEP {currentStepNumber}: {currentExecutingStep.label} EXECUTING...
                     </Typography>
                   </Box>
                 
