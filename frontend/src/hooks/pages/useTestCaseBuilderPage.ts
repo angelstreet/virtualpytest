@@ -286,13 +286,25 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       try {
         const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
         const deviceModel = selectedDevice?.device_model;
+        const deviceCapabilities = selectedDevice?.device_capabilities;
         
         const interfaces = await getAllUserInterfaces();
         
         const compatibleInterfaces = interfaces.filter((ui: any) => {
           const hasTree = !!ui.root_tree;
-          const isCompatible = ui.models?.includes(deviceModel);
-          return hasTree && isCompatible;
+          
+          // Check exact model match first
+          if (ui.models?.includes(deviceModel)) {
+            return hasTree;
+          }
+          
+          // Check capability match - if userInterface model is 'web' or 'desktop', 
+          // match devices that have those capabilities
+          const hasCapabilityMatch = ui.models?.some((model: string) => 
+            deviceCapabilities && (deviceCapabilities as any)[model]
+          );
+          
+          return hasTree && hasCapabilityMatch;
         });
         
         const names = compatibleInterfaces.map((ui: any) => ui.name);

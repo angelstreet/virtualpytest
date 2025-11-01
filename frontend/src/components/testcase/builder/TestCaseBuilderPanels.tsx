@@ -78,6 +78,9 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
                 isConnected={isControlActive}
                 onReleaseControl={handleDisconnectComplete}
                 initialCollapsed={true}
+                useAbsolutePositioning={true}
+                positionRight="440px"
+                positionBottom={`${footerHeight + 10}px`}
               />
               <WebPanel
                 host={selectedHost}
@@ -86,6 +89,9 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
                 isConnected={isControlActive}
                 onReleaseControl={handleDisconnectComplete}
                 initialCollapsed={true}
+                useAbsolutePositioning={true}
+                positionRight="10px"
+                positionBottom={`${footerHeight + 10}px`}
               />
             </>
           ) : hasMultipleRemotes && deviceModel === 'fire_tv' ? (

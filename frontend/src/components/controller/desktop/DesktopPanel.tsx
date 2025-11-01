@@ -28,6 +28,10 @@ interface DesktopPanelProps {
     x: number;
     y: number;
   };
+  // NEW: Dynamic positioning for TestCaseBuilder context
+  useAbsolutePositioning?: boolean;
+  positionRight?: string;
+  positionBottom?: string;
 }
 
 export const DesktopPanel = React.memo(function DesktopPanel({
@@ -37,6 +41,9 @@ export const DesktopPanel = React.memo(function DesktopPanel({
   onReleaseControl,
   initialCollapsed = true,
   streamContainerDimensions,
+  useAbsolutePositioning = false,
+  positionRight,
+  positionBottom,
 }: DesktopPanelProps) {
   // Panel state - three states: expanded, collapsed, minimized
   const [isCollapsed, setIsCollapsed] = useState(initialCollapsed);
@@ -77,14 +84,24 @@ export const DesktopPanel = React.memo(function DesktopPanel({
     }
   };
 
-  // Build position styles - detect modal context
+  // Build position styles - detect modal context or custom positioning
   const positionStyles: any = streamContainerDimensions
     ? {
+        // Modal context: use relative positioning
         position: 'relative',
         width: '100%',
         height: '100%',
       }
+    : useAbsolutePositioning
+    ? {
+        // TestCaseBuilder context: use absolute positioning with dynamic props
+        position: 'absolute',
+        zIndex: getZIndex('DESKTOP_CONTROL_PANEL'),
+        bottom: positionBottom || '20px',
+        right: positionRight || '440px',
+      }
     : {
+        // NavigationEditor context: use fixed positioning
         position: 'fixed',
         zIndex: getZIndex('DESKTOP_CONTROL_PANEL'),
         bottom: '20px',

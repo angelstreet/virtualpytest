@@ -27,6 +27,10 @@ interface WebPanelProps {
     x: number;
     y: number;
   };
+  // NEW: Dynamic positioning for TestCaseBuilder context
+  useAbsolutePositioning?: boolean;
+  positionRight?: string;
+  positionBottom?: string;
 }
 
 export const WebPanel = React.memo(
@@ -38,6 +42,9 @@ export const WebPanel = React.memo(
     initialCollapsed = true,
     vncExpanded,
     streamContainerDimensions,
+    useAbsolutePositioning = false,
+    positionRight,
+    positionBottom,
   }: WebPanelProps) {
     console.log(`[@component:WebPanel] Props debug:`, {
       deviceId,
@@ -121,7 +128,7 @@ export const WebPanel = React.memo(
       }
     };
 
-    // Build position styles - detect modal context
+    // Build position styles - detect modal context or custom positioning
     const positionStyles: any = streamContainerDimensions
       ? {
           // Modal context: use relative positioning within the modal container
@@ -129,8 +136,16 @@ export const WebPanel = React.memo(
           width: '100%',
           height: '100%',
         }
+      : useAbsolutePositioning
+      ? {
+          // TestCaseBuilder context: use absolute positioning with dynamic props
+          position: 'absolute',
+          zIndex: panelLayout.zIndex,
+          bottom: positionBottom || panelLayout.collapsed.position.bottom || '20px',
+          right: positionRight || panelLayout.collapsed.position.right || '20px',
+        }
       : {
-          // Floating panel context: use fixed positioning
+          // NavigationEditor context: use fixed positioning
           position: 'fixed',
           zIndex: panelLayout.zIndex,
           // Always anchor at bottom-right (collapsed position)
@@ -305,6 +320,9 @@ export const WebPanel = React.memo(
     const streamContainerDimensionsChanged =
       JSON.stringify(prevProps.streamContainerDimensions) !==
       JSON.stringify(nextProps.streamContainerDimensions);
+    const useAbsolutePositioningChanged = prevProps.useAbsolutePositioning !== nextProps.useAbsolutePositioning;
+    const positionRightChanged = prevProps.positionRight !== nextProps.positionRight;
+    const positionBottomChanged = prevProps.positionBottom !== nextProps.positionBottom;
 
     // Return true if props are equal (don't re-render), false if they changed (re-render)
     const shouldSkipRender =
@@ -313,7 +331,10 @@ export const WebPanel = React.memo(
       !deviceModelChanged &&
       !initialCollapsedChanged &&
       !onReleaseControlChanged &&
-      !streamContainerDimensionsChanged;
+      !streamContainerDimensionsChanged &&
+      !useAbsolutePositioningChanged &&
+      !positionRightChanged &&
+      !positionBottomChanged;
 
     if (!shouldSkipRender) {
       console.log(`[@component:WebPanel] Re-rendering due to prop changes:`, {
@@ -323,6 +344,9 @@ export const WebPanel = React.memo(
         initialCollapsedChanged,
         onReleaseControlChanged,
         streamContainerDimensionsChanged,
+        useAbsolutePositioningChanged,
+        positionRightChanged,
+        positionBottomChanged,
       });
     }
 
