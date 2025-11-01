@@ -773,6 +773,18 @@ class TestCaseExecutor:
             # Terminal blocks
             if node_type == 'success':
                 context.overall_success = True
+                
+                # 🔍 DEBUG: Log block_outputs before resolution
+                print(f"[@testcase_executor:{execution_id}] 🔍 DEBUG: block_outputs before resolution:")
+                block_outputs = getattr(context, 'block_outputs', {})
+                print(f"  - type: {type(block_outputs)}")
+                print(f"  - keys: {list(block_outputs.keys())}")
+                for block_id, outputs in block_outputs.items():
+                    print(f"  - {block_id}: {list(outputs.keys()) if isinstance(outputs, dict) else outputs}")
+                
+                # Resolve scriptConfig outputs and metadata before returning
+                self._resolve_script_outputs_and_metadata(graph, context)
+                
                 return {'success': True, 'result_type': 'success'}
             
             if node_type == 'failure':

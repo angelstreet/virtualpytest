@@ -496,7 +496,17 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         target: edge.target,
         sourceHandle: edge.sourceHandle as 'success' | 'failure',
         type: (edge.type === 'success' || edge.type === 'failure') ? edge.type : 'success' as any
-      }))
+      })),
+      // ✅ Include Script I/O Configuration for execution
+      scriptConfig: {
+        inputs: scriptInputs,
+        outputs: scriptOutputs,
+        variables: scriptVariables,
+        metadata: {
+          mode: 'append',
+          fields: scriptMetadata as MetadataField[]
+        }
+      } as ScriptConfig
     };
     
     // DEBUG: Log execution graph
@@ -693,7 +703,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         inputs: scriptInputs,
         outputs: scriptOutputs,
         variables: scriptVariables,
-        metadata: scriptMetadata as MetadataField[]
+        metadata: {
+          mode: 'append',
+          fields: scriptMetadata as MetadataField[]
+        }
       } as ScriptConfig
     };
     
