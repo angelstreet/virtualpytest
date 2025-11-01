@@ -76,9 +76,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const [elapsedTime, setElapsedTime] = useState(0);
   const [startTime] = useState(Date.now());
   const [finalTime, setFinalTime] = useState<number | null>(null);
-  const [lastBlockLabel, setLastBlockLabel] = useState<string | null>(null);
-  const [isAIReasoningExpanded, setIsAIReasoningExpanded] = useState(true);
   const [copiedLogId, setCopiedLogId] = useState<string | null>(null);
+  const [isAIReasoningExpanded, setIsAIReasoningExpanded] = useState(true);
   
   // Draggable state
   const [position, setPosition] = useState({ x: 0, y: 120 });
@@ -96,22 +95,6 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
       console.error('Failed to copy logs:', err);
     });
   };
-
-  // Get block label from node data
-  const getCurrentBlockLabel = () => {
-    if (!currentBlockId) return null;
-    const node = nodes.find(n => n.id === currentBlockId);
-    return node?.data?.label || node?.data?.command || node?.type || currentBlockId;
-  };
-
-  const currentBlockLabel = getCurrentBlockLabel();
-
-  // Update last block label whenever current block changes
-  useEffect(() => {
-    if (currentBlockLabel) {
-      setLastBlockLabel(currentBlockLabel);
-    }
-  }, [currentBlockLabel]);
 
   // Stop timer when execution completes and capture the final time
   useEffect(() => {
@@ -516,8 +499,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
           <Typography variant="caption" color="text.secondary">
             {/* Hide total during execution, show only at the end */}
             {isExecuting 
-              ? `Step ${currentStepNumber} ${(currentBlockLabel || lastBlockLabel) ? `• ${currentBlockLabel || lastBlockLabel}` : ''}`
-              : `Step ${currentStepNumber}/${total} ${(currentBlockLabel || lastBlockLabel) ? `• ${currentBlockLabel || lastBlockLabel}` : ''}`
+              ? `Step ${currentStepNumber}${currentExecutingStep?.label ? ` • ${currentExecutingStep.label}` : ''}`
+              : `Step ${currentStepNumber}/${total}${completedSteps.length > 0 && completedSteps[0]?.label ? ` • ${completedSteps[0].label}` : ''}`
             }
           </Typography>
           <Typography variant="caption" color="text.secondary" fontWeight="bold">
