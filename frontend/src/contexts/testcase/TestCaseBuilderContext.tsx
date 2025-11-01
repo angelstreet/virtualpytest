@@ -528,6 +528,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         userinterfaceName,
         scriptInputs,  // NEW: Pass scriptInputs for variable resolution
         scriptVariables,  // NEW: Pass scriptVariables for variable resolution
+        testcaseName || 'unsaved_testcase',  // 🆕 NEW: Pass testcase name for execution tracking
         // Real-time progress callback
         (status) => {
           // Update current block ID

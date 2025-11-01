@@ -64,6 +64,7 @@ export const useTestCaseExecution = () => {
     userinterfaceName?: string,
     scriptInputs?: any[],  // NEW: Script inputs for variable resolution
     scriptVariables?: any[],  // NEW: Script variables for variable resolution
+    testcaseName?: string,  // 🆕 NEW: Test case name for execution tracking
     onProgress?: (status: ExecutionStatus) => void  // Real-time progress callback
   ): Promise<TestCaseExecutionResponse> => {
     try {
@@ -80,6 +81,7 @@ export const useTestCaseExecution = () => {
           device_id: deviceId,
           host_name: hostName,
           userinterface_name: userinterfaceName || '',
+          testcase_name: testcaseName || 'unsaved_testcase',  // 🆕 NEW: Send test case name
           async_execution: true  // Always use async to prevent timeouts
         }),
       });

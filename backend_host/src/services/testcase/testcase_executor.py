@@ -42,7 +42,8 @@ class TestCaseExecutor:
         device_id: str,
         device_name: str,
         device_model: str,
-        userinterface_name: str = ''
+        userinterface_name: str = '',
+        testcase_name: str = 'unsaved_testcase'  # 🆕 NEW: Accept testcase_name parameter
     ) -> Dict[str, Any]:
         """
         Execute a test case directly from graph JSON (no save required).
@@ -55,6 +56,7 @@ class TestCaseExecutor:
             device_name: Device name
             device_model: Device model
             userinterface_name: Userinterface name (optional)
+            testcase_name: Test case name for tracking (optional, defaults to 'unsaved_testcase')
         
         Returns:
             Execution result with success, report_url, etc.
@@ -87,7 +89,7 @@ class TestCaseExecutor:
             # Record execution start in script_results
             script_result_id = record_script_execution_start(
                 team_id=team_id,
-                script_name='unsaved_testcase',
+                script_name=testcase_name,  # 🆕 FIXED: Use provided testcase_name
                 script_type='testcase',
                 userinterface_name=userinterface_name,
                 host_name=host_name,
@@ -95,14 +97,14 @@ class TestCaseExecutor:
                 metadata={
                     'device_id': device_id,
                     'device_model': device_model,
-                    'unsaved': True
+                    'unsaved': testcase_name == 'unsaved_testcase'  # 🆕 FIXED: Mark as unsaved only if name is 'unsaved_testcase'
                 }
             )
             
             print(f"[@testcase_executor] Script result ID: {script_result_id}")
             
             # Create execution context
-            context = ScriptExecutionContext('unsaved_testcase')
+            context = ScriptExecutionContext(testcase_name)  # 🆕 FIXED: Use provided testcase_name
             context.script_result_id = script_result_id
             context.team_id = team_id
             context.userinterface_name = userinterface_name
@@ -124,7 +126,7 @@ class TestCaseExecutor:
             # Populate device navigation_context for executor tracking
             nav_context = device.navigation_context
             nav_context['script_id'] = script_result_id
-            nav_context['script_name'] = 'unsaved_testcase'
+            nav_context['script_name'] = testcase_name  # 🆕 FIXED: Use provided testcase_name
             nav_context['script_context'] = 'testcase'
             
             # Initialize scriptConfig inputs and variables in context
@@ -158,7 +160,7 @@ class TestCaseExecutor:
             
             try:
                 from shared.src.lib.executors.script_executor import ScriptExecutor
-                executor = ScriptExecutor('unsaved_testcase')
+                executor = ScriptExecutor(testcase_name)
                 
                 # Set overall_success in context before cleanup
                 context.overall_success = execution_result['success']
@@ -357,7 +359,7 @@ class TestCaseExecutor:
             
             try:
                 from shared.src.lib.executors.script_executor import ScriptExecutor
-                executor = ScriptExecutor('unsaved_testcase')
+                executor = ScriptExecutor(testcase_name)
                 
                 # Set overall_success in context before cleanup
                 context.overall_success = execution_result['success']
@@ -434,11 +436,22 @@ class TestCaseExecutor:
         device_id: str,
         device_name: str,
         device_model: str,
-        userinterface_name: str = ''
+        userinterface_name: str = '',
+        testcase_name: str = 'unsaved_testcase'  # 🆕 NEW: Accept testcase_name parameter
     ) -> Dict[str, Any]:
         """
         Start async execution of test case from graph.
         Returns immediately with execution_id for polling.
+        
+        Args:
+            graph: Graph JSON definition
+            team_id: Team ID
+            host_name: Host name
+            device_id: Device ID
+            device_name: Device name
+            device_model: Device model
+            userinterface_name: Userinterface name (optional)
+            testcase_name: Test case name for tracking (optional, defaults to 'unsaved_testcase')
         
         Returns:
             {
@@ -464,7 +477,7 @@ class TestCaseExecutor:
         # Start execution in background thread
         thread = threading.Thread(
             target=self._execute_testcase_async_worker,
-            args=(execution_id, graph, team_id, host_name, device_id, device_name, device_model, userinterface_name)
+            args=(execution_id, graph, team_id, host_name, device_id, device_name, device_model, userinterface_name, testcase_name)  # 🆕 FIXED: Pass testcase_name
         )
         thread.daemon = True
         thread.start()
@@ -486,7 +499,8 @@ class TestCaseExecutor:
         device_id: str,
         device_name: str,
         device_model: str,
-        userinterface_name: str
+        userinterface_name: str,
+        testcase_name: str = 'unsaved_testcase'  # 🆕 NEW: Accept testcase_name parameter
     ):
         """Background worker for async execution"""
         start_time = time.time()
@@ -517,7 +531,7 @@ class TestCaseExecutor:
             # Record execution start
             script_result_id = record_script_execution_start(
                 team_id=team_id,
-                script_name='unsaved_testcase',
+                script_name=testcase_name,  # 🆕 FIXED: Use provided testcase_name
                 script_type='testcase',
                 userinterface_name=userinterface_name,
                 host_name=host_name,
@@ -525,7 +539,7 @@ class TestCaseExecutor:
                 metadata={
                     'device_id': device_id,
                     'device_model': device_model,
-                    'unsaved': True,
+                    'unsaved': testcase_name == 'unsaved_testcase',  # 🆕 FIXED: Mark as unsaved only if name is 'unsaved_testcase'
                     'execution_id': execution_id
                 }
             )
@@ -533,7 +547,7 @@ class TestCaseExecutor:
             print(f"[@testcase_executor:{execution_id}] Script result ID: {script_result_id}")
             
             # Create execution context
-            context = ScriptExecutionContext('unsaved_testcase')
+            context = ScriptExecutionContext(testcase_name)  # 🆕 FIXED: Use provided testcase_name
             context.script_result_id = script_result_id
             context.team_id = team_id
             context.userinterface_name = userinterface_name
@@ -556,7 +570,7 @@ class TestCaseExecutor:
             # Populate device navigation_context
             nav_context = device.navigation_context
             nav_context['script_id'] = script_result_id
-            nav_context['script_name'] = 'unsaved_testcase'
+            nav_context['script_name'] = testcase_name  # 🆕 FIXED: Use provided testcase_name
             nav_context['script_context'] = 'testcase'
             
             # Initialize scriptConfig inputs and variables in context
@@ -582,7 +596,7 @@ class TestCaseExecutor:
             
             try:
                 from shared.src.lib.executors.script_executor import ScriptExecutor
-                executor = ScriptExecutor('unsaved_testcase')
+                executor = ScriptExecutor(testcase_name)
                 
                 # Set overall_success in context
                 context.overall_success = execution_result['success']

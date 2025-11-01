@@ -231,6 +231,7 @@ def testcase_execute_direct():
         device_id = data.get('device_id', 'device1')
         host_name = data.get('host_name')
         userinterface_name = data.get('userinterface_name', '')
+        testcase_name = data.get('testcase_name', 'unsaved_testcase')  # 🆕 NEW: Extract testcase name
         async_execution = data.get('async_execution', True)  # Default to async to prevent timeouts
         
         # Validate
@@ -240,6 +241,8 @@ def testcase_execute_direct():
             return jsonify({'success': False, 'error': 'graph_json is required'}), 400
         if not host_name:
             return jsonify({'success': False, 'error': 'host_name is required'}), 400
+        
+        print(f"[@host_testcase] Executing testcase: {testcase_name}")  # 🆕 NEW: Log testcase name
         
         # Get device info from registry
         if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
@@ -264,7 +267,8 @@ def testcase_execute_direct():
                 device_id=device_id,
                 device_name=device_name,
                 device_model=device_model,
-                userinterface_name=userinterface_name
+                userinterface_name=userinterface_name,
+                testcase_name=testcase_name  # 🆕 NEW: Pass testcase name to executor
             )
             print(f"[@host_testcase] Async execution started: {result.get('execution_id')}")
         else:
@@ -276,7 +280,8 @@ def testcase_execute_direct():
                 device_id=device_id,
                 device_name=device_name,
                 device_model=device_model,
-                userinterface_name=userinterface_name
+                userinterface_name=userinterface_name,
+                testcase_name=testcase_name  # 🆕 NEW: Pass testcase name to executor
             )
             print(f"[@host_testcase] Execution result: success={result.get('success')}")
         
