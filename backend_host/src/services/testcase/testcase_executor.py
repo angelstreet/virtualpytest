@@ -986,7 +986,9 @@ class TestCaseExecutor:
             elif node_type == 'loop':
                 result = self._execute_loop_block(node, context)
             else:
-                result = {'success': False, 'error': f'Unknown block type: {node_type}'}
+                # Try to execute as standard block (evaluate_condition, sleep, etc.)
+                # Block registry auto-discovers all blocks from builder/blocks/ folder
+                result = self._execute_standard_block(data, context)
             
             # Add captured logs to result
             result['logs'] = log_buffer.getvalue()
@@ -1042,23 +1044,29 @@ class TestCaseExecutor:
             }
     
     def _execute_verification_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
-        """Execute verification block using VerificationExecutor"""
+        """Execute verification block using Orchestrator"""
         start_time = time.time()
         
         try:
-            verification_executor = self.device.verification_executor
-            
             verification_type = data.get('verification_type')
             reference = data.get('reference')
             threshold = data.get('threshold', 0.8)
             
-            # Execute verification
-            result = verification_executor.execute_verification(
-                verification_type=verification_type,
-                reference=reference,
-                threshold=threshold,
-                context=context,
-                userinterface_name=context.userinterface_name
+            # Build verifications array from single verification
+            verifications = [{
+                'verification_type': verification_type,
+                'reference': reference,
+                'threshold': threshold
+            }]
+            
+            # Use orchestrator for unified logging (same pattern as actions)
+            from backend_host.src.orchestrator import ExecutionOrchestrator
+            result = ExecutionOrchestrator.execute_verifications(
+                device=self.device,
+                verifications=verifications,
+                userinterface_name=context.userinterface_name,
+                team_id=context.team_id,
+                context=context
             )
             
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -1085,6 +1093,54 @@ class TestCaseExecutor:
                 'success': False,
                 'execution_time_ms': execution_time_ms,
                 'error': f'Verification execution error: {str(e)}'
+            }
+    
+    def _execute_standard_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
+        """Execute standard block (like evaluate_condition) using Orchestrator"""
+        start_time = time.time()
+        
+        try:
+            command = data.get('command')
+            params = data.get('params', {})
+            
+            # Build blocks array from single block
+            blocks = [{
+                'command': command,
+                'params': params
+            }]
+            
+            # Use orchestrator for unified logging (same pattern as actions/verifications)
+            from backend_host.src.orchestrator import ExecutionOrchestrator
+            result = ExecutionOrchestrator.execute_blocks(
+                device=self.device,
+                blocks=blocks,
+                context=context
+            )
+            
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            
+            # Store block output_data for scriptConfig resolution
+            if result.get('output_data'):
+                if not hasattr(context, 'block_outputs'):
+                    context.block_outputs = {}
+                # Store with current block ID
+                if self.current_block_id:
+                    context.block_outputs[self.current_block_id] = result['output_data']
+                    print(f"[@testcase_executor] Stored block outputs for {self.current_block_id}: {list(result['output_data'].keys())}")
+            
+            return {
+                'success': result['success'],
+                'execution_time_ms': execution_time_ms,
+                'message': f"Standard block: {command}",
+                'error': result.get('error')
+            }
+            
+        except Exception as e:
+            execution_time_ms = int((time.time() - start_time) * 1000)
+            return {
+                'success': False,
+                'execution_time_ms': execution_time_ms,
+                'error': f'Standard block execution error: {str(e)}'
             }
     
     def _execute_navigation_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
