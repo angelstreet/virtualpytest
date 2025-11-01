@@ -524,11 +524,11 @@ export const UniversalBlock: React.FC<NodeProps & {
       
       let content;
       if (output === 'success' || output === 'true' || output === 'complete') {
-        content = <CheckIcon sx={{ fontSize: isActive ? 28 : 20, fontWeight: isActive ? 900 : 'normal' }} />;
+        content = <CheckIcon sx={{ fontSize: isActive ? 34 : 26, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'failure' || output === 'false') {
-        content = <CloseIcon sx={{ fontSize: isActive ? 28 : 20, fontWeight: isActive ? 900 : 'normal' }} />;
+        content = <CloseIcon sx={{ fontSize: isActive ? 34 : 26, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'break') {
-        content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
+        content = <Typography fontSize={14} fontWeight="bold">BREAK</Typography>;
       } else {
         content = null;
       }
@@ -589,11 +589,11 @@ export const UniversalBlock: React.FC<NodeProps & {
       // Determine icon/text based on output type
       let content;
       if (output === 'success' || output === 'true' || output === 'complete') {
-        content = <CheckIcon sx={{ fontSize: isActive ? 26 : 18, fontWeight: isActive ? 900 : 'normal' }} />;
+        content = <CheckIcon sx={{ fontSize: isActive ? 32 : 24, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'failure' || output === 'false') {
-        content = <CloseIcon sx={{ fontSize: isActive ? 26 : 18, fontWeight: isActive ? 900 : 'normal' }} />;
+        content = <CloseIcon sx={{ fontSize: isActive ? 32 : 24, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'break') {
-        content = <Typography fontSize={12} fontWeight="bold">BREAK</Typography>;
+        content = <Typography fontSize={14} fontWeight="bold">BREAK</Typography>;
       } else {
         content = null;
       }
@@ -739,7 +739,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             borderRadius: 1,
             px: 1,
             py: 0.5,
-            fontSize: 14,
+            fontSize: 18,
             fontWeight: 'bold',
             fontFamily: 'monospace',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',

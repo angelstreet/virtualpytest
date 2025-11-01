@@ -82,11 +82,11 @@ export const TerminalBlock: React.FC<TerminalBlockProps> = ({ label, color, sele
         id="input"
         style={{
           background: getBorderColor(),
-          width: 14,
-          height: 14,
+          width: 20,
+          height: 20,
           borderRadius: '50%',
           border: '2px solid white',
-          top: -8,
+          top: -10,
           pointerEvents: 'none',
         }}
       />

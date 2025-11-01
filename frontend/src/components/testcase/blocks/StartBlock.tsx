@@ -57,11 +57,11 @@ export const StartBlock: React.FC<NodeProps> = ({ selected, dragging }) => {
         id="success"
         style={{
           background: '#2196f3',
-          width: 14,
-          height: 14,
+          width: 20,
+          height: 20,
           borderRadius: '50%',
           border: '2px solid white',
-          bottom: -8,
+          bottom: -10,
           pointerEvents: 'none',
         }}
       />
