@@ -1002,19 +1002,31 @@ class TestCaseExecutor:
             sys.stderr = old_stderr
     
     def _execute_action_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
-        """Execute action block using Orchestrator"""
+        """
+        Execute action block using Orchestrator.
+        
+        EXACT REPLICA of UniversalBlock.tsx lines 291-302:
+        - Build action with ALL fields from data
+        - Call executeActions with retry/failure arrays
+        """
         start_time = time.time()
         
         try:
+            # ✅ EXACT MATCH: UniversalBlock.tsx lines 291-299
+            # Extract ALL fields (not just command + params)
             command = data.get('command')
-            params = data.get('params', {})  # ✅ Already resolved by frontend
+            params = data.get('params', {})  # Already cleaned/resolved by frontend
             retry_actions = data.get('retry_actions', [])
             failure_actions = data.get('failure_actions', [])
             
-            # Build actions array from single action
+            # Build action with ALL fields (same as UniversalBlock.tsx)
             actions = [{
                 'command': command,
-                'params': params  # ✅ Use directly - frontend already resolved {variables}
+                'params': params,
+                'action_type': data.get('action_type'),           # ✅ For routing
+                'verification_type': data.get('verification_type'), # ✅ For verification routing
+                'threshold': data.get('threshold'),               # ✅ For verifications
+                'reference': data.get('reference'),               # ✅ For verifications
             }]
             
             # Use orchestrator for unified logging
