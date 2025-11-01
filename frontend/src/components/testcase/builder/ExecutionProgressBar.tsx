@@ -655,8 +655,8 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
           >
             {/* 🆕 Current Executing Step (always at top) */}
             {currentExecutingStep && (() => {
-              // Calculate step number for current executing step (same logic as completed steps)
-              const executingStepNumber = allSteps.findIndex(s => s.blockId === currentExecutingStep.blockId) + 1;
+              // Calculate step number by counting completed steps + 1 (current)
+              const executingStepNumber = completedSteps.length + 1;
               
               return (
                 <Box
