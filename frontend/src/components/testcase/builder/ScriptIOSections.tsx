@@ -178,22 +178,22 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
     const sources = normalizeSourceLinks(variable);
     
     if (sources.length === 0) {
-      return 'No sources linked. Drag block outputs here to link.';
+      return 'Drag block outputs here to link';
     }
     
     if (sources.length === 1) {
       const source = sources[0];
       const blockLabel = source.blockLabel || getBlockLabel(source.sourceBlockId);
-      return `Source: ${blockLabel} → ${source.sourceOutputName}\nClick to focus block`;
+      return `${blockLabel}.${source.sourceOutputName}`;
     }
     
-    // Multiple sources
-    const lines = sources.map((source, idx) => {
+    // Multiple sources - simple list, one per line
+    const lines = sources.map((source) => {
       const blockLabel = source.blockLabel || getBlockLabel(source.sourceBlockId);
-      return `${idx + 1}. ${blockLabel} → ${source.sourceOutputName}`;
+      return `${blockLabel}.${source.sourceOutputName}`;
     });
     
-    return `Multiple Sources (${sources.length}):\n${lines.join('\n')}\n\nOnly one source will provide the value\nbased on runtime conditions.\n\nClick to view all sources.`;
+    return lines.join('\n');
   };
   
   const handleOutputClick = (output: ScriptOutput) => {
