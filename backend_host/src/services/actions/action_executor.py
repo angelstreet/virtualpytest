@@ -637,13 +637,13 @@ class ActionExecutor:
                             userinterface_name = self.device.get_userinterface_name()
                         
                         # Execute verification using verification_executor's single verification method
-                        # IMPORTANT: Pass context=None to avoid duplicate screenshot capture
-                        # Action executor already captures screenshots, verification executor shouldn't duplicate
+                        # IMPORTANT: Pass context to enable metadata storage for getMenuInfo
+                        # NOTE: Verification executor will NOT capture duplicate screenshots if screenshots are disabled
                         result = verification_executor._execute_single_verification(
                             verification=verification_config,
                             userinterface_name=userinterface_name,
                             image_source_url=None,
-                            context=None,  # Prevent duplicate screenshots
+                            context=context,  # Pass context for metadata storage (getMenuInfo needs this)
                             team_id=team_id
                         )
                         

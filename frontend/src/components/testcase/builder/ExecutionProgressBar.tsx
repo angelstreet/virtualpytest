@@ -131,24 +131,15 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const failureCount = Array.from(blockStates.values()).filter(s => s.status === 'failure').length;
   const errorCount = Array.from(blockStates.values()).filter(s => s.status === 'error').length;
 
-  // 🆕 Calculate current step NUMBER (only from blocks being executed)
+  // 🆕 Calculate current step NUMBER based on completed steps
+  const currentStepNumber = isExecuting && currentBlockId 
+    ? completed + 1  // Currently executing = completed + 1
+    : total;         // When done, show total
+  
   const allSteps = Array.from(blockStates.entries()).map(([blockId, state]) => ({
     blockId,
     state,
   }));
-  
-  // Calculate current step number based on execution order
-  let currentStepNumber = 1;
-  if (currentBlockId) {
-    const index = allSteps.findIndex(s => s.blockId === currentBlockId);
-    currentStepNumber = index >= 0 ? index + 1 : 1;
-  } else if (!isExecuting) {
-    // When execution is complete, show the total
-    currentStepNumber = total;
-  } else {
-    // During execution, use completed + 1
-    currentStepNumber = Math.min(completed + 1, total);
-  }
 
   // Helper function to get full block label (same logic as UniversalBlock)
   const getFullBlockLabel = (node: any) => {
@@ -682,8 +673,9 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
 
             {/* Completed Steps History */}
             {completedSteps.map((step, index) => {
-              // Calculate step number (completed steps are in reverse order)
-              const stepNumber = allSteps.findIndex(s => s.blockId === step.blockId) + 1;
+              // Calculate step number for completed steps incrementally
+              // completedSteps is in reverse order (most recent first), so stepNumber = total completed - index
+              const stepNumber = completedSteps.length - index;
               
               const statusIcon = step.state.status === 'success' ? '✅' :
                                 step.state.status === 'failure' ? '❌' : '⚠️';
