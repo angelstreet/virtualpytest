@@ -38,6 +38,18 @@ _script_args = [
 ]
 
 
+def get_menu_info_smart(device, area: dict = None) -> Dict[str, Any]:
+    """Smart router: android_mobile→ADB, host_vnc→Playwright, else→OCR"""
+    model = device.device_model.lower()
+    if 'android_mobile' in model:
+        return device._get_controller('verification').getMenuInfo(area=area, context=None)
+    elif 'host_vnc' in model and device._get_controller('web'):
+        return device._get_controller('web').getMenuInfo(area=area, context=None)
+    else:
+        av = device._get_controller('av')
+        return device._get_controller('verification').getMenuInfo(area=area, context=None, source_path=av.take_screenshot() if av else None)
+
+
 def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model: str) -> Dict[str, Any]:
     """
     Parse device information from dumped elements.
@@ -314,39 +326,41 @@ def main():
     print(f"📋 [get_info] EXTRACTING DEVICE INFORMATION")
     print(f"📋 [get_info] ==========================================\n")
     
-    # Step 1: Dump page elements
-    dump_result = dump_page_elements(device)
+    # Step 1: Smart router - automatically picks the right controller (ADB/Playwright/OCR)
+    print(f"📋 [get_info] Device model: {device.device_model}")
+    menu_result = get_menu_info_smart(device, area=None)
     
-    if not dump_result.get('success'):
-        print(f"⚠️  [get_info] Warning: Could not dump page elements: {dump_result.get('error', 'Unknown error')}")
-        # Continue anyway - mark as successful navigation but without metadata
+    if not menu_result.get('success'):
+        print(f"⚠️  [get_info] Warning: getMenuInfo failed: {menu_result.get('message', 'Unknown error')}")
         context.overall_success = True
         summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
         context.execution_summary = summary_text
         return True
     
-    # Step 2: Parse device info from elements
-    elements = dump_result.get('elements', [])
-    device_info = parse_device_info_from_elements(elements, device.device_model)
+    # Step 2: Extract parsed_data from controller output
+    output_data = menu_result.get('output_data', {})
+    parsed_data = output_data.get('parsed_data', {})
+    element_count = output_data.get('element_count', 0)
     
-    # Step 3: Store device info in context.metadata (will be saved to script_results.metadata)
-    # Convert timestamp to ISO format
+    # Step 3: Store to context.metadata['info'] (aligned with testcase builder)
     from datetime import datetime
     extraction_timestamp = datetime.fromtimestamp(context.start_time).isoformat() if hasattr(context, 'start_time') and context.start_time else None
     
+    # NESTED structure: parsed_data goes under 'info' key
     context.metadata = {
-        "device_info": device_info,
+        "info": parsed_data,  # Controller's parsed_data
         "extraction_timestamp": extraction_timestamp,
-        "page_url": dump_result.get('summary', {}).get('page_url'),
-        "page_title": dump_result.get('summary', {}).get('page_title'),
+        "extraction_method": "script",
         "device_name": device.device_name,
+        "device_model": device.device_model,
         "host_name": context.host.host_name,
-        "userinterface_name": args.userinterface_name
+        "userinterface_name": args.userinterface_name,
+        "element_count": element_count,
     }
     
     print(f"\n✅ [get_info] Device info extraction complete!")
     print(f"✅ [get_info] Metadata will be saved to script_results.metadata column")
-    print(f"✅ [get_info] Fields extracted: {list(device_info.get('extracted_fields', {}).keys())}")
+    print(f"✅ [get_info] Structure: metadata['info'] = {list(parsed_data.keys())}")
     
     # Set overall_success BEFORE capturing summary
     context.overall_success = True

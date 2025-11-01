@@ -602,37 +602,8 @@ class ADBVerificationController(VerificationControllerInterface):
                     print(f"[@controller:ADBVerification:getMenuInfo]   {key} = {display_value}")
                 print(f"[@controller:ADBVerification:getMenuInfo] === PARSED DATA END ===")
             
-            # 4. Auto-store to context.metadata (same as OCR version)
-            if context:
-                from datetime import datetime
-                
-                # Initialize metadata if not exists
-                if not hasattr(context, 'metadata'):
-                    context.metadata = {}
-                
-                # Append parsed data directly to metadata (flat structure)
-                for key, value in parsed_data.items():
-                    context.metadata[key] = value
-                
-                # Add extraction metadata
-                context.metadata['extraction_method'] = 'ui_dump'
-                context.metadata['extraction_timestamp'] = datetime.now().isoformat()
-                context.metadata['element_count'] = len(filtered_elements)
-                
-                # Add device info if available
-                if hasattr(self, 'device_id'):
-                    context.metadata['device_id'] = self.device_id
-                
-                if area:
-                    context.metadata['extraction_area'] = str(area)
-                
-                print(f"[@controller:ADBVerification:getMenuInfo] ✅ AUTO-APPENDED to context.metadata (FLAT)")
-                print(f"[@controller:ADBVerification:getMenuInfo] Metadata keys: {list(context.metadata.keys())}")
-                print(f"[@controller:ADBVerification:getMenuInfo] New fields added: {list(parsed_data.keys())}")
-            else:
-                print(f"[@controller:ADBVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
-            
-            # 5. Prepare output data with FULL raw dump for debugging
+            # 4. Prepare output data with FULL raw dump for debugging
+            # NOTE: Controller does NOT store to context - that's the caller's responsibility
             raw_dump = []
             for elem in filtered_elements:
                 raw_dump.append({

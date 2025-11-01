@@ -178,7 +178,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
     const sources = normalizeSourceLinks(variable);
     
     if (sources.length === 0) {
-      return 'Drag block outputs here to link';
+      return '';
     }
     
     if (sources.length === 1) {

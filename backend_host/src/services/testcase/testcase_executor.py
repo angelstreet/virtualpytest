@@ -190,7 +190,12 @@ class TestCaseExecutor:
                 import traceback
                 traceback.print_exc()
             
-            # Update script_results with final result including report URLs
+            # Extract metadata from context for database storage
+            metadata_to_save = getattr(context, 'metadata', None)
+            if metadata_to_save:
+                print(f"[@testcase_executor] Including metadata in database update: {list(metadata_to_save.keys())}")
+            
+            # Update script_results with final result including report URLs and metadata
             update_script_execution_result(
                 script_result_id=script_result_id,
                 success=execution_result['success'],
@@ -199,7 +204,8 @@ class TestCaseExecutor:
                 html_report_r2_url=report_url,
                 logs_r2_path=logs_path,
                 logs_r2_url=logs_url,
-                error_msg=execution_result.get('error')
+                error_msg=execution_result.get('error'),
+                metadata=metadata_to_save
             )
             
             return {
@@ -389,7 +395,12 @@ class TestCaseExecutor:
                 import traceback
                 traceback.print_exc()
             
-            # Update script_results with final result including report URLs
+            # Extract metadata from context for database storage
+            metadata_to_save = getattr(context, 'metadata', None)
+            if metadata_to_save:
+                print(f"[@testcase_executor] Including metadata in database update: {list(metadata_to_save.keys())}")
+            
+            # Update script_results with final result including report URLs and metadata
             update_script_execution_result(
                 script_result_id=script_result_id,
                 success=execution_result['success'],
@@ -398,7 +409,8 @@ class TestCaseExecutor:
                 html_report_r2_url=report_url,
                 logs_r2_path=logs_path,
                 logs_r2_url=logs_url,
-                error_msg=execution_result.get('error')
+                error_msg=execution_result.get('error'),
+                metadata=metadata_to_save
             )
             
             return {

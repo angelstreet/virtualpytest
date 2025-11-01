@@ -507,8 +507,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       edgeDetails: graph.edges
     });
     
-    // 🆕 ADD: Initialize unified execution state
-    const blockIds = nodes.filter(n => !['start', 'success', 'failure'].includes(n.type || '')).map(n => n.id);
+    // 🆕 ADD: Initialize unified execution state (exclude START and terminal blocks)
+    const blockIds = nodes
+      .filter(n => !['start', 'success', 'failure'].includes(n.type || ''))
+      .map(n => n.id);
     unifiedExecution.startExecution('test_case', blockIds);
     
     // ✅ KEEP: Legacy execution state (for backwards compatibility)
@@ -531,12 +533,15 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         testcaseName || 'unsaved_testcase',  // 🆕 NEW: Pass testcase name for execution tracking
         // Real-time progress callback
         (status) => {
-          // Update current block ID
+          // ✅ Update current block ID in both states
           if (status.current_block_id) {
+            // Legacy state
             setExecutionState(prev => ({
               ...prev,
               currentBlockId: status.current_block_id
             }));
+            // ✅ NEW: Update unified execution state current block
+            unifiedExecution.startBlockExecution(status.current_block_id);
           }
           
           // Update block states in real-time

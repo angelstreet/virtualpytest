@@ -172,11 +172,14 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
     return data?.command || type || 'Unknown';
   };
 
-  // 🆕 Separate current executing step from completed history
+  // 🆕 Separate current executing step from completed history (exclude terminal blocks)
   const currentExecutingStep = currentBlockId && isExecuting ? (() => {
     const node = nodes.find(n => n.id === currentBlockId);
     const state = blockStates.get(currentBlockId);
-    if (!state) return null;
+    
+    // Skip terminal blocks (success/failure) - they're not executable steps
+    if (!state || !node || ['success', 'failure'].includes(node.type || '')) return null;
+    
     return {
       blockId: currentBlockId,
       label: getFullBlockLabel(node),
