@@ -89,8 +89,16 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
   const isTypeCompatible = (varType: string, expectedType: string): boolean => {
     if (!expectedType || expectedType === 'any') return true;
     if (varType === 'any') return true;
+    
+    // Type mapping: backend uses 'str', frontend inputs use 'string'
+    const normalizeType = (type: string) => {
+      if (type === 'string') return 'str';
+      if (type === 'str') return 'str';
+      return type;
+    };
+    
     // Strict matching: only show exact type matches
-    return varType === expectedType;
+    return normalizeType(varType) === normalizeType(expectedType);
   };
   
   // Filter variables by type for evaluate_condition - memoized to update when operand_type changes
@@ -332,14 +340,14 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
             <Typography variant="h6">Configure {blockLabel}</Typography>
             <Chip label="Standard" size="small" sx={{ bgcolor: '#6b7280', color: 'white' }} />
           </Box>
-        </DialogTitle>
+      </DialogTitle>
         <DialogContent sx={{ pt: 3 }}>
-          <Box sx={{ display: 'flex', flexDirection: 'column', pt: 1 }}>
-            {Object.entries(params).map(([paramName, paramDef]) => 
-              renderParam(paramName, paramDef)
-            )}
-          </Box>
-        </DialogContent>
+        <Box sx={{ display: 'flex', flexDirection: 'column', pt: 1 }}>
+          {Object.entries(params).map(([paramName, paramDef]) => 
+            renderParam(paramName, paramDef)
+          )}
+        </Box>
+      </DialogContent>
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
           <Button 
             onClick={onCancel}
@@ -351,10 +359,10 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
             onClick={handleSave} 
             variant="contained"
           >
-            Save
-          </Button>
-        </DialogActions>
-      </Dialog>
+          Save
+        </Button>
+      </DialogActions>
+    </Dialog>
       
       {/* Variable Selection Menu */}
       <Menu

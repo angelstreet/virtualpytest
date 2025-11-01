@@ -553,7 +553,7 @@ export const UniversalBlock: React.FC<NodeProps & {
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
-              fontSize: 13,
+              fontSize: 16,
               cursor: 'pointer',
               boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
               transition: 'all 0.3s ease',
@@ -579,10 +579,10 @@ export const UniversalBlock: React.FC<NodeProps & {
       );
     }
     
-    // Multiple outputs - positioned left and right, rectangles with icons
+    // Multiple outputs - full width, each taking half
     return outputs.map((output, idx) => {
       const handleColor = getHandleColor(output);
-      const leftPosition = idx === 0 ? '25%' : '75%';
+      const isLeft = idx === 0;
       const isAnimating = animateHandle === output;
       const isActive = isHandleActive(output);
       
@@ -598,6 +598,9 @@ export const UniversalBlock: React.FC<NodeProps & {
         content = null;
       }
       
+      const handleHeight = isActive ? 34 : 28;
+      const bottomOffset = isActive ? -36 : -32;
+      
       return (
         <Handle
           key={output}
@@ -605,23 +608,25 @@ export const UniversalBlock: React.FC<NodeProps & {
           position={Position.Bottom}
           id={output}
           style={{
-            left: leftPosition,
+            left: isLeft ? '0%' : '50%',
+            right: isLeft ? '50%' : '0%',
             background: handleColor,
-            width: isActive ? 80 : 70,
-            height: isActive ? 34 : 28,
-            borderRadius: 4,
+            width: 'auto',
+            height: handleHeight,
+            borderRadius: isLeft ? '0 0 0 4px' : '0 0 4px 0',
             border: isActive ? '4px solid white' : '2px solid white',
-            bottom: isActive ? -36 : -32,
-            transform: 'translateX(-50%)',
+            borderTop: 'none',
+            bottom: bottomOffset,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: 'white',
             fontWeight: 'bold',
-            fontSize: 12,
+            fontSize: 16,
             cursor: 'pointer',
             boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
             transition: 'all 0.3s ease',
+            transform: 'none',
           }}
         >
           <Box
@@ -697,9 +702,9 @@ export const UniversalBlock: React.FC<NodeProps & {
   return (
     <Box
       sx={{
-        width: 280,  // Fixed width
+        width: 340,  // Fixed width - increased for longer labels
         minHeight: 120,  // Fixed minimum height
-       
+        maxHeight: 320, // Fixed maximum height - increased for expanded inputs/outputs
         border: selected ? '3px solid #fbbf24' : `2px solid ${color}`,
         ...getExecutionStyling(), // Apply execution styling
         borderRadius: 2,
@@ -712,7 +717,7 @@ export const UniversalBlock: React.FC<NodeProps & {
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
-        overflow: 'hidden', // Prevent content from expanding block
+        overflow: 'visible', // Changed to visible to show output handles
         '&:hover': {
           boxShadow: isExecuting ? 2 : 4,
         },
@@ -734,7 +739,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             borderRadius: 1,
             px: 1,
             py: 0.5,
-            fontSize: 12,
+            fontSize: 14,
             fontWeight: 'bold',
             fontFamily: 'monospace',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
@@ -782,7 +787,7 @@ export const UniversalBlock: React.FC<NodeProps & {
                     },
                   },
                   flex: 1,
-                  maxWidth: '150px',
+                  maxWidth: '300px',  // Increased for wider labels
                 }}
               />
               <IconButton
@@ -804,7 +809,17 @@ export const UniversalBlock: React.FC<NodeProps & {
             </>
           ) : (
             <>
-              <Typography color="white" fontWeight="bold" fontSize={16}>
+              <Typography 
+                color="white" 
+                fontWeight="bold" 
+                fontSize={20}
+                sx={{ 
+                  flex: 1,
+                  overflow: 'hidden',
+                  textOverflow: 'ellipsis',
+                  whiteSpace: 'nowrap'
+                }}
+              >
                 {data.label || headerLabel}
               </Typography>
               <IconButton
@@ -869,7 +884,12 @@ export const UniversalBlock: React.FC<NodeProps & {
         {isConfigured ? (
           <>
             {contentLabel && (
-              <Typography fontSize={16} fontWeight="medium" mb={1}>
+              <Typography 
+                fontSize={20} 
+                fontWeight="medium" 
+                mb={1}
+                textAlign={type === 'navigation' ? 'center' : 'left'}
+              >
                 {contentLabel}
               </Typography>
             )}
@@ -965,11 +985,11 @@ export const UniversalBlock: React.FC<NodeProps & {
         id="input"
         style={{
           background: color,
-          width: 14,
-          height: 14,
+          width: 20,
+          height: 20,
           borderRadius: '50%',
           border: '2px solid white',
-          top: -8,
+          top: -10,
           pointerEvents: 'none',
         }}
       />
