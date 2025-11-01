@@ -90,7 +90,7 @@ def get_block_info() -> Dict[str, Any]:
                     {'label': 'List', 'value': 'list'},
                     {'label': 'Dictionary', 'value': 'dict'}
                 ],
-                description="Type of operands to compare"
+                description="Type"
             ),
             'condition': create_param(
                 ParamType.ENUM,
@@ -99,20 +99,20 @@ def get_block_info() -> Dict[str, Any]:
                 choices=condition_choices['int'],  # Default to int conditions
                 depends_on='operand_type',  # Mark as dependent field
                 choices_map=condition_choices,  # All choices grouped by operand_type
-                description="Condition to evaluate (changes based on operand_type)"
+                description="Condition"
             ),
             'left_operand': create_param(
                 ParamType.STRING,
                 required=True,
                 default='',
-                description="Left operand (variable reference {var} or literal value)",
+                description="Left operand",
                 placeholder="Enter value or {variable_name}"
             ),
             'right_operand': create_param(
                 ParamType.STRING,
                 required=True,
                 default='',
-                description="Right operand (variable reference {var} or literal value)",
+                description="Right operand",
                 placeholder="Enter value or {variable_name}"
             )
         },

@@ -103,7 +103,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
-          <Typography fontSize={11} fontWeight="bold" color="#f97316" sx={{ flexShrink: 0 }}>
+          <Typography fontSize={13} fontWeight="bold" color="#f97316" sx={{ flexShrink: 0 }}>
             OUTPUTS ({blockOutputs.length})
           </Typography>
           
@@ -123,7 +123,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                   label={output.name}
                   size="small"
                   sx={{ 
-                    fontSize: 9, 
+                    fontSize: 11, 
                     height: 18,
                     maxWidth: '80px',
                     bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
@@ -247,7 +247,7 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                       }
                     }}
                     sx={{ 
-                      fontSize: 10, 
+                      fontSize: 12, 
                       height: 24,
                       flex: 1,
                       bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',

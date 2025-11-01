@@ -473,10 +473,10 @@ export const UniversalBlock: React.FC<NodeProps & {
       }
       contentLabel = data.target_node_label;
     }
-    // For standard blocks: header = "STANDARD", content = command (e.g., "Sleep")
+    // For standard blocks: show command name directly in header (no duplicate label)
     else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code', 'common_operation', 'evaluate_condition'].includes(type as string)) {
-      headerLabel = 'STANDARD';
-      contentLabel = categoryLabel;
+      headerLabel = categoryLabel; // Show command name in header
+      contentLabel = ''; // Don't duplicate in content
     }
     // For generic action blocks from toolboxBuilder: header = "ACTION", content = command label
     else if (type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string)) {
@@ -762,7 +762,7 @@ export const UniversalBlock: React.FC<NodeProps & {
                 size="small"
                 inputProps={{
                   maxLength: 20,
-                  style: { color: 'white', fontSize: 13, fontWeight: 'bold', padding: '2px 4px' }
+                  style: { color: 'white', fontSize: 15, fontWeight: 'bold', padding: '2px 4px' }
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
@@ -799,7 +799,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             </>
           ) : (
             <>
-              <Typography color="white" fontWeight="bold" fontSize={13}>
+              <Typography color="white" fontWeight="bold" fontSize={15}>
                 {data.label || headerLabel}
               </Typography>
               <IconButton

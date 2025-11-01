@@ -18,8 +18,7 @@ import {
   Select,
   MenuItem,
   Box,
-  Typography,
-  Chip
+  Typography
 } from '@mui/material';
 
 interface ParamDef {
@@ -205,10 +204,7 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
   return (
     <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
       <DialogTitle>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6">Configure {blockLabel}</Typography>
-          <Chip label="Standard" size="small" sx={{ bgcolor: '#6b7280', color: 'white' }} />
-        </Box>
+        Edit Input
       </DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', pt: 1 }}>

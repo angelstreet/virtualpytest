@@ -122,7 +122,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
-          <Typography fontSize={11} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
+          <Typography fontSize={13} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
             INPUTS ({displayParams.length})
           </Typography>
           
@@ -147,7 +147,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                     size="small"
                     icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
                     sx={{ 
-                      fontSize: 9, 
+                      fontSize: 11, 
                       height: 18,
                       maxWidth: '80px',
                       bgcolor: isLinked 
@@ -242,7 +242,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                   }}
                   onDelete={isLinked && onUnlink ? () => onUnlink(key) : undefined}
                   sx={{ 
-                    fontSize: 10, 
+                    fontSize: 12, 
                     height: 24,
                     flex: 1,
                     bgcolor: isLinked 

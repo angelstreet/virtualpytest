@@ -545,11 +545,6 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setCreationMode('visual');
     setAiPrompt('');
     setNewConfirmOpen(false);
-    setSnackbar({
-      open: true,
-      message: 'Ready to create new test case',
-      severity: 'info',
-    });
   }, [resetBuilder, setCreationMode, setAiPrompt]);
   
   // ==================== AI GENERATION ====================

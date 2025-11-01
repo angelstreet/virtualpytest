@@ -327,13 +327,7 @@ const TestCaseBuilderContent: React.FC = () => {
     );
     hookData.setNodes(layoutedNodes);
     hookData.setEdges(layoutedEdges);
-    
-    // Fit view after layout with a small delay
-    if (reactFlowInstance) {
-      setTimeout(() => {
-        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
-      }, 50);
-    }
+
   }, [hookData.nodes, hookData.edges, hookData.setNodes, hookData.setEdges, reactFlowInstance]);
 
   // Fit view when ReactFlow instance is ready
@@ -355,6 +349,17 @@ const TestCaseBuilderContent: React.FC = () => {
       }, 150);
     }
   }, [reactFlowInstance, hookData.currentTestcaseId, hookData.nodes.length]);
+
+  // Wrap handleNew to trigger fitView after reset
+  const wrappedHandleNew = useCallback(() => {
+    hookData.handleNew();
+    // Fit view after new test case is created
+    if (reactFlowInstance) {
+      setTimeout(() => {
+        reactFlowInstance.fitView({ padding: 0.2, duration: 300 });
+      }, 200);
+    }
+  }, [hookData.handleNew, reactFlowInstance]);
 
   return (
     <BuilderPageLayout>
@@ -381,7 +386,7 @@ const TestCaseBuilderContent: React.FC = () => {
         currentTreeId={hookData.currentTreeId}
         testcaseName={hookData.testcaseName}
         hasUnsavedChanges={hookData.hasUnsavedChanges}
-        handleNew={hookData.handleNew}
+        handleNew={wrappedHandleNew}
         handleLoadClick={hookData.handleLoadClick}
         isLoadingTestCases={hookData.isLoadingTestCases}
         setSaveDialogOpen={hookData.setSaveDialogOpen}
