@@ -292,7 +292,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
               'Load saved test case'
             }
           >
-            {isLoadingTestCases ? 'Loading...' : 'Load'}
+            {isLoadingTestCases ? 'Load...' : 'Load'}
           </Button>
           <Button 
             size="small" 

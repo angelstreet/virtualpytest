@@ -1855,43 +1855,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'message': error_msg
             }
     
-    def get_available_verifications(self) -> list:
-        """Get list of available verification commands with typed parameters."""
-        from shared.src.lib.schemas.param_types import create_param, create_output, ParamType, OutputType
-        
-        return [
-            {
-                "command": "getMenuInfo",
-                "label": "Get Menu Info (Web Elements)",
-                "description": "Extract key-value pairs from menu/info screen using web element dump and parse automatically",
-                "params": {
-                    "area": create_param(
-                        ParamType.AREA,
-                        required=False,
-                        default=None,
-                        description="Screen area to extract menu information from"
-                    )
-                },
-                "outputs": [
-                    create_output(
-                        "parsed_data",
-                        OutputType.OBJECT,
-                        description="Parsed key-value pairs from web elements"
-                    ),
-                    create_output(
-                        "raw_dump",
-                        OutputType.ARRAY,
-                        description="Full raw web element dump for debugging"
-                    ),
-                    create_output(
-                        "element_count",
-                        OutputType.NUMBER,
-                        description="Number of web elements extracted"
-                    )
-                ],
-                "verification_type": "web"
-            }
-        ]
+    # Note: get_available_verifications is defined below with ALL verifications combined
     
     def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -2256,12 +2220,13 @@ class PlaywrightWebController(WebControllerInterface):
             return False, f"Element '{search_term}' not found", {'search_term': search_term, 'error': result.get('error', '')}
     
     def get_available_verifications(self) -> List[Dict[str, Any]]:
-        """Get available verifications for Playwright with typed parameters."""
-        from shared.src.lib.schemas.param_types import create_param, ParamType
+        """Get available verifications for Playwright with typed parameters - ALL verifications combined."""
+        from shared.src.lib.schemas.param_types import create_param, create_output, ParamType, OutputType
         
         return [
             {
                 'command': 'waitForElementToAppear',
+                'label': 'Wait for Element to Appear',
                 'params': {
                     'search_term': create_param(
                         ParamType.STRING,
@@ -2290,6 +2255,7 @@ class PlaywrightWebController(WebControllerInterface):
             },
             {
                 'command': 'waitForElementToDisappear',
+                'label': 'Wait for Element to Disappear',
                 'params': {
                     'search_term': create_param(
                         ParamType.STRING,
@@ -2315,6 +2281,37 @@ class PlaywrightWebController(WebControllerInterface):
                 },
                 'verification_type': 'web',
                 'description': 'Wait for web element to disappear'
+            },
+            {
+                "command": "getMenuInfo",
+                "label": "Get Menu Info (Web Elements)",
+                "description": "Extract key-value pairs from menu/info screen using web element dump and parse automatically",
+                "params": {
+                    "area": create_param(
+                        ParamType.AREA,
+                        required=False,
+                        default=None,
+                        description="Screen area to extract menu information from"
+                    )
+                },
+                "outputs": [
+                    create_output(
+                        "parsed_data",
+                        OutputType.OBJECT,
+                        description="Parsed key-value pairs from web elements"
+                    ),
+                    create_output(
+                        "raw_dump",
+                        OutputType.ARRAY,
+                        description="Full raw web element dump for debugging"
+                    ),
+                    create_output(
+                        "element_count",
+                        OutputType.NUMBER,
+                        description="Number of web elements extracted"
+                    )
+                ],
+                "verification_type": "web"
             }
         ]
     
