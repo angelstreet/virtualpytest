@@ -1857,39 +1857,7 @@ class PlaywrightWebController(WebControllerInterface):
     
     # Note: get_available_verifications is defined below with ALL verifications combined
     
-    def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
-        """
-        Execute verification command (called by verification routes)
-        
-        Args:
-            verification_config: Verification configuration with command and params
-            
-        Returns:
-            Dict with success, message, and output_data
-        """
-        try:
-            command = verification_config.get('command')
-            params = verification_config.get('params', {})
-            context = verification_config.get('context')
-            
-            print(f"[@controller:PlaywrightWeb:execute_verification] Executing {command}")
-            
-            if command == 'getMenuInfo':
-                area = params.get('area')
-                result = self.getMenuInfo(area=area, context=context)
-                return result
-            else:
-                return {
-                    'success': False,
-                    'message': f'Unknown verification command: {command}'
-                }
-                
-        except Exception as e:
-            print(f"[@controller:PlaywrightWeb:execute_verification] Error: {e}")
-            return {
-                'success': False,
-                'message': f'Verification execution error: {str(e)}'
-            }
+    # Note: execute_verification is defined below with ALL commands combined
     
     def get_available_actions(self) -> Dict[str, Any]:
         """Get available actions for Playwright web controller."""
@@ -2284,7 +2252,7 @@ class PlaywrightWebController(WebControllerInterface):
             },
             {
                 "command": "getMenuInfo",
-                "label": "Get Menu Info (Web Elements)",
+                "label": "Get Menu Info Web",
                 "description": "Extract key-value pairs from menu/info screen using web element dump and parse automatically",
                 "params": {
                     "area": create_param(
@@ -2318,15 +2286,13 @@ class PlaywrightWebController(WebControllerInterface):
     def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute verification and return frontend-expected format (consistent with ADB/image/text).
+        Handles ALL verification commands: getMenuInfo, waitForElementToAppear, waitForElementToDisappear.
         
         Args:
             verification_config: {
-                'command': 'waitForElementToAppear',
-                'params': {
-                    'search_term': 'Submit',
-                    'timeout': 10.0,
-                    'check_interval': 1.0
-                }
+                'command': 'waitForElementToAppear' | 'getMenuInfo',
+                'params': {...},
+                'context': ...
             }
             
         Returns:
@@ -2336,8 +2302,17 @@ class PlaywrightWebController(WebControllerInterface):
             # Extract parameters
             params = verification_config.get('params', {})
             command = verification_config.get('command', 'waitForElementToAppear')
+            context = verification_config.get('context')
             
-            # Required parameters
+            print(f"[@controller:PlaywrightWeb:execute_verification] Executing {command}")
+            
+            # Handle getMenuInfo separately (different params and return format)
+            if command == 'getMenuInfo':
+                area = params.get('area')
+                result = self.getMenuInfo(area=area, context=context)
+                return result
+            
+            # Handle wait commands (require search_term)
             search_term = params.get('search_term', '')
             if not search_term:
                 return {
@@ -2423,7 +2398,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'matching_result': 0.0,
                 'user_threshold': 0.8,
                 'image_filter': 'none',
-                'searchedText': params.get('search_term', ''),
+                'searchedText': params.get('search_term', '') if 'params' in locals() else '',
                 'extractedText': '',
                 'details': {'error': str(e)}
             }

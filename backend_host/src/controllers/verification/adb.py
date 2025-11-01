@@ -774,7 +774,7 @@ class ADBVerificationController(VerificationControllerInterface):
             },
             {
                 'command': 'getMenuInfo',
-                'label': 'Get Menu Info',
+                'label': 'Get Menu Info ADB',
                 'description': 'Extract key-value pairs from menu/info screen using ADB UI dump and parse automatically',
                 'params': {
                     'area': create_param(
