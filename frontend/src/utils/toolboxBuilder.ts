@@ -269,6 +269,7 @@ export function extractStandardBlockGroups(standardBlocks: any[]) {
         command: blockDef.command,
         action_type: 'standard_block',
         params: defaultParams, // ← EXTRACTED DEFAULT VALUES
+        paramSchema: blockDef.params || {}, // ← ADD FULL PARAM SCHEMA FOR CONFIG DIALOG
       },
       description: blockDef.description || `Execute ${blockDef.command}`  // Long description
     };

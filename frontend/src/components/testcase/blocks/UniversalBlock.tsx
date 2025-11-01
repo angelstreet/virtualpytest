@@ -55,7 +55,7 @@ export const UniversalBlock: React.FC<NodeProps & {
     color = '#f97316'; // orange
   } else if (type === 'verification') {
     color = '#3b82f6'; // blue
-  } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code'].includes(type as string)) {
+  } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code', 'common_operation', 'evaluate_condition'].includes(type as string)) {
     color = '#6b7280'; // grey (standard blocks)
   } else {
     color = '#6b7280'; // default
@@ -474,7 +474,7 @@ export const UniversalBlock: React.FC<NodeProps & {
       contentLabel = data.target_node_label;
     }
     // For standard blocks: header = "STANDARD", content = command (e.g., "Sleep")
-    else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'loop'].includes(type as string)) {
+    else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code', 'common_operation', 'evaluate_condition'].includes(type as string)) {
       headerLabel = 'STANDARD';
       contentLabel = categoryLabel;
     }
@@ -875,6 +875,16 @@ export const UniversalBlock: React.FC<NodeProps & {
                 updateBlock(id as string, { paramLinks: newLinks });
                 showSuccess(`Unlinked ${paramKey}`);
               }}
+              onConfigureClick={
+                // ✅ For standard blocks, clicking input opens config dialog
+                ['evaluate_condition', 'custom_code', 'common_operation', 'set_variable', 'set_variable_io', 'get_current_time', 'sleep'].includes(type as string)
+                  ? () => {
+                      // Trigger config dialog opening through context
+                      const event = new CustomEvent('openBlockConfig', { detail: { blockId: id } });
+                      window.dispatchEvent(event);
+                    }
+                  : undefined
+              }
             />
             
             {/* Universal Output Display */}

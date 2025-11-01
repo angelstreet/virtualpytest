@@ -46,6 +46,7 @@ import { ExecutionProgressBar } from '../components/testcase/builder/ExecutionPr
 import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigDialog';
 import { VerificationConfigDialog } from '../components/testcase/dialogs/VerificationConfigDialog';
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
+import { StandardBlockConfigDialog } from '../components/testcase/dialogs/StandardBlockConfigDialog';
 import { TestCaseBuilderDialogs } from '../components/testcase/builder/TestCaseBuilderDialogs';
 import { AIGenerationResultPanel } from '../components/testcase/builder/AIGenerationResultPanel';
 import { PromptDisambiguation } from '../components/ai/PromptDisambiguation';
@@ -101,6 +102,10 @@ const NODE_TYPES = {
   generate_random: UniversalBlock,
   http_request: UniversalBlock,
   loop: UniversalBlock,
+  // Standard blocks
+  custom_code: UniversalBlock,
+  common_operation: UniversalBlock,
+  evaluate_condition: UniversalBlock,
 };
 
 // Edge types for React Flow - memoized to prevent recreation warnings
@@ -161,6 +166,23 @@ const TestCaseBuilderContent: React.FC = () => {
 
   const reactFlowWrapper = useRef<HTMLDivElement>(null);
   const [reactFlowInstance, setReactFlowInstance] = React.useState<any>(null);
+
+  // ✅ Listen for block config requests from InputDisplay chips
+  React.useEffect(() => {
+    const handleOpenBlockConfig = (event: CustomEvent) => {
+      const blockId = event.detail?.blockId;
+      if (blockId) {
+        const node = hookData.nodes.find(n => n.id === blockId);
+        if (node) {
+          hookData.setSelectedBlock(node);
+          hookData.setIsConfigDialogOpen(true);
+        }
+      }
+    };
+    
+    window.addEventListener('openBlockConfig' as any, handleOpenBlockConfig);
+    return () => window.removeEventListener('openBlockConfig' as any, handleOpenBlockConfig);
+  }, [hookData.nodes, hookData.setSelectedBlock, hookData.setIsConfigDialogOpen]);
 
   // Handle drop from toolbox
   const onDrop = useCallback(
@@ -269,14 +291,17 @@ const TestCaseBuilderContent: React.FC = () => {
   );
 
   // Handle block double click - open configuration dialog
-  // Double-click handler removed - blocks now show inputs/outputs inline
-  // Configuration is done via InputDisplay/OutputDisplay components
   const onNodeDoubleClick = useCallback(
-    (_event: React.MouseEvent, _node: any) => {
-      // No-op - double-click is disabled to prevent accidental config dialog opening
-      // Users interact directly with InputDisplay/OutputDisplay on the block
+    (_event: React.MouseEvent, node: any) => {
+      // Standard blocks: Open StandardBlockConfigDialog
+      const standardBlockTypes = ['evaluate_condition', 'custom_code', 'common_operation', 'set_variable', 'set_variable_io', 'get_current_time', 'sleep'];
+      if (standardBlockTypes.includes(node.type)) {
+        hookData.setSelectedBlock(node);
+        hookData.setIsConfigDialogOpen(true);
+      }
+      // Other blocks use inline InputDisplay/OutputDisplay
     },
-    []
+    [hookData.setSelectedBlock, hookData.setIsConfigDialogOpen]
   );
 
   // Handle config save
@@ -576,6 +601,24 @@ const TestCaseBuilderContent: React.FC = () => {
           open={hookData.isConfigDialogOpen}
           initialData={hookData.selectedBlock.data}
           onSave={handleConfigSave}
+          onCancel={() => hookData.setIsConfigDialogOpen(false)}
+        />
+      )}
+
+      {/* Standard Blocks Config Dialog */}
+      {hookData.selectedBlock && ['evaluate_condition', 'custom_code', 'common_operation', 'set_variable', 'set_variable_io', 'get_current_time', 'sleep'].includes(hookData.selectedBlock.type) && (
+        <StandardBlockConfigDialog
+          open={hookData.isConfigDialogOpen}
+          blockCommand={hookData.selectedBlock.data.command || hookData.selectedBlock.type}
+          blockLabel={hookData.selectedBlock.data.label || hookData.selectedBlock.type}
+          params={hookData.selectedBlock.data.paramSchema || {}}
+          initialData={hookData.selectedBlock.data.params || {}}
+          onSave={(newParams) => {
+            if (hookData.selectedBlock) {
+              hookData.updateBlock(hookData.selectedBlock.id, { params: newParams });
+            }
+            hookData.setIsConfigDialogOpen(false);
+          }}
           onCancel={() => hookData.setIsConfigDialogOpen(false)}
         />
       )}

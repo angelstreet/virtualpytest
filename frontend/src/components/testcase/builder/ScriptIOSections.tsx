@@ -307,94 +307,8 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
-                  position: 'relative',
                 }}
               >
-                <Box
-                  sx={{ flex: 1 }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Get drag data from event
-                    const dragData = e.dataTransfer.getData('application/json');
-                    if (dragData) {
-                      try {
-                        const { blockId, outputName, outputType } = JSON.parse(dragData);
-                        
-                        // Update output with link info
-                        const updatedOutputs = outputs.map(o => 
-                          o.name === output.name 
-                            ? { 
-                                ...o, 
-                                sourceBlockId: blockId, 
-                                sourceOutputName: outputName,
-                                sourceOutputType: outputType 
-                              }
-                            : o
-                        );
-                        
-                        // Trigger parent update
-                        onUpdateOutputs(updatedOutputs);
-                      } catch (err) {
-                        console.error('Failed to parse drag data:', err);
-                      }
-                    }
-                  }}
-                >
-                  <Chip
-                    icon={output.sourceBlockId ? <LinkIcon /> : undefined}
-                    label={
-                      output.sourceBlockId
-                        ? `${output.name} ← ${output.sourceOutputName}`
-                        : output.name
-                    }
-                    size="small"
-                    draggable
-                    onDragStart={(e) => {
-                      e.stopPropagation();
-                      const dragData = {
-                        blockId: output.sourceBlockId || 'script_outputs',
-                        outputName: output.name,
-                        outputType: output.type
-                      };
-                      e.dataTransfer.setData('application/json', JSON.stringify(dragData));
-                      e.dataTransfer.effectAllowed = 'link';
-                    }}
-                    onClick={(e) => {
-                      // If linked and clicking on chip body (not icon), show value dialog
-                      const target = e.target as HTMLElement;
-                      if (!target.closest('.MuiChip-icon')) {
-                        handleOutputClick(output);
-                      } else if (output.sourceBlockId) {
-                        // If clicking icon and linked, focus source block
-                        onFocusSourceBlock(output.sourceBlockId);
-                      }
-                    }}
-                    sx={{
-                      width: '100%',
-                      backgroundColor: output.sourceBlockId ? '#10b981' : '#f97316',
-                      color: 'white',
-                      fontSize: '0.7rem',
-                      height: '24px',
-                      justifyContent: 'space-between',
-                      cursor: 'pointer',
-                      border: '2px dashed transparent',
-                      '& .MuiChip-icon': { color: 'white', cursor: output.sourceBlockId ? 'pointer' : 'default' },
-                      '&:hover': {
-                        opacity: 0.9,
-                        border: '2px dashed rgba(255,255,255,0.5)'
-                      },
-                      '&:active': {
-                        cursor: 'grabbing',
-                      }
-                    }}
-                  />
-                </Box>
                 {editingOutputName === output.name ? (
                   <TextField
                     autoFocus
@@ -411,25 +325,110 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }
                     }}
                     sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 60,
+                      flex: 1,
                       '& .MuiInputBase-root': {
                         height: '24px',
                         fontSize: '0.7rem',
-                        backgroundColor: 'transparent',
+                        backgroundColor: '#f97316',
                         color: 'white',
                       },
                       '& .MuiInputBase-input': {
                         color: 'white',
+                        padding: '0 8px',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        border: 'none',
+                        border: '1px solid rgba(255,255,255,0.3)',
                       },
                     }}
                   />
                 ) : (
+                  <Box
+                    sx={{ flex: 1 }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      // Get drag data from event
+                      const dragData = e.dataTransfer.getData('application/json');
+                      if (dragData) {
+                        try {
+                          const { blockId, outputName, outputType } = JSON.parse(dragData);
+                          
+                          // Update output with link info
+                          const updatedOutputs = outputs.map(o => 
+                            o.name === output.name 
+                              ? { 
+                                  ...o, 
+                                  sourceBlockId: blockId, 
+                                  sourceOutputName: outputName,
+                                  sourceOutputType: outputType 
+                                }
+                              : o
+                          );
+                          
+                          // Trigger parent update
+                          onUpdateOutputs(updatedOutputs);
+                        } catch (err) {
+                          console.error('Failed to parse drag data:', err);
+                        }
+                      }
+                    }}
+                  >
+                    <Chip
+                      icon={output.sourceBlockId ? <LinkIcon /> : undefined}
+                      label={
+                        output.sourceBlockId
+                          ? `${output.name} ← ${output.sourceOutputName}`
+                          : output.name
+                      }
+                      size="small"
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        const dragData = {
+                          blockId: output.sourceBlockId || 'script_outputs',
+                          outputName: output.name,
+                          outputType: output.type
+                        };
+                        e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                        e.dataTransfer.effectAllowed = 'link';
+                      }}
+                      onClick={(e) => {
+                        // If linked and clicking on chip body (not icon), show value dialog
+                        const target = e.target as HTMLElement;
+                        if (!target.closest('.MuiChip-icon')) {
+                          handleOutputClick(output);
+                        } else if (output.sourceBlockId) {
+                          // If clicking icon and linked, focus source block
+                          onFocusSourceBlock(output.sourceBlockId);
+                        }
+                      }}
+                      sx={{
+                        width: '100%',
+                        backgroundColor: output.sourceBlockId ? '#10b981' : '#f97316',
+                        color: 'white',
+                        fontSize: '0.7rem',
+                        height: '24px',
+                        justifyContent: 'space-between',
+                        cursor: 'pointer',
+                        border: '2px dashed transparent',
+                        '& .MuiChip-icon': { color: 'white', cursor: output.sourceBlockId ? 'pointer' : 'default' },
+                        '&:hover': {
+                          opacity: 0.9,
+                          border: '2px dashed rgba(255,255,255,0.5)'
+                        },
+                        '&:active': {
+                          cursor: 'grabbing',
+                        }
+                      }}
+                    />
+                  </Box>
+                )}
+                {editingOutputName !== output.name && (
                   <IconButton
                     size="small"
                     onClick={(e) => handleStartEditOutput(output.name, e)}
@@ -506,88 +505,8 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
-                  position: 'relative',
                 }}
               >
-                <Box
-                  sx={{ flex: 1 }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Get drag data from event
-                    const dragData = e.dataTransfer.getData('application/json');
-                    if (dragData) {
-                      try {
-                        const { blockId, outputName, outputType } = JSON.parse(dragData);
-                        
-                        // Update variable with link info
-                        const updatedVariables = variables.map(v => 
-                          v.name === variable.name 
-                            ? { 
-                                ...v, 
-                                sourceBlockId: blockId, 
-                                sourceOutputName: outputName,
-                                sourceOutputType: outputType,
-                                value: undefined // Clear static value when linked
-                              }
-                            : v
-                        );
-                        
-                        // Trigger parent update
-                        onUpdateVariables(updatedVariables);
-                      } catch (err) {
-                        console.error('Failed to parse drag data:', err);
-                      }
-                    }
-                  }}
-                >
-                  <Chip
-                    icon={variable.sourceBlockId ? <LinkIcon /> : undefined}
-                    label={
-                      variable.sourceBlockId
-                        ? `${variable.name} ← ${variable.sourceOutputName}`
-                        : variable.value !== undefined
-                        ? `${variable.name} = ${variable.value}`
-                        : variable.name
-                    }
-                    size="small"
-                    draggable
-                    onDragStart={(e) => {
-                      e.stopPropagation();
-                      const dragData = {
-                        blockId: variable.sourceBlockId || 'script_variables',
-                        outputName: variable.name,
-                        outputType: variable.type
-                      };
-                      e.dataTransfer.setData('application/json', JSON.stringify(dragData));
-                      e.dataTransfer.effectAllowed = 'link';
-                    }}
-                    onClick={() => {
-                      if (variable.sourceBlockId) {
-                        onFocusSourceBlock(variable.sourceBlockId);
-                      }
-                    }}
-                    sx={{
-                      width: '100%',
-                      backgroundColor: variable.sourceBlockId ? '#10b981' : '#22c55e',
-                      color: 'white',
-                      fontSize: '0.7rem',
-                      height: '24px',
-                      justifyContent: 'space-between',
-                      cursor: variable.sourceBlockId ? 'pointer' : 'grab',
-                      border: '2px dashed transparent',
-                      '& .MuiChip-icon': { color: 'white' },
-                      '&:active': {
-                        cursor: 'grabbing',
-                      }
-                    }}
-                  />
-                </Box>
                 {editingVariableName === variable.name ? (
                   <TextField
                     autoFocus
@@ -604,25 +523,104 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }
                     }}
                     sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      right: 60,
+                      flex: 1,
                       '& .MuiInputBase-root': {
                         height: '24px',
                         fontSize: '0.7rem',
-                        backgroundColor: 'transparent',
+                        backgroundColor: '#22c55e',
                         color: 'white',
                       },
                       '& .MuiInputBase-input': {
                         color: 'white',
+                        padding: '0 8px',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        border: 'none',
+                        border: '1px solid rgba(255,255,255,0.3)',
                       },
                     }}
                   />
                 ) : (
+                  <Box
+                    sx={{ flex: 1 }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      // Get drag data from event
+                      const dragData = e.dataTransfer.getData('application/json');
+                      if (dragData) {
+                        try {
+                          const { blockId, outputName, outputType } = JSON.parse(dragData);
+                          
+                          // Update variable with link info
+                          const updatedVariables = variables.map(v => 
+                            v.name === variable.name 
+                              ? { 
+                                  ...v, 
+                                  sourceBlockId: blockId, 
+                                  sourceOutputName: outputName,
+                                  sourceOutputType: outputType,
+                                  value: undefined // Clear static value when linked
+                                }
+                              : v
+                          );
+                          
+                          // Trigger parent update
+                          onUpdateVariables(updatedVariables);
+                        } catch (err) {
+                          console.error('Failed to parse drag data:', err);
+                        }
+                      }
+                    }}
+                  >
+                    <Chip
+                      icon={variable.sourceBlockId ? <LinkIcon /> : undefined}
+                      label={
+                        variable.sourceBlockId
+                          ? `${variable.name} ← ${variable.sourceOutputName}`
+                          : variable.value !== undefined
+                          ? `${variable.name} = ${variable.value}`
+                          : variable.name
+                      }
+                      size="small"
+                      draggable
+                      onDragStart={(e) => {
+                        e.stopPropagation();
+                        const dragData = {
+                          blockId: variable.sourceBlockId || 'script_variables',
+                          outputName: variable.name,
+                          outputType: variable.type
+                        };
+                        e.dataTransfer.setData('application/json', JSON.stringify(dragData));
+                        e.dataTransfer.effectAllowed = 'link';
+                      }}
+                      onClick={() => {
+                        if (variable.sourceBlockId) {
+                          onFocusSourceBlock(variable.sourceBlockId);
+                        }
+                      }}
+                      sx={{
+                        width: '100%',
+                        backgroundColor: variable.sourceBlockId ? '#10b981' : '#22c55e',
+                        color: 'white',
+                        fontSize: '0.7rem',
+                        height: '24px',
+                        justifyContent: 'space-between',
+                        cursor: variable.sourceBlockId ? 'pointer' : 'grab',
+                        border: '2px dashed transparent',
+                        '& .MuiChip-icon': { color: 'white' },
+                        '&:active': {
+                          cursor: 'grabbing',
+                        }
+                      }}
+                    />
+                  </Box>
+                )}
+                {editingVariableName !== variable.name && (
                   <IconButton
                     size="small"
                     onClick={(e) => handleStartEditVariable(variable.name, e)}
@@ -697,82 +695,8 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   display: 'flex',
                   alignItems: 'center',
                   gap: 0.5,
-                  position: 'relative',
                 }}
               >
-                <Box
-                  sx={{ flex: 1 }}
-                  onDragOver={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                  }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    
-                    // Get drag data from event
-                    const dragData = e.dataTransfer.getData('application/json');
-                    if (dragData) {
-                      try {
-                        const { blockId, outputName, outputType } = JSON.parse(dragData);
-                        
-                        // Update metadata field with link info
-                        const updatedMetadata = metadata.map(f => 
-                          f.name === field.name 
-                            ? { 
-                                ...f, 
-                                sourceBlockId: blockId, 
-                                sourceOutputName: outputName,
-                                sourceOutputType: outputType 
-                              }
-                            : f
-                        );
-                        
-                        // Trigger parent update
-                        onUpdateMetadata(updatedMetadata);
-                      } catch (err) {
-                        console.error('Failed to parse drag data:', err);
-                      }
-                    }
-                  }}
-                >
-                  <Chip
-                    icon={field.sourceBlockId ? <LinkIcon /> : undefined}
-                    label={
-                      field.sourceBlockId
-                        ? `${field.name} ← ${field.sourceOutputName}`
-                        : field.name
-                    }
-                    size="small"
-                    onClick={() => {
-                      if (field.sourceBlockId) {
-                        onFocusSourceBlock(field.sourceBlockId);
-                      }
-                    }}
-                    sx={{
-                      width: '100%',
-                      backgroundColor: '#a855f7', // Always purple for metadata
-                      color: 'white',
-                      fontSize: '0.7rem',
-                      height: '24px',
-                      justifyContent: 'space-between',
-                      cursor: field.sourceBlockId ? 'pointer' : 'default',
-                      border: field.sourceBlockId ? '2px solid rgba(16, 185, 129, 0.6)' : '2px dashed transparent', // Green border when linked
-                      '& .MuiChip-icon': { 
-                        color: 'white',
-                        marginLeft: '4px',
-                        marginRight: '0px',
-                      },
-                      '& .MuiChip-label': {
-                        paddingLeft: field.sourceBlockId ? '4px' : '12px',
-                      },
-                      '&:hover': field.sourceBlockId ? {
-                        opacity: 0.9,
-                        border: '2px solid rgba(16, 185, 129, 0.8)'
-                      } : {}
-                    }}
-                  />
-                </Box>
                 {editingMetadataField === field.name ? (
                   <TextField
                     autoFocus
@@ -789,25 +713,98 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }
                     }}
                     sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: field.sourceBlockId ? '32px' : 0, // Start after icon if linked
-                      right: 30,
+                      flex: 1,
                       '& .MuiInputBase-root': {
                         height: '24px',
                         fontSize: '0.7rem',
-                        backgroundColor: 'transparent',
+                        backgroundColor: '#a855f7',
                         color: 'white',
                       },
                       '& .MuiInputBase-input': {
                         color: 'white',
+                        padding: '0 8px',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        border: 'none',
+                        border: '1px solid rgba(255,255,255,0.3)',
                       },
                     }}
                   />
                 ) : (
+                  <Box
+                    sx={{ flex: 1 }}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                    }}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      e.stopPropagation();
+                      
+                      // Get drag data from event
+                      const dragData = e.dataTransfer.getData('application/json');
+                      if (dragData) {
+                        try {
+                          const { blockId, outputName, outputType } = JSON.parse(dragData);
+                          
+                          // Update metadata field with link info
+                          const updatedMetadata = metadata.map(f => 
+                            f.name === field.name 
+                              ? { 
+                                  ...f, 
+                                  sourceBlockId: blockId, 
+                                  sourceOutputName: outputName,
+                                  sourceOutputType: outputType 
+                                }
+                              : f
+                          );
+                          
+                          // Trigger parent update
+                          onUpdateMetadata(updatedMetadata);
+                        } catch (err) {
+                          console.error('Failed to parse drag data:', err);
+                        }
+                      }
+                    }}
+                  >
+                    <Chip
+                      icon={field.sourceBlockId ? <LinkIcon /> : undefined}
+                      label={
+                        field.sourceBlockId
+                          ? `${field.name} ← ${field.sourceOutputName}`
+                          : field.name
+                      }
+                      size="small"
+                      onClick={() => {
+                        if (field.sourceBlockId) {
+                          onFocusSourceBlock(field.sourceBlockId);
+                        }
+                      }}
+                      sx={{
+                        width: '100%',
+                        backgroundColor: '#a855f7', // Always purple for metadata
+                        color: 'white',
+                        fontSize: '0.7rem',
+                        height: '24px',
+                        justifyContent: 'space-between',
+                        cursor: field.sourceBlockId ? 'pointer' : 'default',
+                        border: field.sourceBlockId ? '2px solid rgba(16, 185, 129, 0.6)' : '2px dashed transparent', // Green border when linked
+                        '& .MuiChip-icon': { 
+                          color: 'white',
+                          marginLeft: '4px',
+                          marginRight: '0px',
+                        },
+                        '& .MuiChip-label': {
+                          paddingLeft: field.sourceBlockId ? '4px' : '12px',
+                        },
+                        '&:hover': field.sourceBlockId ? {
+                          opacity: 0.9,
+                          border: '2px solid rgba(16, 185, 129, 0.8)'
+                        } : {}
+                      }}
+                    />
+                  </Box>
+                )}
+                {editingMetadataField !== field.name && (
                   <IconButton
                     size="small"
                     onClick={(e) => handleStartEditMetadata(field.name, e)}

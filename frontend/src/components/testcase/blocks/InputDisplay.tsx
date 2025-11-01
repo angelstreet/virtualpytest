@@ -30,6 +30,7 @@ interface InputDisplayProps {
   onUnlink?: (paramKey: string) => void;
   draggedOutput?: { blockId: string; outputName: string; outputType: string } | null;
   command?: string; // ✅ Add command to know which params to hide
+  onConfigureClick?: () => void; // ✅ NEW: Callback to open config dialog
 }
 
 export const InputDisplay: React.FC<InputDisplayProps> = ({
@@ -39,6 +40,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
   onUnlink,
   draggedOutput,
   command,
+  onConfigureClick, // ✅ NEW
 }) => {
   const { actualMode } = useTheme();
   const [expanded, setExpanded] = useState(false);
@@ -230,7 +232,12 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                   onClick={(e) => {
                     e.stopPropagation(); // ✅ Prevent block selection
                     if (!isLinked) {
-                      handleViewValue(key, actualValue, e);
+                      // ✅ If onConfigureClick provided, open config dialog instead of view dialog
+                      if (onConfigureClick) {
+                        onConfigureClick();
+                      } else {
+                        handleViewValue(key, actualValue, e);
+                      }
                     }
                   }}
                   onDelete={isLinked && onUnlink ? () => onUnlink(key) : undefined}

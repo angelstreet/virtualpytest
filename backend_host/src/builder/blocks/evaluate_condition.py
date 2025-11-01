@@ -15,45 +15,66 @@ Returns:
 - result_output: The evaluation result (bool, int, or other)
 """
 
-from typing import Dict, Any, Union, List
-import re
+from typing import Dict, Any
 from backend_host.src.builder.decorators import capture_logs
 from shared.src.lib.schemas.param_types import create_param, ParamType
+from backend_host.src.builder.blocks.evaluate_condition_handlers import (
+    evaluate_int,
+    evaluate_str,
+    evaluate_list,
+    evaluate_dict,
+)
+from backend_host.src.builder.blocks.evaluate_condition_handlers.operand_resolver import (
+    resolve_operand,
+    validate_operand_type,
+)
+from backend_host.src.builder.blocks.evaluate_condition_handlers import (
+    int_evaluator,
+    str_evaluator,
+    list_evaluator,
+    dict_evaluator,
+)
 
 
-# Condition mappings per operand type
-OPERAND_CONDITIONS = {
-    'int': {
-        'greater_than': {'label': 'Greater than (>)', 'value': 'greater_than', 'output_type': 'bool'},
-        'less_than': {'label': 'Less than (<)', 'value': 'less_than', 'output_type': 'bool'},
-        'greater_equal': {'label': 'Greater or equal (>=)', 'value': 'greater_equal', 'output_type': 'bool'},
-        'less_equal': {'label': 'Less or equal (<=)', 'value': 'less_equal', 'output_type': 'bool'},
-        'equal': {'label': 'Equal (=)', 'value': 'equal', 'output_type': 'bool'}
-    },
-    'str': {
-        'equal': {'label': 'Equal', 'value': 'equal', 'output_type': 'bool'},
-        'contains': {'label': 'Contains', 'value': 'contains', 'output_type': 'bool'},
-        'dont_contain': {'label': 'Does not contain', 'value': 'dont_contain', 'output_type': 'bool'}
-    },
-    'list': {
-        'equal': {'label': 'Equal', 'value': 'equal', 'output_type': 'bool'},
-        'contain': {'label': 'Contains', 'value': 'contain', 'output_type': 'bool'},
-        'dont_contain': {'label': 'Does not contain', 'value': 'dont_contain', 'output_type': 'bool'},
-        'index_of': {'label': 'Index of', 'value': 'index_of', 'output_type': 'int'}
-    },
-    'dict': {
-        'equal': {'label': 'Equal', 'value': 'equal', 'output_type': 'bool'},
-        'contain_key': {'label': 'Contains key', 'value': 'contain_key', 'output_type': 'bool'},
-        'contain_value': {'label': 'Contains value', 'value': 'contain_value', 'output_type': 'bool'},
-        'dont_contain_key': {'label': 'Does not contain key', 'value': 'dont_contain_key', 'output_type': 'bool'},
-        'dont_contain_value': {'label': 'Does not contain value', 'value': 'dont_contain_value', 'output_type': 'bool'},
-        'index_of_key': {'label': 'Index of key', 'value': 'index_of_key', 'output_type': 'int'}
-    }
+# Map operand types to evaluators
+EVALUATORS = {
+    'int': evaluate_int,
+    'str': evaluate_str,
+    'list': evaluate_list,
+    'dict': evaluate_dict,
 }
+
+# Map operand types to condition getters (for metadata)
+CONDITION_GETTERS = {
+    'int': int_evaluator.get_conditions,
+    'str': str_evaluator.get_conditions,
+    'list': list_evaluator.get_conditions,
+    'dict': dict_evaluator.get_conditions,
+}
+
+# Build combined conditions for get_block_info
+def _get_all_conditions():
+    """Combine all conditions from all evaluators"""
+    all_conditions = {}
+    for operand_type, getter in CONDITION_GETTERS.items():
+        all_conditions[operand_type] = getter()
+    return all_conditions
+
+OPERAND_CONDITIONS = _get_all_conditions()
 
 
 def get_block_info() -> Dict[str, Any]:
     """Return block metadata for registration"""
+    # Build choices for condition dropdown grouped by operand_type
+    condition_choices = {}
+    for operand_type, getter in CONDITION_GETTERS.items():
+        conditions = getter()
+        # Convert dict to list of choices
+        condition_choices[operand_type] = [
+            {'label': cond_data['label'], 'value': cond_data['value']}
+            for cond_data in conditions.values()
+        ]
+    
     return {
         'command': 'evaluate_condition',
         'label': 'Evaluate Condition',
@@ -75,10 +96,10 @@ def get_block_info() -> Dict[str, Any]:
                 ParamType.ENUM,
                 required=True,
                 default='equal',
-                choices=[
-                    {'label': 'Equal', 'value': 'equal'}
-                ],
-                description="Condition to evaluate (dynamically populated based on operand_type)"
+                choices=condition_choices['int'],  # Default to int conditions
+                depends_on='operand_type',  # Mark as dependent field
+                choices_map=condition_choices,  # All choices grouped by operand_type
+                description="Condition to evaluate (changes based on operand_type)"
             ),
             'left_operand': create_param(
                 ParamType.STRING,
@@ -104,144 +125,6 @@ def get_block_info() -> Dict[str, Any]:
     }
 
 
-def _resolve_operand(operand_str: str, context, operand_type: str) -> Any:
-    """
-    Resolve operand from string - either variable reference or literal value.
-    
-    Variable reference format: {variable_name}
-    Literal values: parsed based on operand_type
-    
-    Args:
-        operand_str: The operand string
-        context: Execution context with variables
-        operand_type: Expected type (int, str, list, dict)
-        
-    Returns:
-        Resolved value with correct type
-        
-    Raises:
-        ValueError: If operand cannot be resolved or converted
-    """
-    operand_str = operand_str.strip()
-    
-    # Check for variable reference: {variable_name}
-    var_match = re.match(r'^\{(.+?)\}$', operand_str)
-    if var_match:
-        var_name = var_match.group(1).strip()
-        if not context or not hasattr(context, 'variables') or not context.variables:
-            raise ValueError(f"Variable '{var_name}' not found in context")
-        
-        if var_name not in context.variables:
-            raise ValueError(f"Variable '{var_name}' not found in context")
-        
-        value = context.variables[var_name]
-        print(f"[@block:evaluate_condition] Resolved variable '{var_name}' = {value} (type: {type(value).__name__})")
-        return value
-    
-    # Parse literal value based on operand_type
-    try:
-        if operand_type == 'int':
-            return int(operand_str)
-        elif operand_type == 'str':
-            # Remove surrounding quotes if present
-            if (operand_str.startswith('"') and operand_str.endswith('"')) or \
-               (operand_str.startswith("'") and operand_str.endswith("'")):
-                return operand_str[1:-1]
-            return operand_str
-        elif operand_type == 'list':
-            # Try to parse as Python list
-            import ast
-            return ast.literal_eval(operand_str)
-        elif operand_type == 'dict':
-            # Try to parse as Python dict
-            import ast
-            return ast.literal_eval(operand_str)
-    except Exception as e:
-        raise ValueError(f"Failed to parse operand '{operand_str}' as {operand_type}: {str(e)}")
-    
-    return operand_str
-
-
-def _validate_operand_type(value: Any, expected_type: str) -> bool:
-    """Validate that value matches expected type"""
-    type_map = {
-        'int': int,
-        'str': str,
-        'list': list,
-        'dict': dict
-    }
-    expected_python_type = type_map.get(expected_type)
-    return isinstance(value, expected_python_type)
-
-
-def _evaluate_int_condition(left: int, right: int, condition: str) -> bool:
-    """Evaluate integer condition"""
-    if condition == 'greater_than':
-        return left > right
-    elif condition == 'less_than':
-        return left < right
-    elif condition == 'greater_equal':
-        return left >= right
-    elif condition == 'less_equal':
-        return left <= right
-    elif condition == 'equal':
-        return left == right
-    else:
-        raise ValueError(f"Unknown int condition: {condition}")
-
-
-def _evaluate_str_condition(left: str, right: str, condition: str) -> bool:
-    """Evaluate string condition"""
-    if condition == 'equal':
-        return left == right
-    elif condition == 'contains':
-        return right in left
-    elif condition == 'dont_contain':
-        return right not in left
-    else:
-        raise ValueError(f"Unknown str condition: {condition}")
-
-
-def _evaluate_list_condition(left: List, right: Any, condition: str) -> Union[bool, int]:
-    """Evaluate list condition"""
-    if condition == 'equal':
-        return left == right
-    elif condition == 'contain':
-        return right in left
-    elif condition == 'dont_contain':
-        return right not in left
-    elif condition == 'index_of':
-        try:
-            return left.index(right)
-        except ValueError:
-            return -1  # Not found
-    else:
-        raise ValueError(f"Unknown list condition: {condition}")
-
-
-def _evaluate_dict_condition(left: Dict, right: Any, condition: str) -> Union[bool, int]:
-    """Evaluate dict condition"""
-    if condition == 'equal':
-        return left == right
-    elif condition == 'contain_key':
-        return right in left
-    elif condition == 'contain_value':
-        return right in left.values()
-    elif condition == 'dont_contain_key':
-        return right not in left
-    elif condition == 'dont_contain_value':
-        return right not in left.values()
-    elif condition == 'index_of_key':
-        # Get index position of key in dict (insertion order in Python 3.7+)
-        keys_list = list(left.keys())
-        try:
-            return keys_list.index(right)
-        except ValueError:
-            return -1  # Not found
-    else:
-        raise ValueError(f"Unknown dict condition: {condition}")
-
-
 @capture_logs
 def execute(
     operand_type: str = 'int',
@@ -252,7 +135,7 @@ def execute(
     **kwargs
 ) -> Dict[str, Any]:
     """
-    Execute condition evaluation.
+    Execute condition evaluation by routing to appropriate evaluator.
     
     Args:
         operand_type: Type of operands (int, str, list, dict)
@@ -280,7 +163,7 @@ def execute(
                 'result_output': None
             }
         
-        if operand_type not in OPERAND_CONDITIONS:
+        if operand_type not in EVALUATORS:
             return {
                 'result_success': -1,
                 'error_msg': f"Invalid operand_type: {operand_type}",
@@ -296,8 +179,26 @@ def execute(
         
         # Resolve operands
         try:
-            left_value = _resolve_operand(left_operand, context, operand_type)
-            right_value = _resolve_operand(right_operand, context, operand_type)
+            left_value = resolve_operand(left_operand, context, operand_type)
+            
+            # Right operand resolution depends on condition
+            # For membership/search operations, right can be any type (try as-is first)
+            flexible_conditions = [
+                'contain', 'dont_contain', 'index_of',
+                'contain_key', 'contain_value', 'dont_contain_key', 'dont_contain_value', 'index_of_key'
+            ]
+            
+            if condition in flexible_conditions:
+                # Try to resolve as variable first, then as string literal
+                try:
+                    right_value = resolve_operand(right_operand, context, 'str')
+                except ValueError:
+                    # If fails, try as the declared operand type
+                    right_value = resolve_operand(right_operand, context, operand_type)
+            else:
+                # For comparison operations, must match declared type
+                right_value = resolve_operand(right_operand, context, operand_type)
+                
         except ValueError as e:
             return {
                 'result_success': -1,
@@ -305,8 +206,8 @@ def execute(
                 'result_output': None
             }
         
-        # Validate types
-        if not _validate_operand_type(left_value, operand_type):
+        # Validate left operand type
+        if not validate_operand_type(left_value, operand_type):
             return {
                 'result_success': -1,
                 'error_msg': f"Left operand type mismatch: expected {operand_type}, got {type(left_value).__name__}",
@@ -314,30 +215,23 @@ def execute(
             }
         
         # Right operand type validation depends on condition
-        # For 'contain', 'dont_contain' in list, right can be any type
-        # For 'index_of', right can be any type
-        # For dict key operations, right should be hashable
-        # For other operations, types should match
-        if condition not in ['contain', 'dont_contain', 'index_of', 'contain_key', 'contain_value', 
-                             'dont_contain_key', 'dont_contain_value', 'index_of_key']:
-            if not _validate_operand_type(right_value, operand_type):
+        # For membership/search operations, right can be any type
+        flexible_conditions = [
+            'contain', 'dont_contain', 'index_of',
+            'contain_key', 'contain_value', 'dont_contain_key', 'dont_contain_value', 'index_of_key'
+        ]
+        
+        if condition not in flexible_conditions:
+            if not validate_operand_type(right_value, operand_type):
                 return {
                     'result_success': -1,
                     'error_msg': f"Right operand type mismatch: expected {operand_type}, got {type(right_value).__name__}",
                     'result_output': None
                 }
         
-        # Evaluate condition
-        result_output = None
-        
-        if operand_type == 'int':
-            result_output = _evaluate_int_condition(left_value, right_value, condition)
-        elif operand_type == 'str':
-            result_output = _evaluate_str_condition(left_value, right_value, condition)
-        elif operand_type == 'list':
-            result_output = _evaluate_list_condition(left_value, right_value, condition)
-        elif operand_type == 'dict':
-            result_output = _evaluate_dict_condition(left_value, right_value, condition)
+        # Route to appropriate evaluator
+        evaluator = EVALUATORS[operand_type]
+        result_output = evaluator(left_value, right_value, condition)
         
         # Store result in context
         if context:
@@ -378,4 +272,3 @@ def execute(
             'error_msg': error_msg,
             'result_output': None
         }
-
