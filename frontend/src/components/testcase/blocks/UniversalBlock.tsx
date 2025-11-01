@@ -478,15 +478,15 @@ export const UniversalBlock: React.FC<NodeProps & {
       headerLabel = categoryLabel; // Show command name in header
       contentLabel = ''; // Don't duplicate in content
     }
-    // For generic action blocks from toolboxBuilder: header = "ACTION", content = command label
+    // For generic action blocks from toolboxBuilder: header = "ACTION", content = empty (command shown in header)
     else if (type === 'action' || ['press_key', 'press_sequence', 'tap', 'swipe', 'type_text'].includes(type as string)) {
       headerLabel = 'ACTION';
-      contentLabel = categoryLabel;
+      contentLabel = ''; // Don't duplicate - already shown in header
     }
-    // For generic verification blocks from toolboxBuilder: header = "VERIFICATION", content = command label
+    // For generic verification blocks from toolboxBuilder: header = "VERIFICATION", content = empty (command shown in header)
     else if (type === 'verification' || ['verify_image', 'verify_ocr', 'verify_audio', 'verify_element'].includes(type as string)) {
       headerLabel = 'VERIFICATION';
-      contentLabel = categoryLabel;
+      contentLabel = ''; // Don't duplicate - already shown in header
     }
     // Fallback to command or display label
     else {
@@ -553,7 +553,7 @@ export const UniversalBlock: React.FC<NodeProps & {
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
-              fontSize: 12,
+              fontSize: 13,
               cursor: 'pointer',
               boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
               transition: 'all 0.3s ease',
@@ -593,7 +593,7 @@ export const UniversalBlock: React.FC<NodeProps & {
       } else if (output === 'failure' || output === 'false') {
         content = <CloseIcon sx={{ fontSize: isActive ? 26 : 18, fontWeight: isActive ? 900 : 'normal' }} />;
       } else if (output === 'break') {
-        content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
+        content = <Typography fontSize={12} fontWeight="bold">BREAK</Typography>;
       } else {
         content = null;
       }
@@ -618,7 +618,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             justifyContent: 'center',
             color: 'white',
             fontWeight: 'bold',
-            fontSize: 11,
+            fontSize: 12,
             cursor: 'pointer',
             boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
             transition: 'all 0.3s ease',
@@ -697,7 +697,9 @@ export const UniversalBlock: React.FC<NodeProps & {
   return (
     <Box
       sx={{
-        minWidth: 240,
+        width: 280,  // Fixed width
+        minHeight: 120,  // Fixed minimum height
+       
         border: selected ? '3px solid #fbbf24' : `2px solid ${color}`,
         ...getExecutionStyling(), // Apply execution styling
         borderRadius: 2,
@@ -708,6 +710,9 @@ export const UniversalBlock: React.FC<NodeProps & {
         transition: 'all 0.3s ease',
         pointerEvents: isExecuting ? 'none' : 'auto', // Disable interaction during execution
         position: 'relative',
+        display: 'flex',
+        flexDirection: 'column',
+        overflow: 'hidden', // Prevent content from expanding block
         '&:hover': {
           boxShadow: isExecuting ? 2 : 4,
         },
@@ -729,7 +734,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             borderRadius: 1,
             px: 1,
             py: 0.5,
-            fontSize: 11,
+            fontSize: 12,
             fontWeight: 'bold',
             fontFamily: 'monospace',
             boxShadow: '0 2px 8px rgba(0,0,0,0.2)',
@@ -799,7 +804,7 @@ export const UniversalBlock: React.FC<NodeProps & {
             </>
           ) : (
             <>
-              <Typography color="white" fontWeight="bold" fontSize={15}>
+              <Typography color="white" fontWeight="bold" fontSize={16}>
                 {data.label || headerLabel}
               </Typography>
               <IconButton
@@ -813,7 +818,7 @@ export const UniversalBlock: React.FC<NodeProps & {
                   },
                 }}
               >
-                <EditIcon sx={{ fontSize: 14 }} />
+                <EditIcon sx={{ fontSize: 15 }} />
               </IconButton>
             </>
           )}
@@ -842,12 +847,32 @@ export const UniversalBlock: React.FC<NodeProps & {
       </Box>
       
       {/* Content */}
-      <Box sx={{ p: 1.5 }}>
+      <Box sx={{ 
+        p: 1.5, 
+        flex: 1, 
+        overflowY: 'auto', 
+        overflowX: 'hidden',
+        '&::-webkit-scrollbar': {
+          width: '4px',
+        },
+        '&::-webkit-scrollbar-track': {
+          background: 'transparent',
+        },
+        '&::-webkit-scrollbar-thumb': {
+          background: 'rgba(128, 128, 128, 0.3)',
+          borderRadius: '2px',
+          '&:hover': {
+            background: 'rgba(128, 128, 128, 0.5)',
+          },
+        },
+      }}>
         {isConfigured ? (
           <>
-            <Typography fontSize={14} fontWeight="medium" mb={1}>
-              {contentLabel}
-            </Typography>
+            {contentLabel && (
+              <Typography fontSize={16} fontWeight="medium" mb={1}>
+                {contentLabel}
+              </Typography>
+            )}
             
             {/* Universal Input Display */}
             <InputDisplay
@@ -900,12 +925,12 @@ export const UniversalBlock: React.FC<NodeProps & {
             />
             
             {data.iterations && data.iterations > 1 && (
-              <Typography fontSize={11} color="text.secondary" mt={0.5}>
+              <Typography fontSize={12} color="text.secondary" mt={0.5}>
                 × {data.iterations} iterations
               </Typography>
             )}
             {data.iterator && data.iterator > 1 && (
-              <Typography fontSize={11} color="text.secondary" mt={0.5}>
+              <Typography fontSize={12} color="text.secondary" mt={0.5}>
                 × {data.iterator}
               </Typography>
             )}

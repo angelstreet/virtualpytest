@@ -123,8 +123,8 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                   label={output.name}
                   size="small"
                   sx={{ 
-                    fontSize: 11, 
-                    height: 18,
+                    fontSize: 14, 
+                    height: 20,
                     maxWidth: '80px',
                     bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
                     borderColor: '#f97316',
@@ -247,8 +247,8 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                       }
                     }}
                     sx={{ 
-                      fontSize: 12, 
-                      height: 24,
+                      fontSize: 16, 
+                      height: 26,
                       flex: 1,
                       bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
                       borderColor: '#f97316',

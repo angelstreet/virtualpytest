@@ -147,8 +147,8 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                     size="small"
                     icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
                     sx={{ 
-                      fontSize: 11, 
-                      height: 18,
+                      fontSize: 14, 
+                      height: 20,
                       maxWidth: '80px',
                       bgcolor: isLinked 
                         ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
@@ -223,7 +223,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                 }}
               >
                 <Chip
-                  label={isLinked 
+                  label={isLinked && link
                     ? `${key} ← ${link.sourceOutputName}` 
                     : `${key}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}`
                   }
@@ -242,8 +242,8 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                   }}
                   onDelete={isLinked && onUnlink ? () => onUnlink(key) : undefined}
                   sx={{ 
-                    fontSize: 12, 
-                    height: 24,
+                    fontSize: 16, 
+                    height: 26,
                     flex: 1,
                     bgcolor: isLinked 
                       ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')

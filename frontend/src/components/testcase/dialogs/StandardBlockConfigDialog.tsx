@@ -5,7 +5,7 @@
  * Supports dependent dropdowns where one field's choices depend on another field's value
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import {
   Dialog,
   DialogTitle,
@@ -85,22 +85,24 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
   const [variableMenuAnchor, setVariableMenuAnchor] = useState<HTMLElement | null>(null);
   const [currentField, setCurrentField] = useState<string | null>(null);
   
-  // Type compatibility check
+  // Type compatibility check - strict matching for evaluate_condition
   const isTypeCompatible = (varType: string, expectedType: string): boolean => {
     if (!expectedType || expectedType === 'any') return true;
     if (varType === 'any') return true;
-    if (varType === 'string' && expectedType === 'int') return true; // Can convert
+    // Strict matching: only show exact type matches
     return varType === expectedType;
   };
   
-  // Filter variables by type for evaluate_condition
-  const getFilteredVariables = (paramName: string): AvailableVariable[] => {
-    if (blockCommand !== 'evaluate_condition') return availableVariables;
-    if (paramName !== 'left_operand' && paramName !== 'right_operand') return availableVariables;
-    
-    const operandType = formData['operand_type'] || 'int';
-    return availableVariables.filter(v => isTypeCompatible(v.type, operandType));
-  };
+  // Filter variables by type for evaluate_condition - memoized to update when operand_type changes
+  const getFilteredVariables = useMemo(() => {
+    return (paramName: string): AvailableVariable[] => {
+      if (blockCommand !== 'evaluate_condition') return availableVariables;
+      if (paramName !== 'left_operand' && paramName !== 'right_operand') return availableVariables;
+      
+      const operandType = formData['operand_type'] || 'int';
+      return availableVariables.filter(v => isTypeCompatible(v.type, operandType));
+    };
+  }, [blockCommand, availableVariables, formData, isTypeCompatible]);
   
   // Group filtered variables by source
   const groupVariablesBySource = (variables: AvailableVariable[]) => {
