@@ -6,6 +6,7 @@ import { useServerManager } from '../hooks/useServerManager';
 import { Host, Device } from '../types/common/Host_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { clearUserInterfaceCaches } from '../hooks/pages/useUserInterface';
+import { hasCompatibleDevice } from '../utils/userinterface/deviceCompatibilityUtils';
 
 import { HostManagerContext } from './HostManagerContext';
 import { HostDataContext } from './HostDataContext';
@@ -715,22 +716,12 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     };
   }, [releaseControl, activeLocks, availableHosts]);
 
-  // Update filtered hosts when availableHosts changes
+  // Update filtered hosts when availableHosts changes - using shared compatibility logic
   useEffect(() => {
     if (stableUserInterface?.models && availableHosts.length > 0) {
-      // Filter hosts to only include those with devices matching the interface models or capabilities
+      // Filter hosts to only include those with devices compatible with the interface
       const compatibleHosts = availableHosts.filter((host) =>
-        host.devices?.some((device) => {
-          // Check exact model match first
-          if (stableUserInterface.models!.includes(device.device_model)) {
-            return true;
-          }
-          // Check capability match - if userInterface model is 'web' or 'desktop', 
-          // match devices that have those capabilities
-          return stableUserInterface.models!.some(model => 
-            device.device_capabilities && (device.device_capabilities as any)[model]
-          );
-        })
+        hasCompatibleDevice(host.devices || [], stableUserInterface)
       );
 
       setFilteredAvailableHosts(compatibleHosts);

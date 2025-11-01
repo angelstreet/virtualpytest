@@ -18,6 +18,7 @@ import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigC
 import { useUserInterface } from './useUserInterface';
 import { useTestCaseBuilder } from '../../contexts/testcase/TestCaseBuilderContext';
 import { useTestCaseAI } from '../testcase';
+import { filterCompatibleInterfaces } from '../../utils/userinterface/deviceCompatibilityUtils';
 import { buildToolboxFromNavigationData } from '../../utils/toolboxBuilder';
 import { useBuilder } from '../../contexts/builder/BuilderContext';
 
@@ -274,7 +275,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     setUserinterfaceName,
   } = useTestCaseBuilder();
   
-  // Load compatible interfaces
+  // Load compatible interfaces - using shared compatibility logic
   useEffect(() => {
     const loadCompatibleInterfaces = async () => {
       if (!selectedDeviceId || !selectedHost) {
@@ -285,27 +286,16 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
       
       try {
         const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
-        const deviceModel = selectedDevice?.device_model;
-        const deviceCapabilities = selectedDevice?.device_capabilities;
+        
+        if (!selectedDevice) {
+          console.warn('[@useTestCaseBuilderPage] Selected device not found');
+          return;
+        }
         
         const interfaces = await getAllUserInterfaces();
         
-        const compatibleInterfaces = interfaces.filter((ui: any) => {
-          const hasTree = !!ui.root_tree;
-          
-          // Check exact model match first
-          if (ui.models?.includes(deviceModel)) {
-            return hasTree;
-          }
-          
-          // Check capability match - if userInterface model is 'web' or 'desktop', 
-          // match devices that have those capabilities
-          const hasCapabilityMatch = ui.models?.some((model: string) => 
-            deviceCapabilities && (deviceCapabilities as any)[model]
-          );
-          
-          return hasTree && hasCapabilityMatch;
-        });
+        // Use shared compatibility utility
+        const compatibleInterfaces = filterCompatibleInterfaces(interfaces, selectedDevice);
         
         const names = compatibleInterfaces.map((ui: any) => ui.name);
         
