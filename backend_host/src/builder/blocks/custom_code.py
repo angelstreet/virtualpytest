@@ -73,6 +73,15 @@ def execute(code: str = '', context=None, **kwargs) -> Dict[str, Any]:
         # Check if code set a return value
         return_value = exec_globals.get('result', None)
         
+        # 🔍 DEBUG: Log context.metadata after code execution
+        if context and hasattr(context, 'metadata'):
+            print(f"[@block:custom_code] 🔍 context.metadata after execution:")
+            print(f"  - type: {type(context.metadata)}")
+            print(f"  - keys: {list(context.metadata.keys()) if isinstance(context.metadata, dict) else 'N/A'}")
+            print(f"  - value: {context.metadata}")
+        else:
+            print(f"[@block:custom_code] ⚠️ context.metadata not available")
+        
         print(f"[@block:custom_code] Execution completed")
         if return_value:
             print(f"[@block:custom_code] Return value: {return_value}")

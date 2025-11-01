@@ -642,8 +642,15 @@ class TestCaseExecutor:
             
             # Extract metadata from context for database storage
             metadata_to_save = getattr(context, 'metadata', None)
+            print(f"[@testcase_executor:{execution_id}] 🔍 DEBUG: Checking context.metadata...")
+            print(f"[@testcase_executor:{execution_id}] 🔍 metadata_to_save type: {type(metadata_to_save)}")
+            print(f"[@testcase_executor:{execution_id}] 🔍 metadata_to_save value: {metadata_to_save}")
+            
             if metadata_to_save:
-                print(f"[@testcase_executor:{execution_id}] Including metadata in database update: {list(metadata_to_save.keys())}")
+                print(f"[@testcase_executor:{execution_id}] ✅ Including metadata in database update: {list(metadata_to_save.keys())}")
+                print(f"[@testcase_executor:{execution_id}] 📋 Metadata content: {metadata_to_save}")
+            else:
+                print(f"[@testcase_executor:{execution_id}] ⚠️ No metadata found in context - will store None")
             
             # Update script_results with report URLs and metadata
             update_script_execution_result(
@@ -914,6 +921,14 @@ class TestCaseExecutor:
             if node_type == 'success':
                 context.overall_success = True
                 print(f"[@testcase_executor] Reached SUCCESS terminal block - test passed")
+                
+                # 🔍 DEBUG: Log block_outputs before resolution
+                print(f"[@testcase_executor] 🔍 DEBUG: block_outputs before resolution:")
+                block_outputs = getattr(context, 'block_outputs', {})
+                print(f"  - type: {type(block_outputs)}")
+                print(f"  - keys: {list(block_outputs.keys())}")
+                for block_id, outputs in block_outputs.items():
+                    print(f"  - {block_id}: {list(outputs.keys()) if isinstance(outputs, dict) else outputs}")
                 
                 # Resolve scriptConfig outputs and metadata before returning
                 self._resolve_script_outputs_and_metadata(graph, context)
@@ -1366,6 +1381,11 @@ class TestCaseExecutor:
             return
         
         print(f"[@testcase_executor] ========== RESOLVING SCRIPT OUTPUTS & METADATA ==========")
+        
+        # 🔍 DEBUG: Log scriptConfig content
+        print(f"[@testcase_executor] 🔍 DEBUG: scriptConfig content:")
+        print(f"  - outputs: {script_config.get('outputs', [])}")
+        print(f"  - metadata: {script_config.get('metadata', {})}")
         
         # Resolve Script Outputs
         script_outputs_config = script_config.get('outputs', [])
