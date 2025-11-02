@@ -32,20 +32,25 @@ export interface TestCaseItem {
 
 export interface TestCaseSelectorProps {
   onLoad: (testcaseId: string) => void;
-  onDelete?: (testcaseId: string, testcaseName: string) => void;
+  onDelete?: (testcaseId: string, testcaseName: string) => Promise<void>;
   selectedTestCaseId?: string | null;
+  onDeleteSuccess?: () => void; // Callback after successful deletion
 }
 
 export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   onLoad,
   onDelete,
   selectedTestCaseId,
+  onDeleteSuccess,
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allTestCases, setAllTestCases] = useState<TestCaseItem[]>([]);
   const [allFolderNames, setAllFolderNames] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<Array<{ name: string; color: string }>>([]);
+  
+  // Delete state for tracking which testcase is being deleted
+  const [deletingTestCaseId, setDeletingTestCaseId] = useState<string | null>(null);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -157,11 +162,37 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
     onLoad(testcaseId);
   };
 
-  // Handle delete click
-  const handleDeleteClick = (e: React.MouseEvent, testcaseId: string, testcaseName: string) => {
+  // Handle delete click with animation and refresh
+  const handleDeleteClick = async (e: React.MouseEvent, testcaseId: string, testcaseName: string) => {
     e.stopPropagation();
-    if (onDelete) {
-      onDelete(testcaseId, testcaseName);
+    
+    // Show loading state
+    setDeletingTestCaseId(testcaseId);
+    
+    try {
+      if (onDelete) {
+        // Call the parent delete handler (which shows confirmation and handles deletion)
+        await onDelete(testcaseId, testcaseName);
+        
+        // Optimistically remove from frontend immediately
+        setAllTestCases(prev => prev.filter(tc => tc.testcase_id !== testcaseId));
+        
+        // Call success callback if provided
+        if (onDeleteSuccess) {
+          onDeleteSuccess();
+        }
+        
+        // Refresh the list after a short delay to ensure backend is updated
+        setTimeout(() => {
+          loadTestCases();
+        }, 500);
+      }
+    } catch (error) {
+      console.error('[@TestCaseSelector] Error deleting test case:', error);
+      // Reload on error to ensure UI is in sync
+      loadTestCases();
+    } finally {
+      setDeletingTestCaseId(null);
     }
   };
 
@@ -495,6 +526,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                           <IconButton
                             size="small"
                             onClick={(e) => handleDeleteClick(e, tc.testcase_id, tc.testcase_name)}
+                            disabled={deletingTestCaseId === tc.testcase_id}
                             sx={{
                               p: 0.5,
                               ml: 'auto',
@@ -502,10 +534,22 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                               color: isSelected ? 'primary.contrastText' : 'error.main',
                               '&:hover': {
                                 bgcolor: isSelected ? 'rgba(255,255,255,0.2)' : 'error.light'
+                              },
+                              '&.Mui-disabled': {
+                                color: isSelected ? 'rgba(255,255,255,0.5)' : 'text.disabled',
                               }
                             }}
                           >
-                            <DeleteIcon fontSize="small" />
+                            {deletingTestCaseId === tc.testcase_id ? (
+                              <CircularProgress 
+                                size={16} 
+                                sx={{ 
+                                  color: isSelected ? 'primary.contrastText' : 'error.main',
+                                }} 
+                              />
+                            ) : (
+                              <DeleteIcon fontSize="small" />
+                            )}
                           </IconButton>
                         )}
                       </Box>

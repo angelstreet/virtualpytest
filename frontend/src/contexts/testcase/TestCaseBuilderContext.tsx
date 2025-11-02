@@ -50,6 +50,12 @@ interface TestCaseBuilderContextType {
   executionBlockOutputs: Record<string, Record<string, any>>;
   setExecutionBlockOutputs: React.Dispatch<React.SetStateAction<Record<string, Record<string, any>>>>;
   
+  // 🆕 NEW: Variable and Metadata runtime values
+  executionVariableValues: Record<string, any>;
+  setExecutionVariableValues: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  executionMetadataValues: Record<string, any>;
+  setExecutionMetadataValues: React.Dispatch<React.SetStateAction<Record<string, any>>>;
+  
   // Unsaved changes tracking
   hasUnsavedChanges: boolean;
   setHasUnsavedChanges: React.Dispatch<React.SetStateAction<boolean>>;
@@ -207,6 +213,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
   // Execution output values (from last execution)
   const [executionOutputValues, setExecutionOutputValues] = useState<Record<string, any>>({});
   const [executionBlockOutputs, setExecutionBlockOutputs] = useState<Record<string, Record<string, any>>>({});
+  
+  // 🆕 NEW: Variable and Metadata runtime values (updated during execution)
+  const [executionVariableValues, setExecutionVariableValues] = useState<Record<string, any>>({});
+  const [executionMetadataValues, setExecutionMetadataValues] = useState<Record<string, any>>({});
   
   // Available options for dropdowns
   const [availableInterfaces, setAvailableInterfaces] = useState<UserInterface[]>([]);
@@ -564,6 +574,14 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
             });
           });
           
+          // 🆕 NEW: Update variable and metadata values in real-time
+          if (status.variables) {
+            setExecutionVariableValues(status.variables);
+          }
+          if (status.metadata) {
+            setExecutionMetadataValues(status.metadata);
+          }
+          
           console.log(`[TestCaseBuilder] Progress: ${status.status}, block: ${status.current_block_id}, elapsed: ${status.elapsed_time_ms}ms`);
         }
       );
@@ -918,6 +936,8 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     // Reset execution output values
     setExecutionOutputValues({});
     setExecutionBlockOutputs({});
+    setExecutionVariableValues({});
+    setExecutionMetadataValues({});
   }, []);
 
   // Fetch navigation nodes when userinterface changes
@@ -1018,6 +1038,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     setExecutionOutputValues,
     executionBlockOutputs,
     setExecutionBlockOutputs,
+    executionVariableValues,
+    setExecutionVariableValues,
+    executionMetadataValues,
+    setExecutionMetadataValues,
     hasUnsavedChanges,
     setHasUnsavedChanges,
     undo,

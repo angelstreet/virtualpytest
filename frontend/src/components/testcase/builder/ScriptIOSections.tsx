@@ -92,6 +92,9 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   onUpdateVariables,
   onUpdateMetadata,
 }) => {
+  // Get execution values from context
+  const { executionVariableValues, executionMetadataValues } = useTestCaseBuilderContext();
+  
   const [inputsExpanded, setInputsExpanded] = useState(false);
   const [outputsExpanded, setOutputsExpanded] = useState(false);
   const [variablesExpanded, setVariablesExpanded] = useState(false);
@@ -707,7 +710,14 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }
                     }}
                   >
-                    <Tooltip title={getVariableTooltip(variable)} placement="left">
+                    <Tooltip 
+                      title={
+                        executionVariableValues[variable.name] !== undefined 
+                          ? <pre style={{ margin: 0, fontSize: '0.75rem' }}>{JSON.stringify(executionVariableValues[variable.name], null, 2)}</pre>
+                          : getVariableTooltip(variable)
+                      } 
+                      placement="left"
+                    >
                       <Badge
                         badgeContent={normalizeSourceLinks(variable).length > 1 ? normalizeSourceLinks(variable).length : 0}
                         color="success"
@@ -727,7 +737,20 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       >
                         <Chip
                           icon={normalizeSourceLinks(variable).length > 0 ? <LinkIcon /> : undefined}
-                          label={getVariableDisplayLabel(variable)}
+                          label={
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }}>
+                              <span style={{ flex: 1 }}>{getVariableDisplayLabel(variable)}</span>
+                              {executionVariableValues[variable.name] !== undefined && (
+                                <span style={{ 
+                                  width: '6px', 
+                                  height: '6px', 
+                                  borderRadius: '50%', 
+                                  backgroundColor: '#10b981',
+                                  flexShrink: 0
+                                }} />
+                              )}
+                            </Box>
+                          }
                           size="small"
                           draggable
                           onDragStart={(e) => {
@@ -917,13 +940,34 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }
                     }}
                   >
-                    <Chip
-                      icon={field.sourceBlockId ? <LinkIcon /> : undefined}
-                      label={
-                        field.sourceBlockId
-                          ? `${field.name} ← ${field.sourceOutputName}`
-                          : field.name
+                    <Tooltip
+                      title={
+                        executionMetadataValues[field.name] !== undefined
+                          ? <pre style={{ margin: 0, fontSize: '0.75rem' }}>{JSON.stringify(executionMetadataValues[field.name], null, 2)}</pre>
+                          : field.sourceBlockId ? `Linked to block ${field.sourceBlockId}` : 'Drop a block output to link'
                       }
+                      placement="left"
+                    >
+                      <Chip
+                        icon={field.sourceBlockId ? <LinkIcon /> : undefined}
+                        label={
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, width: '100%' }}>
+                            <span style={{ flex: 1 }}>
+                              {field.sourceBlockId
+                                ? `${field.name} ← ${field.sourceOutputName}`
+                                : field.name}
+                            </span>
+                            {executionMetadataValues[field.name] !== undefined && (
+                              <span style={{ 
+                                width: '6px', 
+                                height: '6px', 
+                                borderRadius: '50%', 
+                                backgroundColor: '#10b981',
+                                flexShrink: 0
+                              }} />
+                            )}
+                          </Box>
+                        }
                       size="small"
                       onClick={() => {
                         if (field.sourceBlockId) {
@@ -953,6 +997,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                         } : {}
                       }}
                     />
+                    </Tooltip>
                   </Box>
                 )}
                 {editingMetadataField !== field.name && (

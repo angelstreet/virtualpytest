@@ -50,6 +50,8 @@ export interface ExecutionStatus {
   result: TestCaseExecutionResult | null;
   error: string | null;
   elapsed_time_ms: number;
+  variables?: Record<string, any>;  // 🆕 NEW: Runtime variable values
+  metadata?: Record<string, any>;   // 🆕 NEW: Runtime metadata values
 }
 
 export const useTestCaseExecution = () => {

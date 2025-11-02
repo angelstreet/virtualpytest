@@ -483,7 +483,8 @@ class TestCaseExecutor:
                 'current_block_id': None,
                 'block_states': {},  # block_id -> {status, duration, error, message}
                 'result': None,
-                'error': None
+                'error': None,
+                'context': None  # 🆕 NEW: Store context reference for live variable/metadata tracking
             }
         
         # Start execution in background thread
@@ -578,6 +579,11 @@ class TestCaseExecutor:
             
             context.selected_device = device
             context.host = host
+            
+            # 🆕 Store context reference in execution dict for live tracking
+            with self._lock:
+                if execution_id in self._executions:
+                    self._executions[execution_id]['context'] = context
             
             # Populate device navigation_context
             nav_context = device.navigation_context
@@ -711,7 +717,9 @@ class TestCaseExecutor:
                 'block_states': {},
                 'result': {} | None,
                 'error': str | None,
-                'elapsed_time_ms': int
+                'elapsed_time_ms': int,
+                'variables': {},  # 🆕 NEW: Runtime variable values
+                'metadata': {}    # 🆕 NEW: Runtime metadata values
             }
         """
         with self._lock:
@@ -724,8 +732,18 @@ class TestCaseExecutor:
             start_time = execution.get('start_time', time.time())
             execution['elapsed_time_ms'] = int((time.time() - start_time) * 1000)
             
-            # Don't include start_time in response
+            # 🆕 NEW: Extract live variable and metadata values from context
+            context = execution.get('context')
+            if context:
+                execution['variables'] = getattr(context, 'variables', {}).copy() if hasattr(context, 'variables') else {}
+                execution['metadata'] = getattr(context, 'metadata', {}).copy() if hasattr(context, 'metadata') else {}
+            else:
+                execution['variables'] = {}
+                execution['metadata'] = {}
+            
+            # Don't include start_time and context in response
             execution.pop('start_time', None)
+            execution.pop('context', None)  # Don't send context object to frontend
             
             return execution
     

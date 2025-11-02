@@ -9,7 +9,7 @@
  * - Toolbox building
  */
 
-import { useState, useEffect, useCallback, useMemo } from 'react';
+import { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { useHostManager } from '../../contexts/index';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useDeviceControlWithForceUnlock } from '../useDeviceControlWithForceUnlock';
@@ -95,6 +95,7 @@ export interface UseTestCaseBuilderPageReturn {
   newConfirmOpen: boolean;
   setNewConfirmOpen: (open: boolean) => void;
   handleConfirmDelete: () => Promise<void>;
+  handleCancelDelete: () => void;
   handleConfirmNew: () => void;
   aiGenerateConfirmOpen: boolean;
   setAiGenerateConfirmOpen: (open: boolean) => void;
@@ -506,23 +507,63 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     });
   }, [loadTestCase, testcaseName]);
   
+  // Ref to store promise resolver for delete confirmation
+  const deletePromiseRef = useRef<{ resolve: () => void; reject: (error: Error) => void } | null>(null);
+  
   const handleDelete = useCallback(async (testcaseId: string, testcaseName: string): Promise<void> => {
-    setDeleteTargetTestCase({ id: testcaseId, name: testcaseName });
-    setDeleteConfirmOpen(true);
+    // Show confirmation dialog first and return a promise
+    return new Promise((resolve, reject) => {
+      setDeleteTargetTestCase({ id: testcaseId, name: testcaseName });
+      setDeleteConfirmOpen(true);
+      
+      // Store promise resolver in ref
+      deletePromiseRef.current = { resolve, reject };
+    });
   }, []);
   
   const handleConfirmDelete = useCallback(async () => {
     if (deleteTargetTestCase) {
-      await deleteTestCaseById(deleteTargetTestCase.id);
-      setSnackbar({
-        open: true,
-        message: `Test case "${deleteTargetTestCase.name}" deleted!`,
-        severity: 'info',
-      });
-      setDeleteConfirmOpen(false);
-      setDeleteTargetTestCase(null);
+      try {
+        await deleteTestCaseById(deleteTargetTestCase.id);
+        setSnackbar({
+          open: true,
+          message: `Test case "${deleteTargetTestCase.name}" deleted!`,
+          severity: 'success',
+        });
+        
+        // Resolve the promise to notify TestCaseSelector
+        if (deletePromiseRef.current) {
+          deletePromiseRef.current.resolve();
+          deletePromiseRef.current = null;
+        }
+      } catch (error) {
+        setSnackbar({
+          open: true,
+          message: `Failed to delete test case: ${error instanceof Error ? error.message : 'Unknown error'}`,
+          severity: 'error',
+        });
+        
+        // Reject the promise on error
+        if (deletePromiseRef.current) {
+          deletePromiseRef.current.reject(error instanceof Error ? error : new Error('Delete failed'));
+          deletePromiseRef.current = null;
+        }
+      } finally {
+        setDeleteConfirmOpen(false);
+        setDeleteTargetTestCase(null);
+      }
     }
   }, [deleteTargetTestCase, deleteTestCaseById]);
+  
+  const handleCancelDelete = useCallback(() => {
+    // Reject the promise when user cancels
+    if (deletePromiseRef.current) {
+      deletePromiseRef.current.reject(new Error('Delete cancelled by user'));
+      deletePromiseRef.current = null;
+    }
+    setDeleteConfirmOpen(false);
+    setDeleteTargetTestCase(null);
+  }, []);
   
   const handleExecute = useCallback(async () => {
     if (!selectedHost?.host_name) {
@@ -834,6 +875,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     newConfirmOpen,
     setNewConfirmOpen,
     handleConfirmDelete,
+    handleCancelDelete,
     handleConfirmNew,
     aiGenerateConfirmOpen,
     setAiGenerateConfirmOpen,

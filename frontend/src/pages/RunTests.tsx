@@ -35,6 +35,8 @@ import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useRun } from '../hooks/useRun';
 import { getStatusChip, getScriptDisplayName, getLogsUrl } from '../utils/executionUtils';
+import { useTestCaseExecution } from '../hooks/testcase/useTestCaseExecution';
+import { useTestCaseSave } from '../hooks/testcase/useTestCaseSave';
 
 import { DeviceStreamGrid } from '../components/common/DeviceStreaming/DeviceStreamGrid';
 
@@ -76,6 +78,8 @@ interface ScriptParameter {
 
 const RunTests: React.FC = () => {
   const { executeMultipleScripts, isExecuting, executingIds } = useScript();
+  const { executeTestCase } = useTestCaseExecution();
+  const { getTestCase } = useTestCaseSave();
   const { showInfo, showSuccess, showError } = useToast();
   
   // State for collapsible script selector
@@ -89,6 +93,9 @@ const RunTests: React.FC = () => {
   const [selectedScript, setSelectedScript] = useState<string>(''); // Keep for backward compatibility
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
+  
+  // Cache for loaded test case graphs (testcase_id -> graph)
+  const [testCaseGraphCache, setTestCaseGraphCache] = useState<Record<string, any>>({});
 
   const [loadingScripts, setLoadingScripts] = useState<boolean>(false);
   const [showWizard, setShowWizard] = useState<boolean>(false);
@@ -477,7 +484,269 @@ const RunTests: React.FC = () => {
     return undefined;
   };
 
+  // Load test case graph from database (with caching) - returns full testcase data
+  const loadTestCaseGraph = async (testcaseId: string): Promise<{ graph: any; scriptConfig: any } | null> => {
+    // Check cache first
+    if (testCaseGraphCache[testcaseId]) {
+      console.log(`[@RunTests] Using cached graph for test case: ${testcaseId}`);
+      return testCaseGraphCache[testcaseId];
+    }
+    
+    console.log(`[@RunTests] Loading graph for test case: ${testcaseId}`);
+    
+    try {
+      const response = await getTestCase(testcaseId);
+      
+      if (!response.success || !response.testcase) {
+        showError(`Failed to load test case: ${response.error || 'Unknown error'}`);
+        return null;
+      }
+      
+      const graph = response.testcase.graph_json;
+      
+      // Extract script config (inputs, outputs, variables) from graph
+      const scriptConfig = graph.scriptConfig || {
+        inputs: [],
+        outputs: [],
+        variables: []
+      };
+      
+      const cacheData = { graph, scriptConfig };
+      
+      // Cache the data
+      setTestCaseGraphCache(prev => ({ ...prev, [testcaseId]: cacheData }));
+      
+      return cacheData;
+    } catch (error) {
+      console.error('[@RunTests] Error loading test case graph:', error);
+      showError(`Failed to load test case: ${error}`);
+      return null;
+    }
+  };
+
   const handleExecuteScript = async () => {
+    // Determine if this is a script or test case execution
+    const isTestCase = selectedExecutable?.type === 'testcase';
+    
+    console.log(`[@RunTests] Starting execution - Type: ${isTestCase ? 'TESTCASE' : 'SCRIPT'}`);
+    
+    if (isTestCase) {
+      // Route to test case execution
+      await handleExecuteTestCase();
+    } else {
+      // Route to script execution (existing logic)
+      await handleExecuteScriptLegacy();
+    }
+  };
+  
+  // Test case execution handler (reusing useTestCaseExecution)
+  const handleExecuteTestCase = async () => {
+    if (!selectedExecutable || !selectedScript) {
+      showError('Please select a test case');
+      return;
+    }
+    
+    // Build complete device list: primary device + additional devices
+    interface DeviceExecution {
+      hostName: string;
+      deviceId: string;
+      userinterface: string;
+    }
+    const allDevices: DeviceExecution[] = [];
+    
+    // Get userinterface from parameters
+    const userinterfaceValue = parameterValues['userinterface_name'] || '';
+    
+    // Add primary device if selected
+    const canAddPrimaryDevice = selectedHost && selectedDevice && 
+      (!scriptDeclaresUserinterface || userinterfaceValue);
+    
+    if (canAddPrimaryDevice) {
+      allDevices.push({ 
+        hostName: selectedHost, 
+        deviceId: selectedDevice,
+        userinterface: userinterfaceValue
+      });
+    }
+    
+    // Add additional devices
+    allDevices.push(...additionalDevices);
+
+    if (allDevices.length === 0) {
+      showError('Please select at least one device');
+      return;
+    }
+    
+    // Load test case graph
+    const testCaseData = await loadTestCaseGraph(selectedScript);
+    if (!testCaseData) {
+      return; // Error already shown in loadTestCaseGraph
+    }
+    
+    const { graph, scriptConfig } = testCaseData;
+    
+    // Extract script inputs and variables for variable resolution
+    const scriptInputs = scriptConfig.inputs || [];
+    const scriptVariables = scriptConfig.variables || [];
+    
+    // Initialize completion stats
+    setCompletionStats({ total: allDevices.length, completed: 0, successful: 0 });
+    
+    // Create execution records upfront
+    const executions = allDevices.map((device) => {
+      const hostDevices = getDevicesFromHost(device.hostName);
+      const deviceObject = hostDevices.find(d => d.device_id === device.deviceId);
+      const deviceModel = deviceObject?.device_model || 'unknown';
+      
+      return {
+        id: `exec_${Date.now()}_${device.hostName}_${device.deviceId}`,
+        scriptName: selectedExecutable.name,
+        hostName: device.hostName,
+        deviceId: device.deviceId,
+        deviceModel: deviceModel,
+        startTime: new Date().toLocaleTimeString(),
+        status: 'running' as const,
+        parameters: '', // Test cases don't have CLI parameters
+      };
+    });
+
+    setExecutions(prev => [...executions, ...prev]);
+
+    if (allDevices.length === 1) {
+      const hostDevices = getDevicesFromHost(allDevices[0].hostName);
+      const deviceObject = hostDevices.find(dev => dev.device_id === allDevices[0].deviceId);
+      const deviceDisplayName = deviceObject?.device_name || allDevices[0].deviceId;
+      showInfo(`Test case "${selectedExecutable.name}" started on ${allDevices[0].hostName}:${deviceDisplayName}`);
+    } else {
+      showInfo(`Test case "${selectedExecutable.name}" started on ${allDevices.length} devices`);
+    }
+
+    try {
+      // Execute on all devices concurrently
+      const executionPromises = executions.map(async (exec, index) => {
+        const device = allDevices[index];
+        
+        try {
+          console.log(`[@RunTests] Executing test case on ${device.hostName}:${device.deviceId}`);
+          
+          // Execute using useTestCaseExecution hook (same as TestCaseBuilder)
+          const result = await executeTestCase(
+            graph,
+            device.deviceId,
+            device.hostName,
+            device.userinterface,
+            scriptInputs,  // ✅ Pass script inputs for variable resolution
+            scriptVariables,  // ✅ Pass script variables for variable resolution
+            selectedExecutable.name
+          );
+          
+          // Determine result
+          const executionStatus = result.success ? 'completed' : 'failed';
+          const testResult = result.result_type === 'success' ? 'success' : 
+                           result.result_type === 'failure' ? 'failure' : undefined;
+          
+          // Update execution record
+          setExecutions(prev => prev.map(e => 
+            e.id === exec.id ? {
+              ...e,
+              endTime: new Date().toLocaleTimeString(),
+              status: executionStatus,
+              testResult: testResult,
+              reportUrl: result.report_url,
+              logsUrl: result.logs_url,
+              deviceModel: e.deviceModel,
+            } : e
+          ));
+          
+          // Update completion stats
+          setCompletionStats(prev => ({
+            ...prev,
+            completed: prev.completed + 1,
+            successful: prev.successful + (result.success ? 1 : 0)
+          }));
+          
+          // Show completion toast
+          const hostDevices = getDevicesFromHost(device.hostName);
+          const deviceObject = hostDevices.find(dev => dev.device_id === device.deviceId);
+          const deviceDisplayName = deviceObject?.device_name || device.deviceId;
+          const deviceLabel = `${device.hostName}:${deviceDisplayName}`;
+          
+          if (result.success) {
+            if (testResult === 'success') {
+              showSuccess(`✅ ${deviceLabel} completed successfully - Test PASSED`);
+            } else if (testResult === 'failure') {
+              showError(`❌ ${deviceLabel} completed - Test FAILED`);
+            } else {
+              showSuccess(`✅ ${deviceLabel} completed successfully`);
+            }
+          } else {
+            showError(`❌ ${deviceLabel} execution failed: ${result.error}`);
+          }
+          
+          return result;
+        } catch (error) {
+          console.error(`[@RunTests] Error executing test case on ${device.hostName}:${device.deviceId}:`, error);
+          
+          // Update execution record as failed
+          setExecutions(prev => prev.map(e => 
+            e.id === exec.id ? {
+              ...e,
+              endTime: new Date().toLocaleTimeString(),
+              status: 'failed',
+              deviceModel: e.deviceModel,
+            } : e
+          ));
+          
+          // Update completion stats
+          setCompletionStats(prev => ({
+            ...prev,
+            completed: prev.completed + 1
+          }));
+          
+          return { success: false, error: error instanceof Error ? error.message : 'Unknown error' };
+        }
+      });
+      
+      // Wait for all executions to complete
+      const results = await Promise.all(executionPromises);
+      
+      // Final summary
+      const successCount = results.filter((r: any) => r.success).length;
+      
+      if (allDevices.length === 1) {
+        // Single device summary already shown
+      } else {
+        // Multi-device final summary
+        if (successCount === allDevices.length) {
+          showSuccess(`🎉 All ${allDevices.length} devices completed successfully!`);
+        } else if (successCount > 0) {
+          showInfo(`📊 Final: ${successCount}/${allDevices.length} devices successful`);
+        } else {
+          showError(`💥 All ${allDevices.length} devices failed`);
+        }
+      }
+      
+    } catch (error) {
+      showError(`Execution failed: ${error}`);
+      // Mark remaining as aborted
+      executions.forEach(exec => {
+        setExecutions(prev => prev.map(e => 
+          e.id === exec.id && e.status === 'running' ? { 
+            ...e, 
+            status: 'aborted', 
+            endTime: new Date().toLocaleTimeString(),
+            deviceModel: e.deviceModel,
+          } : e
+        ));
+      });
+    } finally {
+      // Reset completion stats
+      setCompletionStats({ total: 0, completed: 0, successful: 0 });
+    }
+  };
+  
+  // Script execution handler (existing logic renamed)
+  const handleExecuteScriptLegacy = async () => {
     // Build complete device list: primary device + additional devices
     interface DeviceExecution {
       hostName: string;

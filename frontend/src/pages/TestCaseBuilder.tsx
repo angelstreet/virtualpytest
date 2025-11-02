@@ -744,7 +744,7 @@ const TestCaseBuilderContent: React.FC = () => {
         </DialogContent>
         <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
           <Button 
-            onClick={() => hookData.setDeleteConfirmOpen(false)}
+            onClick={hookData.handleCancelDelete}
             variant="outlined"
           >
             Cancel
