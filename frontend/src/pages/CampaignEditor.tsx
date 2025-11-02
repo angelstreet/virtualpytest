@@ -20,6 +20,7 @@ import {
   TableRow,
 } from '@mui/material';
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 
 // Import registration context
 import { Campaign } from '../types';
@@ -27,6 +28,7 @@ import { Campaign } from '../types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 const CampaignEditor: React.FC = () => {
   // Use registration context for centralized URL management
+  const navigate = useNavigate();
   const [campaigns, setCampaigns] = useState<Campaign[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -74,7 +76,11 @@ const CampaignEditor: React.FC = () => {
         <Typography variant="h4" component="h1">
           Campaign Management
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />}>
+        <Button 
+          variant="contained" 
+          startIcon={<AddIcon />}
+          onClick={() => navigate('/builder/campaign-builder')}
+        >
           Create Campaign
         </Button>
       </Box>
