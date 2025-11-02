@@ -143,21 +143,20 @@ class TextHelpers:
                 print(f"[@text_helpers:OCR] Using ADVANCED multi-approach OCR")
                 
                 # Save grayscale for debugging
-            gray_filename = f'text_detection_{timestamp}_gray.png'
-            gray_path = os.path.join(self.captures_path, gray_filename)
-            cv2.imwrite(gray_path, gray)
-            print(f"[@text_helpers:OCR] Saved grayscale image: {gray_filename}")
-            
-            # Enhance contrast using CLAHE (Contrast Limited Adaptive Histogram Equalization)
-            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-            enhanced = clahe.apply(gray)
-            
-            # Save enhanced image
-            enhanced_filename = f'text_detection_{timestamp}_enhanced.png'
-            enhanced_path = os.path.join(self.captures_path, enhanced_filename)
-            cv2.imwrite(enhanced_path, enhanced)
-            print(f"[@text_helpers:OCR] Saved contrast-enhanced image: {enhanced_filename}")
+                gray_filename = f'text_detection_{timestamp}_gray.png'
+                gray_path = os.path.join(self.captures_path, gray_filename)
+                cv2.imwrite(gray_path, gray)
+                print(f"[@text_helpers:OCR] Saved grayscale image: {gray_filename}")
                 
+                # Enhance contrast using CLAHE (Contrast Limited Adaptive Histogram Equalization)
+                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+                enhanced = clahe.apply(gray)
+                
+                # Save enhanced image
+                enhanced_filename = f'text_detection_{timestamp}_enhanced.png'
+                enhanced_path = os.path.join(self.captures_path, enhanced_filename)
+                cv2.imwrite(enhanced_path, enhanced)
+                print(f"[@text_helpers:OCR] Saved contrast-enhanced image: {enhanced_filename}")
                 # Try multiple preprocessing approaches
                 binary_adaptive = cv2.adaptiveThreshold(
                     enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
