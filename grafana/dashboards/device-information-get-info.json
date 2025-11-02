@@ -69,7 +69,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  COUNT(DISTINCT device_name) as \"Devices Scanned\",\n  COUNT(DISTINCT metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Unique Serials\",\n  COUNT(*) as \"Total Scans\",\n  COUNT(DISTINCT metadata->'device_info'->'extracted_fields'->>'software_version') as \"Firmware Versions\"\nFROM script_results \nWHERE script_name = 'get_info'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+          "rawSql": "SELECT \n  COUNT(DISTINCT device_name) as \"Devices Scanned\",\n  COUNT(DISTINCT metadata->'info'->>'Device') as \"Unique Serials\",\n  COUNT(*) as \"Total Scans\",\n  COUNT(DISTINCT metadata->'info'->>'Build') as \"Firmware Versions\"\nFROM script_results \nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
           "refId": "A"
         }
       ],
@@ -156,7 +156,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device Name\",\n  host_name as \"Host\",\n  metadata->>'page_title' as \"Device Type\",\n  metadata->'device_info'->'extracted_fields'->>'serial_number' as \"Serial Number\",\n  metadata->'device_info'->'extracted_fields'->>'mac_address' as \"MAC Address\",\n  metadata->'device_info'->'extracted_fields'->>'software_version' as \"Software Version\",\n  metadata->'device_info'->'extracted_fields'->>'hardware_version' as \"Hardware Version\",\n  metadata->'device_info'->'extracted_fields'->>'docsis_version' as \"DOCSIS Version\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_address' as \"IP Address\",\n  metadata->'device_info'->'extracted_fields'->>'default_gateway' as \"Gateway\",\n  metadata->'device_info'->'extracted_fields'->>'dns_servers' as \"DNS Servers\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_lease_time' as \"Lease Time\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_lease_expire' as \"Lease Expires\",\n  metadata->'device_info'->'extracted_fields'->>'system_uptime' as \"Uptime\",\n  metadata->'device_info'->'extracted_fields'->>'network_access' as \"Network Access\",\n  started_at as \"Last Scanned\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'get_info'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, started_at DESC",
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device Name\",\n  host_name as \"Host\",\n  COALESCE(metadata->'info'->>'Device', metadata->'device_info'->'extracted_fields'->>'Device') as \"Device Type\",\n  COALESCE(metadata->'info'->>'S/N', metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Serial Number\",\n  COALESCE(metadata->'info'->>'MacAddress', metadata->'device_info'->'extracted_fields'->>'mac_address') as \"MAC Address\",\n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as \"Software Version\",\n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as \"Hardware Version\",\n  COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version') as \"DOCSIS Version\",\n  COALESCE(metadata->'info'->>'Device_IP', metadata->'device_info'->'extracted_fields'->>'ipv4_address') as \"IP Address\",\n  COALESCE(metadata->'info'->>'Gateway', metadata->'device_info'->'extracted_fields'->>'default_gateway') as \"Gateway\",\n  COALESCE(metadata->'info'->>'DNS', metadata->'device_info'->'extracted_fields'->>'dns_servers') as \"DNS Servers\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_lease_time' as \"Lease Time\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_lease_expire' as \"Lease Expires\",\n  COALESCE(metadata->'info'->>'Uptime', metadata->'device_info'->'extracted_fields'->>'system_uptime') as \"Uptime\",\n  COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access') as \"Network Access\",\n  started_at as \"Last Scanned\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, started_at DESC",
           "refId": "A"
         }
       ],
@@ -241,7 +241,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  metadata->'device_info'->'extracted_fields'->>'software_version' as metric,\n  COUNT(DISTINCT device_name)::int as value\nFROM script_results\nWHERE script_name = 'get_info'\n  AND success = true\n  AND metadata->'device_info'->'extracted_fields'->>'software_version' IS NOT NULL\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY metadata->'device_info'->'extracted_fields'->>'software_version'\nORDER BY value DESC",
+          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as metric,\n  COUNT(DISTINCT device_name)::int as value\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND (metadata->'info'->>'Build' IS NOT NULL OR metadata->'device_info'->'extracted_fields'->>'software_version' IS NOT NULL)\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version')\nORDER BY value DESC",
           "refId": "A"
         }
       ],
@@ -326,7 +326,7 @@
           },
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  metadata->'device_info'->'extracted_fields'->>'hardware_version' as metric,\n  COUNT(DISTINCT device_name)::int as value\nFROM script_results\nWHERE script_name = 'get_info'\n  AND success = true\n  AND metadata->'device_info'->'extracted_fields'->>'hardware_version' IS NOT NULL\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY metadata->'device_info'->'extracted_fields'->>'hardware_version'\nORDER BY value DESC",
+          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as metric,\n  COUNT(DISTINCT device_name)::int as value\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND (metadata->'info'->>'HW Version' IS NOT NULL OR metadata->'device_info'->'extracted_fields'->>'hardware_version' IS NOT NULL)\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version')\nORDER BY value DESC",
           "refId": "A"
         }
       ],
@@ -413,7 +413,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  device_name as \"Device\",\n  host_name as \"Host\",\n  metadata->'device_info'->'extracted_fields'->>'serial_number' as \"Serial\",\n  metadata->'device_info'->'extracted_fields'->>'mac_address' as \"MAC Address\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_address' as \"IP Address\",\n  metadata->'device_info'->'extracted_fields'->>'software_version' as \"SW Version\",\n  metadata->'device_info'->'extracted_fields'->>'hardware_version' as \"HW Version\",\n  metadata->'device_info'->'extracted_fields'->>'docsis_version' as \"DOCSIS\",\n  metadata->'device_info'->'extracted_fields'->>'network_access' as \"Network\",\n  metadata->'device_info'->'extracted_fields'->>'system_uptime' as \"Uptime\",\n  started_at as \"Scanned At\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  metadata->'device_info'->'extraction_summary'->>'fields_extracted' as \"Fields Extracted\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'get_info'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY started_at DESC\nLIMIT 100",
+          "rawSql": "SELECT \n  device_name as \"Device\",\n  host_name as \"Host\",\n  COALESCE(metadata->'info'->>'S/N', metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Serial\",\n  COALESCE(metadata->'info'->>'MacAddress', metadata->'device_info'->'extracted_fields'->>'mac_address') as \"MAC Address\",\n  COALESCE(metadata->'info'->>'Device_IP', metadata->'device_info'->'extracted_fields'->>'ipv4_address') as \"IP Address\",\n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as \"SW Version\",\n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as \"HW Version\",\n  COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version') as \"DOCSIS\",\n  COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access') as \"Network\",\n  COALESCE(metadata->'info'->>'Uptime', metadata->'device_info'->'extracted_fields'->>'system_uptime') as \"Uptime\",\n  started_at as \"Scanned At\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  COALESCE(metadata->'extraction_summary'->>'fields_extracted', metadata->'device_info'->'extraction_summary'->>'fields_extracted') as \"Fields Extracted\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY started_at DESC\nLIMIT 100",
           "refId": "A"
         }
       ],
@@ -503,7 +503,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(metadata->'device_info'->'extracted_fields'->>'network_access', 'Unknown') as \"Network Status\",\n  COUNT(DISTINCT device_name) as \"Device Count\"\nFROM script_results\nWHERE script_name = 'get_info'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY metadata->'device_info'->'extracted_fields'->>'network_access'\nORDER BY \"Device Count\" DESC",
+          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access', 'Unknown') as \"Network Status\",\n  COUNT(DISTINCT device_name) as \"Device Count\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access')\nORDER BY \"Device Count\" DESC",
           "refId": "A"
         }
       ],
@@ -593,7 +593,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(metadata->'device_info'->'extracted_fields'->>'docsis_version', 'Unknown') as \"DOCSIS Version\",\n  COUNT(DISTINCT device_name) as \"Device Count\"\nFROM script_results\nWHERE script_name = 'get_info'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY metadata->'device_info'->'extracted_fields'->>'docsis_version'\nORDER BY \"Device Count\" DESC",
+          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version', 'Unknown') as \"DOCSIS Version\",\n  COUNT(DISTINCT device_name) as \"Device Count\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version')\nORDER BY \"Device Count\" DESC",
           "refId": "A"
         }
       ],
@@ -619,7 +619,7 @@
         "label": "User Interface",
         "multi": true,
         "name": "user_interface",
-        "query": "SELECT DISTINCT userinterface_name FROM script_results WHERE script_name = 'get_info' AND userinterface_name IS NOT NULL ORDER BY userinterface_name",
+        "query": "SELECT DISTINCT userinterface_name FROM script_results WHERE script_name IN ('get_info', 'device_get_info') AND userinterface_name IS NOT NULL ORDER BY userinterface_name",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -633,7 +633,7 @@
         "label": "Host",
         "multi": true,
         "name": "host",
-        "query": "SELECT DISTINCT host_name FROM script_results WHERE script_name = 'get_info' ORDER BY host_name",
+        "query": "SELECT DISTINCT host_name FROM script_results WHERE script_name IN ('get_info', 'device_get_info') ORDER BY host_name",
         "refresh": 1,
         "sort": 1,
         "type": "query"
@@ -647,7 +647,7 @@
         "label": "Device Name",
         "multi": true,
         "name": "device_name",
-        "query": "SELECT DISTINCT device_name FROM script_results WHERE script_name = 'get_info' ORDER BY device_name",
+        "query": "SELECT DISTINCT device_name FROM script_results WHERE script_name IN ('get_info', 'device_get_info') ORDER BY device_name",
         "refresh": 1,
         "sort": 1,
         "type": "query"

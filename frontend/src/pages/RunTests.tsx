@@ -260,7 +260,7 @@ const RunTests: React.FC = () => {
         hostName: selectedHost, 
         deviceId: selectedDevice,
         deviceModel: deviceModel,
-        userinterface: parameterValues['userinterface_name'] || ''
+        userinterface: selectedUserinterface || ''
       });
     }
     
@@ -297,7 +297,7 @@ const RunTests: React.FC = () => {
       allDevices.push({ 
         hostName: selectedHost, 
         deviceId: selectedDevice,
-        userinterface: parameterValues['userinterface_name'] || ''
+        userinterface: selectedUserinterface || ''
       });
     }
     
@@ -547,26 +547,34 @@ const RunTests: React.FC = () => {
       return;
     }
     
+    console.log('[@RunTests:handleExecuteTestCase] Current selectedUserinterface:', selectedUserinterface);
+
     // Build complete device list: primary device + additional devices
     interface DeviceExecution {
       hostName: string;
       deviceId: string;
       userinterface: string;
+      deviceModel: string;  // Add deviceModel
     }
     const allDevices: DeviceExecution[] = [];
     
-    // Get userinterface from parameters
-    const userinterfaceValue = parameterValues['userinterface_name'] || '';
+    // ✅ ALWAYS use selectedUserinterface from UI - never from script parameters
+    const userinterfaceValue = selectedUserinterface || '';
+    console.log('[@RunTests:handleExecuteTestCase] Setting userinterfaceValue to:', userinterfaceValue);
     
     // Add primary device if selected
-    const canAddPrimaryDevice = selectedHost && selectedDevice && 
-      (!scriptDeclaresUserinterface || userinterfaceValue);
+    const canAddPrimaryDevice = selectedHost && selectedDevice && userinterfaceValue;
+    console.log('[@RunTests:handleExecuteTestCase] Adding primary with userinterface:', userinterfaceValue);
     
     if (canAddPrimaryDevice) {
+      const hostDevices = getDevicesFromHost(selectedHost);
+      const deviceObject = hostDevices.find(d => d.device_id === selectedDevice);
+      const deviceModel = deviceObject?.device_model || 'unknown';
       allDevices.push({ 
         hostName: selectedHost, 
         deviceId: selectedDevice,
-        userinterface: userinterfaceValue
+        userinterface: userinterfaceValue,
+        deviceModel: deviceModel
       });
     }
     
@@ -589,6 +597,22 @@ const RunTests: React.FC = () => {
     // Extract script inputs and variables for variable resolution
     const scriptInputs = scriptConfig.inputs || [];
     const scriptVariables = scriptConfig.variables || [];
+    
+    // ✅ CRITICAL: Rebuild graph with scriptConfig (EXACT SAME as TestCaseBuilder line 496-520)
+    // TestCaseBuilder doesn't use graph from DB directly - it rebuilds it!
+    const executionGraph = {
+      nodes: graph.nodes,
+      edges: graph.edges,
+      scriptConfig: {
+        inputs: scriptInputs,
+        outputs: scriptConfig.outputs || [],
+        variables: scriptVariables,
+        metadata: {
+          mode: 'append',
+          fields: scriptConfig.metadata?.fields || scriptConfig.metadata || []
+        }
+      }
+    };
     
     // Initialize completion stats
     setCompletionStats({ total: allDevices.length, completed: 0, successful: 0 });
@@ -629,15 +653,31 @@ const RunTests: React.FC = () => {
         
         try {
           console.log(`[@RunTests] Executing test case on ${device.hostName}:${device.deviceId}`);
+          console.log(`[@RunTests] 🔍 DEBUG - Graph structure:`);
+          console.log('  • Graph has scriptConfig?', !!graph.scriptConfig);
+          console.log('  • Graph.scriptConfig:', JSON.stringify(graph.scriptConfig, null, 2));
+          console.log('  • Passing scriptInputs:', scriptInputs.length, 'items');
+          console.log('  • Passing scriptVariables:', scriptVariables.length, 'items');
+          console.log('  • Passing userinterface:', device.userinterface);
           
-          // Execute using useTestCaseExecution hook (same as TestCaseBuilder)
+          // Prepare input values for resolution
+          const inputValues = scriptConfig.inputs.map((input: {name: string; default?: string; [key: string]: any}) => {
+            let value = input.default || '';
+            if (input.name === 'device_model_name') value = device.deviceModel || 'unknown';
+            if (input.name === 'host_name') value = device.hostName;
+            if (input.name === 'device_name') value = device.deviceId;
+            if (input.name === 'userinterface_name') value = device.userinterface;
+            return { ...input, value };
+          });
+
+          // Pass inputValues instead of scriptInputs
           const result = await executeTestCase(
-            graph,
+            executionGraph,
             device.deviceId,
             device.hostName,
             device.userinterface,
-            scriptInputs,  // ✅ Pass script inputs for variable resolution
-            scriptVariables,  // ✅ Pass script variables for variable resolution
+            inputValues,  // Pass prepared input values
+            scriptConfig.variables,
             selectedExecutable.name
           );
           
@@ -1207,7 +1247,7 @@ const RunTests: React.FC = () => {
                                 hostName: selectedHost, 
                                 deviceId: selectedDevice,
                                 deviceModel: deviceModel,
-                                userinterface: parameterValues['userinterface_name'] || ''
+                                userinterface: selectedUserinterface || ''
                               }]);
                               setSelectedHost('');
                               setSelectedDevice('');
@@ -1352,7 +1392,8 @@ const RunTests: React.FC = () => {
                         ((!selectedHost || !selectedDevice) && additionalDevices.length === 0) ||
                         !selectedScript ||
                         loadingScripts ||
-                        !validateParameters().valid
+                        !validateParameters().valid ||
+                        (selectedExecutable?.type === 'testcase' && !selectedUserinterface && additionalDevices.every(d => !d.userinterface))
                       }
                       size="small"
                     >

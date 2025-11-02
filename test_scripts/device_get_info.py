@@ -20,11 +20,9 @@ import os
 import re
 from typing import Dict, Any, List
 
-# Add project root to path (handle subfolder location)
+# Add project root to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
-# Go up to test_scripts/, then up to project root
-test_scripts_dir = os.path.dirname(current_dir)
-project_root = os.path.dirname(test_scripts_dir)
+project_root = os.path.dirname(current_dir)  # test_scripts/ -> project root
 if project_root not in sys.path:
     sys.path.insert(0, project_root)
 
