@@ -125,29 +125,92 @@ class TextHelpers:
             # Convert to greyscale
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             
-            # Apply binarization
-            _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-            
-            # Save processed image to captures directory (not temp) so it can be served by host
+            # Save original grayscale for debugging
             timestamp = int(time.time())
-            processed_filename = f'text_detection_{timestamp}.png'
-            processed_path = os.path.join(self.captures_path, processed_filename)
+            gray_filename = f'text_detection_{timestamp}_gray.png'
+            gray_path = os.path.join(self.captures_path, gray_filename)
+            cv2.imwrite(gray_path, gray)
+            print(f"[@text_helpers:OCR] Saved grayscale image: {gray_filename}")
             
-            # Save the cropped image (before filters) for display
-            cv2.imwrite(processed_path, img)
-            
-            # Use the binary filtered version for OCR
-            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                cv2.imwrite(tmp.name, binary)
-                ocr_temp_path = tmp.name
-            
-            # Step 3: OCR text extraction
-            result = subprocess.run(
-                ['tesseract', ocr_temp_path, 'stdout'],
-                capture_output=True, text=True, timeout=30
+            # Try multiple preprocessing approaches for better OCR on gray text
+            # Approach 1: Adaptive thresholding (better for varying lighting/contrast)
+            binary_adaptive = cv2.adaptiveThreshold(
+                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
             )
             
-            extracted_text = result.stdout.strip() if result.returncode == 0 else ""
+            # Approach 2: OTSU thresholding (automatic threshold selection)
+            _, binary_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            
+            # Approach 3: Inverted OTSU (for light text on dark background)
+            _, binary_otsu_inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            
+            # Save all preprocessed versions for debugging
+            adaptive_filename = f'text_detection_{timestamp}_adaptive.png'
+            otsu_filename = f'text_detection_{timestamp}_otsu.png'
+            otsu_inv_filename = f'text_detection_{timestamp}_otsu_inv.png'
+            
+            adaptive_path = os.path.join(self.captures_path, adaptive_filename)
+            otsu_path = os.path.join(self.captures_path, otsu_filename)
+            otsu_inv_path = os.path.join(self.captures_path, otsu_inv_filename)
+            
+            cv2.imwrite(adaptive_path, binary_adaptive)
+            cv2.imwrite(otsu_path, binary_otsu)
+            cv2.imwrite(otsu_inv_path, binary_otsu_inv)
+            
+            print(f"[@text_helpers:OCR] Saved preprocessed images:")
+            print(f"[@text_helpers:OCR]   - Adaptive: {adaptive_filename}")
+            print(f"[@text_helpers:OCR]   - OTSU: {otsu_filename}")
+            print(f"[@text_helpers:OCR]   - OTSU Inverted: {otsu_inv_filename}")
+            
+            # Save the cropped original image (before filters) for display
+            processed_filename = f'text_detection_{timestamp}.png'
+            processed_path = os.path.join(self.captures_path, processed_filename)
+            cv2.imwrite(processed_path, img)
+            
+            # Step 3: Try OCR with multiple preprocessing approaches and pick the best result
+            ocr_results = []
+            
+            for name, binary_img in [
+                ('adaptive', binary_adaptive),
+                ('otsu', binary_otsu),
+                ('otsu_inv', binary_otsu_inv),
+                ('grayscale', gray)  # Also try raw grayscale
+            ]:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    cv2.imwrite(tmp.name, binary_img)
+                    ocr_temp_path = tmp.name
+                
+                result = subprocess.run(
+                    ['tesseract', ocr_temp_path, 'stdout'],
+                    capture_output=True, text=True, timeout=30
+                )
+                
+                text = result.stdout.strip() if result.returncode == 0 else ""
+                ocr_results.append({
+                    'method': name,
+                    'text': text,
+                    'length': len(text),
+                    'word_count': len(text.split()) if text else 0
+                })
+                
+                # Cleanup temp file
+                try:
+                    os.unlink(ocr_temp_path)
+                except:
+                    pass
+            
+            # Pick the result with the most text (best OCR)
+            best_result = max(ocr_results, key=lambda r: r['length'])
+            extracted_text = best_result['text']
+            
+            print(f"[@text_helpers:OCR] Tried {len(ocr_results)} OCR approaches:")
+            for r in ocr_results:
+                status = "✅ BEST" if r['method'] == best_result['method'] else "  "
+                print(f"[@text_helpers:OCR]   {status} {r['method']:12s}: {r['length']:4d} chars, {r['word_count']:3d} words")
+            
+            print(f"[@text_helpers:OCR] Selected best result from '{best_result['method']}' method")
+            print(f"[@text_helpers:OCR] Extracted text preview (first 200 chars):")
+            print(f"[@text_helpers:OCR] >>> {extracted_text[:200]}")
             
             # Step 4: Language detection (simple)
             language = self.detect_language(extracted_text) if extracted_text else 'en'

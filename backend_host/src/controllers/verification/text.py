@@ -583,19 +583,14 @@ class TextVerificationController:
                         description="Parsed key-value pairs from OCR text"
                     ),
                     create_output(
-                        "raw_dump",
-                        OutputType.ARRAY,
-                        description="Full raw OCR lines for debugging"
+                        "ocr_text",
+                        OutputType.STRING,
+                        description="Raw OCR text extracted"
                     ),
                     create_output(
                         "element_count",
                         OutputType.NUMBER,
                         description="Number of lines extracted from OCR"
-                    ),
-                    create_output(
-                        "ocr_text",
-                        OutputType.STRING,
-                        description="Raw OCR text extracted"
                     )
                 ],
                 "verification_type": "text"
