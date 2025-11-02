@@ -16,13 +16,19 @@ host_actions_bp = Blueprint('host_actions', __name__, url_prefix='/host/action')
 
 def _execute_actions_thread(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data):
     """Background thread for async action execution"""
+    import sys
     try:
-        print(f"[@route:host_actions:_execute_actions_thread] Starting execution: {execution_id}")
+        print(f"[@route:host_actions:_execute_actions_thread] Starting execution: {execution_id}", flush=True)
+        sys.stdout.flush()
+        sys.stderr.flush()
         
         # Update status to running
         with device.action_executor._lock:
             device.action_executor._executions[execution_id]['status'] = 'running'
             device.action_executor._executions[execution_id]['message'] = 'Executing actions...'
+        
+        print(f"[@route:host_actions:_execute_actions_thread] Calling orchestrator for {len(actions)} actions", flush=True)
+        sys.stdout.flush()
         
         # Execute actions through orchestrator (logs + screenshots)
         result = ExecutionOrchestrator.execute_actions(
@@ -34,6 +40,9 @@ def _execute_actions_thread(device, execution_id, actions, retry_actions, failur
             context=None
         )
         
+        print(f"[@route:host_actions:_execute_actions_thread] Orchestrator returned, updating status", flush=True)
+        sys.stdout.flush()
+        
         # Update execution state with result
         with device.action_executor._lock:
             device.action_executor._executions[execution_id]['status'] = 'completed'
@@ -41,12 +50,15 @@ def _execute_actions_thread(device, execution_id, actions, retry_actions, failur
             device.action_executor._executions[execution_id]['progress'] = 100
             device.action_executor._executions[execution_id]['message'] = result.get('message', 'Completed')
         
-        print(f"[@route:host_actions:_execute_actions_thread] Execution completed: {execution_id}")
+        print(f"[@route:host_actions:_execute_actions_thread] Execution completed: {execution_id}", flush=True)
+        sys.stdout.flush()
         
     except Exception as e:
-        print(f"[@route:host_actions:_execute_actions_thread] Execution failed: {execution_id}, error: {e}")
+        print(f"[@route:host_actions:_execute_actions_thread] Execution failed: {execution_id}, error: {e}", flush=True)
+        sys.stderr.flush()
         import traceback
         traceback.print_exc()
+        sys.stderr.flush()
         
         # Update execution state with error
         with device.action_executor._lock:

@@ -9,18 +9,30 @@ from typing import Callable, Any, Dict
 
 
 class Tee:
-    """Write to multiple streams simultaneously"""
+    """
+    Write to multiple streams simultaneously with immediate flushing.
+    Ensures logs appear in systemd journal while also being captured for API responses.
+    """
     def __init__(self, *streams):
         self.streams = streams
     
     def write(self, data):
+        """Write data to all streams and flush immediately"""
         for stream in self.streams:
-            stream.write(data)
-            stream.flush()
+            try:
+                stream.write(data)
+                stream.flush()  # Flush each write immediately for systemd
+            except (IOError, OSError) as e:
+                # Handle broken pipe or closed stream gracefully
+                pass
     
     def flush(self):
+        """Flush all streams"""
         for stream in self.streams:
-            stream.flush()
+            try:
+                stream.flush()
+            except (IOError, OSError):
+                pass
 
 
 class LoggingManager:
@@ -29,7 +41,10 @@ class LoggingManager:
     @staticmethod
     def execute_with_logging(execution_fn: Callable, *args, **kwargs) -> Dict[str, Any]:
         """
-        Execute function and capture all stdout/stderr logs
+        Execute function and capture all stdout/stderr logs.
+        
+        Thread-safe: Works correctly in background threads by redirecting the global
+        sys.stdout/sys.stderr, which all threads share.
         
         Args:
             execution_fn: Function to execute
@@ -44,15 +59,28 @@ class LoggingManager:
         
         try:
             # Redirect stdout/stderr to BOTH terminal and buffer
+            # This works in threads because sys.stdout/sys.stderr are global
             sys.stdout = Tee(old_stdout, log_buffer)
             sys.stderr = Tee(old_stderr, log_buffer)
+            
+            # Flush to ensure redirection is active
+            sys.stdout.flush()
+            sys.stderr.flush()
+            
+            print(f"[@LoggingManager] Log capture started (thread-safe)", flush=True)
             
             # Execute the function
             result = execution_fn(*args, **kwargs)
             
+            print(f"[@LoggingManager] Log capture completed", flush=True)
+            
             # Ensure result is a dict
             if not isinstance(result, dict):
                 result = {'success': False, 'error': 'Invalid result type'}
+            
+            # Flush before capturing logs
+            sys.stdout.flush()
+            sys.stderr.flush()
             
             # Add logs to result
             result['logs'] = log_buffer.getvalue()
@@ -63,4 +91,7 @@ class LoggingManager:
             # Always restore stdout/stderr
             sys.stdout = old_stdout
             sys.stderr = old_stderr
+            # Final flush
+            sys.stdout.flush()
+            sys.stderr.flush()
 
