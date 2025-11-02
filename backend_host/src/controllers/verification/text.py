@@ -117,7 +117,7 @@ class TextVerificationController:
                 if not os.path.exists(source_path):
                     print(f"[@controller:TextVerification] Skip: {os.path.basename(source_path)}")
                     continue
-                
+                    
                 # Extract text from area (use simple OCR for regular text verification)
                 extracted_text = self._extract_text_from_area(source_path, area, image_filter)
                 

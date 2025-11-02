@@ -83,6 +83,14 @@ class VerificationExecutor:
         
         # Get verification controllers directly by type
         verification_controllers = device.get_controllers('verification')
+        
+        # ALSO get web and desktop controllers (they have built-in verification methods)
+        web_controllers = device.get_controllers('web')
+        desktop_controllers = device.get_controllers('desktop')
+        
+        # Combine all controllers that support verifications
+        all_controllers = verification_controllers + web_controllers + desktop_controllers
+        
         self.video_controller = None
         self.image_controller = None
         self.text_controller = None
@@ -90,8 +98,9 @@ class VerificationExecutor:
         self.adb_controller = None
         self.appium_controller = None
         self.web_controller = None
+        self.desktop_controller = None
         
-        for ctrl in verification_controllers:
+        for ctrl in all_controllers:
             class_name = ctrl.__class__.__name__.lower()
             if 'video' in class_name:
                 self.video_controller = ctrl
@@ -107,6 +116,8 @@ class VerificationExecutor:
                 self.appium_controller = ctrl
             elif 'playwright' in class_name or 'web' in class_name:
                 self.web_controller = ctrl
+            elif 'desktop' in class_name or 'bash' in class_name or 'pyautogui' in class_name:
+                self.desktop_controller = ctrl
         
         # Initialize screenshot tracking
         self.verification_screenshots = []
@@ -153,7 +164,7 @@ class VerificationExecutor:
             print(f"[@verification_executor] Loading verification context for device: {self.device_id}, model: {self.device_model}")
             
             # Get verification actions from verification controllers AND web controller
-            verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio', 'web']
+            verification_types = ['image', 'text', 'adb', 'appium', 'video', 'audio', 'web', 'desktop']
             for v_type in verification_types:
                 try:
                     controller = getattr(self, f'{v_type}_controller', None)

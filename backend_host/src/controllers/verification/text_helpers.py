@@ -143,81 +143,81 @@ class TextHelpers:
                 print(f"[@text_helpers:OCR] Using ADVANCED multi-approach OCR")
                 
                 # Save grayscale for debugging
-                gray_filename = f'text_detection_{timestamp}_gray.png'
-                gray_path = os.path.join(self.captures_path, gray_filename)
-                cv2.imwrite(gray_path, gray)
-                print(f"[@text_helpers:OCR] Saved grayscale image: {gray_filename}")
-                
-                # Enhance contrast using CLAHE (Contrast Limited Adaptive Histogram Equalization)
-                clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
-                enhanced = clahe.apply(gray)
-                
-                # Save enhanced image
-                enhanced_filename = f'text_detection_{timestamp}_enhanced.png'
-                enhanced_path = os.path.join(self.captures_path, enhanced_filename)
-                cv2.imwrite(enhanced_path, enhanced)
-                print(f"[@text_helpers:OCR] Saved contrast-enhanced image: {enhanced_filename}")
-                
+            gray_filename = f'text_detection_{timestamp}_gray.png'
+            gray_path = os.path.join(self.captures_path, gray_filename)
+            cv2.imwrite(gray_path, gray)
+            print(f"[@text_helpers:OCR] Saved grayscale image: {gray_filename}")
+            
+            # Enhance contrast using CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
+            # Save enhanced image
+            enhanced_filename = f'text_detection_{timestamp}_enhanced.png'
+            enhanced_path = os.path.join(self.captures_path, enhanced_filename)
+            cv2.imwrite(enhanced_path, enhanced)
+            print(f"[@text_helpers:OCR] Saved contrast-enhanced image: {enhanced_filename}")
+            
                 # Try multiple preprocessing approaches
-                binary_adaptive = cv2.adaptiveThreshold(
-                    enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
-                )
-                _, binary_otsu = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
-                _, binary_otsu_inv = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
-                
+            binary_adaptive = cv2.adaptiveThreshold(
+                enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+            )
+            _, binary_otsu = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            _, binary_otsu_inv = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            
                 # Save preprocessed versions
-                adaptive_filename = f'text_detection_{timestamp}_adaptive.png'
-                otsu_filename = f'text_detection_{timestamp}_otsu.png'
-                otsu_inv_filename = f'text_detection_{timestamp}_otsu_inv.png'
-                
+            adaptive_filename = f'text_detection_{timestamp}_adaptive.png'
+            otsu_filename = f'text_detection_{timestamp}_otsu.png'
+            otsu_inv_filename = f'text_detection_{timestamp}_otsu_inv.png'
+            
                 cv2.imwrite(os.path.join(self.captures_path, adaptive_filename), binary_adaptive)
                 cv2.imwrite(os.path.join(self.captures_path, otsu_filename), binary_otsu)
                 cv2.imwrite(os.path.join(self.captures_path, otsu_inv_filename), binary_otsu_inv)
-                
+            
                 print(f"[@text_helpers:OCR] Saved preprocessed images: {adaptive_filename}, {otsu_filename}, {otsu_inv_filename}")
-                
+            
                 # Try OCR with multiple approaches
-                ocr_results = []
-                for name, binary_img in [
-                    ('adaptive', binary_adaptive),
-                    ('otsu', binary_otsu),
-                    ('otsu_inv', binary_otsu_inv),
+            ocr_results = []
+            for name, binary_img in [
+                ('adaptive', binary_adaptive),
+                ('otsu', binary_otsu),
+                ('otsu_inv', binary_otsu_inv),
                     ('enhanced', enhanced),
                     ('grayscale', gray)
-                ]:
-                    with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
-                        cv2.imwrite(tmp.name, binary_img)
-                        ocr_temp_path = tmp.name
-                    
-                    result = subprocess.run(
-                        ['tesseract', ocr_temp_path, 'stdout'],
-                        capture_output=True, text=True, timeout=30
-                    )
-                    
-                    text = result.stdout.strip() if result.returncode == 0 else ""
-                    ocr_results.append({
-                        'method': name,
-                        'text': text,
-                        'length': len(text),
-                        'word_count': len(text.split()) if text else 0
-                    })
-                    
-                    try:
-                        os.unlink(ocr_temp_path)
-                    except:
-                        pass
+            ]:
+                with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                    cv2.imwrite(tmp.name, binary_img)
+                    ocr_temp_path = tmp.name
                 
+                result = subprocess.run(
+                    ['tesseract', ocr_temp_path, 'stdout'],
+                    capture_output=True, text=True, timeout=30
+                )
+                
+                text = result.stdout.strip() if result.returncode == 0 else ""
+                ocr_results.append({
+                    'method': name,
+                    'text': text,
+                    'length': len(text),
+                    'word_count': len(text.split()) if text else 0
+                })
+                
+                try:
+                    os.unlink(ocr_temp_path)
+                except:
+                    pass
+            
                 # Pick the result with the most text
-                best_result = max(ocr_results, key=lambda r: r['length'])
-                extracted_text = best_result['text']
-                
-                print(f"[@text_helpers:OCR] Tried {len(ocr_results)} OCR approaches:")
-                for r in ocr_results:
-                    status = "✅ BEST" if r['method'] == best_result['method'] else "  "
-                    print(f"[@text_helpers:OCR]   {status} {r['method']:12s}: {r['length']:4d} chars, {r['word_count']:3d} words")
-                
-                print(f"[@text_helpers:OCR] Selected best result from '{best_result['method']}' method")
-                print(f"[@text_helpers:OCR] >>> {extracted_text[:200]}")
+            best_result = max(ocr_results, key=lambda r: r['length'])
+            extracted_text = best_result['text']
+            
+            print(f"[@text_helpers:OCR] Tried {len(ocr_results)} OCR approaches:")
+            for r in ocr_results:
+                status = "✅ BEST" if r['method'] == best_result['method'] else "  "
+                print(f"[@text_helpers:OCR]   {status} {r['method']:12s}: {r['length']:4d} chars, {r['word_count']:3d} words")
+            
+            print(f"[@text_helpers:OCR] Selected best result from '{best_result['method']}' method")
+            print(f"[@text_helpers:OCR] >>> {extracted_text[:200]}")
                 
             else:
                 # SIMPLE OCR: Fast and reliable for regular text verification (waitForTextToAppear/Disappear)
