@@ -141,10 +141,21 @@ def action_execute_batch():
             if team_id:
                 query_params['team_id'] = team_id
             
-            # Use short timeout - only for initial async response (execution_id)
-            timeout = 10
+            # Determine timeout based on action types
+            # Web actions execute synchronously and can take time (navigation + wait_time)
+            # Non-web actions are async and return immediately with execution_id
+            has_web_action = any(action.get('action_type') == 'web' for action in actions)
             
-            # Proxy to host action execution endpoint with async support
+            if has_web_action:
+                # Web actions: allow up to 60 seconds for navigation + waits
+                timeout = 60
+                print(f"[@route:server_actions:action_execute_batch] Using 60s timeout for web actions")
+            else:
+                # Non-web actions: quick async response (execution_id only)
+                timeout = 10
+                print(f"[@route:server_actions:action_execute_batch] Using 10s timeout for async actions")
+            
+            # Proxy to host action execution endpoint
             response_data, status_code = proxy_to_host_with_params(
                 '/host/action/executeBatch', 
                 'POST', 
