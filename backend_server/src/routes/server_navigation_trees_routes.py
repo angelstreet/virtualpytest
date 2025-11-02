@@ -361,6 +361,8 @@ def create_node_api(tree_id):
         result = save_node(tree_id, node_data, team_id)
         
         if result['success']:
+            # Invalidate cache when node is created
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -393,6 +395,8 @@ def update_node_api(tree_id, node_id):
         result = save_node(tree_id, node_data, team_id)
         
         if result['success']:
+            # Invalidate cache when node is updated
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -416,6 +420,8 @@ def delete_node_api(tree_id, node_id):
         result = delete_node(tree_id, node_id, team_id)
         
         if result['success']:
+            # Invalidate cache when node is deleted
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -499,6 +505,8 @@ def create_edge_api(tree_id):
         result = save_edge(tree_id, edge_data, team_id)
         
         if result['success']:
+            # Invalidate cache when edge is created
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -531,6 +539,8 @@ def update_edge_api(tree_id, edge_id):
         result = save_edge(tree_id, edge_data, team_id)
         
         if result['success']:
+            # Invalidate cache when edge is updated
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -554,6 +564,8 @@ def delete_edge_api(tree_id, edge_id):
         result = delete_edge(tree_id, edge_id, team_id)
         
         if result['success']:
+            # Invalidate cache when edge is deleted
+            invalidate_cached_tree(tree_id, team_id)
             return jsonify(result)
         else:
             return jsonify(result), 400
