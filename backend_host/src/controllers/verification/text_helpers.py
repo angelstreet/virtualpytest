@@ -319,11 +319,18 @@ class TextHelpers:
                     ':' not in potential_key and '=' not in potential_key  # No delimiters
                 )
                 
-                # Value should be different from key (not all caps label)
+                # Value should be different from key
+                # Fixed: Don't reject uppercase values - many serial numbers/versions are uppercase
+                # Instead, reject if next line looks like another label (ends with VERSION, NUMBER, etc.)
+                looks_like_label = (
+                    potential_value.isupper() and 
+                    any(potential_value.endswith(suffix) for suffix in ['VERSION', 'NUMBER', 'ADDRESS', 'NAME', 'INFO', 'STATUS', 'TYPE', 'MODE'])
+                )
+                
                 is_value = (
                     potential_value and 
                     potential_value != potential_key and
-                    not (potential_value.isupper() and len(potential_value) > 10 and any(c.isalpha() for c in potential_value))
+                    not looks_like_label
                 )
                 
                 if is_key and is_value:
