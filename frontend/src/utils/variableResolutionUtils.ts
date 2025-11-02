@@ -10,12 +10,12 @@
 
 export interface ScriptInput {
   name: string;
-  default: any;
+  default?: any; // Optional to match TestCase_Types.ScriptInput
 }
 
 export interface ScriptVariable {
   name: string;
-  value: any;
+  value?: any; // Optional to match Variable type
 }
 
 /**
@@ -46,14 +46,14 @@ export const resolveVariableInValue = (
   
   // Try scriptInputs first (use .default value)
   const input = scriptInputs?.find((inp) => inp.name === varName);
-  if (input) {
+  if (input && input.default !== undefined) {
     console.log(`[variableResolution] Resolved {${varName}} = ${JSON.stringify(input.default)} (from scriptInputs)`);
     return input.default;
   }
   
   // Try scriptVariables (use .value)
   const variable = scriptVariables?.find((v) => v.name === varName);
-  if (variable) {
+  if (variable && variable.value !== undefined) {
     console.log(`[variableResolution] Resolved {${varName}} = ${JSON.stringify(variable.value)} (from scriptVariables)`);
     return variable.value;
   }

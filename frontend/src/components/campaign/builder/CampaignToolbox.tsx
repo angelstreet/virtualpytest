@@ -200,6 +200,9 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
     value: undefined,
   }));
 
+  // ✅ NEW: Empty variables array for CampaignToolbox (campaigns don't use variables yet)
+  const variables: any[] = [];
+
   // I/O Section handlers
   const handleAddInput = () => {
     const name = prompt('Enter input name:');
@@ -230,6 +233,11 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
     }
   };
 
+  const handleAddVariable = () => {
+    // No-op for campaigns (not supported yet)
+    console.log('[@CampaignToolbox] Add variable not supported for campaigns');
+  };
+
   const handleRemoveInput = (name: string) => {
     removeCampaignInput(name);
   };
@@ -238,18 +246,26 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
     removeCampaignOutput(name);
   };
 
+  const handleRemoveVariable = (_name: string) => {
+    // No-op for campaigns (not supported yet)
+    console.log('[@CampaignToolbox] Remove variable not supported for campaigns');
+  };
+
   const handleRemoveMetadata = (name: string) => {
     removeCampaignReportField(name);
   };
 
   const handleFocusSourceBlock = (blockId: string) => {
-    console.log('[@CampaignToolbox] Focus source block:', blockId);
-    // TODO: Implement focus/zoom to block
+    console.log('[@CampaignToolbox] Focus block:', blockId);
   };
 
   const handleUpdateOutputs = (updatedOutputs: any[]) => {
     console.log('[@CampaignToolbox] Update outputs:', updatedOutputs);
-    // TODO: Update campaign outputs with linked data
+  };
+
+  const handleUpdateVariables = (_updatedVariables: any[]) => {
+    // No-op for campaigns (not supported yet)
+    console.log('[@CampaignToolbox] Update variables not supported for campaigns');
   };
 
   const handleUpdateMetadata = (updatedMetadata: any[]) => {
@@ -616,15 +632,19 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
       <ScriptIOSections
         inputs={inputs}
         outputs={outputs}
+        variables={variables}
         metadata={metadata}
         onAddInput={handleAddInput}
         onAddOutput={handleAddOutput}
+        onAddVariable={handleAddVariable}
         onAddMetadataField={handleAddMetadata}
         onRemoveInput={handleRemoveInput}
         onRemoveOutput={handleRemoveOutput}
+        onRemoveVariable={handleRemoveVariable}
         onRemoveMetadataField={handleRemoveMetadata}
         onFocusSourceBlock={handleFocusSourceBlock}
         onUpdateOutputs={handleUpdateOutputs}
+        onUpdateVariables={handleUpdateVariables}
         onUpdateMetadata={handleUpdateMetadata}
       />
     </>

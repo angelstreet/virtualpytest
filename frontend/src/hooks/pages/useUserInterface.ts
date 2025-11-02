@@ -9,7 +9,6 @@ import { useMemo } from 'react';
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { CACHE_CONFIG } from '../../config/constants';
 
 // 1-hour cache for user interfaces (reduced from 24h for multi-user scenarios)
 const USER_INTERFACE_TTL = 60 * 60 * 1000; // 1 hour

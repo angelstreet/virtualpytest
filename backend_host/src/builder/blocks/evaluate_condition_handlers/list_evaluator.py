@@ -42,3 +42,4 @@ def get_conditions():
         'index_of': {'label': 'Index of', 'value': 'index_of', 'output_type': 'int'}
     }
 
+

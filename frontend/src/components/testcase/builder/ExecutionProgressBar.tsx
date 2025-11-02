@@ -136,11 +136,6 @@ export const ExecutionProgressBar: React.FC<ExecutionProgressBarProps> = ({
   const currentStepNumber = isExecuting && currentBlockId 
     ? completed + 1  // Currently executing = completed + 1
     : total;         // When done, show total
-  
-  const allSteps = Array.from(blockStates.entries()).map(([blockId, state]) => ({
-    blockId,
-    state,
-  }));
 
   // Helper function to get full block label (same logic as UniversalBlock)
   const getFullBlockLabel = (node: any) => {

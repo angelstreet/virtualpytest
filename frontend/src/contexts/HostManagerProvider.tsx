@@ -721,7 +721,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
     if (stableUserInterface?.models && availableHosts.length > 0) {
       // Filter hosts to only include those with devices compatible with the interface
       const compatibleHosts = availableHosts.filter((host) =>
-        hasCompatibleDevice(host.devices || [], stableUserInterface)
+        hasCompatibleDevice(host.devices || [], stableUserInterface as any)
       );
 
       setFilteredAvailableHosts(compatibleHosts);

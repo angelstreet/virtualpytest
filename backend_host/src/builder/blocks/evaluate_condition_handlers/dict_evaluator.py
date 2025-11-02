@@ -50,3 +50,4 @@ def get_conditions():
         'index_of_key': {'label': 'Index of key', 'value': 'index_of_key', 'output_type': 'int'}
     }
 
+

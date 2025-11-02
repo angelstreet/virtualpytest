@@ -91,6 +91,7 @@ const RunTests: React.FC = () => {
   const [selectedDevice, setSelectedDevice] = useState<string>('');
   const [selectedExecutable, setSelectedExecutable] = useState<ExecutableItem | null>(null);
   const [selectedScript, setSelectedScript] = useState<string>(''); // Keep for backward compatibility
+  const [selectedUserinterface, setSelectedUserinterface] = useState<string>(''); // 🆕 NEW: Separate state for UI userinterface selection
   const [availableScripts, setAvailableScripts] = useState<string[]>([]);
   const [aiTestCasesInfo, setAiTestCasesInfo] = useState<any[]>([]);
   
@@ -589,15 +590,6 @@ const RunTests: React.FC = () => {
     const scriptInputs = scriptConfig.inputs || [];
     const scriptVariables = scriptConfig.variables || [];
     
-    // 🔍 DEBUG: Log what we're about to send
-    console.log('[@RunTests:handleExecuteTestCase] 🔍 DEBUG - About to execute test case:');
-    console.log('  • Graph nodes:', graph.nodes?.length);
-    console.log('  • Graph edges:', graph.edges?.length);
-    console.log('  • ScriptConfig inputs:', JSON.stringify(scriptInputs, null, 2));
-    console.log('  • ScriptConfig variables:', JSON.stringify(scriptVariables, null, 2));
-    console.log('  • ScriptConfig metadata:', JSON.stringify(scriptConfig.metadata, null, 2));
-    console.log('  • First node data:', JSON.stringify(graph.nodes?.[0]?.data, null, 2));
-    
     // Initialize completion stats
     setCompletionStats({ total: allDevices.length, completed: 0, successful: 0 });
     
@@ -764,13 +756,11 @@ const RunTests: React.FC = () => {
     }
     const allDevices: DeviceExecution[] = [];
     
-    // Get userinterface from parameters (if script declares it)
-    const userinterfaceValue = parameterValues['userinterface_name'] || '';
+    // ✅ ALWAYS use selectedUserinterface from UI - never from script parameters
+    const userinterfaceValue = selectedUserinterface;
     
     // Add primary device if selected
-    // Only require userinterface if script declares it
-    const canAddPrimaryDevice = selectedHost && selectedDevice && 
-      (!scriptDeclaresUserinterface || userinterfaceValue);
+    const canAddPrimaryDevice = selectedHost && selectedDevice && userinterfaceValue;
     
     if (canAddPrimaryDevice) {
       allDevices.push({ 
@@ -953,21 +943,6 @@ const RunTests: React.FC = () => {
   const renderParameterInput = (param: ScriptParameter) => {
     const value = parameterValues[param.name] || '';
 
-    // Special handling for userinterface_name parameter
-    if (param.name === 'userinterface_name') {
-      return (
-        <UserinterfaceSelector
-          key={param.name}
-          deviceModel={getPrimaryDeviceModel()}
-          value={value}
-          onChange={(newValue) => handleParameterChange(param.name, newValue)}
-          label="Userinterface"
-          size="small"
-          fullWidth
-        />
-      );
-    }
-
     // Special handling for goto-live boolean parameter
     if (param.name === 'goto-live') {
       return (
@@ -1019,6 +994,7 @@ const RunTests: React.FC = () => {
 
   // Framework parameters with dedicated selectors at the top (host, device, userinterface)
   // All other parameters show inline in Section 3
+  // ✅ userinterface_name should NEVER be a script parameter - it's always from the UI dropdown
   const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
   
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
@@ -1026,7 +1002,7 @@ const RunTests: React.FC = () => {
     !FRAMEWORK_PARAMS.includes(param.name)
   ) || [];
   
-  // Check if script declares userinterface_name parameter
+  // Check if script declares userinterface_name parameter (it shouldn't, but check for warning)
   const scriptDeclaresUserinterface = scriptAnalysis?.parameters.some(p => p.name === 'userinterface_name');
 
 
@@ -1069,7 +1045,7 @@ const RunTests: React.FC = () => {
                             onChange={(e) => {
                               setSelectedHost(e.target.value);
                               setSelectedDevice('');
-                              handleParameterChange('userinterface_name', '');
+                              setSelectedUserinterface('');
                             }}
                           >
                             {hosts.map((host) => (
@@ -1089,7 +1065,7 @@ const RunTests: React.FC = () => {
                             label="Device"
                             onChange={(e) => {
                               setSelectedDevice(e.target.value);
-                              handleParameterChange('userinterface_name', '');
+                              setSelectedUserinterface('');
                             }}
                             disabled={!selectedHost || getAvailableDevicesForSelection().length === 0}
                           >
@@ -1120,8 +1096,8 @@ const RunTests: React.FC = () => {
                       <Box sx={{ minWidth: 150, flex: '1 1 150px' }}>
                         <UserinterfaceSelector
                           deviceModel={getPrimaryDeviceModel()}
-                          value={parameterValues['userinterface_name'] || ''}
-                          onChange={(newValue) => handleParameterChange('userinterface_name', newValue)}
+                          value={selectedUserinterface}
+                          onChange={setSelectedUserinterface}
                           label="Userinterface"
                           size="small"
                           fullWidth

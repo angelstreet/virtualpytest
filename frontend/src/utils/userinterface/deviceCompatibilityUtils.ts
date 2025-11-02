@@ -11,7 +11,7 @@ export interface UserInterface {
   id: string;
   name: string;
   models?: string[];
-  root_tree?: string;
+  root_tree?: string | { id: string; name: string } | null; // Support both old string format and new object format
   [key: string]: any;
 }
 
@@ -63,7 +63,8 @@ export const filterCompatibleInterfaces = (
   device: Device
 ): UserInterface[] => {
   return interfaces.filter((ui) => {
-    const hasTree = !!ui.root_tree;
+    // Check root_tree: support both string and object formats
+    const hasTree = ui.root_tree ? (typeof ui.root_tree === 'string' ? !!ui.root_tree : !!ui.root_tree.id) : false;
     const isCompatible = isDeviceCompatibleWithInterface(device, ui);
     return hasTree && isCompatible;
   });

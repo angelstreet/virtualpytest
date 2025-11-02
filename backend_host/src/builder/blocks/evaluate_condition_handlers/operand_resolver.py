@@ -71,3 +71,4 @@ def validate_operand_type(value: Any, expected_type: str) -> bool:
     expected_python_type = type_map.get(expected_type)
     return isinstance(value, expected_python_type)
 
+

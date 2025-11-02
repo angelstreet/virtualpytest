@@ -40,3 +40,4 @@ def get_conditions():
         'equal': {'label': 'Equal (=)', 'value': 'equal', 'output_type': 'bool'}
     }
 
+

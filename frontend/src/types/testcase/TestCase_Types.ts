@@ -76,6 +76,7 @@ export interface ScriptInput {
   required: boolean;
   default?: any;
   description?: string;
+  protected?: boolean; // Protected inputs cannot be deleted (e.g., host_name, device_name)
 }
 
 export interface ScriptOutput {

@@ -34,3 +34,4 @@ def get_conditions():
         'dont_contain': {'label': 'Does not contain', 'value': 'dont_contain', 'output_type': 'bool'}
     }
 
+

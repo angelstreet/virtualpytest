@@ -59,7 +59,7 @@ interface TestCaseBuilderDialogsProps {
   setLoadDialogOpen: (open: boolean) => void;
   availableTestcases: any[]; // DEPRECATED: Now loaded in TestCaseSelector, kept for backward compatibility
   handleLoad: (testcaseId: string) => void;
-  handleDelete?: (testcaseId: string, testcaseName: string) => void;
+  handleDelete?: (testcaseId: string, testcaseName: string) => Promise<void>;
   // Note: availableTestcases parameter is deprecated but kept for backward compatibility
   
   // Edit Dialog
