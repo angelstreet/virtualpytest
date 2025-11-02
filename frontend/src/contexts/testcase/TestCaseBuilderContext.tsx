@@ -514,7 +514,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         inputs: scriptInputs,
         outputs: scriptOutputs,
         variables: scriptVariables,
-        metadata: scriptMetadata as MetadataField[]
+        metadata: {
+          mode: 'append',
+          fields: scriptMetadata
+        }
       } as ScriptConfig
     };
     
@@ -724,7 +727,10 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         inputs: scriptInputs,
         outputs: scriptOutputs,
         variables: scriptVariables,
-        metadata: scriptMetadata as MetadataField[]
+        metadata: {
+          mode: 'append',
+          fields: scriptMetadata
+        }
       } as ScriptConfig
     };
     
@@ -815,10 +821,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
           setScriptInputs(graph.scriptConfig.inputs || []);
           setScriptOutputs(graph.scriptConfig.outputs || []);
           setScriptVariables(graph.scriptConfig.variables || []);
-          // Support both old format (metadata.fields) and new format (metadata array)
-          setScriptMetadata(Array.isArray(graph.scriptConfig.metadata) 
-            ? graph.scriptConfig.metadata 
-            : graph.scriptConfig.metadata?.fields || []);
+          // Support both old format (metadata array) and new format (metadata object with fields)
+          setScriptMetadata(
+            Array.isArray(graph.scriptConfig.metadata) 
+              ? graph.scriptConfig.metadata 
+              : graph.scriptConfig.metadata?.fields || []
+          );
           console.log('[@TestCaseBuilder] Loaded scriptConfig:', graph.scriptConfig);
           
           // ✅ DEBUG: Log variables being loaded (with sourceLinks)

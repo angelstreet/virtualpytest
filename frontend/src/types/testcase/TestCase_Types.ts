@@ -124,7 +124,10 @@ export interface ScriptConfig {
   inputs: ScriptInput[];
   outputs: ScriptOutput[];
   variables?: Variable[]; // ✅ NEW: Added variables field with proper typing
-  metadata: MetadataField[]; // Changed: direct array, no mode wrapper
+  metadata: {
+    mode: 'append' | 'replace';
+    fields: MetadataField[];
+  }; // Backend expects object with mode and fields
 }
 
 // Complete testcase graph
