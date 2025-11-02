@@ -265,7 +265,7 @@ export const useVerification = ({
         const result = await response.json();
         console.log('[useVerification] Batch test result:', result);
 
-        // Check if response is async (execution_id present)
+        // Check if response is async (execution_id present) or synchronous
         if (result.execution_id) {
           console.log('[useVerification] ✅ Async execution started:', result.execution_id);
 

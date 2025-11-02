@@ -93,9 +93,9 @@ def auto_proxy(endpoint):
                             del _stream_url_cache[cache_key]
         
         # Determine timeout based on endpoint type
-        if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint or 'action/executeBatch' in endpoint:
+        if '/navigation/execute' in endpoint or '/navigation/batch-execute' in endpoint or 'action/executeBatch' in endpoint or 'verification/executeBatch' in endpoint:
             timeout = HTTP_CONFIG['NAVIGATION_TIMEOUT']
-            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: navigation/action execution)")
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: navigation/action/verification execution)")
         elif '/av/getStreamUrl' in endpoint:
             timeout = HTTP_CONFIG['VERY_SHORT_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: very short timeout)")
