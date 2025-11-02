@@ -94,9 +94,9 @@ def execute_navigation(tree_id):
         # Check cache exists - NEVER clear or rebuild (only takeControl should do that)
         print(f"[@route:navigation_execution:execute_navigation] Navigation execution for tree {tree_id}, team_id {team_id}")
         
-        # Verify cache exists before execution
+        # Verify cache exists before execution (quick check - should be fast)
         from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
-        cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=10)
+        cache_check_result, _ = proxy_to_host_with_params(f'/host/navigation/cache/check/{tree_id}', 'GET', None, {'team_id': team_id}, timeout=5)
         
         if cache_check_result and cache_check_result.get('success') and cache_check_result.get('exists'):
             print(f"[@route:navigation_execution:execute_navigation] ✅ Cache exists for tree {tree_id}")
@@ -124,8 +124,11 @@ def execute_navigation(tree_id):
         if team_id:
             query_params['team_id'] = team_id
         
-        # Use short timeout - only for initial async response (execution_id)
-        timeout = 10
+        # Navigation always uses web actions (Playwright) - execute synchronously
+        # Use longer timeout for sync execution (navigation can take time with waits)
+        print(f"[@route:navigation_execution:execute_navigation] Using 120s timeout for synchronous navigation execution")
+        timeout = 120  # Navigation can be long with multiple edges + wait times
+        
         response_data, status_code = proxy_to_host_with_params(f'/host/navigation/execute/{tree_id}', 'POST', execution_payload, query_params, timeout=timeout)
         
         print(f"[@route:navigation_execution:execute_navigation] Navigation result: success={response_data.get('success')}")
