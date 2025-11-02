@@ -36,16 +36,8 @@ _script_args = [
 ]
 
 
-def get_menu_info_smart(device, area: dict = None) -> Dict[str, Any]:
-    """Smart router: android_mobile→ADB, host_vnc→Playwright, else→OCR"""
-    model = device.device_model.lower()
-    if 'android_mobile' in model:
-        return device._get_controller('verification').getMenuInfo(area=area, context=None)
-    elif 'host_vnc' in model and device._get_controller('web'):
-        return device._get_controller('web').getMenuInfo(area=area, context=None)
-    else:
-        av = device._get_controller('av')
-        return device._get_controller('verification').getMenuInfo(area=area, context=None, source_path=av.take_screenshot() if av else None)
+# ❌ REMOVED: Direct controller access - use VerificationExecutor instead
+# The orchestrator pattern handles controller routing automatically
 
 
 def parse_device_info_from_elements(elements: List[Dict[str, Any]], device_model: str) -> Dict[str, Any]:
@@ -324,21 +316,69 @@ def main():
     print(f"📋 [get_info] EXTRACTING DEVICE INFORMATION")
     print(f"📋 [get_info] ==========================================\n")
     
-    # Step 1: Smart router - automatically picks the right controller (ADB/Playwright/OCR)
-    print(f"📋 [get_info] Device model: {device.device_model}")
-    menu_result = get_menu_info_smart(device, area=None)
+    # ✅ Use ExecutionOrchestrator pattern (same as frontend UniversalBlock)
+    # Determine verification_type based on device model
+    device_model = device.device_model.lower()
+    if 'android_mobile' in device_model:
+        verification_type = 'adb'  # ADB for Android mobile
+    elif 'host_vnc' in device_model:
+        verification_type = 'web'  # Playwright for host VNC
+    else:
+        verification_type = 'text'  # OCR for all others (video, audio, etc.)
     
-    if not menu_result.get('success'):
-        print(f"⚠️  [get_info] Warning: getMenuInfo failed: {menu_result.get('message', 'Unknown error')}")
+    print(f"📋 [get_info] Detected verification_type: {verification_type} for device model: {device_model}")
+    
+    # Build action with verification (same format as frontend UniversalBlock)
+    action = {
+        'command': 'getMenuInfo',
+        'name': 'Get Menu Info',  # EdgeAction requires name field
+        'params': {
+            'area': None  # Full screen extraction
+        },
+        'action_type': 'verification',  # ✅ Treat verification as action (routes through orchestrator)
+        'verification_type': verification_type,
+    }
+    
+    print(f"📋 [get_info] Device model: {device.device_model}")
+    print(f"📋 [get_info] Executing getMenuInfo as action via ExecutionOrchestrator...")
+    
+    # Execute through ActionExecutor (same as frontend) - orchestrator routes to verification executor
+    from backend_host.src.orchestrator.execution_orchestrator import ExecutionOrchestrator
+    
+    action_result = ExecutionOrchestrator.execute_actions(
+        device=device,
+        actions=[action],
+        team_id=context.team_id,
+        context=context
+    )
+    
+    if not action_result.get('success'):
+        error_msg = action_result.get('error', 'getMenuInfo action failed')
+        print(f"⚠️  [get_info] Warning: {error_msg}")
         context.overall_success = True
         summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
         context.execution_summary = summary_text
         return True
     
-    # Step 2: Extract parsed_data from controller output
-    output_data = menu_result.get('output_data', {})
+    # Extract output_data from action result (same as frontend UniversalBlock line 368)
+    output_data = action_result.get('output_data', {})
+    if not output_data:
+        # Try results array format
+        results = action_result.get('results', [])
+        if results:
+            output_data = results[0].get('output_data', {})
+    
     parsed_data = output_data.get('parsed_data', {})
     element_count = output_data.get('element_count', 0)
+    
+    if not parsed_data:
+        print(f"⚠️  [get_info] Warning: No parsed_data in output")
+        context.overall_success = True
+        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
+        context.execution_summary = summary_text
+        return True
+    
+    print(f"✅ [get_info] Action completed: {len(parsed_data)} fields extracted from {element_count} elements")
     
     # Step 3: Store to context.metadata['info'] (aligned with testcase builder)
     from datetime import datetime
