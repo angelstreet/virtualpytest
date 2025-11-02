@@ -589,6 +589,15 @@ const RunTests: React.FC = () => {
     const scriptInputs = scriptConfig.inputs || [];
     const scriptVariables = scriptConfig.variables || [];
     
+    // 🔍 DEBUG: Log what we're about to send
+    console.log('[@RunTests:handleExecuteTestCase] 🔍 DEBUG - About to execute test case:');
+    console.log('  • Graph nodes:', graph.nodes?.length);
+    console.log('  • Graph edges:', graph.edges?.length);
+    console.log('  • ScriptConfig inputs:', JSON.stringify(scriptInputs, null, 2));
+    console.log('  • ScriptConfig variables:', JSON.stringify(scriptVariables, null, 2));
+    console.log('  • ScriptConfig metadata:', JSON.stringify(scriptConfig.metadata, null, 2));
+    console.log('  • First node data:', JSON.stringify(graph.nodes?.[0]?.data, null, 2));
+    
     // Initialize completion stats
     setCompletionStats({ total: allDevices.length, completed: 0, successful: 0 });
     

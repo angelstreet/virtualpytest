@@ -520,12 +520,13 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     };
     
     // DEBUG: Log execution graph
-    console.log('[@TestCaseBuilder] Executing with graph:', {
-      nodes: graph.nodes.length,
-      edges: graph.edges.length,
-      nodeIds: graph.nodes.map(n => n.id),
-      edgeDetails: graph.edges
-    });
+    console.log('[@TestCaseBuilder:executeCurrentTestCase] 🔍 DEBUG - About to execute test case:');
+    console.log('  • Graph nodes:', graph.nodes.length);
+    console.log('  • Graph edges:', graph.edges.length);
+    console.log('  • ScriptConfig inputs:', JSON.stringify(graph.scriptConfig.inputs, null, 2));
+    console.log('  • ScriptConfig variables:', JSON.stringify(graph.scriptConfig.variables, null, 2));
+    console.log('  • ScriptConfig metadata:', JSON.stringify(graph.scriptConfig.metadata, null, 2));
+    console.log('  • First node data:', JSON.stringify(graph.nodes?.[0]?.data, null, 2));
     
     // 🆕 ADD: Initialize unified execution state (exclude START and terminal blocks)
     const blockIds = nodes

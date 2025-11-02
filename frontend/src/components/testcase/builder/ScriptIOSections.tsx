@@ -944,7 +944,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       title={
                         executionMetadataValues[field.name] !== undefined
                           ? <pre style={{ margin: 0, fontSize: '0.75rem' }}>{JSON.stringify(executionMetadataValues[field.name], null, 2)}</pre>
-                          : field.sourceBlockId ? `Linked to block ${field.sourceBlockId}` : 'Drop a block output to link'
+                          : ''
                       }
                       placement="left"
                     >

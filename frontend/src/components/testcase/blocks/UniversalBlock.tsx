@@ -813,7 +813,7 @@ export const UniversalBlock: React.FC<NodeProps & {
       }}
     >
       {/* Duration Badge - Above Block */}
-      {executionState?.duration && ['success', 'failure', 'error'].includes(executionState.status) && (
+      {executionState?.duration !== undefined && ['success', 'failure', 'error'].includes(executionState.status) && (
         <Box
           sx={{
             position: 'absolute',

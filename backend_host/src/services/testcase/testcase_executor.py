@@ -1526,7 +1526,14 @@ class TestCaseExecutor:
                 else:
                     print(f"[@testcase_executor:{execution_id}]   ❌ Output '{source_output_name}' not found in variables or block outputs")
             else:
-                print(f"[@testcase_executor:{execution_id}]   ⏭️ Block ID doesn't match (expected {source_block_id[:8]}..., got {block_id[:8]}...)")
+                # 🆕 FALLBACK: If sourceOutputName matches a variable name, use it regardless of block mismatch
+                # This handles cases where metadata links to an old/wrong block ID but correct variable name
+                if hasattr(context, 'variables') and source_output_name in context.variables:
+                    value = context.variables[source_output_name]
+                    context.metadata[field_name] = value
+                    print(f"[@testcase_executor:{execution_id}]   📋 Updated metadata '{field_name}' = {value if not isinstance(value, dict) else '{...}'} (from variable '{source_output_name}' - block mismatch ignored)")
+                else:
+                    print(f"[@testcase_executor:{execution_id}]   ⏭️ Block ID doesn't match (expected {source_block_id[:8]}..., got {block_id[:8]}...)")
     
     def _resolve_script_outputs_and_metadata(self, graph: Dict[str, Any], context: ScriptExecutionContext):
         """
