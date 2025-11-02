@@ -69,9 +69,9 @@ def _execute_actions_thread(device, execution_id, actions, retry_actions, failur
 
 @host_actions_bp.route('/executeBatch', methods=['POST'])
 def action_execute_batch():
-    """Execute batch of actions asynchronously - returns execution_id immediately"""
+    """Execute batch of actions - async for most, but sync for web actions to avoid threading issues"""
     try:
-        print("[@route:host_actions:action_execute_batch] Starting async action execution")
+        print("[@route:host_actions:action_execute_batch] Starting action execution", flush=True)
         
         # Get request data
         data = request.get_json() or {}
@@ -81,7 +81,7 @@ def action_execute_batch():
         device_id = data.get('device_id', 'device1')
         team_id = request.args.get('team_id')
         
-        print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} command(s) for device: {device_id}, team: {team_id}")
+        print(f"[@route:host_actions:action_execute_batch] Processing {len(actions)} command(s) for device: {device_id}, team: {team_id}", flush=True)
         
         # Validate
         if not actions:
@@ -105,52 +105,85 @@ def action_execute_batch():
                 'error': f'Device {device_id} does not have ActionExecutor initialized'
             }), 500
         
-        # Always execute asynchronously to prevent HTTP timeouts
-        # Generate execution ID
-        execution_id = str(uuid.uuid4())
+        # Check if ANY action is a web action
+        has_web_action = any(action.get('action_type') == 'web' for action in actions)
         
-        # Store execution state
-        if not hasattr(device.action_executor, '_executions'):
-            device.action_executor._executions = {}
-            device.action_executor._lock = threading.Lock()
-        
-        with device.action_executor._lock:
-            device.action_executor._executions[execution_id] = {
-                'execution_id': execution_id,
-                'status': 'running',
-                'result': None,
-                'error': None,
-                'start_time': time.time(),
-                'progress': 0,
-                'message': 'Action execution starting...'
+        if has_web_action:
+            # WEB ACTIONS: Execute synchronously in main thread to avoid Playwright threading issues
+            print(f"[@route:host_actions:action_execute_batch] Web actions detected - executing SYNCHRONOUSLY in main thread", flush=True)
+            
+            # Update navigation context
+            context_data = {
+                'tree_id': data.get('tree_id'),
+                'edge_id': data.get('edge_id'),
+                'action_set_id': data.get('action_set_id'),
+                'target_node_id': data.get('target_node_id'),
+                'skip_db_recording': data.get('skip_db_recording', False)
             }
-        
-        # Start execution in background thread
-        context_data = {
-            'tree_id': data.get('tree_id'),
-            'edge_id': data.get('edge_id'),
-            'action_set_id': data.get('action_set_id'),
-            'target_node_id': data.get('target_node_id'),
-            'skip_db_recording': data.get('skip_db_recording', False)
-        }
-        
-        thread = threading.Thread(
-            target=_execute_actions_thread,
-            args=(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data),
-            daemon=True
-        )
-        thread.start()
-        
-        print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}")
-        
-        return jsonify({
-            'success': True,
-            'execution_id': execution_id,
-            'message': 'Action execution started'
-        })
+            
+            # Execute directly in main thread (no background thread)
+            result = ExecutionOrchestrator.execute_actions(
+                device=device,
+                actions=actions,
+                retry_actions=retry_actions,
+                failure_actions=failure_actions,
+                team_id=team_id,
+                context=None
+            )
+            
+            print(f"[@route:host_actions:action_execute_batch] Web action execution completed synchronously", flush=True)
+            
+            return jsonify(result), 200 if result.get('success') else 500
+            
+        else:
+            # NON-WEB ACTIONS: Execute asynchronously to prevent HTTP timeouts
+            print(f"[@route:host_actions:action_execute_batch] Non-web actions - executing ASYNCHRONOUSLY", flush=True)
+            
+            # Generate execution ID
+            execution_id = str(uuid.uuid4())
+            
+            # Store execution state
+            if not hasattr(device.action_executor, '_executions'):
+                device.action_executor._executions = {}
+                device.action_executor._lock = threading.Lock()
+            
+            with device.action_executor._lock:
+                device.action_executor._executions[execution_id] = {
+                    'execution_id': execution_id,
+                    'status': 'running',
+                    'result': None,
+                    'error': None,
+                    'start_time': time.time(),
+                    'progress': 0,
+                    'message': 'Action execution starting...'
+                }
+            
+            # Start execution in background thread
+            context_data = {
+                'tree_id': data.get('tree_id'),
+                'edge_id': data.get('edge_id'),
+                'action_set_id': data.get('action_set_id'),
+                'target_node_id': data.get('target_node_id'),
+                'skip_db_recording': data.get('skip_db_recording', False)
+            }
+            
+            thread = threading.Thread(
+                target=_execute_actions_thread,
+                args=(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data),
+                daemon=True
+            )
+            thread.start()
+            
+            print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
+            
+            return jsonify({
+                'success': True,
+                'execution_id': execution_id,
+                'message': 'Action execution started'
+            })
         
     except Exception as e:
-        print(f"[@route:host_actions:action_execute_batch] Error: {e}")
+        print(f"[@route:host_actions:action_execute_batch] Error: {e}", flush=True)
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
