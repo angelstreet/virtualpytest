@@ -60,6 +60,7 @@ interface TestCaseBuilderDialogsProps {
   availableTestcases: any[]; // DEPRECATED: Now loaded in TestCaseSelector, kept for backward compatibility
   handleLoad: (testcaseId: string) => void;
   handleDelete?: (testcaseId: string, testcaseName: string) => Promise<void>;
+  testCasesOnly?: boolean; // If true, only show test cases (no scripts)
   // Note: availableTestcases parameter is deprecated but kept for backward compatibility
   
   // Edit Dialog
@@ -92,6 +93,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   setLoadDialogOpen,
   handleLoad,
   handleDelete,
+  testCasesOnly = true, // Default to true for TestCaseBuilder
   editDialogOpen,
   setEditDialogOpen,
   editingNode,
@@ -411,6 +413,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             onLoad={handleLoad}
             onDelete={handleDelete}
             selectedTestCaseId={currentTestcaseId}
+            testCasesOnly={testCasesOnly}
           />
         </DialogContent>
       </Dialog>

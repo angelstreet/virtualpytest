@@ -47,7 +47,8 @@ export interface TestCaseSelectorProps {
   onLoad: (testcaseId: string) => void;
   onDelete?: (testcaseId: string, testcaseName: string) => Promise<void>;
   selectedTestCaseId?: string | null;
-  onDeleteSuccess?: () => void; // Callback after successful deletion
+  onDeleteSuccess?: () => void;
+  testCasesOnly?: boolean; // If true, only show test cases (no scripts)
 }
 
 export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
@@ -55,6 +56,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   onDelete,
   selectedTestCaseId,
   onDeleteSuccess,
+  testCasesOnly = false,
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -69,7 +71,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
-  const [selectedType, setSelectedType] = useState<string>('All'); // NEW: Type filter
+  const [selectedType, setSelectedType] = useState<string>('All');
 
   // Ref to prevent duplicate API calls in React Strict Mode
   const isLoadingRef = React.useRef(false);
@@ -124,12 +126,12 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       const scripts: ScriptItem[] = (scriptsData.scripts || []).map((script: string) => ({
         script_name: script,
         type: 'script' as const,
-        folder: '(Root)', // Scripts don't have folders yet
+        folder: '(Root)',
         tags: [],
       }));
 
-      // Combine test cases and scripts
-      const combined: ExecutableItem[] = [...testCases, ...scripts];
+      // Combine test cases and scripts (filter scripts if testCasesOnly is true)
+      const combined: ExecutableItem[] = testCasesOnly ? testCases : [...testCases, ...scripts];
 
       if (testCasesData.success) {
         setAllItems(combined);
@@ -289,24 +291,26 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
           sx={{ flex: 1 }}
         />
 
-        {/* NEW: Type Filter */}
-        <Autocomplete
-          size="small"
-          value={selectedType}
-          onChange={(_event, newValue) => setSelectedType(newValue || 'All')}
-          options={['All', 'TestCase', 'Script']}
-          renderInput={(params) => (
-            <TextField
-              {...params}
-              label="Type"
-              InputLabelProps={{
-                shrink: true,
-                sx: { backgroundColor: 'background.paper', px: 0.5 }
-              }}
-            />
-          )}
-          sx={{ minWidth: 120 }}
-        />
+        {/* Type Filter - Only show if scripts are enabled */}
+        {!testCasesOnly && (
+          <Autocomplete
+            size="small"
+            value={selectedType}
+            onChange={(_event, newValue) => setSelectedType(newValue || 'All')}
+            options={['All', 'TestCase', 'Script']}
+            renderInput={(params) => (
+              <TextField
+                {...params}
+                label="Type"
+                InputLabelProps={{
+                  shrink: true,
+                  sx: { backgroundColor: 'background.paper', px: 0.5 }
+                }}
+              />
+            )}
+            sx={{ minWidth: 120 }}
+          />
+        )}
 
         <Autocomplete
           size="small"

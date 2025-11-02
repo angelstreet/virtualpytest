@@ -813,6 +813,7 @@ class NavigationExecutor:
                 # Step end screenshot - capture AFTER action execution (like old goto_node)
                 step_end_screenshot_path = ""
                 if context:
+                    from shared.src.lib.utils.device_utils import capture_screenshot_for_script
                     screenshot_id = capture_screenshot_for_script(self.device, context, f"{step_name}_end")
                     if screenshot_id:
                         # Get the actual path from context - it's the last added screenshot
