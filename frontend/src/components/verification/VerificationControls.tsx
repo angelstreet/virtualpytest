@@ -43,7 +43,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
         />
       )}
 
-      {verification.command && verification.verification_type === 'adb' && (
+      {verification.command && (verification.verification_type === 'adb' || verification.verification_type === 'web') && (
         <TextField
           size="small"
           label="Element Criteria"

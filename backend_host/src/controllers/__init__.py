@@ -69,6 +69,7 @@ CONTROLLER_REGISTRY = {
         'video': VideoVerificationController, # Video analysis and motion detection
         'adb': ADBVerificationController,    # Direct ADB element verification using ADBcommands
         'appium': AppiumVerificationController, # Cross-platform element verification using Appium WebDriver
+        'web': PlaywrightWebController,      # Web element verification using Playwright
         'ai': TextVerificationController,    # Use text verification until AI implementation is available
     },
     'power': {

@@ -2211,6 +2211,7 @@ class PlaywrightWebController(WebControllerInterface):
             {
                 'command': 'waitForElementToAppear',
                 'label': 'Wait for Element to Appear',
+                'description': 'Wait for web element to appear (by text, selector, or aria-label)',
                 'params': {
                     'search_term': create_param(
                         ParamType.STRING,
@@ -2234,12 +2235,12 @@ class PlaywrightWebController(WebControllerInterface):
                         max=10.0
                     )
                 },
-                'verification_type': 'web',
-                'description': 'Wait for web element to appear (by text, selector, or aria-label)'
+                'verification_type': 'web'
             },
             {
                 'command': 'waitForElementToDisappear',
                 'label': 'Wait for Element to Disappear',
+                'description': 'Wait for web element to disappear',
                 'params': {
                     'search_term': create_param(
                         ParamType.STRING,
@@ -2263,8 +2264,7 @@ class PlaywrightWebController(WebControllerInterface):
                         max=10.0
                     )
                 },
-                'verification_type': 'web',
-                'description': 'Wait for web element to disappear'
+                'verification_type': 'web'
             },
             {
                 "command": "getMenuInfo",
