@@ -56,6 +56,13 @@ export interface AppiumVerificationParams {
   timeout?: number; // Optional: timeout in whole seconds (0-60), default 0 (single check)
 }
 
+// Web verification parameters (Playwright)
+export interface WebVerificationParams {
+  search_term: string; // Required: element search term (text, selector, aria-label)
+  timeout?: number; // Optional: timeout in whole seconds (0-60), default 10
+  check_interval?: number; // Optional: interval between checks in seconds, default 1
+}
+
 // Audio verification parameters
 export interface AudioVerificationParams {
   // For detect_silence command
@@ -97,6 +104,7 @@ export type VerificationParams =
   | TextVerificationParams
   | AdbVerificationParams
   | AppiumVerificationParams
+  | WebVerificationParams
   | AudioVerificationParams
   | VideoVerificationParams;
 
@@ -107,7 +115,7 @@ export type VerificationParams =
 // Base verification interface
 interface BaseVerification {
   command: string; // Required: command to execute
-  verification_type: 'text' | 'image' | 'adb' | 'appium' | 'audio' | 'video'; // Required: type of verification
+  verification_type: 'text' | 'image' | 'adb' | 'appium' | 'web' | 'audio' | 'video'; // Required: type of verification
 
   // Result state (optional, populated after execution)
   success?: boolean;
@@ -177,6 +185,11 @@ export interface AppiumVerification extends BaseVerification {
   params: AppiumVerificationParams;
 }
 
+export interface WebVerification extends BaseVerification {
+  verification_type: 'web';
+  params: WebVerificationParams;
+}
+
 export interface AudioVerification extends BaseVerification {
   verification_type: 'audio';
   params: AudioVerificationParams;
@@ -193,6 +206,7 @@ export type Verification =
   | TextVerification
   | AdbVerification
   | AppiumVerification
+  | WebVerification
   | AudioVerification
   | VideoVerification;
 
