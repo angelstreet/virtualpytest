@@ -1,46 +1,20 @@
 import {
   Add as AddIcon,
-  Settings as SettingsIcon,
 } from '@mui/icons-material';
 import {
   Box,
   Paper,
   Typography,
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
 } from '@mui/material';
-import React, { useState } from 'react';
+import React from 'react';
 
 // Reuse TestCaseSelector component
 import { TestCaseSelector } from '../components/testcase/TestCaseSelector';
-import { AITestCaseGenerator } from '../components/testcase/AITestCaseGenerator';
-import { TestCase as AITestCase } from '../types/pages/TestCase_Types';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 const TestCaseEditor: React.FC = () => {
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-
-  const handleOpenDialog = () => {
-    setIsDialogOpen(true);
-  };
-
-  const handleCloseDialog = () => {
-    setIsDialogOpen(false);
-  };
-
-  const handleAITestCasesCreated = (aiTestCases: AITestCase[]) => {
-    handleCloseDialog();
-    
-    // Show success message
-    const testCase = aiTestCases[0];
-    const interfaceCount = testCase?.compatible_userinterfaces?.length || 1;
-    console.log(`Successfully generated 1 AI test case compatible with ${interfaceCount} interface${interfaceCount > 1 ? 's' : ''}`);
-  };
-
   // Handle testcase load (navigate to builder)
   const handleLoad = (testcaseId: string) => {
     console.log('[@TestCaseEditor] Loading testcase:', testcaseId);
@@ -68,6 +42,11 @@ const TestCaseEditor: React.FC = () => {
     }
   };
 
+  // Navigate to TestCase Builder for new test case
+  const handleCreateNew = () => {
+    window.location.href = '/test-creation/testcase-builder';
+  };
+
   return (
     <Box sx={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
@@ -75,7 +54,7 @@ const TestCaseEditor: React.FC = () => {
         <Typography variant="h4" component="h1">
           Test Case Management
         </Typography>
-        <Button variant="contained" startIcon={<AddIcon />} onClick={handleOpenDialog}>
+        <Button variant="contained" startIcon={<AddIcon />} onClick={handleCreateNew}>
           Create Test Case
         </Button>
       </Box>
@@ -88,22 +67,6 @@ const TestCaseEditor: React.FC = () => {
           selectedTestCaseId={null}
         />
       </Paper>
-
-      {/* AI Test Case Generator Dialog */}
-      <Dialog open={isDialogOpen} onClose={handleCloseDialog} maxWidth="lg" fullWidth>
-        <DialogTitle>🤖 AI Test Case Generator</DialogTitle>
-        <DialogContent>
-          <Box sx={{ pt: 0 }}>
-            <AITestCaseGenerator 
-              onTestCasesCreated={handleAITestCasesCreated} 
-              onCancel={handleCloseDialog}
-            />
-          </Box>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={handleCloseDialog}>Cancel</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   );
 };

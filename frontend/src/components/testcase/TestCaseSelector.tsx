@@ -9,6 +9,7 @@ import {
   Delete as DeleteIcon,
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
+  PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 
@@ -28,7 +29,19 @@ export interface TestCaseItem {
   };
   created_at?: string;
   updated_at?: string;
+  type: 'testcase'; // NEW: Type discriminator
 }
+
+// NEW: Script item interface
+export interface ScriptItem {
+  script_name: string;
+  folder?: string;
+  tags?: string[];
+  type: 'script'; // NEW: Type discriminator
+}
+
+// Unified item type
+export type ExecutableItem = TestCaseItem | ScriptItem;
 
 export interface TestCaseSelectorProps {
   onLoad: (testcaseId: string) => void;
@@ -45,7 +58,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
 }) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [allTestCases, setAllTestCases] = useState<TestCaseItem[]>([]);
+  const [allItems, setAllItems] = useState<ExecutableItem[]>([]); // Changed to unified list
   const [allFolderNames, setAllFolderNames] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<Array<{ name: string; color: string }>>([]);
   
@@ -56,11 +69,12 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [selectedFolder, setSelectedFolder] = useState<string>('All');
+  const [selectedType, setSelectedType] = useState<string>('All'); // NEW: Type filter
 
   // Ref to prevent duplicate API calls in React Strict Mode
   const isLoadingRef = React.useRef(false);
 
-  // Load test cases on mount
+  // Load test cases AND scripts on mount
   useEffect(() => {
     // Prevent duplicate calls in React Strict Mode
     if (isLoadingRef.current) {
@@ -68,11 +82,11 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       return;
     }
     
-    console.log('[@TestCaseSelector] Loading test cases...');
-    loadTestCases();
+    console.log('[@TestCaseSelector] Loading test cases and scripts...');
+    loadAll();
   }, []);
 
-  const loadTestCases = async () => {
+  const loadAll = async () => {
     // Prevent concurrent calls
     if (isLoadingRef.current) {
       return;
@@ -84,12 +98,17 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       setLoading(true);
       setError(null);
 
-      // Note: buildServerUrl automatically adds team_id parameter
       // Load test cases
       const testCasesResponse = await fetch(
         buildServerUrl('/server/testcase/list')
       );
       const testCasesData = await testCasesResponse.json();
+
+      // Load scripts
+      const scriptsResponse = await fetch(
+        buildServerUrl('/server/script/list')
+      );
+      const scriptsData = await scriptsResponse.json();
 
       // Load folders and tags
       const foldersTagsResponse = await fetch(
@@ -97,9 +116,24 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       );
       const foldersTagsData = await foldersTagsResponse.json();
 
+      const testCases: TestCaseItem[] = (testCasesData.testcases || []).map((tc: any) => ({
+        ...tc,
+        type: 'testcase' as const,
+      }));
+
+      const scripts: ScriptItem[] = (scriptsData.scripts || []).map((script: string) => ({
+        script_name: script,
+        type: 'script' as const,
+        folder: '(Root)', // Scripts don't have folders yet
+        tags: [],
+      }));
+
+      // Combine test cases and scripts
+      const combined: ExecutableItem[] = [...testCases, ...scripts];
+
       if (testCasesData.success) {
-        setAllTestCases(testCasesData.testcases || []);
-        console.log('[@TestCaseSelector] ✅ Loaded', testCasesData.testcases?.length || 0, 'test cases');
+        setAllItems(combined);
+        console.log('[@TestCaseSelector] ✅ Loaded', testCases.length, 'test cases and', scripts.length, 'scripts');
       } else {
         throw new Error(testCasesData.error || 'Failed to load test cases');
       }
@@ -109,17 +143,22 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
         setAllTags(foldersTagsData.tags || []);
       }
     } catch (err) {
-      console.error('[@TestCaseSelector] ❌ Error loading test cases:', err);
-      setError(err instanceof Error ? err.message : 'Failed to load test cases');
+      console.error('[@TestCaseSelector] ❌ Error loading:', err);
+      setError(err instanceof Error ? err.message : 'Failed to load test cases and scripts');
     } finally {
       setLoading(false);
       isLoadingRef.current = false;
     }
   };
 
-  // Filter test cases
-  const filteredTestCases = useMemo(() => {
-    let items = [...allTestCases];
+  // Filter items (test cases + scripts)
+  const filteredItems = useMemo(() => {
+    let items = [...allItems];
+
+    // Apply type filter
+    if (selectedType && selectedType !== 'All') {
+      items = items.filter(item => item.type === selectedType.toLowerCase());
+    }
 
     // Apply folder filter
     if (selectedFolder && selectedFolder !== 'All') {
@@ -129,11 +168,16 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
     // Apply search filter
     if (searchQuery.trim()) {
       const query = searchQuery.toLowerCase();
-      items = items.filter(item =>
-        item.testcase_name.toLowerCase().includes(query) ||
-        item.description?.toLowerCase().includes(query) ||
-        item.userinterface_name?.toLowerCase().includes(query)
-      );
+      items = items.filter(item => {
+        if (item.type === 'testcase') {
+          return item.testcase_name.toLowerCase().includes(query) ||
+                 item.description?.toLowerCase().includes(query) ||
+                 item.userinterface_name?.toLowerCase().includes(query);
+        } else {
+          // Script
+          return item.script_name.toLowerCase().includes(query);
+        }
+      });
     }
 
     // Apply tag filter
@@ -144,7 +188,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
     }
 
     return items;
-  }, [allTestCases, searchQuery, selectedTags, selectedFolder]);
+  }, [allItems, searchQuery, selectedTags, selectedFolder, selectedType]);
 
   // Get environment color for chips
   const getEnvironmentColor = (env?: string) => {
@@ -157,25 +201,37 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   };
 
   // Handle item selection
-  const handleItemSelect = (testcaseId: string) => {
-    console.log('[@TestCaseSelector] 🎯 Test case selected:', testcaseId);
-    onLoad(testcaseId);
+  const handleItemSelect = (item: ExecutableItem) => {
+    if (item.type === 'testcase') {
+      console.log('[@TestCaseSelector] 🎯 Test case selected:', item.testcase_id);
+      onLoad(item.testcase_id);
+    } else {
+      // Script selected - scripts can't be loaded in test case builder
+      console.log('[@TestCaseSelector] ℹ️ Script selected (not loadable):', item.script_name);
+    }
   };
 
   // Handle delete click with animation and refresh
-  const handleDeleteClick = async (e: React.MouseEvent, testcaseId: string, testcaseName: string) => {
+  const handleDeleteClick = async (e: React.MouseEvent, item: ExecutableItem) => {
     e.stopPropagation();
     
+    if (item.type === 'script') {
+      console.log('[@TestCaseSelector] Scripts cannot be deleted from here');
+      return;
+    }
+    
     // Show loading state
-    setDeletingTestCaseId(testcaseId);
+    setDeletingTestCaseId(item.testcase_id);
     
     try {
       if (onDelete) {
         // Call the parent delete handler (which shows confirmation and handles deletion)
-        await onDelete(testcaseId, testcaseName);
+        await onDelete(item.testcase_id, item.testcase_name);
         
         // Optimistically remove from frontend immediately
-        setAllTestCases(prev => prev.filter(tc => tc.testcase_id !== testcaseId));
+        setAllItems(prev => prev.filter(i => 
+          i.type === 'script' || i.testcase_id !== item.testcase_id
+        ));
         
         // Call success callback if provided
         if (onDeleteSuccess) {
@@ -184,13 +240,13 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
         
         // Refresh the list after a short delay to ensure backend is updated
         setTimeout(() => {
-          loadTestCases();
+          loadAll();
         }, 500);
       }
     } catch (error) {
       console.error('[@TestCaseSelector] Error deleting test case:', error);
       // Reload on error to ensure UI is in sync
-      loadTestCases();
+      loadAll();
     } finally {
       setDeletingTestCaseId(null);
     }
@@ -220,7 +276,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       <Box sx={{ display: 'flex', gap: 1, mb: 1, mt: 1, alignItems: 'flex-start' }}>
         <TextField
           size="small"
-          placeholder="Search by name, description, UI..."
+          placeholder="Search by name..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           InputProps={{
@@ -231,6 +287,25 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
             ),
           }}
           sx={{ flex: 1 }}
+        />
+
+        {/* NEW: Type Filter */}
+        <Autocomplete
+          size="small"
+          value={selectedType}
+          onChange={(_event, newValue) => setSelectedType(newValue || 'All')}
+          options={['All', 'TestCase', 'Script']}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              label="Type"
+              InputLabelProps={{
+                shrink: true,
+                sx: { backgroundColor: 'background.paper', px: 0.5 }
+              }}
+            />
+          )}
+          sx={{ minWidth: 120 }}
         />
 
         <Autocomplete
@@ -307,27 +382,31 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
         />
       </Box>
 
-      {/* Test Case List - Compact 2-line format */}
+      {/* Item List - Compact format for test cases and scripts */}
       <Box>
         <Paper variant="outlined" sx={{ maxHeight: 400, overflow: 'auto' }}>
-          {filteredTestCases.length === 0 ? (
+          {filteredItems.length === 0 ? (
             <Box sx={{ p: 3, textAlign: 'center' }}>
               <Typography variant="body2" color="text.secondary">
-                {allTestCases.length === 0 
-                  ? 'No test cases found. Create one first!'
-                  : 'No test cases match your filters'
+                {allItems.length === 0 
+                  ? 'No test cases or scripts found. Create one first!'
+                  : 'No items match your filters'
                 }
               </Typography>
             </Box>
           ) : (
             <List dense disablePadding>
-              {filteredTestCases.map(tc => {
-                const isSelected = selectedTestCaseId === tc.testcase_id;
-                const blockCount = tc.graph_json?.nodes?.length || 0;
+              {filteredItems.map(item => {
+                const isTestCase = item.type === 'testcase';
+                const itemId = isTestCase ? item.testcase_id : item.script_name;
+                const isSelected = selectedTestCaseId === itemId;
+                
+                // For test cases, get block count
+                const blockCount = isTestCase ? (item.graph_json?.nodes?.length || 0) : undefined;
                 
                 return (
                   <ListItem
-                    key={tc.testcase_id}
+                    key={itemId}
                     disablePadding
                     sx={{
                       borderBottom: 1,
@@ -338,13 +417,13 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                     }}
                   >
                     <ListItemButton
-                      onClick={() => handleItemSelect(tc.testcase_id)}
+                      onClick={() => handleItemSelect(item)}
                       selected={isSelected}
                       sx={{
                         py: 0.5,
                         px: 1.5,
                         display: 'flex',
-                        flexDirection: 'row',  // Single line layout
+                        flexDirection: 'row',
                         alignItems: 'center',
                         gap: 1,
                         color: isSelected ? 'primary.contrastText' : 'inherit'
@@ -354,9 +433,10 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
                         {/* Badge */}
                         <Chip
-                          label="TC"
+                          icon={isTestCase ? undefined : <ScriptIcon />}
+                          label={isTestCase ? "TC" : "S"}
                           size="small"
-                          color="secondary"
+                          color={isTestCase ? "secondary" : "primary"}
                           sx={{
                             height: '18px',
                             fontSize: '0.65rem',
@@ -364,7 +444,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                             fontWeight: 'bold',
                             flexShrink: 0,
                             bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
-                            color: isSelected ? 'secondary.main' : undefined
+                            color: isSelected ? (isTestCase ? 'secondary.main' : 'primary.main') : undefined
                           }}
                         />
                         
@@ -382,121 +462,129 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                             flexShrink: 0,
                           }}
                         >
-                          {tc.testcase_name}
+                          {isTestCase ? item.testcase_name : item.script_name}
                         </Typography>
                         
                         {/* Separator */}
                         <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
                         
-                        {/* Description */}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.75rem',
-                            flex: '1 1 200px',
-                            minWidth: 0,
-                            opacity: 0.85,
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis',
-                            whiteSpace: 'nowrap',
-                          }}
-                        >
-                          {tc.description || 'No description'}
-                        </Typography>
+                        {/* Description (Test Cases only) */}
+                        {isTestCase && (
+                          <>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontSize: '0.75rem',
+                                flex: '1 1 200px',
+                                minWidth: 0,
+                                opacity: 0.85,
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis',
+                                whiteSpace: 'nowrap',
+                              }}
+                            >
+                              {item.description || 'No description'}
+                            </Typography>
+                            
+                            {/* Separator */}
+                            <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                          </>
+                        )}
                         
-                        {/* Separator */}
-                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
-                        
-                        {/* UI + Blocks */}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.75rem',
-                            opacity: 0.8,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                            minWidth: 120,
-                          }}
-                        >
-                          {tc.userinterface_name || 'No UI'} • {blockCount} blocks
-                        </Typography>
-                        
-                        {/* Separator */}
-                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                        {/* UI + Blocks (Test Cases only) */}
+                        {isTestCase && (
+                          <>
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontSize: '0.75rem',
+                                opacity: 0.8,
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                minWidth: 120,
+                              }}
+                            >
+                              {item.userinterface_name || 'No UI'} • {blockCount} blocks
+                            </Typography>
+                            
+                            {/* Separator */}
+                            <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
 
-                        {/* Environment Badge */}
-                        <Chip
-                          label={(tc.environment || 'dev').toUpperCase()}
-                          size="small"
-                          color={getEnvironmentColor(tc.environment)}
-                          sx={{
-                            height: '16px',
-                            fontSize: '0.6rem',
-                            fontWeight: 'bold',
-                            flexShrink: 0,
-                            bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
-                            color: isSelected 
-                              ? tc.environment === 'prod' ? 'error.main' 
-                                : tc.environment === 'test' ? 'warning.main' 
-                                : 'success.main'
-                              : undefined
-                          }}
-                        />
-                        
-                        {/* Version */}
-                        <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.8, flexShrink: 0 }}>
-                          v{tc.current_version || 1}
-                        </Typography>
-                        
-                        {/* Separator */}
-                        <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
-                        
-                        {/* Execution Status */}
-                        <Typography
-                          variant="caption"
-                          sx={{
-                            fontSize: '0.7rem',
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 0.25,
-                            opacity: 0.85,
-                            whiteSpace: 'nowrap',
-                            flexShrink: 0,
-                            minWidth: 100,
-                          }}
-                        >
-                          {tc.execution_count && tc.execution_count > 0 ? (
-                            <>
-                              {tc.last_execution_success ? (
-                                <CheckCircleIcon 
-                                  fontSize="inherit" 
-                                  sx={{ 
-                                    fontSize: '0.9rem',
-                                    color: isSelected ? 'rgba(255,255,255,0.9)' : 'success.main'
-                                  }} 
-                                />
+                            {/* Environment Badge */}
+                            <Chip
+                              label={(item.environment || 'dev').toUpperCase()}
+                              size="small"
+                              color={getEnvironmentColor(item.environment)}
+                              sx={{
+                                height: '16px',
+                                fontSize: '0.6rem',
+                                fontWeight: 'bold',
+                                flexShrink: 0,
+                                bgcolor: isSelected ? 'rgba(255,255,255,0.9)' : undefined,
+                                color: isSelected 
+                                  ? item.environment === 'prod' ? 'error.main' 
+                                    : item.environment === 'test' ? 'warning.main' 
+                                    : 'success.main'
+                                  : undefined
+                              }}
+                            />
+                            
+                            {/* Version */}
+                            <Typography variant="caption" sx={{ fontSize: '0.7rem', opacity: 0.8, flexShrink: 0 }}>
+                              v{item.current_version || 1}
+                            </Typography>
+                            
+                            {/* Separator */}
+                            <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
+                            
+                            {/* Execution Status */}
+                            <Typography
+                              variant="caption"
+                              sx={{
+                                fontSize: '0.7rem',
+                                display: 'flex',
+                                alignItems: 'center',
+                                gap: 0.25,
+                                opacity: 0.85,
+                                whiteSpace: 'nowrap',
+                                flexShrink: 0,
+                                minWidth: 100,
+                              }}
+                            >
+                              {item.execution_count && item.execution_count > 0 ? (
+                                <>
+                                  {item.last_execution_success ? (
+                                    <CheckCircleIcon 
+                                      fontSize="inherit" 
+                                      sx={{ 
+                                        fontSize: '0.9rem',
+                                        color: isSelected ? 'rgba(255,255,255,0.9)' : 'success.main'
+                                      }} 
+                                    />
+                                  ) : (
+                                    <ErrorIcon 
+                                      fontSize="inherit" 
+                                      sx={{ 
+                                        fontSize: '0.9rem',
+                                        color: isSelected ? 'rgba(255,255,255,0.9)' : 'error.main'
+                                      }} 
+                                    />
+                                  )}
+                                  {item.execution_count} run{item.execution_count > 1 ? 's' : ''}
+                                </>
                               ) : (
-                                <ErrorIcon 
-                                  fontSize="inherit" 
-                                  sx={{ 
-                                    fontSize: '0.9rem',
-                                    color: isSelected ? 'rgba(255,255,255,0.9)' : 'error.main'
-                                  }} 
-                                />
+                                'Never executed'
                               )}
-                              {tc.execution_count} run{tc.execution_count > 1 ? 's' : ''}
-                            </>
-                          ) : (
-                            'Never executed'
-                          )}
-                        </Typography>
+                            </Typography>
+                          </>
+                        )}
                         
                         {/* Tags */}
-                        {tc.tags && tc.tags.length > 0 && (
+                        {item.tags && item.tags.length > 0 && (
                           <>
                             <Typography variant="body2" sx={{ opacity: 0.5, flexShrink: 0 }}>•</Typography>
                             <Box sx={{ display: 'flex', gap: 0.25, flexShrink: 0 }}>
-                              {tc.tags.slice(0, 2).map(tagName => {
+                              {item.tags.slice(0, 2).map(tagName => {
                                 const tag = allTags.find(t => t.name === tagName);
                                 return (
                                   <Chip
@@ -512,21 +600,21 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                                   />
                                 );
                               })}
-                              {tc.tags.length > 2 && (
+                              {item.tags.length > 2 && (
                                 <Typography variant="caption" sx={{ fontSize: '0.65rem', opacity: 0.7 }}>
-                                  +{tc.tags.length - 2}
+                                  +{item.tags.length - 2}
                                 </Typography>
                               )}
                             </Box>
                           </>
                         )}
                         
-                        {/* Delete Button */}
-                        {onDelete && (
+                        {/* Delete Button (Test Cases only) */}
+                        {isTestCase && onDelete && (
                           <IconButton
                             size="small"
-                            onClick={(e) => handleDeleteClick(e, tc.testcase_id, tc.testcase_name)}
-                            disabled={deletingTestCaseId === tc.testcase_id}
+                            onClick={(e) => handleDeleteClick(e, item)}
+                            disabled={deletingTestCaseId === item.testcase_id}
                             sx={{
                               p: 0.5,
                               ml: 'auto',
@@ -540,7 +628,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                               }
                             }}
                           >
-                            {deletingTestCaseId === tc.testcase_id ? (
+                            {deletingTestCaseId === item.testcase_id ? (
                               <CircularProgress 
                                 size={16} 
                                 sx={{ 
@@ -565,12 +653,13 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       {/* Summary Footer */}
       <Box sx={{ mt: 1, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-          {filteredTestCases.length} test case{filteredTestCases.length !== 1 ? 's' : ''}
+          {filteredItems.length} item{filteredItems.length !== 1 ? 's' : ''}
+          {selectedType && selectedType !== 'All' && ` • ${selectedType}`}
           {selectedFolder && selectedFolder !== 'All' && ` in ${selectedFolder}`}
           {selectedTags.length > 0 && ` • ${selectedTags.join(', ')}`}
           {searchQuery && ` • "${searchQuery}"`}
         </Typography>
-        {(searchQuery || selectedTags.length > 0 || (selectedFolder && selectedFolder !== 'All')) && (
+        {(searchQuery || selectedTags.length > 0 || (selectedFolder && selectedFolder !== 'All') || (selectedType && selectedType !== 'All')) && (
           <Typography
             variant="caption"
             color="primary"
@@ -579,6 +668,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
               setSearchQuery('');
               setSelectedTags([]);
               setSelectedFolder('All');
+              setSelectedType('All');
             }}
           >
             Clear filters
@@ -588,4 +678,3 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
     </Box>
   );
 };
-
