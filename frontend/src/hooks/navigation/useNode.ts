@@ -385,7 +385,7 @@ export const useNode = (props?: UseNodeProps) => {
           treeId: executionTreeId,
           targetNodeId: selectedNode.id, // ✅ CORRECT: Use UUID as targetNodeId
           hostName: props.selectedHost.host_name,
-          deviceId: currentDeviceId || 'device1',
+          deviceId: props.selectedDeviceId || currentDeviceId || 'device1', // ✅ FIX: Use props.selectedDeviceId first
           userinterfaceName: userInterface?.name || '',
           currentNodeId: currentNodeId || undefined,
           onProgress: (message) => {
@@ -439,6 +439,7 @@ export const useNode = (props?: UseNodeProps) => {
     [
       props?.treeId,
       props?.selectedHost,
+      props?.selectedDeviceId,
       currentNodeId,
       updateCurrentPosition,
       navigationTransitions,
