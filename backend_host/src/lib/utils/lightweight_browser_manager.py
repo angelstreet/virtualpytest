@@ -382,15 +382,30 @@ class AsyncExecutor:
     
     @staticmethod
     def run_async(coro):
-        """Run async coroutine in sync context."""
+        """
+        Run async coroutine in sync context with proper event loop handling.
+        
+        Key scenarios:
+        1. Main thread with no loop: create one with asyncio.run()
+        2. Main thread with stopped loop: use run_until_complete()
+        3. Background thread (like async execution): create new loop with asyncio.run()
+        4. Already in async context (loop running): ERROR - should use await instead
+        """
+        import threading
+        
+        # Check if we're in the main thread
+        is_main_thread = threading.current_thread() is threading.main_thread()
+        
         try:
             loop = asyncio.get_event_loop()
             if loop.is_running():
-                import concurrent.futures
-                with concurrent.futures.ThreadPoolExecutor() as executor:
-                    future = executor.submit(asyncio.run, coro)
-                    return future.result()
-            else:
+                raise RuntimeError("Cannot run async code in already-running event loop. Use await instead.")
+            
+            # Loop exists but not running
+            if is_main_thread:
                 return loop.run_until_complete(coro)
+            else:
+                # In background thread, create new loop
+                return asyncio.run(coro)
         except RuntimeError:
             return asyncio.run(coro)

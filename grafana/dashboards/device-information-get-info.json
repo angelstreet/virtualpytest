@@ -170,6 +170,93 @@
       },
       "fieldConfig": {
         "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View Report",
+                    "url": "${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Scanned"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  host_name as \"Host\",\n  userinterface_name as \"User Interface\",\n  COALESCE(metadata->'info'->>'S/N', metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Serial\",\n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as \"Software Version\",\n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as \"Hardware Version\",\n  COALESCE(metadata->'info'->>'MacAddress', metadata->'device_info'->'extracted_fields'->>'mac_address') as \"MAC Address\",\n  COALESCE(metadata->'info'->>'Device_IP', metadata->'device_info'->'extracted_fields'->>'ipv4_address') as \"IP Address\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, started_at DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Latest Device Info",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
           "color": {
             "mode": "palette-classic"
           },
@@ -201,7 +288,7 @@
         "h": 8,
         "w": 12,
         "x": 0,
-        "y": 9
+        "y": 15
       },
       "id": 3,
       "options": {
@@ -286,7 +373,7 @@
         "h": 8,
         "w": 12,
         "x": 12,
-        "y": 9
+        "y": 15
       },
       "id": 4,
       "options": {
@@ -387,7 +474,7 @@
         "h": 9,
         "w": 24,
         "x": 0,
-        "y": 17
+        "y": 23
       },
       "id": 5,
       "options": {
