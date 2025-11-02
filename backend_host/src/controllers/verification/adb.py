@@ -620,10 +620,8 @@ class ADBVerificationController(VerificationControllerInterface):
             
             output_data = {
                 'parsed_data': parsed_data,
-                'raw_output': str(raw_dump),  # Keep as string for backward compatibility
                 'raw_dump': raw_dump,  # Full structured dump for debugging
-                'element_count': len(filtered_elements),
-                'area': area
+                'element_count': len(filtered_elements)
             }
             
             # Print raw dump for debugging

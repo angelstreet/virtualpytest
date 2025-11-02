@@ -443,7 +443,20 @@ class ActionExecutor:
             
             try:
                 # Use action params directly - wait_time is already in params from database
-                params = action.get('params', {})
+                raw_params = action.get('params', {})
+                
+                # ✅ CRITICAL: Clean params - extract actual values from typed schema objects
+                # Frontend may send params as {default: X, type: Y, required: Z} instead of just X
+                # This ensures both single-block execute and full test-case execute work identically
+                params = {}
+                for key, value in raw_params.items():
+                    # If value is a typed param schema object (has 'default' field), extract the default
+                    if isinstance(value, dict) and 'default' in value and 'type' in value:
+                        params[key] = value['default']
+                    else:
+                        # Already a simple value
+                        params[key] = value
+                
                 action_type = action.get('action_type')
                 
                 # Dynamic action_type detection based on device controllers (with caching)

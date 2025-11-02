@@ -132,17 +132,28 @@ class TextHelpers:
             cv2.imwrite(gray_path, gray)
             print(f"[@text_helpers:OCR] Saved grayscale image: {gray_filename}")
             
+            # Enhance contrast using CLAHE (Contrast Limited Adaptive Histogram Equalization)
+            # This helps detect very light gray text
+            clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+            enhanced = clahe.apply(gray)
+            
+            # Save enhanced image
+            enhanced_filename = f'text_detection_{timestamp}_enhanced.png'
+            enhanced_path = os.path.join(self.captures_path, enhanced_filename)
+            cv2.imwrite(enhanced_path, enhanced)
+            print(f"[@text_helpers:OCR] Saved contrast-enhanced image: {enhanced_filename}")
+            
             # Try multiple preprocessing approaches for better OCR on gray text
-            # Approach 1: Adaptive thresholding (better for varying lighting/contrast)
+            # Approach 1: Adaptive thresholding on enhanced image
             binary_adaptive = cv2.adaptiveThreshold(
-                gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
+                enhanced, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY, 11, 2
             )
             
-            # Approach 2: OTSU thresholding (automatic threshold selection)
-            _, binary_otsu = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
+            # Approach 2: OTSU thresholding on enhanced image
+            _, binary_otsu = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY + cv2.THRESH_OTSU)
             
-            # Approach 3: Inverted OTSU (for light text on dark background)
-            _, binary_otsu_inv = cv2.threshold(gray, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+            # Approach 3: Inverted OTSU on enhanced (for light text on dark background)
+            _, binary_otsu_inv = cv2.threshold(enhanced, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
             
             # Save all preprocessed versions for debugging
             adaptive_filename = f'text_detection_{timestamp}_adaptive.png'
@@ -174,6 +185,7 @@ class TextHelpers:
                 ('adaptive', binary_adaptive),
                 ('otsu', binary_otsu),
                 ('otsu_inv', binary_otsu_inv),
+                ('enhanced', enhanced),  # Try contrast-enhanced grayscale
                 ('grayscale', gray)  # Also try raw grayscale
             ]:
                 with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:

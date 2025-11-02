@@ -1841,28 +1841,12 @@ class PlaywrightWebController(WebControllerInterface):
             
             output_data = {
                 'parsed_data': parsed_data,
-                'raw_output': str(raw_dump),  # Keep as string for backward compatibility
                 'raw_dump': raw_dump,  # Full structured dump for debugging
-                'element_count': len(filtered_elements),
-                'area': area,
-                'page_title': dump_result.get('summary', {}).get('page_title'),
-                'page_url': dump_result.get('summary', {}).get('page_url')
+                'element_count': len(filtered_elements)
             }
             
-            # Print raw dump for debugging
-            print(f"[@controller:PlaywrightWeb:getMenuInfo] Full raw dump available with {len(raw_dump)} elements")
-            print(f"[@controller:PlaywrightWeb:getMenuInfo] === RAW DUMP START ===")
-            for i, elem_data in enumerate(raw_dump, 1):
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]   Element {i}/{len(raw_dump)}:")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Index: {elem_data['index']}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Tag: {elem_data['tagName']}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Text: {repr(elem_data['textContent'])}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Selector: {elem_data['selector']}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Class: {elem_data['className']}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     ID: {elem_data['id']}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Aria-label: {elem_data['aria-label']}")
-                print(f"[@controller:PlaywrightWeb:getMenuInfo]     Position: {elem_data['position']}")
-            print(f"[@controller:PlaywrightWeb:getMenuInfo] === RAW DUMP END ===")
+            print(f"[@controller:PlaywrightWeb:getMenuInfo] 📤 RETURNING output_data with {len(parsed_data)} parsed_data entries")
+            print(f"[@controller:PlaywrightWeb:getMenuInfo] 📤 output_data keys: {list(output_data.keys())}")
             
             # 6. Return same format as text.getMenuInfo
             message = f'Parsed {len(parsed_data)} fields from {len(filtered_elements)} web elements'

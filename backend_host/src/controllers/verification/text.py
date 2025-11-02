@@ -806,7 +806,7 @@ class TextVerificationController:
                 print(f"[@controller:TextVerification:getMenuInfo] WARNING: No context provided, metadata not stored")
 
             
-            # Prepare raw_dump structure (consistent with ADB/Playwright)
+            # Prepare raw_dump structure (consistent with ADB)
             # Split OCR text into lines for structured debugging
             ocr_lines = extracted_text.split('\n')
             raw_dump = []
@@ -819,27 +819,18 @@ class TextVerificationController:
                     'is_empty': len(line.strip()) == 0
                 })
             
-            # Prepare output data (consistent with ADB/Playwright)
+            # Prepare output data (CLEAN structure - only 3 fields displayed to user)
             output_data = {
-                'parsed_data': parsed_data,
-                'raw_output': extracted_text,  # Keep as string for backward compatibility (same as ADB/Playwright)
-                'raw_dump': raw_dump,  # Full structured dump for debugging (same as ADB/Playwright)
-                'element_count': len(ocr_lines),  # Number of lines extracted (same as ADB/Playwright)
-                'area': area,
-                # OCR-specific extra fields
-                'ocr_text': extracted_text,  # Keep for backward compatibility
-                'character_count': result.get('character_count', 0),
-                'word_count': result.get('word_count', 0),
-                'language': result.get('language', 'en'),
-                'source_image': source_path,
-                'processed_image': result.get('image_textdetected_path', '')
+                'parsed_data': parsed_data,           # Parsed key-value pairs
+                'raw_dump': raw_dump,                 # Structured line-by-line dump
+                'element_count': len(ocr_lines)       # Number of lines
             }
             
             print(f"[@controller:TextVerification:getMenuInfo] 📤 RETURNING output_data with {len(parsed_data)} parsed_data entries")
             print(f"[@controller:TextVerification:getMenuInfo] 📤 output_data keys: {list(output_data.keys())}")
             
             # Construct success message
-            message = f'Parsed {len(parsed_data)} fields and auto-stored to metadata'
+            message = f'Parsed {len(parsed_data)} fields from {len(ocr_lines)} OCR lines'
             
             print(f"[@controller:TextVerification:getMenuInfo] ✅ SUCCESS: {message}")
             
