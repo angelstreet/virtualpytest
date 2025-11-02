@@ -118,8 +118,8 @@ class TextVerificationController:
                     print(f"[@controller:TextVerification] Skip: {os.path.basename(source_path)}")
                     continue
                     
-                # Extract text from area
-                extracted_text = self._extract_text_from_area(source_path, area, image_filter)
+            # Extract text from area (use simple OCR for regular text verification)
+            extracted_text = self._extract_text_from_area(source_path, area, image_filter)
                 
                 # Keep track of the longest extracted text as "closest"
                 if len(extracted_text.strip()) > len(closest_text):
@@ -600,18 +600,19 @@ class TextVerificationController:
     def _extract_text_from_area(self, image_path: str, area: dict = None, image_filter: str = None) -> str:
         """
         Extract text from image area using TextHelpers.
+        Uses SIMPLE OCR (fast, reliable for regular text).
         
         Args:
             image_path: Path to the image file
             area: Optional area to crop {'x': x, 'y': y, 'width': width, 'height': height}
-            image_filter: Optional filter to apply to the image before OCR
+            image_filter: Optional filter to apply to the image before OCR (not used - for compatibility)
             
         Returns:
             str: extracted text
         """
         try:
-            # Use TextHelpers to extract text (handles cropping, filtering, and OCR)
-            result = self.helpers.detect_text_in_area(image_path, area)
+            # Use TextHelpers with SIMPLE OCR (use_advanced_ocr=False - default)
+            result = self.helpers.detect_text_in_area(image_path, area, use_advanced_ocr=False)
             
             extracted_text = result.get('extracted_text', '')
             
@@ -744,9 +745,9 @@ class TextVerificationController:
                     'message': f'Source image not found: {source_path}'
                 }
             
-            # Extract text using helper
-            print(f"[@controller:TextVerification:getMenuInfo] OCR extraction...")
-            result = self.helpers.detect_text_in_area(source_path, area)
+            # Extract text using helper with ADVANCED OCR (multi-approach for difficult gray text)
+            print(f"[@controller:TextVerification:getMenuInfo] OCR extraction with ADVANCED multi-approach...")
+            result = self.helpers.detect_text_in_area(source_path, area, use_advanced_ocr=True)
             extracted_text = result.get('extracted_text', '')
             
             if not extracted_text:
