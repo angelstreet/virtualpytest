@@ -773,6 +773,7 @@ class TestCaseExecutor:
             # Terminal blocks
             if node_type == 'success':
                 context.overall_success = True
+                print(f"[@testcase_executor:{execution_id}] ✅ REACHED SUCCESS BLOCK - about to resolve metadata")
                 
                 # 🔍 DEBUG: Log block_outputs before resolution
                 print(f"[@testcase_executor:{execution_id}] 🔍 DEBUG: block_outputs before resolution:")
@@ -783,7 +784,9 @@ class TestCaseExecutor:
                     print(f"  - {block_id}: {list(outputs.keys()) if isinstance(outputs, dict) else outputs}")
                 
                 # Resolve scriptConfig outputs and metadata before returning
+                print(f"[@testcase_executor:{execution_id}] 🔄 Calling _resolve_script_outputs_and_metadata...")
                 self._resolve_script_outputs_and_metadata(graph, context)
+                print(f"[@testcase_executor:{execution_id}] ✅ Metadata resolution completed")
                 
                 return {'success': True, 'result_type': 'success'}
             
@@ -800,6 +803,19 @@ class TestCaseExecutor:
                 return {'success': False, 'result_type': 'error', 'error': error_msg}
             
             block_duration_ms = int((time.time() - block_start_time) * 1000)
+            
+            # ✅ Store block output_data for scriptConfig resolution (CRITICAL!)
+            if block_result.get('output_data'):
+                if not hasattr(context, 'block_outputs'):
+                    context.block_outputs = {}
+                context.block_outputs[current_node_id] = block_result['output_data']
+                print(f"[@testcase_executor:{execution_id}] ✅ Stored block outputs for {current_node_id}: {list(block_result['output_data'].keys())}")
+                
+                # 🆕 Immediately update any variables linked to this block's outputs
+                self._update_linked_variables(current_node_id, block_result['output_data'], graph, context, execution_id)
+                
+                # 🆕 Immediately update any metadata fields linked to this block's outputs or variables
+                self._update_linked_metadata(current_node_id, block_result['output_data'], graph, context, execution_id)
             
             # Update block state in execution tracking
             with self._lock:
@@ -1101,11 +1117,13 @@ class TestCaseExecutor:
             
             execution_time_ms = int((time.time() - start_time) * 1000)
             
+            # ✅ Include output_data from result for block_outputs storage
             return {
                 'success': result['success'],
                 'execution_time_ms': execution_time_ms,
                 'message': f"Action: {command}",
-                'error': result.get('error')
+                'error': result.get('error'),
+                'output_data': result.get('output_data', {})  # ✅ Pass through output_data
             }
             
         except Exception as e:
@@ -1377,6 +1395,120 @@ class TestCaseExecutor:
                     print(f"[@testcase_executor]   ✓ {variable_name} = {context.variables[variable_name]} (default for {variable_type})")
         
         print(f"[@testcase_executor] ========================================================")
+    
+    def _update_linked_variables(self, block_id: str, output_data: Dict[str, Any], 
+                                  graph: Dict[str, Any], context: ScriptExecutionContext, 
+                                  execution_id: str):
+        """
+        Immediately update any variables that link to this block's outputs.
+        Called right after a block executes with outputs.
+        
+        Args:
+            block_id: The block that just executed
+            output_data: The output_data from the block
+            graph: Graph JSON with scriptConfig
+            context: Execution context
+            execution_id: Execution ID for logging
+        """
+        script_config = graph.get('scriptConfig')
+        if not script_config:
+            return
+        
+        variables = script_config.get('variables', [])
+        if not variables:
+            return
+        
+        # Initialize context.variables if not present
+        if not hasattr(context, 'variables'):
+            context.variables = {}
+        
+        # Check each variable to see if it links to this block
+        for variable in variables:
+            variable_name = variable.get('name')
+            if not variable_name:
+                continue
+            
+            # Support both old single-link and new multi-link format
+            source_links = variable.get('sourceLinks', [])
+            
+            # Backward compatibility: convert old format to new
+            if not source_links and variable.get('sourceBlockId'):
+                source_links = [{
+                    'sourceBlockId': variable.get('sourceBlockId'),
+                    'sourceOutputName': variable.get('sourceOutputName'),
+                    'sourceOutputType': variable.get('sourceOutputType')
+                }]
+            
+            # Check if any source link matches this block
+            for link in source_links:
+                if link.get('sourceBlockId') == block_id:
+                    output_name = link.get('sourceOutputName')
+                    if output_name and output_name in output_data:
+                        value = output_data[output_name]
+                        context.variables[variable_name] = value
+                        print(f"[@testcase_executor:{execution_id}] 🔗 Updated variable '{variable_name}' = {value if not isinstance(value, dict) else '{...}'} (from block {block_id[:8]}... output '{output_name}')")
+    
+    def _update_linked_metadata(self, block_id: str, output_data: Dict[str, Any], 
+                                 graph: Dict[str, Any], context: ScriptExecutionContext, 
+                                 execution_id: str):
+        """
+        Immediately update any metadata fields that link to this block's outputs OR variables.
+        Called right after a block executes and variables are updated.
+        
+        Args:
+            block_id: The block that just executed
+            output_data: The output_data from the block
+            graph: Graph JSON with scriptConfig
+            context: Execution context
+            execution_id: Execution ID for logging
+        """
+        script_config = graph.get('scriptConfig')
+        if not script_config:
+            print(f"[@testcase_executor:{execution_id}] 🔍 _update_linked_metadata: No scriptConfig found")
+            return
+        
+        metadata_config = script_config.get('metadata', {})
+        metadata_fields = metadata_config.get('fields', [])
+        if not metadata_fields:
+            print(f"[@testcase_executor:{execution_id}] 🔍 _update_linked_metadata: No metadata fields configured")
+            return
+        
+        print(f"[@testcase_executor:{execution_id}] 🔍 _update_linked_metadata: Checking {len(metadata_fields)} metadata fields for block {block_id[:8]}...")
+        
+        # Initialize context.metadata if not present
+        if not hasattr(context, 'metadata'):
+            context.metadata = {}
+        
+        # Check each metadata field
+        for field in metadata_fields:
+            field_name = field.get('name')
+            source_block_id = field.get('sourceBlockId')
+            source_output_name = field.get('sourceOutputName')
+            
+            print(f"[@testcase_executor:{execution_id}]   🔍 Metadata '{field_name}': sourceBlockId={source_block_id[:8] if source_block_id else 'None'}..., sourceOutputName={source_output_name}")
+            
+            if not field_name or not source_block_id or not source_output_name:
+                print(f"[@testcase_executor:{execution_id}]   ⚠️ Skipping '{field_name}': missing config")
+                continue
+            
+            # Check if this metadata field links to the block that just executed
+            if source_block_id == block_id:
+                print(f"[@testcase_executor:{execution_id}]   ✅ Block ID matches! Checking output '{source_output_name}'...")
+                
+                # First check if source_output_name is a variable name
+                if hasattr(context, 'variables') and source_output_name in context.variables:
+                    value = context.variables[source_output_name]
+                    context.metadata[field_name] = value
+                    print(f"[@testcase_executor:{execution_id}]   📋 Updated metadata '{field_name}' = {value if not isinstance(value, dict) else '{...}'} (from variable '{source_output_name}')")
+                # Otherwise check if it's a direct block output
+                elif source_output_name in output_data:
+                    value = output_data[source_output_name]
+                    context.metadata[field_name] = value
+                    print(f"[@testcase_executor:{execution_id}]   📋 Updated metadata '{field_name}' = {value if not isinstance(value, dict) else '{...}'} (from block {block_id[:8]}... output '{source_output_name}')")
+                else:
+                    print(f"[@testcase_executor:{execution_id}]   ❌ Output '{source_output_name}' not found in variables or block outputs")
+            else:
+                print(f"[@testcase_executor:{execution_id}]   ⏭️ Block ID doesn't match (expected {source_block_id[:8]}..., got {block_id[:8]}...)")
     
     def _resolve_script_outputs_and_metadata(self, graph: Dict[str, Any], context: ScriptExecutionContext):
         """
