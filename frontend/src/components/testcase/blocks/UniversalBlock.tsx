@@ -235,26 +235,17 @@ export const UniversalBlock: React.FC<NodeProps & {
         result = navResult;
       } else if (isStandardBlock) {
         // ✅ Execute standard block using async polling (same as actions/verifications)
-        // Filter out null/undefined values from params
-        const cleanParams: Record<string, any> = {};
-        if (data.params) {
-          Object.entries(data.params).forEach(([key, value]) => {
-            if (value !== null && value !== undefined) {
-              cleanParams[key] = value;
-            }
-          });
-        }
+        const rawParams = data.params || {};
+        console.log('[@UniversalBlock] Params before resolution:', rawParams);
+        // ✅ Resolve {variable} references AND clean schema objects in one pass
+        const resolvedParams = resolveParamsVariables(rawParams, scriptInputs, scriptVariables);
         
-        // ✅ Resolve {variable} references to actual values before sending to backend
-        const resolvedParams = resolveParamsVariables(cleanParams, scriptInputs, scriptVariables);
-        
-        console.log('[@UniversalBlock] Params before resolution:', cleanParams);
-        console.log('[@UniversalBlock] Params after resolution:', resolvedParams);
+        console.log('[@UniversalBlock] Params after variable resolution:', resolvedParams);
         
         // Build action in EdgeAction format (standard blocks use same executor)
         const block = {
           command: data.command,
-          params: resolvedParams, // ✅ Use resolved params
+          params: resolvedParams, // ✅ Use cleaned + resolved params
         };
         
         // Standard blocks should use async pattern too (e.g., sleep(60) would timeout with sync)
@@ -335,21 +326,19 @@ export const UniversalBlock: React.FC<NodeProps & {
         }
       } else {
         // ✅ Execute action or verification using existing useAction hook (async polling built-in)
-        // Filter out null/undefined values from params
-        const cleanParams: Record<string, any> = {};
-        if (data.params) {
-          Object.entries(data.params).forEach(([key, value]) => {
-            if (value !== null && value !== undefined) {
-              cleanParams[key] = value;
-            }
-          });
-        }
+        const rawParams = data.params || {};
+        
+        console.log('[@UniversalBlock] Action/Verification params before resolution:', rawParams);
+        
+        // ✅ Resolve {variable} references AND schema objects (ensures area, etc. are concrete values)
+        const resolvedParams = resolveParamsVariables(rawParams, scriptInputs, scriptVariables);
+        console.log('[@UniversalBlock] Action/Verification params after variable resolution:', resolvedParams);
         
         // Build action in EdgeAction format for useAction hook
         const action = {
           command: data.command,
           name: data.label || data.command, // EdgeAction requires name field
-          params: cleanParams,
+          params: resolvedParams, // ✅ Use cleaned + resolved params
           action_type: data.action_type,
           verification_type: data.verification_type,
           threshold: data.threshold,
