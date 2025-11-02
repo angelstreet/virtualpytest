@@ -33,6 +33,8 @@ export interface TestCaseExecutionResponse {
   message?: string;
   report_url?: string;  // 🆕 Report URL from R2
   logs_url?: string;    // 🆕 Logs URL from R2
+  script_outputs?: Record<string, any>;  // Script output values
+  block_outputs?: Record<string, any>;   // Block output values
 }
 
 export interface ExecutionStatus {

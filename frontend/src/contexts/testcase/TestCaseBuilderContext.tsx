@@ -10,6 +10,7 @@ import {
   type UserInterface,
   type ActionCommand
 } from '../../hooks/testcase';
+import { useDeviceData } from '../device/DeviceDataContext';
 
 interface TestCaseBuilderContextType {
   // Graph state
@@ -143,6 +144,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     getAvailableActions, 
     getAvailableVerifications 
   } = useTestCaseBuilderHook();
+  const { currentDeviceId } = useDeviceData();
   
   // 🆕 ADD: Unified execution state management
   const unifiedExecution = useExecutionState();
@@ -512,10 +514,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         inputs: scriptInputs,
         outputs: scriptOutputs,
         variables: scriptVariables,
-        metadata: {
-          mode: 'append',
-          fields: scriptMetadata as MetadataField[]
-        }
+        metadata: scriptMetadata as MetadataField[]
       } as ScriptConfig
     };
     
@@ -523,9 +522,9 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     console.log('[@TestCaseBuilder:executeCurrentTestCase] 🔍 DEBUG - About to execute test case:');
     console.log('  • Graph nodes:', graph.nodes.length);
     console.log('  • Graph edges:', graph.edges.length);
-    console.log('  • ScriptConfig inputs:', JSON.stringify(graph.scriptConfig.inputs, null, 2));
-    console.log('  • ScriptConfig variables:', JSON.stringify(graph.scriptConfig.variables, null, 2));
-    console.log('  • ScriptConfig metadata:', JSON.stringify(graph.scriptConfig.metadata, null, 2));
+    console.log('  • ScriptConfig inputs:', JSON.stringify(graph.scriptConfig?.inputs, null, 2));
+    console.log('  • ScriptConfig variables:', JSON.stringify(graph.scriptConfig?.variables, null, 2));
+    console.log('  • ScriptConfig metadata:', JSON.stringify(graph.scriptConfig?.metadata, null, 2));
     console.log('  • First node data:', JSON.stringify(graph.nodes?.[0]?.data, null, 2));
     
     // 🆕 ADD: Initialize unified execution state (exclude START and terminal blocks)
@@ -544,9 +543,12 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     try {
       // Execute with async polling and real-time progress updates
       // ✅ Pass scriptInputs and scriptVariables for frontend variable resolution
+      if (!currentDeviceId) {
+        throw new Error('No device selected');
+      }
       const response = await executeTestCase(
         graph,
-        'device1',
+        currentDeviceId,
         hostName,
         userinterfaceName,
         scriptInputs,  // NEW: Pass scriptInputs for variable resolution
@@ -722,10 +724,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         inputs: scriptInputs,
         outputs: scriptOutputs,
         variables: scriptVariables,
-        metadata: {
-          mode: 'append',
-          fields: scriptMetadata as MetadataField[]
-        }
+        metadata: scriptMetadata as MetadataField[]
       } as ScriptConfig
     };
     
