@@ -247,11 +247,42 @@ class PlaywrightWebController(WebControllerInterface):
         return self.utils.run_async(_async_open_browser())
     
     def connect_browser(self) -> Dict[str, Any]:
-        """Connect to existing Chrome debug session without killing Chrome first."""
+        """Connect to existing Chrome debug session without killing Chrome first.
+        OPTIMIZED: Skip reconnection if already connected, skip sleep if Chrome already running.
+        """
         async def _async_connect_existing():
             try:
-                print(f"[PLAYWRIGHT]: Connecting to existing Chrome debug session")
                 start_time = time.time()
+                
+                # ✅ OPTIMIZATION 1: Check if already connected - skip reconnection
+                if self.__class__._chrome_running and self.__class__._browser_connected and self.__class__._browser and self.__class__._context:
+                    print(f"[PLAYWRIGHT]: Already connected to Chrome (PID: {self.__class__._chrome_process.pid if self.__class__._chrome_process else 'unknown'}), reusing connection")
+                    
+                    # Get existing page to verify connection is still alive
+                    try:
+                        page = await self._get_persistent_page()
+                        self.current_url = page.url
+                        self.page_title = await page.title() if page.url != 'about:blank' else ''
+                        
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"[PLAYWRIGHT]: Reused existing connection (skipped reconnection)")
+                        return {
+                            'success': True,
+                            'error': '',
+                            'execution_time': execution_time,
+                            'connected': True,
+                            'current_url': self.current_url,
+                            'page_title': self.page_title,
+                            'reused_connection': True
+                        }
+                    except Exception as verify_error:
+                        print(f"[PLAYWRIGHT]: Connection verification failed ({verify_error}), will reconnect...")
+                        # Fall through to reconnection logic
+                
+                print(f"[PLAYWRIGHT]: Connecting to Chrome debug session")
+                
+                # ✅ OPTIMIZATION 2: Track if Chrome was already running before connect()
+                chrome_was_already_running = self.__class__._chrome_running
                 
                 # Try to connect to existing Chrome debug session (no killing Chrome first)
                 try:
@@ -262,8 +293,6 @@ class PlaywrightWebController(WebControllerInterface):
                     # Get current page info from persistent page
                     self.current_url = page.url
                     self.page_title = await page.title() if page.url != 'about:blank' else ''
-                    
-                    # Connection state will be automatically detected via property
                     
                     execution_time = int((time.time() - start_time) * 1000)
                     
@@ -285,9 +314,12 @@ class PlaywrightWebController(WebControllerInterface):
                         if not self.connect():
                             raise Exception("Failed to launch Chrome")
                         
-                        # Wait 5 seconds for Chrome to fully initialize after launch
-                        print(f"[PLAYWRIGHT]: Waiting 5s for Chrome to fully initialize...")
-                        time.sleep(5)
+                        # ✅ OPTIMIZATION 3: Only sleep if we JUST launched Chrome (not already running)
+                        if not chrome_was_already_running:
+                            print(f"[PLAYWRIGHT]: Chrome was just launched, waiting 5s for initialization...")
+                            time.sleep(5)
+                        else:
+                            print(f"[PLAYWRIGHT]: Chrome was already running, skipping initialization delay")
                         
                         page = await self._get_persistent_page(target_url='https://google.fr')
                         
@@ -304,7 +336,7 @@ class PlaywrightWebController(WebControllerInterface):
                             'connected': True,
                             'current_url': self.current_url,
                             'page_title': self.page_title,
-                            'launched_new': True
+                            'launched_new': not chrome_was_already_running
                         }
                     except Exception as launch_error:
                         error_msg = f"Could not connect to existing Chrome and failed to launch new Chrome: {launch_error}"
