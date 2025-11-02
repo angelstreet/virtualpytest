@@ -186,10 +186,16 @@ class TextHelpers:
         """
         Parse key-value pairs from OCR text (menu format).
         
-        Extracts horizontal key-value pairs from text like:
+        Supports both horizontal and vertical layouts:
+        
+        HORIZONTAL (same line with delimiter):
         - "Serial Number: ABC123"
         - "MAC Address = 00:11:22:33:44:55"
         - "Firmware - 1.2.3"
+        
+        VERTICAL (consecutive lines):
+        - Line 1: "APPLICATION VERSION"
+        - Line 2: "67_2025102"
         
         Args:
             ocr_text: Raw OCR text from menu/info screen
@@ -198,23 +204,62 @@ class TextHelpers:
             Dict with parsed key-value pairs (keys normalized to lowercase with underscores)
         """
         parsed_data = {}
-        lines = ocr_text.split('\n')
+        lines = [line.strip() for line in ocr_text.split('\n') if line.strip()]
         
-        for line in lines:
-            line = line.strip()
-            if not line:
-                continue
+        i = 0
+        while i < len(lines):
+            line = lines[i]
             
-            # Try to split by common delimiters: colon, equals, dash
+            # Try horizontal format first (key:value, key=value, key-value)
+            found_horizontal = False
             for delimiter in [':', '=', '-']:
                 if delimiter in line:
-                    parts = line.split(delimiter, 1)  # Split only on first occurrence
+                    parts = line.split(delimiter, 1)
                     if len(parts) == 2:
-                        key = parts[0].strip().lower().replace(' ', '_')
+                        key_raw = parts[0].strip()
                         value = parts[1].strip()
-                        if key and value:
+                        
+                        # Validate: key should look like a label (contains letters, reasonable length)
+                        if key_raw and value and any(c.isalpha() for c in key_raw) and len(key_raw) < 50:
+                            key = key_raw.lower().replace(' ', '_').replace('(', '').replace(')', '')
                             parsed_data[key] = value
-                    break
+                            found_horizontal = True
+                            break
+            
+            if found_horizontal:
+                i += 1
+                continue
+            
+            # Try vertical format (current line is key, next line is value)
+            if i + 1 < len(lines):
+                potential_key = line
+                potential_value = lines[i + 1]
+                
+                # Heuristic: Key should contain letters and look like a label (all caps or title case)
+                # Value should be different from key (not another label)
+                is_key = (
+                    any(c.isalpha() for c in potential_key) and
+                    len(potential_key) < 50 and
+                    (potential_key.isupper() or potential_key.istitle()) and
+                    ':' not in potential_key and '=' not in potential_key  # No delimiters
+                )
+                
+                # Value should be different from key (not all caps label)
+                is_value = (
+                    potential_value and 
+                    potential_value != potential_key and
+                    not (potential_value.isupper() and len(potential_value) > 10 and any(c.isalpha() for c in potential_value))
+                )
+                
+                if is_key and is_value:
+                    key = potential_key.lower().replace(' ', '_').replace('(', '').replace(')', '')
+                    value = potential_value
+                    parsed_data[key] = value
+                    i += 2  # Skip both key and value lines
+                    continue
+            
+            # No pattern matched, skip this line
+            i += 1
         
         return parsed_data
 
