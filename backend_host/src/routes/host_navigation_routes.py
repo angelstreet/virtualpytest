@@ -717,37 +717,18 @@ def _execute_navigation_thread(
 ):
     """Execute navigation in background thread with progress tracking"""
     import sys
-    import io
     import time
     
-    # Capture logs for single navigation execution
-    log_buffer = io.StringIO()
-    old_stdout = sys.stdout
-    old_stderr = sys.stderr
-    
-    class Tee:
-        def __init__(self, *streams):
-            self.streams = streams
-        def write(self, data):
-            for stream in self.streams:
-                stream.write(data)
-                stream.flush()
-        def flush(self):
-            for stream in self.streams:
-                stream.flush()
-    
     try:
-        # Redirect stdout/stderr to BOTH terminal and buffer
-        sys.stdout = Tee(old_stdout, log_buffer)
-        sys.stderr = Tee(old_stderr, log_buffer)
-        
         # Update status
         with device.navigation_executor._lock:
             device.navigation_executor._executions[execution_id]['message'] = 'Executing navigation...'
             device.navigation_executor._executions[execution_id]['progress'] = 50
         
-        # Execute navigation (synchronous call in background thread)
-        result = device.navigation_executor.execute_navigation(
+        # ✅ Execute navigation through ExecutionOrchestrator for consistent logging
+        from backend_host.src.orchestrator import ExecutionOrchestrator
+        result = ExecutionOrchestrator.execute_navigation(
+            device=device,
             tree_id=tree_id,
             userinterface_name=userinterface_name,
             target_node_id=target_node_id,
@@ -758,12 +739,7 @@ def _execute_navigation_thread(
             team_id=team_id
         )
         
-        # Stop log capture and add logs to result
-        sys.stdout = old_stdout
-        sys.stderr = old_stderr
-        captured_logs = log_buffer.getvalue()
-        if captured_logs:
-            result['logs'] = captured_logs
+        # Logs are automatically captured by ExecutionOrchestrator.execute_with_logging()
         
         # Update with result
         with device.navigation_executor._lock:

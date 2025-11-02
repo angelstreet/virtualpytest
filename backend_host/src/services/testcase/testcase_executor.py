@@ -1201,7 +1201,7 @@ class TestCaseExecutor:
             }
     
     def _execute_navigation_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
-        """Execute navigation block using NavigationExecutor"""
+        """Execute navigation block using ExecutionOrchestrator"""
         start_time = time.time()
         
         try:
@@ -1229,16 +1229,20 @@ class TestCaseExecutor:
             print(f"[@testcase_executor:_execute_navigation_block]   → target_node_label: {data.get('target_node_label')}")
             print(f"[@testcase_executor:_execute_navigation_block]   → target_node_id: {data.get('target_node_id')}")
             
-            # Call navigation_executor with resilient parameter selection
+            # Call navigation through ExecutionOrchestrator for consistency
             # PRIORITY: Use label if available (more human-readable), fallback to ID
             # Backend validation requires EXACTLY ONE parameter, not both
             target_label = data.get('target_node_label') or data.get('target_node')
             target_id = data.get('target_node_id')
             
+            # ✅ Use ExecutionOrchestrator for unified logging and consistent execution
+            from backend_host.src.orchestrator import ExecutionOrchestrator
+            
             # Prefer label over ID - only pass ID if no label exists
             if target_label:
                 print(f"[@testcase_executor:_execute_navigation_block] Using target_node_label: {target_label}")
-                result = navigation_executor.execute_navigation(
+                result = ExecutionOrchestrator.execute_navigation(
+                    device=self.device,
                     tree_id=context.tree_id,
                     userinterface_name=context.userinterface_name,
                     target_node_id=None,  # Explicitly set to None when using label
@@ -1248,7 +1252,8 @@ class TestCaseExecutor:
                 )
             elif target_id:
                 print(f"[@testcase_executor:_execute_navigation_block] Using target_node_id: {target_id}")
-                result = navigation_executor.execute_navigation(
+                result = ExecutionOrchestrator.execute_navigation(
+                    device=self.device,
                     tree_id=context.tree_id,
                     userinterface_name=context.userinterface_name,
                     target_node_id=target_id,
