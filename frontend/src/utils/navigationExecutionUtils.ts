@@ -71,77 +71,106 @@ export async function executeNavigationAsync(params: {
     throw new Error(startResponse.error || 'Failed to start navigation');
   }
 
-  const executionId = startResponse.execution_id;
-  console.log('[@navigationExecutionUtils] ✅ Async execution started:', executionId);
-  
-  if (onProgress) {
-    onProgress(`Navigating to ${targetNodeLabel || targetNodeId}...`);
-  }
-
-  // Poll for completion
-  const statusUrl = buildServerUrl(
-    `/server/navigation/execution/${executionId}/status?host_name=${hostName}&device_id=${deviceId}`
-  );
-
-  let attempts = 0;
-  const maxAttempts = 60; // 60 * 1000ms = 60 seconds max
-
-  while (attempts < maxAttempts) {
-    await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every 1s
-    attempts++;
-
-    const statusResult = await fetch(statusUrl);
-    const statusResponse = await statusResult.json();
-
-    if (!statusResponse.success) {
-      throw new Error(statusResponse.error || 'Failed to get execution status');
+  // Check if response is synchronous (web devices) or async (other devices)
+  if (startResponse.execution_id) {
+    // ASYNC RESPONSE: Non-web devices (ADB, remote, etc.) - poll for completion
+    const executionId = startResponse.execution_id;
+    console.log('[@navigationExecutionUtils] ✅ Async execution started:', executionId);
+    
+    if (onProgress) {
+      onProgress(`Navigating to ${targetNodeLabel || targetNodeId}...`);
     }
 
-    if (statusResponse.status === 'completed') {
-      const response: NavigationExecuteResponse = {
-        ...statusResponse.result,
-        // ✅ Extract logs from top-level statusResponse (same as action/verification pattern)
-        logs: statusResponse.result?.logs || statusResponse.logs || '',
-        message: statusResponse.result?.message || statusResponse.message,
-      };
+    // Poll for completion
+    const statusUrl = buildServerUrl(
+      `/server/navigation/execution/${executionId}/status?host_name=${hostName}&device_id=${deviceId}`
+    );
 
-      if (!response.success) {
-        // ✅ Create error object with debug report URL if available
-        const error: any = new Error(response.error || 'Navigation execution failed');
-        error.debugReportUrl = response.error_details?.debug_report_url;
-        error.errorDetails = response.error_details;
-        error.logs = response.logs; // ✅ Include logs in error
+    let attempts = 0;
+    const maxAttempts = 60; // 60 * 1000ms = 60 seconds max
+
+    while (attempts < maxAttempts) {
+      await new Promise((resolve) => setTimeout(resolve, 1000)); // Poll every 1s
+      attempts++;
+
+      const statusResult = await fetch(statusUrl);
+      const statusResponse = await statusResult.json();
+
+      if (!statusResponse.success) {
+        throw new Error(statusResponse.error || 'Failed to get execution status');
+      }
+
+      if (statusResponse.status === 'completed') {
+        const response: NavigationExecuteResponse = {
+          ...statusResponse.result,
+          logs: statusResponse.result?.logs || statusResponse.logs || '',
+          message: statusResponse.result?.message || statusResponse.message,
+        };
+
+        if (!response.success) {
+          const error: any = new Error(response.error || 'Navigation execution failed');
+          error.debugReportUrl = response.error_details?.debug_report_url;
+          error.errorDetails = response.error_details;
+          error.logs = response.logs;
+          throw error;
+        }
+
+        if (onProgress) {
+          onProgress(`Navigation to ${targetNodeLabel} completed successfully`);
+        }
+
+        console.log('[@navigationExecutionUtils] ✅ Async navigation completed with logs:', {
+          hasLogs: Boolean(response.logs),
+          logsLength: response.logs?.length || 0
+        });
+
+        return response;
+      } else if (statusResponse.status === 'error') {
+        const error: any = new Error(statusResponse.error || 'Navigation execution failed');
+        if (statusResponse.result?.error_details) {
+          error.debugReportUrl = statusResponse.result.error_details.debug_report_url;
+          error.errorDetails = statusResponse.result.error_details;
+        }
+        error.logs = statusResponse.result?.logs || statusResponse.logs || '';
         throw error;
       }
 
-      if (onProgress) {
-        onProgress(`Navigation to ${targetNodeLabel} completed successfully`);
+      // Update progress message
+      if (statusResponse.message && onProgress) {
+        onProgress(statusResponse.message);
       }
+    }
 
-      console.log('[@navigationExecutionUtils] ✅ Navigation completed with logs:', {
-        hasLogs: Boolean(response.logs),
-        logsLength: response.logs?.length || 0
-      });
+    throw new Error('Navigation timeout - execution took too long');
+    
+  } else {
+    // SYNC RESPONSE: Web devices (Playwright) - result returned immediately
+    console.log('[@navigationExecutionUtils] ✅ Synchronous execution completed (web device)');
+    
+    const response: NavigationExecuteResponse = {
+      ...startResponse,
+      logs: startResponse.logs || '',
+      message: startResponse.message || 'Navigation completed',
+    };
 
-      return response;
-    } else if (statusResponse.status === 'error') {
-      // ✅ Create error object with debug report URL if available
-      const error: any = new Error(statusResponse.error || 'Navigation execution failed');
-      if (statusResponse.result?.error_details) {
-        error.debugReportUrl = statusResponse.result.error_details.debug_report_url;
-        error.errorDetails = statusResponse.result.error_details;
-      }
-      // ✅ Extract logs from error response too
-      error.logs = statusResponse.result?.logs || statusResponse.logs || '';
+    if (!response.success) {
+      const error: any = new Error(response.error || 'Navigation execution failed');
+      error.debugReportUrl = response.error_details?.debug_report_url;
+      error.errorDetails = response.error_details;
+      error.logs = response.logs;
       throw error;
     }
 
-    // Update progress message
-    if (statusResponse.message && onProgress) {
-      onProgress(statusResponse.message);
+    if (onProgress) {
+      onProgress(`Navigation to ${targetNodeLabel || targetNodeId} completed successfully`);
     }
-  }
 
-  throw new Error('Navigation timeout - execution took too long');
+    console.log('[@navigationExecutionUtils] ✅ Sync navigation completed with logs:', {
+      hasLogs: Boolean(response.logs),
+      logsLength: response.logs?.length || 0
+    });
+
+    return response;
+  }
 }
 
