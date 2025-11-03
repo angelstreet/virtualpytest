@@ -111,9 +111,29 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         # Ignore False values - once connected, always connected
     
     async def _get_persistent_page(self, target_url: str = None):
-        """Get the persistent page from browser+context. Assumes Chrome is running."""
-        # Implement async logic to get or create page
-        pass
+        """Get the persistent page from browser+context, creating/connecting if needed."""
+        # Ensure we have a connected browser/context
+        if not self.__class__._browser_connected or not self.__class__._context:
+            # Try to establish a connection (does NOT kill Chrome)
+            connect_result = await self.connect_browser()
+            if not connect_result or not connect_result.get('success'):
+                raise RuntimeError(f"Unable to get persistent page: connect_browser failed: {connect_result.get('error') if isinstance(connect_result, dict) else 'unknown error'}")
+
+        context = self.__class__._context
+        if context is None:
+            raise RuntimeError("Unable to get persistent page: browser context is not available")
+
+        # Reuse first page if any, else create a new page
+        try:
+            pages = context.pages
+            if pages and len(pages) > 0:
+                page = pages[0]
+            else:
+                page = await context.new_page()
+        except Exception as e:
+            raise RuntimeError(f"Failed to acquire page from context: {type(e).__name__}: {str(e)}")
+
+        return page
     
     async def _cleanup_persistent_browser(self):
         """Clean up persistent browser+context."""
@@ -831,7 +851,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             print(f"[PLAYWRIGHT]: Exception details - Type: {error_type}, Args: {e.args}")
             
             # Log connection state for debugging
-            print(f"[PLAYWRIGHT]: Connection state - is_connected: {self.is_connected}, _chrome_running: {self._chrome_running}, _browser_connected: {self._browser_connected}")
+            print(f"[PLAYWRIGHT]: Connection state - is_connected: {self.is_connected}, _chrome_running: {self.__class__._chrome_running}, _browser_connected: {self.__class__._browser_connected}")
             
             return {
                 'success': False,
@@ -840,8 +860,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 'error_details': str(e),
                 'connection_state': {
                     'is_connected': self.is_connected,
-                    'chrome_running': self._chrome_running,
-                    'browser_connected': self._browser_connected
+                    'chrome_running': self.__class__._chrome_running,
+                    'browser_connected': self.__class__._browser_connected
                 },
                 'execution_time': 0
             }
@@ -1045,7 +1065,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             # Check if connection issue and try to recover
             if 'Connection closed' in str(result.get('error', '')):
                 print(f"[PLAYWRIGHT]: Connection issue detected, attempting recovery...")
-                self._browser_connected = False  # Force reconnection
+                self.__class__._browser_connected = False  # Force reconnection
             result = await self.execute_javascript(script)
         
         # Log the structure found
@@ -1297,7 +1317,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'execution_time': 0
                 }
                 
-            return self.click_element(element_id)
+            return await self.click_element(element_id)
         
         elif command == 'find_element':
             selector = params.get('selector')
@@ -1309,7 +1329,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'execution_time': 0
                 }
                 
-            return self.find_element(selector)
+            return await self.find_element(selector)
         
         elif command == 'hover_element':
             selector = params.get('selector')
@@ -1321,7 +1341,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'execution_time': 0
                 }
                 
-            return self.hover_element(selector)
+            return await self.hover_element(selector)
         
         elif command == 'input_text':
             selector = params.get('selector')
@@ -1348,7 +1368,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'execution_time': 0
                 }
                 
-            return self.tap_x_y(x, y)
+            return await self.tap_x_y(x, y)
         
         elif command == 'execute_javascript':
             script = params.get('script')
