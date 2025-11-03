@@ -137,7 +137,8 @@ class TestCaseExecutor:
             self.context = context
             self.device = device
             
-            execution_result = self._execute_graph(graph, context)
+            import asyncio
+            execution_result = asyncio.run(self._execute_graph(graph, context))
             
             # Calculate execution time
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -342,7 +343,8 @@ class TestCaseExecutor:
             self.context = context
             self.device = device
             
-            execution_result = self._execute_graph(graph, context)
+            import asyncio
+            execution_result = asyncio.run(self._execute_graph(graph, context))
             
             # Calculate execution time
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -600,7 +602,8 @@ class TestCaseExecutor:
             
             # Execute graph with progress tracking
             print(f"[@testcase_executor:{execution_id}] Executing test case...")
-            execution_result = self._execute_graph_with_tracking(graph, context, execution_id)
+            import asyncio
+            execution_result = asyncio.run(self._execute_graph_with_tracking(graph, context, execution_id))
             
             # Calculate execution time
             execution_time_ms = int((time.time() - start_time) * 1000)
@@ -747,7 +750,7 @@ class TestCaseExecutor:
             
             return execution
     
-    def _execute_graph_with_tracking(self, graph: Dict[str, Any], context: ScriptExecutionContext, execution_id: str) -> Dict[str, Any]:
+    async def _execute_graph_with_tracking(self, graph: Dict[str, Any], context: ScriptExecutionContext, execution_id: str) -> Dict[str, Any]:
         """
         Execute graph with real-time progress tracking for async execution.
         Updates execution state as blocks are processed.
@@ -815,7 +818,7 @@ class TestCaseExecutor:
             # Execute block
             block_start_time = time.time()
             try:
-                block_result = self._execute_block(current_node, context)
+                block_result = await self._execute_block(current_node, context)
             except Exception as e:
                 error_msg = f"Block {current_node_id} execution error: {str(e)}"
                 return {'success': False, 'result_type': 'error', 'error': error_msg}
@@ -876,7 +879,7 @@ class TestCaseExecutor:
         
         return {'success': False, 'result_type': 'error', 'error': 'Graph execution ended unexpectedly'}
     
-    def _execute_graph(self, graph: Dict[str, Any], context: ScriptExecutionContext) -> Dict[str, Any]:
+    async def _execute_graph(self, graph: Dict[str, Any], context: ScriptExecutionContext) -> Dict[str, Any]:
         """
         Execute a test case graph by traversing nodes.
         
@@ -989,7 +992,7 @@ class TestCaseExecutor:
             # Execute block
             self.current_block_id = current_node_id  # Set for output storage
             try:
-                block_result = self._execute_block(current_node, context)
+                block_result = await self._execute_block(current_node, context)
             except Exception as e:
                 error_msg = f"Block {current_node_id} execution error: {str(e)}"
                 print(f"[@testcase_executor] ERROR: {error_msg}")
@@ -1044,7 +1047,7 @@ class TestCaseExecutor:
         
         return {'success': False, 'result_type': 'error', 'error': 'Graph execution ended unexpectedly'}
     
-    def _execute_block(self, node: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
+    async def _execute_block(self, node: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """
         Execute a single block by delegating to appropriate executor.
         Captures all stdout/stderr logs during execution.
@@ -1071,19 +1074,19 @@ class TestCaseExecutor:
             
             # Execute based on type
             if node_type == 'action':
-                result = self._execute_action_block(data, context)
+                result = await self._execute_action_block(data, context)
             elif node_type == 'verification':
                 # ✅ Verifications ARE actions (same as UniversalBlock.tsx line 302)
                 # Just execute as action - no special handling needed
-                result = self._execute_action_block(data, context)
+                result = await self._execute_action_block(data, context)
             elif node_type == 'navigation':
-                result = self._execute_navigation_block(data, context)
+                result = await self._execute_navigation_block(data, context)
             elif node_type == 'loop':
-                result = self._execute_loop_block(node, context)
+                result = await self._execute_loop_block(node, context)
             else:
                 # Try to execute as standard block (evaluate_condition, sleep, etc.)
                 # Block registry auto-discovers all blocks from builder/blocks/ folder
-                result = self._execute_standard_block(data, context)
+                result = await self._execute_standard_block(data, context)
             
             # Add captured logs to result
             result['logs'] = log_buffer.getvalue()
@@ -1094,7 +1097,7 @@ class TestCaseExecutor:
             sys.stdout = old_stdout
             sys.stderr = old_stderr
     
-    def _execute_action_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
+    async def _execute_action_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """
         Execute action block using Orchestrator.
         
@@ -1124,7 +1127,7 @@ class TestCaseExecutor:
             
             # Use orchestrator for unified logging
             from backend_host.src.orchestrator import ExecutionOrchestrator
-            result = ExecutionOrchestrator.execute_actions(
+            result = await ExecutionOrchestrator.execute_actions(
                 device=self.device,
                 actions=actions,
                 retry_actions=retry_actions,
@@ -1152,7 +1155,7 @@ class TestCaseExecutor:
                 'error': f'Action execution error: {str(e)}'
             }
     
-    def _execute_standard_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
+    async def _execute_standard_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """Execute standard block (like evaluate_condition) using Orchestrator"""
         start_time = time.time()
         
@@ -1168,7 +1171,7 @@ class TestCaseExecutor:
             
             # Use orchestrator for unified logging (same pattern as actions/verifications)
             from backend_host.src.orchestrator import ExecutionOrchestrator
-            result = ExecutionOrchestrator.execute_blocks(
+            result = await ExecutionOrchestrator.execute_blocks(
                 device=self.device,
                 blocks=blocks,
                 context=context
@@ -1200,7 +1203,7 @@ class TestCaseExecutor:
                 'error': f'Standard block execution error: {str(e)}'
             }
     
-    def _execute_navigation_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
+    async def _execute_navigation_block(self, data: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """Execute navigation block using ExecutionOrchestrator"""
         start_time = time.time()
         
@@ -1241,7 +1244,7 @@ class TestCaseExecutor:
             # Prefer label over ID - only pass ID if no label exists
             if target_label:
                 print(f"[@testcase_executor:_execute_navigation_block] Using target_node_label: {target_label}")
-                result = ExecutionOrchestrator.execute_navigation(
+                result = await ExecutionOrchestrator.execute_navigation(
                     device=self.device,
                     tree_id=context.tree_id,
                     userinterface_name=context.userinterface_name,
@@ -1252,7 +1255,7 @@ class TestCaseExecutor:
                 )
             elif target_id:
                 print(f"[@testcase_executor:_execute_navigation_block] Using target_node_id: {target_id}")
-                result = ExecutionOrchestrator.execute_navigation(
+                result = await ExecutionOrchestrator.execute_navigation(
                     device=self.device,
                     tree_id=context.tree_id,
                     userinterface_name=context.userinterface_name,
@@ -1288,7 +1291,7 @@ class TestCaseExecutor:
                 'error': f'Navigation execution error: {str(e)}'
             }
     
-    def _execute_loop_block(self, node: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
+    async def _execute_loop_block(self, node: Dict, context: ScriptExecutionContext) -> Dict[str, Any]:
         """Execute loop block with nested graph"""
         start_time = time.time()
         
@@ -1308,7 +1311,7 @@ class TestCaseExecutor:
             for i in range(iterations):
                 print(f"[@testcase_executor] Loop iteration {i+1}/{iterations}")
                 
-                result = self._execute_graph(nested_blocks, context)
+                result = await self._execute_graph(nested_blocks, context)
                 
                 # Check loop behavior (continue/break)
                 if not result['success']:
