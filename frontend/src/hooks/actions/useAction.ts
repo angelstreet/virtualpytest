@@ -189,74 +189,74 @@ export const useAction = () => {
           throw new Error('Server did not return execution_id');
         }
         
-        console.log('[useAction] ✅ Async execution started:', responseData.execution_id);
+          console.log('[useAction] ✅ Async execution started:', responseData.execution_id);
 
-        const executionId = responseData.execution_id;
-        const statusUrl = buildServerUrl(`/server/action/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId}`);
-        
-        let attempts = 0;
-        const maxAttempts = 180; // 180 * 1000ms = 180 seconds max
-        
-        while (attempts < maxAttempts) {
-          if (controller.signal.aborted) {
-            console.log('[useAction] ⛔ Polling aborted by user or timeout');
-            throw new Error('Execution cancelled');
-          }
-
-          await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
-          attempts++;
+          const executionId = responseData.execution_id;
+          const statusUrl = buildServerUrl(`/server/action/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId}`);
           
-          try {
-            const statusResult = await fetch(statusUrl, { signal: controller.signal });
-            const statusResponse = await statusResult.json();
-            
-            if (!statusResponse.success) {
-              throw new Error(statusResponse.error || 'Failed to get execution status');
-            }
-            
-            if (statusResponse.status === 'completed') {
-              const result = statusResponse.result;
-              
-              if (result.success !== undefined) {
-                setExecutionResults(result.results || []);
-                console.log('[useAction] Execution results set:', result.results);
-
-                const passedCount = result.passed_count || 0;
-                const totalCount = result.total_count || 0;
-                const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
-                setSuccessMessage(summaryMessage);
-
-                return {
-                  success: result.success,
-                  message: summaryMessage,
-                  results: result.results,
-                  passed_count: passedCount,
-                  total_count: totalCount,
-                  logs: result.logs,
-                  output_data: result.output_data,
-                };
-              } else {
-                const errorMsg = result.error || 'Action execution failed';
-                setError(errorMsg);
-                return { success: false, message: errorMsg, error: errorMsg };
-              }
-            } else if (statusResponse.status === 'error') {
-              throw new Error(statusResponse.error || 'Action execution failed');
-            }
-            // Status is 'pending' or 'running' - continue polling
-          } catch (fetchError) {
-            if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-              console.log('[useAction] ⛔ Status fetch aborted');
+          let attempts = 0;
+          const maxAttempts = 180; // 180 * 1000ms = 180 seconds max
+          
+          while (attempts < maxAttempts) {
+            if (controller.signal.aborted) {
+              console.log('[useAction] ⛔ Polling aborted by user or timeout');
               throw new Error('Execution cancelled');
             }
-            throw fetchError;
+
+            await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
+            attempts++;
+            
+            try {
+              const statusResult = await fetch(statusUrl, { signal: controller.signal });
+              const statusResponse = await statusResult.json();
+              
+              if (!statusResponse.success) {
+                throw new Error(statusResponse.error || 'Failed to get execution status');
+              }
+              
+              if (statusResponse.status === 'completed') {
+                const result = statusResponse.result;
+                
+                if (result.success !== undefined) {
+                  setExecutionResults(result.results || []);
+                  console.log('[useAction] Execution results set:', result.results);
+
+                  const passedCount = result.passed_count || 0;
+                  const totalCount = result.total_count || 0;
+                  const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
+                  setSuccessMessage(summaryMessage);
+
+                  return {
+                    success: result.success,
+                    message: summaryMessage,
+                    results: result.results,
+                    passed_count: passedCount,
+                    total_count: totalCount,
+                    logs: result.logs,
+                    output_data: result.output_data,
+                  };
+                } else {
+                  const errorMsg = result.error || 'Action execution failed';
+                  setError(errorMsg);
+                  return { success: false, message: errorMsg, error: errorMsg };
+                }
+              } else if (statusResponse.status === 'error') {
+                throw new Error(statusResponse.error || 'Action execution failed');
+              }
+              // Status is 'pending' or 'running' - continue polling
+            } catch (fetchError) {
+              if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+                console.log('[useAction] ⛔ Status fetch aborted');
+                throw new Error('Execution cancelled');
+              }
+              throw fetchError;
+            }
           }
-        }
-        
-        // Timeout reached
-        console.log('[useAction] ⏱️ Max polling attempts reached, aborting...');
-        controller.abort();
-        throw new Error('Action execution timeout - took too long');
+          
+          // Timeout reached
+          console.log('[useAction] ⏱️ Max polling attempts reached, aborting...');
+          controller.abort();
+          throw new Error('Action execution timeout - took too long');
         
       } catch (error) {
         console.error('[useAction] Error during action execution:', error);

@@ -350,7 +350,7 @@ class NavigationExecutor:
                         stale_node_id = nav_context['current_node_id']
                         stale_node_label = nav_context.get('current_node_label', 'unknown')
                         
-                        verification_result = self.device.verification_executor.verify_node(
+                        verification_result = await self.device.verification_executor.verify_node(
                             node_id=stale_node_id,
                             userinterface_name=userinterface_name,
                             team_id=team_id,
@@ -398,7 +398,7 @@ class NavigationExecutor:
                     # Check if target is a direct neighbor (1 step away)
                     if cached_graph.has_edge(current_position, target_node_id):
                         print(f"[@navigation_executor:execute_navigation] 🔍 Target is 1 step away - verifying if already there to catch position tracking bugs")
-                        verification_result = self.device.verification_executor.verify_node(
+                        verification_result = await self.device.verification_executor.verify_node(
                             node_id=target_node_id,
                             userinterface_name=userinterface_name,
                             team_id=team_id,
@@ -468,7 +468,7 @@ class NavigationExecutor:
                 print(f"[@navigation_executor:execute_navigation] 🔍 Context indicates already at target '{target_node_label or target_node_id}' - verifying...")
                 
                 # Always verify we're actually at this node (context may be stale or corrupted)
-                verification_result = self.device.verification_executor.verify_node(
+                verification_result = await self.device.verification_executor.verify_node(
                     node_id=target_node_id,
                     userinterface_name=userinterface_name,  # MANDATORY parameter
                     team_id=team_id,
@@ -545,7 +545,7 @@ class NavigationExecutor:
                 # No current position - verify if already at destination before starting navigation
                 print(f"[@navigation_executor:execute_navigation] No current position - checking if already at target '{target_node_label or target_node_id}'")
                 
-                verification_result = self.device.verification_executor.verify_node(
+                verification_result = await self.device.verification_executor.verify_node(
                     node_id=target_node_id,
                     userinterface_name=userinterface_name,
                     team_id=team_id,
@@ -623,7 +623,7 @@ class NavigationExecutor:
                     # Only verify home if: (1) home exists, (2) target is NOT home
                     if home_node_id and home_node_id != target_node_id:
                         print(f"[@navigation_executor:execute_navigation] Target is not home - verifying if at home")
-                        home_verification = self.device.verification_executor.verify_node(
+                        home_verification = await self.device.verification_executor.verify_node(
                             node_id=home_node_id,
                             userinterface_name=userinterface_name,
                             team_id=team_id,
@@ -1058,7 +1058,7 @@ class NavigationExecutor:
             # ✅ VERIFY FINAL DESTINATION
             print(f"[@navigation_executor] 🔍 Verifying final destination: {target_node_label or target_node_id}")
             verification_start_time = time.time()
-            verification_result = self.device.verification_executor.verify_node(
+            verification_result = await self.device.verification_executor.verify_node(
                 node_id=final_node_id,
                 userinterface_name=userinterface_name,  # MANDATORY parameter
                 team_id=team_id,
@@ -1729,7 +1729,7 @@ class NavigationExecutor:
             print(f"[@navigation_executor:_try_conditional_edge_siblings] Attempt {attempts}/{max_attempts}: Verifying {sibling_label} ({sibling_node_id})")
             
             # Verify sibling node
-            verification_result = self.device.verification_executor.verify_node(
+            verification_result = await self.device.verification_executor.verify_node(
                 node_id=sibling_node_id,
                 userinterface_name=userinterface_name,
                 team_id=team_id,

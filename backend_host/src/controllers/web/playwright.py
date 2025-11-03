@@ -82,7 +82,7 @@ class PlaywrightWebController(WebControllerInterface):
         self.__class__._browser = None
         self.__class__._context = None
         self.__class__._browser_connected = False
-
+    
     @property
     def is_connected(self):
         """Always connected once Chrome is running."""
@@ -167,18 +167,18 @@ class PlaywrightWebController(WebControllerInterface):
                 # Try to connect to existing Chrome or launch new one
                 if not self.is_connected:
                     print(f"[PLAYWRIGHT]: Chrome not running, launching...")
-                    await self.connect()
+                await self.connect()
                 
                 # Get page - if this fails, Chrome is not responding
                 page = await self._get_persistent_page()
                 
                 # Only navigate to Google if page is blank
                 if page.url in ['about:blank', '', 'chrome://newtab/']:
-                    page.goto('https://google.fr')
+                    await page.goto('https://google.fr')
                 
                 # Update page state
                 self.current_url = page.url
-                self.page_title = page.title()
+                self.page_title = await page.title()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 print(f"[PLAYWRIGHT]: Browser opened and ready")
@@ -202,11 +202,11 @@ class PlaywrightWebController(WebControllerInterface):
                 page = await self._get_persistent_page()
                 
                 # Navigate to Google
-                page.goto('https://google.fr')
+                await page.goto('https://google.fr')
                 
                 # Update page state
                 self.current_url = page.url
-                self.page_title = page.title()
+                self.page_title = await page.title()
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 print(f"[PLAYWRIGHT]: Browser restarted and ready")
@@ -229,7 +229,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0,
                 'connected': False
             }
-    
+        
     async def connect_browser(self) -> Dict[str, Any]:
         """Connect to existing Chrome debug session without killing Chrome first.
         OPTIMIZED: Skip reconnection if already connected, skip sleep if Chrome already running.
@@ -422,7 +422,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'normalized_url': normalized_url if 'normalized_url' in locals() else url,
                 'follow_redirects': follow_redirects
             }
-    
+        
     async def click_element(self, element_id: str) -> Dict[str, Any]:
         """Click an element using dump-first approach (like Android mobile).
         Supports pipe-separated fallback: "Settings|Preferences|Options"
@@ -535,7 +535,7 @@ class PlaywrightWebController(WebControllerInterface):
             selectors_to_try = [
                 selector,
                 f"[aria-label='{selector}']",
-                f"flt-semantics[aria-label='{selector}']",
+                f"[flt-semantics[aria-label='{selector}']",
             ]
             
             for i, sel in enumerate(selectors_to_try):
@@ -570,7 +570,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'error': error_msg,
                 'execution_time': 0
             }
-    
+        
     async def find_element(self, selector: str) -> Dict[str, Any]:
         """Find an element by searching within dumped elements (like Android mobile).
         
@@ -767,15 +767,15 @@ class PlaywrightWebController(WebControllerInterface):
             # Get persistent page from browser+context
             page = await self._get_persistent_page()
             
-            # Input text
+                # Input text
             await page.fill(selector, text)
-            
+                
             await asyncio.sleep(wait_time / 1000)
             
             result = {
                 'success': True,
                 'error': '',
-                'execution_time': int((time.time() - start_time) * 1000)
+            'execution_time': int((time.time() - start_time) * 1000)
             }
             
             print(f"[PLAYWRIGHT]: Text input successful")
@@ -789,7 +789,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'error': error_msg,
                 'execution_time': 0
             }
-    
+        
     async def tap_x_y(self, x: int, y: int) -> Dict[str, Any]:
         """Tap/click at specific coordinates."""
         try:
@@ -838,7 +838,7 @@ class PlaywrightWebController(WebControllerInterface):
                 },
                 'execution_time': 0
             }
-    
+        
     async def execute_javascript(self, script: str) -> Dict[str, Any]:
         """Execute JavaScript code in the page."""
         try:
@@ -992,7 +992,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'title': '',
                 'execution_time': 0
             }
-    
+        
     async def activate_semantic(self) -> Dict[str, Any]:
         """Activate semantic placeholder for Flutter web apps."""
         script = """
@@ -1115,7 +1115,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0,
                 'key_attempted': key
             }
-    
+        
     async def scroll(self, direction: str, amount: int = 300) -> Dict[str, Any]:
         """Scroll the page in a specific direction.
         
@@ -1246,7 +1246,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'task': task,
                 'execution_time': 0
             }
-    
+        
     async def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Execute web automation command with JSON parameters.
@@ -1594,7 +1594,7 @@ class PlaywrightWebController(WebControllerInterface):
             """
             
             # Execute the JavaScript
-            result = page.evaluate(js_code)
+            result = await page.evaluate(js_code)
             
             # Page remains persistent for next actions
             
@@ -1617,7 +1617,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': execution_time,
                 'error': ''
             }
-            
+                
         except Exception as e:
             error_msg = f"Dump elements error: {e}"
             print(f"[PLAYWRIGHT]: {error_msg}")
@@ -1627,7 +1627,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'elements': [],
                 'summary': {}
             }
-    
+        
     async def getMenuInfo(self, area: dict = None, context = None) -> Dict[str, Any]:
         """
         Extract menu info from web elements (Playwright-based alternative to OCR getMenuInfo)

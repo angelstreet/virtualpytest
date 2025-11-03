@@ -202,7 +202,7 @@ class VerificationExecutor:
                 'available_verifications': []
             }
     
-    def execute_verifications(self, 
+    async def execute_verifications(self, 
                             verifications: List[Dict[str, Any]],
                             userinterface_name: str,  # MANDATORY for reference resolution
                             image_source_url: Optional[str] = None,
@@ -263,7 +263,7 @@ class VerificationExecutor:
             verification_type = verification.get('verification_type', 'text')
             
             start_time = time.time()
-            result = self._execute_single_verification(verification, userinterface_name, image_source_url, context, team_id)
+            result = await self._execute_single_verification(verification, userinterface_name, image_source_url, context, team_id)
             execution_time = int((time.time() - start_time) * 1000)
             
             # Add execution time to result
@@ -386,7 +386,7 @@ class VerificationExecutor:
             'elapsed_time_ms': int((time.time() - execution['start_time']) * 1000)
         }
     
-    def verify_node(self, node_id: str, userinterface_name: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
+    async def verify_node(self, node_id: str, userinterface_name: str, team_id: str, tree_id: str = None, image_source_url: Optional[str] = None) -> Dict[str, Any]:
         """
         Execute verifications for a specific node during navigation.
         
@@ -449,7 +449,7 @@ class VerificationExecutor:
             actual_tree_id = node_data.get('tree_id')
             
             # Execute verifications with proper tree_id and node_id for database recording
-            return self.execute_verifications(
+            return await self.execute_verifications(
                 verifications=verifications,
                 userinterface_name=userinterface_name,  # MANDATORY parameter
                 image_source_url=image_source_url,
@@ -494,7 +494,7 @@ class VerificationExecutor:
         
         return valid_verifications
     
-    def _execute_single_verification(self, verification: Dict[str, Any], userinterface_name: str, image_source_url: Optional[str], context = None, team_id: str = None) -> Dict[str, Any]:
+    async def _execute_single_verification(self, verification: Dict[str, Any], userinterface_name: str, image_source_url: Optional[str], context = None, team_id: str = None) -> Dict[str, Any]:
         """Execute a single verification and return standardized result"""
         try:
             verification_type = verification.get('verification_type', 'text')

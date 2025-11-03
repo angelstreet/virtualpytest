@@ -106,25 +106,25 @@ def action_execute_batch():
             }), 500
         
         # Use WebWorker for async execution (handles both web and non-web actions)
-        from backend_host.src.lib.web_worker import WebWorker
+            from backend_host.src.lib.web_worker import WebWorker
         
         async def run_fn():
             return await ExecutionOrchestrator.execute_actions(
-                device=device,
-                actions=actions,
-                retry_actions=retry_actions,
-                failure_actions=failure_actions,
-                team_id=team_id,
-                context=None
-            )
+                    device=device,
+                    actions=actions,
+                    retry_actions=retry_actions,
+                    failure_actions=failure_actions,
+                    team_id=team_id,
+                    context=None
+                )
         
-        payload = {
-            'tree_id': data.get('tree_id'),
-            'edge_id': data.get('edge_id'),
-            'action_set_id': data.get('action_set_id'),
-            'target_node_id': data.get('target_node_id'),
-            'skip_db_recording': data.get('skip_db_recording', False),
-            'action_count': len(actions)
+            payload = {
+                'tree_id': data.get('tree_id'),
+                'edge_id': data.get('edge_id'),
+                'action_set_id': data.get('action_set_id'),
+                'target_node_id': data.get('target_node_id'),
+                'skip_db_recording': data.get('skip_db_recording', False),
+                'action_count': len(actions)
         }
         
         execution_id = WebWorker.instance().submit_async('action', payload, run_fn)
