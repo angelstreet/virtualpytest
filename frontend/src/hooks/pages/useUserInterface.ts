@@ -240,136 +240,6 @@ export const useUserInterface = () => {
   );
 
   /**
-   * Create a new user interface with validation
-   */
-  const createUserInterfaceWithValidation = useMemo(
-    () =>
-      async (
-        payload: UserInterfaceCreatePayload,
-        existingInterfaces: UserInterface[],
-        options?: { createNavigationConfig?: boolean },
-      ): Promise<UserInterface> => {
-        try {
-          // Validation: Name is required
-          if (!payload.name.trim()) {
-            throw new Error('Name is required');
-          }
-
-          // Validation: At least one model must be specified
-          if (payload.models.length === 0) {
-            throw new Error('At least one model must be specified');
-          }
-
-          // Validation: Check for duplicate names
-          const isDuplicate = existingInterfaces.some(
-            (ui) => ui.name.toLowerCase() === payload.name.toLowerCase().trim(),
-          );
-
-          if (isDuplicate) {
-            throw new Error('A user interface with this name already exists');
-          }
-
-          console.log(
-            '[@hook:useUserInterface:createUserInterfaceWithValidation] Creating user interface:',
-            payload,
-          );
-
-          // Normalize payload
-          const normalizedPayload: UserInterfaceCreatePayload = {
-            name: payload.name.trim(),
-            models: payload.models,
-            min_version: payload.min_version?.trim() || '',
-            max_version: payload.max_version?.trim() || '',
-          };
-
-          const createdInterface = await createUserInterface(normalizedPayload);
-
-          // Create navigation config if requested (default: true)
-          if (options?.createNavigationConfig !== false) {
-            try {
-              await createEmptyNavigationConfig(createdInterface);
-              console.log(
-                `[@hook:useUserInterface:createUserInterfaceWithValidation] Successfully created navigation config for: ${createdInterface.name}`,
-              );
-            } catch (configError) {
-              console.error(
-                '[@hook:useUserInterface:createUserInterfaceWithValidation] Error creating navigation config:',
-                configError,
-              );
-              throw new Error(
-                'User interface created successfully, but failed to create navigation config. You can still use the navigation editor.',
-              );
-            }
-          }
-
-          return createdInterface;
-        } catch (error) {
-          console.error(
-            '[@hook:useUserInterface:createUserInterfaceWithValidation] Error creating user interface:',
-            error,
-          );
-          throw error;
-        }
-      },
-    [createUserInterface, createEmptyNavigationConfig],
-  );
-
-  /**
-   * Update an existing user interface with validation
-   */
-  const updateUserInterfaceWithValidation = useMemo(
-    () =>
-      async (
-        id: string,
-        payload: UserInterfaceCreatePayload,
-        existingInterfaces: UserInterface[],
-      ): Promise<UserInterface> => {
-        try {
-          // Validation: Name is required
-          if (!payload.name.trim()) {
-            throw new Error('Name is required');
-          }
-
-          // Validation: At least one model must be specified
-          if (payload.models.length === 0) {
-            throw new Error('At least one model must be specified');
-          }
-
-          // Validation: Check for duplicate names (excluding current item)
-          const isDuplicate = existingInterfaces.some(
-            (ui) => ui.id !== id && ui.name.toLowerCase() === payload.name.toLowerCase().trim(),
-          );
-
-          if (isDuplicate) {
-            throw new Error('A user interface with this name already exists');
-          }
-
-          console.log(
-            `[@hook:useUserInterface:updateUserInterfaceWithValidation] Updating user interface ${id}:`,
-            payload,
-          );
-
-          // Normalize payload
-          const normalizedPayload: UserInterfaceCreatePayload = {
-            name: payload.name.trim(),
-            models: payload.models,
-            min_version: payload.min_version?.trim() || '',
-            max_version: payload.max_version?.trim() || '',
-          };
-
-          return await updateUserInterface(id, normalizedPayload);
-        } catch (error) {
-          console.error(
-            `[@hook:useUserInterface:updateUserInterfaceWithValidation] Error updating user interface ${id}:`,
-            error,
-          );
-          throw error;
-        }
-      },
-    [updateUserInterface],
-  );
-
-  /**
    * Create a new user interface
    */
   const createUserInterface = useMemo(
@@ -506,6 +376,194 @@ export const useUserInterface = () => {
   );
 
   /**
+   * Create empty navigation config for a user interface
+   */
+  const createEmptyNavigationConfig = useMemo(
+    () =>
+      async (userInterface: UserInterface): Promise<void> => {
+        try {
+          console.log(
+            `[@hook:useUserInterface:createEmptyNavigationConfig] Creating empty navigation config for: ${userInterface.name}`,
+          );
+
+          const response = await fetch(
+            buildServerUrl(`/server/navigation/config/createEmpty/${encodeURIComponent(userInterface.name)}`),
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({
+                userinterface_data: {
+                  id: userInterface.id,
+                  name: userInterface.name,
+                  models: userInterface.models,
+                  min_version: userInterface.min_version,
+                  max_version: userInterface.max_version,
+                },
+                commit_message: `Create empty navigation config: ${userInterface.name}`,
+              }),
+            },
+          );
+
+          const result = await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              result.error ||
+                `Failed to create navigation config: ${response.status} ${response.statusText}`,
+            );
+          }
+
+          if (result.success) {
+            console.log(
+              `[@hook:useUserInterface:createEmptyNavigationConfig] Successfully created navigation config for: ${userInterface.name}`,
+            );
+          } else {
+            throw new Error(result.error || 'Failed to create navigation config');
+          }
+        } catch (error) {
+          console.error(
+            `[@hook:useUserInterface:createEmptyNavigationConfig] Error creating navigation config for ${userInterface.name}:`,
+            error,
+          );
+          throw error;
+        }
+      },
+    [],
+  );
+
+  /**
+   * Create a new user interface with validation
+   */
+  const createUserInterfaceWithValidation = useMemo(
+    () =>
+      async (
+        payload: UserInterfaceCreatePayload,
+        existingInterfaces: UserInterface[],
+        options?: { createNavigationConfig?: boolean },
+      ): Promise<UserInterface> => {
+        try {
+          // Validation: Name is required
+          if (!payload.name.trim()) {
+            throw new Error('Name is required');
+          }
+
+          // Validation: At least one model must be specified
+          if (payload.models.length === 0) {
+            throw new Error('At least one model must be specified');
+          }
+
+          // Validation: Check for duplicate names
+          const isDuplicate = existingInterfaces.some(
+            (ui) => ui.name.toLowerCase() === payload.name.toLowerCase().trim(),
+          );
+
+          if (isDuplicate) {
+            throw new Error('A user interface with this name already exists');
+          }
+
+          console.log(
+            '[@hook:useUserInterface:createUserInterfaceWithValidation] Creating user interface:',
+            payload,
+          );
+
+          // Normalize payload
+          const normalizedPayload: UserInterfaceCreatePayload = {
+            name: payload.name.trim(),
+            models: payload.models,
+            min_version: payload.min_version?.trim() || '',
+            max_version: payload.max_version?.trim() || '',
+          };
+
+          const createdInterface = await createUserInterface(normalizedPayload);
+
+          // Create navigation config if requested (default: true)
+          if (options?.createNavigationConfig !== false) {
+            try {
+              await createEmptyNavigationConfig(createdInterface);
+              console.log(
+                `[@hook:useUserInterface:createUserInterfaceWithValidation] Successfully created navigation config for: ${createdInterface.name}`,
+              );
+            } catch (configError) {
+              console.error(
+                '[@hook:useUserInterface:createUserInterfaceWithValidation] Error creating navigation config:',
+                configError,
+              );
+              throw new Error(
+                'User interface created successfully, but failed to create navigation config. You can still use the navigation editor.',
+              );
+            }
+          }
+
+          return createdInterface;
+        } catch (error) {
+          console.error(
+            '[@hook:useUserInterface:createUserInterfaceWithValidation] Error creating user interface:',
+            error,
+          );
+          throw error;
+        }
+      },
+    [createUserInterface, createEmptyNavigationConfig],
+  );
+
+  /**
+   * Update an existing user interface with validation
+   */
+  const updateUserInterfaceWithValidation = useMemo(
+    () =>
+      async (
+        id: string,
+        payload: UserInterfaceCreatePayload,
+        existingInterfaces: UserInterface[],
+      ): Promise<UserInterface> => {
+        try {
+          // Validation: Name is required
+          if (!payload.name.trim()) {
+            throw new Error('Name is required');
+          }
+
+          // Validation: At least one model must be specified
+          if (payload.models.length === 0) {
+            throw new Error('At least one model must be specified');
+          }
+
+          // Validation: Check for duplicate names (excluding current item)
+          const isDuplicate = existingInterfaces.some(
+            (ui) => ui.id !== id && ui.name.toLowerCase() === payload.name.toLowerCase().trim(),
+          );
+
+          if (isDuplicate) {
+            throw new Error('A user interface with this name already exists');
+          }
+
+          console.log(
+            `[@hook:useUserInterface:updateUserInterfaceWithValidation] Updating user interface ${id}:`,
+            payload,
+          );
+
+          // Normalize payload
+          const normalizedPayload: UserInterfaceCreatePayload = {
+            name: payload.name.trim(),
+            models: payload.models,
+            min_version: payload.min_version?.trim() || '',
+            max_version: payload.max_version?.trim() || '',
+          };
+
+          return await updateUserInterface(id, normalizedPayload);
+        } catch (error) {
+          console.error(
+            `[@hook:useUserInterface:updateUserInterfaceWithValidation] Error updating user interface ${id}:`,
+            error,
+          );
+          throw error;
+        }
+      },
+    [updateUserInterface],
+  );
+
+  /**
    * Duplicate an existing user interface with _copy suffix
    */
   const duplicateUserInterface = useMemo(
@@ -568,64 +626,6 @@ export const useUserInterface = () => {
         }
       },
     [createUserInterface, createEmptyNavigationConfig],
-  );
-
-  /**
-   * Create empty navigation config for a user interface
-   */
-  const createEmptyNavigationConfig = useMemo(
-    () =>
-      async (userInterface: UserInterface): Promise<void> => {
-        try {
-          console.log(
-            `[@hook:useUserInterface:createEmptyNavigationConfig] Creating empty navigation config for: ${userInterface.name}`,
-          );
-
-          const response = await fetch(
-            buildServerUrl(`/server/navigation/config/createEmpty/${encodeURIComponent(userInterface.name)}`),
-            {
-              method: 'POST',
-              headers: {
-                'Content-Type': 'application/json',
-              },
-              body: JSON.stringify({
-                userinterface_data: {
-                  id: userInterface.id,
-                  name: userInterface.name,
-                  models: userInterface.models,
-                  min_version: userInterface.min_version,
-                  max_version: userInterface.max_version,
-                },
-                commit_message: `Create empty navigation config: ${userInterface.name}`,
-              }),
-            },
-          );
-
-          const result = await response.json();
-
-          if (!response.ok) {
-            throw new Error(
-              result.error ||
-                `Failed to create navigation config: ${response.status} ${response.statusText}`,
-            );
-          }
-
-          if (result.success) {
-            console.log(
-              `[@hook:useUserInterface:createEmptyNavigationConfig] Successfully created navigation config for: ${userInterface.name}`,
-            );
-          } else {
-            throw new Error(result.error || 'Failed to create navigation config');
-          }
-        } catch (error) {
-          console.error(
-            `[@hook:useUserInterface:createEmptyNavigationConfig] Error creating navigation config for ${userInterface.name}:`,
-            error,
-          );
-          throw error;
-        }
-      },
-    [],
   );
 
   /**
