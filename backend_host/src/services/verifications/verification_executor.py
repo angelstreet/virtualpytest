@@ -565,8 +565,16 @@ class VerificationExecutor:
             if context:
                 controller._current_context = context
             
-            # Direct controller execution
-            verification_result = controller.execute_verification(verification_config)
+            # Direct controller execution - handle both async (Playwright) and sync (ADB, Image, Text) controllers
+            import inspect
+            import asyncio
+            
+            if inspect.iscoroutinefunction(controller.execute_verification):
+                # Async controller (e.g., Playwright)
+                verification_result = await controller.execute_verification(verification_config)
+            else:
+                # Sync controller (e.g., ADB, Image, Text)
+                verification_result = controller.execute_verification(verification_config)
             
             # Build URLs from file paths if verification generated images
             # Frontend will process these paths using buildVerificationResultUrl from buildUrlUtils.ts
