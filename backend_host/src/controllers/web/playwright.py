@@ -1337,23 +1337,21 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 'chrome_running': False
             }
     
-    def browser_use_task(self, task: str, max_steps: int = 20) -> Dict[str, Any]:
-        """Execute browser-use task using existing Chrome instance.
-        
-        Note: browser-use library may still use async internally - this wrapper keeps our interface sync.
+    @ensure_controller_loop
+    async def browser_use_task(self, task: str, max_steps: int = 20) -> Dict[str, Any]:
+        """Execute browser-use task using existing Chrome instance on controller loop.
         
         Args:
             task: Task description for browser-use
             max_steps: Maximum steps for browser-use agent (default: 20)
         """
-        # Note: browser-use integration may need to stay async internally
-        # We'll keep a simple wrapper here that delegates to the async version if needed
         try:
             print(f"[PLAYWRIGHT]: Executing browser-use task: {task} (max_steps={max_steps})")
+            start_time = time.time()
             
             # Import browseruse_utils only when needed
             try:
-                from  backend_host.src.lib.utils.browseruse_utils import BrowserUseManager
+                from backend_host.src.lib.utils.browseruse_utils import BrowserUseManager
             except ImportError as e:
                 return {
                     'success': False,
@@ -1362,23 +1360,27 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'execution_time': 0
                 }
             
-            # Note: BrowserUseManager.execute_task is async, so we need to wrap it
-            # For now, return a message that browser-use needs async support
-            return {
-                'success': False,
-                'error': 'Browser-use requires async support - needs separate implementation',
-                'task': task,
-                'execution_time': 0
-            }
+            # Create browser-use manager with our utils
+            manager = BrowserUseManager(self.utils)
+            
+            # Execute task (already runs on controller loop via @ensure_controller_loop)
+            result = await manager.execute_task(task, max_steps=max_steps)
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            print(f"[PLAYWRIGHT]: Browser-use task completed in {execution_time}ms")
+            
+            return result
             
         except Exception as e:
             error_msg = f"Browser-use task error: {e}"
             print(f"[PLAYWRIGHT]: {error_msg}")
+            import traceback
+            traceback.print_exc()
             return {
                 'success': False,
                 'error': error_msg,
                 'task': task,
-                'execution_time': 0
+                'execution_time': int((time.time() - start_time) * 1000) if 'start_time' in locals() else 0
             }
         
     async def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -1542,7 +1544,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'execution_time': 0
                 }
             
-            return self.browser_use_task(task, max_steps=max_steps)
+            return await self.browser_use_task(task, max_steps=max_steps)
         
         elif command == 'press_key':
             key = params.get('key')
