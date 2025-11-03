@@ -52,7 +52,7 @@ def execute(code: str = '', context=None, **kwargs) -> Dict[str, Any]:
     
     if not code or not code.strip():
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': 'No code provided'
         }
     
@@ -87,7 +87,7 @@ def execute(code: str = '', context=None, **kwargs) -> Dict[str, Any]:
             print(f"[@block:custom_code] Return value: {return_value}")
         
         return {
-            'success': True,
+            'result_success': 0,  # 0=success, 1=failure, -1=error
             'message': 'Custom code executed successfully',
             'result': return_value
         }
@@ -98,7 +98,7 @@ def execute(code: str = '', context=None, **kwargs) -> Dict[str, Any]:
         print(f"[@block:custom_code] Line {e.lineno}: {e.text}")
         
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': error_msg,
             'line': e.lineno,
             'details': str(e)
@@ -111,7 +111,7 @@ def execute(code: str = '', context=None, **kwargs) -> Dict[str, Any]:
         traceback.print_exc()
         
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': error_msg,
             'details': traceback.format_exc()
         }

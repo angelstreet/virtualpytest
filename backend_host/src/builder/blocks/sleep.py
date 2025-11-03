@@ -52,7 +52,7 @@ def execute(duration: float = 1.0, context=None, **kwargs) -> Dict[str, Any]:
         print(f"[@block:sleep] Sleep completed")
         
         return {
-            'success': True,
+            'result_success': 0,  # 0=success, 1=failure, -1=error
             'message': f'Slept for {duration}s'
         }
         
@@ -61,7 +61,7 @@ def execute(duration: float = 1.0, context=None, **kwargs) -> Dict[str, Any]:
         print(f"[@block:sleep] ERROR: {error_msg}")
         
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': error_msg
         }
 
