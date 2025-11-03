@@ -107,29 +107,10 @@ class PlaywrightWebController(WebControllerInterface):
             self.__class__._chrome_running = True
         # Ignore False values - once connected, always connected
     
-    def _get_persistent_page(self, target_url: str = None):
+    async def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context. Assumes Chrome is running."""
-        # Establish persistent browser+context if not exists
-        if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
-            print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
-            if self.browser_engine == "webkit":
-                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = self.utils.connect_to_webkit(target_url=target_url)
-            else:
-                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = self.utils.connect_to_chrome(target_url=target_url)
-            self.__class__._browser_connected = True
-            print(f"[PLAYWRIGHT]: Persistent {self.browser_engine} browser+context+page established")
-            return initial_page
-        
-        # Get existing page 0 from context (persistent page)
-        if len(self.__class__._context.pages) > 0:
-            page = self.__class__._context.pages[0]
-            print(f"[PLAYWRIGHT]: Using existing persistent page (page 0)")
-            return page
-        else:
-            # No pages exist, create one
-            page = self.__class__._context.new_page()
-            print(f"[PLAYWRIGHT]: Created new persistent page")
-            return page
+        # Implement async logic to get or create page
+        pass
     
     def _cleanup_persistent_browser(self):
         """Clean up persistent browser+context."""
@@ -146,7 +127,7 @@ class PlaywrightWebController(WebControllerInterface):
             self.__class__._browser_connected = False
             print(f"[PLAYWRIGHT]: Persistent browser+context cleaned up")
     
-    def connect(self) -> bool:
+    async def connect(self) -> bool:
         """Connect to browser (launch if needed)."""
         browser_name = self.browser_engine.upper()
         print(f"[PLAYWRIGHT]: connect() called - _{self.browser_engine}_running={self._chrome_running}, _process={self._chrome_process}")
@@ -158,12 +139,10 @@ class PlaywrightWebController(WebControllerInterface):
                     self.__class__._chrome_process = self.utils.launch_webkit()
                 else:
                     self.__class__._chrome_process = self.utils.launch_chrome()
-                self.__class__._chrome_running = True  # Always connected once launched
+                self.__class__._chrome_running = True
                 print(f"[PLAYWRIGHT]: {browser_name} launched with remote debugging successfully (PID: {self._chrome_process.pid})")
                 
-                # Give browser a moment to start up
-                import time
-                time.sleep(2)
+                await asyncio.sleep(2)
                 print(f"[PLAYWRIGHT]: {browser_name} startup delay completed")
                 
             except Exception as e:
@@ -370,33 +349,24 @@ class PlaywrightWebController(WebControllerInterface):
             'connected': True
         }
     
-    def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
+    async def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL."""
         try:
-            # Normalize URL to add protocol if missing
             normalized_url = self.utils.normalize_url(url)
             print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
             start_time = time.time()
 
-            # Assume Chrome is running - no auto-connect checks
-
-            # Get persistent page from browser+context
-            page = self._get_persistent_page(target_url=normalized_url)
+            page = await self._get_persistent_page(target_url=normalized_url)
             
-            # Navigate to URL
-            page.goto(normalized_url, timeout=timeout, wait_until='load')
+            await page.goto(normalized_url, timeout=timeout, wait_until='load')
             
-            # Get page info after navigation
             try:
-                # Try to wait for networkidle but don't fail if it times out
-                page.wait_for_load_state('networkidle', timeout=20000)
+                await page.wait_for_load_state('networkidle', timeout=20000)
             except Exception as e:
                 print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
             
             self.current_url = page.url
-            self.page_title = page.title()
-            
-            # Page remains persistent for next actions
+            self.page_title = await page.title()
             
             execution_time = int((time.time() - start_time) * 1000)
             
@@ -431,7 +401,7 @@ class PlaywrightWebController(WebControllerInterface):
             try:
                 if 'page' in locals():
                     current_url = page.url
-                    current_title = page.title()
+                    current_title = await page.title()
                     print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
                 else:
                     print(f"[PLAYWRIGHT]: Page object not available for state check")

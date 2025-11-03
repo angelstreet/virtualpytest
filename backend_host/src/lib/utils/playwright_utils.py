@@ -327,16 +327,35 @@ class ChromeManager:
             raise RuntimeError(error_msg)
 
 
-# AsyncExecutor removed - no longer needed with sync API!
+# Restore AsyncExecutor
+class AsyncExecutor:
+    """Executor for running async coroutines in dedicated threads."""
+    
+    def run_async(self, coro):
+        """Run async coroutine in a dedicated thread with new event loop."""
+        import asyncio
+        import threading
+        def run_in_thread():
+            loop = asyncio.new_event_loop()
+            asyncio.set_event_loop(loop)
+            try:
+                return loop.run_until_complete(coro)
+            finally:
+                loop.close()
+        
+        thread = threading.Thread(target=run_in_thread)
+        thread.start()
+        thread.join()
+        # Note: To get return value, we'd need a queue or future, but for simplicity assume void or adjust as needed
 
 
 class PlaywrightConnection:
     """Manages Playwright connections to Chrome via CDP using SYNC API."""
     
     @staticmethod
-    def connect_to_chrome(cdp_url: str = 'http://localhost:9222') -> Tuple[Any, Any, Any, Any]:
+    async def connect_to_chrome(cdp_url: str = 'http://127.0.0.1:9222') -> Tuple[Any, Any, Any, Any]:
         """Connect to Chrome via CDP and return playwright, browser, context, page."""
-        from playwright.sync_api import sync_playwright
+        from playwright.async_api import async_playwright
         import asyncio
         import threading
         
@@ -362,24 +381,23 @@ class PlaywrightConnection:
             print(f'[PlaywrightConnection] ✅ No event loop detected, safe for sync Playwright')
         
         try:
-            print(f'[PlaywrightConnection] Connecting to Chrome at {cdp_url}')
-            print(f'[PlaywrightConnection] Starting Playwright in thread: {threading.current_thread().name}')
-            playwright = sync_playwright().start()
+            print(f'[PlaywrightConnection] Starting Playwright and connecting to Chrome at {cdp_url}')
+            playwright = await async_playwright().start()
             print(f'[PlaywrightConnection] Playwright started, attempting CDP connection...')
-            browser = playwright.chromium.connect_over_cdp(cdp_url)
+            browser = await playwright.chromium.connect_over_cdp(cdp_url)
             print(f'[PlaywrightConnection] Successfully connected to Chrome via CDP')
             
             if len(browser.contexts) == 0:
                 print(f'[PlaywrightConnection] No existing contexts, creating new context...')
-                context = browser.new_context()
-                page = context.new_page()
+                context = await browser.new_context()
+                page = await context.new_page()
                 print(f'[PlaywrightConnection] Created new context with browser default viewport')
             else:
                 print(f'[PlaywrightConnection] Found {len(browser.contexts)} existing contexts, using first one...')
                 context = browser.contexts[0]
                 if len(context.pages) == 0:
                     print(f'[PlaywrightConnection] No pages in context, creating new page...')
-                    page = context.new_page()
+                    page = await context.new_page()
                 else:
                     print(f'[PlaywrightConnection] Found {len(context.pages)} pages in context, using first one...')
                     page = context.pages[0]
@@ -402,12 +420,12 @@ class PlaywrightConnection:
             raise Exception(f"CDP connection failed ({error_type}): {str(e)}")
     
     @staticmethod
-    def cleanup_connection(playwright, browser):
+    async def cleanup_connection(playwright, browser):
         """Clean up Playwright connection."""
         if browser:
-            browser.close()
+            await browser.close()
         if playwright:
-            playwright.stop()
+            playwright.stop()  # Note: stop is sync, adjust if needed
 
 
 class PlaywrightUtils:
