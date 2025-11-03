@@ -52,6 +52,10 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     _context = None
     _browser_connected = False
     
+    # Dedicated controller event loop (single place for all Playwright ops)
+    _loop = None
+    _loop_thread = None
+    
     def __init__(self, browser_engine: str = None, **kwargs):
         """
         Initialize the Playwright web controller.
@@ -79,6 +83,34 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         self.last_command_error = ""
         self.current_url = ""
         self.page_title = ""
+
+    # =============================================================
+    # Controller loop management (single long-lived asyncio loop)
+    # =============================================================
+    def _ensure_loop(self):
+        """Ensure a dedicated event loop thread exists for Playwright ops."""
+        if self.__class__._loop and self.__class__._loop_thread and self.__class__._loop_thread.is_alive():
+            return
+        import threading, asyncio
+        def _loop_worker():
+            loop = asyncio.new_event_loop()
+            self.__class__._loop = loop
+            asyncio.set_event_loop(loop)
+            loop.run_forever()
+        t = threading.Thread(target=_loop_worker, name="PlaywrightControllerLoop", daemon=True)
+        t.start()
+        self.__class__._loop_thread = t
+        # Give the loop a brief moment to start
+        import time as _time
+        start = _time.time()
+        while self.__class__._loop is None and (_time.time() - start) < 1.0:
+            _time.sleep(0.01)
+    
+    def _submit_to_controller_loop(self, coro):
+        """Submit a coroutine to the controller loop and return a concurrent.futures.Future."""
+        self._ensure_loop()
+        import asyncio
+        return asyncio.run_coroutine_threadsafe(coro, self.__class__._loop)
 
     def _reset_state(self):
         """Reset class-level persistent browser state flags and references."""
@@ -1313,9 +1345,31 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         if params is None:
             params = {}
         
-        import threading
+        import threading, asyncio
         print(f"[PLAYWRIGHT]: Executing command '{command}' with params: {params} (thread={threading.current_thread().name})")
+
+        # Ensure we always execute Playwright ops on the controller loop to avoid loop-affinity issues
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+        controller_loop = self.__class__._loop
+        if controller_loop is None:
+            # Initialize loop lazily
+            self._ensure_loop()
+            controller_loop = self.__class__._loop
         
+        # If we're NOT on the controller loop, resubmit this call onto the controller loop and await its result
+        if current_loop is None or current_loop is not controller_loop:
+            fut = self._submit_to_controller_loop(self.execute_command(command, params))
+            if current_loop is None:
+                # If no running loop (unlikely inside async), block and return result
+                return fut.result()
+            else:
+                # Bridge concurrent.futures.Future to awaitable in current loop
+                return await asyncio.wrap_future(fut)
+        
+        # ============== From here on, we are on the controller loop ==============
         if command == 'navigate_to_url':
             url = params.get('url')
             timeout = params.get('timeout', 30000)
