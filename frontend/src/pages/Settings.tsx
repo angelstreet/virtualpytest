@@ -165,34 +165,8 @@ const Settings: React.FC = () => {
                   <MenuItem value="production">Production</MenuItem>
                 </TextField>
               </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Debug Mode"
-                  value={config.server.DEBUG}
-                  onChange={(e) => updateServerConfig('DEBUG', e.target.value)}
-                  fullWidth
-                  size="small"
-                  select
-                  helperText="Enable debug logging"
-                >
-                  <MenuItem value="1">Enabled</MenuItem>
-                  <MenuItem value="0">Disabled</MenuItem>
-                </TextField>
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Python Unbuffered"
-                  value={config.server.PYTHONUNBUFFERED}
-                  onChange={(e) => updateServerConfig('PYTHONUNBUFFERED', e.target.value)}
-                  fullWidth
-                  size="small"
-                  select
-                  helperText="Python stdout/stderr buffering"
-                >
-                  <MenuItem value="1">Unbuffered</MenuItem>
-                  <MenuItem value="0">Buffered</MenuItem>
-                </TextField>
-              </Grid>
+             
+             
             </Grid>
           </CardContent>
         </Card>
@@ -254,20 +228,6 @@ const Settings: React.FC = () => {
                   size="small"
                   helperText="Cloudflare R2 public URL for assets"
                 />
-              </Grid>
-              <Grid item xs={12} md={6}>
-                <TextField
-                  label="Dev Mode"
-                  value={config.frontend.VITE_DEV_MODE}
-                  onChange={(e) => updateFrontendConfig('VITE_DEV_MODE', e.target.value)}
-                  fullWidth
-                  size="small"
-                  select
-                  helperText="Enable development mode features"
-                >
-                  <MenuItem value="true">Enabled</MenuItem>
-                  <MenuItem value="false">Disabled</MenuItem>
-                </TextField>
               </Grid>
             </Grid>
 
