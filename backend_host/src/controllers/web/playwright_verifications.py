@@ -14,14 +14,16 @@ import time
 import asyncio
 from typing import Dict, Any, List, Tuple
 
-# =============================================================
-# Single decorator to guarantee execution on controller loop
-# (local copy to avoid circular import with playwright.py)
-# =============================================================
+
+# We cannot import ensure_controller_loop here due to circular import
+# (playwright.py imports this mixin). Instead, we define it locally.
+# The implementation is identical in both files since the decorator
+# relies on methods (_ensure_loop, _submit_to_controller_loop) that
+# exist on the controller class.
 def ensure_controller_loop(func):
+    """Ensure async method executes on the controller's dedicated event loop."""
     async def wrapper(self, *args, **kwargs):
         import asyncio
-        # Ensure controller loop exists (implemented in PlaywrightWebController)
         self._ensure_loop()
         controller_loop = self.__class__._loop
         try:
