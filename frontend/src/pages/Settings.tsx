@@ -1,7 +1,6 @@
 import {
   Save as SaveIcon,
   Refresh as RefreshIcon,
-  Settings as SettingsIcon,
   Storage as ServerIcon,
   Computer as HostIcon,
   Language as FrontendIcon,
