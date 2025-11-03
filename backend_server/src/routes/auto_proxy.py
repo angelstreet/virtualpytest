@@ -39,7 +39,7 @@ def auto_proxy(endpoint):
     """
     try:
         # Explicit exclusions for endpoints that don't need host proxying
-        if endpoint.startswith('executable/'):
+        if endpoint.startswith('executable/') or endpoint.startswith('settings/'):
             return jsonify({
                 'success': False,
                 'error': f'Endpoint /server/{endpoint} is handled by a dedicated blueprint, not auto-proxy'
