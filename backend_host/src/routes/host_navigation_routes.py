@@ -133,21 +133,37 @@ def navigation_execute(tree_id):
             }
         
         # Start execution in background thread (simple threading like ADB)
-        thread = threading.Thread(
-            target=_execute_navigation_thread,
-            args=(device, execution_id, tree_id, userinterface_name, target_node_id, target_node_label, 
-                  current_node_id, frontend_sent_position, image_source_url, team_id),
-            daemon=True
-        )
-        thread.start()
-        
+        from backend_host.src.lib.web_worker import WebWorker
+        from backend_host.src.orchestrator import ExecutionOrchestrator
+
+        def run_fn():
+            return ExecutionOrchestrator.execute_navigation(
+                device=device,
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                target_node_id=target_node_id,
+                target_node_label=target_node_label,
+                current_node_id=current_node_id,
+                frontend_sent_position=frontend_sent_position,
+                image_source_url=image_source_url,
+                team_id=team_id,
+                context=None,
+            )
+
+        payload = {
+            'tree_id': tree_id,
+            'target_node_id': target_node_id,
+            'target_node_label': target_node_label,
+            'userinterface_name': userinterface_name,
+            'current_node_id': current_node_id,
+            'frontend_sent_position': frontend_sent_position,
+            'team_id': team_id,
+        }
+
+        execution_id = WebWorker.instance().submit_async('navigation', payload, run_fn)
         print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
         
-        return jsonify({
-            'success': True,
-            'execution_id': execution_id,
-            'message': 'Navigation started'
-        })
+        return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Navigation started'})
         
     except Exception as e:
         print(f"[@route:host_navigation:navigation_execute] Error: {e}")
@@ -756,7 +772,8 @@ def _execute_navigation_thread(
             current_node_id=current_node_id,
             frontend_sent_position=frontend_sent_position,
             image_source_url=image_source_url,
-            team_id=team_id
+            team_id=team_id,
+            context=None,
         )
         
         # Stop log capture and add logs to result

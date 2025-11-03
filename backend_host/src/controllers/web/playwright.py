@@ -83,7 +83,6 @@ class PlaywrightWebController(WebControllerInterface):
         self.__class__._context = None
         self.__class__._browser_connected = False
 
-    
     @property
     def is_connected(self):
         """Always connected once Chrome is running."""
@@ -157,7 +156,7 @@ class PlaywrightWebController(WebControllerInterface):
     
 
     
-    def open_browser(self) -> Dict[str, Any]:
+    async def open_browser(self) -> Dict[str, Any]:
         """Open/launch the browser window. Simple: connect or kill+restart."""
         try:
             print(f"[PLAYWRIGHT]: Opening browser - connect or kill+restart approach")
@@ -168,10 +167,10 @@ class PlaywrightWebController(WebControllerInterface):
                 # Try to connect to existing Chrome or launch new one
                 if not self.is_connected:
                     print(f"[PLAYWRIGHT]: Chrome not running, launching...")
-                    self.connect()
+                    await self.connect()
                 
                 # Get page - if this fails, Chrome is not responding
-                page = self._get_persistent_page()
+                page = await self._get_persistent_page()
                 
                 # Only navigate to Google if page is blank
                 if page.url in ['about:blank', '', 'chrome://newtab/']:
@@ -199,8 +198,8 @@ class PlaywrightWebController(WebControllerInterface):
                 self.__class__._browser_connected = False
                 
                 # Restart Chrome
-                self.connect()
-                page = self._get_persistent_page()
+                await self.connect()
+                page = await self._get_persistent_page()
                 
                 # Navigate to Google
                 page.goto('https://google.fr')
@@ -215,7 +214,10 @@ class PlaywrightWebController(WebControllerInterface):
                     'success': True,
                     'error': '',
                     'execution_time': execution_time,
-                    'connected': True
+                    'connected': True,
+                    'current_url': self.current_url,
+                    'page_title': self.page_title,
+                    'reused_connection': True
                 }
             
         except Exception as e:
@@ -755,24 +757,24 @@ class PlaywrightWebController(WebControllerInterface):
         
         return exact_matches + partial_matches
     
-    def input_text(self, selector: str, text: str, timeout: int = 3000) -> Dict[str, Any]:
+    async def input_text(self, selector: str, text: str, wait_time: int = 200) -> Dict[str, Any]:
         """Input text into an element."""
         try:
             print(f"[PLAYWRIGHT]: Inputting text to: {selector}")
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Input text
-            page.fill(selector, text, timeout=timeout)
+            await page.fill(selector, text)
             
-            execution_time = int((time.time() - start_time) * 1000)
+            await asyncio.sleep(wait_time / 1000)
             
             result = {
                 'success': True,
                 'error': '',
-                'execution_time': execution_time
+                'execution_time': int((time.time() - start_time) * 1000)
             }
             
             print(f"[PLAYWRIGHT]: Text input successful")

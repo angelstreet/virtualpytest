@@ -73,7 +73,7 @@ class FirefoxManager:
         ]
     
     @classmethod
-    def launch_firefox_with_remote_debugging(cls, debug_port: int = 9223, 
+    async def launch_firefox_with_remote_debugging(cls, debug_port: int = 9223, 
                                            profile_dir: str = "./backend_host/config/firefox_profile") -> subprocess.Popen:
         """
         Launch Firefox with remote debugging.
@@ -114,7 +114,7 @@ class FirefoxManager:
         print(f'[FirefoxManager] Firefox launched with PID: {process.pid}')
         
         # Wait for Firefox to be ready
-        cls._wait_for_browser_ready(debug_port, "Firefox")
+        await cls._wait_for_browser_ready(debug_port, "Firefox")
         
         return process
     
@@ -148,7 +148,7 @@ class FirefoxManager:
                 return True
     
     @staticmethod
-    def _wait_for_browser_ready(debug_port: int, browser_name: str, max_wait: int = 30):
+    async def _wait_for_browser_ready(debug_port: int, browser_name: str, max_wait: int = 30):
         """Wait for browser to be ready on the debug port."""
         print(f'[{browser_name}Manager] Waiting up to {max_wait} seconds for {browser_name} on port {debug_port}...')
         
@@ -202,7 +202,7 @@ class WebKitManager:
         raise ValueError('No WebKit executable found. Install with: playwright install webkit')
     
     @classmethod
-    def launch_webkit_with_remote_debugging(cls, debug_port: int = 9224) -> subprocess.Popen:
+    async def launch_webkit_with_remote_debugging(cls, debug_port: int = 9224) -> subprocess.Popen:
         """
         Launch WebKit with remote debugging (lightest browser option).
         
@@ -232,7 +232,7 @@ class WebKitManager:
         print(f'[WebKitManager] WebKit launched with PID: {process.pid}')
         
         # Wait for WebKit to be ready
-        FirefoxManager._wait_for_browser_ready(debug_port, "WebKit")
+        await FirefoxManager._wait_for_browser_ready(debug_port, "WebKit")
         
         return process
 
@@ -334,12 +334,12 @@ class LightweightBrowserManager:
         
         print(f'[LightweightBrowserManager] Initialized for {browser_type} on port {self.debug_port}')
     
-    def launch_browser(self) -> subprocess.Popen:
+    async def launch_browser(self) -> subprocess.Popen:
         """Launch the lightweight browser with remote debugging."""
         if self.browser_type == "firefox":
-            self.process = self.manager.launch_firefox_with_remote_debugging(self.debug_port)
+            self.process = await self.manager.launch_firefox_with_remote_debugging(self.debug_port)
         elif self.browser_type == "webkit":
-            self.process = self.manager.launch_webkit_with_remote_debugging(self.debug_port)
+            self.process = await self.manager.launch_webkit_with_remote_debugging(self.debug_port)
         
         return self.process
     

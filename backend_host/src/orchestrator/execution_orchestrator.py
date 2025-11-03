@@ -8,6 +8,7 @@ from typing import Dict, Any, List, Optional
 from .logging_manager import LoggingManager
 from .screenshot_manager import ScreenshotManager
 import threading
+import asyncio
 
 
 class ExecutionOrchestrator:
@@ -17,7 +18,7 @@ class ExecutionOrchestrator:
     """
     
     @staticmethod
-    def execute_navigation(
+    async def execute_navigation(
         device,
         tree_id: str,
         userinterface_name: str,
@@ -51,8 +52,8 @@ class ExecutionOrchestrator:
         """
         print(f"[@ExecutionOrchestrator] Executing navigation to {target_node_label or target_node_id}")
         
-        def execute():
-            return device.navigation_executor.execute_navigation(
+        async def execute():
+            return await device.navigation_executor.execute_navigation(
                 tree_id=tree_id,
                 userinterface_name=userinterface_name,
                 target_node_id=target_node_id,
@@ -65,24 +66,15 @@ class ExecutionOrchestrator:
                 context=context
             )
         
-        # Always run navigation on Playwright worker thread (many navs use web)
-        if threading.current_thread().name != "PlaywrightWorker":
-            from backend_host.src.lib.web_worker import WebWorker
-            return WebWorker.instance().submit_sync(
-                'navigation',
-                {
-                    'tree_id': tree_id,
-                    'target_node_id': target_node_id,
-                    'target_node_label': target_node_label,
-                    'team_id': team_id,
-                },
-                lambda: LoggingManager.execute_with_logging(execute)
-            )
-
-        return LoggingManager.execute_with_logging(execute)
+        # If in sync context, use run_async
+        if not asyncio.get_event_loop().is_running():
+            from .utils.playwright_utils import PlaywrightUtils
+            return PlaywrightUtils().run_async(LoggingManager.execute_with_logging(execute))
+        else:
+            return await LoggingManager.execute_with_logging(execute)
     
     @staticmethod
-    def execute_actions(
+    async def execute_actions(
         device,
         actions: List[Dict[str, Any]],
         retry_actions: Optional[List[Dict[str, Any]]] = None,
@@ -106,8 +98,8 @@ class ExecutionOrchestrator:
         """
         print(f"[@ExecutionOrchestrator] Executing {len(actions)} command(s)")
         
-        def execute():
-            return device.action_executor.execute_actions(
+        async def execute():
+            return await device.action_executor.execute_actions(
                 actions=actions,
                 retry_actions=retry_actions,
                 failure_actions=failure_actions,
@@ -132,7 +124,7 @@ class ExecutionOrchestrator:
         return LoggingManager.execute_with_logging(execute)
     
     @staticmethod
-    def execute_verifications(
+    async def execute_verifications(
         device,
         verifications: List[Dict[str, Any]],
         userinterface_name: str,
@@ -162,8 +154,8 @@ class ExecutionOrchestrator:
         """
         print(f"[@ExecutionOrchestrator] Executing {len(verifications)} verification(s)")
         
-        def execute():
-            return device.verification_executor.execute_verifications(
+        async def execute():
+            return await device.verification_executor.execute_verifications(
                 verifications=verifications,
                 userinterface_name=userinterface_name,
                 image_source_url=image_source_url,
@@ -186,7 +178,7 @@ class ExecutionOrchestrator:
         return LoggingManager.execute_with_logging(execute)
     
     @staticmethod
-    def execute_blocks(
+    async def execute_blocks(
         device,
         blocks: List[Dict[str, Any]],
         context=None
@@ -204,8 +196,8 @@ class ExecutionOrchestrator:
         """
         print(f"[@ExecutionOrchestrator] Executing {len(blocks)} block(s)")
         
-        def execute():
-            return device.standard_block_executor.execute_blocks(
+        async def execute():
+            return await device.standard_block_executor.execute_blocks(
                 blocks=blocks,
                 context=context
             )

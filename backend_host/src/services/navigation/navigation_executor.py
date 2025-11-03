@@ -212,7 +212,7 @@ class NavigationExecutor:
         return result
     
     
-    def execute_navigation(self, 
+    async def execute_navigation(self, 
                           tree_id: str,
                           userinterface_name: str,  # MANDATORY for reference resolution
                           target_node_id: str = None,
