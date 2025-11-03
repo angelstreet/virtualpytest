@@ -234,6 +234,7 @@ class PlaywrightWebController(WebControllerInterface):
         """Connect to existing Chrome debug session without killing Chrome first.
         OPTIMIZED: Skip reconnection if already connected, skip sleep if Chrome already running.
         """
+        import asyncio  # ✅ Import asyncio at the start of the method
         try:
             start_time = time.time()
             
@@ -570,7 +571,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def find_element(self, selector: str) -> Dict[str, Any]:
+    async def find_element(self, selector: str) -> Dict[str, Any]:
         """Find an element by searching within dumped elements (like Android mobile).
         
         Args:
@@ -581,7 +582,7 @@ class PlaywrightWebController(WebControllerInterface):
             start_time = time.time()
             
             # Step 1: Dump all elements first (like Android mobile)
-            dump_result = self.dump_elements()
+            dump_result = await self.dump_elements()
             
             if not dump_result.get('success'):
                 execution_time = int((time.time() - start_time) * 1000)
@@ -1326,7 +1327,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
                 
-            return await self.input_text(selector, text, timeout=timeout)
+            return await self.input_text(selector, text, wait_time=timeout)
         
         elif command == 'tap_x_y':
             x = params.get('x')
@@ -1371,7 +1372,7 @@ class PlaywrightWebController(WebControllerInterface):
         elif command == 'dump_elements':
             element_types = params.get('element_types', 'all')
             include_hidden = params.get('include_hidden', False)
-            return self.dump_elements(element_types=element_types, include_hidden=include_hidden)
+            return await self.dump_elements(element_types=element_types, include_hidden=include_hidden)
         
         elif command == 'browser_use_task':
             task = params.get('task', '')
@@ -1437,7 +1438,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def dump_elements(self, element_types: str = "all", include_hidden: bool = False) -> Dict[str, Any]:
+    async def dump_elements(self, element_types: str = "all", include_hidden: bool = False) -> Dict[str, Any]:
         """
         Dump all visible elements from the page for debugging and inspection.
         
@@ -1452,7 +1453,7 @@ class PlaywrightWebController(WebControllerInterface):
 
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # JavaScript code to extract visible elements
             js_code = f"""
@@ -2050,7 +2051,7 @@ class PlaywrightWebController(WebControllerInterface):
     # VERIFICATION METHODS (Reuse find_element)
     # ========================================
     
-    def waitForElementToAppear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
+    async def waitForElementToAppear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Wait for element to appear (polls find_element with timeout).
         Supports pipe-separated fallback: "Submit|OK|Confirm"
@@ -2073,7 +2074,7 @@ class PlaywrightWebController(WebControllerInterface):
         while True:
             # Try each term until one succeeds
             for term in terms:
-                result = self.find_element(term)
+                result = await self.find_element(term)
                 if result.get('success'):
                     elapsed = time.time() - start_time
                     return True, f"Element found after {elapsed:.1f}s", {
@@ -2089,7 +2090,8 @@ class PlaywrightWebController(WebControllerInterface):
                 break  # Single check mode or timeout reached
             
             if check_interval > 0:
-                time.sleep(check_interval)
+                import asyncio
+                await asyncio.sleep(check_interval)
             else:
                 break  # Single check mode
         
@@ -2236,7 +2238,7 @@ class PlaywrightWebController(WebControllerInterface):
             }
         ]
     
-    def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
+    async def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute verification and return frontend-expected format (consistent with ADB/image/text).
         Handles ALL verification commands: getMenuInfo, waitForElementToAppear, waitForElementToDisappear.
@@ -2299,7 +2301,7 @@ class PlaywrightWebController(WebControllerInterface):
             
             # Execute verification based on command
             if command == 'waitForElementToAppear':
-                success, message, details = self.waitForElementToAppear(
+                success, message, details = await self.waitForElementToAppear(
                     search_term=search_term,
                     timeout=timeout,
                     check_interval=check_interval
