@@ -136,8 +136,8 @@ def navigation_execute(tree_id):
         from backend_host.src.lib.web_worker import WebWorker
         from backend_host.src.orchestrator import ExecutionOrchestrator
 
-        def run_fn():
-            return ExecutionOrchestrator.execute_navigation(
+        async def run_fn():
+            return await ExecutionOrchestrator.execute_navigation(
                 device=device,
                 tree_id=tree_id,
                 userinterface_name=userinterface_name,
@@ -162,7 +162,7 @@ def navigation_execute(tree_id):
 
         execution_id = WebWorker.instance().submit_async('navigation', payload, run_fn)
         print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
-        
+
         return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Navigation started'})
         
     except Exception as e:

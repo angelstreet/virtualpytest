@@ -15,11 +15,11 @@ from typing import Callable, Dict, Any, Optional, Awaitable
 
 
 class WebTask:
-    def __init__(self, kind: str, payload: Dict[str, Any], run_fn: Callable[[Any], Awaitable[Dict[str, Any]]]):
+    def __init__(self, kind: str, payload: Dict[str, Any], run_fn: Callable[[], Awaitable[Dict[str, Any]]]):
         self.execution_id: str = str(uuid.uuid4())
         self.kind: str = kind
         self.payload: Dict[str, Any] = payload
-        self.run_fn: Callable[[Any], Awaitable[Dict[str, Any]]] = run_fn
+        self.run_fn: Callable[[], Awaitable[Dict[str, Any]]] = run_fn
         self.done: threading.Event = threading.Event()
         self.result: Optional[Dict[str, Any]] = None
         self.error: Optional[str] = None
@@ -55,7 +55,7 @@ class WebWorker:
                 cls._instance = WebWorker()
         return cls._instance
 
-    def submit_async(self, kind: str, payload: Dict[str, Any], run_fn: Callable[[Any], Awaitable[Dict[str, Any]]]) -> str:
+    def submit_async(self, kind: str, payload: Dict[str, Any], run_fn: Callable[[], Awaitable[Dict[str, Any]]]) -> str:
         task = WebTask(kind, payload, run_fn)
         with self._exec_lock:
             self._executions[task.execution_id] = {
@@ -70,7 +70,7 @@ class WebWorker:
         self._q.put(task)
         return task.execution_id
 
-    def submit_sync(self, kind: str, payload: Dict[str, Any], run_fn: Callable[[Any], Awaitable[Dict[str, Any]]]) -> Dict[str, Any]:
+    def submit_sync(self, kind: str, payload: Dict[str, Any], run_fn: Callable[[], Awaitable[Dict[str, Any]]]) -> Dict[str, Any]:
         task_id = self.submit_async(kind, payload, run_fn)
         while True:
             status = self.get_status(task_id)
@@ -97,17 +97,37 @@ class WebWorker:
         self.loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self.loop)
         
-        self.loop.run_until_complete(self._init_playwright())
+        # Don't initialize Playwright on startup - Chrome might not be running yet
+        # Initialize lazily on first task that needs it
+        print("[WebWorker] Async worker thread started, Playwright will initialize on first use")
         self.loop.create_task(self._queue_processor())
         self.loop.run_forever()
 
-    async def _init_playwright(self):
-        from playwright.async_api import async_playwright
-        self._playwright = await async_playwright().start()
-        self._browser = await self._playwright.chromium.connect_over_cdp('http://127.0.0.1:9222')
-        self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
-        self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
-        print("[WebWorker] Persistent Playwright initialized")
+    async def _init_playwright_if_needed(self):
+        """Initialize Playwright lazily when first needed."""
+        if self._playwright is not None:
+            return  # Already initialized
+        
+        try:
+            from playwright.async_api import async_playwright
+            print("[WebWorker] Initializing Playwright (lazy init)...")
+            self._playwright = await async_playwright().start()
+            
+            # Try to connect to existing Chrome, if fails we'll let the controller launch it
+            try:
+                self._browser = await self._playwright.chromium.connect_over_cdp('http://127.0.0.1:9222')
+                self._context = self._browser.contexts[0] if self._browser.contexts else await self._browser.new_context()
+                self._page = self._context.pages[0] if self._context.pages else await self._context.new_page()
+                print("[WebWorker] Persistent Playwright initialized and connected to Chrome")
+            except Exception as e:
+                print(f"[WebWorker] Could not connect to Chrome on init ({e}), will connect when needed")
+                # Don't fail - let the controller handle Chrome launching
+                self._browser = None
+                self._context = None
+                self._page = None
+        except Exception as e:
+            print(f"[WebWorker] Failed to initialize Playwright: {e}")
+            raise
 
     def _process_queue(self):
         while True:
@@ -146,7 +166,11 @@ class WebWorker:
         while True:
             task = await self.loop.run_in_executor(None, self._q.get)
             try:
-                result = await task.run_fn(self._page)
+                # Initialize Playwright lazily on first task
+                await self._init_playwright_if_needed()
+                
+                # Execute task - note run_fn doesn't need _page passed, it will access via controller
+                result = await task.run_fn()
                 with self._exec_lock:
                     if task.execution_id in self._executions:
                         self._executions[task.execution_id].update({
