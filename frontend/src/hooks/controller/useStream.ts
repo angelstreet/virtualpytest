@@ -142,7 +142,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
         setIsLoadingUrl(false);
       }
     },
-    [host, device_id],
+    [host.host_name, device_id], // Only depend on host_name, not entire host object
   );
 
   // Manual refetch function for force refresh
@@ -151,7 +151,7 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
     fetchStreamUrl(true);
   }, [device_id, fetchStreamUrl]);
 
-  // Auto-fetch stream URL when host or device_id changes
+  // Auto-fetch stream URL when host_name or device_id changes
   useEffect(() => {
     // Only process if we have a valid device_id
     if (!device_id || device_id.trim() === '') {
@@ -171,16 +171,11 @@ export const useStream = ({ host, device_id }: UseStreamProps): UseStreamReturn 
       );
       currentDeviceRef.current = deviceKey;
 
-      // Clear current stream URL when switching devices
-      if (currentDeviceRef.current !== null) {
-        setStreamUrl(null);
-        setUrlError(null);
-      }
-
       // Fetch for new device (will check cache internally)
+      // Don't clear the URL here - let the fetch handle it to avoid flicker
       fetchStreamUrl();
     }
-  }, [host, device_id, fetchStreamUrl]); // Re-fetch when host or device_id changes
+  }, [host?.host_name, device_id, fetchStreamUrl]); // Only depend on host_name, not entire host object
 
   return {
     streamUrl,

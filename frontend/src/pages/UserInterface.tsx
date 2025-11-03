@@ -5,6 +5,7 @@ import {
   Save as SaveIcon,
   Cancel as CancelIcon,
   Launch as LaunchIcon,
+  ContentCopy as DuplicateIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -48,10 +49,10 @@ const UserInterface: React.FC = () => {
   // Get the hook functions
   const {
     getAllUserInterfaces,
-    updateUserInterface,
+    updateUserInterfaceWithValidation,
     deleteUserInterface,
-    createUserInterface,
-    createEmptyNavigationConfig,
+    createUserInterfaceWithValidation,
+    duplicateUserInterface,
   } = useUserInterface();
 
   const [userInterfaces, setUserInterfaces] = useState<UserInterfaceType[]>([]);
@@ -133,42 +134,25 @@ const UserInterface: React.FC = () => {
   };
 
   const handleSaveEdit = async () => {
-    if (!editForm.name.trim()) {
-      setError('Name is required');
-      return;
-    }
-
-    if (editForm.models.length === 0) {
-      setError('At least one model must be specified');
-      return;
-    }
-
-    // Check for duplicate names (excluding current item)
-    const isDuplicate = userInterfaces.some(
-      (ui) => ui.id !== editingId && ui.name.toLowerCase() === editForm.name.toLowerCase().trim(),
-    );
-
-    if (isDuplicate) {
-      setError('A user interface with this name already exists');
-      return;
-    }
-
     try {
       setSubmitting(true);
       setError(null);
 
       const payload: UserInterfaceCreatePayload = {
-        name: editForm.name.trim(),
+        name: editForm.name,
         models: editForm.models,
-        min_version: editForm.min_version.trim(),
-        max_version: editForm.max_version.trim(),
+        min_version: editForm.min_version,
+        max_version: editForm.max_version,
       };
 
-      const updatedInterface = await updateUserInterface(editingId!, payload);
+      const updatedInterface = await updateUserInterfaceWithValidation(
+        editingId!,
+        payload,
+        userInterfaces,
+      );
 
       // Update local state
       setUserInterfaces(userInterfaces.map((ui) => (ui.id === editingId ? updatedInterface : ui)));
-
       setEditingId(null);
       console.log(
         '[@component:UserInterface] Successfully updated user interface:',
@@ -206,39 +190,44 @@ const UserInterface: React.FC = () => {
     }
   };
 
+  const handleDuplicate = async (userInterface: UserInterfaceType) => {
+    try {
+      setError(null);
+      setSubmitting(true);
+
+      const duplicatedInterface = await duplicateUserInterface(userInterface, userInterfaces);
+
+      // Update local state
+      setUserInterfaces([...userInterfaces, duplicatedInterface]);
+      console.log(
+        '[@component:UserInterface] Successfully duplicated user interface:',
+        duplicatedInterface.name,
+      );
+    } catch (err) {
+      console.error('[@component:UserInterface] Error duplicating user interface:', err);
+      setError(err instanceof Error ? err.message : 'Failed to duplicate user interface');
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const handleAddNew = async () => {
-    if (!newInterface.name.trim()) {
-      setError('Name is required');
-      return;
-    }
-
-    if (newInterface.models.length === 0) {
-      setError('At least one model must be specified');
-      return;
-    }
-
-    // Check for duplicate names
-    const isDuplicate = userInterfaces.some(
-      (ui) => ui.name.toLowerCase() === newInterface.name.toLowerCase().trim(),
-    );
-
-    if (isDuplicate) {
-      setError('A user interface with this name already exists');
-      return;
-    }
-
     try {
       setSubmitting(true);
       setError(null);
 
       const payload: UserInterfaceCreatePayload = {
-        name: newInterface.name.trim(),
+        name: newInterface.name,
         models: newInterface.models,
-        min_version: newInterface.min_version.trim(),
-        max_version: newInterface.max_version.trim(),
+        min_version: newInterface.min_version,
+        max_version: newInterface.max_version,
       };
 
-      const createdInterface = await createUserInterface(payload);
+      const createdInterface = await createUserInterfaceWithValidation(
+        payload,
+        userInterfaces,
+        { createNavigationConfig: true },
+      );
 
       // Update local state
       setUserInterfaces([...userInterfaces, createdInterface]);
@@ -248,22 +237,6 @@ const UserInterface: React.FC = () => {
         '[@component:UserInterface] Successfully created user interface:',
         createdInterface.name,
       );
-
-      // Create empty navigation config file
-      try {
-        await createEmptyNavigationConfig(createdInterface);
-        console.log(
-          '[@component:UserInterface] Successfully created navigation config for:',
-          createdInterface.name,
-        );
-      } catch (configError) {
-        console.error('[@component:UserInterface] Error creating navigation config:', configError);
-        // Don't fail the entire operation if config creation fails
-        // The user interface was created successfully, config can be created later
-        setError(
-          'User interface created successfully, but failed to create navigation config. You can still use the navigation editor.',
-        );
-      }
     } catch (err) {
       console.error('[@component:UserInterface] Error creating user interface:', err);
       setError(err instanceof Error ? err.message : 'Failed to create user interface');
@@ -561,14 +534,26 @@ const UserInterface: React.FC = () => {
                               color="primary"
                               onClick={() => handleEdit(userInterface)}
                               sx={{ p: 0.5 }}
+                              title="Edit"
                             >
                               <EditIcon fontSize="small" />
+                            </IconButton>
+                            <IconButton
+                              size="small"
+                              color="default"
+                              onClick={() => handleDuplicate(userInterface)}
+                              disabled={submitting}
+                              sx={{ p: 0.5 }}
+                              title="Duplicate"
+                            >
+                              <DuplicateIcon fontSize="small" />
                             </IconButton>
                             <IconButton
                               size="small"
                               color="error"
                               onClick={() => handleDelete(userInterface.id)}
                               sx={{ p: 0.5 }}
+                              title="Delete"
                             >
                               <DeleteIcon fontSize="small" />
                             </IconButton>

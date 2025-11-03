@@ -240,6 +240,136 @@ export const useUserInterface = () => {
   );
 
   /**
+   * Create a new user interface with validation
+   */
+  const createUserInterfaceWithValidation = useMemo(
+    () =>
+      async (
+        payload: UserInterfaceCreatePayload,
+        existingInterfaces: UserInterface[],
+        options?: { createNavigationConfig?: boolean },
+      ): Promise<UserInterface> => {
+        try {
+          // Validation: Name is required
+          if (!payload.name.trim()) {
+            throw new Error('Name is required');
+          }
+
+          // Validation: At least one model must be specified
+          if (payload.models.length === 0) {
+            throw new Error('At least one model must be specified');
+          }
+
+          // Validation: Check for duplicate names
+          const isDuplicate = existingInterfaces.some(
+            (ui) => ui.name.toLowerCase() === payload.name.toLowerCase().trim(),
+          );
+
+          if (isDuplicate) {
+            throw new Error('A user interface with this name already exists');
+          }
+
+          console.log(
+            '[@hook:useUserInterface:createUserInterfaceWithValidation] Creating user interface:',
+            payload,
+          );
+
+          // Normalize payload
+          const normalizedPayload: UserInterfaceCreatePayload = {
+            name: payload.name.trim(),
+            models: payload.models,
+            min_version: payload.min_version?.trim() || '',
+            max_version: payload.max_version?.trim() || '',
+          };
+
+          const createdInterface = await createUserInterface(normalizedPayload);
+
+          // Create navigation config if requested (default: true)
+          if (options?.createNavigationConfig !== false) {
+            try {
+              await createEmptyNavigationConfig(createdInterface);
+              console.log(
+                `[@hook:useUserInterface:createUserInterfaceWithValidation] Successfully created navigation config for: ${createdInterface.name}`,
+              );
+            } catch (configError) {
+              console.error(
+                '[@hook:useUserInterface:createUserInterfaceWithValidation] Error creating navigation config:',
+                configError,
+              );
+              throw new Error(
+                'User interface created successfully, but failed to create navigation config. You can still use the navigation editor.',
+              );
+            }
+          }
+
+          return createdInterface;
+        } catch (error) {
+          console.error(
+            '[@hook:useUserInterface:createUserInterfaceWithValidation] Error creating user interface:',
+            error,
+          );
+          throw error;
+        }
+      },
+    [createUserInterface, createEmptyNavigationConfig],
+  );
+
+  /**
+   * Update an existing user interface with validation
+   */
+  const updateUserInterfaceWithValidation = useMemo(
+    () =>
+      async (
+        id: string,
+        payload: UserInterfaceCreatePayload,
+        existingInterfaces: UserInterface[],
+      ): Promise<UserInterface> => {
+        try {
+          // Validation: Name is required
+          if (!payload.name.trim()) {
+            throw new Error('Name is required');
+          }
+
+          // Validation: At least one model must be specified
+          if (payload.models.length === 0) {
+            throw new Error('At least one model must be specified');
+          }
+
+          // Validation: Check for duplicate names (excluding current item)
+          const isDuplicate = existingInterfaces.some(
+            (ui) => ui.id !== id && ui.name.toLowerCase() === payload.name.toLowerCase().trim(),
+          );
+
+          if (isDuplicate) {
+            throw new Error('A user interface with this name already exists');
+          }
+
+          console.log(
+            `[@hook:useUserInterface:updateUserInterfaceWithValidation] Updating user interface ${id}:`,
+            payload,
+          );
+
+          // Normalize payload
+          const normalizedPayload: UserInterfaceCreatePayload = {
+            name: payload.name.trim(),
+            models: payload.models,
+            min_version: payload.min_version?.trim() || '',
+            max_version: payload.max_version?.trim() || '',
+          };
+
+          return await updateUserInterface(id, normalizedPayload);
+        } catch (error) {
+          console.error(
+            `[@hook:useUserInterface:updateUserInterfaceWithValidation] Error updating user interface ${id}:`,
+            error,
+          );
+          throw error;
+        }
+      },
+    [updateUserInterface],
+  );
+
+  /**
    * Create a new user interface
    */
   const createUserInterface = useMemo(
@@ -376,6 +506,71 @@ export const useUserInterface = () => {
   );
 
   /**
+   * Duplicate an existing user interface with _copy suffix
+   */
+  const duplicateUserInterface = useMemo(
+    () =>
+      async (userInterface: UserInterface, existingInterfaces: UserInterface[]): Promise<UserInterface> => {
+        try {
+          // Generate unique name with _copy suffix
+          let newName = `${userInterface.name}_copy`;
+          let counter = 1;
+          
+          // Check if name exists, if so add _1, _2, etc.
+          while (existingInterfaces.some((ui) => ui.name.toLowerCase() === newName.toLowerCase())) {
+            newName = `${userInterface.name}_copy_${counter}`;
+            counter++;
+          }
+
+          console.log(
+            `[@hook:useUserInterface:duplicateUserInterface] Duplicating user interface: ${userInterface.name} -> ${newName}`,
+          );
+
+          // Create payload with duplicated data
+          const payload: UserInterfaceCreatePayload = {
+            name: newName,
+            models: [...userInterface.models],
+            min_version: userInterface.min_version || '',
+            max_version: userInterface.max_version || '',
+          };
+
+          // Create the new user interface
+          const duplicatedInterface = await createUserInterface(payload);
+
+          console.log(
+            `[@hook:useUserInterface:duplicateUserInterface] Successfully duplicated user interface: ${duplicatedInterface.name}`,
+          );
+
+          // Create empty navigation config for the duplicate
+          try {
+            await createEmptyNavigationConfig(duplicatedInterface);
+            console.log(
+              `[@hook:useUserInterface:duplicateUserInterface] Successfully created navigation config for duplicate: ${duplicatedInterface.name}`,
+            );
+          } catch (configError) {
+            console.error(
+              '[@hook:useUserInterface:duplicateUserInterface] Error creating navigation config:',
+              configError,
+            );
+            // Re-throw with more context
+            throw new Error(
+              'User interface duplicated successfully, but failed to create navigation config. You can still use the navigation editor.',
+            );
+          }
+
+          return duplicatedInterface;
+        } catch (error) {
+          console.error(
+            `[@hook:useUserInterface:duplicateUserInterface] Error duplicating user interface ${userInterface.name}:`,
+            error,
+          );
+          throw error;
+        }
+      },
+    [createUserInterface, createEmptyNavigationConfig],
+  );
+
+  /**
    * Create empty navigation config for a user interface
    */
   const createEmptyNavigationConfig = useMemo(
@@ -497,8 +692,11 @@ export const useUserInterface = () => {
     getUserInterface,
     getUserInterfaceByName,
     createUserInterface,
+    createUserInterfaceWithValidation,
     updateUserInterface,
+    updateUserInterfaceWithValidation,
     deleteUserInterface,
+    duplicateUserInterface,
     createEmptyNavigationConfig,
     getCompatibleInterfaces,
   };
