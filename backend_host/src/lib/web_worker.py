@@ -118,12 +118,18 @@ class WebWorker:
                 task.done.set()
 
     def run_coro(self, coro):
-        """Synchronously run a coroutine on the worker's event loop from any thread."""
-        # Wait until loop is created
+        """Synchronously run a coroutine on the worker's event loop.
+        - If called from the worker thread: run_until_complete (loop not running).
+        - If called from another thread: run_coroutine_threadsafe.
+        """
+        import threading
         self._loop_ready.wait(timeout=5)
         if not self._loop:
             raise RuntimeError("Playwright worker loop not initialized")
-        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-        return future.result()
+        if threading.current_thread().name == "PlaywrightWorker":
+            return self._loop.run_until_complete(coro)
+        else:
+            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+            return future.result()
 
 
