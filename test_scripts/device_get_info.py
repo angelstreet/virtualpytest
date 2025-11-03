@@ -58,22 +58,28 @@ def capture_navigation_summary(context, userinterface_name: str, target_node: st
     lines.append(f"⏱️  Total Time: {context.get_execution_time_ms()/1000:.1f}s")
     lines.append(f"📸 Screenshots: {len(context.screenshot_paths)} captured")
     
-    # Add device info extraction summary
-    if metadata and 'device_info' in metadata:
-        device_info = metadata['device_info']
-        extraction_summary = device_info.get('extraction_summary', {})
-        extracted_fields = device_info.get('extracted_fields', {})
+    # Add device info extraction with parsed data display (like dns_lookuptime.py)
+    if metadata and 'info' in metadata:
+        parsed_data = metadata['info']
+        element_count = metadata.get('element_count', 0)
         
-        lines.append(f"\n📊 DEVICE INFO EXTRACTION")
-        lines.append(f"   Elements scanned: {extraction_summary.get('total_elements', 0)}")
-        lines.append(f"   Fields extracted: {extraction_summary.get('fields_extracted', 0)}")
+        lines.append(f"\n{'='*80}")
+        lines.append(f"📊 DEVICE INFO PARSED RESULTS")
+        lines.append(f"{'='*80}")
+        lines.append(f"🔍 Elements Scanned: {element_count}")
+        lines.append(f"📝 Fields Extracted: {len(parsed_data)}")
+        lines.append(f"")
         
-        if extracted_fields:
-            lines.append(f"\n📝 EXTRACTED DEVICE DATA:")
-            for field_name, field_value in extracted_fields.items():
-                lines.append(f"   • {field_name}: {field_value}")
+        if parsed_data:
+            lines.append(f"📋 EXTRACTED DEVICE DATA:")
+            for field_name, field_value in parsed_data.items():
+                # Format field name nicely (replace underscores with spaces, capitalize)
+                display_name = field_name.replace('_', ' ').title()
+                lines.append(f"   • {display_name}: {field_value}")
         else:
-            lines.append(f"   ⚠️  No device info fields extracted (check info page format)")
+            lines.append(f"⚠️  No device info fields extracted (check info page format)")
+        
+        lines.append(f"{'='*80}")
     
     lines.append(f"\n🎯 Result: {'SUCCESS' if context.overall_success else 'FAILED'}")
     
