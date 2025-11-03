@@ -76,7 +76,7 @@ class LoggingManager:
             if inspect.iscoroutinefunction(execution_fn) or asyncio.iscoroutine(execution_fn):
                 result = await execution_fn(*args, **kwargs)
             else:
-                result = execution_fn(*args, **kwargs)
+            result = execution_fn(*args, **kwargs)
             
             print(f"[@LoggingManager] Log capture completed", flush=True)
             
