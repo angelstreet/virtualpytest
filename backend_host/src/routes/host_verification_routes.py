@@ -126,68 +126,45 @@ def verification_execute_batch():
                 'error': f'Device {device_id} does not have VerificationExecutor initialized'
             }), 500
         
-        # Check if ANY verification is a web verification (text verification uses Playwright)
-        has_web_verification = any(v.get('verification_type') == 'text' for v in verifications)
+        # Always execute asynchronously to prevent HTTP timeouts
+        # Playwright will run sync INSIDE the thread (no cross-thread issues)
+        print(f"[@route:host_verification:verification_execute_batch] Executing asynchronously with threading")
         
-        if has_web_verification:
-            # WEB VERIFICATIONS: Execute synchronously in main thread to avoid Playwright threading issues
-            print(f"[@route:host_verification:verification_execute_batch] Web verifications detected - executing SYNCHRONOUSLY in main thread")
-            
-            # Execute directly in main thread (no background thread)
-            result = device.verification_executor.execute_verifications(
-                verifications=verifications,
-                userinterface_name=userinterface_name,
-                image_source_url=image_source_url,
-                team_id=team_id,
-                tree_id=tree_id,
-                node_id=node_id
-            )
-            
-            print(f"[@route:host_verification:verification_execute_batch] Web verification execution completed synchronously")
-            
-            return jsonify(result), 200 if result.get('success') else 500
-            
-        else:
-            # NON-WEB VERIFICATIONS: Execute asynchronously to prevent HTTP timeouts
-            print(f"[@route:host_verification:verification_execute_batch] Non-web verifications - executing ASYNCHRONOUSLY")
-            
-            # Generate execution ID
-            import uuid
-            import threading
-            import time
-            execution_id = str(uuid.uuid4())
-            
-            # Store execution state
-            if not hasattr(device.verification_executor, '_executions'):
-                device.verification_executor._executions = {}
-                device.verification_executor._lock = threading.Lock()
-            
-            with device.verification_executor._lock:
-                device.verification_executor._executions[execution_id] = {
-                    'execution_id': execution_id,
-                    'status': 'running',
-                    'result': None,
-                    'error': None,
-                    'start_time': time.time(),
-                    'progress': 0,
-                    'message': 'Verification execution starting...'
-                }
-            
-            # Start execution in background thread
-            thread = threading.Thread(
-                target=_execute_verifications_thread,
-                args=(device, execution_id, verifications, userinterface_name, image_source_url, team_id, tree_id, node_id),
-                daemon=True
-            )
-            thread.start()
-            
-            print(f"[@route:host_verification:verification_execute_batch] Async execution started: {execution_id}")
-            
-            return jsonify({
-                'success': True,
+        # Generate execution ID
+        import uuid
+        execution_id = str(uuid.uuid4())
+        
+        # Store execution state
+        if not hasattr(device.verification_executor, '_executions'):
+            device.verification_executor._executions = {}
+            device.verification_executor._lock = threading.Lock()
+        
+        with device.verification_executor._lock:
+            device.verification_executor._executions[execution_id] = {
                 'execution_id': execution_id,
-                'message': 'Verification execution started'
-            })
+                'status': 'running',
+                'result': None,
+                'error': None,
+                'start_time': time.time(),
+                'progress': 0,
+                'message': 'Verification execution starting...'
+            }
+        
+        # Start execution in background thread
+        thread = threading.Thread(
+            target=_execute_verifications_thread,
+            args=(device, execution_id, verifications, userinterface_name, image_source_url, team_id, tree_id, node_id),
+            daemon=True
+        )
+        thread.start()
+        
+        print(f"[@route:host_verification:verification_execute_batch] Async execution started: {execution_id}")
+        
+        return jsonify({
+            'success': True,
+            'execution_id': execution_id,
+            'message': 'Verification execution started'
+        })
         
     except Exception as e:
         print(f"[@route:host_verification:verification_execute_batch] Error: {e}")
