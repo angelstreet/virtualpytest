@@ -7,8 +7,6 @@ Handles cross-cutting concerns: logging, screenshots, error handling
 from typing import Dict, Any, List, Optional
 from .logging_manager import LoggingManager
 from .screenshot_manager import ScreenshotManager
-import threading
-import asyncio
 
 
 class ExecutionOrchestrator:
@@ -66,12 +64,7 @@ class ExecutionOrchestrator:
                 context=context
             )
         
-        # If in sync context, use run_async
-        if not asyncio.get_event_loop().is_running():
-            from .utils.playwright_utils import PlaywrightUtils
-            return PlaywrightUtils().run_async(LoggingManager.execute_with_logging(execute))
-        else:
-            return await LoggingManager.execute_with_logging(execute)
+        return await LoggingManager.execute_with_logging(execute)
     
     @staticmethod
     async def execute_actions(
@@ -107,21 +100,7 @@ class ExecutionOrchestrator:
                 context=context
             )
         
-        # If any web action, ensure execution happens on the Playwright worker thread
-        has_web_action = (
-            any((a.get('action_type') == 'web') for a in (actions or [])) or
-            any((a.get('action_type') == 'web') for a in (retry_actions or [])) or
-            any((a.get('action_type') == 'web') for a in (failure_actions or []))
-        )
-        if has_web_action and threading.current_thread().name != "PlaywrightWorker":
-            from backend_host.src.lib.web_worker import WebWorker
-            return WebWorker.instance().submit_sync(
-                'action',
-                {'counts': {'actions': len(actions or []), 'retry': len(retry_actions or []), 'failure': len(failure_actions or [])}},
-                lambda: LoggingManager.execute_with_logging(execute)
-            )
-
-        return LoggingManager.execute_with_logging(execute)
+        return await LoggingManager.execute_with_logging(execute)
     
     @staticmethod
     async def execute_verifications(
@@ -166,16 +145,7 @@ class ExecutionOrchestrator:
                 verification_pass_condition=verification_pass_condition
             )
         
-        has_web_verification = any((v.get('verification_type') == 'web') for v in (verifications or []))
-        if has_web_verification and threading.current_thread().name != "PlaywrightWorker":
-            from backend_host.src.lib.web_worker import WebWorker
-            return WebWorker.instance().submit_sync(
-                'verification',
-                {'count': len(verifications or [])},
-                lambda: LoggingManager.execute_with_logging(execute)
-            )
-
-        return LoggingManager.execute_with_logging(execute)
+        return await LoggingManager.execute_with_logging(execute)
     
     @staticmethod
     async def execute_blocks(
@@ -202,5 +172,5 @@ class ExecutionOrchestrator:
                 context=context
             )
         
-        return LoggingManager.execute_with_logging(execute)
+        return await LoggingManager.execute_with_logging(execute)
 

@@ -5,6 +5,8 @@ Handles log capture for all execution types
 
 import io
 import sys
+import asyncio
+import inspect
 from typing import Callable, Any, Dict
 
 
@@ -39,15 +41,16 @@ class LoggingManager:
     """Manages log capture for execution operations"""
     
     @staticmethod
-    def execute_with_logging(execution_fn: Callable, *args, **kwargs) -> Dict[str, Any]:
+    async def execute_with_logging(execution_fn: Callable, *args, **kwargs) -> Dict[str, Any]:
         """
         Execute function and capture all stdout/stderr logs.
+        Supports both sync and async callables.
         
         Thread-safe: Works correctly in background threads by redirecting the global
         sys.stdout/sys.stderr, which all threads share.
         
         Args:
-            execution_fn: Function to execute
+            execution_fn: Function to execute (sync or async)
             *args, **kwargs: Arguments to pass to execution_fn
             
         Returns:
@@ -69,8 +72,11 @@ class LoggingManager:
             
             print(f"[@LoggingManager] Log capture started (thread-safe)", flush=True)
             
-            # Execute the function
-            result = execution_fn(*args, **kwargs)
+            # Execute the function - handle both sync and async
+            if inspect.iscoroutinefunction(execution_fn) or asyncio.iscoroutine(execution_fn):
+                result = await execution_fn(*args, **kwargs)
+            else:
+                result = execution_fn(*args, **kwargs)
             
             print(f"[@LoggingManager] Log capture completed", flush=True)
             
