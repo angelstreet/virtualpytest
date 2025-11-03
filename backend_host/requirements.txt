@@ -77,6 +77,7 @@ paramiko>=2.9.0  # SSH
 Appium-Python-Client>=3.1.0  # Mobile devices
 selenium>=4.15.0  # Web automation
 playwright>=1.40.0  # Modern web automation framework
+nest-asyncio>=1.5.0  # Allow sync Playwright in async contexts
 browser-use>=0.1.0  # Browser automation
 
 # Network speed monitoring
