@@ -108,74 +108,49 @@ def navigation_execute(tree_id):
                 'error': f'Device {device_id} does not have NavigationExecutor initialized'
             }), 500
         
-        # Check if device uses web controller (Playwright) - these need synchronous execution
-        # to avoid threading issues with Playwright's browser state
-        uses_web_controller = device._get_controller('web') is not None
+        # Always execute asynchronously to prevent HTTP timeouts
+        # Playwright will run sync INSIDE the thread (no cross-thread issues)
+        print(f"[@route:host_navigation:navigation_execute] Executing asynchronously with threading")
         
-        if uses_web_controller:
-            # WEB DEVICES (Playwright): Execute synchronously in main thread
-            print(f"[@route:host_navigation:navigation_execute] Web device detected - executing SYNCHRONOUSLY in main thread")
-            
-            # Execute navigation through ExecutionOrchestrator for consistent logging
-            from backend_host.src.orchestrator import ExecutionOrchestrator
-            result = ExecutionOrchestrator.execute_navigation(
-                device=device,
-                tree_id=tree_id,
-                userinterface_name=userinterface_name,
-                target_node_id=target_node_id,
-                target_node_label=target_node_label,
-                current_node_id=current_node_id,
-                frontend_sent_position=frontend_sent_position,
-                image_source_url=image_source_url,
-                team_id=team_id
-            )
-            
-            print(f"[@route:host_navigation:navigation_execute] Synchronous navigation completed: success={result.get('success')}")
-            
-            return jsonify(result), 200 if result.get('success') else 500
-        else:
-            # NON-WEB DEVICES (ADB, remote, etc.): Execute asynchronously to prevent HTTP timeouts
-            print(f"[@route:host_navigation:navigation_execute] Non-web device detected - executing ASYNCHRONOUSLY")
-            
-            # Generate execution ID
-            import uuid
-            execution_id = str(uuid.uuid4())
-            
-            # Store execution state
-            if not hasattr(device.navigation_executor, '_executions'):
-                device.navigation_executor._executions = {}
-                device.navigation_executor._lock = threading.Lock()
-            
-            with device.navigation_executor._lock:
-                device.navigation_executor._executions[execution_id] = {
-                    'execution_id': execution_id,
-                    'status': 'running',
-                    'tree_id': tree_id,
-                    'target_node_id': target_node_id,
-                    'target_node_label': target_node_label,
-                    'result': None,
-                    'error': None,
-                    'start_time': time.time(),
-                    'progress': 0,
-                    'message': 'Navigation starting...'
-                }
-            
-            # Start execution in background thread
-            thread = threading.Thread(
-                target=_execute_navigation_thread,
-                args=(device, execution_id, tree_id, userinterface_name, target_node_id, target_node_label, 
-                      current_node_id, frontend_sent_position, image_source_url, team_id),
-                daemon=True
-            )
-            thread.start()
-            
-            print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
-            
-            return jsonify({
-                'success': True,
+        # Generate execution ID
+        import uuid
+        execution_id = str(uuid.uuid4())
+        
+        # Store execution state
+        if not hasattr(device.navigation_executor, '_executions'):
+            device.navigation_executor._executions = {}
+            device.navigation_executor._lock = threading.Lock()
+        
+        with device.navigation_executor._lock:
+            device.navigation_executor._executions[execution_id] = {
                 'execution_id': execution_id,
-                'message': 'Navigation started'
-            })
+                'status': 'running',
+                'tree_id': tree_id,
+                'target_node_id': target_node_id,
+                'target_node_label': target_node_label,
+                'result': None,
+                'error': None,
+                'start_time': time.time(),
+                'progress': 0,
+                'message': 'Navigation starting...'
+            }
+        
+        # Start execution in background thread
+        thread = threading.Thread(
+            target=_execute_navigation_thread,
+            args=(device, execution_id, tree_id, userinterface_name, target_node_id, target_node_label, 
+                  current_node_id, frontend_sent_position, image_source_url, team_id),
+            daemon=True
+        )
+        thread.start()
+        
+        print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
+        
+        return jsonify({
+            'success': True,
+            'execution_id': execution_id,
+            'message': 'Navigation started'
+        })
         
     except Exception as e:
         print(f"[@route:host_navigation:navigation_execute] Error: {e}")
