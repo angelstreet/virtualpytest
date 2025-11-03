@@ -715,7 +715,7 @@ class NavigationExecutor:
                     
                     # Use orchestrator for unified logging
                     from backend_host.src.orchestrator import ExecutionOrchestrator
-                    result = ExecutionOrchestrator.execute_actions(
+                    result = await ExecutionOrchestrator.execute_actions(
                         device=self.device,
                         actions=actions,
                         retry_actions=retry_actions,
@@ -744,7 +744,7 @@ class NavigationExecutor:
                     
                     # Use orchestrator for unified logging
                     from backend_host.src.orchestrator import ExecutionOrchestrator
-                    verification_result = ExecutionOrchestrator.execute_verifications(
+                    verification_result = await ExecutionOrchestrator.execute_verifications(
                         device=self.device,
                         verifications=step_verifications,
                         userinterface_name=userinterface_name,
@@ -767,7 +767,7 @@ class NavigationExecutor:
                         
                         # Execute retry actions as main actions (no retry/failure for retry)
                         from backend_host.src.orchestrator import ExecutionOrchestrator
-                        retry_result = ExecutionOrchestrator.execute_actions(
+                        retry_result = await ExecutionOrchestrator.execute_actions(
                             device=self.device,
                             actions=retry_actions,
                             retry_actions=[],
@@ -787,7 +787,7 @@ class NavigationExecutor:
                         if retry_result.get('success', False):
                             print(f"[@navigation_executor:execute_navigation] Retry actions succeeded - re-executing verifications")
                             from backend_host.src.orchestrator import ExecutionOrchestrator
-                            verification_result = ExecutionOrchestrator.execute_verifications(
+                            verification_result = await ExecutionOrchestrator.execute_verifications(
                                 device=self.device,
                                 verifications=step_verifications,
                                 userinterface_name=userinterface_name,
