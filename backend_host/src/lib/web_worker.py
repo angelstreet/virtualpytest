@@ -33,6 +33,16 @@ class WebWorker:
         self._q: "queue.Queue[WebTask]" = queue.Queue()
         self._executions: Dict[str, Dict[str, Any]] = {}
         self._exec_lock: threading.Lock = threading.Lock()
+        # Dedicated inner thread that will execute ALL Playwright work to avoid
+        # any interaction with threads that may have an asyncio event loop.
+        self._sync_q: "queue.Queue[Callable[[], Dict[str, Any]]]" = queue.Queue()
+        self._sync_res_q: "queue.Queue[Dict[str, Any] | Exception]" = queue.Queue()
+        self._sync_thread: threading.Thread = threading.Thread(
+            target=self._sync_loop,
+            name="PlaywrightSync",
+            daemon=True,
+        )
+        self._sync_thread.start()
         self._thread: threading.Thread = threading.Thread(
             target=self._loop,
             name="PlaywrightWorker",
@@ -87,7 +97,8 @@ class WebWorker:
         while True:
             task: WebTask = self._q.get()
             try:
-                result = task.run_fn()
+                # Execute the task inside the dedicated PlaywrightSync thread.
+                result = self._run_in_sync_thread(task.run_fn)
                 task.result = result
                 with self._exec_lock:
                     if task.execution_id in self._executions:
@@ -108,5 +119,42 @@ class WebWorker:
                         })
             finally:
                 task.done.set()
+
+    def _run_in_sync_thread(self, run_fn: Callable[[], Dict[str, Any]]) -> Dict[str, Any]:
+        """Run function in the dedicated PlaywrightSync thread and return result.
+        Ensures all Playwright Sync API calls live on a single thread without
+        any asyncio event loop interference.
+        """
+        done = threading.Event()
+        result_holder: Dict[str, Any] = {}
+        error_holder: Dict[str, Any] = {}
+
+        def wrapper():
+            try:
+                res = run_fn()
+                self._sync_res_q.put(res)
+            except Exception as e:  # noqa: BLE001
+                self._sync_res_q.put(e)
+            finally:
+                done.set()
+
+        self._sync_q.put(wrapper)
+        done.wait()
+        res = self._sync_res_q.get()
+        if isinstance(res, Exception):
+            raise res
+        return res
+
+    def _sync_loop(self):
+        """Dedicated loop that executes Playwright tasks on a clean thread.
+        This thread must never create or run an asyncio event loop.
+        """
+        while True:
+            fn = self._sync_q.get()
+            try:
+                fn()
+            finally:
+                # Ensure queue task completion semantics if needed later
+                pass
 
 
