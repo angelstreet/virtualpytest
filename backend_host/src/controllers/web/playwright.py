@@ -230,7 +230,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'connected': False
             }
     
-    def connect_browser(self) -> Dict[str, Any]:
+    async def connect_browser(self) -> Dict[str, Any]:
         """Connect to existing Chrome debug session without killing Chrome first.
         OPTIMIZED: Skip reconnection if already connected, skip sleep if Chrome already running.
         """
@@ -243,9 +243,9 @@ class PlaywrightWebController(WebControllerInterface):
                 
                 # Get existing page to verify connection is still alive
                 try:
-                    page = self._get_persistent_page()
+                    page = await self._get_persistent_page()
                     self.current_url = page.url
-                    self.page_title = page.title() if page.url != 'about:blank' else ''
+                    self.page_title = await page.title() if page.url != 'about:blank' else ''
                     
                     execution_time = int((time.time() - start_time) * 1000)
                     print(f"[PLAYWRIGHT]: Reused existing connection (skipped reconnection)")
@@ -270,12 +270,12 @@ class PlaywrightWebController(WebControllerInterface):
             # Try to connect to existing Chrome debug session (no killing Chrome first)
             try:
                 # For existing Chrome, just connect without creating new context
-                self.__class__._playwright, self.__class__._browser, self.__class__._context, page = self.utils.connect_to_chrome()
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, page = await self.utils.connect_to_chrome()
                 self.__class__._browser_connected = True
                 
                 # Get current page info from persistent page
                 self.current_url = page.url
-                self.page_title = page.title() if page.url != 'about:blank' else ''
+                self.page_title = await page.title() if page.url != 'about:blank' else ''
                 
                 execution_time = int((time.time() - start_time) * 1000)
                 
@@ -294,21 +294,21 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: No existing Chrome found ({e}), launching new Chrome...")
                 try:
                     # Launch Chrome and connect
-                    if not self.connect():
+                    if not await self.connect():
                         raise Exception("Failed to launch Chrome")
                     
                     # ✅ OPTIMIZATION 3: Only sleep if we JUST launched Chrome (not already running)
                     if not chrome_was_already_running:
                         print(f"[PLAYWRIGHT]: Chrome was just launched, waiting 5s for initialization...")
-                        time.sleep(5)
+                        await asyncio.sleep(5)
                     else:
                         print(f"[PLAYWRIGHT]: Chrome was already running, skipping initialization delay")
                     
-                    page = self._get_persistent_page(target_url='https://google.fr')
+                    page = await self._get_persistent_page(target_url='https://google.fr')
                     
                     # Update page state
                     self.current_url = page.url
-                    self.page_title = page.title()
+                    self.page_title = await page.title()
                     
                     execution_time = int((time.time() - start_time) * 1000)
                     print(f"[PLAYWRIGHT]: Launched new Chrome and connected successfully")
@@ -1276,7 +1276,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
                 
-            return self.navigate_to_url(url, timeout=timeout, follow_redirects=follow_redirects)
+            return await self.navigate_to_url(url, timeout=timeout, follow_redirects=follow_redirects)
         
         elif command == 'click_element':
             element_id = params.get('element_id') or params.get('selector')  # Support both for backward compatibility during transition
@@ -1326,7 +1326,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
                 
-            return self.input_text(selector, text, timeout=timeout)
+            return await self.input_text(selector, text, timeout=timeout)
         
         elif command == 'tap_x_y':
             x = params.get('x')
@@ -1360,13 +1360,13 @@ class PlaywrightWebController(WebControllerInterface):
             return self.activate_semantic()
         
         elif command == 'open_browser':
-            return self.open_browser()
+            return await self.open_browser()
         
         elif command == 'close_browser':
             return self.close_browser()  # Returns success but doesn't actually close
         
         elif command == 'connect_browser':
-            return self.connect_browser()
+            return await self.connect_browser()
         
         elif command == 'dump_elements':
             element_types = params.get('element_types', 'all')

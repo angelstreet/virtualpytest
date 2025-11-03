@@ -504,7 +504,7 @@ class PlaywrightUtils:
         """Close Chrome instances gracefully."""
         self.chrome_manager.close_chrome_gracefully(chrome_process=chrome_process)
     
-    def connect_to_chrome(self, cdp_url: str = 'http://localhost:9222', target_url: str = None):
+    async def connect_to_chrome(self, cdp_url: str = 'http://localhost:9222', target_url: str = None):
         """
         Connect to Chrome via CDP with automatic cookie injection.
         
@@ -516,7 +516,7 @@ class PlaywrightUtils:
             Tuple of (playwright, browser, context, page)
         """
         # Connect with browser default viewport
-        playwright, browser, context, page = self.connection.connect_to_chrome(cdp_url)
+        playwright, browser, context, page = await self.connection.connect_to_chrome(cdp_url)
         
         # Auto-inject cookies if enabled and target URL provided
         if self.auto_accept_cookies and self.cookie_manager and target_url:
