@@ -88,7 +88,7 @@ def execute(operation: str = 'add', input_a: str = '', input_b: str = '',
             context.variables[output_variable] = result
         
         return {
-            'success': True,
+            'result_success': 0,  # 0=success, 1=failure, -1=error
             'result': result,
             'message': f'Common operation placeholder (result={result})'
         }
@@ -98,7 +98,7 @@ def execute(operation: str = 'add', input_a: str = '', input_b: str = '',
         print(f"[@block:common_operation] ERROR: {error_msg}")
         
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': error_msg
         }
 

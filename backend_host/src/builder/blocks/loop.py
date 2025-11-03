@@ -107,7 +107,7 @@ def execute(start_block: str = '', end_block: str = '', iterations: int = 1,
             context.variables[loop_variable] = 0  # Current iteration
         
         return {
-            'success': True,
+            'result_success': 0,  # 0=success, 1=failure, -1=error
             'message': f'Loop block placeholder (start={start_block}, end={end_block}, iterations={iterations})'
         }
         
@@ -116,7 +116,7 @@ def execute(start_block: str = '', end_block: str = '', iterations: int = 1,
         print(f"[@block:loop] ERROR: {error_msg}")
         
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': error_msg
         }
 

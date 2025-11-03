@@ -62,7 +62,7 @@ def execute(format: str = 'formatted', context=None, **kwargs) -> Dict[str, Any]
         print(f"[@block:get_current_time] Current time: {current_time}")
         
         return {
-            'success': True,
+            'result_success': 0,  # 0=success, 1=failure, -1=error
             'message': f'Current time: {current_time}',
             'output_data': {
                 'current_time': current_time
@@ -74,7 +74,7 @@ def execute(format: str = 'formatted', context=None, **kwargs) -> Dict[str, Any]
         print(f"[@block:get_current_time] ERROR: {error_msg}")
         
         return {
-            'success': False,
+            'result_success': -1,  # 0=success, 1=failure, -1=error
             'message': error_msg
         }
 
