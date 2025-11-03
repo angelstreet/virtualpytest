@@ -149,6 +149,14 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             self.__class__._context = None
             self.__class__._browser_connected = False
             print(f"[PLAYWRIGHT]: Persistent browser+context cleaned up")
+
+    async def _cleanup_persistent_browser_with_timeout(self, timeout_seconds: int = 10):
+        """Cleanup wrapper that enforces a timeout so it never blocks navigation."""
+        import asyncio
+        try:
+            await asyncio.wait_for(self._cleanup_persistent_browser(), timeout=timeout_seconds)
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Cleanup timed out or failed: {type(e).__name__}: {str(e)}")
     
     async def connect(self) -> bool:
         """Connect to browser (launch if needed)."""
@@ -370,13 +378,25 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             }
     
     def close_browser(self) -> Dict[str, Any]:
-        """Browser stays open - no closing."""
-        print(f"[PLAYWRIGHT]: Browser stays open (no closing)")
+        """Schedule async cleanup without blocking the navigation thread."""
+        print(f"[PLAYWRIGHT]: Scheduling non-blocking browser cleanup")
+        # Pre-emptively mark disconnected so next actions reconnect if needed
+        self.__class__._browser_connected = False
+        scheduled = False
+        try:
+            import asyncio
+            loop = asyncio.get_running_loop()
+            loop.create_task(self._cleanup_persistent_browser_with_timeout(10))
+            scheduled = True
+        except RuntimeError:
+            # No running loop (unlikely since execute_command is async) - best effort fallback: do nothing blocking
+            print(f"[PLAYWRIGHT]: No running asyncio loop; skipping async cleanup scheduling")
         return {
             'success': True,
             'error': '',
             'execution_time': 0,
-            'connected': True
+            'connected': False,
+            'scheduled_async_cleanup': scheduled
         }
     
     async def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
