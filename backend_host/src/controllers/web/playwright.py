@@ -18,6 +18,7 @@ BROWSER_ENGINE = "chromium"  # <-- Change this line to switch browsers
 import os
 import json
 import time
+import asyncio
 from typing import Dict, Any, Optional, Tuple, List
 from ..base_controller import WebControllerInterface
 
