@@ -19,13 +19,9 @@ host_web_bp = Blueprint('host_web', __name__, url_prefix='/host/web')
 # =====================================================
 
 def _run_async(coro):
-    """Run async coroutine in a new event loop (Flask sync compatibility)."""
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    try:
-        return loop.run_until_complete(coro)
-    finally:
-        loop.close()
+    """Run async coroutine using asyncio.run() - same as navigation execution."""
+    import asyncio
+    return asyncio.run(coro)
 
 @host_web_bp.route('/executeCommand', methods=['POST'])
 def execute_command():
