@@ -1498,10 +1498,24 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             print(f"[PLAYWRIGHT]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
             start_time = time.time()
             
-
-            
             # Get persistent page from browser+context
             page = await self._get_persistent_page()
+            print(f"[PLAYWRIGHT]: Got persistent page (url={page.url}), preparing to evaluate JS")
+            
+            # Check if page is still responsive
+            try:
+                await page.evaluate("() => true")
+                print(f"[PLAYWRIGHT]: Page is responsive, proceeding with element dump")
+            except Exception as check_error:
+                error_msg = f"Page connectivity check failed: {type(check_error).__name__}: {str(check_error)}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'elements': [],
+                    'summary': {},
+                    'execution_time': 0
+                }
             
             # JavaScript code to extract visible elements
             js_code = f"""
@@ -1640,8 +1654,32 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             }}
             """
             
-            # Execute the JavaScript
-            result = await page.evaluate(js_code)
+            # Execute the JavaScript with proper timeout and error handling
+            try:
+                print(f"[PLAYWRIGHT]: Starting page.evaluate() with 5s timeout")
+                import asyncio as _asyncio
+                result = await _asyncio.wait_for(page.evaluate(js_code), timeout=5.0)
+                print(f"[PLAYWRIGHT]: page.evaluate() completed successfully")
+            except _asyncio.TimeoutError:
+                error_msg = "Element dump timed out after 5 seconds - page may be unresponsive"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'elements': [],
+                    'summary': {},
+                    'execution_time': int((time.time() - start_time) * 1000)
+                }
+            except Exception as eval_error:
+                error_msg = f"Element dump evaluation error: {type(eval_error).__name__}: {str(eval_error)}"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'elements': [],
+                    'summary': {},
+                    'execution_time': int((time.time() - start_time) * 1000)
+                }
             
             # Page remains persistent for next actions
             
