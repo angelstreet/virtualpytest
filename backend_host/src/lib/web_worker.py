@@ -129,48 +129,20 @@ class WebWorker:
             print(f"[WebWorker] Failed to initialize Playwright: {e}")
             raise
 
-    def _process_queue(self):
-        while True:
-            task = self._q.get()
-            future = asyncio.run_coroutine_threadsafe(self._run_task(task), self.loop)
-            result = future.result()
-            # Handle result...
-
-    async def _run_task(self, task):
-        try:
-            # Pass persistent page to run_fn if needed
-            result = await task.run_fn(self._page)
-            task.result = result
-            # Update executions
-            with self._exec_lock:
-                if task.execution_id in self._executions:
-                    self._executions[task.execution_id].update({
-                        'status': 'completed',
-                        'result': result,
-                        'progress': 100,
-                        'message': result.get('message', 'Completed')
-                    })
-        except Exception as e:
-            task.error = str(e)
-            with self._exec_lock:
-                if task.execution_id in self._executions:
-                    self._executions[task.execution_id].update({
-                        'status': 'error',
-                        'error': str(e),
-                        'message': f'Failed: {e}'
-                    })
-        finally:
-            task.done.set()
-
     async def _queue_processor(self):
+        """Process tasks from the queue in the dedicated async loop."""
         while True:
+            # Get task from queue (blocking, but in executor to not block loop)
             task = await self.loop.run_in_executor(None, self._q.get)
+            
             try:
                 # Initialize Playwright lazily on first task
                 await self._init_playwright_if_needed()
                 
-                # Execute task - note run_fn doesn't need _page passed, it will access via controller
+                # Execute the async task using run_coroutine_threadsafe pattern
+                # Since we're already IN the loop, we just await directly
                 result = await task.run_fn()
+                
                 with self._exec_lock:
                     if task.execution_id in self._executions:
                         self._executions[task.execution_id].update({
@@ -180,6 +152,9 @@ class WebWorker:
                             'message': result.get('message', 'Completed')
                         })
             except Exception as e:
+                print(f"[WebWorker] Task {task.execution_id} failed: {e}")
+                import traceback
+                traceback.print_exc()
                 with self._exec_lock:
                     if task.execution_id in self._executions:
                         self._executions[task.execution_id].update({
