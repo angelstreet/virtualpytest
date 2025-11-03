@@ -1168,13 +1168,15 @@ class ScriptExecutor:
                 # If conversion fails, assume target_node is already a node_id
                 target_node_id = target_node
             
-            navigation_result = context.selected_device.navigation_executor.execute_navigation(
+            # ✅ Wrap async call with asyncio.run for script context
+            import asyncio
+            navigation_result = asyncio.run(context.selected_device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
                 userinterface_name=context.userinterface_name,  # MANDATORY parameter
                 target_node_id=target_node_id,
                 team_id=context.team_id,
                 context=context
-            )
+            ))
             
             # Navigation steps are already recorded by NavigationExecutor.execute_navigation()
             # No need to record duplicate step here

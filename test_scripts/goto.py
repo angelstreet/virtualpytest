@@ -74,13 +74,15 @@ def main():
     context.tree_id = nav_result['tree_id']
     
     # Execute navigation using NavigationExecutor directly
-    result = device.navigation_executor.execute_navigation(
+    # ✅ Wrap async call with asyncio.run for script context
+    import asyncio
+    result = asyncio.run(device.navigation_executor.execute_navigation(
         tree_id=context.tree_id,
         userinterface_name=context.userinterface_name,  # MANDATORY parameter
         target_node_label=target_node,
         team_id=context.team_id,
         context=context
-    )
+    ))
     
     success = result.get('success', False)
     if not success:

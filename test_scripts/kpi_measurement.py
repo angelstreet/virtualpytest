@@ -254,13 +254,15 @@ def main():
         
         # Step 1: Navigate to FROM node (like goto.py)
         print(f"📍 [kpi_measurement] Going to '{from_label}'")
-        from_result = device.navigation_executor.execute_navigation(
+        # ✅ Wrap async call with asyncio.run for script context
+        import asyncio
+        from_result = asyncio.run(device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
             userinterface_name=context.userinterface_name,  # MANDATORY parameter
             target_node_label=from_label,
             team_id=context.team_id,
             context=context
-        )
+        ))
         
         if not from_result.get('success', False):
             print(f"❌ [kpi_measurement] Failed to reach '{from_label}'")
@@ -270,13 +272,13 @@ def main():
         
         # Step 2: Navigate to TO node (like goto.py) - KPI measured automatically
         print(f"⏱️  [kpi_measurement] Navigating to '{to_label}' (KPI will be measured)")
-        to_result = device.navigation_executor.execute_navigation(
+        to_result = asyncio.run(device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
             userinterface_name=context.userinterface_name,  # MANDATORY parameter
             target_node_label=to_label,
             team_id=context.team_id,
             context=context
-        )
+        ))
         
         if to_result.get('success', False):
             navigation_success_count += 1

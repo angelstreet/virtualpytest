@@ -181,13 +181,16 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         # Use NavigationExecutor with pre-computed path (validation mode)
         # This skips pathfinding and executes the exact transition from the validation plan
         device = context.selected_device
-        result = device.navigation_executor.execute_navigation(
+        
+        # ✅ Wrap async call with asyncio.run for script context
+        import asyncio
+        result = asyncio.run(device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
             userinterface_name=context.userinterface_name,  # MANDATORY parameter
             navigation_path=[step],  # ✅ Pass pre-computed path - no pathfinding!
             team_id=context.team_id,
             context=context
-        )
+        ))
         
         # Note: Step recording is handled automatically by NavigationExecutor.execute_navigation()
         # No need to manually record steps here - it would create duplicates in the report

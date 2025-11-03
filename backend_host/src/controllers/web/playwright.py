@@ -1245,7 +1245,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+    async def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         Execute web automation command with JSON parameters.
         
