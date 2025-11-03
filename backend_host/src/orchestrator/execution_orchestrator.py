@@ -166,8 +166,8 @@ class ExecutionOrchestrator:
         """
         print(f"[@ExecutionOrchestrator] Executing {len(blocks)} block(s)")
         
-        async def execute():
-            return await device.standard_block_executor.execute_blocks(
+        def execute():
+            return device.standard_block_executor.execute_blocks(
                 blocks=blocks,
                 context=context
             )
