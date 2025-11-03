@@ -26,11 +26,14 @@ def _execute_blocks_thread(device, execution_id, blocks):
             device.standard_block_executor._executions[execution_id]['message'] = 'Executing blocks...'
         
         # Execute blocks through orchestrator (logs + screenshots)
-        result = ExecutionOrchestrator.execute_blocks(
+        # Note: ExecutionOrchestrator.execute_blocks is async, but internally it calls
+        # device.standard_block_executor.execute_blocks which is sync (for standard blocks)
+        import asyncio
+        result = asyncio.run(ExecutionOrchestrator.execute_blocks(
             device=device,
             blocks=blocks,
             context=None
-        )
+        ))
         
         # Update execution state with result
         with device.standard_block_executor._lock:
