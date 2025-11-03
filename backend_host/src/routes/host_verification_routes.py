@@ -260,7 +260,8 @@ def _execute_verifications_thread(
         
         # Execute verifications via orchestrator (includes logging + screenshots)
         from backend_host.src.orchestrator import ExecutionOrchestrator
-        result = ExecutionOrchestrator.execute_verifications(
+        import asyncio
+        result = asyncio.run(ExecutionOrchestrator.execute_verifications(
             device=device,
             verifications=verifications,
             userinterface_name=userinterface_name,
@@ -268,7 +269,7 @@ def _execute_verifications_thread(
             team_id=team_id,
             tree_id=tree_id,
             node_id=node_id
-        )
+        ))
         
         # Stop log capture (orchestrator already captured logs in result['logs'])
         sys.stdout = old_stdout

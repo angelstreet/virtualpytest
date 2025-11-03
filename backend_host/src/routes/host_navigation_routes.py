@@ -776,7 +776,8 @@ def _execute_navigation_thread(
         
         # ✅ Execute navigation through ExecutionOrchestrator for consistent logging
         from backend_host.src.orchestrator import ExecutionOrchestrator
-        result = ExecutionOrchestrator.execute_navigation(
+        import asyncio
+        result = asyncio.run(ExecutionOrchestrator.execute_navigation(
             device=device,
             tree_id=tree_id,
             userinterface_name=userinterface_name,
@@ -787,7 +788,7 @@ def _execute_navigation_thread(
             image_source_url=image_source_url,
             team_id=team_id,
             context=None,
-        )
+        ))
         
         # Stop log capture and add logs to result
         sys.stdout = old_stdout
