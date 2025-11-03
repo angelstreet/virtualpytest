@@ -359,26 +359,7 @@ class PlaywrightConnection:
         import asyncio
         import threading
         
-        # Check if we're in a thread with an event loop
-        has_event_loop = False
-        try:
-            loop = asyncio.get_running_loop()
-            has_event_loop = True
-            print(f'[PlaywrightConnection] ⚠️ Running in thread with active event loop!')
-            print(f'[PlaywrightConnection] Thread: {threading.current_thread().name}, Loop: {loop}')
-            
-            # Apply nest_asyncio to allow sync Playwright in async context
-            try:
-                import nest_asyncio
-                nest_asyncio.apply(loop)
-                print(f'[PlaywrightConnection] ✅ Applied nest_asyncio patch to event loop')
-            except ImportError:
-                print(f'[PlaywrightConnection] ⚠️ nest_asyncio not installed, sync Playwright may fail!')
-                print(f'[PlaywrightConnection] Run: pip install nest-asyncio')
-                
-        except RuntimeError:
-            # No running loop - safe to use sync API directly
-            print(f'[PlaywrightConnection] ✅ No event loop detected, safe for sync Playwright')
+        print(f'[PlaywrightConnection] Thread: {threading.current_thread().name}')
         
         try:
             print(f'[PlaywrightConnection] Starting Playwright and connecting to Chrome at {cdp_url}')

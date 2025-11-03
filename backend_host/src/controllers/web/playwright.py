@@ -299,7 +299,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 print(f"[PLAYWRIGHT]: No existing Chrome found ({e}), launching new Chrome...")
                 try:
                     # Launch Chrome and connect
-                    if not await self.connect():
+                    connect_result = await self.connect()
+                    if not connect_result:
                         raise Exception("Failed to launch Chrome")
                     
                     # ✅ OPTIMIZATION 3: Only sleep if we JUST launched Chrome (not already running)
@@ -309,7 +310,9 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     else:
                         print(f"[PLAYWRIGHT]: Chrome was already running, skipping initialization delay")
                     
-                    page = await self._get_persistent_page(target_url='https://google.fr')
+                    # Now connect to the Chrome debug session to get browser/context/page
+                    self.__class__._playwright, self.__class__._browser, self.__class__._context, page = await self.utils.connect_to_chrome()
+                    self.__class__._browser_connected = True
                     
                     # Update page state
                     self.current_url = page.url
