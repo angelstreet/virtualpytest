@@ -9,6 +9,7 @@ from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by
 import threading
 import requests
 import time
+import asyncio
 
 # Create blueprint
 host_web_bp = Blueprint('host_web', __name__, url_prefix='/host/web')
@@ -18,7 +19,7 @@ host_web_bp = Blueprint('host_web', __name__, url_prefix='/host/web')
 # =====================================================
 
 @host_web_bp.route('/executeCommand', methods=['POST'])
-def execute_command():
+async def execute_command():
     """Execute a web automation command using web controller."""
     try:
         # Get request data
@@ -52,7 +53,13 @@ def execute_command():
             def execute_async():
                 try:
                     print(f"[@route:host_web:execute_command] Starting async browser_use_task {task_id}")
-                    result = web_controller.execute_command(command, params)
+                    # Run the async command in new event loop (background thread has no loop)
+                    loop = asyncio.new_event_loop()
+                    asyncio.set_event_loop(loop)
+                    try:
+                        result = loop.run_until_complete(web_controller.execute_command(command, params))
+                    finally:
+                        loop.close()
                     
                     # Send callback with result and execution logs
                     callback_data = {
@@ -105,8 +112,8 @@ def execute_command():
             }), 202
         
         else:
-            # Execute other commands synchronously as before
-            result = web_controller.execute_command(command, params)
+            # Execute other commands with native async/await
+            result = await web_controller.execute_command(command, params)
             return jsonify(result)
             
     except Exception as e:
@@ -117,7 +124,7 @@ def execute_command():
         }), 500
 
 @host_web_bp.route('/navigateToUrl', methods=['POST'])
-def navigate_to_url():
+async def navigate_to_url():
     """Navigate to URL using web controller."""
     try:
         # Get request data
@@ -144,8 +151,8 @@ def navigate_to_url():
         
         print(f"[@route:host_web:navigate_to_url] Using web controller: {type(web_controller).__name__}")
         
-        # Navigate to URL and wait for result
-        result = web_controller.navigate_to_url(url, timeout=timeout)
+        # Navigate to URL with native async/await
+        result = await web_controller.navigate_to_url(url, timeout=timeout)
         
         return jsonify(result)
             
@@ -157,7 +164,7 @@ def navigate_to_url():
         }), 500
 
 @host_web_bp.route('/openBrowser', methods=['POST'])
-def open_browser():
+async def open_browser():
     """Open browser using web controller."""
     try:
         print(f"[@route:host_web:open_browser] Opening browser")
@@ -173,8 +180,8 @@ def open_browser():
         
         print(f"[@route:host_web:open_browser] Using web controller: {type(web_controller).__name__}")
         
-        # Open browser and wait for result
-        result = web_controller.open_browser()
+        # Open browser with native async/await
+        result = await web_controller.open_browser()
         
         return jsonify(result)
             
@@ -215,7 +222,7 @@ def close_browser():
         }), 500
 
 @host_web_bp.route('/getPageInfo', methods=['POST'])
-def get_page_info():
+async def get_page_info():
     """Get page information using web controller."""
     try:
         print(f"[@route:host_web:get_page_info] Getting page info")
@@ -231,8 +238,8 @@ def get_page_info():
         
         print(f"[@route:host_web:get_page_info] Using web controller: {type(web_controller).__name__}")
         
-        # Get page info and wait for result
-        result = web_controller.get_page_info()
+        # Get page info with native async/await
+        result = await web_controller.get_page_info()
         
         return jsonify(result)
             
