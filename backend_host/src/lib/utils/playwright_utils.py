@@ -341,14 +341,6 @@ class AsyncExecutor:
         4. Already in async context (loop running): ERROR - should use await instead
         """
         import threading
-        # If we're on the Playwright worker thread, dispatch onto its dedicated loop
-        try:
-            if threading.current_thread().name == "PlaywrightWorker":
-                from backend_host.src.lib.web_worker import WebWorker
-                return WebWorker.instance().run_coro(coro)
-        except Exception:
-            # Fallback to legacy behavior if worker not available
-            pass
         
         # Check if we're in the main thread
         is_main_thread = threading.current_thread() is threading.main_thread()

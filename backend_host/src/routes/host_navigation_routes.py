@@ -111,7 +111,7 @@ def navigation_execute(tree_id):
         # Always execute via dedicated Playwright worker
         print(f"[@route:host_navigation:navigation_execute] Scheduling via Playwright worker")
         from backend_host.src.lib.web_worker import WebWorker
-        from backend_host.src.orchestrator import ExecutionOrchestrator
+            from backend_host.src.orchestrator import ExecutionOrchestrator
 
         def run_fn():
             return ExecutionOrchestrator.execute_navigation(
@@ -128,9 +128,9 @@ def navigation_execute(tree_id):
             )
 
         payload = {
-            'tree_id': tree_id,
-            'target_node_id': target_node_id,
-            'target_node_label': target_node_label,
+                    'tree_id': tree_id,
+                    'target_node_id': target_node_id,
+                    'target_node_label': target_node_label,
             'userinterface_name': userinterface_name,
             'current_node_id': current_node_id,
             'frontend_sent_position': frontend_sent_position,
@@ -138,8 +138,8 @@ def navigation_execute(tree_id):
         }
 
         execution_id = WebWorker.instance().submit_async('navigation', payload, run_fn)
-        print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
-
+            print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
+            
         return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Navigation started'})
         
     except Exception as e:

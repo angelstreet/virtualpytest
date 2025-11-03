@@ -109,7 +109,7 @@ def action_execute_batch():
         has_web_action = any((a.get('action_type') == 'web') for a in (actions or [])) or \
                           any((a.get('action_type') == 'web') for a in (retry_actions or [])) or \
                           any((a.get('action_type') == 'web') for a in (failure_actions or []))
-
+        
         if has_web_action:
             # Route entire batch through Playwright worker to keep context/order
             print(f"[@route:host_actions:action_execute_batch] Routing WEB batch via Playwright worker", flush=True)

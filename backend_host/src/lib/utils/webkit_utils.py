@@ -235,13 +235,6 @@ class WebKitUtils:
         4. Already in async context (loop running): ERROR - should use await instead
         """
         import threading
-        # If running on Playwright worker thread, use its loop to execute
-        try:
-            if threading.current_thread().name == "PlaywrightWorker":
-                from backend_host.src.lib.web_worker import WebWorker
-                return WebWorker.instance().run_coro(coro)
-        except Exception:
-            pass
         
         # Check if we're in the main thread
         is_main_thread = threading.current_thread() is threading.main_thread()

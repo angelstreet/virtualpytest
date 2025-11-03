@@ -12,7 +12,6 @@ import queue
 import time
 import uuid
 from typing import Callable, Dict, Any, Optional
-import asyncio
 
 
 class WebTask:
@@ -34,8 +33,6 @@ class WebWorker:
         self._q: "queue.Queue[WebTask]" = queue.Queue()
         self._executions: Dict[str, Dict[str, Any]] = {}
         self._exec_lock: threading.Lock = threading.Lock()
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
-        self._loop_ready: threading.Event = threading.Event()
         self._thread: threading.Thread = threading.Thread(
             target=self._loop,
             name="PlaywrightWorker",
@@ -86,59 +83,30 @@ class WebWorker:
             return view
 
     def _loop(self):
-        print("[WebWorker] Worker thread started")
-        self._loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(self._loop)
-        self._loop_ready.set()
-
-        def queue_processor():
-            print("[WebWorker] Queue processor started")
-            while True:
-                task = self._q.get()
-                print(f"[WebWorker] Processing task {task.execution_id}")
-                try:
-                    result = task.run_fn()
-                    task.result = result
-                    with self._exec_lock:
-                        if task.execution_id in self._executions:
-                            self._executions[task.execution_id].update({
-                                'status': 'completed',
-                                'result': result,
-                                'progress': 100,
-                                'message': result.get('message', 'Completed')
-                            })
-                except Exception as e:
-                    task.error = str(e)
-                    with self._exec_lock:
-                        if task.execution_id in self._executions:
-                            self._executions[task.execution_id].update({
-                                'status': 'error',
-                                'error': str(e),
-                                'message': f'Failed: {e}'
-                            })
-                finally:
-                    task.done.set()
-
-        # Run the sync queue processor in a thread pool executor
-        import concurrent.futures
-        self._loop.run_in_executor(None, queue_processor)
-
-        print("[WebWorker] Event loop running forever")
-        self._loop.run_forever()
-
-    def run_coro(self, coro):
-        """Synchronously run a coroutine on the worker's event loop.
-        - If called from the worker thread: run_until_complete (loop not running).
-        - If called from another thread: run_coroutine_threadsafe.
-        """
-        import threading
-        self._loop_ready.wait(timeout=5)
-        if not self._loop:
-            raise RuntimeError("Playwright worker loop not initialized")
-        if threading.current_thread().name == "PlaywrightWorker":
-            return self._loop.run_until_complete(coro)
-        else:
-            future = asyncio.run_coroutine_threadsafe(coro, self._loop)
-            return future.result()
+        # Initialize Playwright/browser/page lazily inside run_fn if needed.
+        while True:
+            task: WebTask = self._q.get()
+            try:
+                result = task.run_fn()
+                task.result = result
+                with self._exec_lock:
+                    if task.execution_id in self._executions:
+                        self._executions[task.execution_id].update({
+                            'status': 'completed',
+                            'result': result,
+                            'progress': 100,
+                            'message': result.get('message', 'Completed')
+                        })
+            except Exception as e:
+                task.error = str(e)
+                with self._exec_lock:
+                    if task.execution_id in self._executions:
+                        self._executions[task.execution_id].update({
+                            'status': 'error',
+                            'error': str(e),
+                            'message': f'Failed: {e}'
+                        })
+            finally:
+                task.done.set()
 
 

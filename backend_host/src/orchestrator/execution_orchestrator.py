@@ -50,7 +50,7 @@ class ExecutionOrchestrator:
             Dict with success status, logs, and navigation details
         """
         print(f"[@ExecutionOrchestrator] Executing navigation to {target_node_label or target_node_id}")
-
+        
         def execute():
             return device.navigation_executor.execute_navigation(
                 tree_id=tree_id,
@@ -64,7 +64,7 @@ class ExecutionOrchestrator:
                 team_id=team_id,
                 context=context
             )
-
+        
         # Always run navigation on Playwright worker thread (many navs use web)
         if threading.current_thread().name != "PlaywrightWorker":
             from backend_host.src.lib.web_worker import WebWorker
@@ -105,7 +105,7 @@ class ExecutionOrchestrator:
             Dict with success status, logs, and action results
         """
         print(f"[@ExecutionOrchestrator] Executing {len(actions)} command(s)")
-
+        
         def execute():
             return device.action_executor.execute_actions(
                 actions=actions,
@@ -114,7 +114,7 @@ class ExecutionOrchestrator:
                 team_id=team_id,
                 context=context
             )
-
+        
         # If any web action, ensure execution happens on the Playwright worker thread
         has_web_action = (
             any((a.get('action_type') == 'web') for a in (actions or [])) or
@@ -161,7 +161,7 @@ class ExecutionOrchestrator:
             Dict with success status, logs, and verification results
         """
         print(f"[@ExecutionOrchestrator] Executing {len(verifications)} verification(s)")
-
+        
         def execute():
             return device.verification_executor.execute_verifications(
                 verifications=verifications,
@@ -173,7 +173,7 @@ class ExecutionOrchestrator:
                 node_id=node_id,
                 verification_pass_condition=verification_pass_condition
             )
-
+        
         has_web_verification = any((v.get('verification_type') == 'web') for v in (verifications or []))
         if has_web_verification and threading.current_thread().name != "PlaywrightWorker":
             from backend_host.src.lib.web_worker import WebWorker
