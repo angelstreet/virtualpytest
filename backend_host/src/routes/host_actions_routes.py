@@ -31,14 +31,16 @@ def _execute_actions_thread(device, execution_id, actions, retry_actions, failur
         sys.stdout.flush()
         
         # Execute actions through orchestrator (logs + screenshots)
-        result = ExecutionOrchestrator.execute_actions(
+        # Note: ExecutionOrchestrator.execute_actions is async
+        import asyncio
+        result = asyncio.run(ExecutionOrchestrator.execute_actions(
             device=device,
             actions=actions,
             retry_actions=retry_actions,
             failure_actions=failure_actions,
             team_id=team_id,
             context=None
-        )
+        ))
         
         print(f"[@route:host_actions:_execute_actions_thread] Orchestrator returned, updating status", flush=True)
         sys.stdout.flush()
