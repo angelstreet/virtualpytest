@@ -839,17 +839,17 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def execute_javascript(self, script: str) -> Dict[str, Any]:
+    async def execute_javascript(self, script: str) -> Dict[str, Any]:
         """Execute JavaScript code in the page."""
         try:
             print(f"[PLAYWRIGHT]: Executing JavaScript")
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Execute JavaScript
-            result = page.evaluate(script)
+            result = await page.evaluate(script)
             
             execution_time = int((time.time() - start_time) * 1000)
             
@@ -956,18 +956,18 @@ class PlaywrightWebController(WebControllerInterface):
             print(f"[PLAYWRIGHT]: Click animation failed: {e}")
             # Don't fail the tap if animation fails
     
-    def get_page_info(self) -> Dict[str, Any]:
+    async def get_page_info(self) -> Dict[str, Any]:
         """Get current page information."""
         try:
             print(f"[PLAYWRIGHT]: Getting page info")
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Get page info
             self.current_url = page.url
-            self.page_title = page.title()
+            self.page_title = await page.title()
             
             execution_time = int((time.time() - start_time) * 1000)
             
@@ -993,7 +993,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def activate_semantic(self) -> Dict[str, Any]:
+    async def activate_semantic(self) -> Dict[str, Any]:
         """Activate semantic placeholder for Flutter web apps."""
         script = """
         (() => {
@@ -1030,15 +1030,16 @@ class PlaywrightWebController(WebControllerInterface):
         """
         
         # Try once, if fails wait 1s and retry with connection check
-        result = self.execute_javascript(script)
+        result = await self.execute_javascript(script)
         if not result.get('success'):
             print(f"[PLAYWRIGHT]: First activate_semantic failed ({result.get('error', 'unknown')}), retrying in 1s...")
-            import time; time.sleep(1)
+            import asyncio
+            await asyncio.sleep(1)
             # Check if connection issue and try to recover
             if 'Connection closed' in str(result.get('error', '')):
                 print(f"[PLAYWRIGHT]: Connection issue detected, attempting recovery...")
                 self._browser_connected = False  # Force reconnection
-            result = self.execute_javascript(script)
+            result = await self.execute_javascript(script)
         
         # Log the structure found
         if result.get('success') and result.get('result'):
@@ -1050,7 +1051,7 @@ class PlaywrightWebController(WebControllerInterface):
         result['success'] = True  # Always succeed since this is optional
         return result
     
-    def press_key(self, key: str) -> Dict[str, Any]:
+    async def press_key(self, key: str) -> Dict[str, Any]:
         """Press keyboard key.
         
         Args:
@@ -1061,7 +1062,7 @@ class PlaywrightWebController(WebControllerInterface):
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Map web-specific keys to Playwright key names
             key_mapping = {
@@ -1088,7 +1089,7 @@ class PlaywrightWebController(WebControllerInterface):
             playwright_key = key_mapping.get(key.upper(), key)
             
             # Press the key
-            page.keyboard.press(playwright_key)
+            await page.keyboard.press(playwright_key)
             
             # Page remains persistent for next actions
             
@@ -1115,7 +1116,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'key_attempted': key
             }
     
-    def scroll(self, direction: str, amount: int = 300) -> Dict[str, Any]:
+    async def scroll(self, direction: str, amount: int = 300) -> Dict[str, Any]:
         """Scroll the page in a specific direction.
         
         Args:
@@ -1127,7 +1128,7 @@ class PlaywrightWebController(WebControllerInterface):
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Map direction to scroll deltas
             direction_map = {
@@ -1147,7 +1148,7 @@ class PlaywrightWebController(WebControllerInterface):
             delta_x, delta_y = direction_map[direction.lower()]
             
             # Execute scroll using mouse wheel
-            page.mouse.wheel(delta_x, delta_y)
+            await page.mouse.wheel(delta_x, delta_y)
             
             execution_time = int((time.time() - start_time) * 1000)
             
@@ -1352,13 +1353,13 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
                 
-            return self.execute_javascript(script)
+            return await self.execute_javascript(script)
         
         elif command == 'get_page_info':
-            return self.get_page_info()
+            return await self.get_page_info()
         
         elif command == 'activate_semantic':
-            return self.activate_semantic()
+            return await self.activate_semantic()
         
         elif command == 'open_browser':
             return await self.open_browser()
@@ -1397,7 +1398,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
             
-            return self.press_key(key)
+            return await self.press_key(key)
         
         elif command == 'scroll':
             direction = params.get('direction')
@@ -1410,7 +1411,7 @@ class PlaywrightWebController(WebControllerInterface):
                     'execution_time': 0
                 }
             
-            return self.scroll(direction, amount)
+            return await self.scroll(direction, amount)
         
         elif command == 'set_viewport_size':
             width = params.get('width')
@@ -1627,7 +1628,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'summary': {}
             }
     
-    def getMenuInfo(self, area: dict = None, context = None) -> Dict[str, Any]:
+    async def getMenuInfo(self, area: dict = None, context = None) -> Dict[str, Any]:
         """
         Extract menu info from web elements (Playwright-based alternative to OCR getMenuInfo)
         Same interface as text.getMenuInfo but uses dump_elements instead of OCR
@@ -1652,7 +1653,7 @@ class PlaywrightWebController(WebControllerInterface):
         try:
             # 1. Dump web elements (already exists)
             print(f"[@controller:PlaywrightWeb:getMenuInfo] Dumping web elements...")
-            dump_result = self.dump_elements(element_types='all', include_hidden=False)
+            dump_result = await self.dump_elements(element_types='all', include_hidden=False)
             
             if not dump_result.get('success'):
                 error = dump_result.get('error', 'Unknown error')
@@ -2099,7 +2100,7 @@ class PlaywrightWebController(WebControllerInterface):
         elapsed = time.time() - start_time
         return False, f"Element not found after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
     
-    def waitForElementToDisappear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
+    async def waitForElementToDisappear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Wait for element to disappear (polls find_element until fails).
         
@@ -2109,25 +2110,26 @@ class PlaywrightWebController(WebControllerInterface):
             check_interval: Time between checks in seconds
         """
         import time
+        import asyncio
         from typing import Tuple
         
         start_time = time.time()
         
         while time.time() - start_time < timeout:
-            result = self.find_element(search_term)
+            result = await self.find_element(search_term)
             if not result.get('success'):
                 elapsed = time.time() - start_time
                 return True, f"Element disappeared after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
             
             if check_interval > 0:
-                time.sleep(check_interval)
+                await asyncio.sleep(check_interval)
             else:
                 break
         
         elapsed = time.time() - start_time
         return False, f"Element still present after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
     
-    def checkElementExists(self, search_term: str) -> Tuple[bool, str, Dict[str, Any]]:
+    async def checkElementExists(self, search_term: str) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Check if element exists (single find_element call, no polling).
         
@@ -2136,7 +2138,7 @@ class PlaywrightWebController(WebControllerInterface):
         """
         from typing import Tuple
         
-        result = self.find_element(search_term)
+        result = await self.find_element(search_term)
         if result.get('success'):
             return True, f"Element '{search_term}' exists", {'search_term': search_term, 'element_info': result.get('element_info', {})}
         else:
