@@ -188,7 +188,7 @@ class ActionExecutor:
                 'available_actions': []
             }
     
-    def execute_actions(self, 
+    async def execute_actions(self, 
                        actions: List[Dict[str, Any]], 
                        retry_actions: Optional[List[Dict[str, Any]]] = None,
                        failure_actions: Optional[List[Dict[str, Any]]] = None,
@@ -260,7 +260,7 @@ class ActionExecutor:
                 print(f"[@lib:action_executor:execute_actions] 📸 Captured before-action screenshot (for KPI, not for validation report)")
         
         for i, action in enumerate(valid_actions):
-            result = self._execute_single_action(action, execution_order, i+1, 'main', team_id, context)
+            result = await self._execute_single_action(action, execution_order, i+1, 'main', team_id, context)
             results.append(result)
             
             if result.get('success'):
@@ -279,7 +279,7 @@ class ActionExecutor:
         if main_actions_failed and valid_retry_actions:
             print(f"[@lib:action_executor:execute_actions] Main actions failed, executing {len(valid_retry_actions)} retry actions")
             for i, retry_action in enumerate(valid_retry_actions):
-                result = self._execute_single_action(retry_action, execution_order, i+1, 'retry', team_id, context)
+                result = await self._execute_single_action(retry_action, execution_order, i+1, 'retry', team_id, context)
                 results.append(result)
                 if result.get('success'):
                     retry_actions_passed += 1
@@ -296,7 +296,7 @@ class ActionExecutor:
         if main_actions_failed and retry_actions_failed and valid_failure_actions:
             print(f"[@lib:action_executor:execute_actions] Retry actions failed, executing {len(valid_failure_actions)} failure actions")
             for i, failure_action in enumerate(valid_failure_actions):
-                result = self._execute_single_action(failure_action, execution_order, i+1, 'failure', team_id, context)
+                result = await self._execute_single_action(failure_action, execution_order, i+1, 'failure', team_id, context)
                 results.append(result)
                 if result.get('success'):
                     failure_actions_passed += 1
@@ -415,7 +415,7 @@ class ActionExecutor:
         
         return valid_actions
     
-    def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str, team_id: str = None, context = None) -> Dict[str, Any]:
+    async def _execute_single_action(self, action: Dict[str, Any], execution_order: int, action_number: int, action_category: str, team_id: str = None, context = None) -> Dict[str, Any]:
         """Execute a single action and return standardized result"""
         
         # Get iterator count (default to 1 if not specified)
@@ -573,7 +573,7 @@ class ActionExecutor:
                     # Use web controller directly
                     web_controller = self.device._get_controller('web')
                     if web_controller:
-                        response_data = web_controller.execute_command(
+                        response_data = await web_controller.execute_command(
                             command=request_data['command'],
                             params=request_data['params']
                         )
