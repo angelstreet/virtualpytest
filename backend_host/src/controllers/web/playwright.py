@@ -170,18 +170,33 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     
     async def _cleanup_persistent_browser(self):
         """Clean up persistent browser+context."""
-        if self.__class__._browser_connected:
-            print(f"[PLAYWRIGHT]: Cleaning up persistent browser+context...")
+        print(f"[PLAYWRIGHT]: Cleaning up persistent browser+context...")
+        try:
             if self.__class__._browser:
                 await self.__class__._browser.close()
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Browser close error ignored: {type(e).__name__}: {str(e)}")
+        try:
             if self.__class__._playwright:
                 await self.__class__._playwright.stop()
-            
-            self.__class__._playwright = None
-            self.__class__._browser = None
-            self.__class__._context = None
-            self.__class__._browser_connected = False
-            print(f"[PLAYWRIGHT]: Persistent browser+context cleaned up")
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Playwright stop error ignored: {type(e).__name__}: {str(e)}")
+        
+        # Kill Chrome process started via ChromeManager
+        try:
+            if self.__class__._chrome_process:
+                self.utils.kill_chrome(chrome_process=self.__class__._chrome_process)
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Chrome kill error ignored: {type(e).__name__}: {str(e)}")
+        
+        # Reset flags/state
+        self.__class__._playwright = None
+        self.__class__._browser = None
+        self.__class__._context = None
+        self.__class__._browser_connected = False
+        self.__class__._chrome_process = None
+        self.__class__._chrome_running = False
+        print(f"[PLAYWRIGHT]: Persistent browser+context cleaned up and Chrome process terminated")
 
     async def _cleanup_persistent_browser_with_timeout(self, timeout_seconds: int = 10):
         """Cleanup wrapper that enforces a timeout so it never blocks navigation."""
@@ -419,9 +434,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         self.__class__._browser_connected = False
         scheduled = False
         try:
-            import asyncio
-            loop = asyncio.get_running_loop()
-            loop.create_task(self._cleanup_persistent_browser_with_timeout(10))
+            # Ensure cleanup runs on the controller loop where Playwright objects live
+            fut = self._submit_to_controller_loop(self._cleanup_persistent_browser_with_timeout(10))
             scheduled = True
         except RuntimeError:
             # No running loop (unlikely since execute_command is async) - best effort fallback: do nothing blocking
