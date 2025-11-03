@@ -337,16 +337,30 @@ class PlaywrightConnection:
     def connect_to_chrome(cdp_url: str = 'http://localhost:9222') -> Tuple[Any, Any, Any, Any]:
         """Connect to Chrome via CDP and return playwright, browser, context, page."""
         from playwright.sync_api import sync_playwright
+        import asyncio
+        import threading
+        from concurrent.futures import ThreadPoolExecutor
         
+        # Check if we're in a thread with an event loop
+        has_event_loop = False
         try:
-            print(f'[PlaywrightConnection] Starting Playwright and connecting to Chrome at {cdp_url}')
+            loop = asyncio.get_running_loop()
+            has_event_loop = True
+            print(f'[PlaywrightConnection] ⚠️ WARNING: Running in thread with active event loop!')
+            print(f'[PlaywrightConnection] Thread: {threading.current_thread().name}, Loop: {loop}')
+        except RuntimeError:
+            # No running loop - safe to use sync API directly
+            pass
+        
+        def _connect_in_clean_thread():
+            """Connect to Playwright in a thread guaranteed to have no event loop"""
+            print(f'[PlaywrightConnection] Starting Playwright in clean thread: {threading.current_thread().name}')
             playwright = sync_playwright().start()
             print(f'[PlaywrightConnection] Playwright started, attempting CDP connection...')
             browser = playwright.chromium.connect_over_cdp(cdp_url)
             print(f'[PlaywrightConnection] Successfully connected to Chrome via CDP')
             
             if len(browser.contexts) == 0:
-                # Create new context with browser default viewport
                 print(f'[PlaywrightConnection] No existing contexts, creating new context...')
                 context = browser.new_context()
                 page = context.new_page()
@@ -364,6 +378,19 @@ class PlaywrightConnection:
             
             print(f'[PlaywrightConnection] Connection established successfully')
             return playwright, browser, context, page
+        
+        try:
+            print(f'[PlaywrightConnection] Connecting to Chrome at {cdp_url}')
+            
+            if has_event_loop:
+                # Run in a separate clean thread to avoid event loop conflict
+                print(f'[PlaywrightConnection] Running in clean thread to avoid event loop conflict')
+                with ThreadPoolExecutor(max_workers=1, thread_name_prefix='playwright-sync') as executor:
+                    future = executor.submit(_connect_in_clean_thread)
+                    return future.result(timeout=30)
+            else:
+                # Safe to run directly - no event loop in current thread
+                return _connect_in_clean_thread()
             
         except Exception as e:
             error_type = type(e).__name__
