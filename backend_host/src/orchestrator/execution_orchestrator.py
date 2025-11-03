@@ -7,6 +7,7 @@ Handles cross-cutting concerns: logging, screenshots, error handling
 from typing import Dict, Any, List, Optional
 from .logging_manager import LoggingManager
 from .screenshot_manager import ScreenshotManager
+import threading
 
 
 class ExecutionOrchestrator:
@@ -49,7 +50,7 @@ class ExecutionOrchestrator:
             Dict with success status, logs, and navigation details
         """
         print(f"[@ExecutionOrchestrator] Executing navigation to {target_node_label or target_node_id}")
-        
+
         def execute():
             return device.navigation_executor.execute_navigation(
                 tree_id=tree_id,
@@ -63,7 +64,21 @@ class ExecutionOrchestrator:
                 team_id=team_id,
                 context=context
             )
-        
+
+        # Always run navigation on Playwright worker thread (many navs use web)
+        if threading.current_thread().name != "PlaywrightWorker":
+            from backend_host.src.lib.web_worker import WebWorker
+            return WebWorker.instance().submit_sync(
+                'navigation',
+                {
+                    'tree_id': tree_id,
+                    'target_node_id': target_node_id,
+                    'target_node_label': target_node_label,
+                    'team_id': team_id,
+                },
+                lambda: LoggingManager.execute_with_logging(execute)
+            )
+
         return LoggingManager.execute_with_logging(execute)
     
     @staticmethod
@@ -90,7 +105,7 @@ class ExecutionOrchestrator:
             Dict with success status, logs, and action results
         """
         print(f"[@ExecutionOrchestrator] Executing {len(actions)} command(s)")
-        
+
         def execute():
             return device.action_executor.execute_actions(
                 actions=actions,
@@ -99,7 +114,21 @@ class ExecutionOrchestrator:
                 team_id=team_id,
                 context=context
             )
-        
+
+        # If any web action, ensure execution happens on the Playwright worker thread
+        has_web_action = any((a.get('action_type') == 'web') for a in (actions or [])) or 
+        \
+            any((a.get('action_type') == 'web') for a in (retry_actions or [])) or 
+        \
+            any((a.get('action_type') == 'web') for a in (failure_actions or []))
+        if has_web_action and threading.current_thread().name != "PlaywrightWorker":
+            from backend_host.src.lib.web_worker import WebWorker
+            return WebWorker.instance().submit_sync(
+                'action',
+                {'counts': {'actions': len(actions or []), 'retry': len(retry_actions or []), 'failure': len(failure_actions or [])}},
+                lambda: LoggingManager.execute_with_logging(execute)
+            )
+
         return LoggingManager.execute_with_logging(execute)
     
     @staticmethod
@@ -132,7 +161,7 @@ class ExecutionOrchestrator:
             Dict with success status, logs, and verification results
         """
         print(f"[@ExecutionOrchestrator] Executing {len(verifications)} verification(s)")
-        
+
         def execute():
             return device.verification_executor.execute_verifications(
                 verifications=verifications,
@@ -144,7 +173,16 @@ class ExecutionOrchestrator:
                 node_id=node_id,
                 verification_pass_condition=verification_pass_condition
             )
-        
+
+        has_web_verification = any((v.get('verification_type') == 'web') for v in (verifications or []))
+        if has_web_verification and threading.current_thread().name != "PlaywrightWorker":
+            from backend_host.src.lib.web_worker import WebWorker
+            return WebWorker.instance().submit_sync(
+                'verification',
+                {'count': len(verifications or [])},
+                lambda: LoggingManager.execute_with_logging(execute)
+            )
+
         return LoggingManager.execute_with_logging(execute)
     
     @staticmethod

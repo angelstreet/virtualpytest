@@ -177,27 +177,32 @@ def verification_execute_batch():
 def verification_execution_status(execution_id):
     """Get status of async verification execution"""
     try:
-        # Get query parameters
+        # Prefer WebWorker status (web batches)
+        try:
+            from backend_host.src.lib.web_worker import WebWorker
+            worker_status = WebWorker.instance().get_status(execution_id)
+        except Exception:
+            worker_status = None
+        if worker_status:
+            return jsonify({
+                'success': True,
+                'execution_id': worker_status['execution_id'],
+                'status': worker_status['status'],
+                'result': worker_status.get('result'),
+                'error': worker_status.get('error'),
+                'progress': worker_status.get('progress', 0),
+                'message': worker_status.get('message', ''),
+                'elapsed_time_ms': worker_status.get('elapsed_time_ms', 0)
+            })
+
+        # Fallback to legacy executor store (non-web batches)
         device_id = request.args.get('device_id', 'device1')
-        
-        # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
         if device_id not in host_devices:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} not found in host'
-            }), 404
-        
+            return jsonify({'success': False, 'error': f'Device {device_id} not found in host'}), 404
         device = host_devices[device_id]
-        
-        # Check if device has verification_executor
         if not hasattr(device, 'verification_executor') or not device.verification_executor:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} does not have VerificationExecutor initialized'
-            }), 500
-        
-        # Get execution status
+            return jsonify({'success': False, 'error': f'Device {device_id} does not have VerificationExecutor initialized'}), 500
         status = device.verification_executor.get_execution_status(execution_id)
         return jsonify(status)
         

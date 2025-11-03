@@ -105,53 +105,64 @@ def action_execute_batch():
                 'error': f'Device {device_id} does not have ActionExecutor initialized'
             }), 500
         
-        # Always execute asynchronously to prevent HTTP timeouts
-        # Playwright will run sync INSIDE the thread (no cross-thread issues)
-        print(f"[@route:host_actions:action_execute_batch] Executing asynchronously with threading", flush=True)
-        
-        # Generate execution ID
-        execution_id = str(uuid.uuid4())
-        
-        # Update navigation context
-        context_data = {
-            'tree_id': data.get('tree_id'),
-            'edge_id': data.get('edge_id'),
-            'action_set_id': data.get('action_set_id'),
-            'target_node_id': data.get('target_node_id'),
-            'skip_db_recording': data.get('skip_db_recording', False)
-        }
-        
-        # Store execution state
-        if not hasattr(device.action_executor, '_executions'):
-            device.action_executor._executions = {}
-            device.action_executor._lock = threading.Lock()
-        
-        with device.action_executor._lock:
-            device.action_executor._executions[execution_id] = {
-                'execution_id': execution_id,
-                'status': 'running',
-                'result': None,
-                'error': None,
-                'start_time': time.time(),
-                'progress': 0,
-                'message': 'Action execution starting...'
+        # Check if ANY action is a web action (includes retry/failure arrays)
+        has_web_action = any((a.get('action_type') == 'web') for a in (actions or [])) or \
+                          any((a.get('action_type') == 'web') for a in (retry_actions or [])) or \
+                          any((a.get('action_type') == 'web') for a in (failure_actions or []))
+
+        if has_web_action:
+            # Route entire batch through Playwright worker to keep context/order
+            print(f"[@route:host_actions:action_execute_batch] Routing WEB batch via Playwright worker", flush=True)
+            from backend_host.src.lib.web_worker import WebWorker
+            def run_fn():
+                return ExecutionOrchestrator.execute_actions(
+                    device=device,
+                    actions=actions,
+                    retry_actions=retry_actions,
+                    failure_actions=failure_actions,
+                    team_id=team_id,
+                    context=None
+                )
+            payload = {
+                'counts': {'actions': len(actions or []), 'retry': len(retry_actions or []), 'failure': len(failure_actions or [])},
+                'device_id': device_id,
+                'team_id': team_id,
             }
-        
-        # Start execution in background thread
-        thread = threading.Thread(
-            target=_execute_actions_thread,
-            args=(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data),
-            daemon=True
-        )
-        thread.start()
-        
-        print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
-        
-        return jsonify({
-            'success': True,
-            'execution_id': execution_id,
-            'message': 'Action execution started'
-        })
+            execution_id = WebWorker.instance().submit_async('action', payload, run_fn)
+            print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
+            return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Action execution started'})
+        else:
+            # Non-web: keep existing per-request thread behavior
+            print(f"[@route:host_actions:action_execute_batch] Executing non-web batch with threading", flush=True)
+            execution_id = str(uuid.uuid4())
+            context_data = {
+                'tree_id': data.get('tree_id'),
+                'edge_id': data.get('edge_id'),
+                'action_set_id': data.get('action_set_id'),
+                'target_node_id': data.get('target_node_id'),
+                'skip_db_recording': data.get('skip_db_recording', False)
+            }
+            if not hasattr(device.action_executor, '_executions'):
+                device.action_executor._executions = {}
+                device.action_executor._lock = threading.Lock()
+            with device.action_executor._lock:
+                device.action_executor._executions[execution_id] = {
+                    'execution_id': execution_id,
+                    'status': 'running',
+                    'result': None,
+                    'error': None,
+                    'start_time': time.time(),
+                    'progress': 0,
+                    'message': 'Action execution starting...'
+                }
+            thread = threading.Thread(
+                target=_execute_actions_thread,
+                args=(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data),
+                daemon=True
+            )
+            thread.start()
+            print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
+            return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Action execution started'})
         
     except Exception as e:
         print(f"[@route:host_actions:action_execute_batch] Error: {e}", flush=True)
@@ -164,6 +175,24 @@ def action_execute_batch():
 def action_execution_status(execution_id):
     """Get status of async action execution"""
     try:
+        # Prefer WebWorker status (web batches)
+        try:
+            from backend_host.src.lib.web_worker import WebWorker
+            worker_status = WebWorker.instance().get_status(execution_id)
+        except Exception:
+            worker_status = None
+        if worker_status:
+            return jsonify({
+                'success': True,
+                'execution_id': worker_status['execution_id'],
+                'status': worker_status['status'],
+                'result': worker_status.get('result'),
+                'error': worker_status.get('error'),
+                'progress': worker_status.get('progress', 0),
+                'message': worker_status.get('message', ''),
+                'elapsed_time_ms': worker_status.get('elapsed_time_ms', 0)
+            })
+
         # Get query parameters
         device_id = request.args.get('device_id', 'device1')
         

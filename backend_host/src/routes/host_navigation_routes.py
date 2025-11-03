@@ -108,49 +108,39 @@ def navigation_execute(tree_id):
                 'error': f'Device {device_id} does not have NavigationExecutor initialized'
             }), 500
         
-        # Always execute asynchronously to prevent HTTP timeouts
-        # Playwright will run sync INSIDE the thread (no cross-thread issues)
-        print(f"[@route:host_navigation:navigation_execute] Executing asynchronously with threading")
-        
-        # Generate execution ID
-        import uuid
-        execution_id = str(uuid.uuid4())
-        
-        # Store execution state
-        if not hasattr(device.navigation_executor, '_executions'):
-            device.navigation_executor._executions = {}
-            device.navigation_executor._lock = threading.Lock()
-        
-        with device.navigation_executor._lock:
-            device.navigation_executor._executions[execution_id] = {
-                'execution_id': execution_id,
-                'status': 'running',
-                'tree_id': tree_id,
-                'target_node_id': target_node_id,
-                'target_node_label': target_node_label,
-                'result': None,
-                'error': None,
-                'start_time': time.time(),
-                'progress': 0,
-                'message': 'Navigation starting...'
-            }
-        
-        # Start execution in background thread
-        thread = threading.Thread(
-            target=_execute_navigation_thread,
-            args=(device, execution_id, tree_id, userinterface_name, target_node_id, target_node_label, 
-                  current_node_id, frontend_sent_position, image_source_url, team_id),
-            daemon=True
-        )
-        thread.start()
-        
+        # Always execute via dedicated Playwright worker
+        print(f"[@route:host_navigation:navigation_execute] Scheduling via Playwright worker")
+        from backend_host.src.lib.web_worker import WebWorker
+        from backend_host.src.orchestrator import ExecutionOrchestrator
+
+        def run_fn():
+            return ExecutionOrchestrator.execute_navigation(
+                device=device,
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                target_node_id=target_node_id,
+                target_node_label=target_node_label,
+                current_node_id=current_node_id,
+                frontend_sent_position=frontend_sent_position,
+                image_source_url=image_source_url,
+                team_id=team_id,
+                context=None,
+            )
+
+        payload = {
+            'tree_id': tree_id,
+            'target_node_id': target_node_id,
+            'target_node_label': target_node_label,
+            'userinterface_name': userinterface_name,
+            'current_node_id': current_node_id,
+            'frontend_sent_position': frontend_sent_position,
+            'team_id': team_id,
+        }
+
+        execution_id = WebWorker.instance().submit_async('navigation', payload, run_fn)
         print(f"[@route:host_navigation:navigation_execute] Async execution started: {execution_id}")
-        
-        return jsonify({
-            'success': True,
-            'execution_id': execution_id,
-            'message': 'Navigation started'
-        })
+
+        return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Navigation started'})
         
     except Exception as e:
         print(f"[@route:host_navigation:navigation_execute] Error: {e}")
@@ -164,27 +154,29 @@ def navigation_execute(tree_id):
 def navigation_execution_status(execution_id):
     """Get status of async navigation execution"""
     try:
-        # Get query parameters
+        # Prefer WebWorker status
+        from backend_host.src.lib.web_worker import WebWorker
+        worker_status = WebWorker.instance().get_status(execution_id)
+        if worker_status:
+            return jsonify({
+                'success': True,
+                'execution_id': worker_status['execution_id'],
+                'status': worker_status['status'],
+                'result': worker_status.get('result'),
+                'error': worker_status.get('error'),
+                'progress': worker_status.get('progress', 0),
+                'message': worker_status.get('message', ''),
+                'elapsed_time_ms': worker_status.get('elapsed_time_ms', 0)
+            })
+
+        # Fallback to legacy navigation executor store
         device_id = request.args.get('device_id', 'device1')
-        
-        # Get host device registry from app context
         host_devices = getattr(current_app, 'host_devices', {})
         if device_id not in host_devices:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} not found in host'
-            }), 404
-        
+            return jsonify({'success': False, 'error': f'Device {device_id} not found in host'}), 404
         device = host_devices[device_id]
-        
-        # Check if device has navigation_executor
         if not hasattr(device, 'navigation_executor') or not device.navigation_executor:
-            return jsonify({
-                'success': False,
-                'error': f'Device {device_id} does not have NavigationExecutor initialized'
-            }), 500
-        
-        # Get execution status
+            return jsonify({'success': False, 'error': f'Device {device_id} does not have NavigationExecutor initialized'}), 500
         status = device.navigation_executor.get_execution_status(execution_id)
         return jsonify(status)
         
