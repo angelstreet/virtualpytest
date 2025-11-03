@@ -69,7 +69,6 @@ const Settings: React.FC = () => {
       <Box sx={{ mb: 0, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <Box>
           <Typography variant="h4" gutterBottom>
-            <SettingsIcon sx={{ mr: 1, verticalAlign: 'bottom' }} />
             System Settings
           </Typography>
         </Box>
@@ -203,7 +202,7 @@ const Settings: React.FC = () => {
       {activeTab === 1 && (
         <Card>
           <CardContent>
-            <Box display="flex" alignItems="center" mb={2}>
+            <Box display="flex" alignItems="center" mb={1}>
               <FrontendIcon sx={{ mr: 1 }} color="primary" />
               <Typography variant="h6">Frontend Configuration</Typography>
             </Box>
@@ -279,13 +278,13 @@ const Settings: React.FC = () => {
       {/* Tab 3: Host & Devices */}
       {activeTab === 2 && (
         <Box>
-          <Card sx={{ mb: 2 }}>
+          <Card sx={{ mb: 1}}>
             <CardContent>
-              <Box display="flex" alignItems="center" mb={2}>
+              <Box display="flex" alignItems="center" mb={1}>
                 <HostIcon sx={{ mr: 1 }} color="primary" />
                 <Typography variant="h6">Host Configuration</Typography>
               </Box>
-              <Divider sx={{ mb: 3 }} />
+              <Divider sx={{ mb: 2 }} />
 
               <Grid container spacing={2}>
                 <Grid item xs={12} md={6}>
@@ -339,13 +338,13 @@ const Settings: React.FC = () => {
 
           <Card>
             <CardContent>
-              <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+              <Box display="flex" alignItems="center" justifyContent="space-between" mb={1}>
                 <Typography variant="h6">Device Configuration</Typography>
                 <Button variant="contained" size="small" startIcon={<AddIcon />} onClick={addDevice}>
                   Add Device
                 </Button>
               </Box>
-              <Divider sx={{ mb: 2 }} />
+              <Divider sx={{ mb: 0 }} />
 
               {Object.keys(config.devices).length === 0 && (
                 <Alert severity="info">
@@ -421,7 +420,7 @@ const Settings: React.FC = () => {
                       </Grid>
 
                       <Grid item xs={12}>
-                        <Typography variant="subtitle2" color="primary" gutterBottom sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" color="primary" gutterBottom sx={{ mt: 0.5 }}>
                           Video Configuration
                         </Typography>
                       </Grid>
@@ -484,7 +483,7 @@ const Settings: React.FC = () => {
                       </Grid>
 
                       <Grid item xs={12}>
-                        <Typography variant="subtitle2" color="primary" gutterBottom sx={{ mt: 2 }}>
+                        <Typography variant="subtitle2" color="primary" gutterBottom sx={{ mt: 0.5 }}>
                           Power Control
                         </Typography>
                       </Grid>
