@@ -77,6 +77,36 @@ class PlaywrightWebController(WebControllerInterface):
         self.page_title = ""
         
 
+        # Thread ownership for Playwright resources (ensure single-thread affinity)
+        self._owner_thread_id = None
+
+    def _reset_state(self):
+        """Reset class-level persistent browser state flags and references."""
+        self.__class__._playwright = None
+        self.__class__._browser = None
+        self.__class__._context = None
+        self.__class__._browser_connected = False
+
+    def _ensure_thread_ownership(self):
+        """Ensure Playwright state is owned by current thread; rebuild if not."""
+        import threading
+        current_tid = threading.get_ident()
+        current_tname = threading.current_thread().name
+        if self._owner_thread_id is None:
+            self._owner_thread_id = current_tid
+            print(f"[PLAYWRIGHT]: Thread ownership claimed by {current_tname} ({current_tid})")
+            return
+        if current_tid != self._owner_thread_id:
+            print(f"[PLAYWRIGHT]: Thread ownership mismatch: owner={self._owner_thread_id}, current={current_tid} ({current_tname}) - rebuilding browser state")
+            # Dispose any existing persistent browser safely and reinitialize later on demand
+            try:
+                self.utils.run_async(self._cleanup_persistent_browser())
+            except Exception as e:
+                print(f"[PLAYWRIGHT]: Error during cleanup on ownership change: {e}")
+            self._reset_state()
+            self._owner_thread_id = current_tid
+            print(f"[PLAYWRIGHT]: Ownership moved to {current_tname} ({current_tid}); state cleared and will be reinitialized on next use")
+
     
     @property
     def is_connected(self):
@@ -1318,10 +1348,14 @@ class PlaywrightWebController(WebControllerInterface):
         Returns:
             Dict: Command execution result
         """
+        # Enforce thread ownership before any browser interaction
+        self._ensure_thread_ownership()
+
         if params is None:
             params = {}
         
-        print(f"[PLAYWRIGHT]: Executing command '{command}' with params: {params}")
+        import threading
+        print(f"[PLAYWRIGHT]: Executing command '{command}' with params: {params} (thread={threading.current_thread().name})")
         
         if command == 'navigate_to_url':
             url = params.get('url')
