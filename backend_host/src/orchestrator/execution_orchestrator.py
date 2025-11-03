@@ -116,11 +116,11 @@ class ExecutionOrchestrator:
             )
 
         # If any web action, ensure execution happens on the Playwright worker thread
-        has_web_action = any((a.get('action_type') == 'web') for a in (actions or [])) or 
-        \
-            any((a.get('action_type') == 'web') for a in (retry_actions or [])) or 
-        \
+        has_web_action = (
+            any((a.get('action_type') == 'web') for a in (actions or [])) or
+            any((a.get('action_type') == 'web') for a in (retry_actions or [])) or
             any((a.get('action_type') == 'web') for a in (failure_actions or []))
+        )
         if has_web_action and threading.current_thread().name != "PlaywrightWorker":
             from backend_host.src.lib.web_worker import WebWorker
             return WebWorker.instance().submit_sync(
