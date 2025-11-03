@@ -652,7 +652,7 @@ class ActionExecutor:
                         # Execute verification using verification_executor's single verification method
                         # IMPORTANT: Pass context to enable metadata storage for getMenuInfo
                         # NOTE: Verification executor will NOT capture duplicate screenshots if screenshots are disabled
-                        result = verification_executor._execute_single_verification(
+                        result = await verification_executor._execute_single_verification(
                             verification=verification_config,
                             userinterface_name=userinterface_name,
                             image_source_url=None,
