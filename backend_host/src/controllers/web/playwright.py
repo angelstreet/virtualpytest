@@ -168,13 +168,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     @ensure_controller_loop
     async def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context, creating/connecting if needed."""
-        # Ensure we execute on controller loop
-        mode, fut = self._redirect_if_needed(self._get_persistent_page(target_url=target_url))
-        if mode == 'sync':
-            return fut.result()
-        elif mode == 'await':
-            import asyncio
-            return await asyncio.wrap_future(fut)
         # Ensure we have a connected browser/context
         # Prefer concrete browser/context objects over boolean flags to avoid stale state
         if not self.__class__._browser or not self.__class__._context:
@@ -485,17 +478,10 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     @ensure_controller_loop
     async def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL."""
+        start_time = time.time()
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.navigate_to_url(url, timeout=timeout, follow_redirects=follow_redirects))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             normalized_url = self.utils.normalize_url(url)
             print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
-            start_time = time.time()
 
             page = await self._get_persistent_page(target_url=normalized_url)
             
@@ -571,13 +557,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                         Can use pipe "|" to specify multiple options (tries each until one succeeds)
         """
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.click_element(element_id))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Clicking element using dump-first approach: {element_id}")
             start_time = time.time()
             
@@ -672,13 +651,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             selector: CSS selector, or text content to search for
         """
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.hover_element(selector))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Hovering over element: {selector}")
             start_time = time.time()
             
@@ -733,13 +705,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             selector: CSS selector, text content, or aria-label to search for
         """
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.find_element(selector))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Finding element using dump-first approach: {selector}")
             start_time = time.time()
             
@@ -924,13 +889,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     async def input_text(self, selector: str, text: str, wait_time: int = 200) -> Dict[str, Any]:
         """Input text into an element."""
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.input_text(selector, text, wait_time=wait_time))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Inputting text to: {selector}")
             start_time = time.time()
             
@@ -964,13 +922,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     async def tap_x_y(self, x: int, y: int) -> Dict[str, Any]:
         """Tap/click at specific coordinates."""
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.tap_x_y(x, y))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Tapping at coordinates: ({x}, {y})")
             start_time = time.time()
             
@@ -1021,13 +972,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     async def execute_javascript(self, script: str) -> Dict[str, Any]:
         """Execute JavaScript code in the page."""
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.execute_javascript(script))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Executing JavaScript")
             start_time = time.time()
             
@@ -1146,13 +1090,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     async def get_page_info(self) -> Dict[str, Any]:
         """Get current page information."""
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.get_page_info())
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Getting page info")
             start_time = time.time()
             
@@ -1190,13 +1127,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     @ensure_controller_loop
     async def activate_semantic(self) -> Dict[str, Any]:
         """Activate semantic placeholder for Flutter web apps."""
-        # Ensure controller loop
-        mode, fut = self._redirect_if_needed(self.activate_semantic())
-        if mode == 'sync':
-            return fut.result()
-        elif mode == 'await':
-            import asyncio
-            return await asyncio.wrap_future(fut)
         script = """
         (() => {
             // Try new structure first (Flutter 3.x+): direct DOM element
@@ -1261,13 +1191,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             key: Key to press ('BACK', 'ESCAPE', 'ENTER', 'OK', etc.)
         """
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.press_key(key))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Pressing key: {key}")
             start_time = time.time()
             
@@ -1335,13 +1258,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             amount: Number of pixels to scroll (default 300)
         """
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.scroll(direction, amount))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Scrolling {direction} by {amount}px")
             start_time = time.time()
             
@@ -1689,13 +1605,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             include_hidden: Whether to include hidden elements
         """
         try:
-            # Ensure controller loop
-            mode, fut = self._redirect_if_needed(self.dump_elements(element_types=element_types, include_hidden=include_hidden))
-            if mode == 'sync':
-                return fut.result()
-            elif mode == 'await':
-                import asyncio
-                return await asyncio.wrap_future(fut)
             print(f"[PLAYWRIGHT]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
             start_time = time.time()
             
