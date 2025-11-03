@@ -574,7 +574,7 @@ class VerificationExecutor:
                 verification_result = await controller.execute_verification(verification_config)
             else:
                 # Sync controller (e.g., ADB, Image, Text)
-            verification_result = controller.execute_verification(verification_config)
+                verification_result = controller.execute_verification(verification_config)
             
             # Build URLs from file paths if verification generated images
             # Frontend will process these paths using buildVerificationResultUrl from buildUrlUtils.ts
