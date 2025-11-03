@@ -952,7 +952,7 @@ class NavigationExecutor:
                     # CONDITIONAL EDGE RECOVERY: If verification failed after successful action, try sibling edges
                     if failure_type == "verification" and result.get('success', False):
                         print(f"[@navigation_executor:execute_navigation] 🔄 Verification failed - checking for conditional edge siblings")
-                        recovery_result = self._try_conditional_edge_siblings(
+                        recovery_result = await self._try_conditional_edge_siblings(
                             step=step,
                             from_node_id=from_node_id,
                             expected_target_node_id=to_node_id,
@@ -1644,7 +1644,7 @@ class NavigationExecutor:
         
         raise ValueError(f"Node with id '{node_id}' not found in navigation graph")
     
-    def _try_conditional_edge_siblings(
+    async def _try_conditional_edge_siblings(
         self,
         step: Dict,
         from_node_id: str,
