@@ -35,7 +35,17 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
   outputName,
   outputValue
 }) => {
-  const { availableVerifications } = useTestCaseBuilder();
+  // Try to get available verifications from context (if available)
+  // This allows the component to work both within and outside TestCaseBuilderProvider
+  let contextData: any = null;
+  try {
+    contextData = useTestCaseBuilder();
+  } catch (error) {
+    // Context not available
+    // Continue with empty array
+  }
+  
+  const availableVerifications = contextData?.availableVerifications || [];
   
   // Store single verification in an array for VerificationsList component
   const [verifications, setVerifications] = useState<any[]>([

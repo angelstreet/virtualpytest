@@ -240,23 +240,18 @@ const RunCampaigns: React.FC = () => {
 
   return (
     <Box sx={{ p: 1 }}>
-      <Typography variant="h5" sx={{ mb: 0.5 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5">
         Campaign Runner
       </Typography>
-
-      {/* Visual Builder Button */}
-      <Box sx={{ mb: 2 }}>
         <Button
           variant="outlined"
           startIcon={<VisualBuilderIcon />}
           onClick={() => navigate('/builder/campaign-builder')}
           size="large"
         >
-          Visual Campaign Builder
+          Create Campaign
         </Button>
-        <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
-          Create campaigns visually by dragging testcases and scripts onto a canvas
-        </Typography>
       </Box>
 
       {/* Error Display */}

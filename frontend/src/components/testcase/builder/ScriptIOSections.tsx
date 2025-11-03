@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useContext } from 'react';
 import { Box, Typography, Chip, IconButton, Collapse, TextField, Tooltip, Menu, MenuItem, Badge } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
 import ExpandLessIcon from '@mui/icons-material/ExpandLess';
@@ -92,8 +92,18 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   onUpdateVariables,
   onUpdateMetadata,
 }) => {
-  // Get execution values from context
-  const { executionVariableValues, executionMetadataValues } = useTestCaseBuilderContext();
+  // Try to get execution values from context (if available)
+  // This allows the component to work both in TestCase and Campaign builders
+  let contextData: any = null;
+  try {
+    contextData = useTestCaseBuilderContext();
+  } catch (error) {
+    // Context not available (e.g., used in Campaign builder)
+    // Continue with null values
+  }
+  
+  const executionVariableValues = contextData?.executionVariableValues || {};
+  const executionMetadataValues = contextData?.executionMetadataValues || {};
   
   const [inputsExpanded, setInputsExpanded] = useState(false);
   const [outputsExpanded, setOutputsExpanded] = useState(false);
@@ -114,8 +124,9 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const [sourcesMenuAnchor, setSourcesMenuAnchor] = useState<null | HTMLElement>(null);
   const [sourcesMenuVariable, setSourcesMenuVariable] = useState<Variable | null>(null);
   
-  // Get execution values and blocks from context
-  const { executionOutputValues, nodes } = useTestCaseBuilderContext();
+  // Get execution values and blocks from context (if available)
+  const executionOutputValues = contextData?.executionOutputValues || {};
+  const nodes = contextData?.nodes || [];
   
   // ✅ NEW: Helper function to get block label from block ID
   const getBlockLabel = (blockId: string): string => {

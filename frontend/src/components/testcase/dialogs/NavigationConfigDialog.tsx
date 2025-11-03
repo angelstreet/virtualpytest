@@ -29,7 +29,19 @@ export const NavigationConfigDialog: React.FC<NavigationConfigDialogProps> = ({
   onSave,
   onCancel,
 }) => {
-  const { availableNodes, isLoadingOptions } = useTestCaseBuilder();
+  // Try to get available nodes from context (if available)
+  // This allows the component to work both within and outside TestCaseBuilderProvider
+  let contextData: any = null;
+  try {
+    contextData = useTestCaseBuilder();
+  } catch (error) {
+    // Context not available
+    // Continue with empty array
+  }
+  
+  const availableNodes = contextData?.availableNodes || [];
+  const isLoadingOptions = contextData?.isLoadingOptions || false;
+  
   const [formData, setFormData] = useState<NavigationForm>({
     target_node_label: initialData?.target_node_label || '',
     target_node_id: initialData?.target_node_id || '',

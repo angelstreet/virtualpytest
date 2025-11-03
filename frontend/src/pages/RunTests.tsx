@@ -1,4 +1,4 @@
-import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon, Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon } from '@mui/icons-material';
+import { Terminal as ScriptIcon, Link as LinkIcon, Add as AddIcon, Close as CloseIcon, ExpandMore as ExpandMoreIcon, ExpandLess as ExpandLessIcon, AccountTree as VisualBuilderIcon } from '@mui/icons-material';
 import {
   Box,
   Typography,
@@ -23,6 +23,7 @@ import {
   Collapse,
 } from '@mui/material';
 import React, { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 import { ParameterInputRenderer } from '../components/common/ParameterInput/ParameterInputRenderer';
 import { UnifiedExecutableSelector, ExecutableItem } from '../components/common/UnifiedExecutableSelector';
@@ -77,6 +78,7 @@ interface ScriptParameter {
 
 
 const RunTests: React.FC = () => {
+  const navigate = useNavigate();
   const { executeMultipleScripts, isExecuting, executingIds } = useScript();
   const { executeTestCase } = useTestCaseExecution();
   const { getTestCase } = useTestCaseSave();
@@ -1048,9 +1050,19 @@ const RunTests: React.FC = () => {
 
   return (
     <Box sx={{ p: 1 }}>
-      <Typography variant="h5" sx={{ mb: 1 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+        <Typography variant="h5">
         Script Runner
       </Typography>
+        <Button
+          variant="outlined"
+          startIcon={<VisualBuilderIcon />}
+          onClick={() => navigate('/builder/test-builder')}
+          size="large"
+        >
+          Create TestCase
+        </Button>
+      </Box>
 
       <Grid container spacing={2}>
         {/* Script Execution */}
