@@ -127,38 +127,56 @@ def get_userinterfaces():
         return error
         
     team_id = request.args.get('team_id')
+    force_refresh = request.args.get('force_refresh', 'false').lower() == 'true'
     
-    # Check cache first
-    with _cache_lock:
-        if team_id in _interfaces_cache:
-            cached = _interfaces_cache[team_id]
-            age = time.time() - cached['timestamp']
-            if age < CACHE_CONFIG['LONG_TTL']:
-                print(f"[@cache] HIT: User interfaces for team {team_id} (age: {age/3600:.1f}h)")
-                return jsonify(cached['data'])
-            else:
-                del _interfaces_cache[team_id]
+    print(f"[@userinterface:getAllUserInterfaces] Request for team_id: {team_id}, force_refresh: {force_refresh}")
+    
+    # Check cache first (unless force_refresh)
+    if not force_refresh:
+        with _cache_lock:
+            if team_id in _interfaces_cache:
+                cached = _interfaces_cache[team_id]
+                age = time.time() - cached['timestamp']
+                if age < CACHE_CONFIG['LONG_TTL']:
+                    print(f"[@cache] HIT: User interfaces for team {team_id} (age: {age/3600:.1f}h), returning {len(cached['data'])} interfaces")
+                    return jsonify(cached['data'])
+                else:
+                    del _interfaces_cache[team_id]
+                    print(f"[@cache] EXPIRED: User interfaces cache for team {team_id}")
+    else:
+        print(f"[@cache] BYPASS: Force refresh requested for team {team_id}")
     
     try:
         interfaces = get_all_userinterfaces(team_id)
+        print(f"[@userinterface] Retrieved {len(interfaces)} interfaces from database")
+        
         # Enrich interfaces with root tree information (only if tree has nodes)
         enriched_interfaces = []
         for interface in interfaces:
-            interface_id = interface.get('id')
-            if interface_id:
-                # Fetch root tree for this interface
-                root_tree = get_root_tree_for_interface(interface_id, team_id)
-                if root_tree:
-                    # Check if tree actually has nodes (not just empty metadata)
-                    from shared.src.lib.database.navigation_trees_db import get_tree_nodes
-                    nodes_result = get_tree_nodes(root_tree['id'], team_id, page=0, limit=1)
-                    nodes = nodes_result.get('nodes', []) if nodes_result else []
-                    if nodes and len(nodes) > 0:
-                        # Only add root_tree if it has actual nodes
-                        interface['root_tree'] = root_tree
-                        print(f"[@userinterface] Interface '{interface.get('name')}' has tree with nodes")
-                    else:
-                        print(f"[@userinterface] Interface '{interface.get('name')}' has tree but no nodes - excluded")
+            try:
+                interface_id = interface.get('id')
+                if interface_id:
+                    # Fetch root tree for this interface
+                    root_tree = get_root_tree_for_interface(interface_id, team_id)
+                    if root_tree:
+                        # Check if tree actually has nodes (not just empty metadata)
+                        try:
+                            nodes_result = get_tree_nodes(root_tree['id'], team_id, page=0, limit=1)
+                            nodes = nodes_result.get('nodes', []) if nodes_result else []
+                            if nodes and len(nodes) > 0:
+                                # Only add root_tree if it has actual nodes
+                                interface['root_tree'] = root_tree
+                                print(f"[@userinterface] Interface '{interface.get('name')}' has tree with nodes")
+                            else:
+                                print(f"[@userinterface] Interface '{interface.get('name')}' has tree but no nodes")
+                        except Exception as e:
+                            print(f"[@userinterface] Error checking nodes for interface '{interface.get('name')}': {e}")
+                            # Continue without tree info if nodes check fails
+            except Exception as e:
+                print(f"[@userinterface] Error enriching interface: {e}")
+                # Continue with next interface
+            
+            # Always append the interface, even if enrichment failed
             enriched_interfaces.append(interface)
         
         # Store in cache
@@ -167,10 +185,14 @@ def get_userinterfaces():
                 'data': enriched_interfaces,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: User interfaces for team {team_id} (24h TTL)")
+            print(f"[@cache] SET: User interfaces for team {team_id} ({len(enriched_interfaces)} interfaces, 24h TTL)")
         
+        print(f"[@userinterface:getAllUserInterfaces] Returning {len(enriched_interfaces)} interfaces")
         return jsonify(enriched_interfaces)
     except Exception as e:
+        print(f"[@userinterface:getAllUserInterfaces] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'error': str(e)}), 500
 
 @server_userinterface_bp.route('/createUserInterface', methods=['POST'])

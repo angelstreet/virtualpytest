@@ -86,36 +86,45 @@ class WebWorker:
             return view
 
     def _loop(self):
-        # Create and own a dedicated asyncio event loop in this worker thread
+        print("[WebWorker] Worker thread started")
         self._loop = asyncio.new_event_loop()
         asyncio.set_event_loop(self._loop)
         self._loop_ready.set()
 
-        # Process tasks; run_fn may call into code that schedules coroutines on this loop via run_coro()
-        while True:
-            task: WebTask = self._q.get()
-            try:
-                result = task.run_fn()
-                task.result = result
-                with self._exec_lock:
-                    if task.execution_id in self._executions:
-                        self._executions[task.execution_id].update({
-                            'status': 'completed',
-                            'result': result,
-                            'progress': 100,
-                            'message': result.get('message', 'Completed')
-                        })
-            except Exception as e:
-                task.error = str(e)
-                with self._exec_lock:
-                    if task.execution_id in self._executions:
-                        self._executions[task.execution_id].update({
-                            'status': 'error',
-                            'error': str(e),
-                            'message': f'Failed: {e}'
-                        })
-            finally:
-                task.done.set()
+        def queue_processor():
+            print("[WebWorker] Queue processor started")
+            while True:
+                task = self._q.get()
+                print(f"[WebWorker] Processing task {task.execution_id}")
+                try:
+                    result = task.run_fn()
+                    task.result = result
+                    with self._exec_lock:
+                        if task.execution_id in self._executions:
+                            self._executions[task.execution_id].update({
+                                'status': 'completed',
+                                'result': result,
+                                'progress': 100,
+                                'message': result.get('message', 'Completed')
+                            })
+                except Exception as e:
+                    task.error = str(e)
+                    with self._exec_lock:
+                        if task.execution_id in self._executions:
+                            self._executions[task.execution_id].update({
+                                'status': 'error',
+                                'error': str(e),
+                                'message': f'Failed: {e}'
+                            })
+                finally:
+                    task.done.set()
+
+        # Run the sync queue processor in a thread pool executor
+        import concurrent.futures
+        self._loop.run_in_executor(None, queue_processor)
+
+        print("[WebWorker] Event loop running forever")
+        self._loop.run_forever()
 
     def run_coro(self, coro):
         """Synchronously run a coroutine on the worker's event loop.
