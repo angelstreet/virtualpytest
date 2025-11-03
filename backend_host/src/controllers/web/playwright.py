@@ -113,7 +113,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     async def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context, creating/connecting if needed."""
         # Ensure we have a connected browser/context
-        if not self.__class__._browser_connected or not self.__class__._context:
+        # Prefer concrete browser/context objects over boolean flags to avoid stale state
+        if not self.__class__._browser or not self.__class__._context:
             # Try to establish a connection (does NOT kill Chrome)
             connect_result = await self.connect_browser()
             if not connect_result or not connect_result.get('success'):
@@ -274,14 +275,16 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             if self.__class__._chrome_running and self.__class__._browser_connected and self.__class__._browser and self.__class__._context:
                 print(f"[PLAYWRIGHT]: Already connected to Chrome (PID: {self.__class__._chrome_process.pid if self.__class__._chrome_process else 'unknown'}), reusing connection")
                 
-                # Get existing page to verify connection is still alive
+                # Verify by accessing context/pages directly (avoid circular _get_persistent_page call)
                 try:
-                    page = await self._get_persistent_page()
+                    context = self.__class__._context
+                    pages = context.pages
+                    page = pages[0] if pages and len(pages) > 0 else await context.new_page()
                     self.current_url = page.url
                     self.page_title = await page.title() if page.url != 'about:blank' else ''
                     
                     execution_time = int((time.time() - start_time) * 1000)
-                    print(f"[PLAYWRIGHT]: Reused existing connection (skipped reconnection)")
+                    print(f"[PLAYWRIGHT]: Reused existing connection (verified via context/pages)")
                     return {
                         'success': True,
                         'error': '',
