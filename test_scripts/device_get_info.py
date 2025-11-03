@@ -159,12 +159,13 @@ def main():
     # Execute through ActionExecutor (same as frontend) - orchestrator routes to verification executor
     from backend_host.src.orchestrator.execution_orchestrator import ExecutionOrchestrator
     
-    action_result = ExecutionOrchestrator.execute_actions(
+    # ✅ Wrap async call with asyncio.run for script context
+    action_result = asyncio.run(ExecutionOrchestrator.execute_actions(
         device=device,
         actions=[action],
         team_id=context.team_id,
         context=context
-    )
+    ))
     
     if not action_result.get('success'):
         error_msg = action_result.get('error', 'getMenuInfo action failed')
