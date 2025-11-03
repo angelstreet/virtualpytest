@@ -150,7 +150,9 @@ def main():
     
     if not web_controller.is_connected:
         print(f"🌐 [browser_task] Browser not open, opening browser...")
-        open_result = web_controller.open_browser()
+        # ✅ Wrap async call with asyncio.run for script context
+        import asyncio
+        open_result = asyncio.run(web_controller.open_browser())
         if not open_result.get('success'):
             context.error_message = f"Failed to open browser: {open_result.get('error', 'Unknown error')}"
             context.overall_success = False
@@ -167,7 +169,8 @@ def main():
     print(f"📋 [browser_task] ==========================================\n")
     
     print(f"🌐 [browser_task] Navigating to: {url}")
-    nav_result = web_controller.navigate_to_url(url)
+    # ✅ Wrap async call with asyncio.run for script context
+    nav_result = asyncio.run(web_controller.navigate_to_url(url))
     
     if not nav_result.get('success'):
         context.error_message = f"Navigation failed: {nav_result.get('error', 'Unknown error')}"
@@ -198,7 +201,8 @@ def main():
     print(f"🤖 [browser_task] Task: {task}")
     print(f"🤖 [browser_task] Context: You are on website {final_url}")
     print(f"🤖 [browser_task] Max Steps: {max_steps}")
-    task_result = web_controller.browser_use_task(task_with_context, max_steps=max_steps)
+    # ✅ Wrap async call with asyncio.run for script context
+    task_result = asyncio.run(web_controller.browser_use_task(task_with_context, max_steps=max_steps))
     
     if not task_result.get('success'):
         print(f"❌ [browser_task] Task execution failed: {task_result.get('error', 'Unknown error')}")
