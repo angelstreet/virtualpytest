@@ -14,10 +14,33 @@ import time
 import asyncio
 from typing import Dict, Any, List, Tuple
 
+# =============================================================
+# Single decorator to guarantee execution on controller loop
+# (local copy to avoid circular import with playwright.py)
+# =============================================================
+def ensure_controller_loop(func):
+    async def wrapper(self, *args, **kwargs):
+        import asyncio
+        # Ensure controller loop exists (implemented in PlaywrightWebController)
+        self._ensure_loop()
+        controller_loop = self.__class__._loop
+        try:
+            current_loop = asyncio.get_running_loop()
+        except RuntimeError:
+            current_loop = None
+        if current_loop is controller_loop:
+            return await func(self, *args, **kwargs)
+        fut = self._submit_to_controller_loop(func(self, *args, **kwargs))
+        if current_loop is None:
+            return fut.result()
+        return await asyncio.wrap_future(fut)
+    return wrapper
+
 
 class PlaywrightVerificationsMixin:
     """Mixin class containing all verification methods for Playwright web controller."""
     
+    @ensure_controller_loop
     async def waitForElementToAppear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Wait for element to appear (polls find_element with timeout).
@@ -62,6 +85,7 @@ class PlaywrightVerificationsMixin:
         elapsed = time.time() - start_time
         return False, f"Element not found after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
     
+    @ensure_controller_loop
     async def waitForElementToDisappear(self, search_term: str, timeout: float = 10.0, check_interval: float = 1.0) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Wait for element to disappear (polls find_element until fails).
@@ -87,6 +111,7 @@ class PlaywrightVerificationsMixin:
         elapsed = time.time() - start_time
         return False, f"Element still present after {elapsed:.1f}s", {'search_term': search_term, 'wait_time': elapsed}
     
+    @ensure_controller_loop
     async def checkElementExists(self, search_term: str) -> Tuple[bool, str, Dict[str, Any]]:
         """
         Check if element exists (single find_element call, no polling).
@@ -100,6 +125,7 @@ class PlaywrightVerificationsMixin:
         else:
             return False, f"Element '{search_term}' not found", {'search_term': search_term, 'error': result.get('error', '')}
     
+    @ensure_controller_loop
     async def getMenuInfo(self, area: dict = None, context = None) -> Dict[str, Any]:
         """
         Extract menu info from web elements (Playwright-based alternative to OCR getMenuInfo)
@@ -378,6 +404,7 @@ class PlaywrightVerificationsMixin:
             }
         ]
     
+    @ensure_controller_loop
     async def execute_verification(self, verification_config: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute verification and return frontend-expected format (consistent with ADB/image/text).
@@ -421,20 +448,25 @@ class PlaywrightVerificationsMixin:
                     'details': {'error': 'Missing search_term parameter'}
                 }
             
-            # Optional parameters with defaults
-            timeout_ms = float(params.get('timeout', 10000))  # Default 10 seconds in ms
-            check_interval_ms = float(params.get('check_interval', 1000))  # Default 1 second in ms
-            
-            # Convert milliseconds to seconds (system passes timeout in ms)
-            timeout = timeout_ms / 1000.0
-            check_interval = check_interval_ms / 1000.0
-            
-            print(f"[@controller:PlaywrightWeb] Timeout conversion: {timeout_ms}ms -> {timeout}s")
-            
-            # Validate timeout (prevent unreasonably large values)
-            if timeout > 60:  # 1 minute max
+            # Optional parameters with defaults (SECONDS)
+            # Align units with other controllers (Text/Image/ADB use seconds)
+            timeout = float(params.get('timeout', 10.0))
+            check_interval = float(params.get('check_interval', 1.0))
+
+            # Normalize bounds
+            if timeout < 0:
+                timeout = 0.0
+            if timeout > 60:
                 print(f"[@controller:PlaywrightWeb] WARNING: Large timeout value {timeout}s detected, capping at 60s")
-                timeout = 60
+                timeout = 60.0
+            # Allow 0 for single-shot; otherwise clamp to [0.1, 10]
+            if check_interval <= 0:
+                check_interval = 0.0
+            else:
+                if check_interval < 0.1:
+                    check_interval = 0.1
+                if check_interval > 10.0:
+                    check_interval = 10.0
             
             print(f"[@controller:PlaywrightWeb] Executing {command} with search term: '{search_term}'")
             print(f"[@controller:PlaywrightWeb] Parameters: timeout={timeout}, check_interval={check_interval}")
