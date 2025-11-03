@@ -12,6 +12,7 @@ import queue
 import time
 import uuid
 from typing import Callable, Dict, Any, Optional
+import asyncio
 
 
 class WebTask:
@@ -33,6 +34,8 @@ class WebWorker:
         self._q: "queue.Queue[WebTask]" = queue.Queue()
         self._executions: Dict[str, Dict[str, Any]] = {}
         self._exec_lock: threading.Lock = threading.Lock()
+        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop_ready: threading.Event = threading.Event()
         self._thread: threading.Thread = threading.Thread(
             target=self._loop,
             name="PlaywrightWorker",
@@ -83,7 +86,12 @@ class WebWorker:
             return view
 
     def _loop(self):
-        # Initialize Playwright/browser/page lazily inside run_fn if needed.
+        # Create and own a dedicated asyncio event loop in this worker thread
+        self._loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(self._loop)
+        self._loop_ready.set()
+
+        # Process tasks; run_fn may call into code that schedules coroutines on this loop via run_coro()
         while True:
             task: WebTask = self._q.get()
             try:
@@ -108,5 +116,14 @@ class WebWorker:
                         })
             finally:
                 task.done.set()
+
+    def run_coro(self, coro):
+        """Synchronously run a coroutine on the worker's event loop from any thread."""
+        # Wait until loop is created
+        self._loop_ready.wait(timeout=5)
+        if not self._loop:
+            raise RuntimeError("Playwright worker loop not initialized")
+        future = asyncio.run_coroutine_threadsafe(coro, self._loop)
+        return future.result()
 
 
