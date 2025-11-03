@@ -907,6 +907,19 @@ class ScriptExecutor:
             actual_execution_time_ms = context.get_execution_time_ms()
             context.baseline_execution_time_ms = actual_execution_time_ms
             
+            # Capture test execution video BEFORE report generation (for both scripts and test cases)
+            print(f"🎥 [{self.script_name}] Capturing test execution video...")
+            try:
+                actual_test_duration_seconds = actual_execution_time_ms / 1000.0
+                av_controller = context.selected_device._get_controller('av')
+                video_duration = max(10.0, actual_test_duration_seconds)
+                test_video_url = av_controller.take_video_for_report(video_duration, context.start_time)
+                context.test_video_url = test_video_url
+                print(f"✅ [{self.script_name}] Test execution video captured: {test_video_url}")
+            except Exception as e:
+                print(f"⚠️ [{self.script_name}] Video capture failed: {e}")
+                context.test_video_url = ""
+            
             # Batch upload all screenshots to R2 BEFORE report generation
             url_mapping = context.upload_screenshots_to_r2()
             context.screenshot_url_mapping = url_mapping
