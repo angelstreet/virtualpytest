@@ -532,9 +532,9 @@ class PlaywrightUtils:
         
         return playwright, browser, context, page
     
-    def cleanup_connection(self, playwright, browser):
+    async def cleanup_connection(self, playwright, browser):
         """Clean up connection."""
-        self.connection.cleanup_connection(playwright, browser)
+        await self.connection.cleanup_connection(playwright, browser)
     
 
     
