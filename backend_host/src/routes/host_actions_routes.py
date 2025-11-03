@@ -1,7 +1,7 @@
 """
 Host Action Routes - Device Action Execution (Async)
 
-All action execution is async - returns execution_id immediately and polls for results.
+All action execution (ADB, web, etc.) uses simple background threading and returns execution_id immediately for polling.
 """
 
 import time
@@ -69,7 +69,7 @@ def _execute_actions_thread(device, execution_id, actions, retry_actions, failur
 
 @host_actions_bp.route('/executeBatch', methods=['POST'])
 def action_execute_batch():
-    """Execute batch of actions - async for most, but sync for web actions to avoid threading issues"""
+    """Execute batch of actions - all actions use simple background threading"""
     try:
         print("[@route:host_actions:action_execute_batch] Starting action execution", flush=True)
         
@@ -105,64 +105,37 @@ def action_execute_batch():
                 'error': f'Device {device_id} does not have ActionExecutor initialized'
             }), 500
         
-        # Check if ANY action is a web action (includes retry/failure arrays)
-        has_web_action = any((a.get('action_type') == 'web') for a in (actions or [])) or \
-                          any((a.get('action_type') == 'web') for a in (retry_actions or [])) or \
-                          any((a.get('action_type') == 'web') for a in (failure_actions or []))
-        
-        if has_web_action:
-            # Route entire batch through Playwright worker to keep context/order
-            print(f"[@route:host_actions:action_execute_batch] Routing WEB batch via Playwright worker", flush=True)
-            from backend_host.src.lib.web_worker import WebWorker
-            def run_fn():
-                return ExecutionOrchestrator.execute_actions(
-                    device=device,
-                    actions=actions,
-                    retry_actions=retry_actions,
-                    failure_actions=failure_actions,
-                    team_id=team_id,
-                    context=None
-                )
-            payload = {
-                'counts': {'actions': len(actions or []), 'retry': len(retry_actions or []), 'failure': len(failure_actions or [])},
-                'device_id': device_id,
-                'team_id': team_id,
+        # All actions (web and non-web) use same simple threading approach
+        print(f"[@route:host_actions:action_execute_batch] Executing batch with threading", flush=True)
+        execution_id = str(uuid.uuid4())
+        context_data = {
+            'tree_id': data.get('tree_id'),
+            'edge_id': data.get('edge_id'),
+            'action_set_id': data.get('action_set_id'),
+            'target_node_id': data.get('target_node_id'),
+            'skip_db_recording': data.get('skip_db_recording', False)
+        }
+        if not hasattr(device.action_executor, '_executions'):
+            device.action_executor._executions = {}
+            device.action_executor._lock = threading.Lock()
+        with device.action_executor._lock:
+            device.action_executor._executions[execution_id] = {
+                'execution_id': execution_id,
+                'status': 'running',
+                'result': None,
+                'error': None,
+                'start_time': time.time(),
+                'progress': 0,
+                'message': 'Action execution starting...'
             }
-            execution_id = WebWorker.instance().submit_async('action', payload, run_fn)
-            print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
-            return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Action execution started'})
-        else:
-            # Non-web: keep existing per-request thread behavior
-            print(f"[@route:host_actions:action_execute_batch] Executing non-web batch with threading", flush=True)
-            execution_id = str(uuid.uuid4())
-            context_data = {
-                'tree_id': data.get('tree_id'),
-                'edge_id': data.get('edge_id'),
-                'action_set_id': data.get('action_set_id'),
-                'target_node_id': data.get('target_node_id'),
-                'skip_db_recording': data.get('skip_db_recording', False)
-            }
-            if not hasattr(device.action_executor, '_executions'):
-                device.action_executor._executions = {}
-                device.action_executor._lock = threading.Lock()
-            with device.action_executor._lock:
-                device.action_executor._executions[execution_id] = {
-                    'execution_id': execution_id,
-                    'status': 'running',
-                    'result': None,
-                    'error': None,
-                    'start_time': time.time(),
-                    'progress': 0,
-                    'message': 'Action execution starting...'
-                }
-            thread = threading.Thread(
-                target=_execute_actions_thread,
-                args=(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data),
-                daemon=True
-            )
-            thread.start()
-            print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
-            return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Action execution started'})
+        thread = threading.Thread(
+            target=_execute_actions_thread,
+            args=(device, execution_id, actions, retry_actions, failure_actions, team_id, context_data),
+            daemon=True
+        )
+        thread.start()
+        print(f"[@route:host_actions:action_execute_batch] Async execution started: {execution_id}", flush=True)
+        return jsonify({'success': True, 'execution_id': execution_id, 'message': 'Action execution started'})
         
     except Exception as e:
         print(f"[@route:host_actions:action_execute_batch] Error: {e}", flush=True)

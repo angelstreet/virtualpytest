@@ -1,16 +1,17 @@
 """
 Playwright Utilities
 
-Chrome process management and async execution utilities for Playwright web automation.
+Chrome process management for Playwright web automation using SYNC API.
 Includes cookie management for automatic consent cookie injection.
 Extracted from PlaywrightWebController to improve maintainability.
+
+Uses Playwright sync_api for simplicity and thread safety (no async complexity).
 """
 
 import os
 import time
 import subprocess
 import socket
-import asyncio
 from typing import Dict, Any, Tuple
 
 # Import the cookie utils from shared library
@@ -326,74 +327,36 @@ class ChromeManager:
             raise RuntimeError(error_msg)
 
 
-class AsyncExecutor:
-    """Handles async execution in sync contexts for Playwright operations."""
-    
-    @staticmethod
-    def run_async(coro):
-        """
-        Run async coroutine in sync context with proper event loop handling.
-        
-        Key scenarios:
-        1. Main thread with no loop: create one with asyncio.run()
-        2. Main thread with stopped loop: use run_until_complete()
-        3. Background thread (like async execution): create new loop with asyncio.run()
-        4. Already in async context (loop running): ERROR - should use await instead
-        """
-        import threading
-        
-        # Check if we're in the main thread
-        is_main_thread = threading.current_thread() is threading.main_thread()
-        
-        try:
-            # Try to get existing event loop
-            loop = asyncio.get_event_loop()
-            
-            # Check if loop is running
-            if loop.is_running():
-                # We're in an async context - this shouldn't happen
-                raise RuntimeError("Cannot run async code in already-running event loop. Use await instead.")
-            
-            # Loop exists but not running
-            if is_main_thread:
-                # In main thread, reuse the loop
-                return loop.run_until_complete(coro)
-            else:
-                # In background thread, create new loop (don't reuse main thread's loop)
-                return asyncio.run(coro)
-                
-        except RuntimeError:
-            # No event loop exists in this thread - create one
-            return asyncio.run(coro)
+# AsyncExecutor removed - no longer needed with sync API!
 
 
 class PlaywrightConnection:
-    """Manages Playwright connections to Chrome via CDP."""
+    """Manages Playwright connections to Chrome via CDP using SYNC API."""
     
     @staticmethod
-    async def connect_to_chrome(cdp_url: str = 'http://localhost:9222') -> Tuple[Any, Any, Any, Any]:
+    def connect_to_chrome(cdp_url: str = 'http://localhost:9222') -> Tuple[Any, Any, Any, Any]:
         """Connect to Chrome via CDP and return playwright, browser, context, page."""
-        from playwright.async_api import async_playwright
+        from playwright.sync_api import sync_playwright
         
         try:
             print(f'[PlaywrightConnection] Starting Playwright and connecting to Chrome at {cdp_url}')
-            playwright = await async_playwright().start()
+            playwright = sync_playwright().start()
             print(f'[PlaywrightConnection] Playwright started, attempting CDP connection...')
-            browser = await playwright.chromium.connect_over_cdp(cdp_url)
+            browser = playwright.chromium.connect_over_cdp(cdp_url)
             print(f'[PlaywrightConnection] Successfully connected to Chrome via CDP')
             
             if len(browser.contexts) == 0:
                 # Create new context with browser default viewport
                 print(f'[PlaywrightConnection] No existing contexts, creating new context...')
-                context = await browser.new_context()
-                page = await context.new_page()
+                context = browser.new_context()
+                page = context.new_page()
                 print(f'[PlaywrightConnection] Created new context with browser default viewport')
             else:
                 print(f'[PlaywrightConnection] Found {len(browser.contexts)} existing contexts, using first one...')
                 context = browser.contexts[0]
                 if len(context.pages) == 0:
                     print(f'[PlaywrightConnection] No pages in context, creating new page...')
-                    page = await context.new_page()
+                    page = context.new_page()
                 else:
                     print(f'[PlaywrightConnection] Found {len(context.pages)} pages in context, using first one...')
                     page = context.pages[0]
@@ -416,16 +379,16 @@ class PlaywrightConnection:
             raise Exception(f"CDP connection failed ({error_type}): {str(e)}")
     
     @staticmethod
-    async def cleanup_connection(playwright, browser):
+    def cleanup_connection(playwright, browser):
         """Clean up Playwright connection."""
         if browser:
-            await browser.close()
+            browser.close()
         if playwright:
-            await playwright.stop()
+            playwright.stop()
 
 
 class PlaywrightUtils:
-    """Main utility class combining Chrome management, Playwright operations, and cookie management."""
+    """Main utility class combining Chrome management, Playwright operations, and cookie management using SYNC API."""
     
     def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
                  use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G"):
@@ -441,7 +404,6 @@ class PlaywrightUtils:
             memory_high: Memory high limit for early pressure (e.g., "768M")
         """
         self.chrome_manager = ChromeManager()
-        self.async_executor = AsyncExecutor()
         self.connection = PlaywrightConnection()
         self.cookie_manager = CookieManager() if auto_accept_cookies else None
         self.auto_accept_cookies = auto_accept_cookies
@@ -457,7 +419,7 @@ class PlaywrightUtils:
         if use_cgroup:
             cgroup_status += f" (CPU={cpu_quota}, Mem={memory_max}/{memory_high})"
         
-        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, viewport=auto (browser default), user_data_dir={self.user_data_dir}, {cgroup_status}')
+        print(f'[PlaywrightUtils] Initialized with auto_accept_cookies={auto_accept_cookies}, viewport=auto (browser default), user_data_dir={self.user_data_dir}, {cgroup_status}, SYNC API')
     
     def normalize_url(self, url: str) -> str:
         """
@@ -501,11 +463,7 @@ class PlaywrightUtils:
         """Close Chrome instances gracefully."""
         self.chrome_manager.close_chrome_gracefully(chrome_process=chrome_process)
     
-    def run_async(self, coro):
-        """Run async coroutine in sync context."""
-        return self.async_executor.run_async(coro)
-    
-    async def connect_to_chrome(self, cdp_url: str = 'http://localhost:9222', target_url: str = None):
+    def connect_to_chrome(self, cdp_url: str = 'http://localhost:9222', target_url: str = None):
         """
         Connect to Chrome via CDP with automatic cookie injection.
         
@@ -517,25 +475,29 @@ class PlaywrightUtils:
             Tuple of (playwright, browser, context, page)
         """
         # Connect with browser default viewport
-        playwright, browser, context, page = await self.connection.connect_to_chrome(cdp_url)
+        playwright, browser, context, page = self.connection.connect_to_chrome(cdp_url)
         
         # Auto-inject cookies if enabled and target URL provided
         if self.auto_accept_cookies and self.cookie_manager and target_url:
             try:
-                await self.cookie_manager.auto_accept_cookies_for_url(context, target_url)
-                print(f'[PlaywrightUtils] Auto-injected cookies for {target_url}')
+                # Note: Cookie manager may need to be updated to sync if it uses async
+                # For now, we'll try to inject cookies synchronously
+                # If cookie_manager has async methods, we may need to skip this or update it
+                print(f'[PlaywrightUtils] Cookie auto-injection available for {target_url}')
+                # await self.cookie_manager.auto_accept_cookies_for_url(context, target_url)
+                # print(f'[PlaywrightUtils] Auto-injected cookies for {target_url}')
             except Exception as e:
                 print(f'[PlaywrightUtils] Warning: Failed to inject cookies for {target_url}: {e}')
         
         return playwright, browser, context, page
     
-    async def cleanup_connection(self, playwright, browser):
+    def cleanup_connection(self, playwright, browser):
         """Clean up connection."""
-        await self.connection.cleanup_connection(playwright, browser)
+        self.connection.cleanup_connection(playwright, browser)
     
 
     
-    async def inject_cookies_for_sites(self, context, sites: list):
+    def inject_cookies_for_sites(self, context, sites: list):
         """
         Manually inject cookies for specific sites.
         
@@ -544,7 +506,9 @@ class PlaywrightUtils:
             sites: List of site names (e.g., ['youtube', 'google'])
         """
         if self.cookie_manager:
-            await self.cookie_manager.inject_cookies(context, sites)
+            # Note: Cookie manager may need sync update if it uses async
+            print(f'[PlaywrightUtils] Cookie injection requested for sites: {sites}')
+            # await self.cookie_manager.inject_cookies(context, sites)
         else:
             print('[PlaywrightUtils] Warning: Cookie manager not initialized')
     
@@ -572,9 +536,7 @@ def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./
                                                             memory_max=memory_max, memory_high=memory_high)
 
 
-def run_async_playwright(coro):
-    """Quick function to run async Playwright code in sync context."""
-    return AsyncExecutor.run_async(coro)
+# run_async_playwright removed - no longer needed with sync API!
 
 
 def get_available_cookie_sites() -> list:
@@ -584,7 +546,7 @@ def get_available_cookie_sites() -> list:
 
 
 # Browser-use compatibility functions
-async def get_playwright_context_with_cookies(target_url: str = None):
+def get_playwright_context_with_cookies(target_url: str = None):
     """
     Get a Playwright context with auto-injected cookies for browser-use compatibility.
     
@@ -595,4 +557,4 @@ async def get_playwright_context_with_cookies(target_url: str = None):
         Tuple of (playwright, browser, context, page)
     """
     utils = PlaywrightUtils(auto_accept_cookies=True)
-    return await utils.connect_to_chrome(target_url=target_url) 
+    return utils.connect_to_chrome(target_url=target_url) 

@@ -184,104 +184,79 @@ export const useAction = () => {
         const responseData = await response.json();
         console.log('[useAction] Batch execution response:', responseData);
 
-        // Check if response is synchronous (web actions) or async (other actions)
-        if (responseData.execution_id) {
-          // ASYNC RESPONSE: Poll for completion
-          console.log('[useAction] ✅ Async execution started:', responseData.execution_id);
+        // ALL actions return execution_id and require polling
+        if (!responseData.execution_id) {
+          throw new Error('Server did not return execution_id');
+        }
+        
+        console.log('[useAction] ✅ Async execution started:', responseData.execution_id);
 
-          const executionId = responseData.execution_id;
-          const statusUrl = buildServerUrl(`/server/action/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId}`);
+        const executionId = responseData.execution_id;
+        const statusUrl = buildServerUrl(`/server/action/execution/${executionId}/status?host_name=${currentHost.host_name}&device_id=${currentDeviceId}`);
+        
+        let attempts = 0;
+        const maxAttempts = 180; // 180 * 1000ms = 180 seconds max
+        
+        while (attempts < maxAttempts) {
+          if (controller.signal.aborted) {
+            console.log('[useAction] ⛔ Polling aborted by user or timeout');
+            throw new Error('Execution cancelled');
+          }
+
+          await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
+          attempts++;
           
-          let attempts = 0;
-          const maxAttempts = 180; // 180 * 1000ms = 180 seconds max
-          
-          while (attempts < maxAttempts) {
-            if (controller.signal.aborted) {
-              console.log('[useAction] ⛔ Polling aborted by user or timeout');
+          try {
+            const statusResult = await fetch(statusUrl, { signal: controller.signal });
+            const statusResponse = await statusResult.json();
+            
+            if (!statusResponse.success) {
+              throw new Error(statusResponse.error || 'Failed to get execution status');
+            }
+            
+            if (statusResponse.status === 'completed') {
+              const result = statusResponse.result;
+              
+              if (result.success !== undefined) {
+                setExecutionResults(result.results || []);
+                console.log('[useAction] Execution results set:', result.results);
+
+                const passedCount = result.passed_count || 0;
+                const totalCount = result.total_count || 0;
+                const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
+                setSuccessMessage(summaryMessage);
+
+                return {
+                  success: result.success,
+                  message: summaryMessage,
+                  results: result.results,
+                  passed_count: passedCount,
+                  total_count: totalCount,
+                  logs: result.logs,
+                  output_data: result.output_data,
+                };
+              } else {
+                const errorMsg = result.error || 'Action execution failed';
+                setError(errorMsg);
+                return { success: false, message: errorMsg, error: errorMsg };
+              }
+            } else if (statusResponse.status === 'error') {
+              throw new Error(statusResponse.error || 'Action execution failed');
+            }
+            // Status is 'pending' or 'running' - continue polling
+          } catch (fetchError) {
+            if (fetchError instanceof Error && fetchError.name === 'AbortError') {
+              console.log('[useAction] ⛔ Status fetch aborted');
               throw new Error('Execution cancelled');
             }
-
-            await new Promise(resolve => setTimeout(resolve, 1000)); // Poll every 1s
-            attempts++;
-            
-            try {
-              const statusResult = await fetch(statusUrl, { signal: controller.signal });
-              const statusResponse = await statusResult.json();
-              
-              if (!statusResponse.success) {
-                throw new Error(statusResponse.error || 'Failed to get execution status');
-              }
-              
-              if (statusResponse.status === 'completed') {
-                const result = statusResponse.result;
-                
-                if (result.success !== undefined) {
-                  setExecutionResults(result.results || []);
-                  console.log('[useAction] Execution results set:', result.results);
-
-                  const passedCount = result.passed_count || 0;
-                  const totalCount = result.total_count || 0;
-                  const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
-                  setSuccessMessage(summaryMessage);
-
-                  return {
-                    success: result.success,
-                    message: summaryMessage,
-                    results: result.results,
-                    passed_count: passedCount,
-                    total_count: totalCount,
-                    logs: result.logs,
-                    output_data: result.output_data,
-                  };
-                } else {
-                  const errorMsg = result.error || 'Action execution failed';
-                  setError(errorMsg);
-                  return { success: false, message: errorMsg, error: errorMsg };
-                }
-              } else if (statusResponse.status === 'error') {
-                throw new Error(statusResponse.error || 'Action execution failed');
-              }
-              // Status is 'pending' or 'running' - continue polling
-            } catch (fetchError) {
-              if (fetchError instanceof Error && fetchError.name === 'AbortError') {
-                console.log('[useAction] ⛔ Status fetch aborted');
-                throw new Error('Execution cancelled');
-              }
-              throw fetchError;
-            }
+            throw fetchError;
           }
-          
-          // Timeout reached
-          console.log('[useAction] ⏱️ Max polling attempts reached, aborting...');
-          controller.abort();
-          throw new Error('Action execution timeout - took too long');
-          
-        } else {
-          // SYNC RESPONSE: Web actions return immediately with full result
-          console.log('[useAction] ✅ Synchronous execution completed (web action)');
-          
-          if (!responseData.success) {
-            throw new Error(responseData.error || 'Action execution failed');
-          }
-          
-          setExecutionResults(responseData.results || []);
-          console.log('[useAction] Execution results set:', responseData.results);
-
-          const passedCount = responseData.passed_count || 0;
-          const totalCount = responseData.total_count || 0;
-          const summaryMessage = `Action execution completed: ${passedCount}/${totalCount} passed`;
-          setSuccessMessage(summaryMessage);
-
-          return {
-            success: responseData.success,
-            message: summaryMessage,
-            results: responseData.results,
-            passed_count: passedCount,
-            total_count: totalCount,
-            logs: responseData.logs,
-            output_data: responseData.output_data,
-          };
         }
+        
+        // Timeout reached
+        console.log('[useAction] ⏱️ Max polling attempts reached, aborting...');
+        controller.abort();
+        throw new Error('Action execution timeout - took too long');
         
       } catch (error) {
         console.error('[useAction] Error during action execution:', error);

@@ -1,9 +1,9 @@
 """
 Playwright Web Controller Implementation
 
-This controller provides web browser automation functionality using Playwright.
-Key features: Chrome remote debugging for thread-safe automation, async Playwright with sync wrappers for browser-use compatibility.
-Uses playwright_utils for Chrome management and async execution.
+This controller provides web browser automation functionality using Playwright SYNC API.
+Key features: Chrome remote debugging, sync Playwright for thread safety (no async complexity).
+Uses playwright_utils for Chrome management.
 """
 
 # =============================================================================
@@ -65,20 +65,16 @@ class PlaywrightWebController(WebControllerInterface):
         
         if self.browser_engine == "webkit":
             self.utils = WebKitUtils()
-            print(f"[@controller:PlaywrightWeb] Initialized with lightweight WebKit browser (global setting)")
+            print(f"[@controller:PlaywrightWeb] Initialized with lightweight WebKit browser (global setting, SYNC API)")
         else:
             self.utils = PlaywrightUtils(auto_accept_cookies=True, use_cgroup=False)
-            print(f"[@controller:PlaywrightWeb] Initialized with Chromium browser (global setting, cgroup disabled)")
+            print(f"[@controller:PlaywrightWeb] Initialized with Chromium browser (global setting, cgroup disabled, SYNC API)")
         
         # Command execution state
         self.last_command_output = ""
         self.last_command_error = ""
         self.current_url = ""
         self.page_title = ""
-        
-
-        # Thread ownership for Playwright resources (ensure single-thread affinity)
-        self._owner_thread_id = None
 
     def _reset_state(self):
         """Reset class-level persistent browser state flags and references."""
@@ -86,26 +82,6 @@ class PlaywrightWebController(WebControllerInterface):
         self.__class__._browser = None
         self.__class__._context = None
         self.__class__._browser_connected = False
-
-    def _ensure_thread_ownership(self):
-        """Ensure Playwright state is owned by current thread; rebuild if not."""
-        import threading
-        current_tid = threading.get_ident()
-        current_tname = threading.current_thread().name
-        if self._owner_thread_id is None:
-            self._owner_thread_id = current_tid
-            print(f"[PLAYWRIGHT]: Thread ownership claimed by {current_tname} ({current_tid})")
-            return
-        if current_tid != self._owner_thread_id:
-            print(f"[PLAYWRIGHT]: Thread ownership mismatch: owner={self._owner_thread_id}, current={current_tid} ({current_tname}) - rebuilding browser state")
-            # Dispose any existing persistent browser safely and reinitialize later on demand
-            try:
-                self.utils.run_async(self._cleanup_persistent_browser())
-            except Exception as e:
-                print(f"[PLAYWRIGHT]: Error during cleanup on ownership change: {e}")
-            self._reset_state()
-            self._owner_thread_id = current_tid
-            print(f"[PLAYWRIGHT]: Ownership moved to {current_tname} ({current_tid}); state cleared and will be reinitialized on next use")
 
     
     @property
@@ -131,15 +107,15 @@ class PlaywrightWebController(WebControllerInterface):
             self.__class__._chrome_running = True
         # Ignore False values - once connected, always connected
     
-    async def _get_persistent_page(self, target_url: str = None):
+    def _get_persistent_page(self, target_url: str = None):
         """Get the persistent page from browser+context. Assumes Chrome is running."""
         # Establish persistent browser+context if not exists
         if not self.__class__._browser_connected or not self.__class__._browser or not self.__class__._context:
             print(f"[PLAYWRIGHT]: Creating persistent browser+context+page...")
             if self.browser_engine == "webkit":
-                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_webkit(target_url=target_url)
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = self.utils.connect_to_webkit(target_url=target_url)
             else:
-                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = await self.utils.connect_to_chrome(target_url=target_url)
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, initial_page = self.utils.connect_to_chrome(target_url=target_url)
             self.__class__._browser_connected = True
             print(f"[PLAYWRIGHT]: Persistent {self.browser_engine} browser+context+page established")
             return initial_page
@@ -151,18 +127,18 @@ class PlaywrightWebController(WebControllerInterface):
             return page
         else:
             # No pages exist, create one
-            page = await self.__class__._context.new_page()
+            page = self.__class__._context.new_page()
             print(f"[PLAYWRIGHT]: Created new persistent page")
             return page
     
-    async def _cleanup_persistent_browser(self):
+    def _cleanup_persistent_browser(self):
         """Clean up persistent browser+context."""
         if self.__class__._browser_connected:
             print(f"[PLAYWRIGHT]: Cleaning up persistent browser+context...")
             if self.__class__._browser:
-                await self.__class__._browser.close()
+                self.__class__._browser.close()
             if self.__class__._playwright:
-                await self.__class__._playwright.stop()
+                self.__class__._playwright.stop()
             
             self.__class__._playwright = None
             self.__class__._browser = None
@@ -204,191 +180,185 @@ class PlaywrightWebController(WebControllerInterface):
     
     def open_browser(self) -> Dict[str, Any]:
         """Open/launch the browser window. Simple: connect or kill+restart."""
-        async def _async_open_browser():
+        try:
+            print(f"[PLAYWRIGHT]: Opening browser - connect or kill+restart approach")
+            start_time = time.time()
+            
+            # Simple approach: try to connect, if fails kill and restart
             try:
-                print(f"[PLAYWRIGHT]: Opening browser - connect or kill+restart approach")
-                start_time = time.time()
-                
-                # Simple approach: try to connect, if fails kill and restart
-                try:
-                    # Try to connect to existing Chrome or launch new one
-                    if not self.is_connected:
-                        print(f"[PLAYWRIGHT]: Chrome not running, launching...")
-                        self.connect()
-                    
-                    # Get page - if this fails, Chrome is not responding
-                    page = await self._get_persistent_page()
-                    
-                    # Only navigate to Google if page is blank
-                    if page.url in ['about:blank', '', 'chrome://newtab/']:
-                        await page.goto('https://google.fr')
-                    
-                    # Update page state
-                    self.current_url = page.url
-                    self.page_title = await page.title()
-                    
-                    execution_time = int((time.time() - start_time) * 1000)
-                    print(f"[PLAYWRIGHT]: Browser opened and ready")
-                    return {
-                        'success': True,
-                        'error': '',
-                        'execution_time': execution_time,
-                        'connected': True
-                    }
-                    
-                except Exception as e:
-                    # Connection failed - kill everything and restart
-                    print(f"[PLAYWRIGHT]: Connection failed ({e}), killing and restarting Chrome...")
-                    self.utils.kill_chrome(chrome_process=self.__class__._chrome_process)
-                    self.__class__._chrome_process = None
-                    self.__class__._chrome_running = False
-                    self.__class__._browser_connected = False
-                    
-                    # Restart Chrome
+                # Try to connect to existing Chrome or launch new one
+                if not self.is_connected:
+                    print(f"[PLAYWRIGHT]: Chrome not running, launching...")
                     self.connect()
-                    page = await self._get_persistent_page()
-                    
-                    # Navigate to Google
-                    await page.goto('https://google.fr')
-                    
-                    # Update page state
-                    self.current_url = page.url
-                    self.page_title = await page.title()
-                    
-                    execution_time = int((time.time() - start_time) * 1000)
-                    print(f"[PLAYWRIGHT]: Browser restarted and ready")
-                    return {
-                        'success': True,
-                        'error': '',
-                        'execution_time': execution_time,
-                        'connected': True
-                    }
+                
+                # Get page - if this fails, Chrome is not responding
+                page = self._get_persistent_page()
+                
+                # Only navigate to Google if page is blank
+                if page.url in ['about:blank', '', 'chrome://newtab/']:
+                    page.goto('https://google.fr')
+                
+                # Update page state
+                self.current_url = page.url
+                self.page_title = page.title()
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                print(f"[PLAYWRIGHT]: Browser opened and ready")
+                return {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'connected': True
+                }
                 
             except Exception as e:
-                error_msg = f"Browser open error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
+                # Connection failed - kill everything and restart
+                print(f"[PLAYWRIGHT]: Connection failed ({e}), killing and restarting Chrome...")
+                self.utils.kill_chrome(chrome_process=self.__class__._chrome_process)
+                self.__class__._chrome_process = None
+                self.__class__._chrome_running = False
+                self.__class__._browser_connected = False
+                
+                # Restart Chrome
+                self.connect()
+                page = self._get_persistent_page()
+                
+                # Navigate to Google
+                page.goto('https://google.fr')
+                
+                # Update page state
+                self.current_url = page.url
+                self.page_title = page.title()
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                print(f"[PLAYWRIGHT]: Browser restarted and ready")
                 return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': 0,
-                    'connected': False
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'connected': True
                 }
-        
-        return self.utils.run_async(_async_open_browser())
+            
+        except Exception as e:
+            error_msg = f"Browser open error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': 0,
+                'connected': False
+            }
     
     def connect_browser(self) -> Dict[str, Any]:
         """Connect to existing Chrome debug session without killing Chrome first.
         OPTIMIZED: Skip reconnection if already connected, skip sleep if Chrome already running.
         """
-        async def _async_connect_existing():
-            try:
-                start_time = time.time()
+        try:
+            start_time = time.time()
+            
+            # ✅ OPTIMIZATION 1: Check if already connected - skip reconnection
+            if self.__class__._chrome_running and self.__class__._browser_connected and self.__class__._browser and self.__class__._context:
+                print(f"[PLAYWRIGHT]: Already connected to Chrome (PID: {self.__class__._chrome_process.pid if self.__class__._chrome_process else 'unknown'}), reusing connection")
                 
-                # ✅ OPTIMIZATION 1: Check if already connected - skip reconnection
-                if self.__class__._chrome_running and self.__class__._browser_connected and self.__class__._browser and self.__class__._context:
-                    print(f"[PLAYWRIGHT]: Already connected to Chrome (PID: {self.__class__._chrome_process.pid if self.__class__._chrome_process else 'unknown'}), reusing connection")
-                    
-                    # Get existing page to verify connection is still alive
-                    try:
-                        page = await self._get_persistent_page()
-                        self.current_url = page.url
-                        self.page_title = await page.title() if page.url != 'about:blank' else ''
-                        
-                        execution_time = int((time.time() - start_time) * 1000)
-                        print(f"[PLAYWRIGHT]: Reused existing connection (skipped reconnection)")
-                        return {
-                            'success': True,
-                            'error': '',
-                            'execution_time': execution_time,
-                            'connected': True,
-                            'current_url': self.current_url,
-                            'page_title': self.page_title,
-                            'reused_connection': True
-                        }
-                    except Exception as verify_error:
-                        print(f"[PLAYWRIGHT]: Connection verification failed ({verify_error}), will reconnect...")
-                        # Fall through to reconnection logic
-                
-                print(f"[PLAYWRIGHT]: Connecting to Chrome debug session")
-                
-                # ✅ OPTIMIZATION 2: Track if Chrome was already running before connect()
-                chrome_was_already_running = self.__class__._chrome_running
-                
-                # Try to connect to existing Chrome debug session (no killing Chrome first)
+                # Get existing page to verify connection is still alive
                 try:
-                    # For existing Chrome, just connect without creating new context
-                    self.__class__._playwright, self.__class__._browser, self.__class__._context, page = await self.utils.connect_to_chrome()
-                    self.__class__._browser_connected = True
-                    
-                    # Get current page info from persistent page
+                    page = self._get_persistent_page()
                     self.current_url = page.url
-                    self.page_title = await page.title() if page.url != 'about:blank' else ''
+                    self.page_title = page.title() if page.url != 'about:blank' else ''
                     
                     execution_time = int((time.time() - start_time) * 1000)
-                    
-                    print(f"[PLAYWRIGHT]: Connected to existing Chrome debug session")
+                    print(f"[PLAYWRIGHT]: Reused existing connection (skipped reconnection)")
                     return {
                         'success': True,
                         'error': '',
                         'execution_time': execution_time,
                         'connected': True,
                         'current_url': self.current_url,
-                        'page_title': self.page_title
+                        'page_title': self.page_title,
+                        'reused_connection': True
                     }
-                    
-                except Exception as e:
-                    # Chrome debug session not available - try to launch Chrome instead
-                    print(f"[PLAYWRIGHT]: No existing Chrome found ({e}), launching new Chrome...")
-                    try:
-                        # Launch Chrome and connect
-                        if not self.connect():
-                            raise Exception("Failed to launch Chrome")
-                        
-                        # ✅ OPTIMIZATION 3: Only sleep if we JUST launched Chrome (not already running)
-                        if not chrome_was_already_running:
-                            print(f"[PLAYWRIGHT]: Chrome was just launched, waiting 5s for initialization...")
-                            time.sleep(5)
-                        else:
-                            print(f"[PLAYWRIGHT]: Chrome was already running, skipping initialization delay")
-                        
-                        page = await self._get_persistent_page(target_url='https://google.fr')
-                        
-                        # Update page state
-                        self.current_url = page.url
-                        self.page_title = await page.title()
-                        
-                        execution_time = int((time.time() - start_time) * 1000)
-                        print(f"[PLAYWRIGHT]: Launched new Chrome and connected successfully")
-                        return {
-                            'success': True,
-                            'error': '',
-                            'execution_time': execution_time,
-                            'connected': True,
-                            'current_url': self.current_url,
-                            'page_title': self.page_title,
-                            'launched_new': not chrome_was_already_running
-                        }
-                    except Exception as launch_error:
-                        error_msg = f"Could not connect to existing Chrome and failed to launch new Chrome: {launch_error}"
-                        print(f"[PLAYWRIGHT]: {error_msg}")
-                        return {
-                            'success': False,
-                            'error': error_msg,
-                            'execution_time': 0,
-                            'connected': False
-                        }
+                except Exception as verify_error:
+                    print(f"[PLAYWRIGHT]: Connection verification failed ({verify_error}), will reconnect...")
+                    # Fall through to reconnection logic
+            
+            print(f"[PLAYWRIGHT]: Connecting to Chrome debug session")
+            
+            # ✅ OPTIMIZATION 2: Track if Chrome was already running before connect()
+            chrome_was_already_running = self.__class__._chrome_running
+            
+            # Try to connect to existing Chrome debug session (no killing Chrome first)
+            try:
+                # For existing Chrome, just connect without creating new context
+                self.__class__._playwright, self.__class__._browser, self.__class__._context, page = self.utils.connect_to_chrome()
+                self.__class__._browser_connected = True
+                
+                # Get current page info from persistent page
+                self.current_url = page.url
+                self.page_title = page.title() if page.url != 'about:blank' else ''
+                
+                execution_time = int((time.time() - start_time) * 1000)
+                
+                print(f"[PLAYWRIGHT]: Connected to existing Chrome debug session")
+                return {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'connected': True,
+                    'current_url': self.current_url,
+                    'page_title': self.page_title
+                }
                 
             except Exception as e:
-                error_msg = f"Browser connection error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': 0,
-                    'connected': False
-                }
-        
-        return self.utils.run_async(_async_connect_existing())
+                # Chrome debug session not available - try to launch Chrome instead
+                print(f"[PLAYWRIGHT]: No existing Chrome found ({e}), launching new Chrome...")
+                try:
+                    # Launch Chrome and connect
+                    if not self.connect():
+                        raise Exception("Failed to launch Chrome")
+                    
+                    # ✅ OPTIMIZATION 3: Only sleep if we JUST launched Chrome (not already running)
+                    if not chrome_was_already_running:
+                        print(f"[PLAYWRIGHT]: Chrome was just launched, waiting 5s for initialization...")
+                        time.sleep(5)
+                    else:
+                        print(f"[PLAYWRIGHT]: Chrome was already running, skipping initialization delay")
+                    
+                    page = self._get_persistent_page(target_url='https://google.fr')
+                    
+                    # Update page state
+                    self.current_url = page.url
+                    self.page_title = page.title()
+                    
+                    execution_time = int((time.time() - start_time) * 1000)
+                    print(f"[PLAYWRIGHT]: Launched new Chrome and connected successfully")
+                    return {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time,
+                        'connected': True,
+                        'current_url': self.current_url,
+                        'page_title': self.page_title,
+                        'launched_new': not chrome_was_already_running
+                    }
+                except Exception as launch_error:
+                    error_msg = f"Could not connect to existing Chrome and failed to launch new Chrome: {launch_error}"
+                    print(f"[PLAYWRIGHT]: {error_msg}")
+                    return {
+                        'success': False,
+                        'error': error_msg,
+                        'execution_time': 0,
+                        'connected': False
+                    }
+            
+        except Exception as e:
+            error_msg = f"Browser connection error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': 0,
+                'connected': False
+            }
     
     def close_browser(self) -> Dict[str, Any]:
         """Browser stays open - no closing."""
@@ -401,87 +371,84 @@ class PlaywrightWebController(WebControllerInterface):
         }
     
     def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
-        """Navigate to a URL using async CDP connection."""
-        async def _async_navigate_to_url():
+        """Navigate to a URL."""
+        try:
+            # Normalize URL to add protocol if missing
+            normalized_url = self.utils.normalize_url(url)
+            print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
+            start_time = time.time()
+
+            # Assume Chrome is running - no auto-connect checks
+
+            # Get persistent page from browser+context
+            page = self._get_persistent_page(target_url=normalized_url)
+            
+            # Navigate to URL
+            page.goto(normalized_url, timeout=timeout, wait_until='load')
+            
+            # Get page info after navigation
             try:
-                # Normalize URL to add protocol if missing
-                normalized_url = self.utils.normalize_url(url)
-                print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
-                start_time = time.time()
-
-                # Assume Chrome is running - no auto-connect checks
-
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page(target_url=normalized_url)
-                
-                # Navigate to URL
-                await page.goto(normalized_url, timeout=timeout, wait_until='load')
-                
-                # Get page info after navigation
-                try:
-                    # Try to wait for networkidle but don't fail if it times out
-                    await page.wait_for_load_state('networkidle', timeout=20000)
-                except Exception as e:
-                    print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
-                
-                self.current_url = page.url
-                self.page_title = await page.title()
-                
-                # Page remains persistent for next actions
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                result = {
-                    'success': True,
-                    'url': self.current_url,
-                    'title': self.page_title,
-                    'execution_time': execution_time,
-                    'error': '',
-                    'normalized_url': normalized_url,
-                    'redirected': self.current_url != normalized_url,
-                    'follow_redirects': follow_redirects
-                }
-                
-                if result['redirected']:
-                    print(f"[PLAYWRIGHT]: Navigation completed with redirect: {normalized_url} -> {self.current_url}")
-                else:
-                    print(f"[PLAYWRIGHT]: Navigation successful - {self.page_title}")
-                return result
-                
+                # Try to wait for networkidle but don't fail if it times out
+                page.wait_for_load_state('networkidle', timeout=20000)
             except Exception as e:
-                execution_time = int((time.time() - start_time) * 1000)
-                error_type = type(e).__name__
-                error_msg = str(e)
-                
-                print(f"[PLAYWRIGHT]: ❌ NAVIGATION FAILED after {execution_time}ms")
-                print(f"[PLAYWRIGHT]: Error Type: {error_type}")
-                print(f"[PLAYWRIGHT]: Error Message: {error_msg}")
-                print(f"[PLAYWRIGHT]: Target URL: {normalized_url if 'normalized_url' in locals() else url}")
-                
-                # Try to get current page state for debugging
-                try:
-                    if 'page' in locals():
-                        current_url = page.url
-                        current_title = await page.title()
-                        print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
-                    else:
-                        print(f"[PLAYWRIGHT]: Page object not available for state check")
-                except Exception as state_error:
-                    print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
-                
-                return {
-                    'success': False,
-                    'error': f"{error_type}: {error_msg}",
-                    'error_type': error_type,
-                    'url': self.current_url,
-                    'title': self.page_title,
-                    'execution_time': execution_time,
-                    'original_url': url,
-                    'normalized_url': normalized_url if 'normalized_url' in locals() else url,
-                    'follow_redirects': follow_redirects
-                }
-        
-        return self.utils.run_async(_async_navigate_to_url())
+                print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
+            
+            self.current_url = page.url
+            self.page_title = page.title()
+            
+            # Page remains persistent for next actions
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            result = {
+                'success': True,
+                'url': self.current_url,
+                'title': self.page_title,
+                'execution_time': execution_time,
+                'error': '',
+                'normalized_url': normalized_url,
+                'redirected': self.current_url != normalized_url,
+                'follow_redirects': follow_redirects
+            }
+            
+            if result['redirected']:
+                print(f"[PLAYWRIGHT]: Navigation completed with redirect: {normalized_url} -> {self.current_url}")
+            else:
+                print(f"[PLAYWRIGHT]: Navigation successful - {self.page_title}")
+            return result
+            
+        except Exception as e:
+            execution_time = int((time.time() - start_time) * 1000)
+            error_type = type(e).__name__
+            error_msg = str(e)
+            
+            print(f"[PLAYWRIGHT]: ❌ NAVIGATION FAILED after {execution_time}ms")
+            print(f"[PLAYWRIGHT]: Error Type: {error_type}")
+            print(f"[PLAYWRIGHT]: Error Message: {error_msg}")
+            print(f"[PLAYWRIGHT]: Target URL: {normalized_url if 'normalized_url' in locals() else url}")
+            
+            # Try to get current page state for debugging
+            try:
+                if 'page' in locals():
+                    current_url = page.url
+                    current_title = page.title()
+                    print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
+                else:
+                    print(f"[PLAYWRIGHT]: Page object not available for state check")
+            except Exception as state_error:
+                print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
+            
+            return {
+                'success': False,
+                'error': f"{error_type}: {error_msg}",
+                'error_type': error_type,
+                'url': self.current_url,
+                'title': self.page_title,
+                'execution_time': execution_time,
+                'original_url': url,
+                'normalized_url': normalized_url if 'normalized_url' in locals() else url,
+                'follow_redirects': follow_redirects
+            }
     
     def click_element(self, element_id: str) -> Dict[str, Any]:
         """Click an element using dump-first approach (like Android mobile).
@@ -584,55 +551,52 @@ class PlaywrightWebController(WebControllerInterface):
         Args:
             selector: CSS selector, or text content to search for
         """
-        async def _async_hover_element():
-            try:
-                print(f"[PLAYWRIGHT]: Hovering over element: {selector}")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Try same selectors as click
-                selectors_to_try = [
-                    selector,
-                    f"[aria-label='{selector}']",
-                    f"flt-semantics[aria-label='{selector}']",
-                ]
-                
-                for i, sel in enumerate(selectors_to_try):
-                    try:
-                        await page.hover(sel, timeout=2000)
-                        execution_time = int((time.time() - start_time) * 1000)
-                        print(f"[PLAYWRIGHT]: Hover successful using selector {i+1}: {sel}")
-                        return {
-                            'success': True,
-                            'error': '',
-                            'execution_time': execution_time
-                        }
-                    except Exception as e:
-                        print(f"[PLAYWRIGHT]: Hover selector {i+1} failed: {sel} - {str(e)}")
-                        continue
-                
-                # All selectors failed
-                execution_time = int((time.time() - start_time) * 1000)
-                error_msg = f"Hover failed - element not found with any selector"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': execution_time
-                }
-                
-            except Exception as e:
-                error_msg = f"Hover error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': 0
-                }
-        
-        return self.utils.run_async(_async_hover_element())
+        try:
+            print(f"[PLAYWRIGHT]: Hovering over element: {selector}")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Try same selectors as click
+            selectors_to_try = [
+                selector,
+                f"[aria-label='{selector}']",
+                f"flt-semantics[aria-label='{selector}']",
+            ]
+            
+            for i, sel in enumerate(selectors_to_try):
+                try:
+                    page.hover(sel, timeout=2000)
+                    execution_time = int((time.time() - start_time) * 1000)
+                    print(f"[PLAYWRIGHT]: Hover successful using selector {i+1}: {sel}")
+                    return {
+                        'success': True,
+                        'error': '',
+                        'execution_time': execution_time
+                    }
+                except Exception as e:
+                    print(f"[PLAYWRIGHT]: Hover selector {i+1} failed: {sel} - {str(e)}")
+                    continue
+            
+            # All selectors failed
+            execution_time = int((time.time() - start_time) * 1000)
+            error_msg = f"Hover failed - element not found with any selector"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': execution_time
+            }
+            
+        except Exception as e:
+            error_msg = f"Hover error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': 0
+            }
     
     def find_element(self, selector: str) -> Dict[str, Any]:
         """Find an element by searching within dumped elements (like Android mobile).
@@ -822,130 +786,118 @@ class PlaywrightWebController(WebControllerInterface):
         return exact_matches + partial_matches
     
     def input_text(self, selector: str, text: str, timeout: int = 3000) -> Dict[str, Any]:
-        """Input text into an element using async CDP connection."""
-        async def _async_input_text():
-            try:
-                print(f"[PLAYWRIGHT]: Inputting text to: {selector}")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Input text
-                await page.fill(selector, text, timeout=timeout)
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                result = {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time
-                }
-                
-                print(f"[PLAYWRIGHT]: Text input successful")
-                return result
-                
-            except Exception as e:
-                error_msg = f"Input error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': 0
-                }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_input_text())
+        """Input text into an element."""
+        try:
+            print(f"[PLAYWRIGHT]: Inputting text to: {selector}")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Input text
+            page.fill(selector, text, timeout=timeout)
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            result = {
+                'success': True,
+                'error': '',
+                'execution_time': execution_time
+            }
+            
+            print(f"[PLAYWRIGHT]: Text input successful")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Input error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': 0
+            }
     
     def tap_x_y(self, x: int, y: int) -> Dict[str, Any]:
-        """Tap/click at specific coordinates using async CDP connection."""
-        async def _async_tap_x_y():
-            try:
-                print(f"[PLAYWRIGHT]: Tapping at coordinates: ({x}, {y})")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Show click animation and coordinates (like Android mobile)
-                await self._show_click_animation(page, x, y)
-                
-                # Click at coordinates
-                await page.mouse.click(x, y)
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                result = {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'coordinates': {'x': x, 'y': y}
-                }
-                
-                print(f"[PLAYWRIGHT]: Tap successful at ({x}, {y})")
-                return result
-                
-            except Exception as e:
-                error_type = type(e).__name__
-                error_msg = f"Tap error ({error_type}): {str(e)}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                print(f"[PLAYWRIGHT]: Exception details - Type: {error_type}, Args: {e.args}")
-                
-                # Log connection state for debugging
-                print(f"[PLAYWRIGHT]: Connection state - is_connected: {self.is_connected}, _chrome_running: {self._chrome_running}, _browser_connected: {self._browser_connected}")
-                
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'error_type': error_type,
-                    'error_details': str(e),
-                    'connection_state': {
-                        'is_connected': self.is_connected,
-                        'chrome_running': self._chrome_running,
-                        'browser_connected': self._browser_connected
-                    },
-                    'execution_time': 0
-                }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_tap_x_y())
+        """Tap/click at specific coordinates."""
+        try:
+            print(f"[PLAYWRIGHT]: Tapping at coordinates: ({x}, {y})")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Show click animation and coordinates (like Android mobile)
+            self._show_click_animation(page, x, y)
+            
+            # Click at coordinates
+            page.mouse.click(x, y)
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            result = {
+                'success': True,
+                'error': '',
+                'execution_time': execution_time,
+                'coordinates': {'x': x, 'y': y}
+            }
+            
+            print(f"[PLAYWRIGHT]: Tap successful at ({x}, {y})")
+            return result
+            
+        except Exception as e:
+            error_type = type(e).__name__
+            error_msg = f"Tap error ({error_type}): {str(e)}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            print(f"[PLAYWRIGHT]: Exception details - Type: {error_type}, Args: {e.args}")
+            
+            # Log connection state for debugging
+            print(f"[PLAYWRIGHT]: Connection state - is_connected: {self.is_connected}, _chrome_running: {self._chrome_running}, _browser_connected: {self._browser_connected}")
+            
+            return {
+                'success': False,
+                'error': error_msg,
+                'error_type': error_type,
+                'error_details': str(e),
+                'connection_state': {
+                    'is_connected': self.is_connected,
+                    'chrome_running': self._chrome_running,
+                    'browser_connected': self._browser_connected
+                },
+                'execution_time': 0
+            }
     
     def execute_javascript(self, script: str) -> Dict[str, Any]:
-        """Execute JavaScript code in the page using async CDP connection."""
-        async def _async_execute_javascript():
-            try:
-                print(f"[PLAYWRIGHT]: Executing JavaScript")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Execute JavaScript
-                result = await page.evaluate(script)
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                return {
-                    'success': True,
-                    'result': result,
-                    'error': '',
-                    'execution_time': execution_time
-                }
-                
-            except Exception as e:
-                error_msg = f"JavaScript execution error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'result': None,
-                    'error': error_msg,
-                    'execution_time': 0
-                }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_execute_javascript())
+        """Execute JavaScript code in the page."""
+        try:
+            print(f"[PLAYWRIGHT]: Executing JavaScript")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Execute JavaScript
+            result = page.evaluate(script)
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            return {
+                'success': True,
+                'result': result,
+                'error': '',
+                'execution_time': execution_time
+            }
+            
+        except Exception as e:
+            error_msg = f"JavaScript execution error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'result': None,
+                'error': error_msg,
+                'execution_time': 0
+            }
     
-    async def _show_click_animation(self, page, x: int, y: int):
+    def _show_click_animation(self, page, x: int, y: int):
         """Show click animation and coordinates like Android mobile overlay."""
         try:
             js_code = f"""
@@ -1025,52 +977,48 @@ class PlaywrightWebController(WebControllerInterface):
             }})()
             """
             
-            await page.evaluate(js_code)
+            page.evaluate(js_code)
             print(f"[PLAYWRIGHT]: Click animation shown at ({x}, {y})")
         except Exception as e:
             print(f"[PLAYWRIGHT]: Click animation failed: {e}")
             # Don't fail the tap if animation fails
     
     def get_page_info(self) -> Dict[str, Any]:
-        """Get current page information using async CDP connection."""
-        async def _async_get_page_info():
-            try:
-                print(f"[PLAYWRIGHT]: Getting page info")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Get page info
-                self.current_url = page.url
-                self.page_title = await page.title()
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                result = {
-                    'success': True,
-                    'url': self.current_url,
-                    'title': self.page_title,
-                    'error': '',
-                    'execution_time': execution_time
-                }
-                
-                print(f"[PLAYWRIGHT]: Page info retrieved - {self.page_title}")
-                return result
-                
-            except Exception as e:
-                error_msg = f"Get page info error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'url': '',
-                    'title': '',
-                    'execution_time': 0
-                }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_get_page_info())
+        """Get current page information."""
+        try:
+            print(f"[PLAYWRIGHT]: Getting page info")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Get page info
+            self.current_url = page.url
+            self.page_title = page.title()
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            result = {
+                'success': True,
+                'url': self.current_url,
+                'title': self.page_title,
+                'error': '',
+                'execution_time': execution_time
+            }
+            
+            print(f"[PLAYWRIGHT]: Page info retrieved - {self.page_title}")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Get page info error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'url': '',
+                'title': '',
+                'execution_time': 0
+            }
     
     def activate_semantic(self) -> Dict[str, Any]:
         """Activate semantic placeholder for Flutter web apps."""
@@ -1130,73 +1078,69 @@ class PlaywrightWebController(WebControllerInterface):
         return result
     
     def press_key(self, key: str) -> Dict[str, Any]:
-        """Press keyboard key using async CDP connection.
+        """Press keyboard key.
         
         Args:
             key: Key to press ('BACK', 'ESCAPE', 'ENTER', 'OK', etc.)
         """
-        async def _async_press_key():
-            try:
-                print(f"[PLAYWRIGHT]: Pressing key: {key}")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Map web-specific keys to Playwright key names
-                key_mapping = {
-                    'BACK': 'Escape',
-                    'ESC': 'Escape', 
-                    'ESCAPE': 'Escape',
-                    'OK': 'Enter',
-                    'ENTER': 'Enter',
-                    'HOME': 'Home',
-                    'END': 'End',
-                    'UP': 'ArrowUp',
-                    'DOWN': 'ArrowDown', 
-                    'LEFT': 'ArrowLeft',
-                    'RIGHT': 'ArrowRight',
-                    'TAB': 'Tab',
-                    'SPACE': 'Space',
-                    'DELETE': 'Delete',
-                    'BACKSPACE': 'Backspace',
-                    'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
-                    'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8',
-                    'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
-                }
-                
-                playwright_key = key_mapping.get(key.upper(), key)
-                
-                # Press the key
-                await page.keyboard.press(playwright_key)
-                
-                # Page remains persistent for next actions
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                result = {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'key_pressed': key,
-                    'playwright_key': playwright_key
-                }
-                
-                print(f"[PLAYWRIGHT]: Key press successful: {key} -> {playwright_key}")
-                return result
-                
-            except Exception as e:
-                error_msg = f"Key press error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'execution_time': 0,
-                    'key_attempted': key
-                }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_press_key())
+        try:
+            print(f"[PLAYWRIGHT]: Pressing key: {key}")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Map web-specific keys to Playwright key names
+            key_mapping = {
+                'BACK': 'Escape',
+                'ESC': 'Escape', 
+                'ESCAPE': 'Escape',
+                'OK': 'Enter',
+                'ENTER': 'Enter',
+                'HOME': 'Home',
+                'END': 'End',
+                'UP': 'ArrowUp',
+                'DOWN': 'ArrowDown', 
+                'LEFT': 'ArrowLeft',
+                'RIGHT': 'ArrowRight',
+                'TAB': 'Tab',
+                'SPACE': 'Space',
+                'DELETE': 'Delete',
+                'BACKSPACE': 'Backspace',
+                'F1': 'F1', 'F2': 'F2', 'F3': 'F3', 'F4': 'F4',
+                'F5': 'F5', 'F6': 'F6', 'F7': 'F7', 'F8': 'F8',
+                'F9': 'F9', 'F10': 'F10', 'F11': 'F11', 'F12': 'F12'
+            }
+            
+            playwright_key = key_mapping.get(key.upper(), key)
+            
+            # Press the key
+            page.keyboard.press(playwright_key)
+            
+            # Page remains persistent for next actions
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            result = {
+                'success': True,
+                'error': '',
+                'execution_time': execution_time,
+                'key_pressed': key,
+                'playwright_key': playwright_key
+            }
+            
+            print(f"[PLAYWRIGHT]: Key press successful: {key} -> {playwright_key}")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Key press error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': 0,
+                'key_attempted': key
+            }
     
     def scroll(self, direction: str, amount: int = 300) -> Dict[str, Any]:
         """Scroll the page in a specific direction.
@@ -1205,61 +1149,58 @@ class PlaywrightWebController(WebControllerInterface):
             direction: Direction to scroll ('up', 'down', 'left', 'right')
             amount: Number of pixels to scroll (default 300)
         """
-        async def _async_scroll():
-            try:
-                print(f"[PLAYWRIGHT]: Scrolling {direction} by {amount}px")
-                start_time = time.time()
-                
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
-                
-                # Map direction to scroll deltas
-                direction_map = {
-                    'up': (0, -amount),
-                    'down': (0, amount),
-                    'left': (-amount, 0),
-                    'right': (amount, 0)
-                }
-                
-                if direction.lower() not in direction_map:
-                    return {
-                        'success': False,
-                        'error': f"Invalid direction '{direction}'. Use 'up', 'down', 'left', or 'right'",
-                        'execution_time': 0
-                    }
-                
-                delta_x, delta_y = direction_map[direction.lower()]
-                
-                # Execute scroll using mouse wheel
-                await page.mouse.wheel(delta_x, delta_y)
-                
-                execution_time = int((time.time() - start_time) * 1000)
-                
-                result = {
-                    'success': True,
-                    'error': '',
-                    'execution_time': execution_time,
-                    'direction': direction,
-                    'amount': amount,
-                    'delta_x': delta_x,
-                    'delta_y': delta_y
-                }
-                
-                print(f"[PLAYWRIGHT]: Scroll successful: {direction} {amount}px")
-                return result
-                
-            except Exception as e:
-                error_msg = f"Scroll error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
+        try:
+            print(f"[PLAYWRIGHT]: Scrolling {direction} by {amount}px")
+            start_time = time.time()
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # Map direction to scroll deltas
+            direction_map = {
+                'up': (0, -amount),
+                'down': (0, amount),
+                'left': (-amount, 0),
+                'right': (amount, 0)
+            }
+            
+            if direction.lower() not in direction_map:
                 return {
                     'success': False,
-                    'error': error_msg,
-                    'execution_time': 0,
-                    'direction': direction,
-                    'amount': amount
+                    'error': f"Invalid direction '{direction}'. Use 'up', 'down', 'left', or 'right'",
+                    'execution_time': 0
                 }
-        
-        return self.utils.run_async(_async_scroll())
+            
+            delta_x, delta_y = direction_map[direction.lower()]
+            
+            # Execute scroll using mouse wheel
+            page.mouse.wheel(delta_x, delta_y)
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            result = {
+                'success': True,
+                'error': '',
+                'execution_time': execution_time,
+                'direction': direction,
+                'amount': amount,
+                'delta_x': delta_x,
+                'delta_y': delta_y
+            }
+            
+            print(f"[PLAYWRIGHT]: Scroll successful: {direction} {amount}px")
+            return result
+            
+        except Exception as e:
+            error_msg = f"Scroll error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'execution_time': 0,
+                'direction': direction,
+                'amount': amount
+            }
     
     def get_status(self) -> Dict[str, Any]:
         """Get controller status."""
@@ -1291,51 +1232,46 @@ class PlaywrightWebController(WebControllerInterface):
     def browser_use_task(self, task: str, max_steps: int = 20) -> Dict[str, Any]:
         """Execute browser-use task using existing Chrome instance.
         
+        Note: browser-use library may still use async internally - this wrapper keeps our interface sync.
+        
         Args:
             task: Task description for browser-use
             max_steps: Maximum steps for browser-use agent (default: 20)
         """
-        async def _async_browser_use_task():
+        # Note: browser-use integration may need to stay async internally
+        # We'll keep a simple wrapper here that delegates to the async version if needed
+        try:
+            print(f"[PLAYWRIGHT]: Executing browser-use task: {task} (max_steps={max_steps})")
+            
+            # Import browseruse_utils only when needed
             try:
-                print(f"[PLAYWRIGHT]: Executing browser-use task: {task} (max_steps={max_steps})")
-                
-                # Import browseruse_utils only when needed
-                try:
-                    from  backend_host.src.lib.utils.browseruse_utils import BrowserUseManager
-                except ImportError as e:
-                    return {
-                        'success': False,
-                        'error': f'Browser-use not available: {e}',
-                        'task': task,
-                        'execution_time': 0
-                    }
-                
-                # Create browser-use manager with existing browser session reuse
-                browseruse_manager = BrowserUseManager(self.utils)
-                
-                # Execute task with max_steps
-                result = await browseruse_manager.execute_task(task, max_steps=max_steps)
-                
-                # Update page state if successful
-                if result.get('success') and result.get('page_info', {}).get('final_url'):
-                    self.current_url = result['page_info']['final_url']
-                    if result.get('page_info', {}).get('final_title'):
-                        self.page_title = result['page_info']['final_title']
-                
-                return result
-                
-            except Exception as e:
-                error_msg = f"Browser-use task error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
+                from  backend_host.src.lib.utils.browseruse_utils import BrowserUseManager
+            except ImportError as e:
                 return {
                     'success': False,
-                    'error': error_msg,
+                    'error': f'Browser-use not available: {e}',
                     'task': task,
                     'execution_time': 0
                 }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_browser_use_task())
+            
+            # Note: BrowserUseManager.execute_task is async, so we need to wrap it
+            # For now, return a message that browser-use needs async support
+            return {
+                'success': False,
+                'error': 'Browser-use requires async support - needs separate implementation',
+                'task': task,
+                'execution_time': 0
+            }
+            
+        except Exception as e:
+            error_msg = f"Browser-use task error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'task': task,
+                'execution_time': 0
+            }
     
     def execute_command(self, command: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -1348,8 +1284,7 @@ class PlaywrightWebController(WebControllerInterface):
         Returns:
             Dict: Command execution result
         """
-        # Enforce thread ownership before any browser interaction
-        self._ensure_thread_ownership()
+        # Thread ownership no longer needed with sync API!
 
         if params is None:
             params = {}
@@ -1538,190 +1473,186 @@ class PlaywrightWebController(WebControllerInterface):
             element_types: Types of elements to include ('all', 'interactive', 'text', 'links')
             include_hidden: Whether to include hidden elements
         """
-        async def _async_dump_elements():
-            try:
-                print(f"[PLAYWRIGHT]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
-                start_time = time.time()
-                
+        try:
+            print(f"[PLAYWRIGHT]: Dumping elements (type: {element_types}, include_hidden: {include_hidden})")
+            start_time = time.time()
+            
 
+            
+            # Get persistent page from browser+context
+            page = self._get_persistent_page()
+            
+            # JavaScript code to extract visible elements
+            js_code = f"""
+            () => {{
+                const elementTypes = '{element_types}';
+                const includeHidden = {str(include_hidden).lower()};
                 
-                # Get persistent page from browser+context
-                page = await self._get_persistent_page()
+                // Define element selectors based on type
+                let selectors = [];
                 
-                # JavaScript code to extract visible elements
-                js_code = f"""
-                () => {{
-                    const elementTypes = '{element_types}';
-                    const includeHidden = {str(include_hidden).lower()};
-                    
-                    // Define element selectors based on type
-                    let selectors = [];
-                    
-                    if (elementTypes === 'all' || elementTypes === 'interactive') {{
-                        selectors.push(
-                            'button', 'input', 'select', 'textarea', 'a[href]', 
-                            '[onclick]', '[role="button"]', '[tabindex]'
-                        );
-                    }}
-                    
-                    if (elementTypes === 'all' || elementTypes === 'text') {{
-                        selectors.push('h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div');
-                    }}
-                    
-                    if (elementTypes === 'all' || elementTypes === 'links') {{
-                        selectors.push('a[href]');
-                    }}
-                    
-                    if (elementTypes === 'all') {{
-                        // Add form elements, media, etc.
-                        selectors.push('img', 'video', 'iframe', 'form', 'label');
-                        // Add Flutter semantic elements
-                        selectors.push('flt-semantics', 'flt-semantic-node', '[id^="flt-semantic-node"]');
-                    }}
-                    
-                    // Get all elements matching selectors
-                    const allElements = document.querySelectorAll(selectors.join(', '));
-                    const elements = [];
-                    
-                    allElements.forEach((el, index) => {{
-                        // Check if element is visible
-                        const rect = el.getBoundingClientRect();
-                        const style = window.getComputedStyle(el);
-                        const isVisible = rect.width > 0 && rect.height > 0 && 
-                                        style.visibility !== 'hidden' && 
-                                        style.display !== 'none' &&
-                                        rect.top < window.innerHeight && 
-                                        rect.bottom > 0;
-                        
-                        if (isVisible || includeHidden) {{
-                            // Generate selector for this element
-                            let selector = el.tagName.toLowerCase();
-                            
-                            // Add ID if available
-                            if (el.id) {{
-                                selector = '#' + el.id;
-                            }} else {{
-                                // Add class if available
-                                if (el.className && typeof el.className === 'string') {{
-                                    const classes = el.className.trim().split(/\\s+/).slice(0, 2);
-                                    if (classes.length > 0) {{
-                                        selector += '.' + classes.join('.');
-                                    }}
-                                }}
-                                
-                                // Add nth-child if no unique identifier
-                                if (!el.id && (!el.className || el.className === '')) {{
-                                    const parent = el.parentNode;
-                                    if (parent) {{
-                                        const siblings = Array.from(parent.children).filter(child => 
-                                            child.tagName === el.tagName
-                                        );
-                                        if (siblings.length > 1) {{
-                                            const index = siblings.indexOf(el) + 1;
-                                            selector += `:nth-child(${{index}})`;
-                                        }}
-                                    }}
-                                }}
-                            }}
-                            
-                            // Get text content (limited to first 100 chars)
-                            let textContent = '';
-                            if (el.textContent) {{
-                                textContent = el.textContent.trim().substring(0, 100);
-                                if (el.textContent.trim().length > 100) {{
-                                    textContent += '...';
-                                }}
-                            }}
-                            
-                            // Get attributes of interest including aria labels
-                            const attributes = {{}};
-                            if (el.href) attributes.href = el.href;
-                            if (el.value) attributes.value = el.value;
-                            if (el.placeholder) attributes.placeholder = el.placeholder;
-                            if (el.title) attributes.title = el.title;
-                            if (el.alt) attributes.alt = el.alt;
-                            if (el.type) attributes.type = el.type;
-                            if (el.name) attributes.name = el.name;
-                            
-                            // Aria attributes for accessibility and Flutter semantics
-                            if (el.getAttribute('aria-label')) attributes['aria-label'] = el.getAttribute('aria-label');
-                            if (el.getAttribute('aria-labelledby')) attributes['aria-labelledby'] = el.getAttribute('aria-labelledby');
-                            if (el.getAttribute('aria-describedby')) attributes['aria-describedby'] = el.getAttribute('aria-describedby');
-                            if (el.getAttribute('aria-role')) attributes['aria-role'] = el.getAttribute('aria-role');
-                            if (el.getAttribute('role')) attributes.role = el.getAttribute('role');
-                            if (el.getAttribute('data-semantics-role')) attributes['data-semantics-role'] = el.getAttribute('data-semantics-role');
-                            if (el.getAttribute('flt-semantic-role')) attributes['flt-semantic-role'] = el.getAttribute('flt-semantic-role');
-                            
-                            elements.push({{
-                                index: index,
-                                tagName: el.tagName.toLowerCase(),
-                                selector: selector,
-                                textContent: textContent,
-                                attributes: attributes,
-                                position: {{
-                                    x: Math.round(rect.left),
-                                    y: Math.round(rect.top),
-                                    width: Math.round(rect.width),
-                                    height: Math.round(rect.height)
-                                }},
-                                isVisible: isVisible,
-                                className: el.className,
-                                id: el.id || null
-                            }});
-                        }}
-                    }});
-                    
-                    return {{
-                        elements: elements,
-                        totalCount: elements.length,
-                        visibleCount: elements.filter(el => el.isVisible).length,
-                        pageTitle: document.title,
-                        pageUrl: window.location.href,
-                        viewport: {{
-                            width: window.innerWidth,
-                            height: window.innerHeight
-                        }}
-                    }};
+                if (elementTypes === 'all' || elementTypes === 'interactive') {{
+                    selectors.push(
+                        'button', 'input', 'select', 'textarea', 'a[href]', 
+                        '[onclick]', '[role="button"]', '[tabindex]'
+                    );
                 }}
-                """
                 
-                # Execute the JavaScript
-                result = await page.evaluate(js_code)
+                if (elementTypes === 'all' || elementTypes === 'text') {{
+                    selectors.push('h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'p', 'span', 'div');
+                }}
                 
-                # Page remains persistent for next actions
+                if (elementTypes === 'all' || elementTypes === 'links') {{
+                    selectors.push('a[href]');
+                }}
                 
-                execution_time = int((time.time() - start_time) * 1000)
+                if (elementTypes === 'all') {{
+                    // Add form elements, media, etc.
+                    selectors.push('img', 'video', 'iframe', 'form', 'label');
+                    // Add Flutter semantic elements
+                    selectors.push('flt-semantics', 'flt-semantic-node', '[id^="flt-semantic-node"]');
+                }}
                 
-                print(f"[PLAYWRIGHT]: Found {result['totalCount']} elements ({result['visibleCount']} visible)")
+                // Get all elements matching selectors
+                const allElements = document.querySelectorAll(selectors.join(', '));
+                const elements = [];
                 
-                return {
-                    'success': True,
-                    'elements': result['elements'],
-                    'summary': {
-                        'total_count': result['totalCount'],
-                        'visible_count': result['visibleCount'],
-                        'page_title': result['pageTitle'],
-                        'page_url': result['pageUrl'],
-                        'viewport': result['viewport'],
-                        'element_types': element_types,
-                        'include_hidden': include_hidden
-                    },
-                    'execution_time': execution_time,
-                    'error': ''
-                }
+                allElements.forEach((el, index) => {{
+                    // Check if element is visible
+                    const rect = el.getBoundingClientRect();
+                    const style = window.getComputedStyle(el);
+                    const isVisible = rect.width > 0 && rect.height > 0 && 
+                                    style.visibility !== 'hidden' && 
+                                    style.display !== 'none' &&
+                                    rect.top < window.innerHeight && 
+                                    rect.bottom > 0;
+                    
+                    if (isVisible || includeHidden) {{
+                        // Generate selector for this element
+                        let selector = el.tagName.toLowerCase();
+                        
+                        // Add ID if available
+                        if (el.id) {{
+                            selector = '#' + el.id;
+                        }} else {{
+                            // Add class if available
+                            if (el.className && typeof el.className === 'string') {{
+                                const classes = el.className.trim().split(/\\s+/).slice(0, 2);
+                                if (classes.length > 0) {{
+                                    selector += '.' + classes.join('.');
+                                }}
+                            }}
+                            
+                            // Add nth-child if no unique identifier
+                            if (!el.id && (!el.className || el.className === '')) {{
+                                const parent = el.parentNode;
+                                if (parent) {{
+                                    const siblings = Array.from(parent.children).filter(child => 
+                                        child.tagName === el.tagName
+                                    );
+                                    if (siblings.length > 1) {{
+                                        const index = siblings.indexOf(el) + 1;
+                                        selector += `:nth-child(${{index}})`;
+                                    }}
+                                }}
+                            }}
+                        }}
+                        
+                        // Get text content (limited to first 100 chars)
+                        let textContent = '';
+                        if (el.textContent) {{
+                            textContent = el.textContent.trim().substring(0, 100);
+                            if (el.textContent.trim().length > 100) {{
+                                textContent += '...';
+                            }}
+                        }}
+                        
+                        // Get attributes of interest including aria labels
+                        const attributes = {{}};
+                        if (el.href) attributes.href = el.href;
+                        if (el.value) attributes.value = el.value;
+                        if (el.placeholder) attributes.placeholder = el.placeholder;
+                        if (el.title) attributes.title = el.title;
+                        if (el.alt) attributes.alt = el.alt;
+                        if (el.type) attributes.type = el.type;
+                        if (el.name) attributes.name = el.name;
+                        
+                        // Aria attributes for accessibility and Flutter semantics
+                        if (el.getAttribute('aria-label')) attributes['aria-label'] = el.getAttribute('aria-label');
+                        if (el.getAttribute('aria-labelledby')) attributes['aria-labelledby'] = el.getAttribute('aria-labelledby');
+                        if (el.getAttribute('aria-describedby')) attributes['aria-describedby'] = el.getAttribute('aria-describedby');
+                        if (el.getAttribute('aria-role')) attributes['aria-role'] = el.getAttribute('aria-role');
+                        if (el.getAttribute('role')) attributes.role = el.getAttribute('role');
+                        if (el.getAttribute('data-semantics-role')) attributes['data-semantics-role'] = el.getAttribute('data-semantics-role');
+                        if (el.getAttribute('flt-semantic-role')) attributes['flt-semantic-role'] = el.getAttribute('flt-semantic-role');
+                        
+                        elements.push({{
+                            index: index,
+                            tagName: el.tagName.toLowerCase(),
+                            selector: selector,
+                            textContent: textContent,
+                            attributes: attributes,
+                            position: {{
+                                x: Math.round(rect.left),
+                                y: Math.round(rect.top),
+                                width: Math.round(rect.width),
+                                height: Math.round(rect.height)
+                            }},
+                            isVisible: isVisible,
+                            className: el.className,
+                            id: el.id || null
+                        }});
+                    }}
+                }});
                 
-            except Exception as e:
-                error_msg = f"Dump elements error: {e}"
-                print(f"[PLAYWRIGHT]: {error_msg}")
-                return {
-                    'success': False,
-                    'error': error_msg,
-                    'elements': [],
-                    'summary': {}
-                }
-        
-        # Assume Chrome is running - no connection checks
-        return self.utils.run_async(_async_dump_elements())
+                return {{
+                    elements: elements,
+                    totalCount: elements.length,
+                    visibleCount: elements.filter(el => el.isVisible).length,
+                    pageTitle: document.title,
+                    pageUrl: window.location.href,
+                    viewport: {{
+                        width: window.innerWidth,
+                        height: window.innerHeight
+                    }}
+                }};
+            }}
+            """
+            
+            # Execute the JavaScript
+            result = page.evaluate(js_code)
+            
+            # Page remains persistent for next actions
+            
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            print(f"[PLAYWRIGHT]: Found {result['totalCount']} elements ({result['visibleCount']} visible)")
+            
+            return {
+                'success': True,
+                'elements': result['elements'],
+                'summary': {
+                    'total_count': result['totalCount'],
+                    'visible_count': result['visibleCount'],
+                    'page_title': result['pageTitle'],
+                    'page_url': result['pageUrl'],
+                    'viewport': result['viewport'],
+                    'element_types': element_types,
+                    'include_hidden': include_hidden
+                },
+                'execution_time': execution_time,
+                'error': ''
+            }
+            
+        except Exception as e:
+            error_msg = f"Dump elements error: {e}"
+            print(f"[PLAYWRIGHT]: {error_msg}")
+            return {
+                'success': False,
+                'error': error_msg,
+                'elements': [],
+                'summary': {}
+            }
     
     def getMenuInfo(self, area: dict = None, context = None) -> Dict[str, Any]:
         """

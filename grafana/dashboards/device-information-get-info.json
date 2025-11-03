@@ -686,6 +686,297 @@
       ],
       "title": "DOCSIS Version Distribution",
       "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Device Info (JSON)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json-view"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View Report",
+                    "url": "${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 33
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Scanned"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_tv'\nORDER BY device_name, started_at DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Horizon TV - Device Info (JSON)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Device Info (JSON)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json-view"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View Report",
+                    "url": "${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 11,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Scanned"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_android_mobile'\nORDER BY device_name, started_at DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Horizon Android Mobile - Device Info (JSON)",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Device Info (JSON)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json-view"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View Report",
+                    "url": "${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 24,
+        "x": 0,
+        "y": 49
+      },
+      "id": 12,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Scanned"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name NOT IN ('horizon_tv', 'horizon_android_mobile')\nORDER BY device_name, started_at DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Other Devices - Device Info (JSON)",
+      "type": "table"
     }
   ],
   "preload": false,
