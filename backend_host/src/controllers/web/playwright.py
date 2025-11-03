@@ -111,14 +111,14 @@ class PlaywrightWebController(WebControllerInterface):
         # Implement async logic to get or create page
         pass
     
-    def _cleanup_persistent_browser(self):
+    async def _cleanup_persistent_browser(self):
         """Clean up persistent browser+context."""
         if self.__class__._browser_connected:
             print(f"[PLAYWRIGHT]: Cleaning up persistent browser+context...")
             if self.__class__._browser:
-                self.__class__._browser.close()
+                await self.__class__._browser.close()
             if self.__class__._playwright:
-                self.__class__._playwright.stop()
+                await self.__class__._playwright.stop()
             
             self.__class__._playwright = None
             self.__class__._browser = None
@@ -423,7 +423,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'follow_redirects': follow_redirects
             }
     
-    def click_element(self, element_id: str) -> Dict[str, Any]:
+    async def click_element(self, element_id: str) -> Dict[str, Any]:
         """Click an element using dump-first approach (like Android mobile).
         Supports pipe-separated fallback: "Settings|Preferences|Options"
         
@@ -448,7 +448,7 @@ class PlaywrightWebController(WebControllerInterface):
                     print(f"[PLAYWRIGHT]: Attempt {i+1}/{len(terms)}: Searching for '{term}'")
                 
                 # Step 1: Find element using dump-first (same as Android mobile)
-                find_result = self.find_element(term)
+                find_result = await self.find_element(term)
                 
                 if not find_result.get('success'):
                     last_error = f"Element not found: {find_result.get('error', 'Unknown error')}"
@@ -476,7 +476,7 @@ class PlaywrightWebController(WebControllerInterface):
                 print(f"[PLAYWRIGHT]: Found element (ID={found_element_id}, value='{matched_value}'), clicking at coordinates ({center_x:.0f}, {center_y:.0f})")
                 
                 # Step 3: Click using coordinates (reuse tap_x_y logic)
-                tap_result = self.tap_x_y(int(center_x), int(center_y))
+                tap_result = await self.tap_x_y(int(center_x), int(center_y))
                 
                 if tap_result.get('success'):
                     execution_time = int((time.time() - start_time) * 1000)
@@ -518,7 +518,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'selector_attempted': element_id
             }
     
-    def hover_element(self, selector: str) -> Dict[str, Any]:
+    async def hover_element(self, selector: str) -> Dict[str, Any]:
         """Hover over an element to trigger rollover effects.
         
         Args:
@@ -529,7 +529,7 @@ class PlaywrightWebController(WebControllerInterface):
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Try same selectors as click
             selectors_to_try = [
@@ -540,7 +540,7 @@ class PlaywrightWebController(WebControllerInterface):
             
             for i, sel in enumerate(selectors_to_try):
                 try:
-                    page.hover(sel, timeout=2000)
+                    await page.hover(sel, timeout=2000)
                     execution_time = int((time.time() - start_time) * 1000)
                     print(f"[PLAYWRIGHT]: Hover successful using selector {i+1}: {sel}")
                     return {
@@ -790,20 +790,20 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def tap_x_y(self, x: int, y: int) -> Dict[str, Any]:
+    async def tap_x_y(self, x: int, y: int) -> Dict[str, Any]:
         """Tap/click at specific coordinates."""
         try:
             print(f"[PLAYWRIGHT]: Tapping at coordinates: ({x}, {y})")
             start_time = time.time()
             
             # Get persistent page from browser+context
-            page = self._get_persistent_page()
+            page = await self._get_persistent_page()
             
             # Show click animation and coordinates (like Android mobile)
-            self._show_click_animation(page, x, y)
+            await self._show_click_animation(page, x, y)
             
             # Click at coordinates
-            page.mouse.click(x, y)
+            await page.mouse.click(x, y)
             
             execution_time = int((time.time() - start_time) * 1000)
             
@@ -870,7 +870,7 @@ class PlaywrightWebController(WebControllerInterface):
                 'execution_time': 0
             }
     
-    def _show_click_animation(self, page, x: int, y: int):
+    async def _show_click_animation(self, page, x: int, y: int):
         """Show click animation and coordinates like Android mobile overlay."""
         try:
             js_code = f"""
@@ -950,7 +950,7 @@ class PlaywrightWebController(WebControllerInterface):
             }})()
             """
             
-            page.evaluate(js_code)
+            await page.evaluate(js_code)
             print(f"[PLAYWRIGHT]: Click animation shown at ({x}, {y})")
         except Exception as e:
             print(f"[PLAYWRIGHT]: Click animation failed: {e}")
