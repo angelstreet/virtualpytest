@@ -4,18 +4,14 @@ import {
   PlayArrow as RunIcon,
   Visibility as MonitorIcon,
   Assessment as ReportsIcon,
-  Devices as DevicesIcon,
   AccountTree as TreeIcon,
   Settings as SettingsIcon,
   Storage as CollectionIcon,
-  Gamepad as ControllerIcon,
-  LibraryBooks as LibraryIcon,
   Memory as ModelIcon,
   BugReport as TestingIcon,
   Link as LinkIcon,
   Warning as IncidentIcon,
   GridView as HeatmapIcon,
-  Notifications as NotificationsIcon,
   Dashboard as DashboardIcon,
   SmartToy as AIIcon,
   Api as ApiIcon,
@@ -115,30 +111,9 @@ const NavigationBar: React.FC = () => {
 
   const configurationItems = [
     {
-      label: 'Device',
-      path: '/configuration/devices',
-      icon: <DevicesIcon fontSize="small" />,
-    },
-    {
       label: 'Models',
       path: '/configuration/models',
       icon: <ModelIcon fontSize="small" />,
-    },
-    {
-      label: 'Controller',
-      path: '/configuration/controller',
-      icon: <ControllerIcon fontSize="small" />,
-    },
-    { label: 'Library', path: '/configuration/library', icon: <LibraryIcon fontSize="small" /> },
-    {
-      label: 'Environment',
-      path: '/configuration/environment',
-      icon: <SettingsIcon fontSize="small" />,
-    },
-    {
-      label: 'Notifications',
-      path: '/configuration/notifications',
-      icon: <NotificationsIcon fontSize="small" />,
     },
     {
       label: 'Remote Test',
@@ -154,6 +129,11 @@ const NavigationBar: React.FC = () => {
       label: 'API Testing',
       path: '/configuration/api-testing',
       icon: <ApiIcon fontSize="small" />,
+    },
+    {
+      label: 'Settings',
+      path: '/configuration/settings',
+      icon: <SettingsIcon fontSize="small" />,
     },
   ];
 

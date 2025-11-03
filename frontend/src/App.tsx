@@ -19,10 +19,6 @@ const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Rec = React.lazy(() => import('./pages/Rec'));
 const CampaignEditor = React.lazy(() => import('./pages/CampaignEditor'));
 const Collections = React.lazy(() => import('./pages/Collections'));
-const Controller = React.lazy(() => import('./pages/Controller'));
-const DeviceManagement = React.lazy(() => import('./pages/DeviceManagement'));
-const Environment = React.lazy(() => import('./pages/Environment'));
-const Library = React.lazy(() => import('./pages/Library'));
 const Models = React.lazy(() => import('./pages/Models'));
 const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
@@ -44,6 +40,7 @@ const AIQueueMonitor = React.lazy(() => import('./pages/AIQueueMonitor'));
 const HLSDebugPage = React.lazy(() => import('./pages/HLSDebugPage'));
 const OpenRouterDebug = React.lazy(() => import('./pages/OpenRouterDebug'));
 const ApiTestingPage = React.lazy(() => import('./pages/ApiTestingPage'));
+const Settings = React.lazy(() => import('./pages/Settings'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -214,12 +211,9 @@ const App: React.FC = () => {
                     path="/configuration/"
                     element={<Navigate to="/configuration/models" replace />}
                   />
-                  <Route path="/configuration/devices" element={<DeviceManagement />} />
                   <Route path="/configuration/models" element={<Models />} />
                   <Route path="/configuration/interface" element={<UserInterface />} />
-                  <Route path="/configuration/controller" element={<Controller />} />
-                  <Route path="/configuration/library" element={<Library />} />
-                  <Route path="/configuration/environment" element={<Environment />} />
+                  <Route path="/configuration/settings" element={<Settings />} />
                   <Route path="/configuration/openrouter" element={<OpenRouterDebug />} />
                   <Route path="/configuration/api-testing" element={<ApiTestingPage />} />
 
