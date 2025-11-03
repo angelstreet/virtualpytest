@@ -278,13 +278,15 @@ class ZapExecutor:
             print(f"🎯 [ZapExecutor] Navigating to live: {live_node}")
             
             # Use NavigationExecutor directly
-            result = self.device.navigation_executor.execute_navigation(
+            # ✅ Wrap async call with asyncio.run for sync context
+            import asyncio
+            result = asyncio.run(self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
                 userinterface_name=self.userinterface_name,  # MANDATORY parameter
                 target_node_label=live_node,
                 team_id=context.team_id,
                 context=context
-            )
+            ))
             
             if not result.get('success', False):
                 print(f"❌ [ZapExecutor] Failed to navigate to {live_node}")
@@ -315,13 +317,14 @@ class ZapExecutor:
             action_start_time = time.time()
             
             # Use NavigationExecutor directly
-            result = self.device.navigation_executor.execute_navigation(
+            # ✅ Wrap async call with asyncio.run for sync context
+            result = asyncio.run(self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
                 userinterface_name=self.userinterface_name,  # MANDATORY parameter
                 target_node_label=action_node,
                 team_id=context.team_id,
                 context=context
-            )
+            ))
             
             # ✅ Use action timestamp from navigation context (written to last_action.json)
             # This ensures perfect sync with capture_monitor's zapping detection
@@ -474,13 +477,15 @@ class ZapExecutor:
             audio_menu_action = "live_fullscreen_audiomenu" if "mobile" in self.device.device_model.lower() else "live_audiomenu"
             
             # Navigate to audio menu
-            result = self.device.navigation_executor.execute_navigation(
+            # ✅ Wrap async call with asyncio.run for sync context
+            import asyncio
+            result = asyncio.run(self.device.navigation_executor.execute_navigation(
                 tree_id=context.tree_id,
                 userinterface_name=self.userinterface_name,  # MANDATORY parameter
                 target_node_label=audio_menu_action,
                 team_id=context.team_id,
                 context=context
-            )
+            ))
             
             if result.get('success', False):
                 # Single verification config - minimal
