@@ -124,7 +124,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
         overflow: 'hidden',
       }}>
         {/* Header */}
-        <Typography variant="h6" sx={{ fontSize: '1.1rem', mb: 2 }}>
+        <Typography variant="h6" sx={{ fontSize: '1.1rem', mb: 1 }}>
           Quick Actions
         </Typography>
         
@@ -151,10 +151,10 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
               onChange={(_, newValue) => setActiveTab(newValue)}
               variant="fullWidth"
               sx={{
-                minHeight: 40,
-                mb: 2,
+                minHeight: 32,
+                mb: 1,
                 '& .MuiTab-root': {
-                  minHeight: 40,
+                  minHeight: 32,
                   fontSize: '0.8rem',
                   textTransform: 'none',
                 },
@@ -174,7 +174,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
             <Box sx={{ 
               flex: 1, 
               overflow: 'auto',
-              mb: 2,
+              mb: 1,
             }}>
               {tabs.map((tab, tabIndex) => (
                 <Box
@@ -200,15 +200,16 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
                             onClick={() => handleQuickAction(item.prompt)}
                             sx={{
                               borderRadius: 1,
-                              mb: 0.5,
-                              minHeight: 44,
+                              mb: 0,
+                              minHeight: 16,
+                              py: 0,
                               '&:hover': {
                                 bgcolor: 'action.hover',
                               },
                             }}
                           >
-                            <ListItemIcon sx={{ minWidth: 36 }}>
-                              <ArrowForwardIcon fontSize="small" />
+                            <ListItemIcon sx={{ minWidth: 28 }}>
+                              <ArrowForwardIcon fontSize="small" sx={{ fontSize: '1rem' }} />
                             </ListItemIcon>
                             <ListItemText
                               primary={item.label}

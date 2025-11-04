@@ -22,11 +22,12 @@ class NavigationTools:
         """
         List navigation nodes available in a tree
         
-        REUSES existing /server/navigationTrees/<tree_id>/nodes endpoint
+        Can accept EITHER tree_id OR userinterface_name (same approach as frontend)
         
         Args:
             params: {
-                'tree_id': str (REQUIRED) - Navigation tree ID,
+                'tree_id': str (OPTIONAL) - Direct tree ID,
+                'userinterface_name': str (OPTIONAL) - Convert to tree_id first,
                 'team_id': str (OPTIONAL),
                 'page': int (OPTIONAL) - Page number (default: 0),
                 'limit': int (OPTIONAL) - Results per page (default: 100)
@@ -36,13 +37,63 @@ class NavigationTools:
             MCP-formatted response with list of navigation nodes and their properties
         """
         tree_id = params.get('tree_id')
+        userinterface_name = params.get('userinterface_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         page = params.get('page', 0)
         limit = params.get('limit', 100)
         
-        # Validate required parameters
+        # OPTION 1: If userinterface_name provided, convert to tree_id (SAME AS FRONTEND)
+        if userinterface_name and not tree_id:
+            print(f"[@MCP:list_navigation_nodes] Converting userinterface_name '{userinterface_name}' to tree_id")
+            
+            # Step 1: Get userinterface by name to get UUID
+            ui_result = self.api.get(f'/server/userinterface/getUserInterfaceByName/{userinterface_name}')
+            if not ui_result or not ui_result.get('id'):
+                return {"content": [{"type": "text", "text": f"Error: User interface '{userinterface_name}' not found"}], "isError": True}
+            
+            userinterface_id = ui_result['id']
+            print(f"[@MCP:list_navigation_nodes] Got userinterface_id: {userinterface_id}")
+            
+            # Step 2: Get tree by userinterface_id (SAME API AS FRONTEND)
+            tree_result = self.api.get(f'/server/navigationTrees/getTreeByUserInterfaceId/{userinterface_id}', params={'include_nested': 'true', 'team_id': team_id})
+            
+            if not tree_result.get('success') or not tree_result.get('tree'):
+                return {"content": [{"type": "text", "text": f"Error: No navigation tree found for '{userinterface_name}'"}], "isError": True}
+            
+            tree_id = tree_result['tree']['id']
+            nodes = tree_result['tree'].get('metadata', {}).get('nodes', [])
+            
+            print(f"[@MCP:list_navigation_nodes] Got tree_id: {tree_id} with {len(nodes)} nodes")
+            
+            # Filter out ENTRY nodes (same as frontend)
+            filtered_nodes = [node for node in nodes if node.get('id') != 'ENTRY' and node.get('type') != 'entry' and node.get('label', '').lower() != 'entry']
+            
+            if not filtered_nodes:
+                return {"content": [{"type": "text", "text": f"No navigation nodes found for '{userinterface_name}'"}], "isError": False}
+            
+            response_text = f"📋 Navigation nodes for '{userinterface_name}' (tree: {tree_id}, {len(filtered_nodes)} nodes):\n\n"
+            
+            for node in filtered_nodes[:50]:  # Limit display to first 50
+                node_id = node.get('id', 'unknown')
+                label = node.get('label', 'unnamed')
+                node_type = node.get('type', 'unknown')
+                
+                response_text += f"  • {label} (id: {node_id}, type: {node_type})\n"
+            
+            if len(filtered_nodes) > 50:
+                response_text += f"\n... and {len(filtered_nodes) - 50} more nodes\n"
+            
+            return {
+                "content": [{"type": "text", "text": response_text}],
+                "isError": False,
+                "nodes": filtered_nodes,
+                "total": len(filtered_nodes),
+                "tree_id": tree_id  # Include tree_id for reference
+            }
+        
+        # OPTION 2: Direct tree_id lookup (backward compatible)
         if not tree_id:
-            return {"content": [{"type": "text", "text": "Error: tree_id is required"}], "isError": True}
+            return {"content": [{"type": "text", "text": "Error: Either tree_id or userinterface_name is required"}], "isError": True}
         
         query_params = {
             'team_id': team_id,

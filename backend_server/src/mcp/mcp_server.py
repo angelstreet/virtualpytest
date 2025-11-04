@@ -295,19 +295,26 @@ Returns execution_id for async operations - polls automatically until completion
 Returns list of nodes with labels, IDs, types, and positions.
 Useful for discovering what nodes are available for navigation.
 
+Can accept EITHER tree_id OR userinterface_name (recommended).
+
 Example:
+  list_navigation_nodes(
+    userinterface_name='horizon_android_mobile'
+  )
+  OR
   list_navigation_nodes(
     tree_id='abc-123'
   )""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "tree_id": {"type": "string", "description": "Navigation tree ID (REQUIRED)"},
+                        "tree_id": {"type": "string", "description": "Navigation tree ID (optional - provide this OR userinterface_name)"},
+                        "userinterface_name": {"type": "string", "description": "User interface name (optional - provide this OR tree_id). Recommended approach."},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                         "page": {"type": "integer", "description": "Page number (optional, default: 0)"},
                         "limit": {"type": "integer", "description": "Results per page (optional, default: 100)"}
                     },
-                    "required": ["tree_id"]
+                    "required": []
                 }
             },
             {
