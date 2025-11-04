@@ -330,6 +330,28 @@ Polls automatically until completion (up to 5 minutes).""",
                 }
             },
             {
+                "name": "execute_testcase_by_id",
+                "description": """MCP CONVENIENCE: Load and execute a saved test case by ID
+
+⚠️ PREREQUISITE: take_control() must be called ONCE first.
+
+This combines load + execute for MCP convenience.
+Use this when you want to run a saved testcase without manually passing graph_json.
+
+Polls automatically until completion (up to 5 minutes).""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_id": {"type": "string", "description": "Test case ID from list_testcases()"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (required)"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "userinterface_name": {"type": "string", "description": "Override interface name (optional - uses testcase's interface if omitted)"}
+                    },
+                    "required": ["testcase_id", "host_name"]
+                }
+            },
+            {
                 "name": "save_testcase",
                 "description": """Save a test case graph to database
 
