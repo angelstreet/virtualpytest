@@ -41,6 +41,7 @@ const HLSDebugPage = React.lazy(() => import('./pages/HLSDebugPage'));
 const OpenRouterDebug = React.lazy(() => import('./pages/OpenRouterDebug'));
 const ApiTestingPage = React.lazy(() => import('./pages/ApiTestingPage'));
 const Settings = React.lazy(() => import('./pages/Settings'));
+const MCPPlayground = React.lazy(() => import('./pages/MCPPlayground'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -174,6 +175,7 @@ const App: React.FC = () => {
                   {/* Builder Routes */}
                   <Route path="/builder/test-builder" element={<TestCaseBuilder />} />
                   <Route path="/builder/campaign-builder" element={<CampaignBuilder />} />
+                  <Route path="/builder/mcp-playground" element={<MCPPlayground />} />
 
                   {/* Test Plan Routes */}
                   <Route path="/test-plan/test-cases" element={<TestCaseEditor />} />

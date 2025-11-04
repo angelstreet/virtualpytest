@@ -15,7 +15,8 @@ import {
   Dashboard as DashboardIcon,
   SmartToy as AIIcon,
   Api as ApiIcon,
-  Build as BuildIcon, // NEW: For Builder section
+  Build as BuildIcon, // For Builder section
+  SmartToy, // For MCP Playground
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -34,6 +35,7 @@ const NavigationBar: React.FC = () => {
       items: [
         { label: 'Test Builder', path: '/builder/test-builder', icon: <TreeIcon fontSize="small" /> },
         { label: 'Campaign Builder', path: '/builder/campaign-builder', icon: <BuildIcon fontSize="small" /> },
+        { label: 'MCP Playground', path: '/builder/mcp-playground', icon: <SmartToy fontSize="small" /> },
       ],
     },
     {
