@@ -5,20 +5,24 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 13 core tools for device automation:
+This server provides 17 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (REQUIRED FIRST)
 2. release_control - Release device lock
 3. execute_device_action - Execute remote/ADB/web/desktop commands
 4. navigate_to_node - Navigate through UI trees
 5. verify_device_state - Verify UI elements and device states
 6. execute_testcase - Run complete test cases
-7. generate_test_graph - AI-powered test generation
-8. capture_screenshot - Capture screenshots for vision analysis
-9. get_transcript - Fetch audio transcripts
-10. get_device_info - Get device capabilities and info
-11. get_execution_status - Poll async execution status
-12. view_logs - View systemd service logs
-13. list_services - List VirtualPyTest services
+7. execute_testcase_by_id - MCP convenience: Load and run saved testcase
+8. save_testcase - Save test case graphs to database
+9. list_testcases - List all saved test cases
+10. load_testcase - Load a saved test case by ID
+11. generate_test_graph - AI-powered test generation
+12. capture_screenshot - Capture screenshots for vision analysis
+13. get_transcript - Fetch audio transcripts
+14. get_device_info - Get device capabilities and info
+15. get_execution_status - Poll async execution status
+16. view_logs - View systemd service logs
+17. list_services - List available systemd services
 """
 
 import logging

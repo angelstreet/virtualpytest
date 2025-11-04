@@ -172,12 +172,27 @@ class TestCaseTools:
                 print(f"[@MCP:poll_testcase] Test case completed successfully after {elapsed}s")
                 result = status.get('result', {})
                 message = result.get('message', f"Test case '{testcase_name}' completed")
-                return {"content": [{"type": "text", "text": f"✅ {message}"}], "isError": False}
+                report_url = result.get('report_url', '')
+                logs_url = result.get('logs_url', '')
+                response = f"✅ {message}"
+                if report_url:
+                    response += f"\n📄 Report: {report_url}"
+                if logs_url:
+                    response += f"\n📋 Logs: {logs_url}"
+                return {"content": [{"type": "text", "text": response}], "isError": False}
             
-            elif current_status == 'error':
+            elif current_status in ['error', 'failed']:  # Check for BOTH 'error' and 'failed'
                 print(f"[@MCP:poll_testcase] Test case failed after {elapsed}s")
                 error = status.get('error', 'Test case execution failed')
-                return {"content": [{"type": "text", "text": f"❌ Test case failed: {error}"}], "isError": True}
+                result = status.get('result', {})
+                report_url = result.get('report_url', '')
+                logs_url = result.get('logs_url', '')
+                response = f"❌ Test case failed: {error}"
+                if report_url:
+                    response += f"\n📄 Report: {report_url}"
+                if logs_url:
+                    response += f"\n📋 Logs: {logs_url}"
+                return {"content": [{"type": "text", "text": response}], "isError": True}
             
             elif current_status in ['pending', 'running']:
                 progress = status.get('progress', {})
@@ -287,9 +302,10 @@ class TestCaseTools:
         response_text = f"📋 Found {len(testcases)} test case(s):\n\n"
         for tc in testcases[:20]:  # Limit to first 20
             name = tc.get('testcase_name', 'unknown')
+            tc_id = tc.get('testcase_id', 'unknown')
             desc = tc.get('description', 'No description')
             ui = tc.get('userinterface_name', 'unknown')
-            response_text += f"- {name} ({ui})\n  {desc}\n\n"
+            response_text += f"- {name} (ID: {tc_id}, Interface: {ui})\n  {desc}\n\n"
         
         if len(testcases) > 20:
             response_text += f"... and {len(testcases) - 20} more"
@@ -334,9 +350,10 @@ class TestCaseTools:
         testcase = result.get('testcase', {})
         name = testcase.get('testcase_name', 'unknown')
         desc = testcase.get('description', 'No description')
+        ui = testcase.get('userinterface_name', 'unknown')
         
         return {
-            "content": [{"type": "text", "text": f"✅ Test case '{name}' loaded\n{desc}"}],
+            "content": [{"type": "text", "text": f"✅ Test case '{name}' loaded\nInterface: {ui}\nDescription: {desc}\n\nUse execute_testcase_by_id(testcase_id='{testcase_id}') to run it."}],
             "isError": False,
             "testcase": testcase,
             "graph_json": testcase.get('graph_json')
