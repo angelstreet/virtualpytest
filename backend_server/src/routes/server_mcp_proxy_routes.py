@@ -112,7 +112,7 @@ def execute_prompt():
                     {'role': 'user', 'content': prompt}
                 ],
                 'tools': tools,
-                'tool_choice': 'auto',
+                'tool_choice': 'auto',  # Let AI decide whether to call a tool or ask for clarification
                 'max_tokens': 2000,
                 'temperature': 0.0
             },
@@ -134,11 +134,16 @@ def execute_prompt():
         
         # Check if AI called a tool
         if 'tool_calls' not in message or not message['tool_calls']:
+            ai_content = message.get('content', 'No response')
+            ai_reasoning = message.get('reasoning', 'No reasoning provided')
             print(f"[@mcp_proxy] ⚠️ AI did not call any tool")
+            print(f"[@mcp_proxy] AI content: {ai_content}")
+            print(f"[@mcp_proxy] AI reasoning: {ai_reasoning}")
             return jsonify({
                 'success': False,
                 'error': 'AI did not call any tool',
-                'ai_response': message.get('content', '')
+                'ai_response': ai_content,
+                'ai_reasoning': ai_reasoning
             }), 400
         
         # Execute the tool the AI chose

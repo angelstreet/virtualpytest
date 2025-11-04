@@ -20,17 +20,30 @@ AI Tree Creation automatically explores user interfaces and generates complete n
 4. **AI Generate** button appears in header (only when control is active)
 5. Click **AI Generate** to open exploration modal
 6. Set exploration depth (1-10 levels, default: 5)
-7. Click **Start Exploration**
+7. Click **Start Analysis** (Phase 1 only)
 
-### Monitoring Progress
-The modal shows live progress:
-- **Current Step**: What AI is doing now
-- **Progress**: Screens analyzed, nodes/edges found
-- **AI Analysis**: Elements AI sees on screen
-- **AI Reasoning**: Why AI makes decisions
+### Review AI Plan (MANDATORY)
+After Phase 1 analysis completes, you'll see:
+- **Screenshot**: The initial screen AI analyzed
+- **AI's Plan**: Menu type, items found, exploration strategy
+- **AI Reasoning**: Full explanation of what AI sees and how it will explore
 
-### Review & Approve
-When complete:
+**Your Decision:**
+- ✅ **Continue** → Proceed to Phase 2 (actual exploration)
+- 🔄 **Retry** → Re-analyze with new screenshot
+- ❌ **Abort** → Cancel without making any changes
+
+⚠️ **Important**: Phase 2 will NOT start automatically. You must explicitly approve the plan.
+
+### Phase 2: Exploration (If Approved)
+Once you click **Continue**:
+- AI executes the approved exploration plan
+- Real-time progress shows navigation steps
+- Screenshots at each step
+- AI analysis of each discovered screen
+
+### Final Approval
+When exploration completes:
 - **Proposed Nodes**: Screens discovered (with `_temp` suffix)
 - **Proposed Edges**: Navigation paths found (with `_temp` suffix)
 - **User Decision**:

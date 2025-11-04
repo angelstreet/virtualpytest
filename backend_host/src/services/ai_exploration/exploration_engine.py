@@ -87,30 +87,37 @@ class ExplorationEngine:
         self.created_subtrees = []
         self.exploration_log = []
         
-    def start_exploration(self) -> Dict:
+        # Phase 1 state (stored for Phase 2)
+        self.initial_screenshot = None
+        self.prediction = None
+        
+    def analyze_and_plan(self) -> Dict:
         """
-        Main exploration flow
+        PHASE 1: Analyze screenshot and create exploration plan
         
         Returns:
             {
                 'success': True,
-                'nodes_created': 3,
-                'edges_created': 2,
-                'subtrees_created': 1,
-                'exploration_log': [...]
+                'plan': {
+                    'menu_type': 'horizontal',
+                    'items': ['home', 'settings', 'profile'],
+                    'strategy': 'test_right_left_first_then_ok',
+                    'reasoning': 'AI reasoning here...',
+                    'screenshot': 'url',
+                    'screen_name': 'Initial Screen'
+                }
             }
         """
         try:
             print(f"\n{'='*60}")
-            print(f"[@exploration_engine] Starting AI Exploration")
+            print(f"[@exploration_engine] PHASE 1: Analysis & Planning")
             print(f"Tree: {self.tree_id}")
             print(f"Device: {self.device_model_name} ({self.device_id})")
-            print(f"Depth Limit: {self.depth_limit}")
             print(f"{'='*60}\n")
             
-            # PHASE 1: Anticipation - AI predicts tree structure
-            initial_screenshot = self.screen_analyzer.capture_screenshot()
-            if not initial_screenshot:
+            # Capture initial screenshot
+            self.initial_screenshot = self.screen_analyzer.capture_screenshot()
+            if not self.initial_screenshot:
                 return {
                     'success': False,
                     'error': 'Failed to capture initial screenshot'
@@ -118,39 +125,91 @@ class ExplorationEngine:
             
             # Notify callbacks
             if self.screenshot_callback:
-                self.screenshot_callback(initial_screenshot)
+                self.screenshot_callback(self.initial_screenshot)
             if self.progress_callback:
                 self.progress_callback(
                     step="Phase 1: Analyzing initial screenshot with AI...",
-                    screenshot=initial_screenshot,
+                    screenshot=self.initial_screenshot,
                     analysis=None
                 )
             
-            prediction = self._phase1_anticipation(initial_screenshot)
+            # AI analyzes and predicts structure
+            self.prediction = self._phase1_anticipation(self.initial_screenshot)
+            
+            # Build reasoning for user
+            reasoning = f"""Menu Type: {self.prediction.get('menu_type', 'unknown')}
+Items Found: {len(self.prediction.get('items', []))} items
+Predicted Depth: {self.prediction.get('predicted_depth', 1)} levels
+Strategy: {self.prediction.get('strategy', 'unknown')}
+
+AI identified the following menu items:
+{', '.join(self.prediction.get('items', []))}
+
+Exploration will navigate through these items using {self.prediction.get('strategy', 'default')} approach."""
             
             # Notify of prediction results
             if self.progress_callback:
                 self.progress_callback(
-                    step=f"Phase 1 Complete: Predicted {prediction.get('menu_type', 'unknown')} menu with {len(prediction.get('items', []))} items",
-                    screenshot=initial_screenshot,
+                    step=f"Phase 1 Complete: Ready to explore {len(self.prediction.get('items', []))} items",
+                    screenshot=self.initial_screenshot,
                     analysis={
                         'screen_name': 'Initial Analysis',
-                        'elements_found': prediction.get('items', []),
-                        'reasoning': f"Menu Type: {prediction.get('menu_type')}, Strategy: {prediction.get('strategy')}"
+                        'elements_found': self.prediction.get('items', []),
+                        'reasoning': reasoning
                     }
                 )
             
-            # PHASE 2: Validation - Explore to validate prediction
-            self._phase2_validation(prediction, initial_screenshot)
+            return {
+                'success': True,
+                'plan': {
+                    'menu_type': self.prediction.get('menu_type'),
+                    'items': self.prediction.get('items', []),
+                    'strategy': self.prediction.get('strategy'),
+                    'predicted_depth': self.prediction.get('predicted_depth', 1),
+                    'reasoning': reasoning,
+                    'screenshot': self.initial_screenshot,
+                    'screen_name': 'Initial Screen'
+                }
+            }
             
-            # Summary
+        except Exception as e:
+            print(f"[@exploration_engine:analyze_and_plan] Error: {e}")
+            traceback.print_exc()
+            return {
+                'success': False,
+                'error': str(e)
+            }
+    
+    def execute_exploration(self) -> Dict:
+        """
+        PHASE 2: Execute exploration based on approved plan
+        
+        Returns:
+            {
+                'success': True,
+                'nodes_created': 3,
+                'edges_created': 2,
+                'subtrees_created': 1,
+                'created_node_ids': ['home_temp', ...],
+                'created_edge_ids': ['edge1_temp', ...],
+                'created_subtree_ids': ['subtree1', ...]
+            }
+        """
+        try:
             print(f"\n{'='*60}")
-            print(f"[@exploration_engine] Exploration Complete!")
-            print(f"Nodes created: {len(self.created_nodes)}")
-            print(f"Edges created: {len(self.created_edges)}")
-            print(f"Subtrees created: {len(self.created_subtrees)}")
+            print(f"[@exploration_engine] PHASE 2: Exploration Execution")
             print(f"{'='*60}\n")
             
+            if not self.initial_screenshot or not self.prediction:
+                return {
+                    'success': False,
+                    'error': 'Must run analyze_and_plan() first'
+                }
+            
+            # PHASE 2: Validation - Explore to validate prediction
+            self._phase2_validation(self.prediction, self.initial_screenshot)
+            
+            # Return results
             return {
                 'success': True,
                 'nodes_created': len(self.created_nodes),
@@ -163,13 +222,34 @@ class ExplorationEngine:
             }
             
         except Exception as e:
-            print(f"[@exploration_engine:start_exploration] Error: {e}")
+            print(f"[@exploration_engine:execute_exploration] Error: {e}")
             traceback.print_exc()
             return {
                 'success': False,
-                'error': str(e),
-                'exploration_log': self.exploration_log
+                'error': str(e)
             }
+        
+    def start_exploration(self) -> Dict:
+        """
+        LEGACY: Full exploration (Phase 1 + Phase 2 together)
+        Kept for backward compatibility
+        
+        Returns:
+            {
+                'success': True,
+                'nodes_created': 3,
+                'edges_created': 2,
+                'subtrees_created': 1,
+                'exploration_log': [...]
+            }
+        """
+        # Phase 1
+        plan_result = self.analyze_and_plan()
+        if not plan_result['success']:
+            return plan_result
+        
+        # Phase 2
+        return self.execute_exploration()
     
     def _phase1_anticipation(self, screenshot_path: str) -> Dict:
         """

@@ -5,25 +5,24 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 18 core tools for device automation:
-1. take_control - Lock device and generate navigation cache (REQUIRED FIRST)
-2. release_control - Release device lock
-3. execute_device_action - Execute remote/ADB/web/desktop commands
-4. navigate_to_node - Navigate through UI trees
-5. verify_device_state - Verify UI elements and device states
-6. execute_testcase - Run complete test cases
-7. execute_testcase_by_id - MCP convenience: Load and run saved testcase
-8. save_testcase - Save test case graphs to database
-9. list_testcases - List all saved test cases
-10. load_testcase - Load a saved test case by ID
-11. execute_script - Execute Python scripts with CLI parameters
-12. generate_test_graph - AI-powered test generation
-13. capture_screenshot - Capture screenshots for vision analysis
-14. get_transcript - Fetch audio transcripts
-15. get_device_info - Get device capabilities and info
-16. get_execution_status - Poll async execution status
-17. view_logs - View systemd service logs
-18. list_services - List available systemd services
+This server provides 17 core tools for device automation:
+1. take_control - Lock device and generate navigation cache (ONLY for navigation)
+2. execute_device_action - Execute remote/ADB/web/desktop commands
+3. navigate_to_node - Navigate through UI trees
+4. verify_device_state - Verify UI elements and device states
+5. execute_testcase - Run complete test cases
+6. execute_testcase_by_id - MCP convenience: Load and run saved testcase
+7. save_testcase - Save test case graphs to database
+8. list_testcases - List all saved test cases
+9. load_testcase - Load a saved test case by ID
+10. execute_script - Execute Python scripts with CLI parameters
+11. generate_test_graph - AI-powered test generation
+12. capture_screenshot - Capture screenshots for vision analysis
+13. get_transcript - Fetch audio transcripts
+14. get_device_info - Get device capabilities and info
+15. get_execution_status - Poll async execution status
+16. view_logs - View systemd service logs
+17. list_services - List available systemd services
 """
 
 import logging
@@ -76,9 +75,8 @@ class VirtualPyTestMCPServer:
         
         # Tool registry mapping
         self.tool_handlers = {
-            # Control tools (CRITICAL - must be first)
+            # Control tools (only for navigation)
             'take_control': self.control_tools.take_control,
-            'release_control': self.control_tools.release_control,
             
             # Action tools
             'list_actions': self.action_tools.list_actions,
@@ -196,44 +194,26 @@ class VirtualPyTestMCPServer:
         tools = [
             {
                 "name": "take_control",
-                "description": """🔒 STEP 1 (REQUIRED FIRST): Take control of a device
+                "description": """🔒 ONLY FOR NAVIGATION: Take control of a device for UI tree navigation
 
-This MUST be called ONCE at the start before any other operations.
-Locks the device and builds navigation cache for the specified tree_id.
+⚠️ This is ONLY required if you plan to use navigate_to_node.
+DO NOT call this for simple actions like execute_device_action.
 
-WORKFLOW:
+This locks the device and builds navigation cache for the specified tree_id.
+
+WORKFLOW (for navigation only):
 1. Call take_control(device_id='device1', tree_id='<tree-id>') ONCE
-2. Perform multiple operations (navigate, actions, verify)
-3. Call release_control() ONCE at the end
+2. Call navigate_to_node multiple times
+3. Done - no need to release
 
-IMPORTANT: Remember the session_id returned. Use the SAME device_id for all subsequent operations.
-If you need navigation, MUST provide tree_id to build the cache.""",
+For simple actions (swipe, click, type), just call execute_device_action directly.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
                         "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
-                        "tree_id": {"type": "string", "description": "Navigation tree ID - REQUIRED if you plan to use navigate_to_node"}
-                    },
-                    "required": []
-                }
-            },
-            {
-                "name": "release_control",
-                "description": """🔓 FINAL STEP: Release control of device
-
-Call this ONCE at the END after all operations are complete.
-Unlocks the device for other users.
-
-WORKFLOW: This is the LAST step after take_control and all operations.
-Use the SAME device_id that was used in take_control.""",
-                "inputSchema": {
-                    "type": "object",
-                    "properties": {
-                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                        "tree_id": {"type": "string", "description": "Navigation tree ID - REQUIRED for navigation"}
                     },
                     "required": []
                 }
@@ -266,12 +246,17 @@ Example:
                 "name": "execute_device_action",
                 "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
 
-⚠️ PREREQUISITE: take_control() must be called ONCE first.
+✅ NO PREREQUISITES - Just call this directly for any device actions.
 
-Can be called MULTIPLE times in the same session without calling take_control again.
-Use the SAME device_id that was used in take_control.
+Executes commands like swipe, click, type, etc.
+Returns execution_id for async operations - polls automatically until completion.
 
-Returns execution_id for async operations - polls automatically until completion.""",
+Examples:
+- Swipe: execute_device_action(actions=[{"command": "swipe_up"}])
+- Click: execute_device_action(actions=[{"command": "click_element", "params": {"text": "Home"}}])
+- Type: execute_device_action(actions=[{"command": "type_text", "params": {"text": "Hello"}}])
+
+If you're unsure about available commands, call list_actions() first.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -279,11 +264,52 @@ Returns execution_id for async operations - polls automatically until completion
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                         "actions": {
                             "type": "array",
-                            "description": "Array of action objects with command, params, and optional delay",
-                            "items": {"type": "object"}
+                            "description": "Array of action objects. Each action must have a 'command' field. Use list_actions() to discover available commands and their required parameters.",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "command": {
+                                        "type": "string",
+                                        "description": "Action command to execute (e.g., 'click_element', 'swipe', 'type_text'). Call list_actions() first to see all available commands."
+                                    },
+                                    "params": {
+                                        "type": "object",
+                                        "description": "Parameters for the command. Structure varies by command - use list_actions() to see required params."
+                                    },
+                                    "delay": {
+                                        "type": "number",
+                                        "description": "Optional delay in seconds after executing this action"
+                                    }
+                                },
+                                "required": ["command"]
+                            }
                         },
-                        "retry_actions": {"type": "array", "description": "Actions to retry on failure", "items": {"type": "object"}},
-                        "failure_actions": {"type": "array", "description": "Actions to execute on failure", "items": {"type": "object"}}
+                        "retry_actions": {
+                            "type": "array",
+                            "description": "Actions to retry on failure",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "command": {"type": "string"},
+                                    "params": {"type": "object"},
+                                    "delay": {"type": "number"}
+                                },
+                                "required": ["command"]
+                            }
+                        },
+                        "failure_actions": {
+                            "type": "array",
+                            "description": "Actions to execute on failure",
+                            "items": {
+                                "type": "object",
+                                "properties": {
+                                    "command": {"type": "string"},
+                                    "params": {"type": "object"},
+                                    "delay": {"type": "number"}
+                                },
+                                "required": ["command"]
+                            }
+                        }
                     },
                     "required": ["actions"]
                 }
@@ -376,10 +402,9 @@ Example:
                 "name": "verify_device_state",
                 "description": """Verify device state with batch verifications (image, text, video, ADB)
 
-⚠️ PREREQUISITE: take_control() must be called ONCE first.
+✅ NO PREREQUISITES - Just call this directly.
 
-Can be called MULTIPLE times in the same session.
-Use the SAME device_id that was used in take_control.""",
+Can be called MULTIPLE times in the same session.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -402,8 +427,6 @@ Use the SAME device_id that was used in take_control.""",
                 "name": "execute_testcase",
                 "description": """Execute a test case graph on device
 
-⚠️ PREREQUISITE: take_control() must be called ONCE first.
-
 Executes graph from generate_test_graph() or loaded testcase.
 Polls automatically until completion (up to 5 minutes).""",
                 "inputSchema": {
@@ -422,8 +445,6 @@ Polls automatically until completion (up to 5 minutes).""",
             {
                 "name": "execute_testcase_by_id",
                 "description": """MCP CONVENIENCE: Load and execute a saved test case by ID
-
-⚠️ PREREQUISITE: take_control() must be called ONCE first.
 
 This combines load + execute for MCP convenience.
 Use this when you want to run a saved testcase without manually passing graph_json.

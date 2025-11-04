@@ -4,6 +4,7 @@ Action Tools - Device action execution
 Execute remote commands, ADB commands, web actions, and desktop actions.
 """
 
+import json
 import time
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
@@ -188,12 +189,25 @@ class ActionTools:
             current_status = status.get('status')
             
             if current_status == 'completed':
-                print(f"[@MCP:poll_action] Action execution completed successfully after {elapsed}s")
+                print(f"[@MCP:poll_action] Action execution completed after {elapsed}s")
                 result = status.get('result', {})
                 passed = result.get('passed_count', 0)
                 total = result.get('total_count', 0)
+                failed = result.get('failed_count', 0)
+                
+                # Check if any actions failed
+                if failed > 0 or passed < total:
+                    message = f"Action execution failed: {passed}/{total} passed, {failed} failed"
+                    print(f"[@MCP:poll_action] ❌ {message}")
+                    # Include detailed error if available
+                    error_details = result.get('error', '') or result.get('message', '')
+                    if error_details:
+                        message += f"\nDetails: {error_details}"
+                    return {"content": [{"type": "text", "text": json.dumps({"success": False, "message": message, "result": result})}], "isError": False}
+                
                 message = f"Action execution completed: {passed}/{total} passed"
-                return {"content": [{"type": "text", "text": f"✅ {message}"}], "isError": False}
+                print(f"[@MCP:poll_action] ✅ {message}")
+                return {"content": [{"type": "text", "text": json.dumps({"success": True, "message": message, "result": result})}], "isError": False}
             
             elif current_status == 'error':
                 print(f"[@MCP:poll_action] Action execution failed after {elapsed}s")

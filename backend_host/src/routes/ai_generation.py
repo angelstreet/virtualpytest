@@ -106,6 +106,7 @@ def start_exploration():
             'device_model_name': device_model_name,
             'userinterface_name': userinterface_name,
             'status': 'starting',
+            'phase': 'analysis',  # NEW: 'analysis' or 'exploration'  
             'current_step': 'Initializing exploration...',
             'progress': {
                 'total_screens_found': 0,
@@ -119,6 +120,7 @@ def start_exploration():
                 'reasoning': '',
                 'screenshot': None  # Add screenshot URL/path
             },
+            'exploration_plan': None,  # NEW: Store AI's plan for user to review
             'created_nodes': [],
             'created_edges': [],
             'created_subtrees': [],
@@ -191,54 +193,26 @@ def start_exploration():
                         progress_callback=update_progress  # Pass callback for progress updates
                     )
                     
-                    # Run exploration
-                    result = engine.start_exploration()
+                    # ✅ PHASE 1 ONLY: Analyze and create plan (don't explore yet)
+                    result = engine.analyze_and_plan()
                     
-                    # Update state with results
+                    # Update state with analysis results
                     if result['success']:
-                        _exploration_sessions[exploration_id]['status'] = 'completed'
-                        _exploration_sessions[exploration_id]['current_step'] = f"Exploration completed. Found {result['nodes_created']} nodes."
-                        _exploration_sessions[exploration_id]['progress'] = {
-                            'total_screens_found': result['nodes_created'],
-                            'screens_analyzed': result['nodes_created'],
-                            'nodes_proposed': result['nodes_created'],
-                            'edges_proposed': result['edges_created']
+                        _exploration_sessions[exploration_id]['status'] = 'awaiting_approval'
+                        _exploration_sessions[exploration_id]['phase'] = 'analysis_complete'
+                        _exploration_sessions[exploration_id]['current_step'] = 'Analysis complete. Review the plan below.'
+                        _exploration_sessions[exploration_id]['exploration_plan'] = result['plan']
+                        _exploration_sessions[exploration_id]['current_analysis'] = {
+                            'screen_name': result['plan'].get('screen_name', 'Initial Screen'),
+                            'elements_found': result['plan'].get('items', []),
+                            'reasoning': result['plan'].get('reasoning', '')
                         }
-                        _exploration_sessions[exploration_id]['created_nodes'] = result['created_node_ids']
-                        _exploration_sessions[exploration_id]['created_edges'] = result['created_edge_ids']
-                        _exploration_sessions[exploration_id]['created_subtrees'] = result['created_subtree_ids']
-                        
-                        # Build proposed nodes/edges for frontend
-                        proposed_nodes = []
-                        for node_id in result['created_node_ids']:
-                            node_result = get_node_by_id(tree_id, node_id, team_id)
-                            if node_result['success']:
-                                node = node_result['node']
-                                proposed_nodes.append({
-                                    'id': node_id,
-                                    'name': node.get('label', node_id),
-                                    'screen_type': node.get('data', {}).get('screen_type', 'screen'),
-                                    'reasoning': node.get('data', {}).get('reasoning', '')
-                                })
-                        
-                        proposed_edges = []
-                        for edge_id in result['created_edge_ids']:
-                            edge_result = get_edge_by_id(tree_id, edge_id, team_id)
-                            if edge_result['success']:
-                                edge = edge_result['edge']
-                                proposed_edges.append({
-                                    'id': edge_id,
-                                    'source': edge.get('source_node_id', ''),
-                                    'target': edge.get('target_node_id', ''),
-                                    'reasoning': f"Navigation from {edge.get('source_node_id', '')} to {edge.get('target_node_id', '')}"
-                                })
-                        
-                        _exploration_sessions[exploration_id]['proposed_nodes'] = proposed_nodes
-                        _exploration_sessions[exploration_id]['proposed_edges'] = proposed_edges
+                        # Store engine state for Phase 2
+                        _exploration_sessions[exploration_id]['engine'] = engine
                     else:
                         _exploration_sessions[exploration_id]['status'] = 'failed'
-                        _exploration_sessions[exploration_id]['error'] = result.get('error', 'Unknown error')
-                        _exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {result.get('error')}"
+                        _exploration_sessions[exploration_id]['error'] = result.get('error', 'Failed to analyze screen')
+                        _exploration_sessions[exploration_id]['current_step'] = f"Analysis failed: {result.get('error')}"
                     
                     _exploration_sessions[exploration_id]['completed_at'] = datetime.now(timezone.utc).isoformat()
                     
@@ -297,9 +271,11 @@ def exploration_status(exploration_id):
             'success': True,
             'exploration_id': exploration_id,
             'status': session['status'],
+            'phase': session.get('phase', 'analysis'),  # NEW: Include phase
             'current_step': session['current_step'],
             'progress': session['progress'],
-            'current_analysis': session['current_analysis']
+            'current_analysis': session['current_analysis'],
+            'exploration_plan': session.get('exploration_plan')  # NEW: Include plan
         }
         
         # Include proposed nodes/edges when completed
@@ -315,6 +291,146 @@ def exploration_status(exploration_id):
         
     except Exception as e:
         print(f"[@route:ai_generation:exploration_status] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+@ai_generation_bp.route('/continue-exploration', methods=['POST'])
+def continue_exploration():
+    """
+    Continue to Phase 2: Execute the approved exploration plan
+    
+    Body:
+    {
+        'exploration_id': 'abc123'
+    }
+    
+    Query params (auto-added):
+        'team_id': 'team_1'
+    
+    Response:
+    {
+        'success': True,
+        'message': 'Phase 2 started'
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        exploration_id = data.get('exploration_id')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        
+        if not exploration_id:
+            return jsonify({'success': False, 'error': 'exploration_id required'}), 400
+        
+        if exploration_id not in _exploration_sessions:
+            return jsonify({'success': False, 'error': 'Exploration session not found'}), 404
+        
+        session = _exploration_sessions[exploration_id]
+        
+        if session['status'] != 'awaiting_approval':
+            return jsonify({
+                'success': False,
+                'error': f"Cannot continue: status is {session['status']}, expected 'awaiting_approval'"
+            }), 400
+        
+        print(f"[@route:ai_generation:continue_exploration] Starting Phase 2 for {exploration_id}")
+        
+        # Get engine from session
+        engine = session.get('engine')
+        if not engine:
+            return jsonify({
+                'success': False,
+                'error': 'Exploration engine not found in session'
+            }), 500
+        
+        # Capture Flask app context
+        app = current_app._get_current_object()
+        
+        # Start Phase 2 in background thread
+        def run_phase2():
+            with app.app_context():
+                try:
+                    _exploration_sessions[exploration_id]['status'] = 'exploring'
+                    _exploration_sessions[exploration_id]['phase'] = 'exploration'
+                    _exploration_sessions[exploration_id]['current_step'] = 'Starting Phase 2: Exploring navigation tree...'
+                    
+                    # Run Phase 2: actual exploration with the plan
+                    result = engine.execute_exploration()
+                    
+                    # Update state with results
+                    if result['success']:
+                        _exploration_sessions[exploration_id]['status'] = 'completed'
+                        _exploration_sessions[exploration_id]['current_step'] = f"Exploration completed. Found {result['nodes_created']} nodes."
+                        _exploration_sessions[exploration_id]['progress'] = {
+                            'total_screens_found': result['nodes_created'],
+                            'screens_analyzed': result['nodes_created'],
+                            'nodes_proposed': result['nodes_created'],
+                            'edges_proposed': result['edges_created']
+                        }
+                        _exploration_sessions[exploration_id]['created_nodes'] = result['created_node_ids']
+                        _exploration_sessions[exploration_id]['created_edges'] = result['created_edge_ids']
+                        _exploration_sessions[exploration_id]['created_subtrees'] = result['created_subtree_ids']
+                        
+                        # Build proposed nodes/edges for frontend
+                        from shared.src.lib.database.navigation_trees_db import get_node_by_id, get_edge_by_id
+                        
+                        proposed_nodes = []
+                        for node_id in result['created_node_ids']:
+                            node_result = get_node_by_id(session['tree_id'], node_id, team_id)
+                            if node_result['success']:
+                                node = node_result['node']
+                                proposed_nodes.append({
+                                    'id': node_id,
+                                    'name': node.get('label', node_id),
+                                    'screen_type': node.get('data', {}).get('screen_type', 'screen'),
+                                    'reasoning': node.get('data', {}).get('reasoning', '')
+                                })
+                        
+                        proposed_edges = []
+                        for edge_id in result['created_edge_ids']:
+                            edge_result = get_edge_by_id(session['tree_id'], edge_id, team_id)
+                            if edge_result['success']:
+                                edge = edge_result['edge']
+                                proposed_edges.append({
+                                    'id': edge_id,
+                                    'source': edge.get('source_node_id', ''),
+                                    'target': edge.get('target_node_id', ''),
+                                    'reasoning': f"Navigation from {edge.get('source_node_id', '')} to {edge.get('target_node_id', '')}"
+                                })
+                        
+                        _exploration_sessions[exploration_id]['proposed_nodes'] = proposed_nodes
+                        _exploration_sessions[exploration_id]['proposed_edges'] = proposed_edges
+                    else:
+                        _exploration_sessions[exploration_id]['status'] = 'failed'
+                        _exploration_sessions[exploration_id]['error'] = result.get('error', 'Unknown error')
+                        _exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {result.get('error')}"
+                    
+                except Exception as e:
+                    print(f"[@route:ai_generation:run_phase2] Error: {e}")
+                    import traceback
+                    traceback.print_exc()
+                    _exploration_sessions[exploration_id]['status'] = 'failed'
+                    _exploration_sessions[exploration_id]['error'] = str(e)
+                    _exploration_sessions[exploration_id]['current_step'] = f"Error: {str(e)}"
+        
+        # Start thread
+        thread = threading.Thread(target=run_phase2, daemon=True)
+        thread.start()
+        
+        return jsonify({
+            'success': True,
+            'message': 'Phase 2 exploration started'
+        })
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:continue_exploration] Error: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({
             'success': False,
             'error': str(e)
