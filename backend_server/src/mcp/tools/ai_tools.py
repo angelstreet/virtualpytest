@@ -6,6 +6,7 @@ Generate test graphs from natural language using AI.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
+from ..utils.mcp_formatter import MCPFormatter
 from shared.src.lib.config.constants import APP_CONFIG
 
 
@@ -14,6 +15,7 @@ class AITools:
     
     def __init__(self, api_client: MCPAPIClient):
         self.api = api_client
+        self.formatter = MCPFormatter()
     
     def generate_test_graph(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

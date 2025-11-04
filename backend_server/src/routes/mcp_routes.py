@@ -6,7 +6,6 @@ Requires Bearer token authentication for security.
 """
 
 from flask import Blueprint, request, jsonify
-import asyncio
 import os
 from functools import wraps
 
@@ -192,7 +191,7 @@ def handle_jsonrpc_request(data):
             }), 200  # JSON-RPC errors should return HTTP 200
             
             # Execute tool - result already in MCP format from response_formatter
-            tool_result = asyncio.run(mcp_server.handle_tool_call(tool_name, arguments))
+            tool_result = mcp_server.handle_tool_call(tool_name, arguments)
             
             # Ensure isError field exists (default to False if not present)
             if 'isError' not in tool_result:

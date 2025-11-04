@@ -54,7 +54,11 @@ cd backend_server
 pip install -r requirements.txt
 ```
 
-The `mcp>=1.0.0` package is included in requirements.txt.
+**Required packages:**
+- `mcp>=1.0.0` - MCP protocol support
+- `jsonschema>=4.0.0` - Input validation (NEW)
+- `requests>=2.31.0` - HTTP client
+- `flask>=2.3.0` - Web framework
 
 ### Security Configuration
 
@@ -110,37 +114,145 @@ curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
 
 ### 2. Example LLM Workflow (via Cursor)
 
+**Using defaults (recommended):**
 ```python
 # Step 1: ALWAYS take control first
 take_control({
-    "host_name": "ubuntu-host-1",
-    "device_id": "device1",
-    "team_id": "team_abc123",
-    "tree_id": "main_navigation"  # Generates navigation cache
+    "tree_id": "main_navigation"  # Uses default host/device/team
 })
 
 # Step 2: Perform operations
 navigate_to_node({
     "tree_id": "main_navigation",
     "userinterface_name": "horizon_android_tv",
-    "target_node_label": "Settings",
-    "device_id": "device1",
-    "team_id": "team_abc123"
+    "target_node_label": "Settings"  # Defaults for device_id, team_id
 })
 
 # Step 3: Capture screenshot for vision analysis
-capture_screenshot({
-    "device_id": "device1",
-    "team_id": "team_abc123"
-})
+capture_screenshot({})  # All params optional with defaults
 # Returns: base64 image for AI vision
 
 # Step 4: Release control when done
-release_control({
+release_control({})  # Uses default host/device/team
+```
+
+**Explicit parameters (if needed):**
+```python
+take_control({
     "host_name": "ubuntu-host-1",
     "device_id": "device1",
-    "team_id": "team_abc123"
+    "team_id": "team_abc123",
+    "tree_id": "main_navigation"
 })
+```
+
+---
+
+## 🔑 Smart Defaults & Configuration
+
+### Default Values (NEW in 2025)
+
+The MCP server now provides smart defaults for common parameters, making tool calls more convenient:
+
+```python
+# Defaults from shared/src/lib/config/constants.py
+DEFAULT_TEAM_ID = os.getenv('DEFAULT_TEAM_ID', 'team_1')
+DEFAULT_HOST_NAME = os.getenv('DEFAULT_HOST_NAME', 'sunri-pi1')
+DEFAULT_DEVICE_ID = os.getenv('DEFAULT_DEVICE_ID', 'device_1')
+```
+
+### Optional Parameters
+
+These parameters are now **optional** in most tool calls:
+- `team_id` (defaults to `team_1` or `$DEFAULT_TEAM_ID`)
+- `host_name` (defaults to `sunri-pi1` or `$DEFAULT_HOST_NAME`)
+- `device_id` (defaults to `device_1` or `$DEFAULT_DEVICE_ID`)
+
+### Example: Simplified Tool Calls
+
+**Before (verbose):**
+```python
+take_control({
+    "host_name": "sunri-pi1",
+    "device_id": "device_1",
+    "team_id": "team_1",
+    "tree_id": "main_navigation"
+})
+```
+
+**After (concise with defaults):**
+```python
+take_control({
+    "tree_id": "main_navigation"  # Other params use defaults
+})
+```
+
+### Custom Defaults
+
+Override defaults via environment variables:
+
+```bash
+# backend_server/.env
+DEFAULT_TEAM_ID=my_team
+DEFAULT_HOST_NAME=my_host
+DEFAULT_DEVICE_ID=my_device
+```
+
+---
+
+## ✅ Input Validation
+
+### JSON Schema Validation (NEW)
+
+All tool inputs are validated against JSON Schema **before** execution:
+
+**Benefits:**
+- ❌ Invalid data rejected immediately
+- 📋 Clear validation error messages
+- 🛡️ Type safety (string, integer, boolean, etc.)
+- 🔒 Required field enforcement
+- 📊 Array/object structure validation
+
+**Example Validation Error:**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Validation failed for take_control: 'tree_id' must be string, got integer"
+  }],
+  "isError": true
+}
+```
+
+### Error Categories
+
+The MCP server categorizes errors for better handling:
+
+```python
+class ErrorCategory(str, Enum):
+    VALIDATION = "validation"      # Invalid input (jsonschema)
+    TIMEOUT = "timeout"            # Request timeout
+    NETWORK = "network"            # Network error
+    BACKEND = "backend"            # Backend API error
+    NOT_FOUND = "not_found"        # Resource not found
+    UNAUTHORIZED = "unauthorized"   # Auth failure
+    UNKNOWN = "unknown"            # Unexpected error
+```
+
+**Example Error Response:**
+```json
+{
+  "content": [{
+    "type": "text",
+    "text": "Error: Device not found"
+  }],
+  "isError": true,
+  "_error_category": "not_found",
+  "_error_details": {
+    "device_id": "invalid_device",
+    "host_name": "sunri-pi1"
+  }
+}
 ```
 
 ---
@@ -280,7 +392,7 @@ status = get_execution_status({
 
 ```
 backend_server/src/mcp/
-├── mcp_server.py          # Main MCP server
+├── mcp_server.py          # Main MCP server (synchronous)
 ├── tools/
 │   ├── control_tools.py   # take_control, release_control
 │   ├── action_tools.py    # execute_device_action
@@ -294,9 +406,25 @@ backend_server/src/mcp/
 ├── config/
 │   └── tools_config.json  # Tool definitions & schemas
 └── utils/
-    ├── api_client.py      # HTTP client for backend_server
-    └── response_formatter.py # MCP response formatting
+    ├── api_client.py      # Reusable HTTP client (raw responses)
+    ├── mcp_formatter.py   # MCP response formatting (7 error categories)
+    └── input_validator.py # JSON Schema validation (NEW)
 ```
+
+### Architecture Principles (2025 Update)
+
+**✅ Clean Separation of Concerns:**
+- **API Client** - Returns raw responses, reusable outside MCP
+- **MCPFormatter** - Converts raw responses to MCP format
+- **InputValidator** - Validates all inputs against JSON Schema
+- **Tool Classes** - Pure business logic, minimal boilerplate
+
+**✅ Production-Ready Quality:**
+- **Synchronous Execution** - No asyncio overhead
+- **Input Validation** - All parameters validated before execution
+- **Error Categorization** - 7 error types (validation, timeout, network, backend, not_found, unauthorized, unknown)
+- **Smart Defaults** - Optional `team_id`, `host_name`, `device_id` with sensible fallbacks
+- **No Legacy Code** - Clean implementation, no backward compatibility cruft
 
 ---
 
@@ -633,6 +761,24 @@ Same HTTP endpoint can be used by any MCP-compatible client:
 
 ---
 
-**Version**: 1.0.0  
-**Last Updated**: 2025-01-04
+**Version**: 2.0.0  
+**Last Updated**: 2025-11-04
+
+## 🎉 What's New in v2.0.0
+
+### Production-Ready MCP Implementation
+
+- ✅ **JSON Schema Validation** - All inputs validated before execution
+- ✅ **Smart Defaults** - Optional `team_id`, `host_name`, `device_id` parameters
+- ✅ **Error Categorization** - 7 error types for better handling
+- ✅ **Synchronous Execution** - No asyncio overhead
+- ✅ **Decoupled Architecture** - Clean separation: API client, formatter, validator
+- ✅ **Production Quality** - No legacy code, no backward compatibility cruft
+
+### Breaking Changes from v1.0.0
+
+None! The v2.0.0 improvements are backward compatible:
+- All existing tool calls still work
+- New optional parameters enhance convenience
+- Better error messages improve debugging
 

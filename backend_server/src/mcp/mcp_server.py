@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 11 core tools for device automation:
+This server provides 13 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (REQUIRED FIRST)
 2. release_control - Release device lock
 3. execute_device_action - Execute remote/ADB/web/desktop commands
@@ -17,11 +17,12 @@ This server provides 11 core tools for device automation:
 9. get_transcript - Fetch audio transcripts
 10. get_device_info - Get device capabilities and info
 11. get_execution_status - Poll async execution status
+12. view_logs - View systemd service logs
+13. list_services - List VirtualPyTest services
 """
 
-import asyncio
 import logging
-from typing import Dict, Any, List
+from typing import Dict, Any, List, Optional
 from pathlib import Path
 
 # Import tool classes
@@ -38,6 +39,8 @@ from .tools.logs_tools import LogsTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
+from .utils.mcp_formatter import MCPFormatter, ErrorCategory
+from .utils.input_validator import InputValidator
 
 
 class VirtualPyTestMCPServer:
@@ -46,6 +49,11 @@ class VirtualPyTestMCPServer:
     def __init__(self):
         self.logger = logging.getLogger(__name__)
         self.api_client = MCPAPIClient()
+        self.formatter = MCPFormatter()
+        self.validator = InputValidator()
+        
+        # Tool schemas cache (for validation)
+        self._tool_schemas = None
         
         # Initialize all tool handlers
         self.control_tools = ControlTools(self.api_client)
@@ -97,9 +105,9 @@ class VirtualPyTestMCPServer:
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
     
-    async def handle_tool_call(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
+    def handle_tool_call(self, tool_name: str, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Handle MCP tool call
+        Handle MCP tool call (synchronous) with input validation
         
         Args:
             tool_name: Name of the tool to execute
@@ -114,12 +122,23 @@ class VirtualPyTestMCPServer:
             
             # Check if tool exists
             if tool_name not in self.tool_handlers:
-                return {
-                    "content": [{"type": "text", "text": f"Error: Unknown tool: {tool_name}. Available tools: {list(self.tool_handlers.keys())}"}],
-                    "isError": True
-                }
+                error_msg = f"Unknown tool: {tool_name}. Available tools: {list(self.tool_handlers.keys())}"
+                return self.formatter.format_error(error_msg, ErrorCategory.NOT_FOUND)
             
-            # Execute tool
+            # Validate input parameters against tool schema
+            tool_schema = self._get_tool_schema(tool_name)
+            if tool_schema:
+                is_valid, validation_error = self.validator.validate_arguments(
+                    tool_name,
+                    params,
+                    tool_schema['inputSchema']
+                )
+                
+                if not is_valid:
+                    self.logger.warning(f"Validation failed for {tool_name}: {validation_error}")
+                    return self.formatter.format_validation_error(tool_name, validation_error)
+            
+            # Execute tool (synchronous)
             handler = self.tool_handlers[tool_name]
             result = handler(params)
             
@@ -128,10 +147,27 @@ class VirtualPyTestMCPServer:
             
         except Exception as e:
             self.logger.error(f"Tool call error for {tool_name}: {e}", exc_info=True)
-            return {
-                "content": [{"type": "text", "text": f"Error: Tool execution error: {str(e)}"}],
-                "isError": True
-            }
+            return self.formatter.format_error(
+                f"Tool execution error: {str(e)}",
+                ErrorCategory.BACKEND
+            )
+    
+    def _get_tool_schema(self, tool_name: str) -> Optional[Dict[str, Any]]:
+        """
+        Get schema for a specific tool
+        
+        Args:
+            tool_name: Name of the tool
+            
+        Returns:
+            Tool schema dict or None if not found
+        """
+        # Cache tool schemas on first access
+        if self._tool_schemas is None:
+            tools = self.get_available_tools()
+            self._tool_schemas = {tool['name']: tool for tool in tools}
+        
+        return self._tool_schemas.get(tool_name)
     
     def get_available_tools(self) -> List[Dict[str, Any]]:
         """

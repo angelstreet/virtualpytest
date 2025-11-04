@@ -6,6 +6,7 @@ Provides take_control and release_control for device locking and cache generatio
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
+from ..utils.mcp_formatter import MCPFormatter
 from shared.src.lib.config.constants import APP_CONFIG
 
 
@@ -14,6 +15,7 @@ class ControlTools:
     
     def __init__(self, api_client: MCPAPIClient):
         self.api = api_client
+        self.formatter = MCPFormatter()
     
     def take_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -43,8 +45,9 @@ class ControlTools:
         if tree_id:
             data['tree_id'] = tree_id
         
-        # Call API - returns MCP format directly
-        return self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})
+        # Call API and format response
+        result = self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})
+        return self.formatter.format_api_response(result)
     
     def release_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -70,7 +73,9 @@ class ControlTools:
         # Build request
         data = {'host_name': host_name, 'device_id': device_id}
         
-        # Call API - returns MCP format directly
-        return self.api.post('/server/control/releaseControl', data=data, params={'team_id': team_id})
+        # Call API and format response
+        result = self.api.post('/server/control/releaseControl', data=data, params={'team_id': team_id})
+        return self.formatter.format_api_response(result)
+
 
 
