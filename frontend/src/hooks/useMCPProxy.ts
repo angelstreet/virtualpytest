@@ -40,14 +40,15 @@ export const useMCPProxy = () => {
     hostName: string,
     userinterfaceName?: string,
     teamId?: string,
-    treeId?: string
+    treeId?: string,
+    deviceModel?: string
   ): Promise<MCPProxyResult> => {
     setIsExecuting(true);
     setError(null);
 
     try {
       console.log('[@useMCPProxy] Executing prompt:', prompt);
-      console.log('[@useMCPProxy] Context:', { deviceId, hostName, userinterfaceName, teamId, treeId });
+      console.log('[@useMCPProxy] Context:', { deviceId, hostName, userinterfaceName, teamId, treeId, deviceModel });
 
       // ✅ buildServerUrl automatically adds team_id from URL context
       const response = await fetch(buildServerUrl('/server/mcp-proxy/execute-prompt'), {
@@ -58,7 +59,8 @@ export const useMCPProxy = () => {
           device_id: deviceId,
           host_name: hostName,
           userinterface_name: userinterfaceName,
-          tree_id: treeId
+          tree_id: treeId,
+          device_model: deviceModel
           // Note: team_id is automatically added via buildServerUrl query params
         })
       });

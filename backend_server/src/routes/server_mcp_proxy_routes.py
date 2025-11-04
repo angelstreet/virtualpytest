@@ -59,9 +59,10 @@ def execute_prompt():
         userinterface_name = data.get('userinterface_name')
         team_id = request.args.get('team_id')
         tree_id = data.get('tree_id')
+        device_model = data.get('device_model', 'unknown')  # NEW: device model type
         
         print(f"[@mcp_proxy] Received prompt: {prompt}")
-        print(f"[@mcp_proxy] Context - device: {device_id}, host: {host_name}, interface: {userinterface_name}, team_id: {team_id}")
+        print(f"[@mcp_proxy] Context - device: {device_id}, host: {host_name}, interface: {userinterface_name}, device_model: {device_model}, team_id: {team_id}")
         
         if not prompt:
             return jsonify({'success': False, 'error': 'Prompt required'}), 400
@@ -91,9 +92,15 @@ def execute_prompt():
         # Minimal system message - just provide context, no instructions
         system_message = f'''Device automation context:
 - Device: {device_id} on {host_name}
+- Device Model: {device_model}
 - Interface: {userinterface_name}
 - Team: {team_id}
-- Tree: {tree_id or 'none'}'''
+- Tree: {tree_id or 'none'}
+
+Note: Based on device model:
+- android_mobile/android_tv: Use ADB/Remote commands (swipe, click_element, etc)
+- web/desktop: Use web/desktop automation commands
+- For verification: Use commands matching the device model'''
 
         print(f"[@mcp_proxy] Calling OpenRouter with model: x-ai/grok-3-mini (max 3 iterations)")
         
@@ -119,7 +126,7 @@ def execute_prompt():
                     'Content-Type': 'application/json'
                 },
                 json={
-                    'model': 'x-ai/grok-3-mini',
+                    'model': 'google/gemini-2.5-pro',
                     'messages': messages,
                     'tools': tools,
                     'tool_choice': 'auto',  # Let AI decide whether to call a tool or ask for clarification

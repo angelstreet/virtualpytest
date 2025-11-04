@@ -372,6 +372,9 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
     try {
       console.log('[@useMCPPlaygroundPage] Sending prompt to MCP Proxy (OpenRouter + Function Calling):', prompt);
       
+      // Get selected device to extract device_model
+      const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
+      
       // NEW: Use MCP Proxy with OpenRouter function calling
       const result = await executeMCPPrompt(
         prompt,
@@ -379,7 +382,8 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
         selectedHost.host_name,
         userinterfaceName,
         undefined, // team_id (optional)
-        currentTreeId || undefined  // tree_id (optional, for navigation)
+        currentTreeId || undefined,  // tree_id (optional, for navigation)
+        selectedDevice?.device_model || 'android_mobile'  // device_model
       );
       
       console.log('[@useMCPPlaygroundPage] MCP Proxy result:', result);

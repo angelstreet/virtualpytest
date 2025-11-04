@@ -227,6 +227,10 @@ Useful for discovering what actions can be executed on a device.
 
 PREREQUISITE: Device must be registered with the host.
 
+Device Model Specific:
+- android_mobile/android_tv: Returns ADB/Remote commands (swipe_up, click_element, type_text, key, etc)
+- web/desktop: Returns web automation commands (web_click, web_type, etc)
+
 Example:
   list_actions(
     device_id='device1',
@@ -250,6 +254,12 @@ Example:
 
 Executes commands like swipe, click, type, etc.
 Returns execution_id for async operations - polls automatically until completion.
+
+Device Model Specific:
+- android_mobile/android_tv: Use ADB/Remote commands
+  Examples: swipe_up, swipe_down, click_element, click_element_by_id, type_text, key
+- web/desktop: Use web automation commands
+  Examples: web_click, web_type, web_navigate
 
 Examples:
 - Swipe: execute_device_action(actions=[{"command": "swipe_up"}])
@@ -383,6 +393,10 @@ Useful for discovering what verifications can be performed on a device.
 
 PREREQUISITE: Device must be registered with the host.
 
+Device Model Specific:
+- android_mobile/android_tv: Returns ADB/Remote verifications (check_element_exists, check_text_on_screen, getMenuInfo, etc)
+- web/desktop: Returns web verification methods
+
 Example:
   list_verifications(
     device_id='device1',
@@ -404,7 +418,14 @@ Example:
 
 ✅ NO PREREQUISITES - Just call this directly.
 
-Can be called MULTIPLE times in the same session.""",
+Can be called MULTIPLE times in the same session.
+
+Device Model Specific:
+- android_mobile/android_tv: Use ADB/Remote verification commands discovered via list_verifications()
+  Must match command structure returned by list_verifications (type, method, params, expected)
+- web/desktop: Use web verification methods
+
+IMPORTANT: Call list_verifications() first to see exact command structure for the device model.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
