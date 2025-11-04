@@ -62,7 +62,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
           const label = action.label || action.command || action.id;
           items.push({
             label: label,
-            prompt: `Execute ${label.toLowerCase()}`,
+            prompt: `${label.toLowerCase()}`,
           });
         });
       }
@@ -81,7 +81,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
         Object.entries(verifications).slice(0, 10).forEach(([methodName, _]: [string, any]) => {
           items.push({
             label: methodName,
-            prompt: `Verify ${methodName.replace(/_/g, ' ')}`,
+            prompt: `${methodName.replace(/_/g, ' ')}`,
           });
         });
       } else if (Array.isArray(verifications)) {
