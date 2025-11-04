@@ -34,6 +34,7 @@ from .tools.ai_tools import AITools
 from .tools.screenshot_tools import ScreenshotTools
 from .tools.transcript_tools import TranscriptTools
 from .tools.device_tools import DeviceTools
+from .tools.logs_tools import LogsTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
@@ -57,6 +58,7 @@ class VirtualPyTestMCPServer:
         self.screenshot_tools = ScreenshotTools(self.api_client)
         self.transcript_tools = TranscriptTools(self.api_client)
         self.device_tools = DeviceTools(self.api_client)
+        self.logs_tools = LogsTools(self.api_client)
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -88,6 +90,10 @@ class VirtualPyTestMCPServer:
             # Device info tools
             'get_device_info': self.device_tools.get_device_info,
             'get_execution_status': self.device_tools.get_execution_status,
+            
+            # Logs tools
+            'view_logs': self.logs_tools.view_logs,
+            'list_services': self.logs_tools.list_services,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
