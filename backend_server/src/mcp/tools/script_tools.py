@@ -35,6 +35,7 @@ class ScriptTools:
         host_name = params.get('host_name')
         device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
         parameters = params.get('parameters', '')
+        userinterface_name = params.get('userinterface_name', '')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Validate required parameters
@@ -43,20 +44,37 @@ class ScriptTools:
         if not host_name:
             return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
         
+        # Build parameters string (SAME as RunTests.tsx lines 427-470)
+        # The frontend always appends --host and --device at the end
+        param_parts = []
+        
+        # Add user-provided parameters first
+        if parameters and parameters.strip():
+            param_parts.append(parameters.strip())
+        
+        # Add userinterface_name if provided (SAME as RunTests.tsx line 440-441)
+        if userinterface_name:
+            param_parts.append(f'--userinterface_name {userinterface_name}')
+        
+        # Always add --host and --device at the end (SAME as RunTests.tsx lines 461-467)
+        param_parts.append(f'--host {host_name}')
+        param_parts.append(f'--device {device_id}')
+        
+        final_parameters = ' '.join(param_parts)
+        
         # Build request - SAME format as frontend (useScript.ts lines 247-255)
         data = {
             'script_name': script_name,
             'host_name': host_name,
-            'device_id': device_id
+            'device_id': device_id,
+            'parameters': final_parameters  # Send the complete parameter string
         }
-        
-        if parameters and parameters.strip():
-            data['parameters'] = parameters.strip()
         
         query_params = {'team_id': team_id}
         
         # Call EXISTING endpoint - SAME as frontend (useScript.ts line 257)
         print(f"[@MCP:execute_script] Calling /server/script/execute for '{script_name}'")
+        print(f"[@MCP:execute_script] Parameters: {final_parameters}")
         result = self.api.post('/server/script/execute', data=data, params=query_params)
         
         # Check if async execution (returns task_id) - SAME as frontend (useScript.ts line 265)

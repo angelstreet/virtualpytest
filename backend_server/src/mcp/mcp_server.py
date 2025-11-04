@@ -423,6 +423,7 @@ Example:
     script_name='my_validation.py',
     host_name='sunri-pi1',
     device_id='device1',
+    userinterface_name='horizon_android_mobile',
     parameters='--param1 value1 --param2 value2'
   )""",
                 "inputSchema": {
@@ -431,7 +432,8 @@ Example:
                         "script_name": {"type": "string", "description": "Script filename (e.g., 'my_script.py')"},
                         "host_name": {"type": "string", "description": "Host where device is located"},
                         "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                        "parameters": {"type": "string", "description": "CLI parameters as string (optional, e.g., '--param1 value1 --param2 value2')"},
+                        "userinterface_name": {"type": "string", "description": "Userinterface name (e.g., 'horizon_android_mobile', 'horizon_tv') - REQUIRED if script uses it"},
+                        "parameters": {"type": "string", "description": "Additional CLI parameters as string (optional, e.g., '--param1 value1')"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                     },
                     "required": ["script_name", "host_name"]
