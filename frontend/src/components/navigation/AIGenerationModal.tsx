@@ -53,25 +53,29 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const {
     isExploring,
     status,
+    phase,
     currentStep,
     progress,
     currentAnalysis,
+    explorationPlan,
     proposedNodes,
     proposedEdges,
     error,
     isGenerating,
     startExploration,
+    continueExploration,
     cancelExploration,
     approveGeneration,
     resetState,
     canStart,
-    hasResults
+    hasResults,
+    isAwaitingApproval
   } = useGenerateModel({
     treeId,
     selectedHost,
     selectedDeviceId,
     userinterfaceName,
-    isControlActive: true // Assuming this modal only opens when control is active
+    isControlActive: true
   });
 
   // Select all nodes and edges by default when results arrive
@@ -128,6 +132,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   };
 
   const getStatusIcon = () => {
+    if (isAwaitingApproval) {
+      return <AnalyzeIcon color="warning" />;
+    }
     switch (status) {
       case 'exploring':
         return <CircularProgress size={20} />;
@@ -141,6 +148,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   };
 
   const getStatusColor = () => {
+    if (isAwaitingApproval) {
+      return 'warning';
+    }
     switch (status) {
       case 'exploring':
         return 'primary';
@@ -183,7 +193,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         )}
 
         {/* Configuration Section - Only show when not exploring */}
-        {!isExploring && !hasResults && (
+        {!isExploring && !hasResults && !isAwaitingApproval && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Typography variant="h6" gutterBottom>
               Exploration Configuration
@@ -214,8 +224,111 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </Paper>
         )}
 
+        {/* Approval Section - Show AI plan and approval buttons */}
+        {isAwaitingApproval && explorationPlan && (
+          <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
+              <AnalyzeIcon color="warning" />
+              <Typography variant="h6">
+                Phase 1: Analysis Complete - Review Plan
+              </Typography>
+            </Box>
+
+            <Alert severity="warning" sx={{ mb: 2 }}>
+              <strong>Action Required:</strong> Review the AI's exploration plan below and decide whether to continue.
+            </Alert>
+
+            {/* Screenshot */}
+            {currentAnalysis.screenshot && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
+                  Initial Screenshot:
+                </Typography>
+                <img
+                  src={currentAnalysis.screenshot}
+                  alt="Initial screen analysis"
+                  style={{
+                    maxWidth: '100%',
+                    maxHeight: '300px',
+                    objectFit: 'contain',
+                    borderRadius: '4px',
+                    border: '1px solid rgba(255, 255, 255, 0.12)'
+                  }}
+                />
+              </Box>
+            )}
+
+            {/* AI Plan Details */}
+            <Paper sx={{ p: 2, mb: 2, bgcolor: 'rgba(255, 152, 0, 0.1)' }}>
+              <Typography variant="subtitle2" gutterBottom>
+                <strong>AI Exploration Plan:</strong>
+              </Typography>
+              <Box sx={{ mt: 1 }}>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Menu Type:</strong> {explorationPlan.menu_type}
+                </Typography>
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Items Found:</strong> {explorationPlan.items.length} items
+                </Typography>
+                {explorationPlan.items.length > 0 && (
+                  <Box sx={{ ml: 2, mb: 1 }}>
+                    {explorationPlan.items.map((item, idx) => (
+                      <Chip key={idx} label={item} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
+                    ))}
+                  </Box>
+                )}
+                <Typography variant="body2" sx={{ mb: 1 }}>
+                  <strong>Strategy:</strong> {explorationPlan.strategy}
+                </Typography>
+                <Typography variant="body2">
+                  <strong>Predicted Depth:</strong> {explorationPlan.predicted_depth} levels
+                </Typography>
+              </Box>
+            </Paper>
+
+            {/* AI Reasoning */}
+            <Paper sx={{ p: 2, mb: 2, bgcolor: 'rgba(33, 150, 243, 0.1)' }}>
+              <Typography variant="subtitle2" gutterBottom>
+                <strong>AI Reasoning:</strong>
+              </Typography>
+              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                {currentAnalysis.reasoning || explorationPlan.reasoning}
+              </Typography>
+            </Paper>
+
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
+              <Button
+                variant="contained"
+                color="success"
+                size="large"
+                onClick={continueExploration}
+                startIcon={<NavigationIcon />}
+              >
+                Continue to Phase 2
+              </Button>
+              <Button
+                variant="outlined"
+                color="warning"
+                size="large"
+                onClick={handleStart}
+              >
+                Retry Analysis
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                size="large"
+                onClick={handleCancel}
+                startIcon={<CancelIcon />}
+              >
+                Abort
+              </Button>
+            </Box>
+          </Paper>
+        )}
+
         {/* Exploration Progress Section */}
-        {(isExploring || hasResults) && (
+        {(isExploring || hasResults) && !isAwaitingApproval && (
           <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <AnalyzeIcon />

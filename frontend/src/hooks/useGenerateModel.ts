@@ -6,7 +6,7 @@ interface UseGenerateModelProps {
   selectedHost: any;
   selectedDeviceId: string;
   isControlActive: boolean;
-  userinterfaceName?: string; // NEW: Pass from tree data
+  userinterfaceName?: string;
 }
 
 interface Progress {
@@ -20,7 +20,17 @@ interface CurrentAnalysis {
   screen_name: string;
   elements_found: string[];
   reasoning: string;
-  screenshot?: string;  // Add screenshot URL
+  screenshot?: string;
+}
+
+interface ExplorationPlan {
+  menu_type: string;
+  items: string[];
+  strategy: string;
+  predicted_depth: number;
+  reasoning: string;
+  screenshot?: string;
+  screen_name: string;
 }
 
 interface ProposedNode {
@@ -50,9 +60,10 @@ export const useGenerateModel = ({
 }: UseGenerateModelProps) => {
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
-  const [explorationHostName, setExplorationHostName] = useState<string | null>(null); // NEW: Store host_name
+  const [explorationHostName, setExplorationHostName] = useState<string | null>(null);
   const [isExploring, setIsExploring] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'exploring' | 'completed' | 'failed'>('idle');
+  const [status, setStatus] = useState<'idle' | 'exploring' | 'awaiting_approval' | 'completed' | 'failed'>('idle');
+  const [phase, setPhase] = useState<'analysis' | 'exploration' | null>(null);
   const [currentStep, setCurrentStep] = useState('');
   const [progress, setProgress] = useState<Progress>({
     total_screens_found: 0,
@@ -65,6 +76,7 @@ export const useGenerateModel = ({
     elements_found: [],
     reasoning: ''
   });
+  const [explorationPlan, setExplorationPlan] = useState<ExplorationPlan | null>(null);
   const [proposedNodes, setProposedNodes] = useState<ProposedNode[]>([]);
   const [proposedEdges, setProposedEdges] = useState<ProposedEdge[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -90,9 +102,10 @@ export const useGenerateModel = ({
 
   const resetState = useCallback(() => {
     setExplorationId(null);
-    setExplorationHostName(null); // Reset host_name
+    setExplorationHostName(null);
     setIsExploring(false);
     setStatus('idle');
+    setPhase(null);
     setCurrentStep('');
     setProgress({
       total_screens_found: 0,
@@ -105,6 +118,7 @@ export const useGenerateModel = ({
       elements_found: [],
       reasoning: ''
     });
+    setExplorationPlan(null);
     setProposedNodes([]);
     setProposedEdges([]);
     setError(null);
@@ -127,9 +141,16 @@ export const useGenerateModel = ({
 
       if (data.success) {
         setStatus(data.status);
+        setPhase(data.phase);
         setCurrentStep(data.current_step || '');
         setProgress(data.progress || progress);
         setCurrentAnalysis(data.current_analysis || currentAnalysis);
+        
+        // If awaiting approval, show the plan and stop polling
+        if (data.status === 'awaiting_approval') {
+          setExplorationPlan(data.exploration_plan || null);
+          setIsExploring(false);  // Stop polling
+        }
         
         // If completed, set proposed nodes and edges
         if (data.status === 'completed') {
@@ -206,7 +227,49 @@ export const useGenerateModel = ({
       setIsExploring(false);
       setStatus('failed');
     }
-  }, [treeId, selectedHost, selectedDeviceId, isControlActive]);
+  }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName]);
+
+  const continueExploration = useCallback(async () => {
+    if (!explorationId) {
+      setError('No exploration session to continue');
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsExploring(true);
+      setStatus('exploring');
+      setPhase('exploration');
+      setCurrentStep('Starting Phase 2: Exploring navigation tree...');
+      
+      console.log('[@useGenerateModel:continueExploration] Continuing to Phase 2:', explorationId);
+
+      const response = await fetch(buildServerUrl('/server/ai-generation/continue-exploration'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exploration_id: explorationId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('[@useGenerateModel:continueExploration] Phase 2 started');
+      } else {
+        throw new Error(data.error || 'Failed to continue exploration');
+      }
+    } catch (err: any) {
+      console.error('[@useGenerateModel:continueExploration] Error:', err);
+      setError(err.message || 'Failed to continue exploration');
+      setIsExploring(false);
+      setStatus('failed');
+    }
+  }, [explorationId]);
 
   const cancelExploration = useCallback(async () => {
     if (!explorationId || !selectedHost) return;
@@ -291,9 +354,11 @@ export const useGenerateModel = ({
     explorationId,
     isExploring,
     status,
+    phase,
     currentStep,
     progress,
     currentAnalysis,
+    explorationPlan,
     proposedNodes,
     proposedEdges,
     error,
@@ -301,12 +366,14 @@ export const useGenerateModel = ({
     
     // Actions
     startExploration,
+    continueExploration,
     cancelExploration,
     approveGeneration,
     resetState,
     
     // Computed
     canStart: !isExploring && !isGenerating && isControlActive && treeId && selectedHost && selectedDeviceId,
-    hasResults: status === 'completed' && (proposedNodes.length > 0 || proposedEdges.length > 0)
+    hasResults: status === 'completed' && (proposedNodes.length > 0 || proposedEdges.length > 0),
+    isAwaitingApproval: status === 'awaiting_approval'
   };
 };
