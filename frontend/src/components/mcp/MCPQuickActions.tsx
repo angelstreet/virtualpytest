@@ -47,7 +47,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
   const navigationItems = useMemo(() => {
     return navNodes.slice(0, 10).map(node => ({
       label: node.label || node.id,
-      prompt: `Navigate to ${node.label || node.id}`,
+      prompt: `navigate_to_node: ${node.label || node.id}`,
     }));
   }, [navNodes]);
   
@@ -62,7 +62,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
           const label = action.label || action.command || action.id;
           items.push({
             label: label,
-            prompt: `${label.toLowerCase()}`,
+            prompt: `Action: ${action.command || label}`,
           });
         });
       }
@@ -81,7 +81,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
         Object.entries(verifications).slice(0, 10).forEach(([methodName, _]: [string, any]) => {
           items.push({
             label: methodName,
-            prompt: `${methodName.replace(/_/g, ' ')}`,
+            prompt: `Verification: ${methodName}`,
           });
         });
       } else if (Array.isArray(verifications)) {
@@ -90,7 +90,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
           const label = verification.label || verification.command || verification.id;
           items.push({
             label: label,
-            prompt: `${label.toLowerCase()}`,
+            prompt: `Verification: ${verification.command || label}`,
           });
         });
       }
