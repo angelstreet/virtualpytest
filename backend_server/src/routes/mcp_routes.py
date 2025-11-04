@@ -72,27 +72,25 @@ def require_mcp_auth(f):
 @require_mcp_auth
 def mcp_endpoint():
     """
-    MCP HTTP endpoint - receives tool calls from LLM clients
+    MCP HTTP endpoint - JSON-RPC 2.0 protocol
     
-    Request body:
+    Supports two formats:
+    
+    1. JSON-RPC 2.0 (standard MCP protocol):
     {
-        "tool": "take_control",
+        "jsonrpc": "2.0",
+        "id": 1,
+        "method": "tools/list" | "tools/call",
         "params": {
-            "host_name": "ubuntu-host-1",
-            "device_id": "device1",
-            "team_id": "team_abc123",
-            "tree_id": "main_navigation"
+            "name": "tool_name",
+            "arguments": {...}
         }
     }
     
-    Response:
+    2. Simple REST format (legacy):
     {
-        "content": [
-            {
-                "type": "text",
-                "text": "..."
-            }
-        ]
+        "tool": "take_control",
+        "params": {...}
     }
     """
     try:
@@ -100,9 +98,19 @@ def mcp_endpoint():
         
         if not data:
             return jsonify({
-                'error': 'No JSON data provided'
+                'jsonrpc': '2.0',
+                'id': None,
+                'error': {
+                    'code': -32600,
+                    'message': 'Invalid Request - No JSON data provided'
+                }
             }), 400
         
+        # Check if this is a JSON-RPC request
+        if 'jsonrpc' in data and data.get('jsonrpc') == '2.0':
+            return handle_jsonrpc_request(data)
+        
+        # Legacy REST format
         tool_name = data.get('tool')
         params = data.get('params', {})
         
@@ -119,6 +127,85 @@ def mcp_endpoint():
     except Exception as e:
         return jsonify({
             'error': f'MCP endpoint error: {str(e)}'
+        }), 500
+
+
+def handle_jsonrpc_request(data):
+    """Handle JSON-RPC 2.0 requests"""
+    request_id = data.get('id')
+    method = data.get('method')
+    params = data.get('params', {})
+    
+    try:
+        # Handle tools/list method
+        if method == 'tools/list':
+            tools = mcp_server.get_available_tools()
+            # Convert to MCP protocol format
+            mcp_tools = []
+            for tool in tools:
+                mcp_tools.append({
+                    'name': tool['name'],
+                    'description': tool['description'],
+                    'inputSchema': {
+                        'type': 'object',
+                        'properties': {
+                            param: {'type': 'string', 'description': f'{param} parameter'}
+                            for param in (tool.get('required_params', []) + tool.get('optional_params', []))
+                        },
+                        'required': tool.get('required_params', [])
+                    }
+                })
+            
+            return jsonify({
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'result': {
+                    'tools': mcp_tools
+                }
+            })
+        
+        # Handle tools/call method
+        elif method == 'tools/call':
+            tool_name = params.get('name')
+            arguments = params.get('arguments', {})
+            
+            if not tool_name:
+                return jsonify({
+                    'jsonrpc': '2.0',
+                    'id': request_id,
+                    'error': {
+                        'code': -32602,
+                        'message': 'Invalid params - tool name is required'
+                    }
+                }), 400
+            
+            # Execute tool
+            result = asyncio.run(mcp_server.handle_tool_call(tool_name, arguments))
+            
+            return jsonify({
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'result': result
+            })
+        
+        else:
+            return jsonify({
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'error': {
+                    'code': -32601,
+                    'message': f'Method not found: {method}'
+                }
+            }), 404
+            
+    except Exception as e:
+        return jsonify({
+            'jsonrpc': '2.0',
+            'id': request_id,
+            'error': {
+                'code': -32603,
+                'message': f'Internal error: {str(e)}'
+            }
         }), 500
 
 
