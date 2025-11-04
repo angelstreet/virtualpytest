@@ -10,8 +10,6 @@ import traceback
 from services.ai_exploration.screen_analyzer import ScreenAnalyzer
 from services.ai_exploration.navigation_strategy import NavigationStrategy
 from services.ai_exploration.node_generator import NodeGenerator
-from backend_host.src.controllers.remote.android_mobile import AndroidMobileRemoteController
-from backend_host.src.controllers.remote.android_tv import AndroidTVRemoteController
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_edge,
@@ -53,25 +51,26 @@ class ExplorationEngine:
         self.userinterface_name = userinterface_name
         self.depth_limit = depth_limit
         
-        # Initialize components
+        # Get device from registry (same pattern as goto.py and zap_executor.py)
+        from flask import current_app
+        
+        if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
+            raise ValueError(f"Device {device_id} not found in registry")
+        
+        self.device = current_app.host_devices[device_id]
+        
+        # Use existing remote controller (already initialized with correct device_ip)
+        self.controller = self.device._get_controller('remote')
+        if not self.controller:
+            raise ValueError(f"No remote controller found for device {device_id}")
+        
+        # Initialize components with existing controller
         self.screen_analyzer = ScreenAnalyzer(
             device_id=device_id,
             host_name=host_name,
             device_model_name=device_model_name,
-            controller=None  # Will be set after controller initialization
+            controller=self.controller
         )
-        
-        # Get controller based on device model
-        if 'mobile' in device_model_name.lower():
-            self.controller = AndroidMobileRemoteController(device_id, host_name)
-        elif 'tv' in device_model_name.lower() or 'android' in device_model_name.lower():
-            self.controller = AndroidTVRemoteController(device_id, host_name)
-        else:
-            # Default to Android TV
-            self.controller = AndroidTVRemoteController(device_id, host_name)
-        
-        # Pass controller to screen_analyzer for android_mobile native screenshots
-        self.screen_analyzer.controller = self.controller
         
         self.navigation_strategy = NavigationStrategy(self.controller, self.screen_analyzer)
         self.node_generator = NodeGenerator(tree_id, team_id)
