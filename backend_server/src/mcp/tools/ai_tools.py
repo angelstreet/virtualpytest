@@ -6,7 +6,7 @@ Generate test graphs from natural language using AI.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class AITools:
@@ -35,18 +35,16 @@ class AITools:
             MCP-formatted response with generated graph JSON and analysis
         """
         prompt = params.get('prompt')
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         userinterface_name = params.get('userinterface_name')
         current_node_id = params.get('current_node_id')
         
         # Validate required parameters
         if not prompt:
-            return format_tool_result({'success': False, 'error': 'prompt is required'})
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
+            return {"content": [{"type": "text", "text": "Error: prompt is required"}], "isError": True}
         if not userinterface_name:
-            return format_tool_result({'success': False, 'error': 'userinterface_name is required'})
+            return {"content": [{"type": "text", "text": "Error: userinterface_name is required"}], "isError": True}
         
         # Build request
         data = {
@@ -63,5 +61,5 @@ class AITools:
         # Call API
         result = self.api.post('/host/ai/generatePlan', data=data, params=query_params)
         
-        return format_tool_result(result)
+        return result
 

@@ -32,3 +32,4 @@ backend_server/scripts/backup_grafana_db.sh
 # Supabase database backups
 setup/db/backup/*.sql
 setup/db/backup/*.sql.gz
+.cursor/mcp_backup.json

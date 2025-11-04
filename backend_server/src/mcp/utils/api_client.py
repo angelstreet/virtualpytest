@@ -2,15 +2,17 @@
 API Client for MCP Server
 
 Provides HTTP client to communicate with backend_server routes.
+Returns responses in MCP format directly.
 """
 
+import json
 import requests
 from typing import Dict, Any, Optional
 import os
 
 
 class MCPAPIClient:
-    """HTTP client for backend_server API calls"""
+    """HTTP client for backend_server API calls - returns MCP format"""
     
     def __init__(self):
         # MCP server runs inside backend_server, so it calls itself
@@ -18,6 +20,25 @@ class MCPAPIClient:
         # Set SERVER_BASE_URL env var to override (e.g., for remote backend_server)
         self.base_url = os.getenv('SERVER_BASE_URL', 'http://localhost:5109')
         self.timeout = 30
+    
+    def _to_mcp_format(self, api_response: Dict[str, Any]) -> Dict[str, Any]:
+        """Convert backend API response to MCP format"""
+        success = api_response.get('success', False)
+        
+        if success:
+            # Remove success flag and return clean data in MCP format
+            clean_result = {k: v for k, v in api_response.items() if k != 'success'}
+            return {
+                "content": [{"type": "text", "text": json.dumps(clean_result, indent=2)}],
+                "isError": False
+            }
+        else:
+            # Error response
+            error_msg = api_response.get('error', 'Operation failed')
+            return {
+                "content": [{"type": "text", "text": f"Error: {error_msg}"}],
+                "isError": True
+            }
     
     def post(self, endpoint: str, data: Dict[str, Any] = None, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
@@ -29,7 +50,7 @@ class MCPAPIClient:
             params: Query parameters (e.g., {'team_id': 'xxx'})
             
         Returns:
-            Response JSON as dict
+            Response in MCP format
         """
         url = f"{self.base_url}{endpoint}"
         
@@ -41,26 +62,24 @@ class MCPAPIClient:
                 timeout=self.timeout
             )
             
-            # Return JSON response
+            # Return JSON response in MCP format
             if response.status_code == 200:
-                return response.json()
+                return self._to_mcp_format(response.json())
             else:
                 return {
-                    'success': False,
-                    'error': f'HTTP {response.status_code}: {response.text}',
-                    'status_code': response.status_code
+                    "content": [{"type": "text", "text": f"Error: HTTP {response.status_code}: {response.text}"}],
+                    "isError": True
                 }
                 
         except requests.exceptions.Timeout:
             return {
-                'success': False,
-                'error': 'Request timeout',
-                'timeout': self.timeout
+                "content": [{"type": "text", "text": f"Error: Request timeout ({self.timeout}s)"}],
+                "isError": True
             }
         except requests.exceptions.RequestException as e:
             return {
-                'success': False,
-                'error': f'Network error: {str(e)}'
+                "content": [{"type": "text", "text": f"Error: Network error: {str(e)}"}],
+                "isError": True
             }
     
     def get(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
@@ -72,7 +91,7 @@ class MCPAPIClient:
             params: Query parameters
             
         Returns:
-            Response JSON as dict
+            Response in MCP format
         """
         url = f"{self.base_url}{endpoint}"
         
@@ -84,22 +103,21 @@ class MCPAPIClient:
             )
             
             if response.status_code == 200:
-                return response.json()
+                return self._to_mcp_format(response.json())
             else:
                 return {
-                    'success': False,
-                    'error': f'HTTP {response.status_code}: {response.text}',
-                    'status_code': response.status_code
+                    "content": [{"type": "text", "text": f"Error: HTTP {response.status_code}: {response.text}"}],
+                    "isError": True
                 }
                 
         except requests.exceptions.Timeout:
             return {
-                'success': False,
-                'error': 'Request timeout'
+                "content": [{"type": "text", "text": f"Error: Request timeout ({self.timeout}s)"}],
+                "isError": True
             }
         except requests.exceptions.RequestException as e:
             return {
-                'success': False,
-                'error': f'Network error: {str(e)}'
+                "content": [{"type": "text", "text": f"Error: Network error: {str(e)}"}],
+                "isError": True
             }
 

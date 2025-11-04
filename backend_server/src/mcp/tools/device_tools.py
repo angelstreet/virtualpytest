@@ -6,7 +6,7 @@ Get device information, capabilities, and execution status.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class DeviceTools:
@@ -30,8 +30,8 @@ class DeviceTools:
         Returns:
             MCP-formatted response with device information
         """
-        device_id = params.get('device_id')
-        host_name = params.get('host_name')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
         
         # Build request
         query_params = {}
@@ -43,7 +43,7 @@ class DeviceTools:
         # Call API
         result = self.api.get('/host/control/listDevices', params=query_params)
         
-        return format_tool_result(result)
+        return result
     
     def get_execution_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -65,7 +65,7 @@ class DeviceTools:
         
         # Validate required parameters
         if not execution_id:
-            return format_tool_result({'success': False, 'error': 'execution_id is required'})
+            return {"content": [{"type": "text", "text": "Error: execution_id is required"}], "isError": True}
         
         # Call appropriate endpoint based on operation type
         if operation_type == 'action':
@@ -80,5 +80,5 @@ class DeviceTools:
         # Call API
         result = self.api.get(endpoint)
         
-        return format_tool_result(result)
+        return result
 

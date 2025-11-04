@@ -6,7 +6,7 @@ Verify UI elements, video playback, text, and other device states.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class VerificationTools:
@@ -41,21 +41,19 @@ class VerificationTools:
         Returns:
             MCP-formatted response with verification results and evidence
         """
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         userinterface_name = params.get('userinterface_name')
         verifications = params.get('verifications', [])
         tree_id = params.get('tree_id')
         node_id = params.get('node_id')
-        host_name = params.get('host_name')
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
         
         # Validate required parameters
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
         if not userinterface_name:
-            return format_tool_result({'success': False, 'error': 'userinterface_name is required'})
+            return {"content": [{"type": "text", "text": "Error: userinterface_name is required"}], "isError": True}
         if not verifications:
-            return format_tool_result({'success': False, 'error': 'verifications array is required'})
+            return {"content": [{"type": "text", "text": "Error: verifications array is required"}], "isError": True}
         
         # Build request
         data = {
@@ -76,5 +74,5 @@ class VerificationTools:
         # Call API
         result = self.api.post('/server/verification/executeBatch', data=data, params=query_params)
         
-        return format_tool_result(result)
+        return result
 

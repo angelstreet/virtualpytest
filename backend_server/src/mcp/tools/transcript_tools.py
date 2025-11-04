@@ -6,7 +6,7 @@ Fetch and translate audio transcripts from devices.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class TranscriptTools:
@@ -34,18 +34,16 @@ class TranscriptTools:
         Returns:
             MCP-formatted response with transcript segments and timestamps
         """
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         chunk_url = params.get('chunk_url')
         hour = params.get('hour')
         chunk_index = params.get('chunk_index')
         target_language = params.get('target_language')
         
         # Validate required parameters
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
         if not chunk_url and (hour is None or chunk_index is None):
-            return format_tool_result({'success': False, 'error': 'Either chunk_url or (hour + chunk_index) is required'})
+            return {"content": [{"type": "text", "text": "Error: Either chunk_url or (hour + chunk_index) is required"}], "isError": True}
         
         # Build request
         data = {
@@ -64,5 +62,5 @@ class TranscriptTools:
         # Call API
         result = self.api.post('/host/transcript/translate-chunk', data=data)
         
-        return format_tool_result(result)
+        return result
 

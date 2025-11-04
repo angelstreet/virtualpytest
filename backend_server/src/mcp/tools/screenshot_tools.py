@@ -6,7 +6,7 @@ Capture screenshots for AI vision analysis.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class ScreenshotTools:
@@ -33,14 +33,12 @@ class ScreenshotTools:
         Returns:
             MCP-formatted response with base64 screenshot and optional UI dump
         """
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         include_ui_dump = params.get('include_ui_dump', False)
-        host_name = params.get('host_name')
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
         
         # Validate required parameters
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
         
         # Build request
         data = {
@@ -60,5 +58,5 @@ class ScreenshotTools:
             # Screenshot only
             result = self.api.post('/server/remote/takeScreenshot', data=data, params=query_params)
         
-        return format_tool_result(result)
+        return result
 

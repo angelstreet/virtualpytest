@@ -6,7 +6,7 @@ Navigate through UI trees using pathfinding and action execution.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class NavigationTools:
@@ -41,20 +41,18 @@ class NavigationTools:
         userinterface_name = params.get('userinterface_name')
         target_node_id = params.get('target_node_id')
         target_node_label = params.get('target_node_label')
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         current_node_id = params.get('current_node_id')
-        host_name = params.get('host_name')
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
         
         # Validate required parameters
         if not tree_id:
-            return format_tool_result({'success': False, 'error': 'tree_id is required'})
+            return {"content": [{"type": "text", "text": "Error: tree_id is required"}], "isError": True}
         if not userinterface_name:
-            return format_tool_result({'success': False, 'error': 'userinterface_name is required for reference resolution'})
+            return {"content": [{"type": "text", "text": "Error: userinterface_name is required for reference resolution"}], "isError": True}
         if not target_node_id and not target_node_label:
-            return format_tool_result({'success': False, 'error': 'Either target_node_id or target_node_label is required'})
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
+            return {"content": [{"type": "text", "text": "Error: Either target_node_id or target_node_label is required"}], "isError": True}
         
         # Build request
         data = {
@@ -77,5 +75,5 @@ class NavigationTools:
         # Call API
         result = self.api.post('/server/navigation/executeNavigationToNode', data=data, params=query_params)
         
-        return format_tool_result(result)
+        return result
 

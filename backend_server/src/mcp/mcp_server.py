@@ -38,7 +38,6 @@ from .tools.logs_tools import LogsTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
-from .utils.response_formatter import format_mcp_response
 
 
 class VirtualPyTestMCPServer:
@@ -115,10 +114,10 @@ class VirtualPyTestMCPServer:
             
             # Check if tool exists
             if tool_name not in self.tool_handlers:
-                return format_mcp_response(
-                    success=False,
-                    error=f"Unknown tool: {tool_name}. Available tools: {list(self.tool_handlers.keys())}"
-                )
+                return {
+                    "content": [{"type": "text", "text": f"Error: Unknown tool: {tool_name}. Available tools: {list(self.tool_handlers.keys())}"}],
+                    "isError": True
+                }
             
             # Execute tool
             handler = self.tool_handlers[tool_name]
@@ -129,108 +128,217 @@ class VirtualPyTestMCPServer:
             
         except Exception as e:
             self.logger.error(f"Tool call error for {tool_name}: {e}", exc_info=True)
-            return format_mcp_response(
-                success=False,
-                error=f"Tool execution error: {str(e)}"
-            )
+            return {
+                "content": [{"type": "text", "text": f"Error: Tool execution error: {str(e)}"}],
+                "isError": True
+            }
     
     def get_available_tools(self) -> List[Dict[str, Any]]:
         """
-        Get list of available MCP tools
+        Get list of available MCP tools in proper MCP format with JSON Schema
         
         Returns:
-            List of tool definitions with names and descriptions
+            List of MCP-formatted tool definitions
         """
         tools = [
             {
                 "name": "take_control",
                 "description": "Take control of a device (REQUIRED before any operations). Locks device and generates navigation cache.",
-                "category": "control",
-                "required_params": ["host_name", "device_id", "team_id"],
-                "optional_params": ["tree_id"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "tree_id": {"type": "string", "description": "Navigation tree ID (triggers cache generation if provided)"}
+                    },
+                    "required": []
+                }
             },
             {
                 "name": "release_control",
                 "description": "Release control of a device. Unlocks device when operations are complete.",
-                "category": "control",
-                "required_params": ["host_name", "device_id", "team_id"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": []
+                }
             },
             {
                 "name": "execute_device_action",
                 "description": "Execute batch of actions on device (remote commands, ADB, web, desktop). Returns execution_id for polling.",
-                "category": "action",
-                "required_params": ["device_id", "team_id", "actions"],
-                "optional_params": ["retry_actions", "failure_actions"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "actions": {
+                            "type": "array",
+                            "description": "Array of action objects with command, params, and optional delay",
+                            "items": {"type": "object"}
+                        },
+                        "retry_actions": {"type": "array", "description": "Actions to retry on failure", "items": {"type": "object"}},
+                        "failure_actions": {"type": "array", "description": "Actions to execute on failure", "items": {"type": "object"}}
+                    },
+                    "required": ["actions"]
+                }
             },
             {
                 "name": "navigate_to_node",
                 "description": "Navigate to target node in UI tree using pathfinding. Requires take_control first.",
-                "category": "navigation",
-                "required_params": ["tree_id", "userinterface_name", "device_id", "team_id", "target_node_id or target_node_label"],
-                "optional_params": ["current_node_id", "host_name"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'horizon_android_tv')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "target_node_id": {"type": "string", "description": "Target node ID (provide either this or target_node_label)"},
+                        "target_node_label": {"type": "string", "description": "Target node label (provide either this or target_node_id)"},
+                        "current_node_id": {"type": "string", "description": "Current node ID (optional)"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
+                    },
+                    "required": ["tree_id", "userinterface_name"]
+                }
             },
             {
                 "name": "verify_device_state",
                 "description": "Verify device state with batch verifications (image, text, video, ADB).",
-                "category": "verification",
-                "required_params": ["device_id", "team_id", "userinterface_name", "verifications"],
-                "optional_params": ["tree_id", "node_id", "host_name"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "userinterface_name": {"type": "string", "description": "User interface name"},
+                        "verifications": {
+                            "type": "array",
+                            "description": "Array of verification objects with type, method, params, expected",
+                            "items": {"type": "object"}
+                        },
+                        "tree_id": {"type": "string", "description": "Navigation tree ID (optional)"},
+                        "node_id": {"type": "string", "description": "Node ID to verify (optional)"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
+                    },
+                    "required": ["userinterface_name", "verifications"]
+                }
             },
             {
                 "name": "execute_testcase",
                 "description": "Execute complete test case from graph JSON. Returns execution_id for polling.",
-                "category": "testcase",
-                "required_params": ["device_id", "team_id", "host_name", "graph_json"],
-                "optional_params": ["userinterface_name", "testcase_name", "async_execution"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
+                        "graph_json": {"type": "object", "description": "Test case graph definition"},
+                        "userinterface_name": {"type": "string", "description": "User interface name"},
+                        "testcase_name": {"type": "string", "description": "Test case name"},
+                        "async_execution": {"type": "boolean", "description": "Execute asynchronously (default: true)"}
+                    },
+                    "required": ["graph_json"]
+                }
             },
             {
                 "name": "generate_test_graph",
                 "description": "Generate test case graph from natural language using AI.",
-                "category": "ai",
-                "required_params": ["prompt", "device_id", "team_id", "userinterface_name"],
-                "optional_params": ["current_node_id"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "prompt": {"type": "string", "description": "Natural language test description"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "userinterface_name": {"type": "string", "description": "User interface name"},
+                        "current_node_id": {"type": "string", "description": "Current node ID (optional)"}
+                    },
+                    "required": ["prompt", "userinterface_name"]
+                }
             },
             {
                 "name": "capture_screenshot",
                 "description": "Capture screenshot from device for AI vision analysis. Returns base64 image.",
-                "category": "screenshot",
-                "required_params": ["device_id", "team_id"],
-                "optional_params": ["include_ui_dump", "host_name"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "include_ui_dump": {"type": "boolean", "description": "Include UI hierarchy dump for element detection"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
+                    },
+                    "required": []
+                }
             },
             {
                 "name": "get_transcript",
                 "description": "Get audio transcript from device with optional translation.",
-                "category": "transcript",
-                "required_params": ["device_id", "team_id", "chunk_url or (hour + chunk_index)"],
-                "optional_params": ["target_language"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "chunk_url": {"type": "string", "description": "Chunk URL (provide this OR hour+chunk_index)"},
+                        "hour": {"type": "integer", "description": "Hour number (use with chunk_index)"},
+                        "chunk_index": {"type": "integer", "description": "Chunk index (use with hour)"},
+                        "target_language": {"type": "string", "description": "Language code for translation (e.g., 'fr', 'es', 'de')"}
+                    },
+                    "required": []
+                }
             },
             {
                 "name": "get_device_info",
                 "description": "Get device information, capabilities, and controller status.",
-                "category": "device",
-                "required_params": [],
-                "optional_params": ["device_id", "host_name"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Specific device ID, or omit for all devices"},
+                        "host_name": {"type": "string", "description": "Host name to query (optional - defaults to 'sunri-pi1')"}
+                    },
+                    "required": []
+                }
             },
             {
                 "name": "get_execution_status",
                 "description": "Poll async execution status for actions, testcases, or AI operations.",
-                "category": "device",
-                "required_params": ["execution_id"],
-                "optional_params": ["operation_type"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "execution_id": {"type": "string", "description": "Execution ID from async operation"},
+                        "operation_type": {
+                            "type": "string",
+                            "description": "Operation type (action, testcase, ai)",
+                            "enum": ["action", "testcase", "ai"]
+                        }
+                    },
+                    "required": ["execution_id"]
+                }
             },
             {
                 "name": "view_logs",
                 "description": "View systemd service logs via journalctl. Access backend_server, backend_host, or other service logs.",
-                "category": "logs",
-                "required_params": ["service"],
-                "optional_params": ["lines", "since", "level", "grep"]
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "service": {"type": "string", "description": "Service name (e.g., 'backend_server', 'backend_host')"},
+                        "lines": {"type": "integer", "description": "Number of lines to show"},
+                        "since": {"type": "string", "description": "Show logs since time (e.g., '1 hour ago', '2024-01-01')"},
+                        "level": {"type": "string", "description": "Log level filter (e.g., 'error', 'warning')"},
+                        "grep": {"type": "string", "description": "Search pattern to filter logs"}
+                    },
+                    "required": ["service"]
+                }
             },
             {
                 "name": "list_services",
                 "description": "List available VirtualPyTest systemd services and their status.",
-                "category": "logs",
-                "required_params": [],
-                "optional_params": []
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {},
+                    "required": []
+                }
             }
         ]
         

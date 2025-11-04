@@ -6,7 +6,7 @@ Execute complete test cases and scripts on devices.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class TestCaseTools:
@@ -36,21 +36,19 @@ class TestCaseTools:
         Returns:
             MCP-formatted response with execution_id for polling or immediate results
         """
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
-        host_name = params.get('host_name')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
         graph_json = params.get('graph_json')
         testcase_name = params.get('testcase_name')
         userinterface_name = params.get('userinterface_name', '')
         async_execution = params.get('async_execution', True)
         
         # Validate required parameters
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
         if not host_name:
-            return format_tool_result({'success': False, 'error': 'host_name is required'})
+            return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
         if not graph_json and not testcase_name:
-            return format_tool_result({'success': False, 'error': 'Either graph_json or testcase_name is required'})
+            return {"content": [{"type": "text", "text": "Error: Either graph_json or testcase_name is required"}], "isError": True}
         
         # Build request
         if graph_json:
@@ -70,7 +68,7 @@ class TestCaseTools:
         else:
             # Execute saved testcase by name
             # Note: Would need testcase_id lookup first
-            return format_tool_result({'success': False, 'error': 'Execute by testcase_name not yet implemented - use graph_json'})
+            return {"content": [{"type": "text", "text": "Error: Execute by testcase_name not yet implemented - use graph_json"}], "isError": True}
         
-        return format_tool_result(result)
+        return result
 

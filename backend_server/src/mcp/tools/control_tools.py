@@ -6,7 +6,7 @@ Provides take_control and release_control for device locking and cache generatio
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class ControlTools:
@@ -24,43 +24,27 @@ class ControlTools:
         
         Args:
             params: {
-                'host_name': str (REQUIRED),
-                'device_id': str (REQUIRED),
+                'host_name': str (OPTIONAL - uses default 'sunri-pi1' if not provided),
+                'device_id': str (OPTIONAL - uses default 'device_1' if not provided),
                 'tree_id': str (OPTIONAL - triggers cache generation),
-                'team_id': str (REQUIRED)
+                'team_id': str (OPTIONAL - uses default if not provided)
             }
             
         Returns:
             MCP-formatted response with session_id and cache status
         """
-        host_name = params.get('host_name')
-        device_id = params.get('device_id')
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
         tree_id = params.get('tree_id')
-        team_id = params.get('team_id')
-        
-        # Validate required parameters
-        if not host_name:
-            return format_tool_result({'success': False, 'error': 'host_name is required'})
-        if not device_id:
-            return format_tool_result({'success': False, 'error': 'device_id is required'})
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Build request
-        data = {
-            'host_name': host_name,
-            'device_id': device_id
-        }
-        
+        data = {'host_name': host_name, 'device_id': device_id}
         if tree_id:
             data['tree_id'] = tree_id
         
-        query_params = {'team_id': team_id}
-        
-        # Call API
-        result = self.api.post('/server/control/takeControl', data=data, params=query_params)
-        
-        return format_tool_result(result)
+        # Call API - returns MCP format directly
+        return self.api.post('/server/control/takeControl', data=data, params={'team_id': team_id})
     
     def release_control(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -71,36 +55,22 @@ class ControlTools:
         
         Args:
             params: {
-                'host_name': str (REQUIRED),
-                'device_id': str (REQUIRED),
-                'team_id': str (REQUIRED)
+                'host_name': str (OPTIONAL - uses default 'sunri-pi1' if not provided),
+                'device_id': str (OPTIONAL - uses default 'device_1' if not provided),
+                'team_id': str (OPTIONAL - uses default if not provided)
             }
             
         Returns:
             MCP-formatted response
         """
-        host_name = params.get('host_name')
-        device_id = params.get('device_id')
-        team_id = params.get('team_id')
-        
-        # Validate required parameters
-        if not host_name:
-            return format_tool_result({'success': False, 'error': 'host_name is required'})
-        if not device_id:
-            return format_tool_result({'success': False, 'error': 'device_id is required'})
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Build request
-        data = {
-            'host_name': host_name,
-            'device_id': device_id
-        }
+        data = {'host_name': host_name, 'device_id': device_id}
         
-        query_params = {'team_id': team_id}
-        
-        # Call API
-        result = self.api.post('/server/control/releaseControl', data=data, params=query_params)
-        
-        return format_tool_result(result)
+        # Call API - returns MCP format directly
+        return self.api.post('/server/control/releaseControl', data=data, params={'team_id': team_id})
+
 

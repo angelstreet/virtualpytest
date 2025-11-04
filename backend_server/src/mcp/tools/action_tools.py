@@ -6,7 +6,7 @@ Execute remote commands, ADB commands, web actions, and desktop actions.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class ActionTools:
@@ -38,17 +38,15 @@ class ActionTools:
         Returns:
             MCP-formatted response with execution_id for polling
         """
-        device_id = params.get('device_id', 'device1')
-        team_id = params.get('team_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         actions = params.get('actions', [])
         retry_actions = params.get('retry_actions', [])
         failure_actions = params.get('failure_actions', [])
         
         # Validate required parameters
-        if not team_id:
-            return format_tool_result({'success': False, 'error': 'team_id is required'})
         if not actions:
-            return format_tool_result({'success': False, 'error': 'actions array is required'})
+            return {"content": [{"type": "text", "text": "Error: actions array is required"}], "isError": True}
         
         # Build request
         data = {
@@ -60,8 +58,6 @@ class ActionTools:
         
         query_params = {'team_id': team_id}
         
-        # Call API
-        result = self.api.post('/host/action/executeBatch', data=data, params=query_params)
-        
-        return format_tool_result(result)
+        # Call API - returns MCP format directly
+        return self.api.post('/host/action/executeBatch', data=data, params=query_params)
 

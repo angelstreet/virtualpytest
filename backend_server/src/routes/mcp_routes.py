@@ -68,31 +68,38 @@ def require_mcp_auth(f):
     return decorated_function
 
 
-@mcp_bp.route('/', methods=['POST'], strict_slashes=False)
+@mcp_bp.route('/', methods=['GET', 'POST'], strict_slashes=False)
 @require_mcp_auth
 def mcp_endpoint():
     """
     MCP HTTP endpoint - JSON-RPC 2.0 protocol
     
-    Supports two formats:
+    Supports GET for SSE/handshake and POST for JSON-RPC requests.
     
-    1. JSON-RPC 2.0 (standard MCP protocol):
+    JSON-RPC 2.0 format (POST):
     {
         "jsonrpc": "2.0",
         "id": 1,
-        "method": "tools/list" | "tools/call",
+        "method": "tools/list" | "tools/call" | "initialize",
         "params": {
             "name": "tool_name",
             "arguments": {...}
         }
     }
-    
-    2. Simple REST format (legacy):
-    {
-        "tool": "take_control",
-        "params": {...}
-    }
     """
+    # Handle GET requests (for SSE or health checks)
+    if request.method == 'GET':
+        return jsonify({
+            'status': 'ready',
+            'protocol': 'MCP',
+            'version': '2024-11-05',
+            'serverInfo': {
+                'name': 'virtualpytest',
+                'version': '1.0.0'
+            }
+        }), 200
+    
+    # Handle POST requests (JSON-RPC)
     try:
         data = request.get_json()
         
@@ -131,7 +138,7 @@ def mcp_endpoint():
 
 
 def handle_jsonrpc_request(data):
-    """Handle JSON-RPC 2.0 requests"""
+    """Handle JSON-RPC 2.0 requests according to MCP 2025-06-18 spec"""
     request_id = data.get('id')
     method = data.get('method')
     params = data.get('params', {})
@@ -143,9 +150,11 @@ def handle_jsonrpc_request(data):
                 'jsonrpc': '2.0',
                 'id': request_id,
                 'result': {
-                    'protocolVersion': '2024-11-05',
+                    'protocolVersion': '2024-11-05',  # Using stable version compatible with most clients
                     'capabilities': {
-                        'tools': {}
+                        'tools': {
+                            'listChanged': True  # We support tools/list_changed notifications
+                        }
                     },
                     'serverInfo': {
                         'name': 'virtualpytest',
@@ -157,27 +166,13 @@ def handle_jsonrpc_request(data):
         # Handle tools/list method
         elif method == 'tools/list':
             tools = mcp_server.get_available_tools()
-            # Convert to MCP protocol format
-            mcp_tools = []
-            for tool in tools:
-                mcp_tools.append({
-                    'name': tool['name'],
-                    'description': tool['description'],
-                    'inputSchema': {
-                        'type': 'object',
-                        'properties': {
-                            param: {'type': 'string', 'description': f'{param} parameter'}
-                            for param in (tool.get('required_params', []) + tool.get('optional_params', []))
-                        },
-                        'required': tool.get('required_params', [])
-                    }
-                })
+            # Tools are already in proper MCP format
             
             return jsonify({
                 'jsonrpc': '2.0',
                 'id': request_id,
                 'result': {
-                    'tools': mcp_tools
+                    'tools': tools
                 }
             })
         
@@ -191,18 +186,22 @@ def handle_jsonrpc_request(data):
                     'jsonrpc': '2.0',
                     'id': request_id,
                     'error': {
-                        'code': -32602,
-                        'message': 'Invalid params - tool name is required'
-                    }
-                }), 400
+                    'code': -32602,
+                    'message': 'Invalid params - tool name is required'
+                }
+            }), 200  # JSON-RPC errors should return HTTP 200
             
-            # Execute tool
-            result = asyncio.run(mcp_server.handle_tool_call(tool_name, arguments))
+            # Execute tool - result already in MCP format from response_formatter
+            tool_result = asyncio.run(mcp_server.handle_tool_call(tool_name, arguments))
+            
+            # Ensure isError field exists (default to False if not present)
+            if 'isError' not in tool_result:
+                tool_result['isError'] = False
             
             return jsonify({
                 'jsonrpc': '2.0',
                 'id': request_id,
-                'result': result
+                'result': tool_result
             })
         
         else:
@@ -213,7 +212,7 @@ def handle_jsonrpc_request(data):
                     'code': -32601,
                     'message': f'Method not found: {method}'
                 }
-            }), 404
+            }), 200  # JSON-RPC errors should return HTTP 200
             
     except Exception as e:
         return jsonify({
@@ -223,7 +222,7 @@ def handle_jsonrpc_request(data):
                 'code': -32603,
                 'message': f'Internal error: {str(e)}'
             }
-        }), 500
+        }), 200  # JSON-RPC errors should return HTTP 200
 
 
 @mcp_bp.route('/tools', methods=['GET'], strict_slashes=False)

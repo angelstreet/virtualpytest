@@ -5,10 +5,39 @@ Single source of truth for all hardcoded values, magic numbers, and configuratio
 Shared across backend_server, backend_host, and all services.
 
 USAGE:
-    from shared.src.lib.config.constants import CACHE_CONFIG, HTTP_CONFIG
+    from shared.src.lib.config.constants import CACHE_CONFIG, HTTP_CONFIG, APP_CONFIG
     ttl = CACHE_CONFIG['LONG_TTL']
     timeout = HTTP_CONFIG['DEFAULT_TIMEOUT']
+    team_id = APP_CONFIG['DEFAULT_TEAM_ID']
 """
+
+import os
+
+# =====================================================
+# APPLICATION CONFIGURATION
+# =====================================================
+
+APP_CONFIG = {
+    # Default Team ID for all API requests
+    # Can be overridden via TEAM_ID environment variable
+    'DEFAULT_TEAM_ID': os.getenv('TEAM_ID', '7fdeb4bb-3639-4ec3-959f-b54769a219ce'),
+    
+    # Default User ID for session management
+    # Can be overridden via USER_ID environment variable
+    'DEFAULT_USER_ID': os.getenv('USER_ID', 'eb6cfd93-44ab-4783-bd0c-129b734640f3'),
+    
+    # Default Host Name for device operations
+    # Can be overridden via HOST_NAME environment variable
+    'DEFAULT_HOST_NAME': os.getenv('HOST_NAME', 'sunri-pi1'),
+    
+    # Default Device ID fallback
+    # Can be overridden via DEVICE_ID environment variable
+    'DEFAULT_DEVICE_ID': os.getenv('DEVICE_ID', 'device_1'),
+    
+    # Default identifiers for legacy APIs
+    'DEFAULT_USER_NAME': 'default-user',
+    'DEFAULT_TEAM_NAME': 'default-team-id',
+}
 
 # =====================================================
 # CACHE CONFIGURATION (TTL in seconds)

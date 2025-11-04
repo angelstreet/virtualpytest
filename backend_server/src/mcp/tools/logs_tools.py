@@ -6,7 +6,7 @@ Provides access to systemd service logs via journalctl.
 
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
-from ..utils.response_formatter import format_tool_result
+from shared.src.lib.config.constants import APP_CONFIG
 
 
 class LogsTools:
@@ -44,7 +44,7 @@ class LogsTools:
         
         # Validate required parameters
         if not service:
-            return format_tool_result({'success': False, 'error': 'service is required (e.g., vpt_server_host, vpt_server_backend)'})
+            return {"content": [{"type": "text", "text": "Error: service is required (e.g., vpt_server_host, vpt_server_backend)"}], "isError": True}
         
         # Build request
         data = {
@@ -63,7 +63,7 @@ class LogsTools:
         # Call API
         result = self.api.post('/server/logs/view', data=data)
         
-        return format_tool_result(result)
+        return result
     
     def list_services(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -80,5 +80,5 @@ class LogsTools:
         # Call API
         result = self.api.get('/server/logs/services')
         
-        return format_tool_result(result)
+        return result
 
