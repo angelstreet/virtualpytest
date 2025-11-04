@@ -5,7 +5,7 @@
  * - useHostManager (device selection)
  * - useDeviceControlWithForceUnlock (take/release control)
  * - useDeviceData (available actions/verifications)
- * - useNavigationEditor + useNavigationConfig (tree loading)
+ * - Direct API call for navigation nodes (same as MCP backend)
  * - useTestCaseAI (AI generation)
  * - useTestCaseExecution (execution)
  */
@@ -14,13 +14,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useHostManager } from '../../contexts/index';
 import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useDeviceControlWithForceUnlock } from '../useDeviceControlWithForceUnlock';
-import { useNavigationEditor } from '../navigation/useNavigationEditor';
-import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import { useUserInterface } from './useUserInterface';
 import { useTestCaseAI } from '../testcase';
 import { useTestCaseExecution } from '../testcase/useTestCaseExecution';
 import { useExecutionState } from '../testcase/useExecutionState';
 import { filterCompatibleInterfaces } from '../../utils/userinterface/deviceCompatibilityUtils';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { TestCaseGraph, ScriptInput, Variable } from '../../types/testcase/TestCase_Types';
 
 export interface UseMCPPlaygroundPageReturn {
@@ -128,9 +127,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
   const availableVerifications = getAvailableVerificationTypes();
   const areActionsLoaded = isControlActive && !availableActionsLoading && Object.values(availableActions || {}).flat().length > 0;
   
-  // ==================== INTERFACE & NAVIGATION (REUSE FROM TESTCASEBUILDER) ====================
-  const { setUserInterfaceFromProps } = useNavigationEditor();
-  const { loadTreeByUserInterface, getNodeById } = useNavigationConfig();
+  // ==================== INTERFACE & NAVIGATION ====================
   const { getAllUserInterfaces, getUserInterfaceByName } = useUserInterface();
   
   const [compatibleInterfaceNames, setCompatibleInterfaceNames] = useState<string[]>([]);
@@ -174,9 +171,9 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
     loadCompatibleInterfaces();
   }, [selectedDeviceId, selectedHost, getAllUserInterfaces, userinterfaceName, setUserinterfaceName]);
   
-  // Load navigation tree when interface changes (SAME AS TESTCASEBUILDER)
+  // Load navigation nodes when interface changes (REUSE SAME API AS TESTCASEBUILDER)
   useEffect(() => {
-    const loadTreeForInterface = async () => {
+    const loadNodesForInterface = async () => {
       if (!userinterfaceName) {
         setNavNodes([]);
         setCurrentTreeId(null);
@@ -193,67 +190,55 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
           return;
         }
         
-        // Use root_tree.id if available, otherwise fall back to tree_id
-        const tree_id = interfaceData.root_tree?.id || interfaceData.tree_id;
-        if (!tree_id) {
-          console.warn(`[@useMCPPlaygroundPage] No tree_id for interface: ${userinterfaceName}`);
+        // REUSE EXACT SAME API AS TESTCASEBUILDER (NavigationConfigContext.tsx line 284)
+        // GET /server/navigationTrees/getTreeByUserInterfaceId/{userInterfaceId}?include_nested=true
+        console.log(`[@useMCPPlaygroundPage] Loading nodes from /server/navigationTrees/getTreeByUserInterfaceId/${interfaceData.id}`);
+        
+        const response = await fetch(
+          buildServerUrl(`/server/navigationTrees/getTreeByUserInterfaceId/${interfaceData.id}?include_nested=true`)
+        );
+        
+        if (!response.ok) {
+          throw new Error(`Failed to load navigation nodes: ${response.statusText}`);
+        }
+        
+        const result = await response.json();
+        
+        if (!result.success || !result.tree) {
+          console.warn(`[@useMCPPlaygroundPage] No tree returned for interface ${userinterfaceName}`);
+          setNavNodes([]);
+          setCurrentTreeId(null);
           setIsLoadingTree(false);
           return;
         }
         
+        // Extract nodes from tree metadata (SAME AS TESTCASEBUILDER)
+        const nodes = result.tree.metadata?.nodes || [];
+        const tree_id = result.tree.id;
+        
         setCurrentTreeId(tree_id);
         
-        // Load tree using userinterface ID (UUID), not name - SAME AS TESTCASEBUILDER
-        const result = await loadTreeByUserInterface(interfaceData.id, { includeNested: true });
-        setUserInterfaceFromProps(interfaceData);
-        
-        console.log('[@useMCPPlaygroundPage] 🔍 Loaded tree:', {
-          result_tree_id: result?.tree?.id,
-          userInterface_root_tree: interfaceData.root_tree,
-          currentTreeId: tree_id,
-          userinterfaceName,
-          isLoadingTree: false,
-          disableTakeControl: !userinterfaceName || false || !tree_id
-        });
-        
-        // Extract nodes from loaded tree
-        const allNodes: any[] = [];
-        const collectNodes = (nodeId: string, visited = new Set<string>()) => {
-          if (visited.has(nodeId)) return;
-          visited.add(nodeId);
-          
-          const node = getNodeById(nodeId);
-          if (node) {
-            allNodes.push(node);
-            node.edges?.forEach((edge: any) => {
-              if (edge.target) collectNodes(edge.target, visited);
-            });
-          }
-        };
-        
-        const entryNode = getNodeById('ENTRY');
-        if (entryNode) {
-          collectNodes('ENTRY');
-        }
-        
-        // Filter out ENTRY nodes
-        const filteredNodes = allNodes.filter(node => 
+        // Filter out ENTRY nodes (same as TestCaseBuilder does)
+        const filteredNodes = nodes.filter((node: any) => 
           node.id !== 'ENTRY' && 
           node.type !== 'entry' &&
           node.label?.toLowerCase() !== 'entry'
         );
         
         setNavNodes(filteredNodes);
-        console.log(`[@useMCPPlaygroundPage] Loaded ${filteredNodes.length} nodes for ${userinterfaceName}`);
+        console.log(`[@useMCPPlaygroundPage] ✅ Loaded ${filteredNodes.length} nodes from API (total: ${nodes.length}, tree_id: ${tree_id})`);
+        
       } catch (error) {
-        console.error('[@useMCPPlaygroundPage] Error loading tree:', error);
+        console.error('[@useMCPPlaygroundPage] Error loading nodes:', error);
+        setNavNodes([]);
+        setCurrentTreeId(null);
       } finally {
         setIsLoadingTree(false);
       }
     };
     
-    loadTreeForInterface();
-  }, [userinterfaceName, getUserInterfaceByName, loadTreeByUserInterface, setUserInterfaceFromProps, getNodeById]);
+    loadNodesForInterface();
+  }, [userinterfaceName, getUserInterfaceByName]);
   
   // ==================== AI GENERATION (REUSE FROM TESTCASEBUILDER) ====================
   const { generateTestCaseFromPrompt } = useTestCaseAI();
