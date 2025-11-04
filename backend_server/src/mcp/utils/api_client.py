@@ -43,7 +43,8 @@ class MCPAPIClient:
             )
             
             # Return raw JSON response
-            if response.status_code == 200:
+            # Accept both 200 (success) and 202 (async started) as valid responses
+            if response.status_code in [200, 202]:
                 return response.json()
             else:
                 return {
