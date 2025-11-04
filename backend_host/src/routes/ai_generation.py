@@ -126,79 +126,81 @@ def start_exploration():
         
         # Start exploration in background thread
         def run_exploration():
-            try:
-                # Update status
-                _exploration_sessions[exploration_id]['status'] = 'exploring'
-                _exploration_sessions[exploration_id]['current_step'] = 'Capturing initial screenshot...'
-                
-                # Create exploration engine
-                engine = ExplorationEngine(
-                    tree_id=tree_id,
-                    device_id=device_id,
-                    host_name=host_name,
-                    device_model_name=device_model_name,
-                    team_id=team_id,
-                    userinterface_name=userinterface_name,
-                    depth_limit=exploration_depth
-                )
-                
-                # Run exploration
-                result = engine.start_exploration()
-                
-                # Update state with results
-                if result['success']:
-                    _exploration_sessions[exploration_id]['status'] = 'completed'
-                    _exploration_sessions[exploration_id]['current_step'] = f"Exploration completed. Found {result['nodes_created']} nodes."
-                    _exploration_sessions[exploration_id]['progress'] = {
-                        'total_screens_found': result['nodes_created'],
-                        'screens_analyzed': result['nodes_created'],
-                        'nodes_proposed': result['nodes_created'],
-                        'edges_proposed': result['edges_created']
-                    }
-                    _exploration_sessions[exploration_id]['created_nodes'] = result['created_node_ids']
-                    _exploration_sessions[exploration_id]['created_edges'] = result['created_edge_ids']
-                    _exploration_sessions[exploration_id]['created_subtrees'] = result['created_subtree_ids']
+            # ✅ CRITICAL: Background thread needs Flask app context to access current_app.host_devices
+            with current_app.app_context():
+                try:
+                    # Update status
+                    _exploration_sessions[exploration_id]['status'] = 'exploring'
+                    _exploration_sessions[exploration_id]['current_step'] = 'Capturing initial screenshot...'
                     
-                    # Build proposed nodes/edges for frontend
-                    proposed_nodes = []
-                    for node_id in result['created_node_ids']:
-                        node_result = get_node_by_id(tree_id, node_id, team_id)
-                        if node_result['success']:
-                            node = node_result['node']
-                            proposed_nodes.append({
-                                'id': node_id,
-                                'name': node.get('label', node_id),
-                                'screen_type': node.get('data', {}).get('screen_type', 'screen'),
-                                'reasoning': node.get('data', {}).get('reasoning', '')
-                            })
+                    # Create exploration engine
+                    engine = ExplorationEngine(
+                        tree_id=tree_id,
+                        device_id=device_id,
+                        host_name=host_name,
+                        device_model_name=device_model_name,
+                        team_id=team_id,
+                        userinterface_name=userinterface_name,
+                        depth_limit=exploration_depth
+                    )
                     
-                    proposed_edges = []
-                    for edge_id in result['created_edge_ids']:
-                        edge_result = get_edge_by_id(tree_id, edge_id, team_id)
-                        if edge_result['success']:
-                            edge = edge_result['edge']
-                            proposed_edges.append({
-                                'id': edge_id,
-                                'source': edge.get('source_node_id', ''),
-                                'target': edge.get('target_node_id', ''),
-                                'reasoning': f"Navigation from {edge.get('source_node_id', '')} to {edge.get('target_node_id', '')}"
-                            })
+                    # Run exploration
+                    result = engine.start_exploration()
                     
-                    _exploration_sessions[exploration_id]['proposed_nodes'] = proposed_nodes
-                    _exploration_sessions[exploration_id]['proposed_edges'] = proposed_edges
-                else:
+                    # Update state with results
+                    if result['success']:
+                        _exploration_sessions[exploration_id]['status'] = 'completed'
+                        _exploration_sessions[exploration_id]['current_step'] = f"Exploration completed. Found {result['nodes_created']} nodes."
+                        _exploration_sessions[exploration_id]['progress'] = {
+                            'total_screens_found': result['nodes_created'],
+                            'screens_analyzed': result['nodes_created'],
+                            'nodes_proposed': result['nodes_created'],
+                            'edges_proposed': result['edges_created']
+                        }
+                        _exploration_sessions[exploration_id]['created_nodes'] = result['created_node_ids']
+                        _exploration_sessions[exploration_id]['created_edges'] = result['created_edge_ids']
+                        _exploration_sessions[exploration_id]['created_subtrees'] = result['created_subtree_ids']
+                        
+                        # Build proposed nodes/edges for frontend
+                        proposed_nodes = []
+                        for node_id in result['created_node_ids']:
+                            node_result = get_node_by_id(tree_id, node_id, team_id)
+                            if node_result['success']:
+                                node = node_result['node']
+                                proposed_nodes.append({
+                                    'id': node_id,
+                                    'name': node.get('label', node_id),
+                                    'screen_type': node.get('data', {}).get('screen_type', 'screen'),
+                                    'reasoning': node.get('data', {}).get('reasoning', '')
+                                })
+                        
+                        proposed_edges = []
+                        for edge_id in result['created_edge_ids']:
+                            edge_result = get_edge_by_id(tree_id, edge_id, team_id)
+                            if edge_result['success']:
+                                edge = edge_result['edge']
+                                proposed_edges.append({
+                                    'id': edge_id,
+                                    'source': edge.get('source_node_id', ''),
+                                    'target': edge.get('target_node_id', ''),
+                                    'reasoning': f"Navigation from {edge.get('source_node_id', '')} to {edge.get('target_node_id', '')}"
+                                })
+                        
+                        _exploration_sessions[exploration_id]['proposed_nodes'] = proposed_nodes
+                        _exploration_sessions[exploration_id]['proposed_edges'] = proposed_edges
+                    else:
+                        _exploration_sessions[exploration_id]['status'] = 'failed'
+                        _exploration_sessions[exploration_id]['error'] = result.get('error', 'Unknown error')
+                        _exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {result.get('error')}"
+                    
+                    _exploration_sessions[exploration_id]['completed_at'] = datetime.now(timezone.utc).isoformat()
+                    
+                except Exception as e:
+                    print(f"[@route:ai_generation:run_exploration] Error: {e}")
                     _exploration_sessions[exploration_id]['status'] = 'failed'
-                    _exploration_sessions[exploration_id]['error'] = result.get('error', 'Unknown error')
-                    _exploration_sessions[exploration_id]['current_step'] = f"Exploration failed: {result.get('error')}"
-                
-                _exploration_sessions[exploration_id]['completed_at'] = datetime.now(timezone.utc).isoformat()
-                
-            except Exception as e:
-                print(f"[@route:ai_generation:run_exploration] Error: {e}")
-                _exploration_sessions[exploration_id]['status'] = 'failed'
-                _exploration_sessions[exploration_id]['error'] = str(e)
-                _exploration_sessions[exploration_id]['current_step'] = f"Error: {str(e)}"
-                _exploration_sessions[exploration_id]['completed_at'] = datetime.now(timezone.utc).isoformat()
+                    _exploration_sessions[exploration_id]['error'] = str(e)
+                    _exploration_sessions[exploration_id]['current_step'] = f"Error: {str(e)}"
+                    _exploration_sessions[exploration_id]['completed_at'] = datetime.now(timezone.utc).isoformat()
         
         # Start thread
         thread = threading.Thread(target=run_exploration, daemon=True)
