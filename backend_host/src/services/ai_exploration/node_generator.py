@@ -120,11 +120,11 @@ class NodeGenerator:
         return {
             'node_id': node_name,
             'label': node_name,
-            'type': node_type,
+            'node_type': node_type,  # ✅ Use node_type, not type
             'position_x': position['x'],
             'position_y': position['y'],
             'data': {
-                'type': node_type,
+                'type': node_type,  # Keep type in data for ReactFlow compatibility
                 'ai_generated': True,
                 'ai_suggestion': ai_analysis.get('suggested_name', ''),
                 'screen_type': ai_analysis.get('screen_type', 'screen'),

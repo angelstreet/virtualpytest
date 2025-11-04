@@ -181,36 +181,76 @@ Context visible = Can you still see elements from the previous screen?
     
     def capture_screenshot(self) -> Optional[str]:
         """
-        Capture screenshot:
+        Capture screenshot and save to cold storage:
         - android_mobile: Use ADB native screenshot (exact display buffer)
         - Other devices: Use HDMI capture via VideoAIHelpers
         
         Returns:
-            Screenshot file path or None on error
+            Screenshot file path in COLD storage or None on error
         """
         try:
+            import shutil
+            from datetime import datetime
+            from shared.src.lib.utils.storage_path_utils import get_captures_path, get_capture_folder_from_device_id
+            
+            # Get device capture folder
+            try:
+                device_folder = get_capture_folder_from_device_id(self.device_id)
+            except ValueError as e:
+                print(f"[@screen_analyzer:capture_screenshot] Error getting device folder: {e}")
+                return None
+            
             # For android_mobile, use native ADB screenshot
             if self.device_model_name and 'mobile' in self.device_model_name.lower() and self.controller:
                 success, base64_data, error = self.controller.take_screenshot()
                 if success and base64_data:
-                    # Convert base64 to temp file for AI
+                    # Convert base64 to image data
                     import base64
-                    from datetime import datetime
                     image_data = base64.b64decode(base64_data)
-                    temp_path = f"/tmp/android_screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
-                    with open(temp_path, 'wb') as f:
+                    
+                    # Save to COLD storage (captures path)
+                    captures_path = get_captures_path(device_folder)
+                    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+                    filename = f"ai_exploration_{timestamp}.png"
+                    cold_path = f"{captures_path}/{filename}"
+                    
+                    # Ensure directory exists
+                    import os
+                    os.makedirs(captures_path, exist_ok=True)
+                    
+                    # Write to cold storage
+                    with open(cold_path, 'wb') as f:
                         f.write(image_data)
-                    print(f"[@screen_analyzer:capture_screenshot] Android native: {temp_path}")
-                    return temp_path
+                    
+                    print(f"[@screen_analyzer:capture_screenshot] Saved to cold storage: {cold_path}")
+                    return cold_path
             
             # Fallback to HDMI capture for all other devices
             from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
-            screenshot_path = VideoAIHelpers.capture_screenshot(self.device_id, self.host_name)
-            print(f"[@screen_analyzer:capture_screenshot] HDMI capture: {screenshot_path}")
-            return screenshot_path
+            temp_screenshot = VideoAIHelpers.capture_screenshot(self.device_id, self.host_name)
+            
+            if temp_screenshot:
+                # Copy to cold storage
+                captures_path = get_captures_path(device_folder)
+                timestamp = datetime.now().strftime('%Y%m%d_%H%M%S_%f')
+                filename = f"ai_exploration_{timestamp}.png"
+                cold_path = f"{captures_path}/{filename}"
+                
+                # Ensure directory exists
+                import os
+                os.makedirs(captures_path, exist_ok=True)
+                
+                # Copy file
+                shutil.copy2(temp_screenshot, cold_path)
+                print(f"[@screen_analyzer:capture_screenshot] Copied to cold storage: {cold_path}")
+                return cold_path
+            
+            return None
             
         except Exception as e:
             print(f"[@screen_analyzer:capture_screenshot] Error: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _parse_json_response(self, response: str) -> Optional[Dict]:
