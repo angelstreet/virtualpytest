@@ -75,6 +75,7 @@ const MCPPlaygroundContent: React.FC = () => {
                     availableActions={hookData.availableActions}
                     availableVerifications={hookData.availableVerifications}
                     setPrompt={hookData.setPrompt}
+                    isControlActive={hookData.isControlActive}
                   />
                 </Grid>
               </Grid>

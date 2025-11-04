@@ -129,27 +129,46 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
         border: 1,
         borderColor: 'divider',
         boxShadow: 'none',
+        height: '500px', // FIXED HEIGHT - same as Quick Actions
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <CardContent sx={{ p: { xs: 2, md: 2.5 }, '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
-        <Typography variant="h6" sx={{ mb: 2, fontSize: { xs: '1rem', md: '1.1rem' } }}>
+      <CardContent sx={{ 
+        p: 2.5, 
+        '&:last-child': { pb: 2.5 },
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+      }}>
+        <Typography variant="h6" sx={{ mb: 2, fontSize: '1.1rem' }}>
           What would you like to do?
         </Typography>
         
-        <Stack spacing={2}>
-          {/* Text Input */}
+        <Stack spacing={2} sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+          {/* Text Input - Flex to fill available space */}
           <TextField
             multiline
-            rows={{ xs: 4, md: 3, lg: 2 }}
-            placeholder="Type your command here... (e.g., 'Navigate to home', 'Verify Replay button exists', 'Swipe up 3 times')"
+            placeholder={
+              isControlActive
+                ? "Type your command here... (e.g., 'Navigate to home', 'Verify Replay button exists', 'Swipe up 3 times')"
+                : "Take control of the device first"
+            }
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             onKeyDown={handleKeyDown}
-            disabled={isGenerating}
+            disabled={!isControlActive || isGenerating}
             fullWidth
             sx={{
+              flex: 1,
+              '& .MuiInputBase-root': {
+                height: '100%',
+                alignItems: 'flex-start',
+              },
               '& .MuiInputBase-input': {
-                fontSize: { xs: '1rem', md: '0.95rem', lg: '0.875rem' },
+                height: '100% !important',
+                overflow: 'auto !important',
+                fontSize: '0.95rem',
               },
             }}
           />
@@ -182,21 +201,23 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
           >
             {/* Voice Button */}
             <Tooltip title={isRecording ? 'Stop recording' : 'Start voice input'}>
-              <Button
-                variant={isRecording ? 'contained' : 'outlined'}
-                color={isRecording ? 'error' : 'primary'}
-                startIcon={isRecording ? <MicOffIcon /> : <MicIcon />}
-                onClick={toggleRecording}
-                disabled={isGenerating}
-                fullWidth={{ xs: true, sm: false }}
-                sx={{
-                  minHeight: { xs: 56, md: 48, lg: 40 },
-                  fontSize: { xs: '1rem', md: '0.9rem' },
-                  minWidth: { sm: 140 },
-                }}
-              >
-                {isRecording ? 'Stop' : 'Voice'}
-              </Button>
+              <span>
+                <Button
+                  variant={isRecording ? 'contained' : 'outlined'}
+                  color={isRecording ? 'error' : 'primary'}
+                  startIcon={isRecording ? <MicOffIcon /> : <MicIcon />}
+                  onClick={toggleRecording}
+                  disabled={!isControlActive || isGenerating}
+                  sx={{
+                    minHeight: { xs: 56, md: 48, lg: 40 },
+                    fontSize: { xs: '1rem', md: '0.9rem' },
+                    minWidth: { xs: '100%', sm: 140 },
+                    width: { xs: '100%', sm: 'auto' },
+                  }}
+                >
+                  {isRecording ? 'Stop' : 'Voice'}
+                </Button>
+              </span>
             </Tooltip>
             
             {/* Clear Button */}
@@ -224,11 +245,11 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
               startIcon={isGenerating ? <CircularProgress size={20} color="inherit" /> : <SendIcon />}
               onClick={handleExecute}
               disabled={isGenerating || !prompt.trim() || !isControlActive}
-              fullWidth={{ xs: true, sm: false }}
               sx={{
                 minHeight: { xs: 56, md: 48, lg: 40 },
                 fontSize: { xs: '1rem', md: '0.9rem' },
-                minWidth: { sm: 160 },
+                minWidth: { xs: '100%', sm: 160 },
+                width: { xs: '100%', sm: 'auto' },
                 fontWeight: 600,
               }}
             >

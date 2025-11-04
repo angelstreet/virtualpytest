@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import {
   Box,
   Card,
@@ -9,16 +9,12 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Collapse,
-  IconButton,
-  Chip,
   Tabs,
   Tab,
   Stack,
+  Chip,
 } from '@mui/material';
 import {
-  ExpandMore as ExpandMoreIcon,
-  ExpandLess as ExpandLessIcon,
   Navigation as NavigationIcon,
   TouchApp as ActionIcon,
   CheckCircle as VerificationIcon,
@@ -30,6 +26,7 @@ interface MCPQuickActionsProps {
   availableActions: any;
   availableVerifications: any;
   setPrompt: (prompt: string) => void;
+  isControlActive: boolean;
 }
 
 export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
@@ -37,41 +34,74 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
   availableActions,
   availableVerifications,
   setPrompt,
+  isControlActive,
 }) => {
   
-  const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
   
   const handleQuickAction = (text: string) => {
     setPrompt(text);
   };
   
-  // Common navigation commands
-  const commonNavigation = navNodes.slice(0, 5).map(node => ({
-    label: `Navigate to ${node.label}`,
-    prompt: `Navigate to ${node.label}`,
-  }));
+  // Build navigation items from navNodes
+  const navigationItems = useMemo(() => {
+    return navNodes.slice(0, 10).map(node => ({
+      label: node.label || node.id,
+      prompt: `Navigate to ${node.label || node.id}`,
+    }));
+  }, [navNodes]);
   
-  // Common actions
-  const commonActions = [
-    { label: 'Take Screenshot', prompt: 'Take a screenshot' },
-    { label: 'Swipe Up', prompt: 'Swipe up' },
-    { label: 'Swipe Down', prompt: 'Swipe down' },
-    { label: 'Press Back', prompt: 'Press back button' },
-    { label: 'Press Home', prompt: 'Press home button' },
-  ];
+  // Build action items from availableActions
+  const actionItems = useMemo(() => {
+    if (!availableActions) return [];
+    
+    const items: any[] = [];
+    Object.entries(availableActions).forEach(([category, actions]: [string, any]) => {
+      if (Array.isArray(actions)) {
+        actions.slice(0, 10).forEach((action: any) => {
+          const label = action.label || action.command || action.id;
+          items.push({
+            label: label,
+            prompt: `Execute ${label.toLowerCase()}`,
+          });
+        });
+      }
+    });
+    return items.slice(0, 10); // Limit to 10 total
+  }, [availableActions]);
   
-  // Common verifications
-  const commonVerifications = [
-    { label: 'Verify Element Exists', prompt: 'Verify element exists' },
-    { label: 'Verify Text Visible', prompt: 'Verify text is visible' },
-    { label: 'Check Screen Content', prompt: 'Check screen content' },
-  ];
+  // Build verification items from availableVerifications
+  const verificationItems = useMemo(() => {
+    if (!availableVerifications) return [];
+    
+    const items: any[] = [];
+    Object.entries(availableVerifications).forEach(([category, verifications]: [string, any]) => {
+      if (typeof verifications === 'object' && !Array.isArray(verifications)) {
+        // Handle dict structure (method_name: {description, params})
+        Object.entries(verifications).slice(0, 10).forEach(([methodName, _]: [string, any]) => {
+          items.push({
+            label: methodName,
+            prompt: `Verify ${methodName.replace(/_/g, ' ')}`,
+          });
+        });
+      } else if (Array.isArray(verifications)) {
+        // Handle list structure
+        verifications.slice(0, 10).forEach((verification: any) => {
+          const label = verification.label || verification.command || verification.id;
+          items.push({
+            label: label,
+            prompt: `Verify ${label.toLowerCase()}`,
+          });
+        });
+      }
+    });
+    return items.slice(0, 10); // Limit to 10 total
+  }, [availableVerifications]);
   
   const tabs = [
-    { label: 'Navigation', icon: <NavigationIcon fontSize="small" />, items: commonNavigation },
-    { label: 'Actions', icon: <ActionIcon fontSize="small" />, items: commonActions },
-    { label: 'Verification', icon: <VerificationIcon fontSize="small" />, items: commonVerifications },
+    { label: 'Navigation', icon: <NavigationIcon fontSize="small" />, items: navigationItems },
+    { label: 'Actions', icon: <ActionIcon fontSize="small" />, items: actionItems },
+    { label: 'Verification', icon: <VerificationIcon fontSize="small" />, items: verificationItems },
   ];
   
   return (
@@ -80,47 +110,53 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
         border: 1,
         borderColor: 'divider',
         boxShadow: 'none',
-        height: { lg: 'fit-content' },
-        maxHeight: { lg: 'calc(100vh - 200px)' },
-        overflow: 'auto',
+        height: '500px', // FIXED HEIGHT - same as prompt input
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <CardContent sx={{ p: { xs: 2, md: 2.5 }, '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
+      <CardContent sx={{ 
+        p: 2.5, 
+        '&:last-child': { pb: 2.5 },
+        display: 'flex',
+        flexDirection: 'column',
+        height: '100%',
+        overflow: 'hidden',
+      }}>
         {/* Header */}
-        <Box
-          sx={{
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            mb: isCollapsed ? 0 : 2,
-            cursor: { xs: 'pointer', lg: 'default' },
-          }}
-          onClick={() => setIsCollapsed(!isCollapsed)}
-        >
-          <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.1rem' } }}>
-            Quick Actions
-          </Typography>
-          <IconButton
-            size="small"
-            sx={{ display: { xs: 'block', lg: 'none' } }}
-          >
-            {isCollapsed ? <ExpandMoreIcon /> : <ExpandLessIcon />}
-          </IconButton>
-        </Box>
+        <Typography variant="h6" sx={{ fontSize: '1.1rem', mb: 2 }}>
+          Quick Actions
+        </Typography>
         
-        {/* Collapsible Content */}
-        <Collapse in={!isCollapsed} timeout="auto">
-          <Stack spacing={2}>
+        {!isControlActive ? (
+          // Show message when not in control
+          <Box sx={{ 
+            flex: 1, 
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'center',
+            mb: 2,
+            opacity: 0.6,
+          }}>
+            <Typography variant="body2" color="text.secondary" align="center">
+            ⚠️ Take control of the device first
+            </Typography>
+          </Box>
+        ) : (
+          <>
             {/* Tabs */}
             <Tabs
               value={activeTab}
               onChange={(_, newValue) => setActiveTab(newValue)}
               variant="fullWidth"
               sx={{
-                minHeight: { xs: 44, md: 40 },
+                minHeight: 40,
+                mb: 2,
                 '& .MuiTab-root': {
-                  minHeight: { xs: 44, md: 40 },
-                  fontSize: { xs: '0.85rem', md: '0.8rem' },
+                  minHeight: 40,
+                  fontSize: '0.8rem',
+                  textTransform: 'none',
                 },
               }}
             >
@@ -130,15 +166,16 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
                   label={tab.label}
                   icon={tab.icon}
                   iconPosition="start"
-                  sx={{
-                    textTransform: 'none',
-                  }}
                 />
               ))}
             </Tabs>
             
-            {/* Tab Content */}
-            <Box>
+            {/* Tab Content with Scrollbar */}
+            <Box sx={{ 
+              flex: 1, 
+              overflow: 'auto',
+              mb: 2,
+            }}>
               {tabs.map((tab, tabIndex) => (
                 <Box
                   key={tabIndex}
@@ -151,14 +188,8 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
                         <ListItem>
                           <ListItemText
                             primary="No items available"
-                            secondary="Connect to device to see options"
                             sx={{
-                              '& .MuiListItemText-primary': {
-                                fontSize: { xs: '0.9rem', md: '0.85rem' },
-                              },
-                              '& .MuiListItemText-secondary': {
-                                fontSize: { xs: '0.8rem', md: '0.75rem' },
-                              },
+                              '& .MuiListItemText-primary': { fontSize: '0.85rem' },
                             }}
                           />
                         </ListItem>
@@ -170,20 +201,20 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
                             sx={{
                               borderRadius: 1,
                               mb: 0.5,
-                              minHeight: { xs: 48, md: 44 },
+                              minHeight: 44,
                               '&:hover': {
                                 bgcolor: 'action.hover',
                               },
                             }}
                           >
-                            <ListItemIcon sx={{ minWidth: { xs: 40, md: 36 } }}>
+                            <ListItemIcon sx={{ minWidth: 36 }}>
                               <ArrowForwardIcon fontSize="small" />
                             </ListItemIcon>
                             <ListItemText
                               primary={item.label}
                               sx={{
                                 '& .MuiListItemText-primary': {
-                                  fontSize: { xs: '0.9rem', md: '0.85rem' },
+                                  fontSize: '0.85rem',
                                 },
                               }}
                             />
@@ -195,32 +226,31 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
                 </Box>
               ))}
             </Box>
-            
-            {/* Stats */}
-            <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
-              <Chip
-                label={`${navNodes.length} nodes`}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: { xs: '0.8rem', md: '0.75rem' } }}
-              />
-              <Chip
-                label={`${Object.values(availableActions || {}).flat().length} actions`}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: { xs: '0.8rem', md: '0.75rem' } }}
-              />
-              <Chip
-                label={`${Object.values(availableVerifications || {}).flat().length} verifications`}
-                size="small"
-                variant="outlined"
-                sx={{ fontSize: { xs: '0.8rem', md: '0.75rem' } }}
-              />
-            </Stack>
-          </Stack>
-        </Collapse>
+          </>
+        )}
+        
+        {/* Stats */}
+        <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
+          <Chip
+            label={`${navNodes.length} nodes`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.75rem' }}
+          />
+          <Chip
+            label={`${Object.values(availableActions || {}).flat().length} actions`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.75rem' }}
+          />
+          <Chip
+            label={`${Object.values(availableVerifications || {}).flat().length} verifications`}
+            size="small"
+            variant="outlined"
+            sx={{ fontSize: '0.75rem' }}
+          />
+        </Stack>
       </CardContent>
     </Card>
   );
 };
-

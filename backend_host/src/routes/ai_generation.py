@@ -33,16 +33,16 @@ def start_exploration():
     """
     Start AI exploration in background thread
     
-    Request:
+    Request body:
     {
         'tree_id': 'uuid',
-        'host_ip': '192.168.1.100',
-        'device_id': 'device_1',
+        'host_ip': '192.168.1.100',  # or 'host_name': 'sunri-pi1'
+        'device_id': 'device1',
         'exploration_depth': 5,
-        'team_id': 'team_1',
-        'userinterface_name': 'horizon_android_mobile',
-        'device_model_name': 'android_mobile'
+        'userinterface_name': 'horizon_android_mobile'
     }
+    Query params (auto-added by buildServerUrl):
+        'team_id': 'team_1'
     
     Response:
     {
@@ -52,22 +52,35 @@ def start_exploration():
     }
     """
     try:
-        data = request.get_json()
+        from flask import current_app
+        
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')  # Auto-added by buildServerUrl
+        
+        # Extract parameters from body
+        tree_id = data.get('tree_id')
+        device_id = data.get('device_id', 'device1')
+        host_name = data.get('host_name') or data.get('host_ip')  # Support both
+        userinterface_name = data.get('userinterface_name')
+        exploration_depth = data.get('exploration_depth', 5)
         
         # Validate required params
-        tree_id = data.get('tree_id')
-        device_id = data.get('device_id', 'device_1')
-        team_id = data.get('team_id', 'team_1')
-        userinterface_name = data.get('userinterface_name')
-        device_model_name = data.get('device_model_name', 'android_mobile')
-        exploration_depth = data.get('exploration_depth', 5)
-        host_ip = data.get('host_ip', 'localhost')
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required in query parameters'}), 400
+        if not tree_id:
+            return jsonify({'success': False, 'error': 'tree_id is required'}), 400
+        if not host_name:
+            return jsonify({'success': False, 'error': 'host_name or host_ip is required'}), 400
+        if not userinterface_name:
+            return jsonify({'success': False, 'error': 'userinterface_name is required'}), 400
         
-        if not tree_id or not userinterface_name:
-            return jsonify({
-                'success': False,
-                'error': 'Missing required parameters: tree_id, userinterface_name'
-            }), 400
+        # Get device info from registry (like testcase routes do)
+        if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found in registry'}), 404
+        
+        device = current_app.host_devices[device_id]
+        device_name = device.device_name
+        device_model_name = device.device_model
         
         # Generate exploration ID
         exploration_id = str(uuid4())
@@ -75,6 +88,8 @@ def start_exploration():
         print(f"[@route:ai_generation:start_exploration] Starting exploration {exploration_id}")
         print(f"  Tree: {tree_id}")
         print(f"  Device: {device_model_name} ({device_id})")
+        print(f"  Host: {host_name}")
+        print(f"  UI: {userinterface_name}")
         print(f"  Depth: {exploration_depth}")
         
         # Initialize exploration state
@@ -119,7 +134,7 @@ def start_exploration():
                 engine = ExplorationEngine(
                     tree_id=tree_id,
                     device_id=device_id,
-                    host_name=host_ip,
+                    host_name=host_name,
                     device_model_name=device_model_name,
                     team_id=team_id,
                     userinterface_name=userinterface_name,

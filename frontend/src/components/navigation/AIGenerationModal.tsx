@@ -33,6 +33,7 @@ interface AIGenerationModalProps {
   treeId: string;
   selectedHost: any;
   selectedDeviceId: string;
+  userinterfaceName?: string; // NEW: From tree data
   onGenerated: () => void; // Refresh ReactFlow after generation
 }
 
@@ -42,6 +43,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   treeId,
   selectedHost,
   selectedDeviceId,
+  userinterfaceName,
   onGenerated
 }) => {
   const [explorationDepth, setExplorationDepth] = useState(5);
@@ -68,6 +70,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     treeId,
     selectedHost,
     selectedDeviceId,
+    userinterfaceName,
     isControlActive: true // Assuming this modal only opens when control is active
   });
 

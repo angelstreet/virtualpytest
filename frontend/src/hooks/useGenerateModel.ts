@@ -6,6 +6,7 @@ interface UseGenerateModelProps {
   selectedHost: any;
   selectedDeviceId: string;
   isControlActive: boolean;
+  userinterfaceName?: string; // NEW: Pass from tree data
 }
 
 interface Progress {
@@ -43,7 +44,8 @@ export const useGenerateModel = ({
   treeId,
   selectedHost,
   selectedDeviceId,
-  isControlActive
+  isControlActive,
+  userinterfaceName
 }: UseGenerateModelProps) => {
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
@@ -165,6 +167,7 @@ export const useGenerateModel = ({
         treeId,
         host_ip: selectedHost.host_ip,
         device_id: selectedDeviceId,
+        userinterface_name: userinterfaceName,
         exploration_depth: depth
       });
 
@@ -175,6 +178,7 @@ export const useGenerateModel = ({
           tree_id: treeId,
           host_ip: selectedHost.host_ip,
           device_id: selectedDeviceId,
+          userinterface_name: userinterfaceName,
           exploration_depth: depth
         })
       });
