@@ -1367,19 +1367,22 @@ class TestCaseExecutor:
             
             for input_config in script_inputs_config:
                 input_name = input_config.get('name')
-                input_default = input_config.get('default')
+                # ✅ Check 'value' first (set by frontend at runtime), then fall back to 'default'
+                input_value = input_config.get('value')
+                if input_value is None:
+                    input_value = input_config.get('default')
                 input_type = input_config.get('type', 'string')
                 
                 if not input_name:
                     print(f"[@testcase_executor] Warning: Input config missing 'name', skipping")
                     continue
                 
-                # Initialize context.variables with default value
-                if input_default is not None:
-                    context.variables[input_name] = input_default
-                    print(f"[@testcase_executor]   ✓ {input_name} = {input_default} ({input_type})")
+                # Initialize context.variables with value or default
+                if input_value is not None:
+                    context.variables[input_name] = input_value
+                    print(f"[@testcase_executor]   ✓ {input_name} = {input_value} ({input_type})")
                 else:
-                    # If no default value, initialize based on type
+                    # If no value or default, initialize based on type
                     if input_type == 'string':
                         context.variables[input_name] = ''
                     elif input_type == 'number':

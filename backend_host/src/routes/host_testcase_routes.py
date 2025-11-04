@@ -252,6 +252,15 @@ def testcase_execute_direct():
         device_name = device.device_name
         device_model = device.device_model
         
+        # ✅ AUTO-INJECT device_model into scriptConfig.inputs if it exists
+        # This ensures device_model_name is always populated with the correct runtime value
+        if 'scriptConfig' in graph_json and 'inputs' in graph_json['scriptConfig']:
+            for input_def in graph_json['scriptConfig']['inputs']:
+                if input_def.get('name') == 'device_model_name':
+                    input_def['value'] = device_model
+                    print(f"[@host_testcase] Auto-injected device_model_name = {device_model}")
+                    break
+        
         # Get or create global executor instance for async execution tracking
         if not hasattr(current_app, 'testcase_executor'):
             current_app.testcase_executor = TestCaseExecutor()
