@@ -6,10 +6,20 @@ Requires Bearer token authentication for security.
 """
 
 from flask import Blueprint, request, jsonify
-from backend_server.src.mcp.mcp_server import VirtualPyTestMCPServer
 import asyncio
 import os
 from functools import wraps
+
+# Import MCP server - use relative import for proper module resolution
+import sys
+from pathlib import Path
+
+# Add backend_server/src to path if needed
+current_dir = Path(__file__).parent.parent
+if str(current_dir) not in sys.path:
+    sys.path.insert(0, str(current_dir))
+
+from mcp.mcp_server import VirtualPyTestMCPServer
 
 # Create blueprint
 mcp_bp = Blueprint('mcp', __name__, url_prefix='/mcp')
