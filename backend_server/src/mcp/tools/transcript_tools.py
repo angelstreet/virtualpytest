@@ -1,0 +1,68 @@
+"""
+Transcript Tools - Audio transcript retrieval
+
+Fetch and translate audio transcripts from devices.
+"""
+
+from typing import Dict, Any
+from ..utils.api_client import MCPAPIClient
+from ..utils.response_formatter import format_tool_result
+
+
+class TranscriptTools:
+    """Audio transcript retrieval tools"""
+    
+    def __init__(self, api_client: MCPAPIClient):
+        self.api = api_client
+    
+    def get_transcript(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get audio transcript from device
+        
+        Fetches Whisper-generated transcripts with optional translation.
+        
+        Args:
+            params: {
+                'device_id': str (REQUIRED),
+                'team_id': str (REQUIRED),
+                'chunk_url': str (REQUIRED if no hour/chunk_index),
+                'hour': int (REQUIRED if no chunk_url),
+                'chunk_index': int (REQUIRED if no chunk_url),
+                'target_language': str (OPTIONAL) - For translation (e.g., 'fr', 'es')
+            }
+            
+        Returns:
+            MCP-formatted response with transcript segments and timestamps
+        """
+        device_id = params.get('device_id', 'device1')
+        team_id = params.get('team_id')
+        chunk_url = params.get('chunk_url')
+        hour = params.get('hour')
+        chunk_index = params.get('chunk_index')
+        target_language = params.get('target_language')
+        
+        # Validate required parameters
+        if not team_id:
+            return format_tool_result({'success': False, 'error': 'team_id is required'})
+        if not chunk_url and (hour is None or chunk_index is None):
+            return format_tool_result({'success': False, 'error': 'Either chunk_url or (hour + chunk_index) is required'})
+        
+        # Build request
+        data = {
+            'device_id': device_id
+        }
+        
+        if chunk_url:
+            data['chunk_url'] = chunk_url
+        else:
+            data['hour'] = hour
+            data['chunk_index'] = chunk_index
+        
+        if target_language:
+            data['language'] = target_language
+        
+        # Call API
+        result = self.api.post('/host/transcript/translate-chunk', data=data)
+        
+        return format_tool_result(result)
+

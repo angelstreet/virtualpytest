@@ -1,0 +1,375 @@
+{
+  "mcp_server": {
+    "name": "VirtualPyTest MCP Server",
+    "version": "1.0.0",
+    "description": "Model Context Protocol server for VirtualPyTest device automation",
+    "base_url": "http://localhost:5001",
+    "tools": {
+      "control": [
+        {
+          "name": "take_control",
+          "command": "take_control",
+          "description": "Take control of a device - REQUIRED before any operations. Locks device, generates navigation cache.",
+          "required": true,
+          "parameters": {
+            "host_name": {
+              "type": "string",
+              "required": true,
+              "description": "Host name where device is connected"
+            },
+            "device_id": {
+              "type": "string",
+              "required": true,
+              "description": "Device identifier (e.g., 'device1')"
+            },
+            "team_id": {
+              "type": "string",
+              "required": true,
+              "description": "Team ID for security"
+            },
+            "tree_id": {
+              "type": "string",
+              "required": false,
+              "description": "Navigation tree ID (triggers cache generation if provided)"
+            }
+          },
+          "returns": {
+            "session_id": "string",
+            "cache_ready": "boolean",
+            "host_name": "string",
+            "device_id": "string"
+          },
+          "examples": [
+            {
+              "description": "Take control with navigation cache",
+              "params": {
+                "host_name": "ubuntu-host-1",
+                "device_id": "device1",
+                "team_id": "team_abc123",
+                "tree_id": "main_navigation"
+              }
+            }
+          ]
+        },
+        {
+          "name": "release_control",
+          "command": "release_control",
+          "description": "Release control of a device when done",
+          "required": false,
+          "parameters": {
+            "host_name": {
+              "type": "string",
+              "required": true
+            },
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            }
+          }
+        }
+      ],
+      "actions": [
+        {
+          "name": "execute_device_action",
+          "command": "execute_device_action",
+          "description": "Execute batch of actions on device (remote, ADB, web, desktop)",
+          "parameters": {
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "actions": {
+              "type": "array",
+              "required": true,
+              "description": "Array of action objects with command, params, and optional delay"
+            },
+            "retry_actions": {
+              "type": "array",
+              "required": false
+            },
+            "failure_actions": {
+              "type": "array",
+              "required": false
+            }
+          },
+          "returns": {
+            "execution_id": "string"
+          },
+          "examples": [
+            {
+              "description": "Send remote control commands",
+              "params": {
+                "device_id": "device1",
+                "team_id": "team_abc123",
+                "actions": [
+                  {
+                    "command": "KEY_HOME",
+                    "params": {},
+                    "delay": 500
+                  },
+                  {
+                    "command": "KEY_DOWN",
+                    "params": {},
+                    "delay": 300
+                  }
+                ]
+              }
+            }
+          ]
+        }
+      ],
+      "navigation": [
+        {
+          "name": "navigate_to_node",
+          "command": "navigate_to_node",
+          "description": "Navigate to target node in UI tree using pathfinding",
+          "parameters": {
+            "tree_id": {
+              "type": "string",
+              "required": true
+            },
+            "userinterface_name": {
+              "type": "string",
+              "required": true,
+              "description": "MANDATORY for reference resolution (e.g., 'horizon_android_tv')"
+            },
+            "target_node_id": {
+              "type": "string",
+              "required": "conditional",
+              "description": "Target node ID (required if no target_node_label)"
+            },
+            "target_node_label": {
+              "type": "string",
+              "required": "conditional",
+              "description": "Target node label (required if no target_node_id)"
+            },
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "current_node_id": {
+              "type": "string",
+              "required": false
+            }
+          },
+          "examples": [
+            {
+              "description": "Navigate to Settings page",
+              "params": {
+                "tree_id": "main_navigation",
+                "userinterface_name": "horizon_android_tv",
+                "target_node_label": "Settings",
+                "device_id": "device1",
+                "team_id": "team_abc123"
+              }
+            }
+          ]
+        }
+      ],
+      "verification": [
+        {
+          "name": "verify_device_state",
+          "command": "verify_device_state",
+          "description": "Verify device state with batch verifications (image, text, video, ADB)",
+          "parameters": {
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "userinterface_name": {
+              "type": "string",
+              "required": true
+            },
+            "verifications": {
+              "type": "array",
+              "required": true,
+              "description": "Array of verification objects with type, method, params, expected"
+            }
+          }
+        }
+      ],
+      "testcase": [
+        {
+          "name": "execute_testcase",
+          "command": "execute_testcase",
+          "description": "Execute complete test case from graph JSON",
+          "parameters": {
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "host_name": {
+              "type": "string",
+              "required": true
+            },
+            "graph_json": {
+              "type": "object",
+              "required": true,
+              "description": "Test case graph definition"
+            },
+            "async_execution": {
+              "type": "boolean",
+              "required": false,
+              "default": true
+            }
+          },
+          "returns": {
+            "execution_id": "string"
+          }
+        }
+      ],
+      "ai": [
+        {
+          "name": "generate_test_graph",
+          "command": "generate_test_graph",
+          "description": "Generate test case graph from natural language using AI",
+          "parameters": {
+            "prompt": {
+              "type": "string",
+              "required": true,
+              "description": "Natural language test description"
+            },
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "userinterface_name": {
+              "type": "string",
+              "required": true
+            }
+          },
+          "returns": {
+            "graph": "object",
+            "analysis": "string"
+          }
+        }
+      ],
+      "screenshot": [
+        {
+          "name": "capture_screenshot",
+          "command": "capture_screenshot",
+          "description": "Capture screenshot for AI vision analysis. Returns base64 image.",
+          "parameters": {
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "include_ui_dump": {
+              "type": "boolean",
+              "required": false,
+              "default": false,
+              "description": "Include UI hierarchy dump for element detection"
+            }
+          },
+          "returns": {
+            "screenshot_base64": "string",
+            "ui_dump": "object (optional)"
+          }
+        }
+      ],
+      "transcript": [
+        {
+          "name": "get_transcript",
+          "command": "get_transcript",
+          "description": "Get audio transcript from device with optional translation",
+          "parameters": {
+            "device_id": {
+              "type": "string",
+              "required": true
+            },
+            "team_id": {
+              "type": "string",
+              "required": true
+            },
+            "chunk_url": {
+              "type": "string",
+              "required": "conditional"
+            },
+            "hour": {
+              "type": "integer",
+              "required": "conditional"
+            },
+            "chunk_index": {
+              "type": "integer",
+              "required": "conditional"
+            },
+            "target_language": {
+              "type": "string",
+              "required": false,
+              "description": "Language code for translation (e.g., 'fr', 'es', 'de')"
+            }
+          }
+        }
+      ],
+      "device": [
+        {
+          "name": "get_device_info",
+          "command": "get_device_info",
+          "description": "Get device information, capabilities, and controller status",
+          "parameters": {
+            "device_id": {
+              "type": "string",
+              "required": false,
+              "description": "Specific device ID, or omit for all devices"
+            },
+            "host_name": {
+              "type": "string",
+              "required": false
+            }
+          }
+        },
+        {
+          "name": "get_execution_status",
+          "command": "get_execution_status",
+          "description": "Poll async execution status for actions, testcases, or AI operations",
+          "parameters": {
+            "execution_id": {
+              "type": "string",
+              "required": true,
+              "description": "Execution ID from async operation"
+            },
+            "operation_type": {
+              "type": "string",
+              "required": false,
+              "default": "action",
+              "enum": ["action", "testcase", "ai"]
+            }
+          },
+          "returns": {
+            "status": "string (running/completed/failed)",
+            "result": "object (when completed)"
+          }
+        }
+      ]
+    }
+  }
+}
+
