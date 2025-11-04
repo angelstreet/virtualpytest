@@ -135,7 +135,30 @@ class TestCaseTools:
         
         print(f"[@MCP:execute_testcase_by_id] Executing testcase '{testcase_name}' with interface '{userinterface_name}'")
         
-        # Step 2: Execute the loaded graph
+        # ✅ Prepare inputValues with actual runtime values (EXACT SAME as RunTests.tsx lines 666-673)
+        # Note: device_model_name will be automatically populated by the backend from device registry
+        # (see host_testcase_routes.py lines 247-253)
+        if 'scriptConfig' in graph_json and 'inputs' in graph_json['scriptConfig']:
+            print(f"[@MCP:execute_testcase_by_id] Preparing inputValues with runtime values")
+            
+            # Map over inputs and set values (SAME as frontend)
+            for input_def in graph_json['scriptConfig']['inputs']:
+                value = input_def.get('default', '')
+                # Set the runtime values we know - backend will add device_model from registry
+                if input_def['name'] == 'host_name':
+                    value = host_name
+                elif input_def['name'] == 'device_name':
+                    value = device_id
+                elif input_def['name'] == 'userinterface_name':
+                    value = userinterface_name
+                # Note: device_model_name is intentionally NOT set here - 
+                # the backend host will populate it from device registry during execution
+                
+                # Set the value in the input definition
+                input_def['value'] = value
+                print(f"[@MCP:execute_testcase_by_id]   Set input '{input_def['name']}' = {value}")
+        
+        # Step 2: Execute the loaded graph with updated inputs
         return self.execute_testcase({
             'device_id': device_id,
             'host_name': host_name,
