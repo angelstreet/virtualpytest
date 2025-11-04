@@ -105,16 +105,18 @@ Current context:
 - Tree ID: {tree_id or 'not provided'}
 
 CRITICAL RULES:
-1. ALWAYS include device_id, host_name, and team_id when calling functions (use the values from context above)
-2. For simple actions like "swipe up", "swipe down", "screenshot", use execute_device_action or capture_screenshot
+1. ALWAYS include device_id, host_name, team_id, and userinterface_name when calling functions (use the values from context above)
+2. For actions like "swipe up", "click button", use execute_device_action
 3. For navigation like "go to home", use navigate_to_node
-4. Call only ONE function per request
-5. If you're unsure, use list_actions or list_navigation_nodes to discover what's available
+4. For verifications like "verify element appears", "wait for element", use verify_device_state
+5. Call only ONE function per request
 
 Examples:
-- "Swipe up" → execute_device_action with swipe_up command
-- "Take screenshot" → capture_screenshot
-- "Navigate to home" → navigate_to_node with target_node_label="home"'''
+- "Swipe up" → execute_device_action(actions=[{"command": "swipe_up", "params": {}}])
+- "Take screenshot" → capture_screenshot()
+- "Navigate to home" → navigate_to_node(target_node_label="home")
+- "Verify Replay button appears" → verify_device_state(verifications=[{"command": "element_appears", "verification_type": "image", "params": {"element_id": "Replay"}}])
+- "Wait for Replay element" → verify_device_state(verifications=[{"command": "element_appears", "verification_type": "image", "params": {"element_id": "Replay"}}])'''
 
         print(f"[@mcp_proxy] Calling OpenRouter with model: google/gemini-2.0-flash-001")
         
@@ -182,11 +184,55 @@ Examples:
                 function_args['host_name'] = host_name
             if 'team_id' not in function_args and team_id:
                 function_args['team_id'] = team_id
-            if function_name == 'navigate_to_node':
+            
+            # Add userinterface_name for tools that need it
+            if function_name in ['navigate_to_node', 'verify_device_state']:
                 if 'userinterface_name' not in function_args and userinterface_name:
                     function_args['userinterface_name'] = userinterface_name
+            
+            # Add tree_id for navigation
+            if function_name == 'navigate_to_node':
                 if 'tree_id' not in function_args and tree_id:
                     function_args['tree_id'] = tree_id
+            
+            # ✅ AUTO-WRAP: Transform flat action parameters into actions array
+            if function_name == 'execute_device_action' and 'actions' not in function_args:
+                # AI sent flat parameters like {command, text} instead of actions array
+                # Auto-wrap into correct format
+                action_obj = {
+                    'command': function_args.pop('command', ''),
+                    'params': {}
+                }
+                
+                # Move any remaining non-standard params into params dict
+                standard_keys = {'device_id', 'host_name', 'team_id', 'userinterface_name'}
+                for key in list(function_args.keys()):
+                    if key not in standard_keys:
+                        action_obj['params'][key] = function_args.pop(key)
+                
+                # Wrap in actions array
+                function_args['actions'] = [action_obj]
+                print(f"[@mcp_proxy] ✅ Auto-wrapped flat action params into actions array")
+            
+            # ✅ AUTO-WRAP: Transform flat verification parameters into verifications array
+            if function_name == 'verify_device_state' and 'verifications' not in function_args:
+                # AI sent flat parameters like {element_id, verification_type} instead of verifications array
+                # Auto-wrap into correct format
+                verification_obj = {
+                    'command': function_args.pop('element_id', '') or function_args.pop('command', ''),
+                    'verification_type': function_args.pop('verification_type', 'image'),
+                    'params': {}
+                }
+                
+                # Move any remaining non-standard params into params dict
+                standard_keys = {'device_id', 'host_name', 'team_id', 'userinterface_name', 'tree_id', 'node_id'}
+                for key in list(function_args.keys()):
+                    if key not in standard_keys:
+                        verification_obj['params'][key] = function_args.pop(key)
+                
+                # Wrap in verifications array
+                function_args['verifications'] = [verification_obj]
+                print(f"[@mcp_proxy] ✅ Auto-wrapped flat verification params into verifications array")
             
             print(f"[@mcp_proxy] Final arguments (after context injection): {json.dumps(function_args, indent=2)}")
             
@@ -214,7 +260,25 @@ Examples:
             except json.JSONDecodeError:
                 final_result = {'message': result_text}
             
-            print(f"[@mcp_proxy] ✅ MCP tool executed successfully")
+            # ✅ Check actual execution result (not just MCP call success)
+            execution_success = final_result.get('success', True)  # Default to True if not specified
+            
+            if execution_success:
+                print(f"[@mcp_proxy] ✅ MCP tool executed successfully")
+            else:
+                error_msg = final_result.get('error') or final_result.get('message') or 'Execution failed'
+                print(f"[@mcp_proxy] ❌ Tool execution failed: {error_msg}")
+                # Return error response
+                return jsonify({
+                    'success': False,
+                    'error': f'Tool execution failed: {error_msg}',
+                    'result': final_result,
+                    'tool_calls': [{
+                        'tool': function_name,
+                        'arguments': function_args,
+                        'result': final_result
+                    }]
+                }), 500
             
             tool_calls.append({
                 'tool': function_name,

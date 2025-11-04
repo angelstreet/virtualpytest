@@ -128,107 +128,119 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
           Quick Actions
         </Typography>
         
-        {!isControlActive ? (
-          // Show message when not in control
-          <Box sx={{ 
-            flex: 1, 
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mb: 2,
-            opacity: 0.6,
-          }}>
-            <Typography variant="body2" color="text.secondary" align="center">
-            ⚠️ Take control of the device first
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {/* Tabs */}
-            <Tabs
-              value={activeTab}
-              onChange={(_, newValue) => setActiveTab(newValue)}
-              variant="fullWidth"
-              sx={{
-                minHeight: 32,
-                mb: 1,
-                '& .MuiTab-root': {
-                  minHeight: 32,
-                  fontSize: '0.8rem',
-                  textTransform: 'none',
-                },
-              }}
-            >
-              {tabs.map((tab, index) => (
-                <Tab
-                  key={index}
-                  label={tab.label}
-                  icon={tab.icon}
-                  iconPosition="start"
-                />
-              ))}
-            </Tabs>
-            
-            {/* Tab Content with Scrollbar */}
+        {/* Content Area with Internal Border */}
+        <Box sx={{ 
+          height: 'calc(100% - 68px)', // Fixed height: 100% minus header and stats
+          display: 'flex',
+          flexDirection: 'column',
+          border: 1,
+          borderColor: 'divider',
+          borderRadius: 1,
+          mb: 2,
+          overflow: 'hidden',
+        }}>
+          {!isControlActive ? (
+            // Show message when not in control
             <Box sx={{ 
               flex: 1, 
-              overflow: 'auto',
-              mb: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              opacity: 0.6,
             }}>
-              {tabs.map((tab, tabIndex) => (
-                <Box
-                  key={tabIndex}
-                  role="tabpanel"
-                  hidden={activeTab !== tabIndex}
-                >
-                  {activeTab === tabIndex && (
-                    <List dense sx={{ p: 0 }}>
-                      {tab.items.length === 0 ? (
-                        <ListItem>
-                          <ListItemText
-                            primary="No items available"
-                            sx={{
-                              '& .MuiListItemText-primary': { fontSize: '0.85rem' },
-                            }}
-                          />
-                        </ListItem>
-                      ) : (
-                        tab.items.map((item, index) => (
-                          <ListItemButton
-                            key={index}
-                            onClick={() => handleQuickAction(item.prompt)}
-                            sx={{
-                              borderRadius: 1,
-                              mb: 0,
-                              minHeight: 16,
-                              py: 0,
-                              '&:hover': {
-                                bgcolor: 'action.hover',
-                              },
-                            }}
-                          >
-                            <ListItemIcon sx={{ minWidth: 28 }}>
-                              <ArrowForwardIcon fontSize="small" sx={{ fontSize: '1rem' }} />
-                            </ListItemIcon>
+              <Typography variant="body2" color="text.secondary" align="center">
+              ⚠️ Take control of the device first
+              </Typography>
+            </Box>
+          ) : (
+            <>
+              {/* Tabs */}
+              <Tabs
+                value={activeTab}
+                onChange={(_, newValue) => setActiveTab(newValue)}
+                variant="fullWidth"
+                sx={{
+                  minHeight: 32,
+                  borderBottom: 1,
+                  borderColor: 'divider',
+                  '& .MuiTab-root': {
+                    minHeight: 32,
+                    fontSize: '0.8rem',
+                    textTransform: 'none',
+                  },
+                }}
+              >
+                {tabs.map((tab, index) => (
+                  <Tab
+                    key={index}
+                    label={tab.label}
+                    icon={tab.icon}
+                    iconPosition="start"
+                  />
+                ))}
+              </Tabs>
+              
+              {/* Tab Content with Scrollbar */}
+              <Box sx={{ 
+                flex: 1, 
+                overflow: 'auto',
+                p: 1,
+              }}>
+                {tabs.map((tab, tabIndex) => (
+                  <Box
+                    key={tabIndex}
+                    role="tabpanel"
+                    hidden={activeTab !== tabIndex}
+                  >
+                    {activeTab === tabIndex && (
+                      <List dense sx={{ p: 0 }}>
+                        {tab.items.length === 0 ? (
+                          <ListItem>
                             <ListItemText
-                              primary={item.label}
+                              primary="No items available"
                               sx={{
-                                '& .MuiListItemText-primary': {
-                                  fontSize: '0.85rem',
-                                },
+                                '& .MuiListItemText-primary': { fontSize: '0.85rem' },
                               }}
                             />
-                          </ListItemButton>
-                        ))
-                      )}
-                    </List>
-                  )}
-                </Box>
-              ))}
-            </Box>
-          </>
-        )}
+                          </ListItem>
+                        ) : (
+                          tab.items.map((item, index) => (
+                            <ListItemButton
+                              key={index}
+                              onClick={() => handleQuickAction(item.prompt)}
+                              sx={{
+                                borderRadius: 1,
+                                mb: 0,
+                                minHeight: 16,
+                                py: 0,
+                                '&:hover': {
+                                  bgcolor: 'action.hover',
+                                },
+                              }}
+                            >
+                              <ListItemIcon sx={{ minWidth: 28 }}>
+                                <ArrowForwardIcon fontSize="small" sx={{ fontSize: '1rem' }} />
+                              </ListItemIcon>
+                              <ListItemText
+                                primary={item.label}
+                                sx={{
+                                  '& .MuiListItemText-primary': {
+                                    fontSize: '0.85rem',
+                                  },
+                                }}
+                              />
+                            </ListItemButton>
+                          ))
+                        )}
+                      </List>
+                    )}
+                  </Box>
+                ))}
+              </Box>
+            </>
+          )}
+        </Box>
         
         {/* Stats */}
         <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
