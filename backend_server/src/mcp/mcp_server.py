@@ -179,26 +179,43 @@ class VirtualPyTestMCPServer:
         tools = [
             {
                 "name": "take_control",
-                "description": "Take control of a device (REQUIRED before any operations). Locks device and generates navigation cache.",
+                "description": """🔒 STEP 1 (REQUIRED FIRST): Take control of a device
+
+This MUST be called ONCE at the start before any other operations.
+Locks the device and builds navigation cache for the specified tree_id.
+
+WORKFLOW:
+1. Call take_control(device_id='device1', tree_id='<tree-id>') ONCE
+2. Perform multiple operations (navigate, actions, verify)
+3. Call release_control() ONCE at the end
+
+IMPORTANT: Remember the session_id returned. Use the SAME device_id for all subsequent operations.
+If you need navigation, MUST provide tree_id to build the cache.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
-                        "tree_id": {"type": "string", "description": "Navigation tree ID (triggers cache generation if provided)"}
+                        "tree_id": {"type": "string", "description": "Navigation tree ID - REQUIRED if you plan to use navigate_to_node"}
                     },
                     "required": []
                 }
             },
             {
                 "name": "release_control",
-                "description": "Release control of a device. Unlocks device when operations are complete.",
+                "description": """🔓 FINAL STEP: Release control of device
+
+Call this ONCE at the END after all operations are complete.
+Unlocks the device for other users.
+
+WORKFLOW: This is the LAST step after take_control and all operations.
+Use the SAME device_id that was used in take_control.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                     },
                     "required": []
@@ -206,11 +223,18 @@ class VirtualPyTestMCPServer:
             },
             {
                 "name": "execute_device_action",
-                "description": "Execute batch of actions on device (remote commands, ADB, web, desktop). Returns execution_id for polling.",
+                "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
+
+⚠️ PREREQUISITE: take_control() must be called ONCE first.
+
+Can be called MULTIPLE times in the same session without calling take_control again.
+Use the SAME device_id that was used in take_control.
+
+Returns execution_id for async operations - polls automatically until completion.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                         "actions": {
                             "type": "array",
@@ -225,13 +249,26 @@ class VirtualPyTestMCPServer:
             },
             {
                 "name": "navigate_to_node",
-                "description": "Navigate to target node in UI tree using pathfinding. Requires take_control first.",
+                "description": """Navigate to target node in UI tree using pathfinding
+
+⚠️ PREREQUISITE: take_control(tree_id='<tree>') must be called ONCE first with the SAME tree_id.
+
+Can be called MULTIPLE times in the same session to navigate to different nodes.
+All parameters (device_id, tree_id, userinterface_name) MUST match the take_control call.
+
+The tool polls automatically until navigation completes (up to 3 minutes).
+
+Example workflow:
+1. take_control(device_id='device1', tree_id='abc-123')
+2. navigate_to_node(device_id='device1', tree_id='abc-123', userinterface_name='horizon_android_tv', target_node_label='home')
+3. navigate_to_node(device_id='device1', tree_id='abc-123', userinterface_name='horizon_android_tv', target_node_label='settings')
+4. release_control(device_id='device1')""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
-                        "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'horizon_android_tv')"},
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "tree_id": {"type": "string", "description": "Navigation tree ID - MUST match the tree_id used in take_control"},
+                        "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'horizon_android_tv', 'horizon_android_mobile')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                         "target_node_id": {"type": "string", "description": "Target node ID (provide either this or target_node_label)"},
                         "target_node_label": {"type": "string", "description": "Target node label (provide either this or target_node_id)"},
@@ -243,7 +280,12 @@ class VirtualPyTestMCPServer:
             },
             {
                 "name": "verify_device_state",
-                "description": "Verify device state with batch verifications (image, text, video, ADB).",
+                "description": """Verify device state with batch verifications (image, text, video, ADB)
+
+⚠️ PREREQUISITE: take_control() must be called ONCE first.
+
+Can be called MULTIPLE times in the same session.
+Use the SAME device_id that was used in take_control.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
