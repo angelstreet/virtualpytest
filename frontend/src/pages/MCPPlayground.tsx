@@ -8,6 +8,8 @@ import { MCPCommandHistory } from '../components/mcp/MCPCommandHistory';
 import { PromptDisambiguation } from '../components/ai/PromptDisambiguation';
 import { useTheme } from '../contexts/ThemeContext';
 import { useMCPPlaygroundPage } from '../hooks/pages/useMCPPlaygroundPage';
+import { NavigationEditorProvider } from '../contexts/navigation/NavigationEditorProvider';
+import { NavigationConfigProvider } from '../contexts/navigation/NavigationConfigContext';
 
 const MCPPlaygroundContent: React.FC = () => {
   const { actualMode } = useTheme();
@@ -25,7 +27,7 @@ const MCPPlaygroundContent: React.FC = () => {
       {/* Header */}
       <Box
         sx={{
-          height: 64,
+          height: 42,
           borderBottom: 1,
           borderColor: 'divider',
           display: 'flex',
@@ -34,29 +36,13 @@ const MCPPlaygroundContent: React.FC = () => {
           bgcolor: 'background.paper',
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-          <Box
-            sx={{
-              width: 40,
-              height: 40,
-              borderRadius: 1,
-              bgcolor: 'primary.main',
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: 'white',
-              fontSize: '1.5rem',
-            }}
-          >
-            🎤
-          </Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+         
           <Box>
-            <Box sx={{ fontSize: '1.25rem', fontWeight: 600 }}>
-              MCP Playground
+            <Box sx={{ fontSize: '1rem', fontWeight: 600 }}>
+              MCP - Model Context Protocol
             </Box>
-            <Box sx={{ fontSize: '0.75rem', color: 'text.secondary' }}>
-              Voice-first device automation
-            </Box>
+            
           </Box>
         </Box>
       </Box>
@@ -165,7 +151,13 @@ const MCPPlaygroundContent: React.FC = () => {
 };
 
 const MCPPlayground: React.FC = () => {
-  return <MCPPlaygroundContent />;
+  return (
+    <NavigationConfigProvider>
+      <NavigationEditorProvider>
+        <MCPPlaygroundContent />
+      </NavigationEditorProvider>
+    </NavigationConfigProvider>
+  );
 };
 
 export default MCPPlayground;

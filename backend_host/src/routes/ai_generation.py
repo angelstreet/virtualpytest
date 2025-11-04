@@ -9,7 +9,7 @@ from uuid import uuid4
 from datetime import datetime, timezone
 from typing import Dict
 
-from backend_host.src.services.ai_exploration import ExplorationEngine
+from services.ai_exploration import ExplorationEngine
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_edge,
@@ -293,7 +293,7 @@ def approve_generation():
         
         print(f"[@route:ai_generation:approve_generation] Approving {len(approved_nodes)} nodes, {len(approved_edges)} edges")
         
-        from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
+        from services.ai_exploration.node_generator import NodeGenerator
         node_generator = NodeGenerator(tree_id, team_id)
         
         nodes_created = 0

@@ -38,7 +38,7 @@ class ScreenAnalyzer:
                 'strategy': 'test_right_left_first_then_ok'
             }
         """
-        from backend_host.src.services.video_ai.video_ai_helpers import VideoAIHelpers
+        from services.video_ai.video_ai_helpers import VideoAIHelpers
         
         prompt = """Analyze this menu screen and predict the navigation structure.
 
@@ -116,7 +116,7 @@ Strategy describes the exploration approach based on menu type."""
                 'reasoning': 'Completely different screen...'
             }
         """
-        from backend_host.src.services.video_ai.video_ai_helpers import VideoAIHelpers
+        from services.video_ai.video_ai_helpers import VideoAIHelpers
         
         prompt = f"""Compare these two screenshots after action '{action}'.
 
@@ -182,7 +182,7 @@ Context visible = Can you still see elements from the previous screen?
         Returns:
             Screenshot file path or None on error
         """
-        from backend_host.src.services.video_ai.video_ai_helpers import VideoAIHelpers
+        from services.video_ai.video_ai_helpers import VideoAIHelpers
         
         try:
             screenshot_path = VideoAIHelpers.capture_screenshot(
