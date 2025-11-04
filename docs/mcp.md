@@ -4,7 +4,7 @@
 
 **MCP (Model Context Protocol) Server** for VirtualPyTest enables external LLMs (Claude, ChatGPT, etc.) to control and automate physical devices through a standardized HTTP protocol.
 
-**Endpoint**: `https://dev.virtualpytest.com/mcp`  
+**Endpoint**: `https://dev.virtualpytest.com/server/mcp`  
 **Authentication**: Bearer token (required)  
 **Transport**: HTTP/HTTPS
 
@@ -73,7 +73,7 @@ MCP_SECRET_KEY=vpt_mcp_X3k9Vp2mQrYn8TzL4jWh6Ns1Fb7Gd5Mc9Ae0Rb3Kt8
 {
   "mcpServers": {
     "virtualpytest": {
-      "url": "https://dev.virtualpytest.com/mcp",
+      "url": "https://dev.virtualpytest.com/server/mcp",
       "transport": {
         "type": "http"
       },
@@ -102,7 +102,7 @@ The MCP server runs as an HTTP endpoint on your backend_server:
 ```bash
 # Test health endpoint (requires auth)
 curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
-     https://dev.virtualpytest.com/mcp/health
+     https://dev.virtualpytest.com/server/mcp/health
 
 # Expected response:
 # {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 11}
@@ -307,7 +307,7 @@ backend_server/src/mcp/
 ```
 Cursor (Your Mac)
     ↓ HTTPS with Bearer token
-https://dev.virtualpytest.com/mcp  (HTTP endpoint)
+https://dev.virtualpytest.com/server/mcp  (HTTP endpoint)
     ↓ Local calls
 Backend Server routes
     ↓ SSH/HTTP
@@ -320,7 +320,7 @@ Physical Devices
 
 ```
 1. Cursor makes HTTP POST request:
-   POST https://dev.virtualpytest.com/mcp
+   POST https://dev.virtualpytest.com/server/mcp
    Headers: Authorization: Bearer <token>
    Body: {
      "tool": "take_control",
@@ -465,7 +465,7 @@ Available tools on startup:
 
 - Restart Cursor completely (Cmd+Q, then reopen)
 - Check `~/.cursor/mcp.json` exists and is valid JSON
-- Verify URL is correct: `https://dev.virtualpytest.com/mcp`
+- Verify URL is correct: `https://dev.virtualpytest.com/server/mcp`
 - Test health endpoint manually with curl
 
 ### Device Operation Errors
@@ -559,7 +559,7 @@ print("Control released")
 {
   "mcpServers": {
     "virtualpytest": {
-      "url": "https://dev.virtualpytest.com/mcp",
+      "url": "https://dev.virtualpytest.com/server/mcp",
       "transport": {
         "type": "http"
       },
@@ -591,7 +591,7 @@ Configure dev and prod separately:
 {
   "mcpServers": {
     "virtualpytest-dev": {
-      "url": "https://dev.virtualpytest.com/mcp",
+      "url": "https://dev.virtualpytest.com/server/mcp",
       "headers": {
         "Authorization": "Bearer dev_secret_here"
       }
@@ -614,7 +614,7 @@ Same HTTP endpoint can be used by any MCP-compatible client:
 {
   "mcpServers": {
     "virtualpytest": {
-      "url": "https://dev.virtualpytest.com/mcp",
+      "url": "https://dev.virtualpytest.com/server/mcp",
       "headers": {
         "Authorization": "Bearer <your_secret>"
       }
