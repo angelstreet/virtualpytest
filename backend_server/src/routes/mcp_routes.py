@@ -137,8 +137,25 @@ def handle_jsonrpc_request(data):
     params = data.get('params', {})
     
     try:
+        # Handle initialize method (MCP handshake)
+        if method == 'initialize':
+            return jsonify({
+                'jsonrpc': '2.0',
+                'id': request_id,
+                'result': {
+                    'protocolVersion': '2024-11-05',
+                    'capabilities': {
+                        'tools': {}
+                    },
+                    'serverInfo': {
+                        'name': 'virtualpytest',
+                        'version': '1.0.0'
+                    }
+                }
+            })
+        
         # Handle tools/list method
-        if method == 'tools/list':
+        elif method == 'tools/list':
             tools = mcp_server.get_available_tools()
             # Convert to MCP protocol format
             mcp_tools = []
