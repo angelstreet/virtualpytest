@@ -210,11 +210,16 @@ def start_exploration():
                         _exploration_sessions[exploration_id]['phase'] = 'analysis_complete'
                         _exploration_sessions[exploration_id]['current_step'] = 'Analysis complete. Review the plan below.'
                         _exploration_sessions[exploration_id]['exploration_plan'] = result['plan']
+                        
+                        # Update current_analysis but PRESERVE the screenshot that was already set
+                        existing_screenshot = _exploration_sessions[exploration_id]['current_analysis'].get('screenshot')
                         _exploration_sessions[exploration_id]['current_analysis'] = {
                             'screen_name': result['plan'].get('screen_name', 'Initial Screen'),
                             'elements_found': result['plan'].get('items', []),
-                            'reasoning': result['plan'].get('reasoning', '')
+                            'reasoning': result['plan'].get('reasoning', ''),
+                            'screenshot': existing_screenshot  # ✅ PRESERVE screenshot!
                         }
+                        
                         # Store engine state for Phase 2
                         _exploration_sessions[exploration_id]['engine'] = engine
                     else:

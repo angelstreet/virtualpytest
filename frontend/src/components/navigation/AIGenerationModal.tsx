@@ -167,10 +167,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     <Dialog
       open={isOpen}
       onClose={onClose}
-      maxWidth="lg"
+      maxWidth="md"
       fullWidth
       PaperProps={{
-        sx: { height: '80vh', display: 'flex', flexDirection: 'column' }
+        sx: { maxHeight: '90vh' }
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -226,81 +226,72 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
         {/* Approval Section - Show AI plan and approval buttons */}
         {isAwaitingApproval && explorationPlan && (
-          <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <AnalyzeIcon color="warning" />
-              <Typography variant="h6">
-                Phase 1: Analysis Complete - Review Plan
-              </Typography>
-            </Box>
-
+          <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Alert severity="warning" sx={{ mb: 2 }}>
-              <strong>Action Required:</strong> Review the AI's exploration plan below and decide whether to continue.
+              <strong>Review AI Plan:</strong> AI analyzed the screen. Continue to Phase 2 or retry/abort.
             </Alert>
 
-            {/* Screenshot */}
-            {currentAnalysis.screenshot && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary" gutterBottom>
-                  Initial Screenshot:
-                </Typography>
-                <img
-                  src={currentAnalysis.screenshot}
-                  alt="Initial screen analysis"
-                  style={{
-                    maxWidth: '100%',
-                    maxHeight: '300px',
-                    objectFit: 'contain',
-                    borderRadius: '4px',
-                    border: '1px solid rgba(255, 255, 255, 0.12)'
-                  }}
-                />
-              </Box>
-            )}
-
-            {/* AI Plan Details */}
-            <Paper sx={{ p: 2, mb: 2, bgcolor: 'rgba(255, 152, 0, 0.1)' }}>
-              <Typography variant="subtitle2" gutterBottom>
-                <strong>AI Exploration Plan:</strong>
-              </Typography>
-              <Box sx={{ mt: 1 }}>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Menu Type:</strong> {explorationPlan.menu_type}
-                </Typography>
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Items Found:</strong> {explorationPlan.items.length} items
-                </Typography>
-                {explorationPlan.items.length > 0 && (
-                  <Box sx={{ ml: 2, mb: 1 }}>
-                    {explorationPlan.items.map((item, idx) => (
-                      <Chip key={idx} label={item} size="small" sx={{ mr: 0.5, mb: 0.5 }} />
-                    ))}
+            <Grid container spacing={2}>
+              {/* Left: Screenshot */}
+              <Grid item xs={12} md={5}>
+                {currentAnalysis.screenshot ? (
+                  <img
+                    src={currentAnalysis.screenshot}
+                    alt="Initial screen"
+                    style={{
+                      width: '100%',
+                      maxHeight: '280px',
+                      objectFit: 'contain',
+                      borderRadius: '4px',
+                      border: '1px solid rgba(255, 255, 255, 0.12)'
+                    }}
+                  />
+                ) : (
+                  <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 1 }}>
+                    <Typography variant="body2" color="text.secondary">No screenshot</Typography>
                   </Box>
                 )}
-                <Typography variant="body2" sx={{ mb: 1 }}>
-                  <strong>Strategy:</strong> {explorationPlan.strategy}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Predicted Depth:</strong> {explorationPlan.predicted_depth} levels
-                </Typography>
-              </Box>
-            </Paper>
+              </Grid>
 
-            {/* AI Reasoning */}
-            <Paper sx={{ p: 2, mb: 2, bgcolor: 'rgba(33, 150, 243, 0.1)' }}>
-              <Typography variant="subtitle2" gutterBottom>
-                <strong>AI Reasoning:</strong>
-              </Typography>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', fontFamily: 'monospace', fontSize: '0.85rem' }}>
-                {currentAnalysis.reasoning || explorationPlan.reasoning}
-              </Typography>
-            </Paper>
+              {/* Right: AI Plan */}
+              <Grid item xs={12} md={7}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Menu Type:</Typography>
+                    <Chip label={explorationPlan.menu_type} size="small" color="primary" />
+                  </Box>
+                  
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Items Found: {explorationPlan.items.length}</Typography>
+                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                      {explorationPlan.items.length > 0 ? (
+                        explorationPlan.items.map((item, idx) => (
+                          <Chip key={idx} label={item} size="small" variant="outlined" />
+                        ))
+                      ) : (
+                        <Typography variant="body2" color="warning.main">No items detected</Typography>
+                      )}
+                    </Box>
+                  </Box>
 
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 2 }}>
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Strategy:</Typography>
+                    <Typography variant="body2">{explorationPlan.strategy}</Typography>
+                  </Box>
+
+                  <Box>
+                    <Typography variant="body2" color="text.secondary">Predicted Depth:</Typography>
+                    <Typography variant="body2">{explorationPlan.predicted_depth} levels</Typography>
+                  </Box>
+                </Box>
+              </Grid>
+            </Grid>
+
+            {/* Buttons at bottom */}
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3 }}>
               <Button
                 variant="contained"
                 color="success"
-                size="large"
                 onClick={continueExploration}
                 startIcon={<NavigationIcon />}
               >
@@ -309,15 +300,13 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               <Button
                 variant="outlined"
                 color="warning"
-                size="large"
                 onClick={handleStart}
               >
-                Retry Analysis
+                Retry
               </Button>
               <Button
                 variant="outlined"
                 color="error"
-                size="large"
                 onClick={handleCancel}
                 startIcon={<CancelIcon />}
               >
