@@ -97,6 +97,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
     sessionId: 'mcp-playground-session',
     autoCleanup: true,
     tree_id: currentTreeId || undefined,
+    requireTreeId: false, // MCP Playground doesn't require tree_id (optional navigation)
     onControlStateChange: handleControlStateChange,
   });
   
@@ -188,18 +189,32 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
         
         if (!interfaceData) {
           console.warn(`[@useMCPPlaygroundPage] Interface not found: ${userinterfaceName}`);
+          setIsLoadingTree(false);
           return;
         }
         
-        const tree_id = interfaceData.tree_id;
+        // Use root_tree.id if available, otherwise fall back to tree_id
+        const tree_id = interfaceData.root_tree?.id || interfaceData.tree_id;
         if (!tree_id) {
           console.warn(`[@useMCPPlaygroundPage] No tree_id for interface: ${userinterfaceName}`);
+          setIsLoadingTree(false);
           return;
         }
         
         setCurrentTreeId(tree_id);
-        await loadTreeByUserInterface(userinterfaceName);
-        await setUserInterfaceFromProps(userinterfaceName);
+        
+        // Load tree using userinterface ID (UUID), not name - SAME AS TESTCASEBUILDER
+        const result = await loadTreeByUserInterface(interfaceData.id, { includeNested: true });
+        setUserInterfaceFromProps(interfaceData);
+        
+        console.log('[@useMCPPlaygroundPage] 🔍 Loaded tree:', {
+          result_tree_id: result?.tree?.id,
+          userInterface_root_tree: interfaceData.root_tree,
+          currentTreeId: tree_id,
+          userinterfaceName,
+          isLoadingTree: false,
+          disableTakeControl: !userinterfaceName || false || !tree_id
+        });
         
         // Extract nodes from loaded tree
         const allNodes: any[] = [];

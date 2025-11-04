@@ -49,6 +49,7 @@ export const useGenerateModel = ({
 }: UseGenerateModelProps) => {
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
+  const [explorationHostName, setExplorationHostName] = useState<string | null>(null); // NEW: Store host_name
   const [isExploring, setIsExploring] = useState(false);
   const [status, setStatus] = useState<'idle' | 'exploring' | 'completed' | 'failed'>('idle');
   const [currentStep, setCurrentStep] = useState('');
@@ -88,6 +89,7 @@ export const useGenerateModel = ({
 
   const resetState = useCallback(() => {
     setExplorationId(null);
+    setExplorationHostName(null); // Reset host_name
     setIsExploring(false);
     setStatus('idle');
     setCurrentStep('');
@@ -109,11 +111,11 @@ export const useGenerateModel = ({
   }, []);
 
   const fetchExplorationStatus = useCallback(async () => {
-    if (!explorationId || !selectedHost) return;
+    if (!explorationId || !explorationHostName) return;
 
     try {
       const response = await fetch(
-        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}?host_ip=${selectedHost.host_ip}`)
+        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}?host_name=${encodeURIComponent(explorationHostName)}`)
       );
 
       if (!response.ok) {
@@ -149,7 +151,7 @@ export const useGenerateModel = ({
       setError(err.message || 'Failed to fetch exploration status');
       setIsExploring(false);
     }
-  }, [explorationId, selectedHost, progress, currentAnalysis]);
+  }, [explorationId, explorationHostName, progress, currentAnalysis]);
 
   const startExploration = useCallback(async (depth: number = 5) => {
     if (!treeId || !selectedHost || !selectedDeviceId || !isControlActive) {
@@ -165,7 +167,7 @@ export const useGenerateModel = ({
       
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
         treeId,
-        host_ip: selectedHost.host_ip,
+        host_name: selectedHost.host_name,
         device_id: selectedDeviceId,
         userinterface_name: userinterfaceName,
         exploration_depth: depth
@@ -176,7 +178,7 @@ export const useGenerateModel = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tree_id: treeId,
-          host_ip: selectedHost.host_ip,
+          host_name: selectedHost.host_name,  // ← Just the name!
           device_id: selectedDeviceId,
           userinterface_name: userinterfaceName,
           exploration_depth: depth
@@ -191,6 +193,7 @@ export const useGenerateModel = ({
 
       if (data.success) {
         setExplorationId(data.exploration_id);
+        setExplorationHostName(data.host_name); // Store host_name from response
         setCurrentStep('Exploration started successfully');
         console.log('[@useGenerateModel:startExploration] Exploration started:', data.exploration_id);
       } else {

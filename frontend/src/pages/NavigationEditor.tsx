@@ -1341,6 +1341,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             treeId={actualTreeId}
             selectedHost={selectedHost}
             selectedDeviceId={selectedDeviceId}
+            userinterfaceName={userInterface?.name}
             onGenerated={handleAIGenerated}
           />
         )}

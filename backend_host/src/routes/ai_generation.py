@@ -36,7 +36,7 @@ def start_exploration():
     Request body:
     {
         'tree_id': 'uuid',
-        'host_ip': '192.168.1.100',  # or 'host_name': 'sunri-pi1'
+        'host_name': 'sunri-pi1',
         'device_id': 'device1',
         'exploration_depth': 5,
         'userinterface_name': 'horizon_android_mobile'
@@ -60,7 +60,7 @@ def start_exploration():
         # Extract parameters from body
         tree_id = data.get('tree_id')
         device_id = data.get('device_id', 'device1')
-        host_name = data.get('host_name') or data.get('host_ip')  # Support both
+        host_name = data.get('host_name')
         userinterface_name = data.get('userinterface_name')
         exploration_depth = data.get('exploration_depth', 5)
         
@@ -70,7 +70,7 @@ def start_exploration():
         if not tree_id:
             return jsonify({'success': False, 'error': 'tree_id is required'}), 400
         if not host_name:
-            return jsonify({'success': False, 'error': 'host_name or host_ip is required'}), 400
+            return jsonify({'success': False, 'error': 'host_name is required'}), 400
         if not userinterface_name:
             return jsonify({'success': False, 'error': 'userinterface_name is required'}), 400
         
@@ -97,6 +97,7 @@ def start_exploration():
             'exploration_id': exploration_id,
             'tree_id': tree_id,
             'team_id': team_id,
+            'host_name': host_name,  # Store for status polling
             'device_id': device_id,
             'device_model_name': device_model_name,
             'userinterface_name': userinterface_name,
@@ -206,6 +207,7 @@ def start_exploration():
         return jsonify({
             'success': True,
             'exploration_id': exploration_id,
+            'host_name': host_name,  # Return so frontend can use in status polls
             'message': 'Exploration started'
         })
         
@@ -275,14 +277,15 @@ def approve_generation():
     """
     Approve generation - rename all _temp nodes/edges
     
-    Request:
+    Request body:
     {
         'exploration_id': 'uuid',
         'tree_id': 'uuid',
         'approved_nodes': ['home_temp', 'settings_temp'],
-        'approved_edges': ['edge_home_to_settings_temp'],
-        'team_id': 'team_1'
+        'approved_edges': ['edge_home_to_settings_temp']
     }
+    Query params (auto-added by buildServerUrl):
+        'team_id': 'team_1'
     
     Response:
     {
@@ -292,13 +295,16 @@ def approve_generation():
     }
     """
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')  # Auto-added by buildServerUrl
         
         exploration_id = data.get('exploration_id')
         tree_id = data.get('tree_id')
         approved_nodes = data.get('approved_nodes', [])
         approved_edges = data.get('approved_edges', [])
-        team_id = data.get('team_id', 'team_1')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required in query parameters'}), 400
         
         if exploration_id not in _exploration_sessions:
             return jsonify({
@@ -369,12 +375,12 @@ def cancel_exploration():
     """
     Cancel exploration - delete all _temp nodes/edges
     
-    Request:
+    Request body:
     {
-        'exploration_id': 'uuid',
-        'host_ip': '...',
-        'team_id': 'team_1'
+        'exploration_id': 'uuid'
     }
+    Query params (auto-added by buildServerUrl):
+        'team_id': 'team_1'
     
     Response:
     {
@@ -383,10 +389,13 @@ def cancel_exploration():
     }
     """
     try:
-        data = request.get_json()
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')  # Auto-added by buildServerUrl
         
         exploration_id = data.get('exploration_id')
-        team_id = data.get('team_id', 'team_1')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required in query parameters'}), 400
         
         if exploration_id not in _exploration_sessions:
             return jsonify({

@@ -36,8 +36,7 @@ interface TestCaseBuilderHeaderProps {
   compatibleInterfaceNames: string[];
   userinterfaceName: string;
   setUserinterfaceName: (name: string) => void;
-  isLoadingTree: boolean; // NEW: Tree loading state
-  currentTreeId: string | null; // NEW: Current tree ID for cache building
+  isLoadingTree: boolean; // Tree loading state for button disable
   
   // Test Case
   testcaseName: string;
@@ -86,7 +85,6 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   userinterfaceName,
   setUserinterfaceName,
   isLoadingTree,
-  currentTreeId,
   testcaseName,
   hasUnsavedChanges,
   handleNew,
@@ -226,7 +224,7 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
           onDeviceSelect={handleDeviceSelect as any}
           onTakeControl={handleDeviceControl as any}
           onToggleRemotePanel={handleToggleRemotePanel}
-          disableTakeControl={!userinterfaceName || isLoadingTree || !currentTreeId}
+          disableTakeControl={!userinterfaceName || isLoadingTree}
         />
       </Box>
       

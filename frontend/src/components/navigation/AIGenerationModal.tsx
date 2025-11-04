@@ -184,7 +184,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
         {/* Configuration Section - Only show when not exploring */}
         {!isExploring && !hasResults && (
-          <Paper sx={{ p: 2 }}>
+          <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Typography variant="h6" gutterBottom>
               Exploration Configuration
             </Typography>
@@ -216,7 +216,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
         {/* Exploration Progress Section */}
         {(isExploring || hasResults) && (
-          <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
+          <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
               <AnalyzeIcon />
               <Typography variant="h6">
@@ -229,7 +229,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               <Typography variant="subtitle2" color="text.secondary">
                 Current Step:
               </Typography>
-              <Typography variant="body2" sx={{ fontFamily: 'monospace', bgcolor: 'grey.100', p: 1, borderRadius: 1 }}>
+              <Typography variant="body2" sx={{ fontFamily: 'monospace', p: 1, borderRadius: 1 }}>
                 {currentStep || 'Initializing...'}
               </Typography>
             </Box>
@@ -252,7 +252,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                 <Typography variant="subtitle2" color="text.secondary">
                   Current Analysis:
                 </Typography>
-                <Paper sx={{ p: 1, bgcolor: 'grey.50' }}>
+                <Paper sx={{ p: 1, bgcolor: 'transparent' }}>
                   <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                     Screen: {currentAnalysis.screen_name}
                   </Typography>
@@ -298,7 +298,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                     </Typography>
                     <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
                       {proposedNodes.map((node) => (
-                        <Paper key={node.id} sx={{ p: 1, mb: 1, bgcolor: 'grey.50' }}>
+                        <Paper key={node.id} sx={{ p: 1, mb: 1, bgcolor: 'transparent' }}>
                           <FormControlLabel
                             control={
                               <Checkbox
@@ -331,7 +331,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                     </Typography>
                     <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
                       {proposedEdges.map((edge) => (
-                        <Paper key={edge.id} sx={{ p: 1, mb: 1, bgcolor: 'grey.50' }}>
+                        <Paper key={edge.id} sx={{ p: 1, mb: 1, bgcolor: 'transparent' }}>
                           <FormControlLabel
                             control={
                               <Checkbox

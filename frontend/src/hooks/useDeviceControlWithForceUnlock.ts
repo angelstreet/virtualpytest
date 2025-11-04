@@ -16,6 +16,7 @@ interface UseDeviceControlWithForceUnlockProps {
   sessionId: string;
   autoCleanup?: boolean;
   tree_id?: string; // Navigation tree ID for cache population
+  requireTreeId?: boolean; // If true, requires tree_id to take control (default: false)
   onControlStateChange?: (active: boolean) => void;
 }
 
@@ -36,6 +37,7 @@ export const useDeviceControlWithForceUnlock = ({
   sessionId,
   autoCleanup = true,
   tree_id,
+  requireTreeId = false, // Default: tree_id is optional
   onControlStateChange,
 }: UseDeviceControlWithForceUnlockProps): UseDeviceControlWithForceUnlockReturn => {
   
@@ -68,16 +70,17 @@ export const useDeviceControlWithForceUnlock = ({
         onControlStateChange(false);
       }
     } else {
-      // ❌ FAIL FAST: Require tree_id for navigation cache building
-      if (!tree_id) {
+      // Validate tree_id only if required (e.g., for navigation-based workflows)
+      if (requireTreeId && !tree_id) {
         const errorMsg = 'Cannot take control: Please select a userinterface first. The navigation cache requires a valid tree_id.';
-        console.error('[@useDeviceControlWithForceUnlock] ❌ Validation failed: tree_id is missing');
+        console.error('[@useDeviceControlWithForceUnlock] ❌ Validation failed: tree_id is missing (required)');
         showError(errorMsg);
         return;
       }
       
-      // Take device control
-      console.log('[@useDeviceControlWithForceUnlock] ✅ Taking device control with tree_id:', tree_id);
+      // Take device control (tree_id is optional - backend handles it)
+      const treeIdMsg = tree_id ? `with tree_id: ${tree_id}` : 'without tree_id (cache skipped)';
+      console.log(`[@useDeviceControlWithForceUnlock] ✅ Taking device control ${treeIdMsg}`);
       const result = await handleTakeControl();
       
       // If take control succeeded

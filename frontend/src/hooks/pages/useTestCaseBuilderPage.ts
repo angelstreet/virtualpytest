@@ -215,6 +215,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     sessionId: 'testcase-builder-session',
     autoCleanup: true,
     tree_id: currentTreeId || undefined, // Pass tree_id for cache building
+    requireTreeId: true, // TestCaseBuilder requires tree_id for navigation
     onControlStateChange: handleControlStateChange,
   });
   

@@ -22,7 +22,6 @@ interface MCPPlaygroundHeaderProps {
   userinterfaceName: string;
   setUserinterfaceName: (name: string) => void;
   isLoadingTree: boolean;
-  currentTreeId: string | null;
 }
 
 export const MCPPlaygroundHeader: React.FC<MCPPlaygroundHeaderProps> = ({
@@ -39,7 +38,6 @@ export const MCPPlaygroundHeader: React.FC<MCPPlaygroundHeaderProps> = ({
   userinterfaceName,
   setUserinterfaceName,
   isLoadingTree,
-  currentTreeId,
 }) => {
   return (
     <Box
@@ -76,7 +74,7 @@ export const MCPPlaygroundHeader: React.FC<MCPPlaygroundHeaderProps> = ({
           onDeviceSelect={handleDeviceSelect as any}
           onTakeControl={handleDeviceControl as any}
           onToggleRemotePanel={() => {}}
-          disableTakeControl={!userinterfaceName || isLoadingTree || !currentTreeId}
+          disableTakeControl={!userinterfaceName || isLoadingTree}
         />
       </Box>
       
