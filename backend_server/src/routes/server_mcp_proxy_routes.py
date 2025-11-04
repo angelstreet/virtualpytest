@@ -74,25 +74,16 @@ def execute_prompt():
         # Convert MCP tool schemas to OpenRouter tools format (new API)
         tools = []
         for tool in available_tools:
-            # Only include commonly used tools to avoid overwhelming the model
-            if tool['name'] in [
-                'execute_device_action', 
-                'navigate_to_node', 
-                'verify_device_state',
-                'capture_screenshot',
-                'list_actions',
-                'list_navigation_nodes'
-            ]:
-                tools.append({
-                    "type": "function",  # NEW: tools format requires type
-                    "function": {
-                        "name": tool['name'],
-                        "description": tool['description'][:500],  # Truncate long descriptions
-                        "parameters": tool['inputSchema']
-                    }
-                })
+            tools.append({
+                "type": "function",
+                "function": {
+                    "name": tool['name'],
+                    "description": tool['description'][:1000],  # Allow longer descriptions for context
+                    "parameters": tool['inputSchema']
+                }
+            })
         
-        print(f"[@mcp_proxy] Prepared {len(tools)} tools for AI")
+        print(f"[@mcp_proxy] Prepared {len(tools)} tools for AI (all available)")
         
         # Call OpenRouter with function calling
         system_prompt = f'''You are a device automation assistant with access to MCP tools.
@@ -105,18 +96,21 @@ Current context:
 - Tree ID: {tree_id or 'not provided'}
 
 CRITICAL RULES:
-1. ALWAYS include device_id, host_name, team_id, and userinterface_name when calling functions (use the values from context above)
-2. For actions like "swipe up", "click button", use execute_device_action
-3. For navigation like "go to home", use navigate_to_node
-4. For verifications like "verify element appears", "wait for element", use verify_device_state
+1. ALWAYS include device_id, host_name, team_id when calling functions (use values from context above)
+2. If you don't know what commands/actions are available, call list_actions first
+3. If you don't know what nodes are available, call list_navigation_nodes first
+4. If you don't know what verifications are available, call list_verifications first
 5. Call only ONE function per request
+6. Use the tool schemas to understand required parameters - they are self-documenting
 
-Examples:
-- "Swipe up" → execute_device_action(actions=[{{"command": "swipe_up", "params": {{}}}}])
-- "Take screenshot" → capture_screenshot()
-- "Navigate to home" → navigate_to_node(target_node_label="home")
-- "Verify Replay button appears" → verify_device_state(verifications=[{{"command": "element_appears", "verification_type": "image", "params": {{"element_id": "Replay"}}}}])
-- "Wait for Replay element" → verify_device_state(verifications=[{{"command": "element_appears", "verification_type": "image", "params": {{"element_id": "Replay"}}}}])'''
+Tool selection guide:
+- For device actions (click, swipe, type, etc.) → execute_device_action
+- For navigation through UI trees → navigate_to_node
+- For verifications/waiting for elements → verify_device_state
+- For screenshots → capture_screenshot
+- For discovering available actions → list_actions
+- For discovering navigation nodes → list_navigation_nodes
+- For discovering verifications → list_verifications'''
 
         print(f"[@mcp_proxy] Calling OpenRouter with model: google/gemini-2.0-flash-001")
         
@@ -261,7 +255,8 @@ Examples:
                 final_result = {'message': result_text}
             
             # ✅ Check actual execution result (not just MCP call success)
-            execution_success = final_result.get('success', True)  # Default to True if not specified
+            # CRITICAL: Default to False if success field is missing to catch errors
+            execution_success = final_result.get('success', False)
             
             if execution_success:
                 print(f"[@mcp_proxy] ✅ MCP tool executed successfully")
