@@ -10,17 +10,21 @@ import json
 class ScreenAnalyzer:
     """AI vision analysis using existing VideoAIHelpers"""
     
-    def __init__(self, device_id: str, host_name: str, ai_model: str = 'qwen'):
+    def __init__(self, device_id: str, host_name: str, device_model_name: str = None, controller = None, ai_model: str = 'qwen'):
         """
         Initialize with device context
         
         Args:
             device_id: Device ID
             host_name: Host name
+            device_model_name: Device model (e.g., 'android_mobile') for screenshot source selection
+            controller: Remote controller instance (for android_mobile native screenshots)
             ai_model: 'qwen' (default), later: user-selectable
         """
         self.device_id = device_id
         self.host_name = host_name
+        self.device_model_name = device_model_name
+        self.controller = controller
         self.ai_model = ai_model
         
     def anticipate_tree(self, screenshot_path: str) -> Dict:
@@ -38,7 +42,7 @@ class ScreenAnalyzer:
                 'strategy': 'test_right_left_first_then_ok'
             }
         """
-        from services.video_ai.video_ai_helpers import VideoAIHelpers
+        from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         
         prompt = """Analyze this menu screen and predict the navigation structure.
 
@@ -116,7 +120,7 @@ Strategy describes the exploration approach based on menu type."""
                 'reasoning': 'Completely different screen...'
             }
         """
-        from services.video_ai.video_ai_helpers import VideoAIHelpers
+        from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         
         prompt = f"""Compare these two screenshots after action '{action}'.
 
@@ -177,20 +181,32 @@ Context visible = Can you still see elements from the previous screen?
     
     def capture_screenshot(self) -> Optional[str]:
         """
-        Capture screenshot using VideoAIHelpers
+        Capture screenshot:
+        - android_mobile: Use ADB native screenshot (exact display buffer)
+        - Other devices: Use HDMI capture via VideoAIHelpers
         
         Returns:
             Screenshot file path or None on error
         """
-        from services.video_ai.video_ai_helpers import VideoAIHelpers
-        
         try:
-            screenshot_path = VideoAIHelpers.capture_screenshot(
-                device_id=self.device_id,
-                host_name=self.host_name
-            )
+            # For android_mobile, use native ADB screenshot
+            if self.device_model_name and 'mobile' in self.device_model_name.lower() and self.controller:
+                success, base64_data, error = self.controller.take_screenshot()
+                if success and base64_data:
+                    # Convert base64 to temp file for AI
+                    import base64
+                    from datetime import datetime
+                    image_data = base64.b64decode(base64_data)
+                    temp_path = f"/tmp/android_screenshot_{datetime.now().strftime('%Y%m%d_%H%M%S_%f')}.png"
+                    with open(temp_path, 'wb') as f:
+                        f.write(image_data)
+                    print(f"[@screen_analyzer:capture_screenshot] Android native: {temp_path}")
+                    return temp_path
             
-            print(f"[@screen_analyzer:capture_screenshot] Captured: {screenshot_path}")
+            # Fallback to HDMI capture for all other devices
+            from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
+            screenshot_path = VideoAIHelpers.capture_screenshot(self.device_id, self.host_name)
+            print(f"[@screen_analyzer:capture_screenshot] HDMI capture: {screenshot_path}")
             return screenshot_path
             
         except Exception as e:

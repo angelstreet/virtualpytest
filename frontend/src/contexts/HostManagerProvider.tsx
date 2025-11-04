@@ -66,13 +66,14 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
   
   // Invalidate cache if hostCount is 0 (side effect in useEffect, not useMemo)
   useEffect(() => {
-    // Only attempt refresh once per cache key
-    const cacheKey = `${selectedServer}_${serverHostsData.length}`;
+    // Only attempt refresh once per selected server (don't include length in cache key)
+    const cacheKey = `${selectedServer}`;
     
     if (
       allHostsFromServers.length === 0 && 
       !serverLoading && 
       selectedServer &&
+      serverHostsData.length > 0 && // Only refresh if we have server data but no hosts for this server
       cacheRefreshAttemptedRef.current !== cacheKey
     ) {
       console.warn('[@HostManagerProvider] hostCount is 0 - invalidating cache and forcing refresh (once)');

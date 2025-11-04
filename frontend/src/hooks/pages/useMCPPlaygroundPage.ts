@@ -153,22 +153,25 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
         }
         
         const interfaces = await getAllUserInterfaces();
+        
+        // Use shared compatibility utility
         const compatibleInterfaces = filterCompatibleInterfaces(interfaces, selectedDevice);
         
-        const names = compatibleInterfaces.map((iface: any) => iface.userinterface_name);
+        const names = compatibleInterfaces.map((ui: any) => ui.name);
+        
         setCompatibleInterfaceNames(names);
         
-        // Auto-select first compatible interface
-        if (names.length > 0 && !userinterfaceName) {
+        // Auto-select first interface if current selection is not in the list
+        if (names.length > 0 && !names.includes(userinterfaceName)) {
           setUserinterfaceName(names[0]);
         }
       } catch (error) {
-        console.error('[@useMCPPlaygroundPage] Error loading compatible interfaces:', error);
+        console.error('[@useMCPPlaygroundPage] Failed to load compatible interfaces:', error);
       }
     };
     
     loadCompatibleInterfaces();
-  }, [selectedDeviceId, selectedHost, getAllUserInterfaces, userinterfaceName]);
+  }, [selectedDeviceId, selectedHost, getAllUserInterfaces, userinterfaceName, setUserinterfaceName]);
   
   // Load navigation tree when interface changes (SAME AS TESTCASEBUILDER)
   useEffect(() => {

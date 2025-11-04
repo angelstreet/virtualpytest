@@ -98,6 +98,15 @@ export const NavigationEditorDeviceControls: React.FC<NavigationEditorDeviceCont
           disabled={isControlLoading || isControlActive}
           sx={{ height: 32, fontSize: '0.75rem' }}
         >
+          {/* Render hidden fallback option if selectedDeviceKey doesn't exist in availableHosts */}
+          {selectedDeviceKey && !availableHosts.some((host) =>
+            host.devices?.some((d) => createDeviceKey(host.host_name, d.device_id) === selectedDeviceKey)
+          ) && (
+            <MenuItem value={selectedDeviceKey} sx={{ display: 'none' }}>
+              {selectedDeviceKey}
+            </MenuItem>
+          )}
+          
           {availableHosts.flatMap((host, hostIndex) => {
             const devices = host.devices || [];
 

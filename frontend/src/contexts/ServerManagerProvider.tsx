@@ -137,7 +137,8 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     isRequestInProgress.current = true;
     setIsLoading(true);
     setError(null);
-    setServerHostsData([]); // Reset to empty
+    // Don't reset serverHostsData to empty - keep old data while fetching
+    // This prevents triggering hostCount=0 conditions during refresh
     setPendingServers(new Set(availableServers));
     setFailedServers(new Set()); // Reset failed servers
 
@@ -167,14 +168,6 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
             },
             hosts: data.hosts || []
           };
-          
-          // Append this server's data
-          setServerHostsData(prev => [...prev, serverData]);
-          
-          // If this is the selected server, stop loading
-          if (serverUrl === selectedServer) {
-            setIsLoading(false);
-          }
 
           return { success: true, serverUrl, data: serverData };
         } else {
@@ -203,6 +196,9 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     const allServerData = results
       .filter(result => result.success && result.data)
       .map(result => result.data!);
+
+    // Update state with new data (replaces old data atomically)
+    setServerHostsData(allServerData);
 
     // Cache the data if we have any
     if (allServerData.length > 0) {

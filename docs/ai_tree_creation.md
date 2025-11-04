@@ -61,15 +61,35 @@ When complete:
 }
 ```
 
-### Phase 2: Validation (Depth-First Exploration)
+### Phase 2: Smart Validation (Prediction-Guided)
+
+The AI doesn't explore blindly - it uses Phase 1 predictions to guide exploration efficiently:
+
+**Strategy: Confirm, Don't Discover**
+
+**If menu_type = 'horizontal' with N predicted items:**
 ```
-1. Test DPAD directions (RIGHT, LEFT, UP, DOWN)
-2. For each direction: Press OK to see if new screen
-3. AI analyzes: Is this a new screen or just focus change?
-4. If new screen → Create node + edge with _temp suffix
-5. Press BACK to return
-6. Recurse deeper (up to depth limit)
+For each predicted item (e.g., ['home', 'replay', 'settings']):
+  1. Press RIGHT (i times) to move to position
+  2. Press OK to enter
+  3. Take screenshot
+  4. Ask AI: "Is this the '{predicted_item}' screen?"
+  5. If YES → Create node (prediction confirmed!)
+     If NO → Ask AI "What screen is this?" and create with actual name
+  6. Press BACK to return to menu
 ```
+
+**If menu_type = 'vertical' with N predicted items:**
+- Same strategy but using DOWN instead of RIGHT
+
+**If menu_type = 'grid' or 'mixed':**
+- Fallback to testing all 4 directions (UP, DOWN, LEFT, RIGHT)
+
+**Key Advantages:**
+- ✅ **Efficient**: If AI predicted 4 items, we only test 4 positions (not all directions)
+- ✅ **Smart**: Horizontal menu → only test RIGHT/LEFT (not UP/DOWN)
+- ✅ **Self-Correcting**: If prediction is wrong, AI adjusts on-the-fly
+- ✅ **Deep Recursion**: At each new screen, AI re-analyzes and provides fresh predictions
 
 **Optimization:** AI only analyzes after OK/BACK, not for every DPAD movement!
 

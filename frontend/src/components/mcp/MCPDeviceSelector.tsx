@@ -3,11 +3,6 @@ import {
   Box,
   Card,
   CardContent,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
-  Button,
   Typography,
   Collapse,
   IconButton,
@@ -17,9 +12,9 @@ import {
 import {
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
-  Lock as LockIcon,
-  LockOpen as LockOpenIcon,
 } from '@mui/icons-material';
+import { NavigationEditorDeviceControls } from '../navigation/Navigation_NavigationEditor_DeviceControls';
+import { UserinterfaceSelector } from '../common/UserinterfaceSelector';
 
 interface MCPDeviceSelectorProps {
   selectedHost: any;
@@ -30,8 +25,11 @@ interface MCPDeviceSelectorProps {
   compatibleInterfaceNames: string[];
   isControlActive: boolean;
   isControlLoading: boolean;
+  isDeviceLocked: (deviceKey: string) => boolean;
   handleDeviceSelect: (host: any | null, deviceId: string | null) => void;
   handleDeviceControl: () => Promise<void>;
+  currentTreeId: string | null;
+  isLoadingTree: boolean;
   defaultCollapsed?: boolean;
 }
 
@@ -44,8 +42,11 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({
   compatibleInterfaceNames,
   isControlActive,
   isControlLoading,
+  isDeviceLocked,
   handleDeviceSelect,
   handleDeviceControl,
+  currentTreeId,
+  isLoadingTree,
   defaultCollapsed = false
 }) => {
   
@@ -82,102 +83,34 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({
           </IconButton>
         </Box>
         
-        {/* Collapsible Content */}
+        {/* Collapsible Content - REUSE TestCaseBuilder components */}
         <Collapse in={!isCollapsed} timeout="auto">
           <Stack spacing={2}>
-            {/* Host Selection */}
-            <FormControl fullWidth size="small">
-              <InputLabel>Host</InputLabel>
-              <Select
-                value={selectedHost?.host_name || ''}
-                label="Host"
-                onChange={(e) => {
-                  const host = availableHosts.find(h => h.host_name === e.target.value);
-                  const deviceId = host?.devices?.[0]?.device_id || null;
-                  handleDeviceSelect(host || null, deviceId);
-                }}
-                disabled={isControlActive}
-                sx={{
-                  fontSize: { xs: '0.95rem', md: '0.875rem' },
-                  '& .MuiSelect-select': {
-                    py: { xs: 1.5, md: 1 },
-                  },
-                }}
-              >
-                {availableHosts.map((host) => (
-                  <MenuItem key={host.host_name} value={host.host_name}>
-                    {host.host_name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            {/* Device Control - SAME as TestCaseBuilderHeader */}
+            <NavigationEditorDeviceControls
+              selectedHost={selectedHost}
+              selectedDeviceId={selectedDeviceId}
+              isControlActive={isControlActive}
+              isControlLoading={isControlLoading}
+              isRemotePanelOpen={false}
+              availableHosts={availableHosts}
+              isDeviceLocked={isDeviceLocked}
+              onDeviceSelect={handleDeviceSelect as any}
+              onTakeControl={handleDeviceControl as any}
+              onToggleRemotePanel={() => {}}
+              disableTakeControl={!userinterfaceName || isLoadingTree || !currentTreeId}
+            />
             
-            {/* Device ID Selection */}
-            <FormControl fullWidth size="small">
-              <InputLabel>Device ID</InputLabel>
-              <Select
-                value={selectedDeviceId || ''}
-                label="Device ID"
-                onChange={(e) => handleDeviceSelect(selectedHost, e.target.value)}
-                disabled={isControlActive || !selectedHost}
-                sx={{
-                  fontSize: { xs: '0.95rem', md: '0.875rem' },
-                  '& .MuiSelect-select': {
-                    py: { xs: 1.5, md: 1 },
-                  },
-                }}
-              >
-                {selectedHost?.devices?.map((device: any) => (
-                  <MenuItem key={device.device_id} value={device.device_id}>
-                    {device.device_id}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            {/* User Interface Selection */}
-            <FormControl fullWidth size="small">
-              <InputLabel>User Interface</InputLabel>
-              <Select
-                value={userinterfaceName}
-                label="User Interface"
-                onChange={(e) => setUserinterfaceName(e.target.value)}
-                disabled={isControlActive}
-                sx={{
-                  fontSize: { xs: '0.95rem', md: '0.875rem' },
-                  '& .MuiSelect-select': {
-                    py: { xs: 1.5, md: 1 },
-                  },
-                }}
-              >
-                {compatibleInterfaceNames.map((name) => (
-                  <MenuItem key={name} value={name}>
-                    {name}
-                  </MenuItem>
-                ))}
-              </Select>
-            </FormControl>
-            
-            {/* Control Button */}
-            <Button
-              variant={isControlActive ? 'contained' : 'outlined'}
-              color={isControlActive ? 'success' : 'primary'}
-              onClick={handleDeviceControl}
-              disabled={isControlLoading || !selectedHost || !selectedDeviceId || !userinterfaceName}
-              startIcon={isControlActive ? <LockIcon /> : <LockOpenIcon />}
-              fullWidth
-              sx={{
-                minHeight: { xs: 56, md: 48, lg: 40 },
-                fontSize: { xs: '1rem', md: '0.9rem' },
-                fontWeight: 600,
-              }}
-            >
-              {isControlLoading
-                ? 'Connecting...'
-                : isControlActive
-                ? 'Release Control'
-                : 'Take Control'}
-            </Button>
+            {/* Interface Selector - SAME as TestCaseBuilderHeader */}
+            <UserinterfaceSelector
+              compatibleInterfaces={compatibleInterfaceNames}
+              value={userinterfaceName}
+              onChange={setUserinterfaceName}
+              label="User Interface"
+              size="small"
+              fullWidth={true}
+              disabled={!selectedDeviceId}
+            />
             
             {/* Status Chip */}
             {isControlActive && (
@@ -197,4 +130,3 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({
     </Card>
   );
 };
-

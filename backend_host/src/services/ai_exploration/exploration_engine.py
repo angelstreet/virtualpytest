@@ -10,7 +10,8 @@ import traceback
 from services.ai_exploration.screen_analyzer import ScreenAnalyzer
 from services.ai_exploration.navigation_strategy import NavigationStrategy
 from services.ai_exploration.node_generator import NodeGenerator
-from services.controller.controller_factory import ControllerFactory
+from backend_host.src.controllers.remote.android_mobile import AndroidMobileRemoteController
+from backend_host.src.controllers.remote.android_tv import AndroidTVRemoteController
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_edge,
@@ -53,8 +54,25 @@ class ExplorationEngine:
         self.depth_limit = depth_limit
         
         # Initialize components
-        self.screen_analyzer = ScreenAnalyzer(device_id, host_name)
-        self.controller = ControllerFactory.get_controller(device_model_name)
+        self.screen_analyzer = ScreenAnalyzer(
+            device_id=device_id,
+            host_name=host_name,
+            device_model_name=device_model_name,
+            controller=None  # Will be set after controller initialization
+        )
+        
+        # Get controller based on device model
+        if 'mobile' in device_model_name.lower():
+            self.controller = AndroidMobileRemoteController(device_id, host_name)
+        elif 'tv' in device_model_name.lower() or 'android' in device_model_name.lower():
+            self.controller = AndroidTVRemoteController(device_id, host_name)
+        else:
+            # Default to Android TV
+            self.controller = AndroidTVRemoteController(device_id, host_name)
+        
+        # Pass controller to screen_analyzer for android_mobile native screenshots
+        self.screen_analyzer.controller = self.controller
+        
         self.navigation_strategy = NavigationStrategy(self.controller, self.screen_analyzer)
         self.node_generator = NodeGenerator(tree_id, team_id)
         
@@ -155,13 +173,18 @@ class ExplorationEngine:
     
     def _phase2_validation(self, prediction: Dict, initial_screenshot: str):
         """
-        Phase 2: Depth-first exploration to validate prediction
+        Phase 2: Smart validation using AI prediction
+        
+        Uses prediction to guide exploration:
+        - Predicted items → Test those specific items
+        - Menu type → Use appropriate navigation strategy
+        - Item count → Know when to stop
         
         Args:
             prediction: AI prediction from phase 1
             initial_screenshot: Path to initial screenshot
         """
-        print(f"\n[@exploration_engine] === PHASE 2: VALIDATION ===")
+        print(f"\n[@exploration_engine] === PHASE 2: SMART VALIDATION ===")
         
         # Create root node (home_temp)
         root_node_name = "home_temp"
@@ -185,156 +208,272 @@ class ExplorationEngine:
             print(f"❌ Failed to create root node: {result.get('error')}")
             return
         
-        # Start depth-first exploration from root
-        self._explore_depth_first(
+        # Start SMART exploration using prediction
+        self._explore_with_prediction(
             current_node=root_node_name,
             parent_screenshot=initial_screenshot,
-            depth=0,
-            menu_type=prediction.get('menu_type', 'mixed')
+            prediction=prediction,
+            depth=0
         )
     
-    def _explore_depth_first(
+    def _explore_with_prediction(
         self,
         current_node: str,
         parent_screenshot: str,
-        depth: int,
-        menu_type: str = 'mixed'
+        prediction: Dict,
+        depth: int
     ):
         """
-        Recursive depth-first exploration
+        SMART exploration using AI prediction
+        
+        Strategy:
+        1. Use predicted items to guide exploration
+        2. Use menu type to determine navigation method
+        3. Confirm predictions vs discover new items
+        4. Recurse deeper for confirmed items
         
         Args:
             current_node: Current node name (with _temp)
             parent_screenshot: Screenshot at current position
+            prediction: AI prediction (menu_type, items, etc)
             depth: Current depth in exploration
-            menu_type: Menu type for direction testing
         """
         if depth >= self.depth_limit:
             print(f"[@exploration_engine] Max depth {self.depth_limit} reached")
             return
         
-        print(f"\n[@exploration_engine] Exploring: {current_node} (depth={depth})")
+        print(f"\n[@exploration_engine] Smart Exploring: {current_node} (depth={depth})")
         
-        # Get directions to test based on menu type
-        directions = self.navigation_strategy.get_directions_to_test(menu_type)
-        print(f"Testing directions: {directions}")
+        # Extract prediction info
+        menu_type = prediction.get('menu_type', 'mixed')
+        predicted_items = prediction.get('items', [])
         
-        siblings_found = []
+        print(f"  Menu Type: {menu_type}")
+        print(f"  Predicted Items: {predicted_items}")
         
-        # Test each direction to discover siblings
-        for direction in directions:
-            print(f"\n  Testing {direction}...")
+        confirmed_nodes = []
+        
+        # STRATEGY: Use prediction to guide exploration
+        if menu_type == 'horizontal' and predicted_items:
+            # Horizontal menu: Press RIGHT to move between items
+            print(f"  🎯 Strategy: Horizontal menu with {len(predicted_items)} predicted items")
             
-            # Test direction (just move focus, don't analyze yet)
-            success = self.navigation_strategy.test_direction(direction, wait_time=500)
-            
-            if success:
-                # Now press OK to see if we enter a new screen
+            for i, predicted_item in enumerate(predicted_items):
+                print(f"\n  [{i+1}/{len(predicted_items)}] Looking for: {predicted_item}")
+                
+                # Move to position (press RIGHT i times from start)
+                if i > 0:
+                    self.navigation_strategy.test_direction('RIGHT', wait_time=500)
+                
+                # Press OK to enter
                 ok_result = self.navigation_strategy.press_ok_and_analyze(parent_screenshot)
                 
                 if ok_result['success'] and ok_result['is_new_screen']:
-                    # Found a new screen!
                     analysis = ok_result['analysis']
+                    suggested_name = analysis.get('suggested_name', 'screen')
                     
-                    print(f"  ✅ NEW SCREEN FOUND: {analysis.get('suggested_name')}")
+                    # Check if prediction was correct
+                    if predicted_item.lower() in suggested_name.lower():
+                        print(f"  ✅ CONFIRMED: {predicted_item} (AI was right!)")
+                    else:
+                        print(f"  ⚠️  ADJUSTED: Expected '{predicted_item}', found '{suggested_name}'")
                     
-                    # Generate node name
+                    # Create node with actual name
                     new_node_name = self.node_generator.generate_node_name(
-                        ai_suggestion=analysis.get('suggested_name', 'screen'),
+                        ai_suggestion=suggested_name,
                         parent_node=current_node,
                         context_visible=analysis.get('context_visible', False)
                     )
                     
-                    # Calculate position (simple grid layout)
-                    position_x = 250 + (len(self.created_nodes) % 3) * 300
-                    position_y = 250 + (len(self.created_nodes) // 3) * 200
+                    # Create and save node
+                    confirmed_nodes.append(self._create_node_and_edge(
+                        parent_node=current_node,
+                        new_node_name=new_node_name,
+                        analysis=analysis,
+                        navigation_actions=[
+                            {'command': 'RIGHT', 'params': {}, 'delay': 500} if i > 0 else None,
+                            {'command': 'OK', 'params': {}, 'delay': 1000}
+                        ],
+                        after_screenshot=ok_result['after_screenshot'],
+                        depth=depth
+                    ))
                     
-                    # Create node
-                    node_data = self.node_generator.create_node_data(
-                        node_name=new_node_name,
-                        position={'x': position_x, 'y': position_y},
-                        ai_analysis=analysis
-                    )
-                    
-                    # Save node to database
-                    node_result = save_node(self.tree_id, node_data, self.team_id)
-                    
-                    if node_result['success']:
-                        self.created_nodes.append(new_node_name)
-                        print(f"    ✅ Created node: {new_node_name}")
-                        
-                        # Create edge from current to new node
-                        edge_data = self.node_generator.create_edge_data(
-                            source=current_node,
-                            target=new_node_name,
-                            actions=[
-                                {'command': direction, 'params': {}, 'delay': 500},
-                                {'command': 'OK', 'params': {}, 'delay': 1000}
-                            ]
-                        )
-                        
-                        edge_result = save_edge(self.tree_id, edge_data, self.team_id)
-                        
-                        if edge_result['success']:
-                            self.created_edges.append(edge_data['edge_id'])
-                            print(f"    ✅ Created edge: {current_node} → {new_node_name}")
-                        
-                        # Check if subtree should be created
-                        if self.node_generator.should_create_subtree(new_node_name, depth + 1):
-                            print(f"    🌲 Creating subtree for: {new_node_name}")
-                            
-                            subtree_result = create_sub_tree(
-                                parent_tree_id=self.tree_id,
-                                parent_node_id=new_node_name,
-                                tree_data={
-                                    'name': f'{new_node_name}_subtree',
-                                    'userinterface_id': None  # Inherits from parent
-                                },
-                                team_id=self.team_id
-                            )
-                            
-                            if subtree_result['success']:
-                                self.created_subtrees.append(subtree_result['tree']['id'])
-                                print(f"    ✅ Subtree created: {subtree_result['tree']['id']}")
-                        
-                        # Remember this sibling for deeper exploration
-                        siblings_found.append({
-                            'node_name': new_node_name,
-                            'screenshot': ok_result['after_screenshot']
-                        })
-                    
-                    # Press BACK to return
+                    # Press BACK to return to menu
                     self.navigation_strategy.press_back_and_return()
                 else:
-                    # Not a new screen or failed - just go back
-                    print(f"  ⏭️  Same screen or failed, moving on...")
+                    print(f"  ⏭️  No new screen found")
                     self.navigation_strategy.press_back_and_return()
-            
-            # Return to starting position for next direction test
-            # (Simple approach: press opposite direction)
-            opposite = {
-                'RIGHT': 'LEFT',
-                'LEFT': 'RIGHT',
-                'UP': 'DOWN',
-                'DOWN': 'UP'
-            }.get(direction)
-            
-            if opposite:
-                self.navigation_strategy.test_direction(opposite, wait_time=300)
         
-        # Now explore each sibling depth-first
-        print(f"\n[@exploration_engine] Exploring {len(siblings_found)} siblings deeper...")
-        
-        for sibling in siblings_found:
-            # Navigate to sibling (we know the path)
-            # For simplicity, we'll skip re-navigation in v1
-            # Just recurse with sibling info
+        elif menu_type == 'vertical' and predicted_items:
+            # Vertical menu: Press DOWN to move between items
+            print(f"  🎯 Strategy: Vertical menu with {len(predicted_items)} predicted items")
             
-            # Recursive exploration
-            self._explore_depth_first(
-                current_node=sibling['node_name'],
-                parent_screenshot=sibling['screenshot'],
-                depth=depth + 1,
-                menu_type='mixed'  # Re-analyze menu type for each screen
+            for i, predicted_item in enumerate(predicted_items):
+                print(f"\n  [{i+1}/{len(predicted_items)}] Looking for: {predicted_item}")
+                
+                if i > 0:
+                    self.navigation_strategy.test_direction('DOWN', wait_time=500)
+                
+                ok_result = self.navigation_strategy.press_ok_and_analyze(parent_screenshot)
+                
+                if ok_result['success'] and ok_result['is_new_screen']:
+                    analysis = ok_result['analysis']
+                    suggested_name = analysis.get('suggested_name', 'screen')
+                    
+                    if predicted_item.lower() in suggested_name.lower():
+                        print(f"  ✅ CONFIRMED: {predicted_item}")
+                    else:
+                        print(f"  ⚠️  ADJUSTED: Expected '{predicted_item}', found '{suggested_name}'")
+                    
+                    new_node_name = self.node_generator.generate_node_name(
+                        ai_suggestion=suggested_name,
+                        parent_node=current_node,
+                        context_visible=analysis.get('context_visible', False)
+                    )
+                    
+                    confirmed_nodes.append(self._create_node_and_edge(
+                        parent_node=current_node,
+                        new_node_name=new_node_name,
+                        analysis=analysis,
+                        navigation_actions=[
+                            {'command': 'DOWN', 'params': {}, 'delay': 500} if i > 0 else None,
+                            {'command': 'OK', 'params': {}, 'delay': 1000}
+                        ],
+                        after_screenshot=ok_result['after_screenshot'],
+                        depth=depth
+                    ))
+                    
+                    self.navigation_strategy.press_back_and_return()
+        
+        else:
+            # Grid or mixed: Fallback to testing all directions
+            print(f"  🎯 Strategy: Grid/Mixed menu - testing all directions")
+            
+            directions = self.navigation_strategy.get_directions_to_test(menu_type)
+            
+            for direction in directions:
+                print(f"\n  Testing {direction}...")
+                
+                success = self.navigation_strategy.test_direction(direction, wait_time=500)
+                
+                if success:
+                    ok_result = self.navigation_strategy.press_ok_and_analyze(parent_screenshot)
+                    
+                    if ok_result['success'] and ok_result['is_new_screen']:
+                        analysis = ok_result['analysis']
+                        
+                        new_node_name = self.node_generator.generate_node_name(
+                            ai_suggestion=analysis.get('suggested_name', 'screen'),
+                            parent_node=current_node,
+                            context_visible=analysis.get('context_visible', False)
+                        )
+                        
+                        confirmed_nodes.append(self._create_node_and_edge(
+                            parent_node=current_node,
+                            new_node_name=new_node_name,
+                            analysis=analysis,
+                            navigation_actions=[
+                                {'command': direction, 'params': {}, 'delay': 500},
+                                {'command': 'OK', 'params': {}, 'delay': 1000}
+                            ],
+                            after_screenshot=ok_result['after_screenshot'],
+                            depth=depth
+                        ))
+                        
+                        self.navigation_strategy.press_back_and_return()
+        
+        # Recurse deeper into confirmed nodes
+        print(f"\n[@exploration_engine] Recursing into {len(confirmed_nodes)} confirmed nodes...")
+        
+        for node_info in confirmed_nodes:
+            if node_info and depth + 1 < self.depth_limit:
+                # For deeper levels, re-analyze the screen to get new prediction
+                new_screenshot = node_info.get('screenshot')
+                
+                if new_screenshot:
+                    # Get fresh prediction for this screen
+                    deeper_prediction = self.screen_analyzer.anticipate_tree(new_screenshot)
+                    
+                    # Recurse with new prediction
+                    self._explore_with_prediction(
+                        current_node=node_info['node_name'],
+                        parent_screenshot=new_screenshot,
+                        prediction=deeper_prediction,
+                        depth=depth + 1
+                    )
+    
+    def _create_node_and_edge(
+        self,
+        parent_node: str,
+        new_node_name: str,
+        analysis: Dict,
+        navigation_actions: List[Dict],
+        after_screenshot: str,
+        depth: int
+    ) -> Dict:
+        """
+        Helper to create node and edge, returns node info for recursion
+        
+        Returns:
+            Dict with node_name and screenshot for deeper exploration
+        """
+        # Calculate position (simple grid layout)
+        position_x = 250 + (len(self.created_nodes) % 3) * 300
+        position_y = 250 + (len(self.created_nodes) // 3) * 200
+        
+        # Create node
+        node_data = self.node_generator.create_node_data(
+            node_name=new_node_name,
+            position={'x': position_x, 'y': position_y},
+            ai_analysis=analysis
+        )
+        
+        # Save node to database
+        node_result = save_node(self.tree_id, node_data, self.team_id)
+        
+        if not node_result['success']:
+            print(f"    ❌ Failed to create node: {node_result.get('error')}")
+            return None
+        
+        self.created_nodes.append(new_node_name)
+        print(f"    ✅ Created node: {new_node_name}")
+        
+        # Create edge from parent to new node
+        # Filter out None actions
+        clean_actions = [a for a in navigation_actions if a is not None]
+        
+        edge_data = self.node_generator.create_edge_data(
+            source=parent_node,
+            target=new_node_name,
+            actions=clean_actions
+        )
+        
+        edge_result = save_edge(self.tree_id, edge_data, self.team_id)
+        
+        if edge_result['success']:
+            self.created_edges.append(edge_data['edge_id'])
+            print(f"    ✅ Created edge: {parent_node} → {new_node_name}")
+        
+        # Check if subtree should be created
+        if self.node_generator.should_create_subtree(new_node_name, depth + 1):
+            print(f"    🌲 Creating subtree for: {new_node_name}")
+            
+            subtree_result = create_sub_tree(
+                parent_tree_id=self.tree_id,
+                parent_node_id=new_node_name,
+                tree_data={
+                    'name': f'{new_node_name}_subtree',
+                    'userinterface_id': None
+                },
+                team_id=self.team_id
             )
+            
+            if subtree_result['success']:
+                self.created_subtrees.append(subtree_result['tree']['id'])
+                print(f"    ✅ Subtree created: {subtree_result['tree']['id']}")
+        
+        return {
+            'node_name': new_node_name,
+            'screenshot': after_screenshot
+        }
 
