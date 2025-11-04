@@ -90,7 +90,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
           const label = verification.label || verification.command || verification.id;
           items.push({
             label: label,
-            prompt: `Verify ${label.toLowerCase()}`,
+            prompt: `${label.toLowerCase()}`,
           });
         });
       }
