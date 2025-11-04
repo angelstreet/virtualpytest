@@ -47,7 +47,7 @@ class NavigationTools:
             print(f"[@MCP:list_navigation_nodes] Converting userinterface_name '{userinterface_name}' to tree_id")
             
             # Step 1: Get userinterface by name to get UUID
-            ui_result = self.api.get(f'/server/userinterface/getUserInterfaceByName/{userinterface_name}')
+            ui_result = self.api.get(f'/server/userinterface/getUserInterfaceByName/{userinterface_name}', params={'team_id': team_id})
             if not ui_result or not ui_result.get('id'):
                 return {"content": [{"type": "text", "text": f"Error: User interface '{userinterface_name}' not found"}], "isError": True}
             

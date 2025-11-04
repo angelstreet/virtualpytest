@@ -152,16 +152,20 @@ def execute_prompt():
                 
                 # If this is after some tool execution, return the last result
                 if last_tool_result:
+                    print(f"[@mcp_proxy] AI stopped calling tools after iteration {iteration}, returning last result")
                     return jsonify({
                         'success': True,
                         'result': last_tool_result,
+                        'tool_calls': [],  # No more tool calls
                         'ai_response': ai_content,
                         'iterations': iteration
                     })
                 
+                print(f"[@mcp_proxy] AI did not call any tool and no previous results")
                 return jsonify({
                     'success': False,
                     'error': 'AI did not call any tool',
+                    'tool_calls': [],
                     'ai_response': ai_content,
                     'ai_reasoning': ai_reasoning
                 }), 400
@@ -293,7 +297,8 @@ def execute_prompt():
         return jsonify({
             'success': True,
             'result': last_tool_result or {},
-            'message': f'Completed {max_iterations} iterations',
+            'tool_calls': [],
+            'ai_response': f'Completed {max_iterations} iterations',
             'iterations': max_iterations
         })
         
