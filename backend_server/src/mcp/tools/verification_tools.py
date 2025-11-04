@@ -68,22 +68,42 @@ class VerificationTools:
         
         response_text = f"📋 Available verifications for {device_model} ({device_id}):\n\n"
         
-        for verif_type, methods in device_verification_types.items():
-            if not methods or not isinstance(methods, dict):
+        for category, verifications in device_verification_types.items():
+            if not verifications:
                 continue
-            response_text += f"**{verif_type.upper()}** ({len(methods)} methods):\n"
-            for method_name, method_info in list(methods.items())[:10]:  # Limit to first 10 per type
-                description = method_info.get('description', '')
-                params_dict = method_info.get('params', {})
-                
-                response_text += f"  • {method_name}\n"
-                if description:
-                    response_text += f"    {description}\n"
-                if params_dict:
-                    response_text += f"    params: {params_dict}\n"
+            response_text += f"**{category.upper()}** ({len(verifications)} verifications):\n"
             
-            if len(methods) > 10:
-                response_text += f"  ... and {len(methods) - 10} more\n"
+            # Handle both dict and list structures
+            if isinstance(verifications, dict):
+                items = list(verifications.items())[:10]
+                for method_name, method_info in items:
+                    description = method_info.get('description', '')
+                    params_dict = method_info.get('params', {})
+                    
+                    response_text += f"  • {method_name}\n"
+                    if description:
+                        response_text += f"    {description}\n"
+                    if params_dict:
+                        response_text += f"    params: {params_dict}\n"
+                
+                if len(verifications) > 10:
+                    response_text += f"  ... and {len(verifications) - 10} more\n"
+            elif isinstance(verifications, list):
+                for verification in verifications[:10]:
+                    label = verification.get('label', verification.get('command', 'unknown'))
+                    command = verification.get('command', 'unknown')
+                    params_dict = verification.get('params', {})
+                    description = verification.get('description', '')
+                    
+                    response_text += f"  • {label} (command: {command})\n"
+                    if params_dict:
+                        response_text += f"    params: {params_dict}\n"
+                    if description:
+                        response_text += f"    {description}\n"
+                
+                if len(verifications) > 10:
+                    response_text += f"  ... and {len(verifications) - 10} more\n"
+            
             response_text += "\n"
         
         return {
@@ -133,12 +153,17 @@ class VerificationTools:
         if not verifications:
             return {"content": [{"type": "text", "text": "Error: verifications array is required"}], "isError": True}
         
+        # Add userinterface_name to each verification for proper reference resolution (SAME as frontend line 226-229)
+        verifications_with_userinterface = [
+            {**v, 'userinterface_name': userinterface_name} for v in verifications
+        ]
+        
         # Build request - SAME format as frontend (useVerification.ts line 250-257)
         data = {
             'device_id': device_id,
             'host_name': host_name,
             'userinterface_name': userinterface_name,
-            'verifications': verifications
+            'verifications': verifications_with_userinterface
         }
         
         if tree_id:
