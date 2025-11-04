@@ -116,7 +116,7 @@ Examples:
 - "Take screenshot" → capture_screenshot
 - "Navigate to home" → navigate_to_node with target_node_label="home"'''
 
-        print(f"[@mcp_proxy] Calling OpenRouter with model: microsoft/phi-3-mini-128k-instruct")
+        print(f"[@mcp_proxy] Calling OpenRouter with model: qwen/qwen-2.5-7b-instruct")
         
         openrouter_response = requests.post(
             'https://openrouter.ai/api/v1/chat/completions',
@@ -127,7 +127,7 @@ Examples:
                 'Content-Type': 'application/json'
             },
             json={
-                'model': 'microsoft/phi-3-mini-128k-instruct',  # Your agent model from ai_utils.py
+                'model': 'qwen/qwen-2.5-7b-instruct',  # Qwen 2.5 with excellent tool calling support
                 'messages': [
                     {
                         'role': 'system',
@@ -138,8 +138,8 @@ Examples:
                         'content': prompt
                     }
                 ],
-                'tools': tools,  # NEW: using tools instead of functions
-                'tool_choice': 'auto',  # NEW: using tool_choice instead of function_call
+                'tools': tools,
+                'tool_choice': 'auto',  # Qwen DOES support this!
                 'max_tokens': 2000,
                 'temperature': 0.0
             },

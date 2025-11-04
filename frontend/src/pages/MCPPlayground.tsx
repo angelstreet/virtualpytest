@@ -89,6 +89,7 @@ const MCPPlaygroundContent: React.FC = () => {
                     <MCPExecutionResult
                       unifiedExecution={hookData.unifiedExecution}
                       executionResult={hookData.executionResult}
+                      isGenerating={hookData.isGenerating}
                     />
                   </Box>
                 </Grid>

@@ -22,19 +22,24 @@ import {
 interface MCPExecutionResultProps {
   unifiedExecution: any;
   executionResult: any;
+  isGenerating?: boolean;  // NEW: for MCP Proxy loading state
 }
 
 export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
   unifiedExecution,
   executionResult,
+  isGenerating = false,  // NEW: MCP Proxy loading state
 }) => {
   
   const [isVisible, setIsVisible] = React.useState(true);
   
   const { isExecuting, blockStates, result } = unifiedExecution.state;
   
+  // NEW: Handle MCP Proxy format (executionResult from useMCPProxy)
+  const isMCPProxyResult = executionResult && executionResult.tool_calls;
+  
   // Don't show if no execution has happened
-  if (!isExecuting && blockStates.size === 0 && !executionResult) {
+  if (!isExecuting && !isGenerating && blockStates.size === 0 && !executionResult) {
     return null;
   }
   
@@ -50,7 +55,20 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
   let resultColor: 'info' | 'success' | 'error' | 'warning' = 'info';
   let resultText = 'Executing...';
   
-  if (!isExecuting && result) {
+  // NEW: Handle MCP Proxy results
+  if (isMCPProxyResult && !isGenerating) {
+    if (executionResult.success) {
+      resultIcon = <SuccessIcon />;
+      resultColor = 'success';
+      resultText = executionResult.result?.message || 'MCP Tool Executed Successfully';
+    } else {
+      resultIcon = <ErrorIcon />;
+      resultColor = 'error';
+      resultText = executionResult.error || 'MCP Tool Execution Failed';
+    }
+  }
+  // OLD: Handle test case execution results
+  else if (!isExecuting && result) {
     if (result.result_type === 'success') {
       resultIcon = <SuccessIcon />;
       resultColor = 'success';
@@ -99,7 +117,7 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
           {/* Content */}
           <Stack spacing={2}>
             {/* Progress Bar (when executing) */}
-            {isExecuting && (
+            {(isExecuting || isGenerating) && !isMCPProxyResult && (
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" color="text.secondary">
@@ -110,6 +128,16 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
                   </Typography>
                 </Box>
                 <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 1 }} />
+              </Box>
+            )}
+            
+            {/* NEW: MCP Proxy Loading (simpler) */}
+            {isGenerating && !executionResult && (
+              <Box>
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                  AI deciding which tool to use...
+                </Typography>
+                <LinearProgress sx={{ height: 8, borderRadius: 1 }} />
               </Box>
             )}
             
@@ -128,6 +156,13 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
                   {resultText}
                 </Typography>
                 
+                {/* NEW: MCP Tool Calls info */}
+                {isMCPProxyResult && executionResult.tool_calls && (
+                  <Typography variant="caption" color="text.secondary">
+                    Tool used: {executionResult.tool_calls[0]?.tool}
+                  </Typography>
+                )}
+                
                 {/* Duration */}
                 {result?.execution_time_ms !== undefined && (
                   <Typography variant="caption" color="text.secondary">
@@ -136,9 +171,9 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
                 )}
                 
                 {/* Error message */}
-                {result?.error && (
+                {(result?.error || executionResult?.error) && (
                   <Typography variant="body2" sx={{ mt: 1 }}>
-                    Error: {result.error}
+                    Error: {result?.error || executionResult?.error}
                   </Typography>
                 )}
                 
