@@ -24,15 +24,20 @@ import {
   CheckCircle as VerificationIcon,
   ArrowForward as ArrowForwardIcon,
 } from '@mui/icons-material';
-import { useMCPPlayground } from '../../contexts/mcp/MCPPlaygroundContext';
 
-export const MCPQuickActions: React.FC = () => {
-  const {
-    availableNodes,
-    availableActions,
-    availableVerifications,
-    setPrompt,
-  } = useMCPPlayground();
+interface MCPQuickActionsProps {
+  navNodes: any[];
+  availableActions: any;
+  availableVerifications: any;
+  setPrompt: (prompt: string) => void;
+}
+
+export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
+  navNodes,
+  availableActions,
+  availableVerifications,
+  setPrompt,
+}) => {
   
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [activeTab, setActiveTab] = useState(0);
@@ -42,7 +47,7 @@ export const MCPQuickActions: React.FC = () => {
   };
   
   // Common navigation commands
-  const commonNavigation = availableNodes.slice(0, 5).map(node => ({
+  const commonNavigation = navNodes.slice(0, 5).map(node => ({
     label: `Navigate to ${node.label}`,
     prompt: `Navigate to ${node.label}`,
   }));
@@ -194,19 +199,19 @@ export const MCPQuickActions: React.FC = () => {
             {/* Stats */}
             <Stack direction="row" spacing={1} sx={{ justifyContent: 'center', flexWrap: 'wrap', gap: 1 }}>
               <Chip
-                label={`${availableNodes.length} nodes`}
+                label={`${navNodes.length} nodes`}
                 size="small"
                 variant="outlined"
                 sx={{ fontSize: { xs: '0.8rem', md: '0.75rem' } }}
               />
               <Chip
-                label={`${availableActions.length} actions`}
+                label={`${Object.values(availableActions || {}).flat().length} actions`}
                 size="small"
                 variant="outlined"
                 sx={{ fontSize: { xs: '0.8rem', md: '0.75rem' } }}
               />
               <Chip
-                label={`${availableVerifications.length} verifications`}
+                label={`${Object.values(availableVerifications || {}).flat().length} verifications`}
                 size="small"
                 variant="outlined"
                 sx={{ fontSize: { xs: '0.8rem', md: '0.75rem' } }}

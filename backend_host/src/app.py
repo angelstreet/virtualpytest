@@ -112,7 +112,8 @@ def register_host_routes(app):
             host_campaign_routes,
             host_transcript_routes,
             host_deployment_routes,
-            host_builder_routes  # Standard blocks
+            host_builder_routes,  # Standard blocks
+            ai_generation  # AI tree generation
         )
         print("[@backend_host:routes] ✅ All route imports completed successfully!")
         
@@ -153,7 +154,8 @@ def register_host_routes(app):
         (host_campaign_routes.host_campaign_bp, 'Campaign execution'),
         (host_transcript_routes.host_transcript_bp, 'Transcript services'),
         (host_deployment_routes.host_deployment_bp, 'Deployment scheduling'),
-        (host_builder_routes.host_builder_bp, 'Standard blocks')
+        (host_builder_routes.host_builder_bp, 'Standard blocks'),
+        (ai_generation.ai_generation_bp, 'AI tree generation')
     ]
     
     for blueprint, description in blueprints:

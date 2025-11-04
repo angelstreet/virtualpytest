@@ -20,26 +20,34 @@ import {
   Lock as LockIcon,
   LockOpen as LockOpenIcon,
 } from '@mui/icons-material';
-import { useMCPPlayground } from '../../contexts/mcp/MCPPlaygroundContext';
 
 interface MCPDeviceSelectorProps {
+  selectedHost: any;
+  selectedDeviceId: string | null;
+  userinterfaceName: string;
+  setUserinterfaceName: (name: string) => void;
+  availableHosts: any[];
+  compatibleInterfaceNames: string[];
+  isControlActive: boolean;
+  isControlLoading: boolean;
+  handleDeviceSelect: (host: any | null, deviceId: string | null) => void;
+  handleDeviceControl: () => Promise<void>;
   defaultCollapsed?: boolean;
 }
 
-export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({ defaultCollapsed = false }) => {
-  const {
-    selectedHost,
-    setSelectedHost,
-    selectedDeviceId,
-    setSelectedDeviceId,
-    userinterfaceName,
-    setUserinterfaceName,
-    availableHosts,
-    availableInterfaces,
-    isControlActive,
-    isControlLoading,
-    handleDeviceControl,
-  } = useMCPPlayground();
+export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({
+  selectedHost,
+  selectedDeviceId,
+  userinterfaceName,
+  setUserinterfaceName,
+  availableHosts,
+  compatibleInterfaceNames,
+  isControlActive,
+  isControlLoading,
+  handleDeviceSelect,
+  handleDeviceControl,
+  defaultCollapsed = false
+}) => {
   
   const [isCollapsed, setIsCollapsed] = useState(defaultCollapsed);
   
@@ -81,9 +89,13 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({ defaultCol
             <FormControl fullWidth size="small">
               <InputLabel>Host</InputLabel>
               <Select
-                value={selectedHost}
+                value={selectedHost?.host_name || ''}
                 label="Host"
-                onChange={(e) => setSelectedHost(e.target.value)}
+                onChange={(e) => {
+                  const host = availableHosts.find(h => h.host_name === e.target.value);
+                  const deviceId = host?.devices?.[0]?.device_id || null;
+                  handleDeviceSelect(host || null, deviceId);
+                }}
                 disabled={isControlActive}
                 sx={{
                   fontSize: { xs: '0.95rem', md: '0.875rem' },
@@ -93,21 +105,21 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({ defaultCol
                 }}
               >
                 {availableHosts.map((host) => (
-                  <MenuItem key={host} value={host}>
-                    {host}
+                  <MenuItem key={host.host_name} value={host.host_name}>
+                    {host.host_name}
                   </MenuItem>
                 ))}
               </Select>
             </FormControl>
             
-            {/* Device ID Input */}
+            {/* Device ID Selection */}
             <FormControl fullWidth size="small">
               <InputLabel>Device ID</InputLabel>
               <Select
-                value={selectedDeviceId}
+                value={selectedDeviceId || ''}
                 label="Device ID"
-                onChange={(e) => setSelectedDeviceId(e.target.value)}
-                disabled={isControlActive}
+                onChange={(e) => handleDeviceSelect(selectedHost, e.target.value)}
+                disabled={isControlActive || !selectedHost}
                 sx={{
                   fontSize: { xs: '0.95rem', md: '0.875rem' },
                   '& .MuiSelect-select': {
@@ -115,9 +127,11 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({ defaultCol
                   },
                 }}
               >
-                <MenuItem value="device1">device1</MenuItem>
-                <MenuItem value="device2">device2</MenuItem>
-                <MenuItem value="device3">device3</MenuItem>
+                {selectedHost?.devices?.map((device: any) => (
+                  <MenuItem key={device.device_id} value={device.device_id}>
+                    {device.device_id}
+                  </MenuItem>
+                ))}
               </Select>
             </FormControl>
             
@@ -136,9 +150,9 @@ export const MCPDeviceSelector: React.FC<MCPDeviceSelectorProps> = ({ defaultCol
                   },
                 }}
               >
-                {availableInterfaces.map((iface) => (
-                  <MenuItem key={iface.userinterface_name} value={iface.userinterface_name}>
-                    {iface.userinterface_name}
+                {compatibleInterfaceNames.map((name) => (
+                  <MenuItem key={name} value={name}>
+                    {name}
                   </MenuItem>
                 ))}
               </Select>

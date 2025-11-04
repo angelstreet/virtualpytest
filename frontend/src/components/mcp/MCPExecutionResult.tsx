@@ -18,10 +18,16 @@ import {
   Close as CloseIcon,
   Info as InfoIcon,
 } from '@mui/icons-material';
-import { useMCPPlayground } from '../../contexts/mcp/MCPPlaygroundContext';
 
-export const MCPExecutionResult: React.FC = () => {
-  const { unifiedExecution, executionResult } = useMCPPlayground();
+interface MCPExecutionResultProps {
+  unifiedExecution: any;
+  executionResult: any;
+}
+
+export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
+  unifiedExecution,
+  executionResult,
+}) => {
   
   const [isVisible, setIsVisible] = React.useState(true);
   

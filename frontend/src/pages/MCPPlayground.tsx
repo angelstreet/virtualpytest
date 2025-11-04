@@ -1,22 +1,17 @@
 import React from 'react';
 import { Box, Grid, Stack, Container } from '@mui/material';
-import { MCPPlaygroundProvider } from '../contexts/mcp/MCPPlaygroundContext';
 import { MCPDeviceSelector } from '../components/mcp/MCPDeviceSelector';
 import { MCPPromptInput } from '../components/mcp/MCPPromptInput';
 import { MCPQuickActions } from '../components/mcp/MCPQuickActions';
 import { MCPExecutionResult } from '../components/mcp/MCPExecutionResult';
 import { MCPCommandHistory } from '../components/mcp/MCPCommandHistory';
 import { PromptDisambiguation } from '../components/ai/PromptDisambiguation';
-import { useMCPPlayground } from '../contexts/mcp/MCPPlaygroundContext';
 import { useTheme } from '../contexts/ThemeContext';
+import { useMCPPlaygroundPage } from '../hooks/pages/useMCPPlaygroundPage';
 
 const MCPPlaygroundContent: React.FC = () => {
   const { actualMode } = useTheme();
-  const {
-    disambiguationData,
-    handleDisambiguationResolve,
-    handleDisambiguationCancel,
-  } = useMCPPlayground();
+  const hookData = useMCPPlaygroundPage();
   
   return (
     <Box
@@ -79,9 +74,25 @@ const MCPPlaygroundContent: React.FC = () => {
             {/* LEFT PANEL: Device Selection + History (Desktop) */}
             <Grid item xs={12} md={4} lg={3}>
               <Stack spacing={{ xs: 2, md: 3 }}>
-                <MCPDeviceSelector defaultCollapsed={false} />
+                <MCPDeviceSelector
+                  selectedHost={hookData.selectedHost}
+                  selectedDeviceId={hookData.selectedDeviceId}
+                  userinterfaceName={hookData.userinterfaceName}
+                  setUserinterfaceName={hookData.setUserinterfaceName}
+                  availableHosts={hookData.availableHosts}
+                  compatibleInterfaceNames={hookData.compatibleInterfaceNames}
+                  isControlActive={hookData.isControlActive}
+                  isControlLoading={hookData.isControlLoading}
+                  handleDeviceSelect={hookData.handleDeviceSelect}
+                  handleDeviceControl={hookData.handleDeviceControl}
+                  defaultCollapsed={false}
+                />
                 <Box sx={{ display: { xs: 'none', lg: 'block' } }}>
-                  <MCPCommandHistory />
+                  <MCPCommandHistory
+                    commandHistory={hookData.commandHistory}
+                    setPrompt={hookData.setPrompt}
+                    clearHistory={hookData.clearHistory}
+                  />
                 </Box>
               </Stack>
             </Grid>
@@ -89,41 +100,63 @@ const MCPPlaygroundContent: React.FC = () => {
             {/* CENTER PANEL: Prompt + Execution */}
             <Grid item xs={12} md={8} lg={6}>
               <Stack spacing={{ xs: 2, md: 3 }}>
-                <MCPPromptInput />
-                <MCPExecutionResult />
+                <MCPPromptInput
+                  prompt={hookData.prompt}
+                  setPrompt={hookData.setPrompt}
+                  isGenerating={hookData.isGenerating}
+                  handleGenerate={hookData.handleGenerate}
+                  isControlActive={hookData.isControlActive}
+                />
+                <MCPExecutionResult
+                  unifiedExecution={hookData.unifiedExecution}
+                  executionResult={hookData.executionResult}
+                />
               </Stack>
             </Grid>
             
             {/* RIGHT PANEL: Quick Actions (Desktop) */}
             <Grid item xs={12} lg={3} sx={{ display: { xs: 'none', lg: 'block' } }}>
-              <MCPQuickActions />
+              <MCPQuickActions
+                navNodes={hookData.navNodes}
+                availableActions={hookData.availableActions}
+                availableVerifications={hookData.availableVerifications}
+                setPrompt={hookData.setPrompt}
+              />
             </Grid>
             
             {/* MOBILE/TABLET: Quick Actions (full-width) */}
             <Grid item xs={12} sx={{ display: { xs: 'block', lg: 'none' } }}>
-              <MCPQuickActions />
+              <MCPQuickActions
+                navNodes={hookData.navNodes}
+                availableActions={hookData.availableActions}
+                availableVerifications={hookData.availableVerifications}
+                setPrompt={hookData.setPrompt}
+              />
             </Grid>
             
             {/* MOBILE/TABLET: History (full-width) */}
             <Grid item xs={12} sx={{ display: { xs: 'block', lg: 'none' } }}>
-              <MCPCommandHistory />
+              <MCPCommandHistory
+                commandHistory={hookData.commandHistory}
+                setPrompt={hookData.setPrompt}
+                clearHistory={hookData.clearHistory}
+              />
             </Grid>
           </Grid>
         </Container>
       </Box>
       
       {/* AI Disambiguation Modal */}
-      {disambiguationData && (
+      {hookData.disambiguationData && (
         <PromptDisambiguation
-          ambiguities={disambiguationData.ambiguities}
-          autoCorrections={disambiguationData.auto_corrections}
-          availableNodes={disambiguationData.available_nodes}
-          onResolve={handleDisambiguationResolve}
-          onCancel={handleDisambiguationCancel}
+          ambiguities={hookData.disambiguationData.ambiguities}
+          autoCorrections={hookData.disambiguationData.auto_corrections}
+          availableNodes={hookData.disambiguationData.available_nodes}
+          onResolve={hookData.handleDisambiguationResolve}
+          onCancel={hookData.handleDisambiguationCancel}
           onEditPrompt={(newPrompt) => {
-            // TODO: Implement edit prompt handler
-            console.log('Edit prompt:', newPrompt);
-            handleDisambiguationCancel();
+            hookData.setPrompt(newPrompt);
+            hookData.handleDisambiguationCancel();
           }}
         />
       )}
@@ -132,11 +165,7 @@ const MCPPlaygroundContent: React.FC = () => {
 };
 
 const MCPPlayground: React.FC = () => {
-  return (
-    <MCPPlaygroundProvider>
-      <MCPPlaygroundContent />
-    </MCPPlaygroundProvider>
-  );
+  return <MCPPlaygroundContent />;
 };
 
 export default MCPPlayground;

@@ -23,10 +23,18 @@ import {
   Replay as ReplayIcon,
   Delete as DeleteIcon,
 } from '@mui/icons-material';
-import { useMCPPlayground } from '../../contexts/mcp/MCPPlaygroundContext';
 
-export const MCPCommandHistory: React.FC = () => {
-  const { commandHistory, setPrompt, clearHistory } = useMCPPlayground();
+interface MCPCommandHistoryProps {
+  commandHistory: Array<{ timestamp: Date; prompt: string; success: boolean; result?: any }>;
+  setPrompt: (prompt: string) => void;
+  clearHistory: () => void;
+}
+
+export const MCPCommandHistory: React.FC<MCPCommandHistoryProps> = ({
+  commandHistory,
+  setPrompt,
+  clearHistory,
+}) => {
   
   const [isCollapsed, setIsCollapsed] = useState(true);
   const [showAll, setShowAll] = useState(false);

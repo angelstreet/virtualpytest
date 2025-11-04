@@ -17,16 +17,22 @@ import {
   Send as SendIcon,
   Clear as ClearIcon,
 } from '@mui/icons-material';
-import { useMCPPlayground } from '../../contexts/mcp/MCPPlaygroundContext';
 
-export const MCPPromptInput: React.FC = () => {
-  const {
-    prompt,
-    setPrompt,
-    isGenerating,
-    handleGenerate,
-    isControlActive,
-  } = useMCPPlayground();
+interface MCPPromptInputProps {
+  prompt: string;
+  setPrompt: (prompt: string) => void;
+  isGenerating: boolean;
+  handleGenerate: () => Promise<void>;
+  isControlActive: boolean;
+}
+
+export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
+  prompt,
+  setPrompt,
+  isGenerating,
+  handleGenerate,
+  isControlActive,
+}) => {
   
   const [isRecording, setIsRecording] = useState(false);
   const [transcript, setTranscript] = useState('');
