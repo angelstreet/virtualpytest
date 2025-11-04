@@ -142,14 +142,14 @@ def start_exploration():
                     def update_screenshot(screenshot_path: str):
                         """Convert screenshot path to URL and update session"""
                         try:
-                            from shared.src.lib.utils.build_url_utils import buildCaptureUrlFromPath
+                            from shared.src.lib.utils.build_url_utils import buildHostImageUrl
                             from backend_host.src.lib.utils.host_utils import get_host_instance
                             
                             host = get_host_instance()
                             host_dict = host.to_dict()
                             
-                            # Use proper URL building function that handles cold storage paths
-                            screenshot_url = buildCaptureUrlFromPath(host_dict, screenshot_path, device_id)
+                            # Use buildHostImageUrl which handles any file path (not just capture_*.jpg format)
+                            screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
                             
                             _exploration_sessions[exploration_id]['current_analysis']['screenshot'] = screenshot_url
                             print(f"[@route:ai_generation] Updated screenshot URL: {screenshot_url}")

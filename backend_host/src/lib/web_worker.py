@@ -136,8 +136,10 @@ class WebWorker:
             task = await self.loop.run_in_executor(None, self._q.get)
             
             try:
-                # Initialize Playwright lazily on first task
-                await self._init_playwright_if_needed()
+                # Only initialize Playwright for web-related tasks (not for remote, ADB, etc.)
+                # This prevents unnecessary Chrome connection attempts for Android/TV actions
+                if task.kind == 'web' or (isinstance(task.payload, dict) and task.payload.get('requires_playwright', False)):
+                    await self._init_playwright_if_needed()
                 
                 # Execute the async task using run_coroutine_threadsafe pattern
                 # Since we're already IN the loop, we just await directly

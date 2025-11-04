@@ -52,8 +52,8 @@ class NavigationStrategy:
             
             print(f"[@navigation_strategy:test_direction] Testing {command}")
             
-            # Execute command
-            result = self.controller.execute_command(command, delay=wait_time)
+            # Execute command with params dict (not delay= keyword)
+            result = self.controller.execute_command(command, params={'wait_time': wait_time})
             
             return result.get('success', False)
             
@@ -79,8 +79,8 @@ class NavigationStrategy:
         try:
             print(f"[@navigation_strategy:press_ok_and_analyze] Pressing OK...")
             
-            # Press OK button
-            ok_result = self.controller.execute_command('OK', delay=1000)
+            # Press OK button with params dict
+            ok_result = self.controller.execute_command('OK', params={'wait_time': 1000})
             
             if not ok_result.get('success', False):
                 return {
@@ -131,7 +131,7 @@ class NavigationStrategy:
         try:
             print(f"[@navigation_strategy:press_back_and_return] Pressing BACK...")
             
-            result = self.controller.execute_command('BACK', delay=1000)
+            result = self.controller.execute_command('BACK', params={'wait_time': 1000})
             
             # Wait for screen to stabilize
             time.sleep(0.5)
@@ -172,8 +172,8 @@ class NavigationStrategy:
         try:
             print(f"[@navigation_strategy:navigate_to_home] Navigating to home...")
             
-            # Try HOME button first
-            result = self.controller.execute_command('KEY_HOME', delay=1000)
+            # Try HOME button first with params dict
+            result = self.controller.execute_command('KEY_HOME', params={'wait_time': 1000})
             
             if result.get('success', False):
                 time.sleep(1)

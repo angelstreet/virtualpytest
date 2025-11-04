@@ -65,10 +65,17 @@ Strategy describes the exploration approach based on menu type."""
 
         try:
             # Use existing VideoAIHelpers for AI analysis
-            response = VideoAIHelpers.analyze_with_vision(
-                screenshot_path=screenshot_path,
-                prompt=prompt,
-                model_name=self.ai_model
+            # Create instance with device info
+            ai_helpers = VideoAIHelpers(
+                device_name=self.device_id,
+                device_model=self.device_model_name,
+                host_name=self.host_name
+            )
+            
+            # Use analyze_full_image_with_ai which exists
+            response = ai_helpers.analyze_full_image_with_ai(
+                image_path=screenshot_path,
+                user_question=prompt
             )
             
             print(f"[@screen_analyzer:anticipate_tree] AI response: {response}")
@@ -145,10 +152,17 @@ Context visible = Can you still see elements from the previous screen?
 
         try:
             # Use existing VideoAIHelpers with both images
-            response = VideoAIHelpers.analyze_with_vision(
-                screenshot_path=before_path,
-                prompt=prompt,
-                model_name=self.ai_model
+            # Create instance with device info
+            ai_helpers = VideoAIHelpers(
+                device_name=self.device_id,
+                device_model=self.device_model_name,
+                host_name=self.host_name
+            )
+            
+            # Use analyze_full_image_with_ai for the after screenshot
+            response = ai_helpers.analyze_full_image_with_ai(
+                image_path=after_path,
+                user_question=prompt
             )
             
             print(f"[@screen_analyzer:is_new_screen] AI response: {response}")
