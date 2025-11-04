@@ -21,8 +21,9 @@ if str(current_dir) not in sys.path:
 
 from mcp.mcp_server import VirtualPyTestMCPServer
 
-# Create blueprint - will be accessible at /server/mcp via nginx
-mcp_bp = Blueprint('mcp', __name__, url_prefix='/mcp')
+# Create blueprint - accessible at /server/mcp via Flask routing
+# Note: This matches the nginx proxy pattern where /server/* goes to backend_server
+mcp_bp = Blueprint('mcp', __name__, url_prefix='/server/mcp')
 
 # Initialize MCP server instance (singleton)
 mcp_server = VirtualPyTestMCPServer()
