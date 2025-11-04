@@ -217,6 +217,20 @@ class VirtualPyTestMCPServer:
                 "category": "device",
                 "required_params": ["execution_id"],
                 "optional_params": ["operation_type"]
+            },
+            {
+                "name": "view_logs",
+                "description": "View systemd service logs via journalctl. Access backend_server, backend_host, or other service logs.",
+                "category": "logs",
+                "required_params": ["service"],
+                "optional_params": ["lines", "since", "level", "grep"]
+            },
+            {
+                "name": "list_services",
+                "description": "List available VirtualPyTest systemd services and their status.",
+                "category": "logs",
+                "required_params": [],
+                "optional_params": []
             }
         ]
         
