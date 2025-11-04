@@ -82,6 +82,10 @@ def start_exploration():
         device_name = device.device_name
         device_model_name = device.device_model
         
+        # ✅ CRITICAL: Capture actual Flask app object for background thread
+        # Similar to how goto_live.py gets device in context before execution
+        app = current_app._get_current_object()
+        
         # Generate exploration ID
         exploration_id = str(uuid4())
         
@@ -112,7 +116,8 @@ def start_exploration():
             'current_analysis': {
                 'screen_name': '',
                 'elements_found': [],
-                'reasoning': ''
+                'reasoning': '',
+                'screenshot': None  # Add screenshot URL/path
             },
             'created_nodes': [],
             'created_edges': [],
@@ -126,14 +131,29 @@ def start_exploration():
         
         # Start exploration in background thread
         def run_exploration():
-            # ✅ CRITICAL: Background thread needs Flask app context to access current_app.host_devices
-            with current_app.app_context():
+            # ✅ Use captured app object (not current_app proxy) for background thread context
+            with app.app_context():
                 try:
                     # Update status
                     _exploration_sessions[exploration_id]['status'] = 'exploring'
                     _exploration_sessions[exploration_id]['current_step'] = 'Capturing initial screenshot...'
                     
-                    # Create exploration engine
+                    # Create exploration engine with progress callback
+                    def update_screenshot(screenshot_path: str):
+                        """Convert screenshot path to URL and update session"""
+                        try:
+                            from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                            from backend_host.src.lib.utils.host_utils import get_host_instance
+                            
+                            host = get_host_instance()
+                            host_dict = host.to_dict()
+                            screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
+                            
+                            _exploration_sessions[exploration_id]['current_analysis']['screenshot'] = screenshot_url
+                            print(f"[@route:ai_generation] Updated screenshot URL: {screenshot_url}")
+                        except Exception as e:
+                            print(f"[@route:ai_generation] Failed to convert screenshot path to URL: {e}")
+                    
                     engine = ExplorationEngine(
                         tree_id=tree_id,
                         device_id=device_id,
@@ -141,7 +161,8 @@ def start_exploration():
                         device_model_name=device_model_name,
                         team_id=team_id,
                         userinterface_name=userinterface_name,
-                        depth_limit=exploration_depth
+                        depth_limit=exploration_depth,
+                        screenshot_callback=update_screenshot  # Pass callback for screenshot updates
                     )
                     
                     # Run exploration

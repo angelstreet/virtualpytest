@@ -29,7 +29,8 @@ class ExplorationEngine:
         device_model_name: str,
         team_id: str,
         userinterface_name: str,
-        depth_limit: int = 5
+        depth_limit: int = 5,
+        screenshot_callback=None  # Optional callback to update screenshot in session
     ):
         """
         Initialize exploration engine
@@ -42,6 +43,7 @@ class ExplorationEngine:
             team_id: Team ID
             userinterface_name: UI name (e.g., 'horizon_android_mobile')
             depth_limit: Maximum depth to explore
+            screenshot_callback: Optional callback function to notify when screenshot is captured
         """
         self.tree_id = tree_id
         self.device_id = device_id
@@ -50,6 +52,7 @@ class ExplorationEngine:
         self.team_id = team_id
         self.userinterface_name = userinterface_name
         self.depth_limit = depth_limit
+        self.screenshot_callback = screenshot_callback  # Store callback
         
         # Get device from registry (same pattern as goto.py and zap_executor.py)
         from flask import current_app
@@ -109,6 +112,10 @@ class ExplorationEngine:
                     'success': False,
                     'error': 'Failed to capture initial screenshot'
                 }
+            
+            # Notify callback of screenshot capture
+            if self.screenshot_callback:
+                self.screenshot_callback(initial_screenshot)
             
             prediction = self._phase1_anticipation(initial_screenshot)
             

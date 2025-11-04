@@ -20,6 +20,7 @@ interface CurrentAnalysis {
   screen_name: string;
   elements_found: string[];
   reasoning: string;
+  screenshot?: string;  // Add screenshot URL
 }
 
 interface ProposedNode {

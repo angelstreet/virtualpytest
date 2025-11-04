@@ -253,6 +253,22 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                   Current Analysis:
                 </Typography>
                 <Paper sx={{ p: 1, bgcolor: 'transparent' }}>
+                  {/* Screenshot Preview */}
+                  {currentAnalysis.screenshot && (
+                    <Box sx={{ mb: 1 }}>
+                      <img
+                        src={currentAnalysis.screenshot}
+                        alt="Current screen being analyzed"
+                        style={{
+                          maxWidth: '100%',
+                          maxHeight: '200px',
+                          objectFit: 'contain',
+                          borderRadius: '4px',
+                          border: '1px solid rgba(255, 255, 255, 0.12)'
+                        }}
+                      />
+                    </Box>
+                  )}
                   <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
                     Screen: {currentAnalysis.screen_name}
                   </Typography>
