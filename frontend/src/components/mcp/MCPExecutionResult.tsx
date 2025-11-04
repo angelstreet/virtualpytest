@@ -38,9 +38,15 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
   // NEW: Handle MCP Proxy format (executionResult from useMCPProxy)
   const isMCPProxyResult = executionResult && executionResult.tool_calls;
   
-  // Don't show if no execution has happened
+  // Don't show if:
+  // 1. Still loading (no result yet)
+  // 2. No execution has happened
+  if (isGenerating && !executionResult) {
+    return null;  // Hide while generating
+  }
+  
   if (!isExecuting && !isGenerating && blockStates.size === 0 && !executionResult) {
-    return null;
+    return null;  // Hide if nothing happened
   }
   
   // Calculate progress
@@ -116,8 +122,8 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
           
           {/* Content */}
           <Stack spacing={2}>
-            {/* Progress Bar (when executing) */}
-            {(isExecuting || isGenerating) && !isMCPProxyResult && (
+            {/* Test Case Execution: Progress with blocks (only for non-MCP) */}
+            {!isMCPProxyResult && isExecuting && blockStates.size > 0 && (
               <Box>
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
                   <Typography variant="body2" color="text.secondary">
@@ -128,16 +134,6 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
                   </Typography>
                 </Box>
                 <LinearProgress variant="determinate" value={progress} sx={{ height: 8, borderRadius: 1 }} />
-              </Box>
-            )}
-            
-            {/* NEW: MCP Proxy Loading (simpler) */}
-            {isGenerating && !executionResult && (
-              <Box>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                  AI deciding which tool to use...
-                </Typography>
-                <LinearProgress sx={{ height: 8, borderRadius: 1 }} />
               </Box>
             )}
             
@@ -186,8 +182,8 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
               </Stack>
             </Alert>
             
-            {/* Block States (summary) */}
-            {blockStates.size > 0 && (
+            {/* Block States (summary) - Only for test case execution */}
+            {!isMCPProxyResult && blockStates.size > 0 && (
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
                 {Array.from(blockStates.entries()).map(([blockId, state]) => (
                   <Chip

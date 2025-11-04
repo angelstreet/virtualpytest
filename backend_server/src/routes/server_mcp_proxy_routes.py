@@ -116,7 +116,7 @@ Examples:
 - "Take screenshot" → capture_screenshot
 - "Navigate to home" → navigate_to_node with target_node_label="home"'''
 
-        print(f"[@mcp_proxy] Calling OpenRouter with model: qwen/qwen-2.5-7b-instruct")
+        print(f"[@mcp_proxy] Calling OpenRouter with model: google/gemini-2.0-flash-001")
         
         openrouter_response = requests.post(
             'https://openrouter.ai/api/v1/chat/completions',
@@ -127,7 +127,7 @@ Examples:
                 'Content-Type': 'application/json'
             },
             json={
-                'model': 'qwen/qwen-2.5-7b-instruct',  # Qwen 2.5 with excellent tool calling support
+                'model': 'google/gemini-2.0-flash-001',  # Gemini 2.0 Flash (paid) - excellent tool calling, no rate limits
                 'messages': [
                     {
                         'role': 'system',
@@ -139,7 +139,7 @@ Examples:
                     }
                 ],
                 'tools': tools,
-                'tool_choice': 'auto',  # Qwen DOES support this!
+                'tool_choice': 'auto',
                 'max_tokens': 2000,
                 'temperature': 0.0
             },
