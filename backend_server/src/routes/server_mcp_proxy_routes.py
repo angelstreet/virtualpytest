@@ -54,11 +54,11 @@ def execute_prompt():
         device_id = data.get('device_id', 'device1')
         host_name = data.get('host_name', 'sunri-pi1')
         userinterface_name = data.get('userinterface_name')
-        team_id = data.get('team_id', 'team_1')
+        team_id = request.args.get('team_id')  # ✅ Get from query params (buildServerUrl adds it there)
         tree_id = data.get('tree_id')
         
         print(f"[@mcp_proxy] Received prompt: {prompt}")
-        print(f"[@mcp_proxy] Context - device: {device_id}, host: {host_name}, interface: {userinterface_name}")
+        print(f"[@mcp_proxy] Context - device: {device_id}, host: {host_name}, interface: {userinterface_name}, team_id: {team_id}")
         
         if not prompt:
             return jsonify({'success': False, 'error': 'Prompt required'}), 400
