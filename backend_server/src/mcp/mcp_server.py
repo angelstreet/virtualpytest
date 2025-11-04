@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 17 core tools for device automation:
+This server provides 18 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (REQUIRED FIRST)
 2. release_control - Release device lock
 3. execute_device_action - Execute remote/ADB/web/desktop commands
@@ -16,13 +16,14 @@ This server provides 17 core tools for device automation:
 8. save_testcase - Save test case graphs to database
 9. list_testcases - List all saved test cases
 10. load_testcase - Load a saved test case by ID
-11. generate_test_graph - AI-powered test generation
-12. capture_screenshot - Capture screenshots for vision analysis
-13. get_transcript - Fetch audio transcripts
-14. get_device_info - Get device capabilities and info
-15. get_execution_status - Poll async execution status
-16. view_logs - View systemd service logs
-17. list_services - List available systemd services
+11. execute_script - Execute Python scripts with CLI parameters
+12. generate_test_graph - AI-powered test generation
+13. capture_screenshot - Capture screenshots for vision analysis
+14. get_transcript - Fetch audio transcripts
+15. get_device_info - Get device capabilities and info
+16. get_execution_status - Poll async execution status
+17. view_logs - View systemd service logs
+18. list_services - List available systemd services
 """
 
 import logging
@@ -40,6 +41,7 @@ from .tools.screenshot_tools import ScreenshotTools
 from .tools.transcript_tools import TranscriptTools
 from .tools.device_tools import DeviceTools
 from .tools.logs_tools import LogsTools
+from .tools.script_tools import ScriptTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
@@ -70,6 +72,7 @@ class VirtualPyTestMCPServer:
         self.transcript_tools = TranscriptTools(self.api_client)
         self.device_tools = DeviceTools(self.api_client)
         self.logs_tools = LogsTools(self.api_client)
+        self.script_tools = ScriptTools(self.api_client)
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -92,6 +95,9 @@ class VirtualPyTestMCPServer:
             'save_testcase': self.testcase_tools.save_testcase,
             'list_testcases': self.testcase_tools.list_testcases,
             'load_testcase': self.testcase_tools.load_testcase,
+            
+            # Script tools
+            'execute_script': self.script_tools.execute_script,
             
             # AI tools
             'generate_test_graph': self.ai_tools.generate_test_graph,
@@ -401,6 +407,34 @@ Loads test case graph that can be passed to execute_testcase().""",
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                     },
                     "required": ["testcase_id"]
+                }
+            },
+            {
+                "name": "execute_script",
+                "description": """Execute a Python script on device
+
+PREREQUISITE: take_control() should be called first if script uses device controls.
+
+Executes a Python script with optional CLI parameters.
+Polls automatically until completion (up to 2 hours for long scripts).
+
+Example:
+  execute_script(
+    script_name='my_validation.py',
+    host_name='sunri-pi1',
+    device_id='device1',
+    parameters='--param1 value1 --param2 value2'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "script_name": {"type": "string", "description": "Script filename (e.g., 'my_script.py')"},
+                        "host_name": {"type": "string", "description": "Host where device is located"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                        "parameters": {"type": "string", "description": "CLI parameters as string (optional, e.g., '--param1 value1 --param2 value2')"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": ["script_name", "host_name"]
                 }
             },
             {
