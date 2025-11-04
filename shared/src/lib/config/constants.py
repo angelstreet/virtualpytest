@@ -32,7 +32,7 @@ APP_CONFIG = {
     
     # Default Device ID fallback
     # Can be overridden via DEVICE_ID environment variable
-    'DEFAULT_DEVICE_ID': os.getenv('DEVICE_ID', 'device_1'),
+    'DEFAULT_DEVICE_ID': os.getenv('DEVICE_ID', 'device1'),
     
     # Default identifiers for legacy APIs
     'DEFAULT_USER_NAME': 'default-user',
