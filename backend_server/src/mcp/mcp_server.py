@@ -84,6 +84,7 @@ class VirtualPyTestMCPServer:
             
             # TestCase tools
             'execute_testcase': self.testcase_tools.execute_testcase,
+            'execute_testcase_by_id': self.testcase_tools.execute_testcase_by_id,
             'save_testcase': self.testcase_tools.save_testcase,
             'list_testcases': self.testcase_tools.list_testcases,
             'load_testcase': self.testcase_tools.load_testcase,

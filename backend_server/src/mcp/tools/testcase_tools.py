@@ -83,6 +83,68 @@ class TestCaseTools:
         print(f"[@MCP:execute_testcase] Sync execution completed")
         return self.formatter.format_api_response(result)
     
+    def execute_testcase_by_id(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        MCP CONVENIENCE WRAPPER: Load and execute a saved test case by ID
+        
+        This is a helper specifically for MCP that combines load + execute in one call.
+        Frontend doesn't need this because it can pass graph_json between functions.
+        
+        Args:
+            params: {
+                'testcase_id': str (REQUIRED),
+                'device_id': str (OPTIONAL),
+                'host_name': str (REQUIRED),
+                'team_id': str (OPTIONAL),
+                'userinterface_name': str (OPTIONAL) - Override interface (if empty, uses testcase's interface)
+            }
+            
+        Returns:
+            MCP-formatted response with execution results
+        """
+        testcase_id = params.get('testcase_id')
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        userinterface_name_override = params.get('userinterface_name', '')
+        
+        # Validate required parameters
+        if not testcase_id:
+            return {"content": [{"type": "text", "text": "Error: testcase_id is required"}], "isError": True}
+        if not host_name:
+            return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+        
+        # Step 1: Load testcase to get graph_json
+        print(f"[@MCP:execute_testcase_by_id] Loading testcase {testcase_id}")
+        load_result = self.api.get(f'/server/testcase/{testcase_id}', params={'team_id': team_id})
+        
+        if not load_result.get('success'):
+            error_msg = load_result.get('error', 'Failed to load test case')
+            return {"content": [{"type": "text", "text": f"❌ Load failed: {error_msg}"}], "isError": True}
+        
+        testcase = load_result.get('testcase', {})
+        graph_json = testcase.get('graph_json')
+        testcase_name = testcase.get('testcase_name', 'unknown')
+        testcase_interface = testcase.get('userinterface_name', '')
+        
+        if not graph_json:
+            return {"content": [{"type": "text", "text": "Error: Testcase has no graph_json"}], "isError": True}
+        
+        # Use override interface if provided, otherwise use testcase's interface
+        userinterface_name = userinterface_name_override or testcase_interface
+        
+        print(f"[@MCP:execute_testcase_by_id] Executing testcase '{testcase_name}' with interface '{userinterface_name}'")
+        
+        # Step 2: Execute the loaded graph
+        return self.execute_testcase({
+            'device_id': device_id,
+            'host_name': host_name,
+            'team_id': team_id,
+            'graph_json': graph_json,
+            'testcase_name': testcase_name,
+            'userinterface_name': userinterface_name
+        })
+    
     def _poll_testcase_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, testcase_name: str, max_wait: int = 300) -> Dict[str, Any]:
         """
         Poll testcase execution until complete
