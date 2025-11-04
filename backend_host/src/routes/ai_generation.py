@@ -150,11 +150,19 @@ def start_exploration():
                             host = get_host_instance()
                             host_dict = host.to_dict()
                             
+                            print(f"\n{'='*80}")
+                            print(f"[@route:ai_generation:update_screenshot] BUILDING URL")
+                            print(f"{'='*80}")
+                            print(f"📸 Local Path: {screenshot_path}")
+                            print(f"🏠 Host: {host_dict.get('host_name')} ({host_dict.get('host_ip')})")
+                            
                             # Use buildHostImageUrl which handles any file path (not just capture_*.jpg format)
                             screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
                             
+                            print(f"🌐 Built URL: {screenshot_url}")
+                            print(f"{'='*80}\n")
+                            
                             _exploration_sessions[exploration_id]['current_analysis']['screenshot'] = screenshot_url
-                            print(f"[@route:ai_generation] Updated screenshot URL: {screenshot_url}")
                         except Exception as e:
                             print(f"[@route:ai_generation] Failed to convert screenshot path to URL: {e}")
                             import traceback

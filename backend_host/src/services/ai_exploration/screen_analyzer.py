@@ -63,6 +63,15 @@ Return ONLY valid JSON in this exact format:
 Menu type must be one of: horizontal, vertical, grid, mixed
 Strategy describes the exploration approach based on menu type."""
 
+        print(f"\n{'='*80}")
+        print(f"[@screen_analyzer:anticipate_tree] PHASE 1 AI ANALYSIS")
+        print(f"{'='*80}")
+        print(f"📸 Screenshot Path: {screenshot_path}")
+        print(f"\n📝 PROMPT SENT TO AI:")
+        print(f"{'-'*80}")
+        print(prompt)
+        print(f"{'-'*80}\n")
+
         try:
             # Use existing VideoAIHelpers for AI analysis
             # Create instance with device info
@@ -78,19 +87,31 @@ Strategy describes the exploration approach based on menu type."""
                 user_question=prompt
             )
             
-            print(f"[@screen_analyzer:anticipate_tree] AI response: {response}")
+            print(f"🤖 RAW AI RESPONSE:")
+            print(f"{'-'*80}")
+            print(response)
+            print(f"{'-'*80}\n")
             
             # Parse JSON from response
             result = self._parse_json_response(response)
             
             if not result:
                 # Fallback to safe defaults
+                print(f"⚠️  Failed to parse AI response, using defaults")
                 return {
                     'menu_type': 'mixed',
                     'items': [],
                     'predicted_depth': 3,
                     'strategy': 'test_all_directions'
                 }
+            
+            print(f"✅ PARSED RESULT:")
+            print(f"{'-'*80}")
+            print(f"Menu Type: {result.get('menu_type')}")
+            print(f"Items: {result.get('items')}")
+            print(f"Predicted Depth: {result.get('predicted_depth')}")
+            print(f"Strategy: {result.get('strategy')}")
+            print(f"{'-'*80}\n")
             
             return result
             
@@ -236,7 +257,14 @@ Context visible = Can you still see elements from the previous screen?
                     with open(cold_path, 'wb') as f:
                         f.write(image_data)
                     
-                    print(f"[@screen_analyzer:capture_screenshot] Saved to cold storage: {cold_path}")
+                    print(f"\n{'='*80}")
+                    print(f"[@screen_analyzer:capture_screenshot] SCREENSHOT CAPTURED")
+                    print(f"{'='*80}")
+                    print(f"📸 Local Path: {cold_path}")
+                    print(f"📁 Device Folder: {device_folder}")
+                    print(f"📝 Filename: {filename}")
+                    print(f"{'='*80}\n")
+                    
                     return cold_path
             
             # Fallback to HDMI capture for all other devices
