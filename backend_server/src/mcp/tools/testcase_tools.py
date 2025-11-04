@@ -157,34 +157,59 @@ class TestCaseTools:
         print(f"[@MCP:poll_testcase] Polling for execution {execution_id} (max {max_wait}s)")
         
         while elapsed < max_wait:
-            time.sleep(poll_interval)
-            elapsed += poll_interval
-            
             # Poll status endpoint
             status = self.api.get(
                 f'/server/testcase/execution/{execution_id}/status',
                 params={'device_id': device_id, 'host_name': host_name, 'team_id': team_id}
             )
             
-            current_status = status.get('status')
+            # Check for API errors (execution not found, etc.)
+            if not status.get('success'):
+                error_msg = status.get('error', 'Unknown error')
+                print(f"[@MCP:poll_testcase] API error: {error_msg}")
+                return {"content": [{"type": "text", "text": f"❌ Status check failed: {error_msg}"}], "isError": True}
+            
+            # The response is: {'success': True, 'status': {nested execution object}}
+            # We need to extract the nested status object, then get its 'status' field
+            execution_status_obj = status.get('status', {})
+            current_status = execution_status_obj.get('status') if isinstance(execution_status_obj, dict) else None
+            
+            print(f"[@MCP:poll_testcase] current_status: {current_status}")
             
             if current_status == 'completed':
-                print(f"[@MCP:poll_testcase] Test case completed successfully after {elapsed}s")
-                result = status.get('result', {})
-                message = result.get('message', f"Test case '{testcase_name}' completed")
-                report_url = result.get('report_url', '')
-                logs_url = result.get('logs_url', '')
-                response = f"✅ {message}"
-                if report_url:
-                    response += f"\n📄 Report: {report_url}"
-                if logs_url:
-                    response += f"\n📋 Logs: {logs_url}"
-                return {"content": [{"type": "text", "text": response}], "isError": False}
+                # Get result from the nested execution_status_obj, not top-level status
+                result = execution_status_obj.get('result', {})
+                result_success = result.get('success', True)  # Check if testcase execution succeeded
+                
+                if result_success:
+                    print(f"[@MCP:poll_testcase] Test case completed successfully after {elapsed}s")
+                    message = result.get('message', f"Test case '{testcase_name}' completed")
+                    report_url = result.get('report_url', '')
+                    logs_url = result.get('logs_url', '')
+                    response = f"✅ {message}"
+                    if report_url:
+                        response += f"\n📄 Report: {report_url}"
+                    if logs_url:
+                        response += f"\n📋 Logs: {logs_url}"
+                    return {"content": [{"type": "text", "text": response}], "isError": False}
+                else:
+                    # Execution completed but testcase FAILED
+                    print(f"[@MCP:poll_testcase] Test case completed with FAILURES after {elapsed}s")
+                    error_msg = result.get('error', 'Test case execution failed')
+                    message = result.get('message', f"Test case '{testcase_name}' failed")
+                    report_url = result.get('report_url', '')
+                    logs_url = result.get('logs_url', '')
+                    response = f"❌ {message}: {error_msg}"
+                    if report_url:
+                        response += f"\n📄 Report: {report_url}"
+                    if logs_url:
+                        response += f"\n📋 Logs: {logs_url}"
+                    return {"content": [{"type": "text", "text": response}], "isError": True}
             
             elif current_status in ['error', 'failed']:  # Check for BOTH 'error' and 'failed'
                 print(f"[@MCP:poll_testcase] Test case failed after {elapsed}s")
-                error = status.get('error', 'Test case execution failed')
-                result = status.get('result', {})
+                error = execution_status_obj.get('error', 'Test case execution failed')
+                result = execution_status_obj.get('result', {})
                 report_url = result.get('report_url', '')
                 logs_url = result.get('logs_url', '')
                 response = f"❌ Test case failed: {error}"
@@ -198,6 +223,10 @@ class TestCaseTools:
                 progress = status.get('progress', {})
                 current_block = progress.get('current_block', 'unknown')
                 print(f"[@MCP:poll_testcase] Status: {current_status}, block: {current_block} - {elapsed}s elapsed")
+            
+            # Sleep AFTER checking status
+            time.sleep(poll_interval)
+            elapsed += poll_interval
         
         print(f"[@MCP:poll_testcase] Test case timed out after {max_wait}s")
         return {"content": [{"type": "text", "text": f"⏱️ Test case execution timed out after {max_wait}s"}], "isError": True}
