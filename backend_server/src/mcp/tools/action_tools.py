@@ -18,6 +18,83 @@ class ActionTools:
         self.api = api_client
         self.formatter = MCPFormatter()
     
+    def list_actions(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List available actions for a device
+        
+        REUSES existing /server/system/device-actions endpoint
+        
+        Args:
+            params: {
+                'device_id': str (REQUIRED),
+                'host_name': str (REQUIRED),
+                'team_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            MCP-formatted response with categorized list of available actions
+        """
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        
+        # Validate required parameters
+        if not host_name:
+            return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+        if not device_id:
+            return {"content": [{"type": "text", "text": "Error: device_id is required"}], "isError": True}
+        
+        query_params = {
+            'host_name': host_name,
+            'device_id': device_id,
+            'team_id': team_id
+        }
+        
+        # Call EXISTING endpoint
+        print(f"[@MCP:list_actions] Calling /server/system/getDeviceActions")
+        result = self.api.get('/server/system/getDeviceActions', params=query_params)
+        
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to list actions')
+            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+        
+        # Format response - group actions by category
+        device_action_types = result.get('device_action_types', {})
+        device_model = result.get('device_model', 'unknown')
+        
+        if not device_action_types:
+            return {"content": [{"type": "text", "text": f"No actions available for {device_model} device"}], "isError": False}
+        
+        response_text = f"📋 Available actions for {device_model} ({device_id}):\n\n"
+        
+        for category, actions in device_action_types.items():
+            if not actions:
+                continue
+            response_text += f"**{category.upper()}** ({len(actions)} actions):\n"
+            for action in actions[:10]:  # Limit to first 10 per category
+                action_id = action.get('id', action.get('command', 'unknown'))
+                label = action.get('label', action.get('command', 'unknown'))
+                command = action.get('command', 'unknown')
+                params_dict = action.get('params', {})
+                description = action.get('description', '')
+                
+                response_text += f"  • {label} (command: {command})\n"
+                if params_dict:
+                    response_text += f"    params: {params_dict}\n"
+                if description:
+                    response_text += f"    {description}\n"
+            
+            if len(actions) > 10:
+                response_text += f"  ... and {len(actions) - 10} more\n"
+            response_text += "\n"
+        
+        return {
+            "content": [{"type": "text", "text": response_text}],
+            "isError": False,
+            "device_action_types": device_action_types  # Include full data for programmatic use
+        }
+    
     def execute_device_action(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute batch of actions on a device

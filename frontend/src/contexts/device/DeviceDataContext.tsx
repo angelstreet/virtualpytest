@@ -28,11 +28,6 @@ interface DeviceDataState {
   availableActionsLoading: boolean;
   availableActionsError: string | null;
 
-  // Saved actions data (from DB for current model)
-  actions: any[];
-  actionsLoading: boolean;
-  actionsError: string | null;
-
   // Available verification types data (controller capabilities)
   availableVerificationTypes: Record<string, any>;
   availableVerificationTypesLoading: boolean;
@@ -54,13 +49,11 @@ interface DeviceDataActions {
   fetchReferences: (force?: boolean) => Promise<void>;
   fetchAvailableActions: (force?: boolean) => Promise<void>;
   fetchAvailableVerifications: (force?: boolean) => Promise<void>;
-  fetchActions: (force?: boolean) => Promise<void>;
   fetchAllData: (force?: boolean) => Promise<void>;
 
   // Data access helpers
   getModelReferences: (model: string) => ModelReferences;
   getAvailableActions: () => Actions;
-  getActions: () => any[];
   getAvailableVerificationTypes: () => Record<string, any>;
 
   // State management
@@ -138,9 +131,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     availableActions: {},
     availableActionsLoading: false,
     availableActionsError: null,
-    actions: [],
-    actionsLoading: false,
-    actionsError: null,
     availableVerificationTypes: {},
     availableVerificationTypesLoading: false,
     availableVerificationTypesError: null,
@@ -156,13 +146,11 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     referencesLoaded: boolean;
     availableActionsLoaded: boolean;
     availableVerificationTypesLoaded: boolean;
-    actionsLoaded: boolean;
   }>({
     hostId: null,
     referencesLoaded: false,
     availableActionsLoaded: false,
     availableVerificationTypesLoaded: false,
-    actionsLoaded: false,
   });
 
   // Create stable host identifier
@@ -454,81 +442,18 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     [state.currentHost, state.currentDeviceId, state.isControlActive, hostId],
   );
 
-  const fetchActions = useCallback(
-    async (force: boolean = false) => {
-      if (!state.isControlActive || !state.currentHost || !state.currentDeviceId) {
-        return;
-      }
-
-      // Check if already loaded (unless forced)
-      if (
-        !force &&
-        loadedDataRef.current.hostId === hostId &&
-        loadedDataRef.current.actionsLoaded
-      ) {
-        return;
-      }
-
-      setState((prev) => ({ ...prev, actionsLoading: true, actionsError: null }));
-
-      try {
-        const device = state.currentHost.devices?.find(
-          (d) => d.device_id === state.currentDeviceId,
-        );
-        const deviceModel = device?.device_model;
-
-        if (!deviceModel) {
-          throw new Error('Device model not found');
-        }
-
-        const response = await fetch(
-          buildServerUrl(`/server/action/getActions?device_model=${encodeURIComponent(deviceModel)}`),
-          {
-            method: 'GET',
-            headers: { 'Content-Type': 'application/json' },
-          },
-        );
-
-        if (response.ok) {
-          const result = await response.json();
-
-          if (result.success && result.actions && Array.isArray(result.actions)) {
-            setState((prev) => ({ ...prev, actions: result.actions, actionsLoading: false }));
-            loadedDataRef.current.actionsLoaded = true;
-          } else {
-            setState((prev) => ({ ...prev, actions: [], actionsLoading: false }));
-          }
-        } else if (response.status === 404) {
-          setState((prev) => ({ ...prev, actions: [], actionsLoading: false }));
-        } else {
-          throw new Error(`HTTP ${response.status}`);
-        }
-      } catch (error) {
-        console.error('[DeviceDataContext] Error fetching actions:', error);
-        setState((prev) => ({
-          ...prev,
-          actionsLoading: false,
-          actionsError: error instanceof Error ? error.message : 'Unknown error',
-        }));
-      }
-    },
-    [state.currentHost, state.currentDeviceId, state.isControlActive, hostId],
-  );
-
   const fetchAllData = useCallback(
     async (force: boolean = false) => {
       await Promise.all([
         fetchReferences(force),
         fetchAvailableActions(force),
         fetchAvailableVerifications(force),
-        fetchActions(force),
       ]);
     },
     [
       fetchReferences,
       fetchAvailableActions,
       fetchAvailableVerifications,
-      fetchActions,
     ],
   );
 
@@ -550,10 +475,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     return state.availableActions;
   }, [state.availableActions]);
 
-  const getActions = useCallback((): any[] => {
-    return state.actions;
-  }, [state.actions]);
-
   const getAvailableVerificationTypes = useCallback((): Record<string, any> => {
     return state.availableVerificationTypes;
   }, [state.availableVerificationTypes]);
@@ -574,7 +495,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
           referencesLoaded: false,
           availableActionsLoaded: false,
           availableVerificationTypesLoaded: false,
-          actionsLoaded: false,
         };
 
         // Clear existing data
@@ -585,11 +505,9 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
           isControlActive: isActive,
           references: {},
           availableActions: {},
-          actions: [],
           availableVerificationTypes: {},
           referencesError: null,
           availableActionsError: null,
-          actionsError: null,
           availableVerificationTypesError: null,
           devicePositions: {},
         }));
@@ -620,11 +538,9 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       ...prev,
       references: {},
       availableActions: {},
-      actions: [],
       availableVerificationTypes: {},
       referencesError: null,
       availableActionsError: null,
-      actionsError: null,
       availableVerificationTypesError: null,
       devicePositions: {},
     }));
@@ -634,7 +550,6 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       referencesLoaded: false,
       availableActionsLoaded: false,
       availableVerificationTypesLoaded: false,
-      actionsLoaded: false,
     };
   }, []);
 
@@ -800,11 +715,9 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       fetchReferences,
       fetchAvailableActions,
       fetchAvailableVerifications,
-      fetchActions,
       fetchAllData,
       getModelReferences,
       getAvailableActions,
-      getActions,
       getAvailableVerificationTypes,
       setControlState,
       clearData,
@@ -824,11 +737,9 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       fetchReferences,
       fetchAvailableActions,
       fetchAvailableVerifications,
-      fetchActions,
       fetchAllData,
       getModelReferences,
       getAvailableActions,
-      getActions,
       getAvailableVerificationTypes,
       setControlState,
       clearData,

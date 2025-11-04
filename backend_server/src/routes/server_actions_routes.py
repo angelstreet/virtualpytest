@@ -22,65 +22,6 @@ import requests
 server_actions_bp = Blueprint('server_actions', __name__, url_prefix='/server/action')
 
 # =====================================================
-# ACTION INFORMATION (for frontend compatibility)
-# =====================================================
-
-@server_actions_bp.route('/getActions', methods=['GET'])
-def get_actions():
-    """Get available actions for a device model (for frontend compatibility)."""
-    try:
-        device_model = request.args.get('device_model', 'android_mobile')
-        team_id = request.args.get('team_id')
-        
-        # Return basic action types available for the device model
-        # This is mainly for frontend compatibility - actions are now embedded in edges
-        actions = [
-            {
-                'id': 'click_element',
-                'name': 'click_element',
-                'command': 'click_element',
-                'device_model': device_model,
-                'params': {
-                    'element_id': '',
-                    'wait_time': 0
-                }
-            },
-            {
-                'id': 'tap_coordinates',
-                'name': 'tap_coordinates', 
-                'command': 'tap_coordinates',
-                'device_model': device_model,
-                'params': {
-                    'x': 0,
-                    'y': 0,
-                    'wait_time': 0
-                }
-            },
-            {
-                'id': 'press_key',
-                'name': 'press_key',
-                'command': 'press_key', 
-                'device_model': device_model,
-                'params': {
-                    'key': '',
-                    'wait_time': 0
-                }
-            }
-        ]
-        
-        return jsonify({
-            'success': True,
-            'actions': actions
-        })
-        
-    except Exception as e:
-        print(f'[@route:server_actions:get_actions] ERROR: {e}')
-        return jsonify({
-            'success': False,
-            'message': f'Server error: {str(e)}'
-        }), 500
-
-# =====================================================
 # ACTION EXECUTION
 # =====================================================
 

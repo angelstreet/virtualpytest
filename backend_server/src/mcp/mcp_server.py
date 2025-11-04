@@ -81,12 +81,15 @@ class VirtualPyTestMCPServer:
             'release_control': self.control_tools.release_control,
             
             # Action tools
+            'list_actions': self.action_tools.list_actions,
             'execute_device_action': self.action_tools.execute_device_action,
             
             # Navigation tools
+            'list_navigation_nodes': self.navigation_tools.list_navigation_nodes,
             'navigate_to_node': self.navigation_tools.navigate_to_node,
             
             # Verification tools
+            'list_verifications': self.verification_tools.list_verifications,
             'verify_device_state': self.verification_tools.verify_device_state,
             
             # TestCase tools
@@ -236,6 +239,30 @@ Use the SAME device_id that was used in take_control.""",
                 }
             },
             {
+                "name": "list_actions",
+                "description": """List available actions for a device
+
+Returns categorized list of actions with commands and parameters.
+Useful for discovering what actions can be executed on a device.
+
+PREREQUISITE: Device must be registered with the host.
+
+Example:
+  list_actions(
+    device_id='device1',
+    host_name='sunri-pi1'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": ["host_name"]
+                }
+            },
+            {
                 "name": "execute_device_action",
                 "description": """Execute batch of actions on device (remote commands, ADB, web, desktop)
 
@@ -259,6 +286,28 @@ Returns execution_id for async operations - polls automatically until completion
                         "failure_actions": {"type": "array", "description": "Actions to execute on failure", "items": {"type": "object"}}
                     },
                     "required": ["actions"]
+                }
+            },
+            {
+                "name": "list_navigation_nodes",
+                "description": """List navigation nodes available in a tree
+
+Returns list of nodes with labels, IDs, types, and positions.
+Useful for discovering what nodes are available for navigation.
+
+Example:
+  list_navigation_nodes(
+    tree_id='abc-123'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID (REQUIRED)"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "page": {"type": "integer", "description": "Page number (optional, default: 0)"},
+                        "limit": {"type": "integer", "description": "Results per page (optional, default: 100)"}
+                    },
+                    "required": ["tree_id"]
                 }
             },
             {
@@ -290,6 +339,30 @@ Example workflow:
                         "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
                     },
                     "required": ["tree_id", "userinterface_name"]
+                }
+            },
+            {
+                "name": "list_verifications",
+                "description": """List available verification types for a device
+
+Returns categorized list of verification methods with parameters.
+Useful for discovering what verifications can be performed on a device.
+
+PREREQUISITE: Device must be registered with the host.
+
+Example:
+  list_verifications(
+    device_id='device1',
+    host_name='sunri-pi1'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": ["host_name"]
                 }
             },
             {

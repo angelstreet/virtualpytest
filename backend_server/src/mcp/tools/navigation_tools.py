@@ -18,6 +18,80 @@ class NavigationTools:
         self.api = api_client
         self.formatter = MCPFormatter()
     
+    def list_navigation_nodes(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List navigation nodes available in a tree
+        
+        REUSES existing /server/navigationTrees/<tree_id>/nodes endpoint
+        
+        Args:
+            params: {
+                'tree_id': str (REQUIRED) - Navigation tree ID,
+                'team_id': str (OPTIONAL),
+                'page': int (OPTIONAL) - Page number (default: 0),
+                'limit': int (OPTIONAL) - Results per page (default: 100)
+            }
+            
+        Returns:
+            MCP-formatted response with list of navigation nodes and their properties
+        """
+        tree_id = params.get('tree_id')
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        page = params.get('page', 0)
+        limit = params.get('limit', 100)
+        
+        # Validate required parameters
+        if not tree_id:
+            return {"content": [{"type": "text", "text": "Error: tree_id is required"}], "isError": True}
+        
+        query_params = {
+            'team_id': team_id,
+            'page': page,
+            'limit': limit
+        }
+        
+        # Call EXISTING endpoint
+        print(f"[@MCP:list_navigation_nodes] Calling /server/navigationTrees/{tree_id}/nodes")
+        result = self.api.get(f'/server/navigationTrees/{tree_id}/nodes', params=query_params)
+        
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to list navigation nodes')
+            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+        
+        # Format response
+        nodes = result.get('nodes', [])
+        total = result.get('total', len(nodes))
+        
+        if not nodes:
+            return {"content": [{"type": "text", "text": f"No navigation nodes found in tree {tree_id}"}], "isError": False}
+        
+        response_text = f"📋 Navigation nodes in tree {tree_id} (showing {len(nodes)} of {total}):\n\n"
+        
+        for node in nodes[:50]:  # Limit display to first 50
+            node_id = node.get('id', 'unknown')
+            label = node.get('label', 'unnamed')
+            node_type = node.get('type', 'unknown')
+            
+            response_text += f"  • {label} (id: {node_id}, type: {node_type})\n"
+            
+            # Show position if available
+            position = node.get('position')
+            if position:
+                x = position.get('x', 0)
+                y = position.get('y', 0)
+                response_text += f"    position: ({x}, {y})\n"
+        
+        if len(nodes) > 50:
+            response_text += f"\n... and {len(nodes) - 50} more nodes\n"
+        
+        return {
+            "content": [{"type": "text", "text": response_text}],
+            "isError": False,
+            "nodes": nodes,  # Include full data for programmatic use
+            "total": total
+        }
+    
     def navigate_to_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Navigate to a target node in UI tree

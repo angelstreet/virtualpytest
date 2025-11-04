@@ -18,6 +18,80 @@ class VerificationTools:
         self.api = api_client
         self.formatter = MCPFormatter()
     
+    def list_verifications(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List available verification types for a device
+        
+        REUSES existing /server/system/device-actions endpoint (returns both actions and verifications)
+        
+        Args:
+            params: {
+                'device_id': str (REQUIRED),
+                'host_name': str (REQUIRED),
+                'team_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            MCP-formatted response with categorized list of available verifications
+        """
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        
+        # Validate required parameters
+        if not host_name:
+            return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+        if not device_id:
+            return {"content": [{"type": "text", "text": "Error: device_id is required"}], "isError": True}
+        
+        query_params = {
+            'host_name': host_name,
+            'device_id': device_id,
+            'team_id': team_id
+        }
+        
+        # Call EXISTING endpoint (same as list_actions - returns both)
+        print(f"[@MCP:list_verifications] Calling /server/system/getDeviceActions")
+        result = self.api.get('/server/system/getDeviceActions', params=query_params)
+        
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to list verifications')
+            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+        
+        # Format response - group verifications by type
+        device_verification_types = result.get('device_verification_types', {})
+        device_model = result.get('device_model', 'unknown')
+        
+        if not device_verification_types:
+            return {"content": [{"type": "text", "text": f"No verifications available for {device_model} device"}], "isError": False}
+        
+        response_text = f"📋 Available verifications for {device_model} ({device_id}):\n\n"
+        
+        for verif_type, methods in device_verification_types.items():
+            if not methods or not isinstance(methods, dict):
+                continue
+            response_text += f"**{verif_type.upper()}** ({len(methods)} methods):\n"
+            for method_name, method_info in list(methods.items())[:10]:  # Limit to first 10 per type
+                description = method_info.get('description', '')
+                params_dict = method_info.get('params', {})
+                
+                response_text += f"  • {method_name}\n"
+                if description:
+                    response_text += f"    {description}\n"
+                if params_dict:
+                    response_text += f"    params: {params_dict}\n"
+            
+            if len(methods) > 10:
+                response_text += f"  ... and {len(methods) - 10} more\n"
+            response_text += "\n"
+        
+        return {
+            "content": [{"type": "text", "text": response_text}],
+            "isError": False,
+            "device_verification_types": device_verification_types  # Include full data for programmatic use
+        }
+    
     def verify_device_state(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Verify device state with batch verifications

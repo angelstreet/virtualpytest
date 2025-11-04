@@ -286,8 +286,7 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
     
     // Generate auto-label
     // Standard blocks (sleep, evaluate_condition, etc.): Just use command_counter (e.g., "sleep_1", "evaluate_condition_1")
-    // Navigation blocks: Keep navigation_counter:target format for distinction (e.g., "navigation_1:home")
-    // Actions/Verifications: Keep category_counter:command format for distinction (e.g., "action_1:swipe_up")
+    // Navigation blocks, actions, verifications: counter-command format (e.g., "1-home", "2-swipe_up")
     const isStandardBlock = ['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code', 'common_operation', 'evaluate_condition'].includes(type);
     
     let autoLabel: string;
@@ -295,11 +294,11 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       // For standard blocks: just "command_counter" (e.g., "sleep_1", "evaluate_condition_1")
       autoLabel = `${words}_${blockCounters.current[labelGroup]}`;
     } else if (words) {
-      // For other blocks: keep "category_counter:command" format (e.g., "action_1:swipe_up", "navigation_1:home")
-      autoLabel = `${labelGroup}_${blockCounters.current[labelGroup]}:${words}`;
+      // For actions, verifications, navigation: counter-command (e.g., "1-home", "2-swipe_up")
+      autoLabel = `${blockCounters.current[labelGroup]}-${words}`;
     } else {
-      // Fallback: just "category_counter"
-      autoLabel = `${labelGroup}_${blockCounters.current[labelGroup]}`;
+      // Fallback: just the counter with dash (e.g., "1-")
+      autoLabel = `${blockCounters.current[labelGroup]}-`;
     }
     
     const newNode: Node = {
