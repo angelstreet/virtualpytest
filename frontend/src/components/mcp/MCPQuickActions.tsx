@@ -110,7 +110,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
         border: 1,
         borderColor: 'divider',
         boxShadow: 'none',
-        height: '500px', // FIXED HEIGHT - same as prompt input
+        height: '400px', // FIXED HEIGHT - same as prompt input
         display: 'flex',
         flexDirection: 'column',
       }}

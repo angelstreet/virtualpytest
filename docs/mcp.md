@@ -57,6 +57,224 @@ The MCP server exposes **21 tools** for complete device automation:
 
 ---
 
+## 🌐 MCP Integration Options
+
+VirtualPyTest MCP tools can be accessed in **3 ways**:
+
+### 1️⃣ **Cursor IDE (Native MCP)**
+Direct integration via `~/.cursor/mcp.json` - Claude calls MCP tools directly.
+
+### 2️⃣ **Claude Desktop / MCP Clients (Native MCP)**
+Any MCP-compatible client that supports HTTP transport.
+
+### 3️⃣ **MCP Playground (OpenRouter Function Calling)** ⭐ NEW
+Web interface using OpenRouter (Qwen/Phi-3) with function calling to simulate MCP.
+
+---
+
+## 🚀 Quick Start: MCP Playground (OpenRouter)
+
+**For users without Claude API access who use OpenRouter (Qwen/Phi-3)**
+
+### What is MCP Playground?
+
+A web-based interface at `/builder/mcp-playground` that:
+- Accepts natural language prompts (text or voice)
+- Uses **OpenRouter with function calling** to decide which MCP tools to use
+- Executes tools and shows results
+- **No Claude API needed** - works with your existing OpenRouter setup
+
+### Architecture
+
+```
+User types: "Swipe up"
+    ↓
+MCP Playground sends to /server/mcp-proxy/execute-prompt
+    ↓
+Backend calls OpenRouter (microsoft/phi-3-mini-128k-instruct)
+    ↓
+OpenRouter with function calling decides: "Use execute_device_action"
+    ↓
+Backend calls MCP Server tool: execute_device_action
+    ↓
+Device performs swipe
+    ↓
+Result shown in web interface
+```
+
+### Setup (OpenRouter Function Calling)
+
+**1. Add OpenRouter API Key**
+
+```bash
+# backend_server/.env
+OPENROUTER_API_KEY=sk-or-v1-your-key-here
+
+# Your existing MCP secret
+MCP_SECRET_KEY=vpt_mcp_RY2WBcQwEivOKbUiK0yUayfM5VHb9llOD1rv9Nizjec
+```
+
+**2. Restart Backend**
+
+```bash
+cd backend_server
+# Restart your backend server to load new env vars
+```
+
+**3. Open MCP Playground**
+
+```
+https://dev.virtualpytest.com/builder/mcp-playground
+```
+
+**4. Test It**
+
+1. Select device, host, interface
+2. Take control
+3. Type: "Swipe up"
+4. Click Execute
+5. Watch OpenRouter decide which MCP tool to call!
+
+### How It Works (OpenRouter Function Calling)
+
+```python
+# Backend sends to OpenRouter:
+{
+  "model": "microsoft/phi-3-mini-128k-instruct",
+  "messages": [
+    {
+      "role": "system", 
+      "content": "You have access to MCP tools. Use them to execute device commands."
+    },
+    {
+      "role": "user",
+      "content": "Swipe up"  # User's prompt
+    }
+  ],
+  "functions": [
+    {
+      "name": "execute_device_action",
+      "description": "Execute device actions like swipe, tap, press keys",
+      "parameters": {
+        "device_id": {"type": "string"},
+        "actions": {"type": "array"}
+      }
+    },
+    # ... other MCP tools as functions
+  ],
+  "function_call": "auto"  # Let AI decide
+}
+
+# OpenRouter responds:
+{
+  "choices": [{
+    "message": {
+      "function_call": {
+        "name": "execute_device_action",
+        "arguments": '{"actions": [{"command": "swipe_up"}]}'
+      }
+    }
+  }]
+}
+
+# Backend executes the MCP tool
+result = mcp_server.handle_tool_call("execute_device_action", {...})
+
+# Result sent back to web page
+```
+
+### Supported Prompts (OpenRouter Version)
+
+**Simple actions** (work best):
+- "Swipe up"
+- "Swipe down"  
+- "Take screenshot"
+- "Press home button"
+
+**Navigation** (if tree_id configured):
+- "Navigate to home"
+- "Go to settings"
+
+**Complex prompts** (may need improvement):
+- "Swipe up three times and take a screenshot"
+- AI may not handle multi-step actions well yet
+
+### Comparison: Native MCP vs OpenRouter Function Calling
+
+| Feature | Cursor (Native MCP) | MCP Playground (OpenRouter) |
+|---------|---------------------|----------------------------|
+| **AI Model** | Claude | Qwen/Phi-3 |
+| **MCP Support** | Native | Simulated via function calling |
+| **API Cost** | Claude API (paid) | OpenRouter (some free tiers) |
+| **Tool Selection** | Excellent | Good (depends on model) |
+| **Multi-step** | Excellent | Limited |
+| **Setup** | `mcp.json` config | OpenRouter API key only |
+| **Interface** | Cursor chat | Web page |
+| **Best For** | Power users with Claude | Users with OpenRouter |
+
+### Endpoint Reference (MCP Proxy)
+
+#### POST `/server/mcp-proxy/execute-prompt`
+
+Execute natural language prompt via OpenRouter function calling.
+
+**Request:**
+```json
+{
+  "prompt": "Swipe up on the device",
+  "device_id": "device1",
+  "host_name": "sunri-pi1",
+  "userinterface_name": "horizon_android_mobile",
+  "team_id": "team_1",
+  "tree_id": "abc-123"
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "result": {
+    "execution_id": "xyz-789",
+    "status": "completed"
+  },
+  "tool_calls": [
+    {
+      "tool": "execute_device_action",
+      "arguments": {
+        "device_id": "device1",
+        "actions": [{"command": "swipe_up"}]
+      },
+      "result": {
+        "success": true
+      }
+    }
+  ],
+  "ai_response": "I executed a swipe up action on the device."
+}
+```
+
+#### GET `/server/mcp-proxy/list-tools`
+
+List available MCP tools (for debugging).
+
+**Response:**
+```json
+{
+  "success": true,
+  "tools": [
+    {
+      "name": "execute_device_action",
+      "description": "Execute batch of actions on device..."
+    },
+    ...
+  ],
+  "count": 21
+}
+```
+
+---
+
 ## 📋 Prerequisites
 
 ### Installation

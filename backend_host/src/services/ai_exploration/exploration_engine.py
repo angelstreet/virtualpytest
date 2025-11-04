@@ -30,7 +30,8 @@ class ExplorationEngine:
         team_id: str,
         userinterface_name: str,
         depth_limit: int = 5,
-        screenshot_callback=None  # Optional callback to update screenshot in session
+        screenshot_callback=None,  # Optional callback to update screenshot in session
+        progress_callback=None  # Optional callback to update progress in session
     ):
         """
         Initialize exploration engine
@@ -44,6 +45,7 @@ class ExplorationEngine:
             userinterface_name: UI name (e.g., 'horizon_android_mobile')
             depth_limit: Maximum depth to explore
             screenshot_callback: Optional callback function to notify when screenshot is captured
+            progress_callback: Optional callback function to notify of progress updates
         """
         self.tree_id = tree_id
         self.device_id = device_id
@@ -53,6 +55,7 @@ class ExplorationEngine:
         self.userinterface_name = userinterface_name
         self.depth_limit = depth_limit
         self.screenshot_callback = screenshot_callback  # Store callback
+        self.progress_callback = progress_callback  # Store progress callback
         
         # Get device from registry (same pattern as goto.py and zap_executor.py)
         from flask import current_app
@@ -113,11 +116,29 @@ class ExplorationEngine:
                     'error': 'Failed to capture initial screenshot'
                 }
             
-            # Notify callback of screenshot capture
+            # Notify callbacks
             if self.screenshot_callback:
                 self.screenshot_callback(initial_screenshot)
+            if self.progress_callback:
+                self.progress_callback(
+                    step="Phase 1: Analyzing initial screenshot with AI...",
+                    screenshot=initial_screenshot,
+                    analysis=None
+                )
             
             prediction = self._phase1_anticipation(initial_screenshot)
+            
+            # Notify of prediction results
+            if self.progress_callback:
+                self.progress_callback(
+                    step=f"Phase 1 Complete: Predicted {prediction.get('menu_type', 'unknown')} menu with {len(prediction.get('items', []))} items",
+                    screenshot=initial_screenshot,
+                    analysis={
+                        'screen_name': 'Initial Analysis',
+                        'elements_found': prediction.get('items', []),
+                        'reasoning': f"Menu Type: {prediction.get('menu_type')}, Strategy: {prediction.get('strategy')}"
+                    }
+                )
             
             # PHASE 2: Validation - Explore to validate prediction
             self._phase2_validation(prediction, initial_screenshot)
@@ -273,6 +294,14 @@ class ExplorationEngine:
                 
                 # Press OK to enter
                 ok_result = self.navigation_strategy.press_ok_and_analyze(parent_screenshot)
+                
+                # Notify progress
+                if self.progress_callback and ok_result.get('screenshot'):
+                    self.progress_callback(
+                        step=f"Phase 2: Exploring item {i+1}/{len(predicted_items)}: {predicted_item}",
+                        screenshot=ok_result['screenshot'],
+                        analysis=ok_result.get('analysis')
+                    )
                 
                 if ok_result['success'] and ok_result['is_new_screen']:
                     analysis = ok_result['analysis']

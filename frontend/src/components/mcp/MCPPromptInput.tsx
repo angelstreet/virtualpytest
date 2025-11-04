@@ -129,7 +129,7 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
         border: 1,
         borderColor: 'divider',
         boxShadow: 'none',
-        height: '500px', // FIXED HEIGHT - same as Quick Actions
+        height: '400px', // FIXED HEIGHT - same as Quick Actions
         display: 'flex',
         flexDirection: 'column',
       }}
@@ -141,8 +141,8 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
         flexDirection: 'column',
         height: '100%',
       }}>
-        <Typography variant="h6" sx={{ mb: 2, fontSize: '1.1rem' }}>
-          What would you like to do?
+        <Typography variant="h6" sx={{ mb: 0.5, fontSize: '1.1rem' }}>
+          Enter you prompt
         </Typography>
         
         <Stack spacing={2} sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
@@ -211,7 +211,7 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
                   sx={{
                     minHeight: { xs: 56, md: 48, lg: 40 },
                     fontSize: { xs: '1rem', md: '0.9rem' },
-                    minWidth: { xs: '100%', sm: 140 },
+                    minWidth: { xs: '100%', sm: 120 },
                     width: { xs: '100%', sm: 'auto' },
                   }}
                 >
@@ -248,7 +248,7 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
               sx={{
                 minHeight: { xs: 56, md: 48, lg: 40 },
                 fontSize: { xs: '1rem', md: '0.9rem' },
-                minWidth: { xs: '100%', sm: 160 },
+                minWidth: { xs: '100%', sm: 140 },
                 width: { xs: '100%', sm: 'auto' },
                 fontWeight: 600,
               }}
@@ -256,13 +256,6 @@ export const MCPPromptInput: React.FC<MCPPromptInputProps> = ({
               {isGenerating ? 'Generating...' : 'Execute'}
             </Button>
           </Stack>
-          
-          {/* Helper Text */}
-          <Typography variant="caption" color="text.secondary" sx={{ textAlign: 'center' }}>
-            {!isControlActive
-              ? '⚠️ Take control of the device first'
-              : 'Tip: Press Cmd/Ctrl + Enter to execute quickly'}
-          </Typography>
         </Stack>
       </CardContent>
     </Card>

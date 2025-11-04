@@ -53,14 +53,16 @@ const MCPPlaygroundContent: React.FC = () => {
           sx={{
             flex: 1,
             overflow: 'auto',
-            p: 3,
+            pt: 0, // No top padding
+            px: 2, // Horizontal padding
+            pb: 8, // Extra padding at bottom to prevent footer overlap
           }}
         >
-          <Box sx={{ maxWidth: '1600px', mx: 'auto' }}>
-            <Stack spacing={3}>
-              {/* ROW 1: Prompt (2/3) + Quick Actions (1/3) */}
-              <Grid container spacing={3}>
-                <Grid item xs={12} md={8}>
+          <Box sx={{ maxWidth: '100%', mx: 'auto', display: 'flex', flexDirection: 'column' }}>
+            <Stack spacing={1}>
+              {/* ROW 1: Prompt (50%) + Quick Actions (50%) */}
+              <Grid container spacing={1}>
+                <Grid item xs={12} md={6}>
                   <MCPPromptInput
                     prompt={hookData.prompt}
                     setPrompt={hookData.setPrompt}
@@ -69,7 +71,7 @@ const MCPPlaygroundContent: React.FC = () => {
                     isControlActive={hookData.isControlActive}
                   />
                 </Grid>
-                <Grid item xs={12} md={4}>
+                <Grid item xs={12} md={6}>
                   <MCPQuickActions
                     navNodes={hookData.navNodes}
                     availableActions={hookData.availableActions}
@@ -83,10 +85,12 @@ const MCPPlaygroundContent: React.FC = () => {
               {/* ROW 2: Execution Result (full width) */}
               <Grid container>
                 <Grid item xs={12}>
-                  <MCPExecutionResult
-                    unifiedExecution={hookData.unifiedExecution}
-                    executionResult={hookData.executionResult}
-                  />
+                  <Box sx={{ maxHeight: '200px', overflow: 'auto' }}>
+                    <MCPExecutionResult
+                      unifiedExecution={hookData.unifiedExecution}
+                      executionResult={hookData.executionResult}
+                    />
+                  </Box>
                 </Grid>
               </Grid>
               

@@ -158,6 +158,27 @@ def start_exploration():
                             import traceback
                             traceback.print_exc()
                     
+                    def update_progress(step: str, screenshot: str = None, analysis: dict = None):
+                        """Update progress in session (step, screenshot, analysis)"""
+                        try:
+                            _exploration_sessions[exploration_id]['current_step'] = step
+                            print(f"[@route:ai_generation] Progress: {step}")
+                            
+                            # Update screenshot if provided
+                            if screenshot:
+                                update_screenshot(screenshot)
+                            
+                            # Update analysis if provided
+                            if analysis:
+                                _exploration_sessions[exploration_id]['current_analysis'].update({
+                                    'screen_name': analysis.get('screen_name', ''),
+                                    'elements_found': analysis.get('elements_found', []),
+                                    'reasoning': analysis.get('reasoning', '')
+                                })
+                            
+                        except Exception as e:
+                            print(f"[@route:ai_generation] Failed to update progress: {e}")
+                    
                     engine = ExplorationEngine(
                         tree_id=tree_id,
                         device_id=device_id,
@@ -166,7 +187,8 @@ def start_exploration():
                         team_id=team_id,
                         userinterface_name=userinterface_name,
                         depth_limit=exploration_depth,
-                        screenshot_callback=update_screenshot  # Pass callback for screenshot updates
+                        screenshot_callback=update_screenshot,  # Pass callback for screenshot updates
+                        progress_callback=update_progress  # Pass callback for progress updates
                     )
                     
                     # Run exploration

@@ -18,6 +18,7 @@ import { useUserInterface } from './useUserInterface';
 import { useTestCaseAI } from '../testcase';
 import { useTestCaseExecution } from '../testcase/useTestCaseExecution';
 import { useExecutionState } from '../testcase/useExecutionState';
+import { useMCPProxy } from '../useMCPProxy';  // NEW: MCP Proxy hook
 import { filterCompatibleInterfaces } from '../../utils/userinterface/deviceCompatibilityUtils';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { TestCaseGraph, ScriptInput, Variable } from '../../types/testcase/TestCase_Types';
@@ -244,6 +245,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
   const { generateTestCaseFromPrompt } = useTestCaseAI();
   const { executeTestCase } = useTestCaseExecution();
   const unifiedExecution = useExecutionState();
+  const { executePrompt: executeMCPPrompt, isExecuting: isMCPExecuting } = useMCPProxy();  // NEW: MCP Proxy
   
   const [prompt, setPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -358,35 +360,34 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
       return;
     }
     
+    if (!selectedDeviceId || !selectedHost) {
+      console.error('[@useMCPPlaygroundPage] No device selected');
+      addToHistory(prompt, false, { error: 'No device selected' });
+      return;
+    }
+    
     setIsGenerating(true);
     setDisambiguationData(null);
     
     try {
-      console.log('[@useMCPPlaygroundPage] Generating from prompt:', prompt);
+      console.log('[@useMCPPlaygroundPage] Sending prompt to MCP Proxy (OpenRouter + Function Calling):', prompt);
       
-      const result = await generateTestCaseFromPrompt(prompt, userinterfaceName);
+      // NEW: Use MCP Proxy with OpenRouter function calling
+      const result = await executeMCPPrompt(
+        prompt,
+        selectedDeviceId,
+        selectedHost.host_name,
+        userinterfaceName,
+        undefined, // team_id (optional)
+        currentTreeId || undefined  // tree_id (optional, for navigation)
+      );
       
-      if (result.requires_disambiguation) {
-        console.log('[@useMCPPlaygroundPage] Disambiguation required');
-        setDisambiguationData({
-          ambiguities: result.ambiguities || [],
-          auto_corrections: result.auto_corrections || [],
-          available_nodes: result.available_nodes || navNodes,
-          originalPrompt: prompt
-        });
-        setIsGenerating(false);
-        return;
-      }
+      console.log('[@useMCPPlaygroundPage] MCP Proxy result:', result);
+      console.log('[@useMCPPlaygroundPage] Tool calls made:', result.tool_calls);
       
-      if (!result.success || !result.graph) {
-        console.error('[@useMCPPlaygroundPage] Generation failed:', result.error);
-        addToHistory(prompt, false, { error: result.error });
-        setIsGenerating(false);
-        return;
-      }
-      
-      console.log('[@useMCPPlaygroundPage] Executing generated graph');
-      await executeGraph(result.graph);
+      // Add to history
+      addToHistory(prompt, true, result);
+      setExecutionResult(result);
       
     } catch (error) {
       console.error('[@useMCPPlaygroundPage] Error generating:', error);
@@ -394,10 +395,15 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
     } finally {
       setIsGenerating(false);
     }
-  }, [prompt, userinterfaceName, generateTestCaseFromPrompt, navNodes, executeGraph, addToHistory]);
+  }, [prompt, userinterfaceName, selectedDeviceId, selectedHost, currentTreeId, executeMCPPrompt, addToHistory]);
   
   const handleDisambiguationResolve = useCallback(async (resolutions: Record<string, string>) => {
     if (!disambiguationData) return;
+    
+    if (!selectedDeviceId || !selectedHost) {
+      console.error('[@useMCPPlaygroundPage] No device selected');
+      return;
+    }
     
     setIsGenerating(true);
     setDisambiguationData(null);
@@ -406,7 +412,8 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
       const result = await generateTestCaseFromPrompt(
         disambiguationData.originalPrompt,
         userinterfaceName,
-        resolutions
+        selectedDeviceId,
+        selectedHost.host_name
       );
       
       if (result.success && result.graph) {
@@ -421,7 +428,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
     } finally {
       setIsGenerating(false);
     }
-  }, [disambiguationData, userinterfaceName, generateTestCaseFromPrompt, executeGraph, addToHistory]);
+  }, [disambiguationData, userinterfaceName, selectedDeviceId, selectedHost, generateTestCaseFromPrompt, executeGraph, addToHistory]);
   
   const handleDisambiguationCancel = useCallback(() => {
     setDisambiguationData(null);

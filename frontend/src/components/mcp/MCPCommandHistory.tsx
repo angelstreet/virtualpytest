@@ -69,30 +69,38 @@ export const MCPCommandHistory: React.FC<MCPCommandHistoryProps> = ({
         border: 1,
         borderColor: 'divider',
         boxShadow: 'none',
+        maxHeight: '300px',
+        display: 'flex',
+        flexDirection: 'column',
       }}
     >
-      <CardContent sx={{ p: { xs: 2, md: 2.5 }, '&:last-child': { pb: { xs: 2, md: 2.5 } } }}>
+      <CardContent sx={{ 
+        p: isCollapsed ? 0.5 : 0.5, 
+        '&:last-child': { pb: isCollapsed ? 0.5 : 0.5 },
+        display: 'flex',
+        flexDirection: 'column',
+      }}>
         {/* Header */}
         <Box
           sx={{
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
-            mb: isCollapsed ? 0 : 2,
+            mb: isCollapsed ? 0 : 1,
             cursor: 'pointer',
           }}
           onClick={() => setIsCollapsed(!isCollapsed)}
         >
           <Stack direction="row" spacing={1} alignItems="center">
-            <Typography variant="h6" sx={{ fontSize: { xs: '1rem', md: '1.1rem' } }}>
+            <Typography variant="h6" sx={{ mb: 0, fontSize: isCollapsed ? '1rem' : '1.1rem' }}>
               Command History
             </Typography>
             <Chip
               label={commandHistory.length}
               size="small"
               sx={{
-                fontSize: { xs: '0.75rem', md: '0.7rem' },
-                height: 20,
+                fontSize: '0.7rem',
+                height: isCollapsed ? 18 : 20,
               }}
             />
           </Stack>
@@ -103,10 +111,11 @@ export const MCPCommandHistory: React.FC<MCPCommandHistoryProps> = ({
         
         {/* Collapsible Content */}
         <Collapse in={!isCollapsed} timeout="auto">
-          <Stack spacing={2}>
-            {/* History List */}
-            <List dense sx={{ p: 0 }}>
-              {displayedHistory.map((item, index) => (
+          <Stack spacing={1}>
+            {/* History List - with max height and scroll */}
+            <Box sx={{ maxHeight: '160px', overflow: 'auto' }}>
+              <List dense sx={{ p: 0 }}>
+                {displayedHistory.map((item, index) => (
                 <ListItem
                   key={index}
                   disablePadding
@@ -116,7 +125,6 @@ export const MCPCommandHistory: React.FC<MCPCommandHistoryProps> = ({
                       edge="end"
                       size="small"
                       onClick={() => handleReplay(item.prompt)}
-                      sx={{ mr: 1 }}
                     >
                       <ReplayIcon fontSize="small" />
                     </IconButton>
@@ -128,50 +136,59 @@ export const MCPCommandHistory: React.FC<MCPCommandHistoryProps> = ({
                       borderRadius: 1,
                       border: 1,
                       borderColor: 'divider',
-                      minHeight: { xs: 64, md: 56 },
+                      py: 0.5,
+                      px: 1,
+                      minHeight: 'auto',
                       '&:hover': {
                         bgcolor: 'action.hover',
                       },
                     }}
                   >
-                    <ListItemIcon sx={{ minWidth: { xs: 40, md: 36 } }}>
+                    <ListItemIcon sx={{ minWidth: 32 }}>
                       {item.success ? (
                         <SuccessIcon fontSize="small" color="success" />
                       ) : (
                         <ErrorIcon fontSize="small" color="error" />
                       )}
                     </ListItemIcon>
-                    <ListItemText
-                      primary={item.prompt}
-                      secondary={formatTimestamp(item.timestamp)}
-                      primaryTypographyProps={{
-                        sx: {
-                          fontSize: { xs: '0.9rem', md: '0.85rem' },
+                    <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, overflow: 'hidden' }}>
+                      <Typography
+                        sx={{
+                          fontSize: '0.85rem',
                           overflow: 'hidden',
                           textOverflow: 'ellipsis',
                           whiteSpace: 'nowrap',
-                        },
-                      }}
-                      secondaryTypographyProps={{
-                        sx: {
-                          fontSize: { xs: '0.75rem', md: '0.7rem' },
-                        },
-                      }}
-                    />
+                          flex: 1,
+                        }}
+                      >
+                        {item.prompt}
+                      </Typography>
+                      <Typography
+                        sx={{
+                          fontSize: '0.7rem',
+                          color: 'text.secondary',
+                          flexShrink: 0,
+                        }}
+                      >
+                        {formatTimestamp(item.timestamp)}
+                      </Typography>
+                    </Box>
                   </ListItemButton>
                 </ListItem>
               ))}
-            </List>
+              </List>
+            </Box>
             
             {/* Show More / Clear Buttons */}
-            <Stack direction="row" spacing={1}>
+            <Stack direction="row" spacing={1} sx={{ pt: 0.5 }}>
               {commandHistory.length > 5 && (
                 <Button
                   size="small"
                   onClick={() => setShowAll(!showAll)}
                   sx={{
                     textTransform: 'none',
-                    fontSize: { xs: '0.85rem', md: '0.8rem' },
+                    fontSize: '0.75rem',
+                    py: 0.5,
                   }}
                 >
                   {showAll ? 'Show Less' : `Show All (${commandHistory.length})`}
@@ -185,7 +202,8 @@ export const MCPCommandHistory: React.FC<MCPCommandHistoryProps> = ({
                 onClick={clearHistory}
                 sx={{
                   textTransform: 'none',
-                  fontSize: { xs: '0.85rem', md: '0.8rem' },
+                  fontSize: '0.75rem',
+                  py: 0.5,
                 }}
               >
                 Clear
