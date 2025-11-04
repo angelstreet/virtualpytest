@@ -68,7 +68,7 @@ def require_mcp_auth(f):
     return decorated_function
 
 
-@mcp_bp.route('/', methods=['POST'])
+@mcp_bp.route('/', methods=['POST'], strict_slashes=False)
 @require_mcp_auth
 def mcp_endpoint():
     """
@@ -122,7 +122,7 @@ def mcp_endpoint():
         }), 500
 
 
-@mcp_bp.route('/tools', methods=['GET'])
+@mcp_bp.route('/tools', methods=['GET'], strict_slashes=False)
 @require_mcp_auth
 def list_mcp_tools():
     """
@@ -154,7 +154,7 @@ def list_mcp_tools():
         }), 500
 
 
-@mcp_bp.route('/health', methods=['GET'])
+@mcp_bp.route('/health', methods=['GET'], strict_slashes=False)
 def mcp_health():
     """MCP server health check"""
     return jsonify({
