@@ -74,11 +74,12 @@ Strategy describes the exploration approach based on menu type."""
 
         try:
             # Use existing VideoAIHelpers for AI analysis
-            # Create instance with device info
+            # VideoAIHelpers needs av_controller, but we'll pass None and use direct file path
+            from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
+            
             ai_helpers = VideoAIHelpers(
-                device_name=self.device_id,
-                device_model=self.device_model_name,
-                host_name=self.host_name
+                av_controller=None,  # We're passing file path directly
+                device_name=self.device_id
             )
             
             # Use analyze_full_image_with_ai which exists
@@ -173,11 +174,11 @@ Context visible = Can you still see elements from the previous screen?
 
         try:
             # Use existing VideoAIHelpers with both images
-            # Create instance with device info
+            from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
+            
             ai_helpers = VideoAIHelpers(
-                device_name=self.device_id,
-                device_model=self.device_model_name,
-                host_name=self.host_name
+                av_controller=None,  # We're passing file path directly
+                device_name=self.device_id
             )
             
             # Use analyze_full_image_with_ai for the after screenshot

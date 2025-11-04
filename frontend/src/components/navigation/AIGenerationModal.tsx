@@ -227,9 +227,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         {/* Approval Section - Show AI plan and approval buttons */}
         {isAwaitingApproval && explorationPlan && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
-            <Alert severity="warning" sx={{ mb: 2 }}>
-              <strong>Review AI Plan:</strong> AI analyzed the screen. Continue to Phase 2 or retry/abort.
-            </Alert>
 
             <Grid container spacing={2}>
               {/* Left: Screenshot */}
