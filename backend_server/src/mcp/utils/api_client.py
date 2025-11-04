@@ -13,7 +13,8 @@ class MCPAPIClient:
     """HTTP client for backend_server API calls"""
     
     def __init__(self):
-        # MCP server runs within backend_server, so use localhost
+        # MCP server connects to backend_server (can be local or remote)
+        # Default to localhost for local development, but use env var for production
         self.base_url = os.getenv('SERVER_BASE_URL', 'http://localhost:5001')
         self.timeout = 30
     

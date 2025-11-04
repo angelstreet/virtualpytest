@@ -250,6 +250,10 @@ def register_all_server_routes(app):
         from routes import server_settings_routes
         print("[@backend_server:routes] ✅ server_settings_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing mcp_routes...")
+        from routes import mcp_routes
+        print("[@backend_server:routes] ✅ mcp_routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -290,6 +294,7 @@ def register_all_server_routes(app):
             (server_navigation_execution_routes.server_navigation_execution_bp, 'Navigation execution with cache population'),
             (server_builder_routes.server_builder_bp, 'Standard block execution'),
             (server_settings_routes.server_settings_bp, 'Settings management'),
+            (mcp_routes.mcp_bp, 'MCP (Model Context Protocol) HTTP endpoint'),
             
             # Auto proxy (replaces 11 pure proxy route files + 18 verification proxy routes - navigation-execution now handled separately)
             (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, power, remote, translation + 18 verification routes)')

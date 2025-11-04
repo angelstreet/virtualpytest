@@ -2,9 +2,11 @@
 
 ## Overview
 
-**MCP (Model Context Protocol) Server** for VirtualPyTest enables external LLMs (Claude, ChatGPT, etc.) to control and automate physical devices through a standardized protocol.
+**MCP (Model Context Protocol) Server** for VirtualPyTest enables external LLMs (Claude, ChatGPT, etc.) to control and automate physical devices through a standardized HTTP protocol.
 
-**Location**: `backend_server/src/mcp/`
+**Endpoint**: `https://dev.virtualpytest.com/mcp`  
+**Authentication**: Bearer token (required)  
+**Transport**: HTTP/HTTPS
 
 ---
 
@@ -54,26 +56,59 @@ pip install -r requirements.txt
 
 The `mcp>=1.0.0` package is included in requirements.txt.
 
-### Configuration
+### Security Configuration
 
-Set the backend_server URL (default: `http://localhost:5001`):
-
+**1. Generate a secure secret:**
 ```bash
-export SERVER_BASE_URL=http://localhost:5001
+python3 -c "import secrets; print(f'vpt_mcp_{secrets.token_urlsafe(32)}')"
 ```
+
+**2. Add to backend_server `.env`:**
+```bash
+MCP_SECRET_KEY=vpt_mcp_X3k9Vp2mQrYn8TzL4jWh6Ns1Fb7Gd5Mc9Ae0Rb3Kt8
+```
+
+**3. Configure Cursor (`~/.cursor/mcp.json`):**
+```json
+{
+  "mcpServers": {
+    "virtualpytest": {
+      "url": "https://dev.virtualpytest.com/mcp",
+      "transport": {
+        "type": "http"
+      },
+      "headers": {
+        "Authorization": "Bearer vpt_mcp_X3k9Vp2mQrYn8TzL4jWh6Ns1Fb7Gd5Mc9Ae0Rb3Kt8"
+      }
+    }
+  }
+}
+```
+
+**⚠️ Important:** Secret must match in both `.env` and `mcp.json`!
+
+**4. Restart:**
+- Restart backend_server (to load `.env`)
+- Restart Cursor (Cmd+Q, reopen)
 
 ---
 
 ## 🚀 Quick Start
 
-### 1. Start the MCP Server
+### 1. Verify MCP Endpoint
+
+The MCP server runs as an HTTP endpoint on your backend_server:
 
 ```bash
-cd backend_server/src/mcp
-python mcp_server.py
+# Test health endpoint (requires auth)
+curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
+     https://dev.virtualpytest.com/mcp/health
+
+# Expected response:
+# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 11}
 ```
 
-### 2. Example LLM Workflow
+### 2. Example LLM Workflow (via Cursor)
 
 ```python
 # Step 1: ALWAYS take control first
@@ -265,28 +300,126 @@ backend_server/src/mcp/
 
 ---
 
-## 🌐 API Flow
+## 🌐 Architecture & API Flow
+
+### HTTP MCP Architecture
 
 ```
-LLM → MCP Server → Backend Server → Backend Host → Device
-                      (routes)       (executors)   (controllers)
+Cursor (Your Mac)
+    ↓ HTTPS with Bearer token
+https://dev.virtualpytest.com/mcp  (HTTP endpoint)
+    ↓ Local calls
+Backend Server routes
+    ↓ SSH/HTTP
+Backend Host (remote)
+    ↓
+Physical Devices
 ```
 
-**Example**:
+### API Flow Example
+
 ```
-1. LLM calls: take_control(device_id, team_id, tree_id)
-2. MCP → POST /server/control/takeControl
-3. Backend → Locks device + generates cache
-4. Returns: session_id, cache_ready=true
+1. Cursor makes HTTP POST request:
+   POST https://dev.virtualpytest.com/mcp
+   Headers: Authorization: Bearer <token>
+   Body: {
+     "tool": "take_control",
+     "params": {
+       "host_name": "ubuntu-host-1",
+       "device_id": "device1",
+       "team_id": "team_abc123",
+       "tree_id": "main_navigation"
+     }
+   }
+
+2. MCP endpoint validates Bearer token
+
+3. Calls: POST /server/control/takeControl
+
+4. Backend locks device + generates cache
+
+5. Returns: {
+     "content": [{
+       "type": "text",
+       "text": "{\"session_id\": \"xyz\", \"cache_ready\": true}"
+     }]
+   }
 ```
 
 ---
 
 ## 🔒 Security
 
-- All operations require `team_id` for access control
-- Device locking prevents concurrent access conflicts
-- Session management tracks active control sessions
+### Bearer Token Authentication
+
+All MCP endpoints require Bearer token authentication:
+
+```bash
+Authorization: Bearer <your_secret_key>
+```
+
+**How It Works:**
+
+1. **Generate random token** (cryptographically secure random string):
+   ```bash
+   python3 -c "import secrets; print(f'vpt_mcp_{secrets.token_urlsafe(32)}')"
+   ```
+
+2. **Store in both places:**
+   - Backend: `MCP_SECRET_KEY` in `.env`
+   - Cursor: `Authorization: Bearer <token>` in `mcp.json`
+
+3. **Validation is simple string comparison:**
+   ```
+   Cursor sends: Authorization: Bearer vpt_mcp_abc123...
+   Backend reads token from header
+   Backend compares: received_token == MCP_SECRET_KEY
+   If match → Allow ✅
+   If not → 403 Forbidden ❌
+   ```
+
+No encryption, no JWT, no database - just a **shared secret** with HTTPS transport security.
+
+### Security Features
+
+✅ **Bearer Token Required** - All endpoints protected  
+✅ **Environment Variable** - Secret stored in `.env`, not hardcoded  
+✅ **401 Unauthorized** - Missing auth header  
+✅ **403 Forbidden** - Invalid token  
+✅ **Team-based Access** - All operations require `team_id`  
+✅ **Device Locking** - Prevents concurrent access  
+✅ **Session Tracking** - Audit trail for all operations  
+
+### Protected Endpoints
+
+- `POST /mcp` - Tool execution
+- `GET /mcp/tools` - List available tools
+- `GET /mcp/health` - Health check
+
+### Rotating Secrets
+
+```bash
+# 1. Generate new secret
+python3 -c "import secrets; print(f'vpt_mcp_{secrets.token_urlsafe(32)}')"
+
+# 2. Update backend_server/.env
+MCP_SECRET_KEY=<new_secret>
+
+# 3. Restart backend_server
+
+# 4. Update ~/.cursor/mcp.json
+"Authorization": "Bearer <new_secret>"
+
+# 5. Restart Cursor
+```
+
+### Best Practices
+
+1. ✅ **Never commit secrets** to git
+2. ✅ **Use strong random secrets** (32+ characters)
+3. ✅ **Different secrets per environment** (dev/prod)
+4. ✅ **Rotate secrets periodically** (every 90 days)
+5. ✅ **Keep Cursor config local** (~/.cursor/mcp.json is not synced)
 
 ---
 
@@ -312,16 +445,41 @@ Available tools on startup:
 
 ## 🐛 Troubleshooting
 
-### Error: "Device not found"
+### Authentication Errors
+
+**"Missing Authorization header"**
+- Add `headers` section to Cursor MCP config
+- Ensure Bearer token is included
+- Format: `Authorization: Bearer <token>`
+
+**"Invalid MCP authentication token"**
+- Check secret matches in both `.env` and `mcp.json`
+- Restart backend_server after changing `.env`
+- Restart Cursor after changing `mcp.json`
+
+**"Invalid Authorization header format"**
+- Ensure format is: `Bearer <token>` (space after "Bearer")
+- Check for extra spaces or newlines
+
+### MCP Tools Not Showing in Cursor
+
+- Restart Cursor completely (Cmd+Q, then reopen)
+- Check `~/.cursor/mcp.json` exists and is valid JSON
+- Verify URL is correct: `https://dev.virtualpytest.com/mcp`
+- Test health endpoint manually with curl
+
+### Device Operation Errors
+
+**"Device not found"**
 - Ensure `take_control` was called first
 - Check device_id is correct
 - Verify host is registered
 
-### Error: "Cache not ready"
+**"Cache not ready"**
 - Call `take_control` with `tree_id` parameter
 - Wait for `cache_ready: true` response
 
-### Error: "Device locked by another session"
+**"Device locked by another session"**
 - Another user/LLM has control
 - Wait for release or use different device
 
@@ -393,24 +551,77 @@ print("Control released")
 
 ## 🚀 Integration with LLMs
 
-### Claude Desktop
+### Cursor (Primary Integration)
 
-Add to `claude_desktop_config.json`:
+**Configuration**: `~/.cursor/mcp.json`
 
 ```json
 {
   "mcpServers": {
     "virtualpytest": {
-      "command": "python",
-      "args": ["/path/to/backend_server/src/mcp/mcp_server.py"]
+      "url": "https://dev.virtualpytest.com/mcp",
+      "transport": {
+        "type": "http"
+      },
+      "headers": {
+        "Authorization": "Bearer vpt_mcp_your_secret_here"
+      }
     }
   }
 }
 ```
 
-### ChatGPT
+After configuration:
+1. Restart Cursor (Cmd+Q, reopen)
+2. Open chat window
+3. Look for "🔌 MCP Tools" - you'll see 11 VirtualPyTest tools
+4. Use natural language to control devices!
 
-Use MCP client library to expose tools to ChatGPT API.
+**Example prompts:**
+- "Take control of device1 on ubuntu-host-1 with team abc123"
+- "Navigate to Settings page"
+- "Capture a screenshot"
+- "Execute remote command KEY_HOME"
+
+### Multiple Environments
+
+Configure dev and prod separately:
+
+```json
+{
+  "mcpServers": {
+    "virtualpytest-dev": {
+      "url": "https://dev.virtualpytest.com/mcp",
+      "headers": {
+        "Authorization": "Bearer dev_secret_here"
+      }
+    },
+    "virtualpytest-prod": {
+      "url": "https://prod.virtualpytest.com/mcp",
+      "headers": {
+        "Authorization": "Bearer prod_secret_here"
+      }
+    }
+  }
+}
+```
+
+### Claude Desktop / Other LLMs
+
+Same HTTP endpoint can be used by any MCP-compatible client:
+
+```json
+{
+  "mcpServers": {
+    "virtualpytest": {
+      "url": "https://dev.virtualpytest.com/mcp",
+      "headers": {
+        "Authorization": "Bearer <your_secret>"
+      }
+    }
+  }
+}
+```
 
 ---
 
