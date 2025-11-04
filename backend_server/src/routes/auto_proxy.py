@@ -36,11 +36,12 @@ def auto_proxy(endpoint):
     
     EXCLUDED from auto-proxy (handled by dedicated blueprints):
     - /server/executable/* (handled by server_executable_bp - no host_name needed for listing)
-    - /server/mcp/* (handled by mcp_bp - MCP server for external LLMs)
+    - /server/mcp/* (handled by mcp_bp - registered BEFORE auto_proxy, takes precedence)
     """
     try:
         # Explicit exclusions for endpoints that don't need host proxying
-        if endpoint.startswith('executable/') or endpoint.startswith('settings/') or endpoint.startswith('mcp/'):
+        # Note: mcp/ is handled by blueprint precedence, not explicit exclusion
+        if endpoint.startswith('executable/') or endpoint.startswith('settings/'):
             return jsonify({
                 'success': False,
                 'error': f'Endpoint /server/{endpoint} is handled by a dedicated blueprint, not auto-proxy'
