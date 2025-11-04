@@ -84,6 +84,9 @@ class VirtualPyTestMCPServer:
             
             # TestCase tools
             'execute_testcase': self.testcase_tools.execute_testcase,
+            'save_testcase': self.testcase_tools.save_testcase,
+            'list_testcases': self.testcase_tools.list_testcases,
+            'load_testcase': self.testcase_tools.load_testcase,
             
             # AI tools
             'generate_test_graph': self.ai_tools.generate_test_graph,
@@ -306,32 +309,96 @@ Use the SAME device_id that was used in take_control.""",
             },
             {
                 "name": "execute_testcase",
-                "description": "Execute complete test case from graph JSON. Returns execution_id for polling.",
+                "description": """Execute a test case graph on device
+
+⚠️ PREREQUISITE: take_control() must be called ONCE first.
+
+Executes graph from generate_test_graph() or loaded testcase.
+Polls automatically until completion (up to 5 minutes).""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
-                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
                         "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
-                        "graph_json": {"type": "object", "description": "Test case graph definition"},
-                        "userinterface_name": {"type": "string", "description": "User interface name"},
-                        "testcase_name": {"type": "string", "description": "Test case name"},
-                        "async_execution": {"type": "boolean", "description": "Execute asynchronously (default: true)"}
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "graph_json": {"type": "object", "description": "Test case graph from generate_test_graph()"},
+                        "testcase_name": {"type": "string", "description": "Name for execution logs (optional)"},
+                        "userinterface_name": {"type": "string", "description": "User interface name (optional)"}
                     },
                     "required": ["graph_json"]
                 }
             },
             {
+                "name": "save_testcase",
+                "description": """Save a test case graph to database
+
+Saves graph from generate_test_graph() for later reuse.
+Can organize with folders and tags.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_name": {"type": "string", "description": "Name for the test case"},
+                        "graph_json": {"type": "object", "description": "Test case graph from generate_test_graph()"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "description": {"type": "string", "description": "Description of what this test case does"},
+                        "userinterface_name": {"type": "string", "description": "User interface name"},
+                        "folder": {"type": "string", "description": "Folder path like 'smoke_tests' (optional)"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags like ['regression', 'critical'] (optional)"}
+                    },
+                    "required": ["testcase_name", "graph_json"]
+                }
+            },
+            {
+                "name": "list_testcases",
+                "description": """List all saved test cases
+
+Returns list of saved test cases with names, descriptions, and IDs.""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
+                        "include_inactive": {"type": "boolean", "description": "Include deleted test cases (optional, default: false)"}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "load_testcase",
+                "description": """Load a saved test case by ID
+
+Loads test case graph that can be passed to execute_testcase().""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_id": {"type": "string", "description": "Test case ID from list_testcases()"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": ["testcase_id"]
+                }
+            },
+            {
                 "name": "generate_test_graph",
-                "description": "Generate test case graph from natural language using AI.",
+                "description": """Generate test case graph from natural language using AI
+
+Takes a prompt like "Navigate to settings and verify WiFi is enabled"
+Returns executable graph that can be:
+1. Passed to execute_testcase() to run immediately
+2. Passed to save_testcase() to save for later
+
+Example workflow:
+1. graph = generate_test_graph(prompt="Check home screen")
+2. execute_testcase(graph_json=graph['graph'])
+   OR
+   save_testcase(testcase_name="Home Check", graph_json=graph['graph'])""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "prompt": {"type": "string", "description": "Natural language test description"},
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device_1')"},
+                        "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'horizon_android_tv', 'horizon_android_mobile')"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
-                        "userinterface_name": {"type": "string", "description": "User interface name"},
-                        "current_node_id": {"type": "string", "description": "Current node ID (optional)"}
+                        "current_node_id": {"type": "string", "description": "Current node ID for context (optional)"}
                     },
                     "required": ["prompt", "userinterface_name"]
                 }
