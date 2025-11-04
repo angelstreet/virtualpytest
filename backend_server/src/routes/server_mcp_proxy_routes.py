@@ -112,11 +112,11 @@ CRITICAL RULES:
 5. Call only ONE function per request
 
 Examples:
-- "Swipe up" → execute_device_action(actions=[{"command": "swipe_up", "params": {}}])
+- "Swipe up" → execute_device_action(actions=[{{"command": "swipe_up", "params": {{}}}}])
 - "Take screenshot" → capture_screenshot()
 - "Navigate to home" → navigate_to_node(target_node_label="home")
-- "Verify Replay button appears" → verify_device_state(verifications=[{"command": "element_appears", "verification_type": "image", "params": {"element_id": "Replay"}}])
-- "Wait for Replay element" → verify_device_state(verifications=[{"command": "element_appears", "verification_type": "image", "params": {"element_id": "Replay"}}])'''
+- "Verify Replay button appears" → verify_device_state(verifications=[{{"command": "element_appears", "verification_type": "image", "params": {{"element_id": "Replay"}}}}])
+- "Wait for Replay element" → verify_device_state(verifications=[{{"command": "element_appears", "verification_type": "image", "params": {{"element_id": "Replay"}}}}])'''
 
         print(f"[@mcp_proxy] Calling OpenRouter with model: google/gemini-2.0-flash-001")
         
