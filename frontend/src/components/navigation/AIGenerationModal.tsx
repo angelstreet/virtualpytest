@@ -113,38 +113,70 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
   }, [hasResults, proposedNodes, proposedEdges]);
 
-  // Reset state when modal closes (but only if NOT in middle of validation workflow)
+  // DON'T reset state automatically when modal closes
+  // State is only reset explicitly: Cancel button, completion, or modal unmount
   useEffect(() => {
-    if (!isOpen && !isStructureCreated && !isAwaitingValidation && !isValidating) {
-      // Only reset if we're truly done (not in the middle of structure→validation flow)
-      resetState();
-      setSelectedNodeIds([]);
-      setSelectedEdgeIds([]);
-      setExplorationDepth(5);
-      hasAutoStartedRef.current = false;
-    } else if (!isOpen) {
-      // Modal closed but workflow is active - just reset local UI state
+    console.log('[@AIGenerationModal:resetEffect] Triggered', {
+      isOpen,
+      isStructureCreated,
+      isAwaitingValidation,
+      isValidating,
+      status,
+      explorationId,
+      hasAutoStarted: hasAutoStartedRef.current
+    });
+    
+    if (isOpen) {
+      console.log('[@AIGenerationModal:resetEffect] 🔓 MODAL OPENED', {
+        currentStatus: status,
+        currentExplorationId: explorationId,
+        isStructureCreated,
+        willAutoStart: isStructureCreated && !hasAutoStartedRef.current
+      });
+    } else {
+      console.log('[@AIGenerationModal:resetEffect] 🚪 MODAL CLOSED (state preserved for workflow)', {
+        preservedStatus: status,
+        preservedExplorationId: explorationId,
+        isStructureCreated
+      });
+      // Just reset local UI state, keep hook state
       setSelectedNodeIds([]);
       setSelectedEdgeIds([]);
       hasAutoStartedRef.current = false;
     }
-  }, [isOpen, isStructureCreated, isAwaitingValidation, isValidating, resetState]);
+  }, [isOpen, status, explorationId, isStructureCreated, hasAutoStartedRef]);
 
   // Auto-start validation when modal reopens in 'structure_created' state
   useEffect(() => {
+    console.log('[@AIGenerationModal:autoStartEffect] Triggered', {
+      isOpen,
+      isStructureCreated,
+      status,
+      explorationId,
+      hasAutoStarted: hasAutoStartedRef.current,
+      shouldAutoStart: isOpen && isStructureCreated && !hasAutoStartedRef.current
+    });
+    
     if (isOpen && isStructureCreated && !hasAutoStartedRef.current) {
-      console.log('[@AIGenerationModal] Auto-starting validation after 2s...');
+      console.log('[@AIGenerationModal:autoStartEffect] ✅ AUTO-STARTING VALIDATION in 2s...');
       hasAutoStartedRef.current = true; // Mark as started to prevent re-triggering
       
       // Sleep 2s for UI/UX (let user see the modal reopened)
       const timer = setTimeout(async () => {
-        console.log('[@AIGenerationModal] Calling handleStartValidation...');
+        console.log('[@AIGenerationModal:autoStartEffect] ⏰ Timer fired - calling handleStartValidation...');
         await handleStartValidation();
       }, 2000);
       
-      return () => clearTimeout(timer);
+      return () => {
+        console.log('[@AIGenerationModal:autoStartEffect] 🧹 Cleanup - clearing timer');
+        clearTimeout(timer);
+      };
+    } else if (isOpen && !isStructureCreated) {
+      console.log('[@AIGenerationModal:autoStartEffect] ❌ Cannot auto-start - isStructureCreated=false');
+    } else if (isOpen && hasAutoStartedRef.current) {
+      console.log('[@AIGenerationModal:autoStartEffect] ⏭️ Already auto-started, skipping');
     }
-  }, [isOpen, isStructureCreated]);
+  }, [isOpen, isStructureCreated, status, explorationId]);
 
   const handleStart = async () => {
     await startExploration(explorationDepth);
@@ -157,6 +189,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       // Clean up _temp nodes from frontend state
       onCleanupTemp?.();
     }
+    
+    // Explicitly reset hook state when canceling
+    console.log('[@AIGenerationModal] Explicitly resetting state on cancel');
+    resetState();
+    
     onClose();
   };
   

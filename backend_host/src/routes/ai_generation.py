@@ -675,6 +675,9 @@ def validate_next_item():
         
         session = _exploration_sessions[exploration_id]
         
+        # Get tree_id early (before any fallback paths that might need it)
+        tree_id = session['tree_id']
+        
         if session['status'] not in ['awaiting_validation', 'validating']:
             return jsonify({
                 'success': False,
@@ -725,7 +728,6 @@ def validate_next_item():
             return jsonify({'success': False, 'error': 'Engine not found'}), 500
         
         controller = engine.controller
-        tree_id = session['tree_id']
         
         # Perform validation: click → back → verify
         import time
@@ -738,7 +740,7 @@ def validate_next_item():
         
         # 1. Click element (navigation target)
         try:
-            result = controller.click_element(text=current_item)
+            result = controller.click_element(current_item)
             click_success = result if isinstance(result, bool) else result.get('success', False)
             click_result = 'success' if click_success else 'failed'
             print(f"    {'✅' if click_success else '❌'} Click {click_result}")

@@ -1429,8 +1429,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           />
         )}
 
-        {/* AI Generation Modal - Only when control active */}
-        {isAIGenerationOpen && isControlActive && selectedHost && selectedDeviceId && actualTreeId && (
+        {/* AI Generation Modal - Always mounted to preserve hook state */}
+        {isControlActive && selectedHost && selectedDeviceId && actualTreeId && (
           <AIGenerationModal
             isOpen={isAIGenerationOpen}
             onClose={() => setIsAIGenerationOpen(false)}

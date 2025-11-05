@@ -108,6 +108,8 @@ export const useGenerateModel = ({
   }, [isExploring, explorationId, selectedHost]);
 
   const resetState = useCallback(() => {
+    console.log('[@useGenerateModel:resetState] 🔴 RESETTING ALL HOOK STATE');
+    console.trace('[@useGenerateModel:resetState] Call stack:');
     setExplorationId(null);
     setExplorationHostName(null);
     setIsExploring(false);
@@ -300,15 +302,22 @@ export const useGenerateModel = ({
         setPhase('structure');
         setCurrentStep(`Created ${data.nodes_created} nodes and ${data.edges_created} edges. Ready to validate.`);
         setIsExploring(false);
-        console.log('[@useGenerateModel:continueExploration] Structure created:', data);
+        console.log('[@useGenerateModel:continueExploration] ✅ Structure created:', data);
+        console.log('[@useGenerateModel:continueExploration] Current state:', {
+          explorationId,
+          status: 'structure_created',
+          phase: 'structure'
+        });
         
         // ✅ Close modal and notify parent
         if (onClose) {
+          console.log('[@useGenerateModel:continueExploration] 🚪 Calling onClose() - modal will close');
           onClose();
         }
         
         // ✅ Trigger structure created callback (will show ValidationReadyPrompt)
         if (onStructureCreated) {
+          console.log('[@useGenerateModel:continueExploration] 📢 Calling onStructureCreated callback');
           onStructureCreated(data.nodes_created, data.edges_created);
         }
       } else {
@@ -445,7 +454,7 @@ export const useGenerateModel = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           exploration_id: explorationId,
-          host_ip: selectedHost.host_ip
+          host_name: selectedHost.host_name
         })
       });
 
@@ -481,7 +490,7 @@ export const useGenerateModel = ({
         body: JSON.stringify({
           exploration_id: explorationId,
           tree_id: treeId,
-          host_ip: selectedHost.host_ip,
+          host_name: selectedHost.host_name,
           approved_nodes: nodeIds,
           approved_edges: edgeIds
         })
