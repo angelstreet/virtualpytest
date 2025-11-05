@@ -755,15 +755,29 @@ def validate_next_item():
                 controller.press_key('BACK')
                 time.sleep(2)
                 
-                # 3. Verify we're back on HOME (not by finding current_item, but by finding home indicator)
+                # 3. Verify we're back on HOME using ADB verification controller
                 print(f"    🔍 Verifying return to home by checking: {home_indicator}")
-                is_back = controller.wait_for_element_by_text(
-                    text=home_indicator,
-                    timeout=5
-                )
-                back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
-                back_result = 'success' if back_success else 'failed'
-                print(f"    {'✅' if back_success else '❌'} Back {back_result}")
+                
+                # Get ADB verification controller from device
+                device = engine.device if hasattr(engine, 'device') else None
+                adb_verifier = device._get_controller('verification') if device else None
+                
+                if adb_verifier:
+                    # Use ADB verification controller's waitForElementToAppear method
+                    success, message, details = adb_verifier.waitForElementToAppear(
+                        search_term=home_indicator,
+                        timeout=5.0
+                    )
+                    back_success = success
+                    back_result = 'success' if back_success else 'failed'
+                    print(f"    {'✅' if back_success else '❌'} Back {back_result}: {message}")
+                else:
+                    # Fallback: use simple verification if ADB verifier not available
+                    print(f"    ⚠️ ADB verifier not available, using simple check")
+                    is_back = controller.verify_element_exists(text=home_indicator)
+                    back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
+                    back_result = 'success' if back_success else 'failed'
+                    print(f"    {'✅' if back_success else '❌'} Back {back_result} (simple check)")
             except Exception as e:
                 print(f"    ⚠️ Back failed: {e}")
                 back_result = 'failed'

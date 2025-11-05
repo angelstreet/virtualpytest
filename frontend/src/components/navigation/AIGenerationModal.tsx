@@ -68,6 +68,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     error,
     isGenerating,
     validationProgress,
+    validationResults,
     startExploration,
     continueExploration,
     startValidation,
@@ -552,52 +553,133 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             )}
             
             {/* Validation Progress - Show during Phase 2b */}
-            {(isStructureCreated || isAwaitingValidation || isValidating || isValidationComplete) && (
-              <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
-                <Typography variant="h6" sx={{ mb: 2 }}>
-                  {isStructureCreated && '✅ Structure Created'}
-                  {isAwaitingValidation && '⏳ Validation Starting...'}
-                  {isValidating && `🔄 Validating ${validationProgress.current}/${validationProgress.total}`}
-                  {isValidationComplete && '✅ Validation Complete'}
-                </Typography>
-                
-                {isStructureCreated && (
-                  <Typography variant="body2" color="text.secondary">
-                    All nodes and edges have been created with _temp suffix.
-                    Click "Start Validation" to test each action set.
+            {(isAwaitingValidation || isValidating || isValidationComplete) && (
+              <Paper sx={{ p: 2, bgcolor: 'transparent', maxHeight: '60vh', overflow: 'auto' }}>
+                {/* Header with progress */}
+                <Box sx={{ mb: 2, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pb: 1 }}>
+                  <Typography variant="h6" sx={{ mb: 1 }}>
+                    {isAwaitingValidation && '⏳ Validation Starting...'}
+                    {isValidating && '🔄 VALIDATION IN PROGRESS'}
+                    {isValidationComplete && '✅ VALIDATION COMPLETE'}
                   </Typography>
-                )}
-                
-                {(isAwaitingValidation || isValidating) && (
-                  <>
-                    <LinearProgress 
-                      variant="determinate" 
-                      value={(validationProgress.current / validationProgress.total) * 100} 
-                      sx={{ mb: 2 }}
-                    />
-                    {/* Current step with action details */}
-                    {currentStep && (
-                      <Box sx={{ mb: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)' }}>
-                        <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                          {currentStep}
+                  
+                  {(isValidating || isValidationComplete) && validationProgress.total > 0 && (
+                    <>
+                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                        Step {validationProgress.current}/{validationProgress.total}
+                      </Typography>
+                      <LinearProgress 
+                        variant="determinate" 
+                        value={(validationProgress.current / validationProgress.total) * 100} 
+                        sx={{ mb: 1 }}
+                      />
+                    </>
+                  )}
+                </Box>
+
+                {/* Validation Steps List */}
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                  {/* Show completed results */}
+                  {validationResults.map((result, index) => (
+                    <Paper 
+                      key={index}
+                      sx={{ 
+                        p: 1.5, 
+                        bgcolor: 'background.default',
+                        border: '1px solid',
+                        borderColor: result.forward.result === 'failure' ? 'error.main' : 'success.main'
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        {result.forward.result === 'success' ? '✅' : '❌'} Step {result.step}: "{result.itemName}" → {result.nodeName}
+                      </Typography>
+                      
+                      {/* Forward action */}
+                      <Box sx={{ ml: 2, mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block' }}>
+                          ➡️ Forward: {result.forward.action}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            ml: 2, 
+                            color: result.forward.result === 'success' ? 'success.main' : 'error.main',
+                            display: 'block'
+                          }}
+                        >
+                          Result: {result.forward.result === 'success' ? '✅ SUCCESS' : '❌ FAILURE'}
+                          {result.forward.result === 'failure' && ` - ${result.forward.message}`}
                         </Typography>
                       </Box>
-                    )}
-                    <Typography variant="caption" color="text.secondary" component="div">
-                      <Box component="span" sx={{ display: 'block', color: 'success.main' }}>
-                        1. Forward: click_element(target) → verify screen changed
+                      
+                      {/* Reverse action */}
+                      <Box sx={{ ml: 2 }}>
+                        <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block' }}>
+                          ⬅️ Reverse: {result.reverse.action}
+                        </Typography>
+                        <Typography 
+                          variant="caption" 
+                          sx={{ 
+                            ml: 2, 
+                            color: result.reverse.result === 'success' ? 'success.main' : 
+                                   result.reverse.result === 'warning' ? 'warning.main' : 
+                                   result.reverse.result === 'skipped' ? 'text.secondary' : 'error.main',
+                            display: 'block'
+                          }}
+                        >
+                          Result: {
+                            result.reverse.result === 'success' ? '✅ SUCCESS' :
+                            result.reverse.result === 'warning' ? '⚠️ WARNING' :
+                            result.reverse.result === 'skipped' ? '⏭️ SKIPPED' : '❌ FAILURE'
+                          }
+                          {result.reverse.message && result.reverse.result !== 'success' && ` - ${result.reverse.message}`}
+                        </Typography>
                       </Box>
-                      <Box component="span" sx={{ display: 'block', color: 'info.main' }}>
-                        2. Reverse: press_key(BACK) → verify returned home
-                      </Box>
+                    </Paper>
+                  ))}
+                  
+                  {/* Show current step if validating */}
+                  {isValidating && validationProgress.current > validationResults.length && (
+                    <Paper sx={{ p: 1.5, bgcolor: 'info.dark', border: '1px solid', borderColor: 'info.main' }}>
+                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                        🔄 Step {validationProgress.current} (IN PROGRESS)
+                      </Typography>
+                      <Typography variant="caption" sx={{ fontFamily: 'monospace', ml: 2, display: 'block' }}>
+                        {currentStep || 'Processing...'}
+                      </Typography>
+                    </Paper>
+                  )}
+                  
+                  {/* Show pending steps */}
+                  {validationProgress.total > 0 && 
+                   [...Array(validationProgress.total - validationProgress.current)].map((_, index) => (
+                    <Paper 
+                      key={`pending-${index}`}
+                      sx={{ p: 1, bgcolor: 'action.hover', opacity: 0.5 }}
+                    >
+                      <Typography variant="body2" color="text.secondary">
+                        ⏳ Step {validationProgress.current + index + 1} (PENDING)
+                      </Typography>
+                    </Paper>
+                  ))}
+                </Box>
+
+                {/* Summary at the end */}
+                {isValidationComplete && validationResults.length > 0 && (
+                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
+                      📊 Summary
                     </Typography>
-                  </>
-                )}
-                
-                {isValidationComplete && (
-                  <Typography variant="body2" color="text.secondary">
-                    All action sets have been validated. Click "Finalize" to remove _temp suffix and make permanent.
-                  </Typography>
+                    <Typography variant="body2">
+                      ✅ Successful: {validationResults.filter(r => r.forward.result === 'success').length}/{validationResults.length} forward actions
+                    </Typography>
+                    <Typography variant="body2">
+                      ❌ Failed: {validationResults.filter(r => r.forward.result === 'failure').length}/{validationResults.length} forward actions
+                    </Typography>
+                    <Typography variant="body2">
+                      ⚠️ Reverse warnings: {validationResults.filter(r => r.reverse.result === 'warning').length}/{validationResults.length}
+                    </Typography>
+                  </Box>
                 )}
               </Paper>
             )}

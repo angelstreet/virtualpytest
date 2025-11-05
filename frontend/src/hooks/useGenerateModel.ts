@@ -54,6 +54,23 @@ interface ProposedEdge {
   created_at?: number;
 }
 
+interface ValidationResult {
+  step: number;
+  itemName: string;
+  nodeName: string;
+  forward: {
+    action: string;
+    result: 'success' | 'failure';
+    message: string;
+  };
+  reverse: {
+    action: string;
+    result: 'success' | 'failure' | 'skipped' | 'warning';
+    message: string;
+  };
+  status: 'completed' | 'failed';
+}
+
 export const useGenerateModel = ({
   treeId,
   selectedHost,
@@ -88,6 +105,7 @@ export const useGenerateModel = ({
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationProgress, setValidationProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
+  const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
 
   // Clear state when dependencies change
   useEffect(() => {
@@ -134,6 +152,7 @@ export const useGenerateModel = ({
     setError(null);
     setIsGenerating(false);
     setValidationProgress({current: 0, total: 0});
+    setValidationResults([]);
   }, []);
 
   const fetchExplorationStatus = useCallback(async () => {
@@ -403,8 +422,30 @@ export const useGenerateModel = ({
       if (data.success) {
         console.log('[@useGenerateModel:validateNextItem] Item validated:', data);
         
-        // Update validation progress with detailed action set info
+        // Collect validation result
         if (data.progress && data.action_sets) {
+          const stepResult: ValidationResult = {
+            step: data.progress.current_item,
+            itemName: data.item,
+            nodeName: data.node_name,
+            forward: {
+              action: data.action_sets.forward.action,
+              result: data.click_result === 'success' ? 'success' : 'failure',
+              message: data.click_result || 'Element not found'
+            },
+            reverse: {
+              action: data.action_sets.reverse.action,
+              result: data.back_result === 'success' ? 'success' : 
+                     data.back_result && data.back_result.includes('wait_for_element_by_text') ? 'warning' :
+                     data.click_result !== 'success' ? 'skipped' : 'failure',
+              message: data.back_result || 'Verification failed'
+            },
+            status: data.click_result === 'success' ? 'completed' : 'failed'
+          };
+          
+          setValidationResults(prev => [...prev, stepResult]);
+          
+          // Update validation progress with detailed action set info
           setValidationProgress({
             current: data.progress.current_item,
             total: data.progress.total_items
@@ -538,6 +579,7 @@ export const useGenerateModel = ({
     error,
     isGenerating,
     validationProgress,
+    validationResults,
     
     // Actions
     startExploration,

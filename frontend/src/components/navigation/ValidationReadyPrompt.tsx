@@ -62,7 +62,7 @@ export const ValidationReadyPrompt: React.FC<ValidationReadyPromptProps> = ({
 
       {/* Header */}
       <Typography variant="h6" sx={{ mb: 2, pr: 3 }}>
-        ✅ Structure Created
+        ✅ Preview
       </Typography>
 
       {/* Stats */}
@@ -74,13 +74,6 @@ export const ValidationReadyPrompt: React.FC<ValidationReadyPromptProps> = ({
           📊 {edgesCreated} edges created
         </Typography>
       </Box>
-
-      {/* Warning */}
-      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 2 }}>
-        ⚠️ All elements have <code>_temp</code> suffix.
-        <br />
-        They will be validated and made permanent.
-      </Typography>
 
       {/* Actions */}
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
