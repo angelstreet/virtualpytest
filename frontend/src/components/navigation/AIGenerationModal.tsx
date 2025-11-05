@@ -323,6 +323,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         {(isExploring || hasResults) && !isAwaitingApproval && (
           <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
 
+
             {/* Current Step */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" color="text.secondary">

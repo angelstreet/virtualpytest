@@ -231,7 +231,7 @@ export const useGenerateModel = ({
   }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName]);
 
   const continueExploration = useCallback(async () => {
-    if (!explorationId) {
+    if (!explorationId || !explorationHostName) {
       setError('No exploration session to continue');
       return;
     }
@@ -249,7 +249,8 @@ export const useGenerateModel = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId
+          exploration_id: explorationId,
+          host_name: explorationHostName
         })
       });
 
@@ -273,10 +274,10 @@ export const useGenerateModel = ({
       setIsExploring(false);
       setStatus('failed');
     }
-  }, [explorationId]);
+  }, [explorationId, explorationHostName]);
   
   const exploreNextItem = useCallback(async () => {
-    if (!explorationId) {
+    if (!explorationId || !explorationHostName) {
       setError('No exploration session found');
       return null;
     }
@@ -290,7 +291,10 @@ export const useGenerateModel = ({
       const response = await fetch(buildServerUrl('/server/ai-generation/explore-next-item'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ exploration_id: explorationId })
+        body: JSON.stringify({
+          exploration_id: explorationId,
+          host_name: explorationHostName
+        })
       });
 
       if (!response.ok) {
@@ -322,7 +326,7 @@ export const useGenerateModel = ({
       setStatus('awaiting_item_approval'); // Allow retry
       return null;
     }
-  }, [explorationId]);
+  }, [explorationId, explorationHostName]);
 
   const cancelExploration = useCallback(async () => {
     if (!explorationId || !selectedHost) return;
