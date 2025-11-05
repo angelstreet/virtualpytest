@@ -529,13 +529,39 @@ def continue_exploration():
             else:
                 print(f"  ❌ Failed to create node: {node_result.get('error')}")
             
-            # 3. Create edge with EMPTY actions (to be filled during validation)
+            # 3. Create edge with PREDICTED action sets (based on analysis)
+            # These will be TESTED during validation and updated with results
+            
+            # Forward action: Click the element text
+            forward_actions = [{
+                "action_id": f"action_{home_node_id}_to_{node_name}_forward_1",
+                "action_type": "click_element",
+                "params": {
+                    "element_identifier": item  # The original text like "Search", "Replay Tab"
+                },
+                "expected_result": "success",
+                "reasoning": f"Click on '{item}' to navigate from {home_node_id} to {node_name}",
+                "validation_status": "pending"  # Will be updated during validation
+            }]
+            
+            # Reverse action: Press BACK key (standard for Android mobile)
+            reverse_actions = [{
+                "action_id": f"action_{node_name}_to_{home_node_id}_reverse_1",
+                "action_type": "press_key",
+                "params": {
+                    "key": "BACK"
+                },
+                "expected_result": "success",
+                "reasoning": f"Press BACK to return from {node_name} to {home_node_id}",
+                "validation_status": "pending"  # Will be updated during validation
+            }]
+            
             edge_data = node_gen.create_edge_data(
                 source=home_node_id,  # Use the actual home node (either 'home' or 'home_temp')
                 target=node_name,
-                actions=[],  # Empty - will be filled during validation
-                reverse_actions=[],  # Empty - will be filled during validation
-                label=''
+                actions=forward_actions,  # Pre-filled with predicted actions
+                reverse_actions=reverse_actions,  # Pre-filled with predicted actions
+                label=item  # Use the element text as label
             )
             
             edge_result = save_edge(tree_id, edge_data, team_id)
@@ -782,7 +808,7 @@ def validate_next_item():
                 print(f"    ⚠️ Back failed: {e}")
                 back_result = 'failed'
         
-        # 4. Update edge with validated actions
+        # 4. Update edge with validation results
         # Get home node ID from session (either 'home' or 'home_temp')
         home_node_id = session.get('home_node_id', 'home_temp')
         
@@ -790,27 +816,40 @@ def validate_next_item():
         edge_id = f"edge_{home_node_id}_to_{node_name}_temp"
         edge_result = get_edge_by_id(tree_id, edge_id, team_id)
         
+        edge_updated = False
         if edge_result['success']:
             edge = edge_result['edge']
-            action_sets = edge.get('action_sets', [])
             
-            # Update forward action_set
-            if len(action_sets) >= 1 and click_result == 'success':
-                action_sets[0]['actions'] = [
-                    {'command': 'click_element', 'params': {'text': current_item}, 'delay': 2000}
-                ]
+            # Update forward action with validation result
+            forward_actions = edge.get('actions', [])
+            if len(forward_actions) > 0:
+                forward_actions[0]['validation_status'] = click_result  # 'success' or 'failed'
+                forward_actions[0]['validated_at'] = time.time()
+                forward_actions[0]['actual_result'] = click_result
+                print(f"  ✅ Updated forward action: {click_result}")
             
-            # Update reverse action_set
-            if len(action_sets) >= 2 and back_result == 'success':
-                action_sets[1]['actions'] = [
-                    {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
-                ]
+            # Update reverse action with validation result
+            reverse_actions = edge.get('reverse_actions', [])
+            if len(reverse_actions) > 0:
+                reverse_actions[0]['validation_status'] = back_result  # 'success' or 'failed'
+                reverse_actions[0]['validated_at'] = time.time()
+                reverse_actions[0]['actual_result'] = back_result
+                print(f"  ✅ Updated reverse action: {back_result}")
             
-            # Save updated edge (save_edge handles both create and update)
-            edge['action_sets'] = action_sets
+            # Update edge with validated actions
+            edge['actions'] = forward_actions
+            edge['reverse_actions'] = reverse_actions
+            
+            # Save updated edge
             update_result = save_edge(tree_id, edge, team_id)
             edge_updated = update_result.get('success', False)
+            
+            if edge_updated:
+                print(f"  ✅ Edge {edge_id} updated with validation results")
+            else:
+                print(f"  ❌ Failed to update edge: {update_result.get('error')}")
         else:
+            print(f"  ❌ Edge not found: {edge_id}")
             edge_updated = False
         
         # Move to next item
