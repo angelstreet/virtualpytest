@@ -262,34 +262,32 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
               {/* Right: AI Plan */}
               <Grid item xs={12} md={7}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
                   <Box>
-                    <Typography variant="body2" color="text.secondary">Menu Type:</Typography>
-                    <Chip label={explorationPlan.menu_type} size="small" color="primary" />
-                  </Box>
-                  
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Items Found: {explorationPlan.items.length}</Typography>
-                    <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                      {explorationPlan.items.length > 0 ? (
-                        explorationPlan.items.map((item, idx) => (
-                          <Chip key={idx} label={item} size="small" variant="outlined" />
-                        ))
-                      ) : (
-                        <Typography variant="body2" color="warning.main">No items detected</Typography>
-                      )}
-                    </Box>
+                    <Typography variant="body2" color="text.secondary">
+                      Items Found: {explorationPlan.items.length}
+                    </Typography>
+                    {explorationPlan.items.length === 0 && (
+                      <Typography variant="body2" color="warning.main">No items detected - AI couldn't read screen</Typography>
+                    )}
                   </Box>
 
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Strategy:</Typography>
-                    <Typography variant="body2">{explorationPlan.strategy}</Typography>
-                  </Box>
-
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">Predicted Depth:</Typography>
-                    <Typography variant="body2">{explorationPlan.predicted_depth} levels</Typography>
-                  </Box>
+                  {explorationPlan.items.length > 0 && (
+                    <details>
+                      <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
+                        <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                          Transitions to Test ({explorationPlan.items.length})
+                        </Typography>
+                      </summary>
+                      <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
+                        {explorationPlan.items.map((item, idx) => (
+                          <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
+                            home → {item}
+                          </Typography>
+                        ))}
+                      </Box>
+                    </details>
+                  )}
                 </Box>
               </Grid>
             </Grid>

@@ -29,7 +29,7 @@ class ScreenAnalyzer:
         
     def anticipate_tree(self, screenshot_path: str) -> Dict:
         """
-        Phase 1: Analyze first screenshot and predict tree structure
+        Phase 1: AI analyzes first screenshot and identifies all interactive elements
         
         Args:
             screenshot_path: Path to screenshot image
@@ -39,34 +39,32 @@ class ScreenAnalyzer:
                 'menu_type': 'horizontal',
                 'items': ['home', 'settings', 'profile'],
                 'predicted_depth': 2,
-                'strategy': 'test_right_left_first_then_ok'
+                'strategy': 'click_elements' or 'test_dpad_directions'
             }
         """
         from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
         
-        prompt = """Analyze this menu screen and predict the navigation structure.
+        # Unified prompt for all device types
+        prompt = """You are a UI-automation engineer.
 
-Please identify:
-1. Menu type: Is it horizontal, vertical, grid, or mixed?
-2. Number of menu items visible
-3. Names of menu items (what you can read on screen)
-4. Predicted navigation depth (how many levels deep can you go?)
+From the screenshot of a streaming/TV app (Netflix, YouTube, Android TV, Apple TV, set-top-box, etc.), list every visible item or clickable elements (tabs). Avoid none interactive content: asset, program card, program name, duration or time. Provide the list in the order left to right on same line.
 
-Return ONLY valid JSON in this exact format:
-{
-    "menu_type": "horizontal",
-    "items": ["item1", "item2", "item3"],
-    "predicted_depth": 2,
-    "strategy": "test_right_left_first_then_ok"
-}
+Example output:
 
-Menu type must be one of: horizontal, vertical, grid, mixed
-Strategy describes the exploration approach based on menu type."""
+profile, sunrise, cast, airplay, search
+popular_on_tv, show all
+home, tvguide, replay, movies_and_series, saved, debug
+
+Return ONLY the lines of comma-separated items, nothing else."""
+
+        # Determine device type for post-processing
+        is_mobile_or_web = self.device_model_name and ('mobile' in self.device_model_name.lower() or 'web' in self.device_model_name.lower())
 
         print(f"\n{'='*80}")
         print(f"[@screen_analyzer:anticipate_tree] PHASE 1 AI ANALYSIS")
         print(f"{'='*80}")
         print(f"📸 Screenshot Path: {screenshot_path}")
+        print(f"🎮 Device Type: {'MOBILE/WEB (click-based)' if is_mobile_or_web else 'TV/STB (DPAD-based)'}")
         print(f"\n📝 PROMPT SENT TO AI:")
         print(f"{'-'*80}")
         print(prompt)
@@ -93,25 +91,53 @@ Strategy describes the exploration approach based on menu type."""
             print(response)
             print(f"{'-'*80}\n")
             
-            # Parse JSON from response
-            result = self._parse_json_response(response)
+            # Parse line-by-line response
+            # Expected format:
+            # profile, sunrise, cast, airplay, search
+            # popular_on_tv, show all
+            # home, tvguide, replay, movies_and_series, saved, debug
             
-            if not result:
-                # Fallback to safe defaults
-                print(f"⚠️  Failed to parse AI response, using defaults")
-                return {
-                    'menu_type': 'mixed',
-                    'items': [],
-                    'predicted_depth': 3,
-                    'strategy': 'test_all_directions'
-                }
+            lines = []
+            all_items = []
+            
+            # Split response into lines and parse each
+            for line in response.strip().split('\n'):
+                line = line.strip()
+                if line and not line.startswith('#') and not line.startswith('Example'):
+                    # Extract items from this line
+                    items_in_line = [item.strip() for item in line.split(',') if item.strip()]
+                    if items_in_line:
+                        lines.append(items_in_line)
+                        all_items.extend(items_in_line)
+            
+            # Determine menu structure from lines
+            if len(lines) == 1:
+                menu_type = 'horizontal'
+            elif len(lines) > 1:
+                # Check if it's vertical (1 item per line) or grid (multiple items per line)
+                if all(len(line) == 1 for line in lines):
+                    menu_type = 'vertical'
+                else:
+                    menu_type = 'mixed'  # Has both horizontal and vertical navigation
+            else:
+                menu_type = 'unknown'
+            
+            # Determine strategy based on device type
+            strategy = 'click_elements' if is_mobile_or_web else 'test_dpad_directions'
+            
+            result = {
+                'menu_type': menu_type,
+                'items': all_items,
+                'lines': lines,  # Keep line structure for navigation logic
+                'predicted_depth': 2,
+                'strategy': strategy
+            }
             
             print(f"✅ PARSED RESULT:")
             print(f"{'-'*80}")
-            print(f"Menu Type: {result.get('menu_type')}")
-            print(f"Items: {result.get('items')}")
-            print(f"Predicted Depth: {result.get('predicted_depth')}")
-            print(f"Strategy: {result.get('strategy')}")
+            print(f"Items ({len(all_items)}):")
+            for i, line in enumerate(lines, 1):
+                print(f"Line {i}: {', '.join(line)}")
             print(f"{'-'*80}\n")
             
             return result
