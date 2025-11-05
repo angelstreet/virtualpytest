@@ -775,35 +775,58 @@ def validate_next_item():
             print(f"    ❌ Click failed: {e}")
             click_result = 'failed'
         
-        # 2. Press BACK
+        # 2. Press BACK (with smart double-back fallback)
         if click_result == 'success':
             try:
-                controller.press_key('BACK')
-                time.sleep(2)
-                
-                # 3. Verify we're back on HOME using ADB verification controller
-                print(f"    🔍 Verifying return to home by checking: {home_indicator}")
-                
                 # Get ADB verification controller from device
                 device = engine.device if hasattr(engine, 'device') else None
                 adb_verifier = device._get_controller('verification') if device else None
                 
+                # First BACK attempt
+                controller.press_key('BACK')
+                time.sleep(2)
+                
+                # 3. Verify we're back on HOME
+                print(f"    🔍 Verifying return to home by checking: {home_indicator}")
+                
+                back_success = False
                 if adb_verifier:
                     # Use ADB verification controller's waitForElementToAppear method
                     success, message, details = adb_verifier.waitForElementToAppear(
                         search_term=home_indicator,
-                        timeout=5.0
+                        timeout=3.0  # Shorter timeout for first attempt
                     )
                     back_success = success
-                    back_result = 'success' if back_success else 'failed'
-                    print(f"    {'✅' if back_success else '❌'} Back {back_result}: {message}")
+                    print(f"    {'✅' if back_success else '❌'} Back (1st attempt) {('success' if back_success else 'failed')}: {message}")
                 else:
                     # Fallback: use simple verification if ADB verifier not available
                     print(f"    ⚠️ ADB verifier not available, using simple check")
                     is_back = controller.verify_element_exists(text=home_indicator)
                     back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
-                    back_result = 'success' if back_success else 'failed'
-                    print(f"    {'✅' if back_success else '❌'} Back {back_result} (simple check)")
+                    print(f"    {'✅' if back_success else '❌'} Back (1st attempt) {('success' if back_success else 'failed')} (simple check)")
+                
+                # 4. Smart fallback: Press BACK again if first attempt failed
+                # (Common for screens with keyboards, search fields, etc.)
+                if not back_success:
+                    print(f"    🔄 First BACK didn't reach home, trying second BACK (keyboard/overlay may be open)...")
+                    controller.press_key('BACK')
+                    time.sleep(2)
+                    
+                    # Verify again
+                    if adb_verifier:
+                        success, message, details = adb_verifier.waitForElementToAppear(
+                            search_term=home_indicator,
+                            timeout=5.0
+                        )
+                        back_success = success
+                        print(f"    {'✅' if back_success else '❌'} Back (2nd attempt) {('success' if back_success else 'failed')}: {message}")
+                    else:
+                        is_back = controller.verify_element_exists(text=home_indicator)
+                        back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
+                        print(f"    {'✅' if back_success else '❌'} Back (2nd attempt) {('success' if back_success else 'failed')} (simple check)")
+                
+                back_result = 'success' if back_success else 'failed'
+                
             except Exception as e:
                 print(f"    ⚠️ Back failed: {e}")
                 back_result = 'failed'

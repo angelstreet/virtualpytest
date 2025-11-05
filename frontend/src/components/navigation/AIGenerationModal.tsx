@@ -204,12 +204,21 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   
   const handleStartValidation = async () => {
     await startValidation(); // Phase 2b: Initialize validation
-    // Auto-start validating first item
-    await handleValidateNext();
+    // Auto-start validating first item (non-blocking to allow UI updates)
+    handleValidateNext(); // Don't await - let it run async
   };
   
   const handleValidateNext = async () => {
     const result = await validateNextItem();
+    
+    // Fail fast if forward action fails
+    if (result && result.click_result === 'failed') {
+      console.error(`[@AIGenerationModal] Validation failed at step ${result.progress?.current_item}: ${result.item}`);
+      // Don't set error status - keep results visible but stop validation
+      // User can review what worked vs what failed
+      return; // Stop validation loop
+    }
+    
     if (result && result.has_more_items) {
       // Auto-continue if more items (small modal in corner)
       setTimeout(() => handleValidateNext(), 500); // Small delay between validations
