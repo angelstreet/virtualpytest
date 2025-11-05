@@ -268,15 +268,25 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                           </Typography>
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
-                          {explorationPlan.lines?.map((line: string[], idx: number) => (
-                            <Typography 
-                              key={idx} 
-                              variant="body2" 
-                              sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}
-                            >
-                              Line {idx + 1}: {line.join(', ')}
-                            </Typography>
-                          ))}
+                          {explorationPlan.lines && explorationPlan.lines.length > 0 ? (
+                            // DPAD navigation (TV/STB) - show line structure
+                            explorationPlan.lines.map((line: string[], idx: number) => (
+                              <Typography 
+                                key={idx} 
+                                variant="body2" 
+                                sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}
+                              >
+                                Line {idx + 1}: {line.join(', ')}
+                              </Typography>
+                            ))
+                          ) : (
+                            // Click-based navigation (mobile/web) - show flat list
+                            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                              {explorationPlan.items.map((item: string, idx: number) => (
+                                <Chip key={idx} label={item} size="small" variant="outlined" />
+                              ))}
+                            </Box>
+                          )}
                         </Box>
                       </details>
 

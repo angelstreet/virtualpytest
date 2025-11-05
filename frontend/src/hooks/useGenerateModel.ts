@@ -260,7 +260,10 @@ export const useGenerateModel = ({
       const data = await response.json();
 
       if (data.success) {
-        console.log('[@useGenerateModel:continueExploration] Phase 2 started');
+        // Initialize incremental exploration
+        setStatus('awaiting_item_approval');
+        setCurrentStep(`Ready to explore items (${data.total_items} total)`);
+        console.log('[@useGenerateModel:continueExploration] Phase 2 initialized:', data);
       } else {
         throw new Error(data.error || 'Failed to continue exploration');
       }
@@ -269,6 +272,55 @@ export const useGenerateModel = ({
       setError(err.message || 'Failed to continue exploration');
       setIsExploring(false);
       setStatus('failed');
+    }
+  }, [explorationId]);
+  
+  const exploreNextItem = useCallback(async () => {
+    if (!explorationId) {
+      setError('No exploration session found');
+      return null;
+    }
+
+    try {
+      setError(null);
+      setStatus('exploring_item');
+      
+      console.log('[@useGenerateModel:exploreNextItem] Exploring next item');
+
+      const response = await fetch(buildServerUrl('/server/ai-generation/explore-next-item'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ exploration_id: explorationId })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('[@useGenerateModel:exploreNextItem] Item explored:', data);
+        
+        // Update status based on whether more items remain
+        if (data.has_more_items) {
+          setStatus('awaiting_item_approval');
+          setCurrentStep(`Explored item ${data.progress.current_item}/${data.progress.total_items}`);
+        } else {
+          setStatus('completed');
+          setIsExploring(false);
+          setCurrentStep('All items explored - ready for final approval');
+        }
+        
+        return data; // Return node/edge data for ReactFlow update
+      } else {
+        throw new Error(data.error || 'Failed to explore item');
+      }
+    } catch (err: any) {
+      console.error('[@useGenerateModel:exploreNextItem] Error:', err);
+      setError(err.message || 'Failed to explore item');
+      setStatus('awaiting_item_approval'); // Allow retry
+      return null;
     }
   }, [explorationId]);
 
@@ -368,6 +420,7 @@ export const useGenerateModel = ({
     // Actions
     startExploration,
     continueExploration,
+    exploreNextItem,
     cancelExploration,
     approveGeneration,
     resetState,
@@ -375,6 +428,7 @@ export const useGenerateModel = ({
     // Computed
     canStart: !isExploring && !isGenerating && isControlActive && treeId && selectedHost && selectedDeviceId,
     hasResults: status === 'completed' && (proposedNodes.length > 0 || proposedEdges.length > 0),
-    isAwaitingApproval: status === 'awaiting_approval'
+    isAwaitingApproval: status === 'awaiting_approval',
+    isAwaitingItemApproval: status === 'awaiting_item_approval'
   };
 };

@@ -229,11 +229,165 @@ Exploration will navigate through these items using {self.prediction.get('strate
                 'success': False,
                 'error': str(e)
             }
+    
+    def explore_single_item(self, item: str, depth: int = 0) -> Dict:
+        """
+        Explore a SINGLE item (for incremental approval workflow)
+        
+        Args:
+            item: Item name to explore (e.g., "Search", "Settings", "dynamic_1")
+            depth: Current depth in exploration
+        
+        Returns:
+            {
+                'success': True,
+                'node': {...},  # Node data created
+                'edge': {...}   # Edge data created
+            }
+        """
+        try:
+            print(f"\n[@exploration_engine] Exploring single item: {item} (depth={depth})")
+            
+            # Get root node (or parent node for depth > 0)
+            root_node_name = "home_temp"  # For now, always use home as source
+            
+            # Determine strategy
+            strategy = self.prediction.get('strategy', 'click_elements')
+            
+            if strategy == 'click_elements':
+                # Mobile/Web: Click-based
+                return self._explore_single_item_click(root_node_name, item, depth)
+            else:
+                # TV/STB: DPAD-based (TODO)
+                return {'success': False, 'error': 'DPAD strategy not yet implemented for single item'}
+        
+        except Exception as e:
+            print(f"[@exploration_engine:explore_single_item] Error: {e}")
+            traceback.print_exc()
+            return {'success': False, 'error': str(e)}
+    
+    def _explore_single_item_click(self, source_node: str, item: str, depth: int) -> Dict:
+        """
+        Explore a single item using click-based navigation
+        
+        Args:
+            source_node: Source node name (e.g., "home_temp")
+            item: Item to click
+            depth: Current depth
+        
+        Returns:
+            Dict with success, node, edge
+        """
+        import time
+        
+        # 1. Click element
+        click_success = False
+        if item.startswith('dynamic_'):
+            # Dynamic content - skip for now (TODO: need bounds)
+            return {'success': False, 'error': f'Dynamic element {item} not yet supported'}
+        else:
+            # Static element - click by text
+            try:
+                result = self.controller.click_element(text=item)
+                click_success = result if isinstance(result, bool) else result.get('success', False)
+            except Exception as e:
+                print(f"    ❌ Click failed: {e}")
+                return {'success': False, 'error': f'Click failed: {str(e)}'}
+        
+        if not click_success:
+            return {'success': False, 'error': f'Click on {item} failed'}
+        
+        print(f"    ✅ Click succeeded")
+        time.sleep(2)  # Wait for navigation
+        
+        # 2. Press BACK
+        print(f"    ⬅️ Pressing BACK...")
+        try:
+            self.controller.press_key('BACK')
+            time.sleep(2)
+        except Exception as e:
+            print(f"    ❌ BACK failed: {e}")
+            back_success = False
+        else:
+            # 3. Verify we're back on source screen
+            # Get a known source element (use first item from prediction if available)
+            predicted_items = self.prediction.get('items', [])
+            source_element = predicted_items[0] if predicted_items else 'Home'
+            
+            print(f"    🔍 Verifying source element '{source_element}' is visible...")
+            try:
+                is_back = self.controller.wait_for_element_by_text(
+                    text=source_element,
+                    timeout=5
+                )
+                back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
+            except Exception as e:
+                print(f"    ⚠️ Back verification failed: {e}")
+                back_success = False
+        
+        if back_success:
+            print(f"    ✅ BACK succeeded - both directions valid")
+        else:
+            print(f"    ⚠️ BACK failed - only forward edge created")
+        
+        # 4. Create node and edge
+        new_node_name = f"{item}_temp"
+        
+        # Calculate position
+        position_x = 250 + (len(self.created_nodes) % 3) * 300
+        position_y = 250 + (len(self.created_nodes) // 3) * 200
+        
+        # Create node
+        node_data = self.node_generator.create_node_data(
+            node_name=new_node_name,
+            position={'x': position_x, 'y': position_y},
+            ai_analysis={
+                'suggested_name': item,
+                'screen_type': 'screen',
+                'reasoning': f'Reached by clicking {item}'
+            },
+            node_type='screen'
+        )
+        
+        node_result = save_node(self.tree_id, node_data, self.team_id)
+        if not node_result['success']:
+            return {'success': False, 'error': f"Failed to save node: {node_result.get('error')}"}
+        
+        self.created_nodes.append(new_node_name)
+        print(f"    ✅ Created node: {new_node_name}")
+        
+        # Create edge with bidirectional action sets
+        forward_actions = [
+            {'command': 'click_element', 'params': {'text': item}, 'delay': 2000}
+        ]
+        
+        backward_actions = [
+            {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
+        ] if back_success else []
+        
+        edge_data = self.node_generator.create_edge_data(
+            source=source_node,
+            target=new_node_name,
+            actions=forward_actions,
+            reverse_actions=backward_actions
+        )
+        
+        edge_result = save_edge(self.tree_id, edge_data, self.team_id)
+        if not edge_result['success']:
+            return {'success': False, 'error': f"Failed to save edge: {edge_result.get('error')}"}
+        
+        self.created_edges.append(edge_data['edge_id'])
+        print(f"    ✅ Created edge: {source_node} ↔ {new_node_name} ({'bidirectional' if back_success else 'forward only'})")
+        
+        return {
+            'success': True,
+            'node': node_data,
+            'edge': edge_data
+        }
         
     def start_exploration(self) -> Dict:
         """
-        LEGACY: Full exploration (Phase 1 + Phase 2 together)
-        Kept for backward compatibility
+        Full exploration (Phase 1 + Phase 2 together)
         
         Returns:
             {
@@ -281,18 +435,17 @@ Exploration will navigate through these items using {self.prediction.get('strate
     
     def _phase2_validation(self, prediction: Dict, initial_screenshot: str):
         """
-        Phase 2: Smart validation using AI prediction
+        Phase 2: Validate predictions by testing navigation
         
-        Uses prediction to guide exploration:
-        - Predicted items → Test those specific items
-        - Menu type → Use appropriate navigation strategy
-        - Item count → Know when to stop
+        Strategy depends on device type:
+        - Mobile/Web (click-based): Click element → if success, create forward edge → Press BACK → verify source visible
+        - TV/STB (DPAD-based): Navigate with DPAD → Press OK → AI verify new screen → Press BACK → AI verify back
         
         Args:
             prediction: AI prediction from phase 1
             initial_screenshot: Path to initial screenshot
         """
-        print(f"\n[@exploration_engine] === PHASE 2: SMART VALIDATION ===")
+        print(f"\n[@exploration_engine] === PHASE 2: VALIDATION ===")
         
         # Create root node (home_temp)
         root_node_name = "home_temp"
@@ -316,12 +469,198 @@ Exploration will navigate through these items using {self.prediction.get('strate
             print(f"❌ Failed to create root node: {result.get('error')}")
             return
         
-        # Start SMART exploration using prediction
+        # Determine strategy based on device type
+        strategy = prediction.get('strategy', 'click_elements')
+        
+        if strategy == 'click_elements':
+            # Mobile/Web: Click-based validation
+            self._validate_click_based(
+                current_node=root_node_name,
+                prediction=prediction,
+                depth=0
+            )
+        else:
+            # TV/STB: DPAD-based validation (AI-guided)
+            self._validate_dpad_based(
+                current_node=root_node_name,
+                parent_screenshot=initial_screenshot,
+                prediction=prediction,
+                depth=0
+            )
+    
+    def _validate_click_based(
+        self,
+        current_node: str,
+        prediction: Dict,
+        depth: int
+    ):
+        """
+        Mobile/Web validation: Click-based navigation (NO AI needed)
+        
+        Workflow:
+        1. Click element (by text or position if dynamic)
+        2. If click succeeds → forward edge is valid
+        3. Press BACK
+        4. Verify source element is visible → backward edge is valid
+        
+        Args:
+            current_node: Current node name (e.g., 'home_temp')
+            prediction: AI prediction with items to click
+            depth: Current depth
+        """
+        if depth >= self.depth_limit:
+            print(f"[@exploration_engine] Max depth {self.depth_limit} reached")
+            return
+        
+        print(f"\n[@exploration_engine] 📱 MOBILE/WEB VALIDATION: {current_node} (depth={depth})")
+        
+        predicted_items = prediction.get('items', [])
+        print(f"  Items to test: {len(predicted_items)}")
+        
+        # Get a known source element to verify BACK (use first non-target item or 'Home')
+        source_element = predicted_items[0] if predicted_items else 'Home'
+        
+        for i, item in enumerate(predicted_items):
+            print(f"\n  [{i+1}/{len(predicted_items)}] Testing: {item}")
+            
+            # Notify progress
+            if self.progress_callback:
+                self.progress_callback(
+                    step=f"Phase 2: Testing item {i+1}/{len(predicted_items)}: {item}",
+                    screenshot=None,
+                    analysis={'screen_name': item, 'elements_found': [item], 'reasoning': f'Clicking on {item}'}
+                )
+            
+            # 1. Click element
+            click_success = False
+            if item.startswith('dynamic_'):
+                # Dynamic content - click by position (TODO: need bounds from UI dump)
+                print(f"    ⚠️ Dynamic element {item} - need position data (skipping for now)")
+                continue
+            else:
+                # Static element - click by text
+                try:
+                    result = self.controller.click_element(text=item)
+                    click_success = result if isinstance(result, bool) else result.get('success', False)
+                except Exception as e:
+                    print(f"    ❌ Click failed: {e}")
+                    click_success = False
+            
+            if not click_success:
+                print(f"    ⏭️ Click failed - skipping {item}")
+                continue
+            
+            # ✅ Click succeeded = forward edge is valid
+            print(f"    ✅ Click succeeded")
+            import time
+            time.sleep(2)  # Wait for navigation
+            
+            # 2. Press BACK
+            print(f"    ⬅️ Pressing BACK...")
+            try:
+                self.controller.press_key('BACK')
+                time.sleep(2)
+            except Exception as e:
+                print(f"    ❌ BACK failed: {e}")
+                continue
+            
+            # 3. Verify we're back on source screen
+            print(f"    🔍 Verifying source element '{source_element}' is visible...")
+            try:
+                is_back = self.controller.wait_for_element_by_text(
+                    text=source_element,
+                    timeout=5
+                )
+                back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
+            except Exception as e:
+                print(f"    ⚠️ Back verification failed: {e}")
+                back_success = False
+            
+            if back_success:
+                print(f"    ✅ BACK succeeded - both directions valid")
+            else:
+                print(f"    ⚠️ BACK failed - only forward edge created")
+            
+            # 4. Create node and edge
+            new_node_name = f"{item}_temp"
+            
+            # Calculate position
+            position_x = 250 + (len(self.created_nodes) % 3) * 300
+            position_y = 250 + (len(self.created_nodes) // 3) * 200
+            
+            # Create node
+            node_data = self.node_generator.create_node_data(
+                node_name=new_node_name,
+                position={'x': position_x, 'y': position_y},
+                ai_analysis={
+                    'suggested_name': item,
+                    'screen_type': 'screen',
+                    'reasoning': f'Reached by clicking {item}'
+                },
+                node_type='screen'
+            )
+            
+            node_result = save_node(self.tree_id, node_data, self.team_id)
+            if node_result['success']:
+                self.created_nodes.append(new_node_name)
+                print(f"    ✅ Created node: {new_node_name}")
+            else:
+                print(f"    ❌ Failed to create node: {node_result.get('error')}")
+                continue
+            
+            # Create edge with bidirectional action sets
+            forward_actions = [
+                {'command': 'click_element', 'params': {'text': item}, 'delay': 2000}
+            ]
+            
+            backward_actions = [
+                {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
+            ] if back_success else []
+            
+            edge_data = self.node_generator.create_edge_data(
+                source=current_node,
+                target=new_node_name,
+                actions=forward_actions,
+                reverse_actions=backward_actions
+            )
+            
+            edge_result = save_edge(self.tree_id, edge_data, self.team_id)
+            if edge_result['success']:
+                self.created_edges.append(edge_data['edge_id'])
+                print(f"    ✅ Created edge: {current_node} ↔ {new_node_name} ({'bidirectional' if back_success else 'forward only'})")
+        
+        print(f"\n[@exploration_engine] Mobile/Web validation complete: {len(self.created_nodes)-1} nodes, {len(self.created_edges)} edges")
+    
+    def _validate_dpad_based(
+        self,
+        current_node: str,
+        parent_screenshot: str,
+        prediction: Dict,
+        depth: int
+    ):
+        """
+        TV/STB validation: DPAD-based navigation (AI verification required)
+        
+        Workflow:
+        1. Navigate to item using DPAD
+        2. AI verifies focus
+        3. Press OK
+        4. AI verifies new screen
+        5. Press BACK
+        6. AI verifies back to source
+        
+        Args:
+            current_node: Current node name
+            parent_screenshot: Screenshot at current position
+            prediction: AI prediction
+            depth: Current depth
+        """
+        # Call existing DPAD exploration logic
         self._explore_with_prediction(
-            current_node=root_node_name,
-            parent_screenshot=initial_screenshot,
+            current_node=current_node,
+            parent_screenshot=parent_screenshot,
             prediction=prediction,
-            depth=0
+            depth=depth
         )
     
     def _explore_with_prediction(

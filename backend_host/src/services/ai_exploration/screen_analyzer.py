@@ -109,9 +109,9 @@ class ScreenAnalyzer:
         print(f"{'-'*80}\n")
         
         return {
-            'menu_type': 'mixed',
+            'menu_type': 'click_based',  # Mobile/web = click-based, no line structure
             'items': interactive_elements,
-            'lines': [interactive_elements],  # Single line for mobile/web
+            'lines': [],  # No lines for click-based navigation
             'predicted_depth': 2,
             'strategy': 'click_elements'
         }
@@ -119,7 +119,7 @@ class ScreenAnalyzer:
     def _extract_interactive_elements_mobile(self, elements: list) -> list:
         """
         Parse mobile UI dump elements (AndroidElement objects)
-        Filter out non-interactive content (images, text, etc.)
+        Extract both static navigation + dynamic content
         
         Args:
             elements: List of AndroidElement objects from dump_elements()
@@ -128,9 +128,13 @@ class ScreenAnalyzer:
             List of element names (strings)
         """
         interactive_elements = []
+        dynamic_counter = 1
         
         # Filter out common non-interactive text
         ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration']
+        
+        # Dynamic content indicators
+        dynamic_indicators = ['available for replay', 'watch now', 'continue watching', ':', '-', 'am', 'pm']
         
         for elem in elements:
             # ✅ STRICT: Only consider elements that are actually clickable
@@ -139,6 +143,7 @@ class ScreenAnalyzer:
             
             # Get the best label for this element
             label = None
+            is_dynamic = False
             
             # Priority 1: text
             if elem.text and elem.text != '<no text>' and elem.text.strip():
@@ -163,8 +168,19 @@ class ScreenAnalyzer:
             if any(keyword in label.lower() for keyword in ignore_keywords):
                 continue
             
-            # Add to list (avoid duplicates)
-            if label not in interactive_elements:
+            # ✅ Detect dynamic content
+            # 1. Very long labels (> 30 chars) = likely program description
+            # 2. Contains time patterns or replay keywords
+            if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
+                is_dynamic = True
+                # Replace with generic name
+                label = f"dynamic_{dynamic_counter}"
+                dynamic_counter += 1
+            
+            # Add to list (avoid duplicates for static, allow duplicates for dynamic)
+            if is_dynamic:
+                interactive_elements.append(label)
+            elif label not in interactive_elements:
                 interactive_elements.append(label)
         
         return interactive_elements[:20]  # Limit to top 20 elements

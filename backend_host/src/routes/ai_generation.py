@@ -353,6 +353,182 @@ def continue_exploration():
         
         print(f"[@route:ai_generation:continue_exploration] Starting Phase 2 for {exploration_id}")
         
+        # Initialize exploration iterator
+        session['current_item_index'] = 0
+        session['current_depth'] = 0
+        session['items_to_explore'] = session['exploration_plan']['items']
+        session['status'] = 'awaiting_item_approval'
+        
+        return jsonify({
+            'success': True,
+            'message': 'Ready to start incremental exploration',
+            'next_item': session['items_to_explore'][0] if session['items_to_explore'] else None,
+            'total_items': len(session['items_to_explore'])
+        })
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:continue_exploration] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@ai_generation_bp.route('/explore-next-item', methods=['POST'])
+def explore_next_item():
+    """
+    Execute exploration for the next item (incremental, per-item approval)
+    
+    Body:
+    {
+        'exploration_id': 'abc123'
+    }
+    
+    Query params (auto-added):
+        'team_id': 'team_1'
+    
+    Response:
+    {
+        'success': True,
+        'node_created': {...},
+        'edge_created': {...},
+        'has_more_items': True/False,
+        'progress': {
+            'current_item': 2,
+            'total_items': 16
+        }
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        exploration_id = data.get('exploration_id')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        
+        if not exploration_id:
+            return jsonify({'success': False, 'error': 'exploration_id required'}), 400
+        
+        if exploration_id not in _exploration_sessions:
+            return jsonify({'success': False, 'error': 'Exploration session not found'}), 404
+        
+        session = _exploration_sessions[exploration_id]
+        
+        if session['status'] != 'awaiting_item_approval':
+            return jsonify({
+                'success': False,
+                'error': f"Cannot explore: status is {session['status']}, expected 'awaiting_item_approval'"
+            }), 400
+        
+        # Get current item to explore
+        current_index = session.get('current_item_index', 0)
+        items_to_explore = session.get('items_to_explore', [])
+        
+        if current_index >= len(items_to_explore):
+            # No more items - exploration complete
+            session['status'] = 'completed'
+            return jsonify({
+                'success': True,
+                'message': 'All items explored',
+                'has_more_items': False
+            })
+        
+        current_item = items_to_explore[current_index]
+        print(f"[@route:ai_generation:explore_next_item] Exploring item {current_index + 1}/{len(items_to_explore)}: {current_item}")
+        
+        # Get engine from session
+        engine = session.get('engine')
+        if not engine:
+            return jsonify({'success': False, 'error': 'Engine not found'}), 500
+        
+        # Execute exploration for this ONE item
+        session['status'] = 'exploring_item'
+        session['current_step'] = f"Exploring item {current_index + 1}/{len(items_to_explore)}: {current_item}"
+        
+        # Execute single item exploration
+        result = engine.explore_single_item(current_item, session.get('current_depth', 0))
+        
+        if result['success']:
+            # Increment index for next item
+            session['current_item_index'] = current_index + 1
+            session['status'] = 'awaiting_item_approval'
+            
+            # Check if more items
+            has_more = session['current_item_index'] < len(items_to_explore)
+            
+            return jsonify({
+                'success': True,
+                'node_created': result.get('node'),
+                'edge_created': result.get('edge'),
+                'has_more_items': has_more,
+                'progress': {
+                    'current_item': session['current_item_index'],
+                    'total_items': len(items_to_explore)
+                },
+                'next_item': items_to_explore[session['current_item_index']] if has_more else None
+            })
+        else:
+            session['status'] = 'awaiting_item_approval'
+            return jsonify({
+                'success': False,
+                'error': result.get('error', 'Item exploration failed'),
+                'has_more_items': True
+            })
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:explore_next_item] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        
+        if exploration_id in _exploration_sessions:
+            _exploration_sessions[exploration_id]['status'] = 'awaiting_item_approval'
+        
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@ai_generation_bp.route('/continue-exploration-legacy', methods=['POST'])
+def continue_exploration_legacy():
+    """
+    Continue to Phase 2: Execute the approved exploration plan
+    
+    Body:
+    {
+        'exploration_id': 'abc123'
+    }
+    
+    Query params (auto-added):
+        'team_id': 'team_1'
+    
+    Response:
+    {
+        'success': True,
+        'message': 'Phase 2 started'
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        exploration_id = data.get('exploration_id')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        
+        if not exploration_id:
+            return jsonify({'success': False, 'error': 'exploration_id required'}), 400
+        
+        if exploration_id not in _exploration_sessions:
+            return jsonify({'success': False, 'error': 'Exploration session not found'}), 404
+        
+        session = _exploration_sessions[exploration_id]
+        
+        if session['status'] != 'awaiting_approval':
+            return jsonify({
+                'success': False,
+                'error': f"Cannot continue: status is {session['status']}, expected 'awaiting_approval'"
+            }), 400
+        
+        print(f"[@route:ai_generation:continue_exploration] Starting Phase 2 for {exploration_id}")
+        
         # Get engine from session
         engine = session.get('engine')
         if not engine:
