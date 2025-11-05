@@ -7,6 +7,8 @@ interface UseGenerateModelProps {
   selectedDeviceId: string;
   isControlActive: boolean;
   userinterfaceName?: string;
+  onStructureCreated?: (nodesCount: number, edgesCount: number) => void;
+  onClose?: () => void;
 }
 
 interface Progress {
@@ -57,7 +59,9 @@ export const useGenerateModel = ({
   selectedHost,
   selectedDeviceId,
   isControlActive,
-  userinterfaceName
+  userinterfaceName,
+  onStructureCreated,
+  onClose
 }: UseGenerateModelProps) => {
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
@@ -190,6 +194,30 @@ export const useGenerateModel = ({
       setError(null);
       setIsExploring(true);
       setStatus('exploring');
+      setCurrentStep('Cleaning up previous _temp nodes...');
+      
+      console.log('[@useGenerateModel:startExploration] Cleaning up _temp nodes before starting');
+      
+      // ✅ STEP 1: Clean up any existing _temp nodes/edges
+      try {
+        const cleanupResponse = await fetch(buildServerUrl('/server/ai-generation/cleanup-temp'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            tree_id: treeId
+          })
+        });
+        
+        if (cleanupResponse.ok) {
+          const cleanupData = await cleanupResponse.json();
+          console.log('[@useGenerateModel:startExploration] Cleanup complete:', cleanupData);
+        } else {
+          console.warn('[@useGenerateModel:startExploration] Cleanup failed, continuing anyway');
+        }
+      } catch (cleanupErr) {
+        console.warn('[@useGenerateModel:startExploration] Cleanup error, continuing anyway:', cleanupErr);
+      }
+      
       setCurrentStep('Starting AI exploration...');
       
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
@@ -200,6 +228,7 @@ export const useGenerateModel = ({
         exploration_depth: depth
       });
 
+      // ✅ STEP 2: Start new exploration
       const response = await fetch(buildServerUrl('/server/ai-generation/start-exploration'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -271,6 +300,16 @@ export const useGenerateModel = ({
         setCurrentStep(`Created ${data.nodes_created} nodes and ${data.edges_created} edges. Ready to validate.`);
         setIsExploring(false);
         console.log('[@useGenerateModel:continueExploration] Structure created:', data);
+        
+        // ✅ Close modal and notify parent
+        if (onClose) {
+          onClose();
+        }
+        
+        // ✅ Trigger structure created callback (will show ValidationReadyPrompt)
+        if (onStructureCreated) {
+          onStructureCreated(data.nodes_created, data.edges_created);
+        }
       } else {
         throw new Error(data.error || 'Failed to create structure');
       }
@@ -354,13 +393,22 @@ export const useGenerateModel = ({
       if (data.success) {
         console.log('[@useGenerateModel:validateNextItem] Item validated:', data);
         
-        // Update validation progress
-        if (data.progress) {
+        // Update validation progress with detailed action set info
+        if (data.progress && data.action_sets) {
           setValidationProgress({
             current: data.progress.current_item,
             total: data.progress.total_items
           });
-          setCurrentStep(`Validated ${data.item}: Click ${data.click_result === 'success' ? '✅' : '❌'} Back ${data.back_result === 'success' ? '✅' : '❌'}`);
+          
+          // Build detailed step message showing both action sets
+          const forwardStatus = data.action_sets.forward.result === 'success' ? '✅' : '❌';
+          const reverseStatus = data.action_sets.reverse.result === 'success' ? '✅' : '❌';
+          
+          setCurrentStep(
+            `Item ${data.progress.current_item}/${data.progress.total_items}: ${data.node_name}\n` +
+            `${forwardStatus} 1. ${data.action_sets.forward.source} → ${data.action_sets.forward.target}: ${data.action_sets.forward.action}\n` +
+            `${reverseStatus} 2. ${data.action_sets.reverse.source} → ${data.action_sets.reverse.target}: ${data.action_sets.reverse.action}`
+          );
         }
         
         // Update status based on whether more items remain
@@ -369,7 +417,7 @@ export const useGenerateModel = ({
         } else {
           setStatus('validation_complete');
           setIsExploring(false);
-          setCurrentStep('All edges validated - ready to finalize');
+          setCurrentStep('All action sets validated - ready to finalize');
         }
         
         return data; // Return validation results

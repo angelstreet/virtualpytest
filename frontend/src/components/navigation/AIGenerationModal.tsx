@@ -33,8 +33,9 @@ interface AIGenerationModalProps {
   treeId: string;
   selectedHost: any;
   selectedDeviceId: string;
-  userinterfaceName?: string; // NEW: From tree data
+  userinterfaceName?: string;
   onGenerated: () => void; // Refresh ReactFlow after generation
+  onStructureCreated?: (nodesCount: number, edgesCount: number) => void; // NEW: Notify parent of structure creation
 }
 
 export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
@@ -44,7 +45,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   selectedHost,
   selectedDeviceId,
   userinterfaceName,
-  onGenerated
+  onGenerated,
+  onStructureCreated
 }) => {
   const [explorationDepth, setExplorationDepth] = useState(5);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -53,7 +55,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const {
     isExploring,
     status,
-    phase,
     currentStep,
     progress,
     currentAnalysis,
@@ -82,7 +83,22 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     selectedHost,
     selectedDeviceId,
     userinterfaceName,
-    isControlActive: true
+    isControlActive: true,
+    onStructureCreated: (nodesCount, edgesCount) => {
+      console.log('[@AIGenerationModal] Structure created:', nodesCount, 'nodes,', edgesCount, 'edges');
+      
+      // Trigger ReactFlow refresh
+      onGenerated();
+      
+      // Notify parent to show ValidationReadyPrompt
+      if (onStructureCreated) {
+        onStructureCreated(nodesCount, edgesCount);
+      }
+    },
+    onClose: () => {
+      // Close modal after structure creation
+      onClose();
+    }
   });
 
   // Select all nodes and edges by default when results arrive
@@ -297,11 +313,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                     <Typography variant="body2" color="warning.main">No items detected - AI couldn't read screen</Typography>
                   ) : (
                     <>
-                      {/* Nodes Found - Always show */}
+                      {/* Nodes Found - Show cleaned preview */}
                       <details open>
                         <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
                           <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                            Nodes found ({explorationPlan.items.length})
+                            Nodes found ({explorationPlan.items.filter((item: string) => item.toLowerCase() !== 'home').length + 1})
                           </Typography>
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
@@ -317,33 +333,68 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                               </Typography>
                             ))
                           ) : (
-                            // Click-based navigation (mobile/web) - show flat list
+                            // Click-based navigation (mobile/web) - show cleaned node names as chips
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                              {explorationPlan.items.map((item: string, idx: number) => (
-                                <Chip key={idx} label={item} size="small" variant="outlined" />
-                              ))}
+                              {/* Always show home first */}
+                              <Chip label="home" size="small" variant="outlined" />
+                              
+                              {explorationPlan.items
+                                .filter((item: string) => item.toLowerCase() !== 'home')
+                                .map((item: string, idx: number) => {
+                                  // Generate clean node name (same logic as action sets)
+                                  const cleanNodeName = item.toLowerCase()
+                                    .replace(/&amp;/g, ' ')
+                                    .replace(/tab|register|button|screen|menu|page|currently selected/gi, ' ')
+                                    .replace(/[^a-z0-9]+/g, '_')
+                                    .replace(/_+/g, '_')
+                                    .replace(/^_|_$/g, '');
+                                  
+                                  return (
+                                    <Chip key={idx} label={cleanNodeName} size="small" variant="outlined" />
+                                  );
+                                })}
                             </Box>
                           )}
                         </Box>
                       </details>
 
-                      {/* Edges Found */}
+                      {/* Edges Found - Show bilateral action sets - OPEN BY DEFAULT */}
                       {(() => {
                         // Filter out self-referencing edges (e.g., home → home)
                         const validEdges = explorationPlan.items.filter((item: string) => item.toLowerCase() !== 'home');
                         return (
-                          <details>
+                          <details open>
                             <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
                               <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                                Edges found ({validEdges.length})
+                                Edge found ({validEdges.length})
                               </Typography>
                             </summary>
                             <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
-                              {validEdges.map((item: string, idx: number) => (
-                                <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
-                                  home → {item}
-                                </Typography>
-                              ))}
+                              {validEdges.map((item: string, idx: number) => {
+                                // Generate clean node name (simplified version of backend logic)
+                                const cleanNodeName = item.toLowerCase()
+                                  .replace(/&amp;/g, ' ')
+                                  .replace(/tab|register|button|screen|menu|page|currently selected/gi, ' ')
+                                  .replace(/[^a-z0-9]+/g, '_')
+                                  .replace(/_+/g, '_')
+                                  .replace(/^_|_$/g, '');
+                                
+                                return (
+                                  <Box key={idx} sx={{ mb: 0.5, p: 1, bgcolor: 'rgba(255,255,255,0.02)', borderRadius: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                                      Step {idx + 1}
+                                    </Typography>
+                                    {/* Forward action */}
+                                    <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
+                                      Forward: home → {cleanNodeName}: click_element("{item}")
+                                    </Typography>
+                                    {/* Reverse action */}
+                                    <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
+                                      Backward: {cleanNodeName} → home: press_key(BACK)
+                                    </Typography>
+                                  </Box>
+                                );
+                              })}
                             </Box>
                           </details>
                         );
@@ -446,7 +497,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                 {isStructureCreated && (
                   <Typography variant="body2" color="text.secondary">
                     All nodes and edges have been created with _temp suffix.
-                    Click "Start Validation" to test each edge.
+                    Click "Start Validation" to test each action set.
                   </Typography>
                 )}
                 
@@ -457,18 +508,28 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                       value={(validationProgress.current / validationProgress.total) * 100} 
                       sx={{ mb: 2 }}
                     />
-                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                      {currentStep}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      Testing: Click element → Press BACK → Verify return
+                    {/* Current step with action details */}
+                    {currentStep && (
+                      <Box sx={{ mb: 1, p: 1, bgcolor: 'background.paper', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)' }}>
+                        <Typography variant="body2" color="text.secondary" sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
+                          {currentStep}
+                        </Typography>
+                      </Box>
+                    )}
+                    <Typography variant="caption" color="text.secondary" component="div">
+                      <Box component="span" sx={{ display: 'block', color: 'success.main' }}>
+                        1. Forward: click_element(target) → verify screen changed
+                      </Box>
+                      <Box component="span" sx={{ display: 'block', color: 'info.main' }}>
+                        2. Reverse: press_key(BACK) → verify returned home
+                      </Box>
                     </Typography>
                   </>
                 )}
                 
                 {isValidationComplete && (
                   <Typography variant="body2" color="text.secondary">
-                    All edges have been validated. Click "Finalize" to remove _temp suffix and make permanent.
+                    All action sets have been validated. Click "Finalize" to remove _temp suffix and make permanent.
                   </Typography>
                 )}
               </Paper>

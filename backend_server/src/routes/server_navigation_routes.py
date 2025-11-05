@@ -178,7 +178,7 @@ def create_empty_navigation_config(interface_name):
         home_node_id = 'home-node'
         home_node_data = {
             'node_id': home_node_id,
-            'label': 'Home',
+            'label': 'home',
             'node_type': 'screen',
             'position_x': 300,
             'position_y': 200,

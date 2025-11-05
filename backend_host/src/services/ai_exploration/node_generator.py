@@ -25,9 +25,11 @@ class NodeGenerator:
         Navigation targets are EDGES (actions), node names are DESTINATIONS
         
         Examples:
-        "TV Guide Tab" → "tvguide"
+        "TV Guide Tab" → "tv_guide"
         "Replay Register" → "replay"
-        "Films & Series" → "movies_and_series"
+        "Movies &amp; Series Tab" → "movies_series"
+        "Watch. Button" → "watch"
+        "Home Tab currently selected" → "home" (filtered later)
         "Aktuell gewählte Registerkarte TV Guide" → "tv_guide"
         
         Args:
@@ -37,6 +39,12 @@ class NodeGenerator:
             Clean node name (without _temp suffix)
         """
         text = target_text.lower()
+        
+        # Decode HTML entities
+        text = text.replace('&amp;', ' ')
+        text = text.replace('&nbsp;', ' ')
+        text = text.replace('&lt;', ' ')
+        text = text.replace('&gt;', ' ')
         
         # Remove common suffixes/prefixes
         remove_words = [

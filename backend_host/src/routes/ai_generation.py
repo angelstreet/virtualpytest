@@ -16,6 +16,7 @@ from shared.src.lib.database.navigation_trees_db import (
     get_node_by_id,
     get_edge_by_id,
     delete_node,
+    delete_edge,
     delete_tree_cascade,
     get_tree_nodes,
     get_tree_edges
@@ -26,6 +27,80 @@ ai_generation_bp = Blueprint('ai_generation', __name__, url_prefix='/host/ai-gen
 # In-memory exploration state (minimalist!)
 _exploration_sessions: Dict[str, Dict] = {}
 _exploration_locks = {}
+
+
+@ai_generation_bp.route('/cleanup-temp', methods=['POST'])
+def cleanup_temp():
+    """
+    Clean up all _temp nodes and edges before starting new exploration
+    
+    Request body:
+    {
+        'tree_id': 'uuid'
+    }
+    Query params (auto-added):
+        'team_id': 'team_1'
+    
+    Response:
+    {
+        'success': True,
+        'nodes_deleted': 5,
+        'edges_deleted': 4
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        tree_id = data.get('tree_id')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        
+        if not tree_id:
+            return jsonify({'success': False, 'error': 'tree_id required'}), 400
+        
+        print(f"[@route:ai_generation:cleanup_temp] Cleaning up _temp nodes/edges for tree: {tree_id}")
+        
+        # Get all nodes and edges
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        edges_result = get_tree_edges(tree_id, team_id)
+        
+        nodes_deleted = 0
+        edges_deleted = 0
+        
+        # Delete all edges ending with _temp
+        if edges_result.get('success') and edges_result.get('edges'):
+            for edge in edges_result['edges']:
+                edge_id = edge.get('edge_id', '')
+                if edge_id.endswith('_temp'):
+                    delete_result = delete_edge(tree_id, edge_id, team_id)
+                    if delete_result.get('success'):
+                        edges_deleted += 1
+                        print(f"  🗑️  Deleted edge: {edge_id}")
+        
+        # Delete all nodes ending with _temp
+        if nodes_result.get('success') and nodes_result.get('nodes'):
+            for node in nodes_result['nodes']:
+                node_id = node.get('node_id', '')
+                if node_id.endswith('_temp'):
+                    delete_result = delete_node(tree_id, node_id, team_id)
+                    if delete_result.get('success'):
+                        nodes_deleted += 1
+                        print(f"  🗑️  Deleted node: {node_id}")
+        
+        print(f"[@route:ai_generation:cleanup_temp] Cleanup complete: {nodes_deleted} nodes, {edges_deleted} edges deleted")
+        
+        return jsonify({
+            'success': True,
+            'nodes_deleted': nodes_deleted,
+            'edges_deleted': edges_deleted
+        })
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:cleanup_temp] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
 
 
 @ai_generation_bp.route('/start-exploration', methods=['POST'])
@@ -369,29 +444,45 @@ def continue_exploration():
         if not engine:
             return jsonify({'success': False, 'error': 'Engine not found'}), 500
         
-        # Create root node: home_temp
+        # Setup generators and imports
         from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
-        from shared.src.lib.database.navigation_trees_db import save_node, save_edge
+        from shared.src.lib.database.navigation_trees_db import save_node, save_edge, get_node_by_id
         
         node_gen = NodeGenerator(tree_id, team_id)
         
-        # 1. Create home_temp node
-        home_node = node_gen.create_node_data(
-            node_name='home_temp',
-            position={'x': 250, 'y': 100},
-            ai_analysis={
-                'suggested_name': 'home',
-                'screen_type': 'screen',
-                'reasoning': 'Root node - initial screen'
-            },
-            node_type='screen'
-        )
+        # ✅ Check if default 'home-node' or 'home' exists (created when userinterface is initialized)
+        home_node_result = get_node_by_id(tree_id, 'home-node', team_id)
+        if not (home_node_result.get('success') and home_node_result.get('node')):
+            # Fallback: check for 'home' (older format)
+            home_node_result = get_node_by_id(tree_id, 'home', team_id)
         
-        home_result = save_node(tree_id, home_node, team_id)
-        if not home_result['success']:
-            return jsonify({'success': False, 'error': f"Failed to create home node: {home_result.get('error')}"}), 500
+        if home_node_result.get('success') and home_node_result.get('node'):
+            # Reuse existing home node
+            existing_node = home_node_result['node']
+            home_node_id = existing_node['node_id']  # Either 'home-node' or 'home'
+            nodes_created = []
+            print(f"  ♻️  Reusing existing '{home_node_id}' node (created with userinterface)")
+        else:
+            # Create home_temp only if home doesn't exist
+            home_node = node_gen.create_node_data(
+                node_name='home_temp',
+                position={'x': 250, 'y': 100},
+                ai_analysis={
+                    'suggested_name': 'home',
+                    'screen_type': 'screen',
+                    'reasoning': 'Root node - initial screen'
+                },
+                node_type='screen'
+            )
+            
+            home_result = save_node(tree_id, home_node, team_id)
+            if not home_result['success']:
+                return jsonify({'success': False, 'error': f"Failed to create home node: {home_result.get('error')}"}), 500
+            
+            home_node_id = 'home_temp'
+            nodes_created = ['home_temp']
+            print(f"  ✅ Created home_temp node (no existing home)")
         
-        nodes_created = ['home_temp']
         edges_created = []
         
         # 2. Create all child nodes (using UNIVERSAL naming)
@@ -399,8 +490,16 @@ def continue_exploration():
             # item is a navigation target (EDGE) - convert to node name (DESTINATION)
             node_name_clean = node_gen.target_to_node_name(item)
             
+            print(f"[@route:ai_generation:continue_exploration] Target: '{item}' → Node: '{node_name_clean}'")
+            
             # Skip if it's 'home' (already created as root)
             if node_name_clean == 'home':
+                print(f"  ⏭️  Skipping 'home' (already exists as root)")
+                continue
+            
+            # Skip if contains 'home' as part of the name (likely a home indicator)
+            if 'home' in node_name_clean and node_name_clean != 'home':
+                print(f"  ⏭️  Skipping '{node_name_clean}' (contains 'home', likely home indicator)")
                 continue
             
             node_name = f"{node_name_clean}_temp"
@@ -421,15 +520,18 @@ def continue_exploration():
             node_result = save_node(tree_id, node_data, team_id)
             if node_result['success']:
                 nodes_created.append(node_name)
+                print(f"  ✅ Created node: {node_name}")
                 
                 # Store mapping: original_text → node_name for validation
                 if 'target_to_node_map' not in session:
                     session['target_to_node_map'] = {}
                 session['target_to_node_map'][item] = node_name
+            else:
+                print(f"  ❌ Failed to create node: {node_result.get('error')}")
             
             # 3. Create edge with EMPTY actions (to be filled during validation)
             edge_data = node_gen.create_edge_data(
-                source='home_temp',
+                source=home_node_id,  # Use the actual home node (either 'home' or 'home_temp')
                 target=node_name,
                 actions=[],  # Empty - will be filled during validation
                 reverse_actions=[],  # Empty - will be filled during validation
@@ -439,11 +541,13 @@ def continue_exploration():
             edge_result = save_edge(tree_id, edge_data, team_id)
             if edge_result['success']:
                 edges_created.append(edge_data['edge_id'])
+                print(f"  ✅ Created edge: {home_node_id} → {node_name}")
         
         # Update session
         session['status'] = 'structure_created'
         session['nodes_created'] = nodes_created
         session['edges_created'] = edges_created
+        session['home_node_id'] = home_node_id  # Store for validation phase
         session['current_step'] = f'Created {len(nodes_created)} nodes and {len(edges_created)} edges. Ready to validate.'
         session['items_to_validate'] = items
         session['current_validation_index'] = 0
@@ -663,10 +767,11 @@ def validate_next_item():
                 back_result = 'failed'
         
         # 4. Update edge with validated actions
-        from shared.src.lib.database.navigation_trees_db import get_edge_by_id, update_edge
+        # Get home node ID from session (either 'home' or 'home_temp')
+        home_node_id = session.get('home_node_id', 'home_temp')
         
-        # Build correct edge_id using the actual node name
-        edge_id = f"edge_home_temp_to_{node_name}_temp"
+        # Build correct edge_id using the actual home node and target node
+        edge_id = f"edge_{home_node_id}_to_{node_name}_temp"
         edge_result = get_edge_by_id(tree_id, edge_id, team_id)
         
         if edge_result['success']:
@@ -685,9 +790,9 @@ def validate_next_item():
                     {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
                 ]
             
-            # Save updated edge
+            # Save updated edge (save_edge handles both create and update)
             edge['action_sets'] = action_sets
-            update_result = update_edge(tree_id, edge_id, edge, team_id)
+            update_result = save_edge(tree_id, edge, team_id)
             edge_updated = update_result.get('success', False)
         else:
             edge_updated = False
@@ -701,13 +806,32 @@ def validate_next_item():
         else:
             session['status'] = 'awaiting_validation'
         
+        # Extract node name without _temp for display
+        node_name_display = node_name.replace('_temp', '')
+        home_node_display = home_node_id  # Already 'home' or 'home_temp'
+        
         return jsonify({
             'success': True,
             'item': current_item,
+            'node_name': node_name_display,
             'click_result': click_result,
             'back_result': back_result,
             'edge_updated': edge_updated,
             'has_more_items': has_more,
+            'action_sets': {
+                'forward': {
+                    'source': home_node_display,
+                    'target': node_name_display,
+                    'action': f'click_element("{current_item}")',
+                    'result': click_result
+                },
+                'reverse': {
+                    'source': node_name_display,
+                    'target': home_node_display,
+                    'action': 'press_key(BACK)',
+                    'result': back_result
+                }
+            },
             'progress': {
                 'current_item': session['current_validation_index'],
                 'total_items': len(items_to_validate)

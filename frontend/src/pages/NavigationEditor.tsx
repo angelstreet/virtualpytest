@@ -25,6 +25,9 @@ import ReactFlow, {
 } from 'reactflow';
 import 'reactflow/dist/style.css';
 
+// Auto-layout utility
+import { getLayoutedElements } from '../components/testcase/ai/autoLayout';
+
 // Import extracted components and hooks
 import { RemotePanel } from '../components/controller/remote/RemotePanel';
 import { DesktopPanel } from '../components/controller/desktop/DesktopPanel';
@@ -34,6 +37,7 @@ import { HDMIStream } from '../components/controller/av/HDMIStream';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
 import { AIGenerationModal } from '../components/navigation/AIGenerationModal';
+import { ValidationReadyPrompt } from '../components/navigation/ValidationReadyPrompt';
 import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
 import { MetricsNotification } from '../components/navigation/MetricsNotification';
 import { MetricsModal } from '../components/navigation/MetricsModal';
@@ -70,6 +74,7 @@ import {
   UINavigationNode as UINavigationNodeType,
 } from '../types/pages/Navigation_Types';
 import { getZIndex } from '../utils/zIndexUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {
@@ -332,6 +337,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // AI Generation modal state
     const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false);
+    
+    // Validation Ready Prompt state
+    const [showValidationPrompt, setShowValidationPrompt] = useState(false);
+    const [validationNodesCount, setValidationNodesCount] = useState(0);
+    const [validationEdgesCount, setValidationEdgesCount] = useState(0);
+    const [applyAutoLayoutFlag, setApplyAutoLayoutFlag] = useState(false);
 
     // Metrics state
     const [showMetricsModal, setShowMetricsModal] = useState(false);
@@ -400,6 +411,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
                 setPreloadedMetrics(result.metrics);
               }
+              
+              // ✅ Apply auto-layout after nodes are loaded
+              // Note: We'll trigger this via a flag instead of calling handleAutoLayout directly
+              // to avoid circular dependency issues
+              setApplyAutoLayoutFlag(true);
+              
             } catch (error) {
               console.error('Failed to refresh tree data after AI generation:', error);
             }
@@ -409,7 +426,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         }
       };
       refreshData();
-    }, [userInterface?.id]);
+    }, [userInterface?.id, loadTreeByUserInterface]);
 
     // Wrap the original click handlers to close goto panel
     const wrappedOnNodeClick = useCallback(
@@ -790,6 +807,36 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       addNewNode('screen', { x: 250, y: 250 });
     }, [addNewNode]);
 
+    // Auto-layout handler - vertical layout (top to bottom)
+    const handleAutoLayout = useCallback(() => {
+      const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
+        nodes as any,
+        edges as any,
+        { direction: 'TB' } // Top to Bottom
+      );
+      setNodes(layoutedNodes as any);
+      setEdges(layoutedEdges as any);
+      setHasUnsavedChanges(true);
+      
+      // Fit view after layout
+      if (navigation.reactFlowInstance) {
+        setTimeout(() => {
+          navigation.reactFlowInstance?.fitView({ padding: 0.2, duration: 300 });
+        }, 100);
+      }
+    }, [nodes, edges, setNodes, setEdges, setHasUnsavedChanges, navigation.reactFlowInstance]);
+
+    // Effect to trigger auto-layout after AI generation
+    useEffect(() => {
+      if (applyAutoLayoutFlag && nodes.length > 0) {
+        console.log('[@NavigationEditor] Triggering auto-layout after AI generation');
+        setTimeout(() => {
+          handleAutoLayout();
+          setApplyAutoLayoutFlag(false); // Reset flag
+        }, 500); // Small delay to ensure nodes are rendered
+      }
+    }, [applyAutoLayoutFlag, nodes.length, handleAutoLayout]);
+
     // Wrap onNodesChange to track position changes as unsaved changes
     const wrappedOnNodesChange = useCallback(
       (changes: any) => {
@@ -958,6 +1005,55 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 >
                   <Background variant={BackgroundVariant.Dots} gap={15} size={1} />
                   <Controls position="top-left" />
+                  
+                  {/* Auto Layout Button - matching TestCaseBuilder positioning */}
+                  <button
+                    onClick={handleAutoLayout}
+                    title="Auto Layout"
+                    style={{
+                      position: 'absolute',
+                      top: '124px',
+                      left: '15px',
+                      width: '26px',
+                      height: '26px',
+                      padding: '0',
+                      background: '#ffffff',
+                      border: `0px solid ${actualMode === 'dark' ? '#334155' : '#e2e8f0'}`,
+                      borderRadius: '0',
+                      cursor: 'pointer',
+                      fontSize: '16px',
+                      color: '#000000',
+                      zIndex: 5,
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      boxShadow: 'rgba(0, 0, 0, 0.1) 0px 0px 0px 1px',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = '#f1f5f9';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = '#ffffff';
+                    }}
+                  >
+                    <svg 
+                      width="16" 
+                      height="16" 
+                      viewBox="0 0 24 24" 
+                      fill="none" 
+                      stroke="currentColor" 
+                      strokeWidth="2"
+                      strokeLinecap="round" 
+                      strokeLinejoin="round"
+                    >
+                      {/* Grid layout icon */}
+                      <rect x="3" y="3" width="7" height="7" />
+                      <rect x="14" y="3" width="7" height="7" />
+                      <rect x="14" y="14" width="7" height="7" />
+                      <rect x="3" y="14" width="7" height="7" />
+                    </svg>
+                  </button>
+                  
                   <MiniMap
                     style={miniMapStyle}
                     nodeColor={miniMapNodeColor}
@@ -1343,6 +1439,54 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedDeviceId={selectedDeviceId}
             userinterfaceName={userInterface?.name}
             onGenerated={handleAIGenerated}
+            onStructureCreated={(nodesCount, edgesCount) => {
+              // Show ValidationReadyPrompt after structure creation
+              setValidationNodesCount(nodesCount);
+              setValidationEdgesCount(edgesCount);
+              setShowValidationPrompt(true);
+            }}
+          />
+        )}
+
+        {/* Validation Ready Prompt - Show after structure creation */}
+        {showValidationPrompt && (
+          <ValidationReadyPrompt
+            nodesCreated={validationNodesCount}
+            edgesCreated={validationEdgesCount}
+            onStartValidation={() => {
+              // TODO: Implement start validation
+              console.log('[@NavigationEditor] Start validation clicked');
+              // This will trigger Phase 2b validation
+              // For now, just close the prompt
+              setShowValidationPrompt(false);
+            }}
+            onCancel={async () => {
+              // Delete all _temp nodes/edges
+              console.log('[@NavigationEditor] Cancel validation - cleaning up _temp nodes');
+              
+              try {
+                const response = await fetch(buildServerUrl('/server/ai-generation/cleanup-temp'), {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    tree_id: actualTreeId
+                  })
+                });
+                
+                if (response.ok) {
+                  const data = await response.json();
+                  console.log('[@NavigationEditor] Cleanup complete:', data);
+                  // Refresh ReactFlow to remove deleted nodes/edges
+                  handleAIGenerated();
+                } else {
+                  console.error('[@NavigationEditor] Cleanup failed');
+                }
+              } catch (error) {
+                console.error('[@NavigationEditor] Cleanup error:', error);
+              }
+              
+              setShowValidationPrompt(false);
+            }}
           />
         )}
 
