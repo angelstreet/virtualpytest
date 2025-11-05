@@ -70,31 +70,31 @@ class ScreenAnalyzer:
         print(f"\n📱 USING UI DUMP ANALYSIS")
         print(f"{'-'*80}")
         
-        # Determine controller type
-        is_web = 'web' in self.device_model_name.lower() or 'playwright' in str(type(self.controller)).lower()
+        # Both mobile and web now use unified dump_elements()
+        print(f"[@screen_analyzer] Using unified dump_elements() method")
         
-        if is_web:
-            # Web controller uses dump_elements() (async, returns dict)
-            print(f"[@screen_analyzer] Using web dump_elements() method")
-            result = self.controller.dump_elements(element_types='interactive', include_hidden=False)
-            
-            if not result or not result.get('success'):
-                error = result.get('error', 'Unknown error') if result else 'No result returned'
-                raise Exception(f"Failed to get UI dump - cannot proceed with web analysis: {error}")
+        # Try calling dump_elements - signature varies by controller type
+        result = self.controller.dump_elements()
+        
+        # Handle different return types
+        if isinstance(result, dict):
+            # Web returns dict: {success: bool, elements: list, ...}
+            if not result.get('success'):
+                error = result.get('error', 'Unknown error')
+                raise Exception(f"Failed to get UI dump - cannot proceed: {error}")
             
             elements = result.get('elements', [])
             if not elements:
-                raise Exception("No elements found in web UI dump")
+                raise Exception("No elements found in UI dump")
             
             # Parse web elements (dict format)
             interactive_elements = self._extract_interactive_elements_web(elements)
         else:
-            # Mobile controller uses dump_elements() (returns tuple)
-            print(f"[@screen_analyzer] Using mobile dump_elements() method")
-            success, elements, error = self.controller.dump_elements()
+            # Mobile returns tuple: (success, elements, error)
+            success, elements, error = result
             
             if not success:
-                raise Exception(f"Failed to get UI dump - cannot proceed with mobile analysis: {error}")
+                raise Exception(f"Failed to get UI dump - cannot proceed: {error}")
             
             # Parse mobile elements (AndroidElement objects)
             interactive_elements = self._extract_interactive_elements_mobile(elements)
