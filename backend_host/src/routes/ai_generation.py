@@ -770,7 +770,7 @@ def validate_next_item():
             click_success = result if isinstance(result, bool) else result.get('success', False)
             click_result = 'success' if click_success else 'failed'
             print(f"    {'✅' if click_success else '❌'} Click {click_result}")
-            time.sleep(2)
+            time.sleep(5)  # Wait for screen to fully load
         except Exception as e:
             print(f"    ❌ Click failed: {e}")
             click_result = 'failed'
