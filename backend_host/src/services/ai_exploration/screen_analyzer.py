@@ -70,14 +70,34 @@ class ScreenAnalyzer:
         print(f"\n📱 USING UI DUMP ANALYSIS")
         print(f"{'-'*80}")
         
-        # Get UI dump from controller (returns tuple: success, elements, error)
-        success, elements, error = self.controller.dump_ui_elements()
+        # Determine controller type
+        is_web = 'web' in self.device_model_name.lower() or 'playwright' in str(type(self.controller)).lower()
         
-        if not success:
-            raise Exception(f"Failed to get UI dump - cannot proceed with mobile/web analysis: {error}")
-        
-        # Parse dump and extract interactive elements
-        interactive_elements = self._extract_interactive_elements(elements)
+        if is_web:
+            # Web controller uses dump_elements() (async, returns dict)
+            print(f"[@screen_analyzer] Using web dump_elements() method")
+            result = self.controller.dump_elements(element_types='interactive', include_hidden=False)
+            
+            if not result or not result.get('success'):
+                error = result.get('error', 'Unknown error') if result else 'No result returned'
+                raise Exception(f"Failed to get UI dump - cannot proceed with web analysis: {error}")
+            
+            elements = result.get('elements', [])
+            if not elements:
+                raise Exception("No elements found in web UI dump")
+            
+            # Parse web elements (dict format)
+            interactive_elements = self._extract_interactive_elements_web(elements)
+        else:
+            # Mobile controller uses dump_elements() (returns tuple)
+            print(f"[@screen_analyzer] Using mobile dump_elements() method")
+            success, elements, error = self.controller.dump_elements()
+            
+            if not success:
+                raise Exception(f"Failed to get UI dump - cannot proceed with mobile analysis: {error}")
+            
+            # Parse mobile elements (AndroidElement objects)
+            interactive_elements = self._extract_interactive_elements_mobile(elements)
         
         if not interactive_elements:
             raise Exception("No interactive elements found in UI dump")
@@ -96,13 +116,13 @@ class ScreenAnalyzer:
             'strategy': 'click_elements'
         }
     
-    def _extract_interactive_elements(self, elements: list) -> list:
+    def _extract_interactive_elements_mobile(self, elements: list) -> list:
         """
-        Parse UI dump elements and extract clickable/interactive elements
+        Parse mobile UI dump elements (AndroidElement objects)
         Filter out non-interactive content (images, text, etc.)
         
         Args:
-            elements: List of AndroidElement objects from dump_ui_elements()
+            elements: List of AndroidElement objects from dump_elements()
         
         Returns:
             List of element names (strings)
@@ -134,6 +154,59 @@ class ScreenAnalyzer:
                     label = resource_id.split('/')[-1]
                 else:
                     label = resource_id
+            
+            # Skip if no useful label
+            if not label:
+                continue
+            
+            # Filter out non-interactive keywords
+            if any(keyword in label.lower() for keyword in ignore_keywords):
+                continue
+            
+            # Add to list (avoid duplicates)
+            if label not in interactive_elements:
+                interactive_elements.append(label)
+        
+        return interactive_elements[:20]  # Limit to top 20 elements
+    
+    def _extract_interactive_elements_web(self, elements: list) -> list:
+        """
+        Parse web UI dump elements (dict objects from Playwright)
+        Filter out non-interactive content
+        
+        Args:
+            elements: List of dict objects from dump_elements()
+                     Each dict has: text, tag, selector, visible, clickable, etc.
+        
+        Returns:
+            List of element names (strings)
+        """
+        interactive_elements = []
+        
+        # Filter out common non-interactive keywords
+        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', 'decoration', 'logo']
+        
+        for elem in elements:
+            # Web elements are already filtered to 'interactive' type
+            # Get the best label
+            label = None
+            
+            # Priority 1: text content
+            if elem.get('text') and elem['text'].strip():
+                label = elem['text'].strip()
+            # Priority 2: aria-label
+            elif elem.get('aria_label') and elem['aria_label'].strip():
+                label = elem['aria_label'].strip()
+            # Priority 3: placeholder
+            elif elem.get('placeholder') and elem['placeholder'].strip():
+                label = elem['placeholder'].strip()
+            # Priority 4: Extract from selector (last part)
+            elif elem.get('selector'):
+                selector = elem['selector']
+                if '#' in selector:
+                    label = selector.split('#')[-1]
+                elif '.' in selector:
+                    label = selector.split('.')[-1]
             
             # Skip if no useful label
             if not label:

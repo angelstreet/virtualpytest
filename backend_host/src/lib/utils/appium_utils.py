@@ -240,7 +240,7 @@ class AppiumUtils:
         """Get platform type for device."""
         return self.device_platforms.get(device_id)
     
-    def dump_ui_elements(self, device_id: str) -> Tuple[bool, List[AppiumElement], str]:
+    def dump_elements(self, device_id: str) -> Tuple[bool, List[AppiumElement], str]:
         """
         Dump UI elements from device using Appium page source.
         
@@ -267,12 +267,12 @@ class AppiumUtils:
             # Parse elements based on platform
             elements = self._parse_ui_elements(page_source, platform or 'unknown')
             
-            print(f"[@lib:appiumUtils:dump_ui_elements] Successfully dumped {len(elements)} UI elements")
+            print(f"[@lib:appiumUtils:dump_elements] Successfully dumped {len(elements)} UI elements")
             return True, elements, ""
             
         except Exception as e:
             error_msg = f"Error dumping UI elements: {e}"
-            print(f"[@lib:appiumUtils:dump_ui_elements] {error_msg}")
+            print(f"[@lib:appiumUtils:dump_elements] {error_msg}")
             return False, [], error_msg
     
     def _parse_ui_elements(self, xml_data: str, platform: str) -> List[AppiumElement]:
@@ -965,7 +965,7 @@ class AppiumUtils:
             print(f"[@lib:appiumUtils:smart_element_search] Searching for '{search_term}' on device {device_id}")
             
             # Get all UI elements
-            success, elements, error = self.dump_ui_elements(device_id)
+            success, elements, error = self.dump_elements(device_id)
             
             if not success:
                 print(f"[@lib:appiumUtils:smart_element_search] Failed to dump UI: {error}")

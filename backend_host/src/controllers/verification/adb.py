@@ -75,7 +75,7 @@ class ADBVerificationController(VerificationControllerInterface):
             print(f"[@controller:ADBVerification:getElementLists] Getting elements for device {self.device_id}")
             
             # Use existing adbUtils to dump UI elements
-            success, elements, error = self.adb_utils.dump_ui_elements(self.device_id)
+            success, elements, error = self.adb_utils.dump_elements(self.device_id)
             
             if not success:
                 print(f"[@controller:ADBVerification:getElementLists] Failed: {error}")
@@ -109,7 +109,7 @@ class ADBVerificationController(VerificationControllerInterface):
                 print(f"[@controller:ADBVerification:getElementListsWithSmartSearch] With smart search for: '{search_term}'")
             
             # Get all UI elements
-            success, elements, error = self.adb_utils.dump_ui_elements(self.device_id)
+            success, elements, error = self.adb_utils.dump_elements(self.device_id)
             
             if not success:
                 print(f"[@controller:ADBVerification:getElementListsWithSmartSearch] Failed: {error}")
@@ -479,7 +479,7 @@ class ADBVerificationController(VerificationControllerInterface):
         try:
             # 1. Dump UI elements using adb_utils (REUSE EXISTING LOGIC)
             print(f"[@controller:ADBVerification:getMenuInfo] Dumping UI elements...")
-            success, elements, error = self.adb_utils.dump_ui_elements(self.device_id)
+            success, elements, error = self.adb_utils.dump_elements(self.device_id)
             
             if not success:
                 print(f"[@controller:ADBVerification:getMenuInfo] FAIL: UI dump failed: {error}")

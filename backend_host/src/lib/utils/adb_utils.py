@@ -399,7 +399,7 @@ class ADBUtils:
         """
         return self.close_app(device_id, package_name)
             
-    def dump_ui_elements(self, device_id: str) -> Tuple[bool, List[AndroidElement], str]:
+    def dump_elements(self, device_id: str) -> Tuple[bool, List[AndroidElement], str]:
         """
         Dump UI elements from Android device (similar to TypeScript version).
         
@@ -417,7 +417,7 @@ class ADBUtils:
             
             if not success or exit_code != 0:
                 error_msg = f"Failed to dump UI: {stderr}"
-                print(f"[@lib:adbUtils:dump_ui_elements] {error_msg}")
+                print(f"[@lib:adbUtils:dump_elements] {error_msg}")
                 return False, [], error_msg
                 
             # Read the dumped file (use SHORT_TIMEOUT as well)
@@ -426,25 +426,25 @@ class ADBUtils:
             
             if not success or exit_code != 0:
                 error_msg = f"Failed to read UI dump: {stderr}"
-                print(f"[@lib:adbUtils:dump_ui_elements] {error_msg}")
+                print(f"[@lib:adbUtils:dump_elements] {error_msg}")
                 return False, [], error_msg
                 
             if not stdout or stdout.strip() == "":
                 error_msg = "No UI data received from device"
-                print(f"[@lib:adbUtils:dump_ui_elements] {error_msg}")
+                print(f"[@lib:adbUtils:dump_elements] {error_msg}")
                 return False, [], error_msg
                 
-            print(f"[@lib:adbUtils:dump_ui_elements] Received XML data, length: {len(stdout)}")
+            print(f"[@lib:adbUtils:dump_elements] Received XML data, length: {len(stdout)}")
             
             # Parse XML to extract elements
             elements = self._parse_ui_elements(stdout)
             
-            print(f"[@lib:adbUtils:dump_ui_elements] Processing complete: {len(elements)} useful elements")
+            print(f"[@lib:adbUtils:dump_elements] Processing complete: {len(elements)} useful elements")
             return True, elements, ""
             
         except Exception as e:
             error_msg = f"Error dumping UI elements: {e}"
-            print(f"[@lib:adbUtils:dump_ui_elements] {error_msg}")
+            print(f"[@lib:adbUtils:dump_elements] {error_msg}")
             return False, [], error_msg
             
     def _parse_ui_elements(self, xml_data: str) -> List[AndroidElement]:
@@ -743,7 +743,7 @@ class ADBUtils:
             print(f"[@lib:adbUtils:smart_element_search] Smart searching for '{search_term}' on device {device_id}")
             
             # Get all UI elements
-            dump_success, elements, dump_error = self.dump_ui_elements(device_id)
+            dump_success, elements, dump_error = self.dump_elements(device_id)
             
             if not dump_success:
                 # Make infrastructure failures more explicit in smart search

@@ -231,7 +231,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error getting apps: {e}")
             return []
             
-    def dump_ui_elements(self) -> Tuple[bool, List[AndroidElement], str]:
+    def dump_elements(self) -> Tuple[bool, List[AndroidElement], str]:
         """
         Dump UI elements from the current screen.
         
@@ -242,7 +242,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         try:
             print(f"Remote[{self.device_type.upper()}]: Dumping UI elements")
             
-            success, elements, error = self.adb_utils.dump_ui_elements(self.android_device_id)
+            success, elements, error = self.adb_utils.dump_elements(self.android_device_id)
             
             if success:
                 self.last_ui_elements = elements
@@ -649,7 +649,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         try:
             # 1. Dump UI elements (already exists)
             print(f"[@controller:RemoteMobile:getMenuInfo] Dumping UI elements...")
-            success, elements, error = self.dump_ui_elements()
+            success, elements, error = self.dump_elements()
             
             if not success:
                 print(f"[@controller:RemoteMobile:getMenuInfo] FAIL: UI dump failed: {error}")
@@ -1055,7 +1055,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 if element_id:
                     # Always perform fresh UI dump for edge actions since UI state may have changed
                     print(f"Remote[{self.device_type.upper()}]: Performing UI dump for edge action")
-                    dump_success, elements, dump_error = self.dump_ui_elements()
+                    dump_success, elements, dump_error = self.dump_elements()
                     
                     if dump_success and elements:
                         element = next((el for el in elements if str(el.id) == str(element_id)), None)
@@ -1069,9 +1069,9 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 else:
                     return False
             
-            elif command == 'dump_ui_elements':
+            elif command == 'dump_elements':
                 # Android Mobile specific
-                success, _, _ = self.dump_ui_elements()
+                success, _, _ = self.dump_elements()
                 return success
             
             elif command == 'get_installed_apps':

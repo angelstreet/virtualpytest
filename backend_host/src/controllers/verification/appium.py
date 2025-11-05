@@ -112,7 +112,7 @@ class AppiumVerificationController(VerificationControllerInterface):
                     return False, [], "Device not connected"
             
             # Use existing appiumUtils to dump UI elements
-            success, elements, error = self.appium_utils.dump_ui_elements(self.appium_device_id)
+            success, elements, error = self.appium_utils.dump_elements(self.appium_device_id)
             
             if not success:
                 print(f"[@controller:AppiumVerification:getElementLists] Failed: {error}")
@@ -161,7 +161,7 @@ class AppiumVerificationController(VerificationControllerInterface):
                     return False, {}, "Device not connected"
             
             # Get all UI elements
-            success, elements, error = self.appium_utils.dump_ui_elements(self.appium_device_id)
+            success, elements, error = self.appium_utils.dump_elements(self.appium_device_id)
             
             if not success:
                 print(f"[@controller:AppiumVerification:getElementListsWithSmartSearch] Failed: {error}")

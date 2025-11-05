@@ -100,8 +100,8 @@ def screenshot_and_dump():
         screenshot_success, screenshot_data, screenshot_error = remote_controller.take_screenshot()
         
         ui_success, elements, ui_error = False, [], None
-        if hasattr(remote_controller, 'dump_ui_elements'):
-            ui_success, elements, ui_error = remote_controller.dump_ui_elements()
+        if hasattr(remote_controller, 'dump_elements'):
+            ui_success, elements, ui_error = remote_controller.dump_elements()
             
             # Store elements in controller for subsequent click operations
             if ui_success and elements:
@@ -109,7 +109,7 @@ def screenshot_and_dump():
                 print(f"[@route:host_remote:screenshot_and_dump] Stored {len(elements)} elements in controller for clicking")
         
         response = {
-            'success': screenshot_success and (ui_success or not hasattr(remote_controller, 'dump_ui_elements')),
+            'success': screenshot_success and (ui_success or not hasattr(remote_controller, 'dump_elements')),
             'device_id': device_id
         }
         
@@ -145,7 +145,7 @@ def screenshot_and_dump():
             error_messages = []
             if not screenshot_success:
                 error_messages.append(f"Screenshot: {screenshot_error}")
-            if not ui_success and hasattr(remote_controller, 'dump_ui_elements'):
+            if not ui_success and hasattr(remote_controller, 'dump_elements'):
                 error_messages.append(f"UI dump: {ui_error}")
             response['error'] = "; ".join(error_messages)
             return jsonify(response), 400
@@ -386,13 +386,13 @@ def dump_ui():
         
         print(f"[@route:host_remote:dump_ui] Using remote controller: {type(remote_controller).__name__}")
         
-        if not hasattr(remote_controller, 'dump_ui_elements'):
+        if not hasattr(remote_controller, 'dump_elements'):
             return jsonify({
                 'success': False,
                 'error': 'UI dump not supported by this remote controller'
             }), 400
         
-        ui_success, elements, ui_error = remote_controller.dump_ui_elements()
+        ui_success, elements, ui_error = remote_controller.dump_elements()
         
         if ui_success:
             # Store elements in controller for subsequent click operations

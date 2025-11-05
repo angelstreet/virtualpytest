@@ -337,7 +337,7 @@ class AppiumRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error getting apps: {e}")
             return []
             
-    def dump_ui_elements(self) -> Tuple[bool, List[AppiumElement], str]:
+    def dump_elements(self) -> Tuple[bool, List[AppiumElement], str]:
         """
         Dump UI elements from the current screen.
         
@@ -351,7 +351,7 @@ class AppiumRemoteController(RemoteControllerInterface):
         try:
             print(f"Remote[{self.device_type.upper()}]: Dumping UI elements")
             
-            success, elements, error = self.appium_utils.dump_ui_elements(self.appium_device_id)
+            success, elements, error = self.appium_utils.dump_elements(self.appium_device_id)
             
             if success:
                 self.last_ui_elements = elements
@@ -840,9 +840,9 @@ class AppiumRemoteController(RemoteControllerInterface):
             else:
                 result = False
         
-        elif command == 'dump_ui_elements':
+        elif command == 'dump_elements':
             # Appium specific
-            success, _, _ = self.dump_ui_elements()
+            success, _, _ = self.dump_elements()
             result = success
         
         elif command == 'get_installed_apps':
