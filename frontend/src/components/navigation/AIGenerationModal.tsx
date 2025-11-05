@@ -268,7 +268,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                           </Typography>
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
-                          {explorationPlan.lines.map((line: string[], idx: number) => (
+                          {explorationPlan.lines?.map((line: string[], idx: number) => (
                             <Typography 
                               key={idx} 
                               variant="body2" 
