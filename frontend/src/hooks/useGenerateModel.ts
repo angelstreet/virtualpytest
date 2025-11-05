@@ -439,7 +439,7 @@ export const useGenerateModel = ({
     try {
       console.log('[@useGenerateModel:cancelExploration] Cancelling exploration:', explorationId);
       
-      // Step 1: Cancel the exploration session
+      // Cancel the exploration session
       await fetch(buildServerUrl('/server/ai-generation/cancel-exploration'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -449,34 +449,14 @@ export const useGenerateModel = ({
         })
       });
 
-      // Step 2: Clean up any _temp nodes/edges that might have been created
-      if (treeId) {
-        console.log('[@useGenerateModel:cancelExploration] Cleaning up _temp nodes');
-        try {
-          const cleanupResponse = await fetch(buildServerUrl('/server/ai-generation/cleanup-temp'), {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              tree_id: treeId,
-              host_name: selectedHost.host_name
-            })
-          });
-          
-          if (cleanupResponse.ok) {
-            const cleanupData = await cleanupResponse.json();
-            console.log('[@useGenerateModel:cancelExploration] Cleanup complete:', cleanupData);
-          }
-        } catch (cleanupErr) {
-          console.warn('[@useGenerateModel:cancelExploration] Cleanup failed:', cleanupErr);
-        }
-      }
-
+      // NOTE: Cleanup of _temp nodes is now handled by the parent component via onCleanupTemp callback
+      
       resetState();
     } catch (err: any) {
       console.error('[@useGenerateModel:cancelExploration] Error:', err);
       setError(err.message || 'Failed to cancel exploration');
     }
-  }, [explorationId, selectedHost, treeId, resetState]);
+  }, [explorationId, selectedHost, resetState]);
 
   const approveGeneration = useCallback(async (nodeIds: string[], edgeIds: string[]) => {
     if (!explorationId || !treeId || !selectedHost) {

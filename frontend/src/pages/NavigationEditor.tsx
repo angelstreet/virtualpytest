@@ -1445,6 +1445,25 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               setValidationEdgesCount(edgesCount);
               setShowValidationPrompt(true);
             }}
+            onCleanupTemp={() => {
+              // Clean up _temp nodes from frontend state
+              const tempNodes = nodes.filter(node => node.id.endsWith('_temp'));
+              const tempEdges = edges.filter(edge => edge.id.includes('_temp'));
+              
+              if (tempNodes.length > 0 || tempEdges.length > 0) {
+                const remainingEdges = edges.filter(edge => !edge.id.includes('_temp'));
+                setEdges(remainingEdges);
+                
+                const remainingNodes = nodes.filter(node => !node.id.endsWith('_temp'));
+                setNodes(remainingNodes);
+                
+                setHasUnsavedChanges(true);
+                console.log(`[@NavigationEditor] Cleaned up ${tempNodes.length} _temp nodes and ${tempEdges.length} _temp edges`);
+                
+                // Refresh to sync with backend
+                handleAIGenerated();
+              }
+            }}
           />
         )}
 
@@ -1461,29 +1480,30 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               setShowValidationPrompt(false);
             }}
             onCancel={async () => {
-              // Delete all _temp nodes/edges
+              // Delete all _temp nodes/edges using frontend state
               console.log('[@NavigationEditor] Cancel validation - cleaning up _temp nodes');
               
-              try {
-                const response = await fetch(buildServerUrl('/server/ai-generation/cleanup-temp'), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    tree_id: actualTreeId,
-                    host_name: selectedHost?.host_name
-                  })
-                });
+              // Find all _temp nodes in current ReactFlow state
+              const tempNodes = nodes.filter(node => node.id.endsWith('_temp'));
+              const tempEdges = edges.filter(edge => edge.id.includes('_temp'));
+              
+              console.log(`[@NavigationEditor] Found ${tempNodes.length} _temp nodes and ${tempEdges.length} _temp edges to delete`);
+              
+              if (tempNodes.length > 0 || tempEdges.length > 0) {
+                // Delete edges first
+                const remainingEdges = edges.filter(edge => !edge.id.includes('_temp'));
+                setEdges(remainingEdges);
                 
-                if (response.ok) {
-                  const data = await response.json();
-                  console.log('[@NavigationEditor] Cleanup complete:', data);
-                  // Refresh ReactFlow to remove deleted nodes/edges
-                  handleAIGenerated();
-                } else {
-                  console.error('[@NavigationEditor] Cleanup failed');
-                }
-              } catch (error) {
-                console.error('[@NavigationEditor] Cleanup error:', error);
+                // Then delete nodes
+                const remainingNodes = nodes.filter(node => !node.id.endsWith('_temp'));
+                setNodes(remainingNodes);
+                
+                setHasUnsavedChanges(true);
+                
+                console.log(`[@NavigationEditor] Deleted ${tempNodes.length} nodes and ${tempEdges.length} edges from frontend state`);
+                
+                // Refresh to sync with backend
+                handleAIGenerated();
               }
               
               setShowValidationPrompt(false);

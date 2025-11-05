@@ -35,7 +35,8 @@ interface AIGenerationModalProps {
   selectedDeviceId: string;
   userinterfaceName?: string;
   onGenerated: () => void; // Refresh ReactFlow after generation
-  onStructureCreated?: (nodesCount: number, edgesCount: number) => void; // NEW: Notify parent of structure creation
+  onStructureCreated?: (nodesCount: number, edgesCount: number) => void; // Notify parent of structure creation
+  onCleanupTemp?: () => void; // Cleanup _temp nodes from frontend state
 }
 
 export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
@@ -46,7 +47,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   selectedDeviceId,
   userinterfaceName,
   onGenerated,
-  onStructureCreated
+  onStructureCreated,
+  onCleanupTemp
 }) => {
   const [explorationDepth, setExplorationDepth] = useState(5);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
@@ -128,8 +130,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     // Call cancelExploration if we have an active exploration session (any phase)
     if (explorationId) {
       await cancelExploration();
-      // Refresh ReactFlow to remove any deleted _temp nodes
-      onGenerated?.();
+      // Clean up _temp nodes from frontend state
+      onCleanupTemp?.();
     }
     onClose();
   };
