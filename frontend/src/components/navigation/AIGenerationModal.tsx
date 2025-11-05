@@ -195,26 +195,20 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         {/* Configuration Section - Only show when not exploring */}
         {!isExploring && !hasResults && !isAwaitingApproval && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
-            <Typography variant="h6" gutterBottom>
-              Exploration Configuration
-            </Typography>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6}>
                 <TextField
-                  label="Exploration Depth"
+                  label="Depth"
                   type="number"
                   value={explorationDepth}
                   onChange={(e) => setExplorationDepth(Number(e.target.value))}
                   inputProps={{ min: 1, max: 10 }}
                   size="small"
                   fullWidth
-                  helperText="How deep to explore (1-10 levels)"
                 />
               </Grid>
               <Grid item xs={12} sm={6}>
                 <Typography variant="body2" color="text.secondary">
-                  Tree: {treeId}
-                  <br />
                   Host: {selectedHost?.host_name}
                   <br />
                   Device: {selectedDeviceId}
@@ -224,10 +218,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </Paper>
         )}
 
-        {/* Approval Section - Show AI plan and approval buttons */}
+        {/* Approval Section - Show AI plan */}
         {isAwaitingApproval && explorationPlan && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
-
             <Grid container spacing={2}>
               {/* Left: Screenshot */}
               <Grid item xs={12} md={5}>
@@ -262,62 +255,53 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
               {/* Right: AI Plan */}
               <Grid item xs={12} md={7}>
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  <Box>
-                    <Typography variant="body2" color="text.secondary">
-                      Items Found: {explorationPlan.items.length}
-                    </Typography>
-                    {explorationPlan.items.length === 0 && (
-                      <Typography variant="body2" color="warning.main">No items detected - AI couldn't read screen</Typography>
-                    )}
-                  </Box>
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {explorationPlan.items.length === 0 ? (
+                    <Typography variant="body2" color="warning.main">No items detected - AI couldn't read screen</Typography>
+                  ) : (
+                    <>
+                      {/* Nodes Found */}
+                      {explorationPlan.lines && explorationPlan.lines.length > 0 && (
+                        <details>
+                          <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
+                            <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                              Nodes found ({explorationPlan.items.length})
+                            </Typography>
+                          </summary>
+                          <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
+                            {explorationPlan.lines.map((line: string[], idx: number) => (
+                              <Typography 
+                                key={idx} 
+                                variant="body2" 
+                                sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}
+                              >
+                                Line {idx + 1}: {line.join(', ')}
+                              </Typography>
+                            ))}
+                          </Box>
+                        </details>
+                      )}
 
-                  {explorationPlan.items.length > 0 && (
-                    <details>
-                      <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
-                        <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                          Transitions to Test ({explorationPlan.items.length})
-                        </Typography>
-                      </summary>
-                      <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
-                        {explorationPlan.items.map((item, idx) => (
-                          <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
-                            home → {item}
+                      {/* Edges Found */}
+                      <details>
+                        <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
+                          <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                            Edges found ({explorationPlan.items.length})
                           </Typography>
-                        ))}
-                      </Box>
-                    </details>
+                        </summary>
+                        <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
+                          {explorationPlan.items.map((item: string, idx: number) => (
+                            <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
+                              home → {item}
+                            </Typography>
+                          ))}
+                        </Box>
+                      </details>
+                    </>
                   )}
                 </Box>
               </Grid>
             </Grid>
-
-            {/* Buttons at bottom */}
-            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', mt: 3 }}>
-              <Button
-                variant="contained"
-                color="success"
-                onClick={continueExploration}
-                startIcon={<NavigationIcon />}
-              >
-                Continue to Phase 2
-              </Button>
-              <Button
-                variant="outlined"
-                color="warning"
-                onClick={handleStart}
-              >
-                Retry
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                onClick={handleCancel}
-                startIcon={<CancelIcon />}
-              >
-                Abort
-              </Button>
-            </Box>
           </Paper>
         )}
 
@@ -485,39 +469,88 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       </DialogContent>
 
       <DialogActions sx={{ p: 2, gap: 1 }}>
-        {/* Cancel/Close Button */}
-        <Button
-          onClick={handleCancel}
-          variant="outlined"
-          startIcon={<CancelIcon />}
-          disabled={isGenerating}
-        >
-          {isExploring ? 'Cancel' : 'Close'}
-        </Button>
+        {/* Phase 1: Awaiting Approval - Show Continue, Retry, Abort */}
+        {isAwaitingApproval && (
+          <>
+            <Button
+              variant="outlined"
+              color="error"
+              onClick={handleCancel}
+              startIcon={<CancelIcon />}
+            >
+              Abort
+            </Button>
+            <Button
+              variant="outlined"
+              color="warning"
+              onClick={handleStart}
+            >
+              Retry
+            </Button>
+            <Button
+              variant="contained"
+              color="success"
+              onClick={continueExploration}
+              startIcon={<NavigationIcon />}
+            >
+              Continue to Phase 2
+            </Button>
+          </>
+        )}
 
-        {/* Start Exploration Button */}
-        {!isExploring && !hasResults && (
+        {/* Initial State: Show Close and Start */}
+        {!isExploring && !hasResults && !isAwaitingApproval && (
+          <>
+            <Button
+              onClick={handleCancel}
+              variant="outlined"
+              startIcon={<CancelIcon />}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handleStart}
+              variant="contained"
+              startIcon={<AIIcon />}
+              disabled={!canStart}
+            >
+              Start
+            </Button>
+          </>
+        )}
+
+        {/* Exploring: Show Cancel */}
+        {isExploring && (
           <Button
-            onClick={handleStart}
-            variant="contained"
-            startIcon={<AIIcon />}
-            disabled={!canStart}
+            onClick={handleCancel}
+            variant="outlined"
+            color="error"
+            startIcon={<CancelIcon />}
           >
-            Start Exploration
+            Cancel
           </Button>
         )}
 
-        {/* Approve Generation Button */}
+        {/* Results: Show Close and Generate */}
         {hasResults && (
-          <Button
-            onClick={handleApprove}
-            variant="contained"
-            color="success"
-            startIcon={isGenerating ? <CircularProgress size={20} /> : <CompleteIcon />}
-            disabled={isGenerating || (selectedNodeIds.length === 0 && selectedEdgeIds.length === 0)}
-          >
-            {isGenerating ? 'Generating...' : `Generate (${selectedNodeIds.length + selectedEdgeIds.length} items)`}
-          </Button>
+          <>
+            <Button
+              onClick={handleCancel}
+              variant="outlined"
+              startIcon={<CancelIcon />}
+            >
+              Close
+            </Button>
+            <Button
+              onClick={handleApprove}
+              variant="contained"
+              color="success"
+              startIcon={isGenerating ? <CircularProgress size={20} /> : <CompleteIcon />}
+              disabled={isGenerating || (selectedNodeIds.length === 0 && selectedEdgeIds.length === 0)}
+            >
+              {isGenerating ? 'Generating...' : `Generate (${selectedNodeIds.length + selectedEdgeIds.length} items)`}
+            </Button>
+          </>
         )}
       </DialogActions>
     </Dialog>

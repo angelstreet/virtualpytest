@@ -26,6 +26,7 @@ interface CurrentAnalysis {
 interface ExplorationPlan {
   menu_type: string;
   items: string[];
+  lines?: string[][];  // NEW: Line structure from AI
   strategy: string;
   predicted_depth: number;
   reasoning: string;
