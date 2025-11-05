@@ -65,39 +65,36 @@ class ScreenAnalyzer:
     def _analyze_from_dump(self, screenshot_path: str) -> Dict:
         """
         Extract interactive elements from UI dump (mobile/web only)
+        Fails fast if dump is not available - no fallback
         """
         print(f"\n📱 USING UI DUMP ANALYSIS")
         print(f"{'-'*80}")
         
-        try:
-            # Get UI dump from controller
-            dump_result = self.controller.dump_ui()
-            
-            if not dump_result or not dump_result.get('success'):
-                print(f"⚠️  Failed to get UI dump, falling back to AI vision")
-                return self._analyze_from_ai_vision(screenshot_path)
-            
-            # Parse dump and extract interactive elements
-            interactive_elements = self._extract_interactive_elements(dump_result)
-            
-            print(f"✅ EXTRACTED FROM DUMP:")
-            print(f"{'-'*80}")
-            print(f"Items ({len(interactive_elements)}):")
-            print(f"Elements: {', '.join(interactive_elements)}")
-            print(f"{'-'*80}\n")
-            
-            return {
-                'menu_type': 'mixed',
-                'items': interactive_elements,
-                'lines': [interactive_elements],  # Single line for mobile/web
-                'predicted_depth': 2,
-                'strategy': 'click_elements'
-            }
-            
-        except Exception as e:
-            print(f"[@screen_analyzer:_analyze_from_dump] Error: {e}")
-            print(f"⚠️  Falling back to AI vision")
-            return self._analyze_from_ai_vision(screenshot_path)
+        # Get UI dump from controller
+        dump_result = self.controller.dump_ui()
+        
+        if not dump_result or not dump_result.get('success'):
+            raise Exception("Failed to get UI dump - cannot proceed with mobile/web analysis")
+        
+        # Parse dump and extract interactive elements
+        interactive_elements = self._extract_interactive_elements(dump_result)
+        
+        if not interactive_elements:
+            raise Exception("No interactive elements found in UI dump")
+        
+        print(f"✅ EXTRACTED FROM DUMP:")
+        print(f"{'-'*80}")
+        print(f"Items ({len(interactive_elements)}):")
+        print(f"Elements: {', '.join(interactive_elements)}")
+        print(f"{'-'*80}\n")
+        
+        return {
+            'menu_type': 'mixed',
+            'items': interactive_elements,
+            'lines': [interactive_elements],  # Single line for mobile/web
+            'predicted_depth': 2,
+            'strategy': 'click_elements'
+        }
     
     def _extract_interactive_elements(self, dump_result: Dict) -> list:
         """
