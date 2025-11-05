@@ -283,20 +283,26 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                       )}
 
                       {/* Edges Found */}
-                      <details>
-                        <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
-                          <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                            Edges found ({explorationPlan.items.length})
-                          </Typography>
-                        </summary>
-                        <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
-                          {explorationPlan.items.map((item: string, idx: number) => (
-                            <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
-                              home → {item}
-                            </Typography>
-                          ))}
-                        </Box>
-                      </details>
+                      {(() => {
+                        // Filter out self-referencing edges (e.g., home → home)
+                        const validEdges = explorationPlan.items.filter((item: string) => item.toLowerCase() !== 'home');
+                        return validEdges.length > 0 ? (
+                          <details>
+                            <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
+                              <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
+                                Edges found ({validEdges.length})
+                              </Typography>
+                            </summary>
+                            <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
+                              {validEdges.map((item: string, idx: number) => (
+                                <Typography key={idx} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
+                                  home → {item}
+                                </Typography>
+                              ))}
+                            </Box>
+                          </details>
+                        ) : null;
+                      })()}
                     </>
                   )}
                 </Box>
