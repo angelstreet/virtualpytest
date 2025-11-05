@@ -53,6 +53,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
 
   const {
+    explorationId,
     isExploring,
     status,
     currentStep,
@@ -124,8 +125,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   };
 
   const handleCancel = async () => {
-    if (isExploring) {
+    // Call cancelExploration if we have an active exploration session (any phase)
+    if (explorationId) {
       await cancelExploration();
+      // Refresh ReactFlow to remove any deleted _temp nodes
+      onGenerated?.();
     }
     onClose();
   };

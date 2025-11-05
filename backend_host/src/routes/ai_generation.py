@@ -68,11 +68,11 @@ def cleanup_temp():
         nodes_deleted = 0
         edges_deleted = 0
         
-        # Delete all edges ending with _temp
+        # Delete all edges with _temp in edge_id (includes both home_temp edges and home-node_to_X_temp edges)
         if edges_result.get('success') and edges_result.get('edges'):
             for edge in edges_result['edges']:
                 edge_id = edge.get('edge_id', '')
-                if edge_id.endswith('_temp'):
+                if '_temp' in edge_id:  # Check if _temp appears anywhere in edge_id
                     delete_result = delete_edge(tree_id, edge_id, team_id)
                     if delete_result.get('success'):
                         edges_deleted += 1

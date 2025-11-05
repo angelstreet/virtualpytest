@@ -1469,7 +1469,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   method: 'POST',
                   headers: { 'Content-Type': 'application/json' },
                   body: JSON.stringify({
-                    tree_id: actualTreeId
+                    tree_id: actualTreeId,
+                    host_name: selectedHost?.host_name
                   })
                 });
                 
