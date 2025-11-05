@@ -29,7 +29,10 @@ class ScreenAnalyzer:
         
     def anticipate_tree(self, screenshot_path: str) -> Dict:
         """
-        Phase 1: AI analyzes first screenshot and identifies all interactive elements
+        Phase 1: Analyze first screenshot and identify all interactive elements
+        
+        For mobile/web: Use UI dump to extract interactive elements
+        For TV/STB: Use AI vision to identify menu items
         
         Args:
             screenshot_path: Path to screenshot image
@@ -38,13 +41,110 @@ class ScreenAnalyzer:
             {
                 'menu_type': 'horizontal',
                 'items': ['home', 'settings', 'profile'],
+                'lines': [['home', 'settings'], ['profile']],
                 'predicted_depth': 2,
                 'strategy': 'click_elements' or 'test_dpad_directions'
             }
         """
-        from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
+        # Determine if device uses click (mobile/web) or DPAD (TV/STB)
+        is_mobile_or_web = self.device_model_name and ('mobile' in self.device_model_name.lower() or 'web' in self.device_model_name.lower())
         
-        # Unified prompt for all device types
+        print(f"\n{'='*80}")
+        print(f"[@screen_analyzer:anticipate_tree] PHASE 1 ANALYSIS")
+        print(f"{'='*80}")
+        print(f"📸 Screenshot Path: {screenshot_path}")
+        print(f"🎮 Device Type: {'MOBILE/WEB (dump-based)' if is_mobile_or_web else 'TV/STB (AI vision-based)'}")
+        
+        if is_mobile_or_web:
+            # Use UI dump for mobile/web
+            return self._analyze_from_dump(screenshot_path)
+        else:
+            # Use AI vision for TV/STB
+            return self._analyze_from_ai_vision(screenshot_path)
+    
+    def _analyze_from_dump(self, screenshot_path: str) -> Dict:
+        """
+        Extract interactive elements from UI dump (mobile/web only)
+        """
+        print(f"\n📱 USING UI DUMP ANALYSIS")
+        print(f"{'-'*80}")
+        
+        try:
+            # Get UI dump from controller
+            dump_result = self.controller.dump_ui()
+            
+            if not dump_result or not dump_result.get('success'):
+                print(f"⚠️  Failed to get UI dump, falling back to AI vision")
+                return self._analyze_from_ai_vision(screenshot_path)
+            
+            # Parse dump and extract interactive elements
+            interactive_elements = self._extract_interactive_elements(dump_result)
+            
+            print(f"✅ EXTRACTED FROM DUMP:")
+            print(f"{'-'*80}")
+            print(f"Items ({len(interactive_elements)}):")
+            print(f"Elements: {', '.join(interactive_elements)}")
+            print(f"{'-'*80}\n")
+            
+            return {
+                'menu_type': 'mixed',
+                'items': interactive_elements,
+                'lines': [interactive_elements],  # Single line for mobile/web
+                'predicted_depth': 2,
+                'strategy': 'click_elements'
+            }
+            
+        except Exception as e:
+            print(f"[@screen_analyzer:_analyze_from_dump] Error: {e}")
+            print(f"⚠️  Falling back to AI vision")
+            return self._analyze_from_ai_vision(screenshot_path)
+    
+    def _extract_interactive_elements(self, dump_result: Dict) -> list:
+        """
+        Parse UI dump and extract clickable/interactive elements
+        Filter out non-interactive content (images, text, etc.)
+        """
+        interactive_elements = []
+        
+        # Extract from dump based on platform
+        # For Android: Look for clickable=true, focusable=true
+        # For Web: Look for buttons, links, inputs
+        
+        dump_data = dump_result.get('dump', '')
+        
+        # Simple extraction - can be enhanced
+        # Look for common interactive attributes
+        import re
+        
+        # Android patterns
+        clickable_pattern = r'text="([^"]+)"[^>]*clickable="true"'
+        button_pattern = r'class="[^"]*Button[^"]*"[^>]*text="([^"]+)"'
+        
+        # Web patterns  
+        link_pattern = r'<a[^>]*>([^<]+)</a>'
+        button_web_pattern = r'<button[^>]*>([^<]+)</button>'
+        
+        for pattern in [clickable_pattern, button_pattern, link_pattern, button_web_pattern]:
+            matches = re.findall(pattern, dump_data, re.IGNORECASE)
+            interactive_elements.extend(matches)
+        
+        # Remove duplicates and empty strings
+        interactive_elements = list(dict.fromkeys([e.strip() for e in interactive_elements if e.strip()]))
+        
+        # Filter out common non-interactive text
+        filtered = []
+        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content']
+        for elem in interactive_elements:
+            if not any(keyword in elem.lower() for keyword in ignore_keywords):
+                filtered.append(elem)
+        
+        return filtered[:20]  # Limit to top 20 elements
+    
+    def _analyze_from_ai_vision(self, screenshot_path: str) -> Dict:
+        """
+        Use AI vision to analyze screenshot (TV/STB only)
+        """
+        # Unified prompt for TV/STB
         prompt = """You are a UI-automation engineer.
 
 From the screenshot of a streaming/TV app (Netflix, YouTube, Android TV, Apple TV, set-top-box, etc.), list every visible item or clickable elements (tabs). Avoid none interactive content: asset, program card, program name, duration or time. Provide the list in the order left to right on same line.
@@ -57,15 +157,9 @@ home, tvguide, replay, movies_and_series, saved, debug
 
 Return ONLY the lines of comma-separated items, nothing else."""
 
-        # Determine device type for post-processing
-        is_mobile_or_web = self.device_model_name and ('mobile' in self.device_model_name.lower() or 'web' in self.device_model_name.lower())
-
-        print(f"\n{'='*80}")
-        print(f"[@screen_analyzer:anticipate_tree] PHASE 1 AI ANALYSIS")
-        print(f"{'='*80}")
-        print(f"📸 Screenshot Path: {screenshot_path}")
-        print(f"🎮 Device Type: {'MOBILE/WEB (click-based)' if is_mobile_or_web else 'TV/STB (DPAD-based)'}")
-        print(f"\n📝 PROMPT SENT TO AI:")
+        print(f"\n📝 AI VISION ANALYSIS")
+        print(f"{'-'*80}")
+        print(f"PROMPT SENT TO AI:")
         print(f"{'-'*80}")
         print(prompt)
         print(f"{'-'*80}\n")
@@ -122,8 +216,8 @@ Return ONLY the lines of comma-separated items, nothing else."""
             else:
                 menu_type = 'unknown'
             
-            # Determine strategy based on device type
-            strategy = 'click_elements' if is_mobile_or_web else 'test_dpad_directions'
+            # Strategy for TV/STB is always DPAD
+            strategy = 'test_dpad_directions'
             
             result = {
                 'menu_type': menu_type,
