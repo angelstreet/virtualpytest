@@ -232,17 +232,27 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               {/* Left: Screenshot */}
               <Grid item xs={12} md={5}>
                 {currentAnalysis.screenshot ? (
-                  <img
-                    src={currentAnalysis.screenshot}
-                    alt="Initial screen"
-                    style={{
-                      width: '100%',
-                      maxHeight: '280px',
-                      objectFit: 'contain',
-                      borderRadius: '4px',
-                      border: '1px solid rgba(255, 255, 255, 0.12)'
-                    }}
-                  />
+                  <a 
+                    href={currentAnalysis.screenshot} 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    style={{ display: 'block', cursor: 'pointer' }}
+                  >
+                    <img
+                      src={currentAnalysis.screenshot}
+                      alt="Initial screen"
+                      style={{
+                        width: '100%',
+                        maxHeight: '280px',
+                        objectFit: 'contain',
+                        borderRadius: '4px',
+                        border: '1px solid rgba(255, 255, 255, 0.12)',
+                        transition: 'opacity 0.2s'
+                      }}
+                      onMouseOver={(e) => e.currentTarget.style.opacity = '0.8'}
+                      onMouseOut={(e) => e.currentTarget.style.opacity = '1'}
+                    />
+                  </a>
                 ) : (
                   <Box sx={{ height: 280, display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px dashed rgba(255,255,255,0.3)', borderRadius: 1 }}>
                     <Typography variant="body2" color="text.secondary">No screenshot</Typography>
