@@ -464,7 +464,9 @@ export const useGenerateModel = ({
         
         // Update status based on whether more items remain
         if (data.has_more_items) {
-          setStatus('awaiting_validation');
+          // ✅ STAY in 'validating' status - don't reset to 'awaiting_validation'
+          // The modal's handleValidateNext() will continue the loop
+          // Status stays 'validating' to keep progress visible
         } else {
           setStatus('validation_complete');
           setIsExploring(false);
