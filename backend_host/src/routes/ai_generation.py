@@ -784,9 +784,9 @@ def validate_next_item():
                 
                 # First BACK attempt
                 controller.press_key('BACK')
-                time.sleep(2)
+                time.sleep(5)  # Wait for transition to complete
                 
-                # 3. Verify we're back on HOME
+                # 3. Verify we're back on HOME (verification has built-in timeout, no extra wait needed)
                 print(f"    🔍 Verifying return to home by checking: {home_indicator}")
                 
                 back_success = False
@@ -810,9 +810,9 @@ def validate_next_item():
                 if not back_success:
                     print(f"    🔄 First BACK didn't reach home, trying second BACK (keyboard/overlay may be open)...")
                     controller.press_key('BACK')
-                    time.sleep(2)
+                    time.sleep(5)  # Wait for transition to complete
                     
-                    # Verify again
+                    # Verify again (verification has built-in timeout, no extra wait needed)
                     if adb_verifier:
                         success, message, details = adb_verifier.waitForElementToAppear(
                             search_term=home_indicator,
