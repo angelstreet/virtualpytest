@@ -133,8 +133,8 @@ class ScreenAnalyzer:
         ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration']
         
         for elem in elements:
-            # Only consider clickable or enabled elements
-            if not (elem.clickable or elem.enabled):
+            # ✅ STRICT: Only consider elements that are actually clickable
+            if not elem.clickable:
                 continue
             
             # Get the best label for this element

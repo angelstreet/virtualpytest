@@ -497,7 +497,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               onClick={continueExploration}
               startIcon={<NavigationIcon />}
             >
-              Continue to Phase 2
+              Continue
             </Button>
           </>
         )}
