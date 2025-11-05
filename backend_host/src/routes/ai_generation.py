@@ -313,11 +313,17 @@ def exploration_status(exploration_id):
 @ai_generation_bp.route('/continue-exploration', methods=['POST'])
 def continue_exploration():
     """
-    Continue to Phase 2: Execute the approved exploration plan
+    Phase 2a: CREATE all nodes and edges structure (instant)
+    
+    This creates:
+    - Root node: home_temp
+    - Child nodes: en_temp, search_temp, etc. (all with _temp suffix)
+    - Edges: home_temp → en_temp, etc. (with EMPTY action_sets for now)
     
     Body:
     {
-        'exploration_id': 'abc123'
+        'exploration_id': 'abc123',
+        'host_name': 'sunri-pi1'
     }
     
     Query params (auto-added):
@@ -326,7 +332,9 @@ def continue_exploration():
     Response:
     {
         'success': True,
-        'message': 'Phase 2 started'
+        'nodes_created': 11,
+        'edges_created': 10,
+        'message': 'Structure created, ready to validate'
     }
     """
     try:
@@ -351,19 +359,94 @@ def continue_exploration():
                 'error': f"Cannot continue: status is {session['status']}, expected 'awaiting_approval'"
             }), 400
         
-        print(f"[@route:ai_generation:continue_exploration] Starting Phase 2 for {exploration_id}")
+        print(f"[@route:ai_generation:continue_exploration] Creating structure for {exploration_id}")
         
-        # Initialize exploration iterator
-        session['current_item_index'] = 0
-        session['current_depth'] = 0
-        session['items_to_explore'] = session['exploration_plan']['items']
-        session['status'] = 'awaiting_item_approval'
+        # Get necessary data from session
+        tree_id = session['tree_id']
+        items = session['exploration_plan']['items']
+        engine = session.get('engine')
+        
+        if not engine:
+            return jsonify({'success': False, 'error': 'Engine not found'}), 500
+        
+        # Create root node: home_temp
+        from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
+        from shared.src.lib.database.navigation_trees_db import save_node, save_edge
+        
+        node_gen = NodeGenerator(tree_id, team_id)
+        
+        # 1. Create home_temp node
+        home_node = node_gen.create_node_data(
+            node_name='home_temp',
+            position={'x': 250, 'y': 100},
+            ai_analysis={
+                'suggested_name': 'home',
+                'screen_type': 'screen',
+                'reasoning': 'Root node - initial screen'
+            },
+            node_type='screen'
+        )
+        
+        home_result = save_node(tree_id, home_node, team_id)
+        if not home_result['success']:
+            return jsonify({'success': False, 'error': f"Failed to create home node: {home_result.get('error')}"}), 500
+        
+        nodes_created = ['home_temp']
+        edges_created = []
+        
+        # 2. Create all child nodes
+        for idx, item in enumerate(items):
+            # Skip if it's 'home' (already created as root)
+            if item.lower() == 'home':
+                continue
+            
+            node_name = f"{item}_temp"
+            position_x = 250 + (idx % 5) * 200
+            position_y = 300 + (idx // 5) * 150
+            
+            node_data = node_gen.create_node_data(
+                node_name=node_name,
+                position={'x': position_x, 'y': position_y},
+                ai_analysis={
+                    'suggested_name': item,
+                    'screen_type': 'screen',
+                    'reasoning': f'Detected from UI: {item}'
+                },
+                node_type='screen'
+            )
+            
+            node_result = save_node(tree_id, node_data, team_id)
+            if node_result['success']:
+                nodes_created.append(node_name)
+            
+            # 3. Create edge with EMPTY actions (to be filled during validation)
+            edge_data = node_gen.create_edge_data(
+                source='home_temp',
+                target=node_name,
+                actions=[],  # Empty - will be filled during validation
+                reverse_actions=[],  # Empty - will be filled during validation
+                label=''
+            )
+            
+            edge_result = save_edge(tree_id, edge_data, team_id)
+            if edge_result['success']:
+                edges_created.append(edge_data['edge_id'])
+        
+        # Update session
+        session['status'] = 'structure_created'
+        session['nodes_created'] = nodes_created
+        session['edges_created'] = edges_created
+        session['current_step'] = f'Created {len(nodes_created)} nodes and {len(edges_created)} edges. Ready to validate.'
+        session['items_to_validate'] = items
+        session['current_validation_index'] = 0
         
         return jsonify({
             'success': True,
-            'message': 'Ready to start incremental exploration',
-            'next_item': session['items_to_explore'][0] if session['items_to_explore'] else None,
-            'total_items': len(session['items_to_explore'])
+            'nodes_created': len(nodes_created),
+            'edges_created': len(edges_created),
+            'message': 'Structure created successfully',
+            'node_ids': nodes_created,
+            'edge_ids': edges_created
         })
         
     except Exception as e:
@@ -373,14 +456,78 @@ def continue_exploration():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
-@ai_generation_bp.route('/explore-next-item', methods=['POST'])
-def explore_next_item():
+@ai_generation_bp.route('/start-validation', methods=['POST'])
+def start_validation():
     """
-    Execute exploration for the next item (incremental, per-item approval)
+    Phase 2b: Start validation process
+    Sets status to ready for validation
     
     Body:
     {
-        'exploration_id': 'abc123'
+        'exploration_id': 'abc123',
+        'host_name': 'sunri-pi1'
+    }
+    
+    Response:
+    {
+        'success': True,
+        'message': 'Ready to validate',
+        'total_items': 10
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        exploration_id = data.get('exploration_id')
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        
+        if not exploration_id:
+            return jsonify({'success': False, 'error': 'exploration_id required'}), 400
+        
+        if exploration_id not in _exploration_sessions:
+            return jsonify({'success': False, 'error': 'Exploration session not found'}), 404
+        
+        session = _exploration_sessions[exploration_id]
+        
+        if session['status'] != 'structure_created':
+            return jsonify({
+                'success': False,
+                'error': f"Cannot start validation: status is {session['status']}, expected 'structure_created'"
+            }), 400
+        
+        session['status'] = 'awaiting_validation'
+        session['current_validation_index'] = 0
+        
+        return jsonify({
+            'success': True,
+            'message': 'Ready to start validation',
+            'total_items': len(session['items_to_validate'])
+        })
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:start_validation] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@ai_generation_bp.route('/validate-next-item', methods=['POST'])
+def validate_next_item():
+    """
+    Phase 2b: Validate ONE edge by testing click → back
+    
+    This will:
+    1. Click the element
+    2. Press BACK
+    3. Verify we're back on home screen
+    4. UPDATE the edge's action_sets with the tested actions
+    
+    Body:
+    {
+        'exploration_id': 'abc123',
+        'host_name': 'sunri-pi1'
     }
     
     Query params (auto-added):
@@ -389,12 +536,14 @@ def explore_next_item():
     Response:
     {
         'success': True,
-        'node_created': {...},
-        'edge_created': {...},
+        'item': 'En',
+        'click_result': 'success' | 'failed',
+        'back_result': 'success' | 'failed',
+        'edge_updated': True,
         'has_more_items': True/False,
         'progress': {
             'current_item': 2,
-            'total_items': 16
+            'total_items': 10
         }
     }
     """
@@ -414,72 +563,139 @@ def explore_next_item():
         
         session = _exploration_sessions[exploration_id]
         
-        if session['status'] != 'awaiting_item_approval':
+        if session['status'] not in ['awaiting_validation', 'validating']:
             return jsonify({
                 'success': False,
-                'error': f"Cannot explore: status is {session['status']}, expected 'awaiting_item_approval'"
+                'error': f"Cannot validate: status is {session['status']}, expected 'awaiting_validation'"
             }), 400
         
-        # Get current item to explore
-        current_index = session.get('current_item_index', 0)
-        items_to_explore = session.get('items_to_explore', [])
+        # Get current item to validate
+        current_index = session.get('current_validation_index', 0)
+        items_to_validate = session.get('items_to_validate', [])
         
-        if current_index >= len(items_to_explore):
-            # No more items - exploration complete
-            session['status'] = 'completed'
+        if current_index >= len(items_to_validate):
+            # All items validated
+            session['status'] = 'validation_complete'
             return jsonify({
                 'success': True,
-                'message': 'All items explored',
+                'message': 'All items validated',
                 'has_more_items': False
             })
         
-        current_item = items_to_explore[current_index]
-        print(f"[@route:ai_generation:explore_next_item] Exploring item {current_index + 1}/{len(items_to_explore)}: {current_item}")
+        current_item = items_to_validate[current_index]
         
-        # Get engine from session
+        # Skip 'home' if it appears in the list
+        if current_item.lower() == 'home':
+            session['current_validation_index'] = current_index + 1
+            return validate_next_item()  # Recursive call for next item
+        
+        print(f"[@route:ai_generation:validate_next_item] Validating item {current_index + 1}/{len(items_to_validate)}: {current_item}")
+        
+        session['status'] = 'validating'
+        session['current_step'] = f"Validating {current_index + 1}/{len(items_to_validate)}: {current_item}"
+        
+        # Get controller from engine
         engine = session.get('engine')
         if not engine:
             return jsonify({'success': False, 'error': 'Engine not found'}), 500
         
-        # Execute exploration for this ONE item
-        session['status'] = 'exploring_item'
-        session['current_step'] = f"Exploring item {current_index + 1}/{len(items_to_explore)}: {current_item}"
+        controller = engine.controller
+        tree_id = session['tree_id']
         
-        # Execute single item exploration
-        result = engine.explore_single_item(current_item, session.get('current_depth', 0))
+        # Perform validation: click → back → verify
+        import time
+        click_result = 'failed'
+        back_result = 'failed'
         
-        if result['success']:
-            # Increment index for next item
-            session['current_item_index'] = current_index + 1
-            session['status'] = 'awaiting_item_approval'
+        # 1. Click element
+        try:
+            result = controller.click_element(text=current_item)
+            click_success = result if isinstance(result, bool) else result.get('success', False)
+            click_result = 'success' if click_success else 'failed'
+            print(f"    {'✅' if click_success else '❌'} Click {click_result}")
+            time.sleep(2)
+        except Exception as e:
+            print(f"    ❌ Click failed: {e}")
+            click_result = 'failed'
+        
+        # 2. Press BACK
+        if click_result == 'success':
+            try:
+                controller.press_key('BACK')
+                time.sleep(2)
+                
+                # 3. Verify we're back (try to find the element again)
+                is_back = controller.wait_for_element_by_text(
+                    text=current_item,
+                    timeout=5
+                )
+                back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
+                back_result = 'success' if back_success else 'failed'
+                print(f"    {'✅' if back_success else '❌'} Back {back_result}")
+            except Exception as e:
+                print(f"    ⚠️ Back failed: {e}")
+                back_result = 'failed'
+        
+        # 4. Update edge with validated actions
+        from shared.src.lib.database.navigation_trees_db import get_edge_by_id, update_edge
+        
+        edge_id = f"edge_home_temp_to_{current_item}_temp_temp"
+        edge_result = get_edge_by_id(tree_id, edge_id, team_id)
+        
+        if edge_result['success']:
+            edge = edge_result['edge']
+            action_sets = edge.get('action_sets', [])
             
-            # Check if more items
-            has_more = session['current_item_index'] < len(items_to_explore)
+            # Update forward action_set
+            if len(action_sets) >= 1 and click_result == 'success':
+                action_sets[0]['actions'] = [
+                    {'command': 'click_element', 'params': {'text': current_item}, 'delay': 2000}
+                ]
             
-            return jsonify({
-                'success': True,
-                'node_created': result.get('node'),
-                'edge_created': result.get('edge'),
-                'has_more_items': has_more,
-                'progress': {
-                    'current_item': session['current_item_index'],
-                    'total_items': len(items_to_explore)
-                },
-                'next_item': items_to_explore[session['current_item_index']] if has_more else None
-            })
+            # Update reverse action_set
+            if len(action_sets) >= 2 and back_result == 'success':
+                action_sets[1]['actions'] = [
+                    {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
+                ]
+            
+            # Save updated edge
+            edge['action_sets'] = action_sets
+            update_result = update_edge(tree_id, edge_id, edge, team_id)
+            edge_updated = update_result.get('success', False)
         else:
-            session['status'] = 'awaiting_item_approval'
-            return jsonify({
-                'success': False,
-                'error': result.get('error', 'Item exploration failed'),
-                'has_more_items': True
-            })
+            edge_updated = False
+        
+        # Move to next item
+        session['current_validation_index'] = current_index + 1
+        has_more = session['current_validation_index'] < len(items_to_validate)
+        
+        if not has_more:
+            session['status'] = 'validation_complete'
+        else:
+            session['status'] = 'awaiting_validation'
+        
+        return jsonify({
+            'success': True,
+            'item': current_item,
+            'click_result': click_result,
+            'back_result': back_result,
+            'edge_updated': edge_updated,
+            'has_more_items': has_more,
+            'progress': {
+                'current_item': session['current_validation_index'],
+                'total_items': len(items_to_validate)
+            }
+        })
         
     except Exception as e:
-        print(f"[@route:ai_generation:explore_next_item] Error: {e}")
+        print(f"[@route:ai_generation:validate_next_item] Error: {e}")
         import traceback
         traceback.print_exc()
         
+        if exploration_id in _exploration_sessions:
+            _exploration_sessions[exploration_id]['status'] = 'awaiting_validation'
+        
+        return jsonify({'success': False, 'error': str(e)}), 500
         if exploration_id in _exploration_sessions:
             _exploration_sessions[exploration_id]['status'] = 'awaiting_item_approval'
         

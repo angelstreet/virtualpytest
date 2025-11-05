@@ -62,14 +62,21 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     proposedEdges,
     error,
     isGenerating,
+    validationProgress,
     startExploration,
     continueExploration,
+    startValidation,
+    validateNextItem,
     cancelExploration,
     approveGeneration,
     resetState,
     canStart,
     hasResults,
-    isAwaitingApproval
+    isAwaitingApproval,
+    isStructureCreated,
+    isAwaitingValidation,
+    isValidating,
+    isValidationComplete
   } = useGenerateModel({
     treeId,
     selectedHost,
@@ -105,6 +112,24 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       await cancelExploration();
     }
     onClose();
+  };
+  
+  const handleCreateStructure = async () => {
+    await continueExploration(); // Phase 2a: Create nodes/edges
+  };
+  
+  const handleStartValidation = async () => {
+    await startValidation(); // Phase 2b: Initialize validation
+    // Auto-start validating first item
+    await handleValidateNext();
+  };
+  
+  const handleValidateNext = async () => {
+    const result = await validateNextItem();
+    if (result && result.has_more_items) {
+      // Auto-continue if more items (small modal in corner)
+      setTimeout(() => handleValidateNext(), 500); // Small delay between validations
+    }
   };
 
   const handleApprove = async () => {
@@ -167,10 +192,22 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     <Dialog
       open={isOpen}
       onClose={onClose}
-      maxWidth="md"
+      maxWidth={(isValidating || isAwaitingValidation) ? "sm" : "md"}
       fullWidth
       PaperProps={{
-        sx: { maxHeight: '90vh' }
+        sx: { 
+          maxHeight: '90vh',
+          ...(isValidating || isAwaitingValidation ? {
+            position: 'fixed',
+            top: 20,
+            right: 20,
+            margin: 0,
+            maxWidth: '400px',
+            boxShadow: 'none',
+            border: '1px solid',
+            borderColor: 'divider'
+          } : {})
+        }
       }}
     >
       <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -395,6 +432,47 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                 </Paper>
               </Box>
             )}
+            
+            {/* Validation Progress - Show during Phase 2b */}
+            {(isStructureCreated || isAwaitingValidation || isValidating || isValidationComplete) && (
+              <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
+                <Typography variant="h6" sx={{ mb: 2 }}>
+                  {isStructureCreated && '✅ Structure Created'}
+                  {isAwaitingValidation && '⏳ Validation Starting...'}
+                  {isValidating && `🔄 Validating ${validationProgress.current}/${validationProgress.total}`}
+                  {isValidationComplete && '✅ Validation Complete'}
+                </Typography>
+                
+                {isStructureCreated && (
+                  <Typography variant="body2" color="text.secondary">
+                    All nodes and edges have been created with _temp suffix.
+                    Click "Start Validation" to test each edge.
+                  </Typography>
+                )}
+                
+                {(isAwaitingValidation || isValidating) && (
+                  <>
+                    <LinearProgress 
+                      variant="determinate" 
+                      value={(validationProgress.current / validationProgress.total) * 100} 
+                      sx={{ mb: 2 }}
+                    />
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                      {currentStep}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      Testing: Click element → Press BACK → Verify return
+                    </Typography>
+                  </>
+                )}
+                
+                {isValidationComplete && (
+                  <Typography variant="body2" color="text.secondary">
+                    All edges have been validated. Click "Finalize" to remove _temp suffix and make permanent.
+                  </Typography>
+                )}
+              </Paper>
+            )}
 
             {/* Proposed Changes - Only show when exploration is complete */}
             {hasResults && (
@@ -478,7 +556,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       </DialogContent>
 
       <DialogActions sx={{ p: 2, gap: 1 }}>
-        {/* Phase 1: Awaiting Approval - Show Continue, Retry, Abort */}
+        {/* Phase 1: Awaiting Approval - Show Abort, Retry, Create Nodes */}
         {isAwaitingApproval && (
           <>
             <Button
@@ -499,16 +577,75 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             <Button
               variant="contained"
               color="success"
-              onClick={continueExploration}
+              onClick={handleCreateStructure}
               startIcon={<NavigationIcon />}
             >
-              Continue
+              Create Nodes
+            </Button>
+          </>
+        )}
+        
+        {/* Phase 2a: Structure Created - Show Start Validation */}
+        {isStructureCreated && (
+          <>
+            <Button
+              onClick={handleCancel}
+              variant="outlined"
+              startIcon={<CancelIcon />}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={handleStartValidation}
+              variant="contained"
+              color="primary"
+              startIcon={<CompleteIcon />}
+            >
+              Start Validation
+            </Button>
+          </>
+        )}
+        
+        {/* Phase 2b: Validating - Show progress (auto-running) */}
+        {(isAwaitingValidation || isValidating) && (
+          <Button
+            onClick={handleCancel}
+            variant="outlined"
+            color="error"
+            startIcon={<CancelIcon />}
+            disabled={isValidating}
+          >
+            {isValidating ? 'Validating...' : 'Cancel'}
+          </Button>
+        )}
+        
+        {/* Phase 2b: Validation Complete - Show Finalize */}
+        {isValidationComplete && (
+          <>
+            <Button
+              onClick={handleCancel}
+              variant="outlined"
+              startIcon={<CancelIcon />}
+            >
+              Cancel
+            </Button>
+            <Button
+              onClick={() => {
+                // TODO: Call finalize endpoint to rename _temp nodes/edges
+                onGenerated();
+                onClose();
+              }}
+              variant="contained"
+              color="success"
+              startIcon={<CompleteIcon />}
+            >
+              Finalize
             </Button>
           </>
         )}
 
         {/* Initial State: Show Close and Start */}
-        {!isExploring && !hasResults && !isAwaitingApproval && (
+        {!isExploring && !hasResults && !isAwaitingApproval && !isStructureCreated && !isAwaitingValidation && !isValidating && !isValidationComplete && (
           <>
             <Button
               onClick={handleCancel}
@@ -528,8 +665,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </>
         )}
 
-        {/* Exploring: Show Cancel */}
-        {isExploring && (
+        {/* Exploring (Phase 1): Show Cancel */}
+        {isExploring && !isValidating && (
           <Button
             onClick={handleCancel}
             variant="outlined"
@@ -540,8 +677,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </Button>
         )}
 
-        {/* Results: Show Close and Generate */}
-        {hasResults && (
+        {/* OLD Results flow (keeping for now) */}
+        {hasResults && !isValidationComplete && (
           <>
             <Button
               onClick={handleCancel}

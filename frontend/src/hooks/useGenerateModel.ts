@@ -63,8 +63,8 @@ export const useGenerateModel = ({
   const [explorationId, setExplorationId] = useState<string | null>(null);
   const [explorationHostName, setExplorationHostName] = useState<string | null>(null);
   const [isExploring, setIsExploring] = useState(false);
-  const [status, setStatus] = useState<'idle' | 'exploring' | 'awaiting_approval' | 'completed' | 'failed'>('idle');
-  const [phase, setPhase] = useState<'analysis' | 'exploration' | null>(null);
+  const [status, setStatus] = useState<'idle' | 'exploring' | 'awaiting_approval' | 'structure_created' | 'awaiting_validation' | 'validating' | 'validation_complete' | 'completed' | 'failed'>('idle');
+  const [phase, setPhase] = useState<'analysis' | 'structure' | 'validation' | null>(null);
   const [currentStep, setCurrentStep] = useState('');
   const [progress, setProgress] = useState<Progress>({
     total_screens_found: 0,
@@ -75,13 +75,15 @@ export const useGenerateModel = ({
   const [currentAnalysis, setCurrentAnalysis] = useState<CurrentAnalysis>({
     screen_name: '',
     elements_found: [],
-    reasoning: ''
+    reasoning: '',
+    screenshot: undefined
   });
   const [explorationPlan, setExplorationPlan] = useState<ExplorationPlan | null>(null);
   const [proposedNodes, setProposedNodes] = useState<ProposedNode[]>([]);
   const [proposedEdges, setProposedEdges] = useState<ProposedEdge[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [isGenerating, setIsGenerating] = useState(false);
+  const [validationProgress, setValidationProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
 
   // Clear state when dependencies change
   useEffect(() => {
@@ -117,13 +119,15 @@ export const useGenerateModel = ({
     setCurrentAnalysis({
       screen_name: '',
       elements_found: [],
-      reasoning: ''
+      reasoning: '',
+      screenshot: undefined
     });
     setExplorationPlan(null);
     setProposedNodes([]);
     setProposedEdges([]);
     setError(null);
     setIsGenerating(false);
+    setValidationProgress({current: 0, total: 0});
   }, []);
 
   const fetchExplorationStatus = useCallback(async () => {
@@ -240,10 +244,10 @@ export const useGenerateModel = ({
       setError(null);
       setIsExploring(true);
       setStatus('exploring');
-      setPhase('exploration');
-      setCurrentStep('Starting Phase 2: Exploring navigation tree...');
+      setPhase('structure');
+      setCurrentStep('Creating navigation structure...');
       
-      console.log('[@useGenerateModel:continueExploration] Continuing to Phase 2:', explorationId);
+      console.log('[@useGenerateModel:continueExploration] Creating structure (Phase 2a):', explorationId);
 
       const response = await fetch(buildServerUrl('/server/ai-generation/continue-exploration'), {
         method: 'POST',
@@ -261,34 +265,38 @@ export const useGenerateModel = ({
       const data = await response.json();
 
       if (data.success) {
-        // Initialize incremental exploration
-        setStatus('awaiting_item_approval');
-        setCurrentStep(`Ready to explore items (${data.total_items} total)`);
-        console.log('[@useGenerateModel:continueExploration] Phase 2 initialized:', data);
+        // Structure created - update status
+        setStatus('structure_created');
+        setPhase('structure');
+        setCurrentStep(`Created ${data.nodes_created} nodes and ${data.edges_created} edges. Ready to validate.`);
+        setIsExploring(false);
+        console.log('[@useGenerateModel:continueExploration] Structure created:', data);
       } else {
-        throw new Error(data.error || 'Failed to continue exploration');
+        throw new Error(data.error || 'Failed to create structure');
       }
     } catch (err: any) {
       console.error('[@useGenerateModel:continueExploration] Error:', err);
-      setError(err.message || 'Failed to continue exploration');
+      setError(err.message || 'Failed to create structure');
       setIsExploring(false);
       setStatus('failed');
     }
   }, [explorationId, explorationHostName]);
   
-  const exploreNextItem = useCallback(async () => {
+  const startValidation = useCallback(async () => {
     if (!explorationId || !explorationHostName) {
       setError('No exploration session found');
-      return null;
+      return;
     }
 
     try {
       setError(null);
-      setStatus('exploring_item');
+      setStatus('awaiting_validation');
+      setPhase('validation');
+      setCurrentStep('Starting validation...');
       
-      console.log('[@useGenerateModel:exploreNextItem] Exploring next item');
+      console.log('[@useGenerateModel:startValidation] Starting validation (Phase 2b)');
 
-      const response = await fetch(buildServerUrl('/server/ai-generation/explore-next-item'), {
+      const response = await fetch(buildServerUrl('/server/ai-generation/start-validation'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -304,26 +312,74 @@ export const useGenerateModel = ({
       const data = await response.json();
 
       if (data.success) {
-        console.log('[@useGenerateModel:exploreNextItem] Item explored:', data);
+        setValidationProgress({current: 0, total: data.total_items});
+        console.log('[@useGenerateModel:startValidation] Validation ready:', data);
+      } else {
+        throw new Error(data.error || 'Failed to start validation');
+      }
+    } catch (err: any) {
+      console.error('[@useGenerateModel:startValidation] Error:', err);
+      setError(err.message || 'Failed to start validation');
+      setStatus('failed');
+    }
+  }, [explorationId, explorationHostName]);
+  
+  const validateNextItem = useCallback(async () => {
+    if (!explorationId || !explorationHostName) {
+      setError('No exploration session found');
+      return null;
+    }
+
+    try {
+      setError(null);
+      setStatus('validating');
+      
+      console.log('[@useGenerateModel:validateNextItem] Validating next item');
+
+      const response = await fetch(buildServerUrl('/server/ai-generation/validate-next-item'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          exploration_id: explorationId,
+          host_name: explorationHostName
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        console.log('[@useGenerateModel:validateNextItem] Item validated:', data);
+        
+        // Update validation progress
+        if (data.progress) {
+          setValidationProgress({
+            current: data.progress.current_item,
+            total: data.progress.total_items
+          });
+          setCurrentStep(`Validated ${data.item}: Click ${data.click_result === 'success' ? '✅' : '❌'} Back ${data.back_result === 'success' ? '✅' : '❌'}`);
+        }
         
         // Update status based on whether more items remain
         if (data.has_more_items) {
-          setStatus('awaiting_item_approval');
-          setCurrentStep(`Explored item ${data.progress.current_item}/${data.progress.total_items}`);
+          setStatus('awaiting_validation');
         } else {
-          setStatus('completed');
+          setStatus('validation_complete');
           setIsExploring(false);
-          setCurrentStep('All items explored - ready for final approval');
+          setCurrentStep('All edges validated - ready to finalize');
         }
         
-        return data; // Return node/edge data for ReactFlow update
+        return data; // Return validation results
       } else {
-        throw new Error(data.error || 'Failed to explore item');
+        throw new Error(data.error || 'Failed to validate item');
       }
     } catch (err: any) {
-      console.error('[@useGenerateModel:exploreNextItem] Error:', err);
-      setError(err.message || 'Failed to explore item');
-      setStatus('awaiting_item_approval'); // Allow retry
+      console.error('[@useGenerateModel:validateNextItem] Error:', err);
+      setError(err.message || 'Failed to validate item');
+      setStatus('awaiting_validation'); // Allow retry
       return null;
     }
   }, [explorationId, explorationHostName]);
@@ -420,11 +476,13 @@ export const useGenerateModel = ({
     proposedEdges,
     error,
     isGenerating,
+    validationProgress,
     
     // Actions
     startExploration,
     continueExploration,
-    exploreNextItem,
+    startValidation,
+    validateNextItem,
     cancelExploration,
     approveGeneration,
     resetState,
@@ -433,6 +491,9 @@ export const useGenerateModel = ({
     canStart: !isExploring && !isGenerating && isControlActive && treeId && selectedHost && selectedDeviceId,
     hasResults: status === 'completed' && (proposedNodes.length > 0 || proposedEdges.length > 0),
     isAwaitingApproval: status === 'awaiting_approval',
-    isAwaitingItemApproval: status === 'awaiting_item_approval'
+    isStructureCreated: status === 'structure_created',
+    isAwaitingValidation: status === 'awaiting_validation',
+    isValidating: status === 'validating',
+    isValidationComplete: status === 'validation_complete'
   };
 };
