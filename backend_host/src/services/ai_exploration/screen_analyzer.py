@@ -133,8 +133,14 @@ class ScreenAnalyzer:
         # Filter out common non-interactive text
         ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration']
         
-        # Dynamic content indicators
-        dynamic_indicators = ['available for replay', 'watch now', 'continue watching', ':', '-', 'am', 'pm']
+        # Dynamic content indicators (program titles, prices, descriptions)
+        dynamic_indicators = [
+            'available for replay', 'watch now', 'continue watching',
+            'chf', 'usd', 'eur', 'gbp', '$', '€', '£',  # Price indicators
+            ' from ', ' to ',  # Time/price ranges
+            'season ', 'episode ', 's0', 'e0',  # TV series
+            ','  # Titles often have commas (e.g., "Show Name, Description")
+        ]
         
         for elem in elements:
             # ✅ STRICT: Only consider elements that are actually clickable
@@ -188,7 +194,7 @@ class ScreenAnalyzer:
     def _extract_interactive_elements_web(self, elements: list) -> list:
         """
         Parse web UI dump elements (dict objects from Playwright)
-        Filter out non-interactive content
+        Extract both static navigation + dynamic content
         
         Args:
             elements: List of dict objects from dump_elements()
@@ -198,14 +204,25 @@ class ScreenAnalyzer:
             List of element names (strings)
         """
         interactive_elements = []
+        dynamic_counter = 1
         
         # Filter out common non-interactive keywords
         ignore_keywords = ['image', 'icon', 'loading', 'placeholder', 'decoration', 'logo']
+        
+        # Dynamic content indicators (same as mobile)
+        dynamic_indicators = [
+            'available for replay', 'watch now', 'continue watching',
+            'chf', 'usd', 'eur', 'gbp', '$', '€', '£',  # Price indicators
+            ' from ', ' to ',  # Time/price ranges
+            'season ', 'episode ', 's0', 'e0',  # TV series
+            ','  # Titles often have commas (e.g., "Show Name, Description")
+        ]
         
         for elem in elements:
             # Web elements are already filtered to 'interactive' type
             # Get the best label
             label = None
+            is_dynamic = False
             
             # Priority 1: text content
             if elem.get('text') and elem['text'].strip():
@@ -232,8 +249,19 @@ class ScreenAnalyzer:
             if any(keyword in label.lower() for keyword in ignore_keywords):
                 continue
             
-            # Add to list (avoid duplicates)
-            if label not in interactive_elements:
+            # ✅ Detect dynamic content (same logic as mobile)
+            # 1. Very long labels (> 30 chars) = likely program description
+            # 2. Contains price, time, or content indicators
+            if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
+                is_dynamic = True
+                # Replace with generic name
+                label = f"dynamic_{dynamic_counter}"
+                dynamic_counter += 1
+            
+            # Add to list (avoid duplicates for static, allow duplicates for dynamic)
+            if is_dynamic:
+                interactive_elements.append(label)
+            elif label not in interactive_elements:
                 interactive_elements.append(label)
         
         return interactive_elements[:20]  # Limit to top 20 elements

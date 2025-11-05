@@ -322,12 +322,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         {/* Exploration Progress Section */}
         {(isExploring || hasResults) && !isAwaitingApproval && (
           <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-              <AnalyzeIcon />
-              <Typography variant="h6">
-                {isExploring ? 'AI Exploration in Progress' : 'Exploration Complete'}
-              </Typography>
-            </Box>
 
             {/* Current Step */}
             <Box sx={{ mb: 2 }}>
