@@ -70,14 +70,14 @@ class ScreenAnalyzer:
         print(f"\n📱 USING UI DUMP ANALYSIS")
         print(f"{'-'*80}")
         
-        # Get UI dump from controller
-        dump_result = self.controller.dump_ui()
+        # Get UI dump from controller (returns tuple: success, elements, error)
+        success, elements, error = self.controller.dump_ui_elements()
         
-        if not dump_result or not dump_result.get('success'):
-            raise Exception("Failed to get UI dump - cannot proceed with mobile/web analysis")
+        if not success:
+            raise Exception(f"Failed to get UI dump - cannot proceed with mobile/web analysis: {error}")
         
         # Parse dump and extract interactive elements
-        interactive_elements = self._extract_interactive_elements(dump_result)
+        interactive_elements = self._extract_interactive_elements(elements)
         
         if not interactive_elements:
             raise Exception("No interactive elements found in UI dump")
@@ -96,46 +96,58 @@ class ScreenAnalyzer:
             'strategy': 'click_elements'
         }
     
-    def _extract_interactive_elements(self, dump_result: Dict) -> list:
+    def _extract_interactive_elements(self, elements: list) -> list:
         """
-        Parse UI dump and extract clickable/interactive elements
+        Parse UI dump elements and extract clickable/interactive elements
         Filter out non-interactive content (images, text, etc.)
+        
+        Args:
+            elements: List of AndroidElement objects from dump_ui_elements()
+        
+        Returns:
+            List of element names (strings)
         """
         interactive_elements = []
         
-        # Extract from dump based on platform
-        # For Android: Look for clickable=true, focusable=true
-        # For Web: Look for buttons, links, inputs
-        
-        dump_data = dump_result.get('dump', '')
-        
-        # Simple extraction - can be enhanced
-        # Look for common interactive attributes
-        import re
-        
-        # Android patterns
-        clickable_pattern = r'text="([^"]+)"[^>]*clickable="true"'
-        button_pattern = r'class="[^"]*Button[^"]*"[^>]*text="([^"]+)"'
-        
-        # Web patterns  
-        link_pattern = r'<a[^>]*>([^<]+)</a>'
-        button_web_pattern = r'<button[^>]*>([^<]+)</button>'
-        
-        for pattern in [clickable_pattern, button_pattern, link_pattern, button_web_pattern]:
-            matches = re.findall(pattern, dump_data, re.IGNORECASE)
-            interactive_elements.extend(matches)
-        
-        # Remove duplicates and empty strings
-        interactive_elements = list(dict.fromkeys([e.strip() for e in interactive_elements if e.strip()]))
-        
         # Filter out common non-interactive text
-        filtered = []
-        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content']
-        for elem in interactive_elements:
-            if not any(keyword in elem.lower() for keyword in ignore_keywords):
-                filtered.append(elem)
+        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration']
         
-        return filtered[:20]  # Limit to top 20 elements
+        for elem in elements:
+            # Only consider clickable or enabled elements
+            if not (elem.clickable or elem.enabled):
+                continue
+            
+            # Get the best label for this element
+            label = None
+            
+            # Priority 1: text
+            if elem.text and elem.text != '<no text>' and elem.text.strip():
+                label = elem.text.strip()
+            # Priority 2: content_desc
+            elif elem.content_desc and elem.content_desc != '<no content-desc>' and elem.content_desc.strip():
+                label = elem.content_desc.strip()
+            # Priority 3: resource_id (extract last part after /)
+            elif elem.resource_id and elem.resource_id != '<no resource-id>' and elem.resource_id.strip():
+                # Extract meaningful part from resource ID like "com.example:id/button_name"
+                resource_id = elem.resource_id.strip()
+                if '/' in resource_id:
+                    label = resource_id.split('/')[-1]
+                else:
+                    label = resource_id
+            
+            # Skip if no useful label
+            if not label:
+                continue
+            
+            # Filter out non-interactive keywords
+            if any(keyword in label.lower() for keyword in ignore_keywords):
+                continue
+            
+            # Add to list (avoid duplicates)
+            if label not in interactive_elements:
+                interactive_elements.append(label)
+        
+        return interactive_elements[:20]  # Limit to top 20 elements
     
     def _analyze_from_ai_vision(self, screenshot_path: str) -> Dict:
         """
