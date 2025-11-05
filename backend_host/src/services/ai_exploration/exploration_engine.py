@@ -164,6 +164,7 @@ Exploration will navigate through these items using {self.prediction.get('strate
                 'plan': {
                     'menu_type': self.prediction.get('menu_type'),
                     'items': self.prediction.get('items', []),
+                    'lines': self.prediction.get('lines', []),
                     'strategy': self.prediction.get('strategy'),
                     'predicted_depth': self.prediction.get('predicted_depth', 1),
                     'reasoning': reasoning,
