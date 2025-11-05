@@ -6,6 +6,7 @@ Generates node and edge structures following user's naming rules
 from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
+import re
 
 
 class NodeGenerator:
@@ -16,6 +17,50 @@ class NodeGenerator:
         self.team_id = team_id
         self.node_counter = 0
         self.edge_counter = 0
+    
+    def target_to_node_name(self, target_text: str) -> str:
+        """
+        Convert navigation target to node name (UNIVERSAL algorithm)
+        
+        Navigation targets are EDGES (actions), node names are DESTINATIONS
+        
+        Examples:
+        "TV Guide Tab" → "tvguide"
+        "Replay Register" → "replay"
+        "Films & Series" → "movies_and_series"
+        "Aktuell gewählte Registerkarte TV Guide" → "tv_guide"
+        
+        Args:
+            target_text: Text from clickable element (button, tab, menu item)
+        
+        Returns:
+            Clean node name (without _temp suffix)
+        """
+        text = target_text.lower()
+        
+        # Remove common suffixes/prefixes
+        remove_words = [
+            'tab', 'register', 'button', 'screen', 'menu', 'page',
+            'aktuell gewählte registerkarte',  # German: "currently selected tab"
+            'currently selected',
+            'doppeltippen zum öffnen',  # German: "double tap to open"
+            'doppeltippen zum',
+            'double tap to',
+        ]
+        
+        for word in remove_words:
+            text = text.replace(word, ' ')
+        
+        # Replace special chars and multiple spaces with single underscore
+        text = re.sub(r'[^a-z0-9]+', '_', text)
+        
+        # Remove consecutive underscores
+        text = re.sub(r'_+', '_', text)
+        
+        # Strip leading/trailing underscores
+        text = text.strip('_')
+        
+        return text if text else 'unknown'
         
     def generate_node_name(
         self,

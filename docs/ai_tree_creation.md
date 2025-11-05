@@ -2,7 +2,24 @@
 
 ## Overview
 
-AI Tree Creation automatically explores user interfaces and generates complete navigation trees with nodes, edges, and subtrees using AI vision analysis. The system analyzes screenshots, tests navigation commands, and builds the navigation structure step-by-step with human approval.
+AI Tree Creation automatically explores user interfaces and generates complete navigation trees with nodes, edges, and subtrees. The system uses a **UNIVERSAL algorithm** that works identically for mobile, web, TV, and STB platforms by focusing on **destinations (nodes)** and **navigation actions (edges)**.
+
+---
+
+## Core Principle: The Universal Algorithm
+
+**Navigation targets (buttons, tabs, menu items) are EDGES, not nodes.**
+
+- **Node** = A destination screen we can ENTER
+- **Edge** = The actions required to reach that destination
+
+### Example (Mobile):
+- "TV Guide Tab" is an **EDGE** (the button you click)
+- `tvguide` is the **NODE** (the screen you reach after clicking)
+
+### Example (TV/STB):
+- "tv_guide" menu item is an **EDGE** (what you navigate to + OK)
+- `tvguide` is the **NODE** (the screen you enter after pressing OK)
 
 ---
 
@@ -20,529 +37,429 @@ AI Tree Creation automatically explores user interfaces and generates complete n
 4. **AI Generate** button appears in header (only when control is active)
 5. Click **AI Generate** to open exploration modal
 6. Set exploration depth (1-10 levels, default: 5)
-7. Click **Start Analysis** (Phase 1 only)
+7. Click **Start** (Phase 1: Analysis)
 
-### Review AI Plan (MANDATORY)
-After Phase 1 analysis completes, you'll see:
-- **Screenshot**: The initial screen AI analyzed
-- **AI's Plan**: Menu type, items found, exploration strategy
-- **AI Reasoning**: Full explanation of what AI sees and how it will explore
+---
+
+## The 3-Phase Workflow
+
+### Phase 1: Analysis (AI Anticipation)
+
+**What happens:**
+- System analyzes the home screen
+- **Mobile/Web**: Parses UI dump to find clickable elements
+- **TV/STB**: Uses AI vision to identify menu items
+
+**You'll see:**
+- Screenshot of home screen
+- List of navigation targets found (chips)
+- AI reasoning about interface structure
 
 **Your Decision:**
-- ✅ **Continue** → Proceed to Phase 2 (actual exploration)
+- ✅ **Create Nodes** → Proceed to Phase 2a
 - 🔄 **Retry** → Re-analyze with new screenshot
-- ❌ **Abort** → Cancel without making any changes
-
-⚠️ **Important**: Phase 2 will NOT start automatically. You must explicitly approve the plan.
-
-### Phase 2: Exploration (If Approved)
-Once you click **Continue**:
-- AI executes the approved exploration plan
-- Real-time progress shows navigation steps
-- Screenshots at each step
-- AI analysis of each discovered screen
-
-### Final Approval
-When exploration completes:
-- **Proposed Nodes**: Screens discovered (with `_temp` suffix)
-- **Proposed Edges**: Navigation paths found (with `_temp` suffix)
-- **User Decision**:
-  - ✅ **Confirm** → Removes `_temp` suffix, saves permanently
-  - ❌ **Cancel** → Deletes all temp nodes/edges/subtrees
+- ❌ **Abort** → Cancel without changes
 
 ---
 
-## How It Works
+### Phase 2a: Structure Creation (Instant)
 
-### Phase 1: AI Anticipation (Smart)
-```
-1. Capture initial screenshot
-2. AI analyzes menu structure
-   - Menu type (horizontal, vertical, grid, mixed)
-   - Visible menu items
-   - Predicted navigation depth
-3. AI creates exploration strategy
-```
+**What happens (automatically after approval):**
+- Creates `home_temp` node (root)
+- Creates destination nodes for each target
+- Creates edges with **empty actions**
 
-**Example AI Analysis:**
-```json
-{
-  "menu_type": "horizontal",
-  "items": ["home", "settings", "profile"],
-  "predicted_depth": 3,
-  "strategy": "test_right_left_first_then_ok"
-}
+**Node Naming (UNIVERSAL):**
+```
+"TV Guide Tab" → tvguide_temp
+"Replay Register" → replay_temp
+"Films & Series" → movies_and_series_temp
+"Aktuell gewählte Registerkarte Settings" → settings_temp
 ```
 
-### Phase 2: Smart Validation (Prediction-Guided)
+**Rules:**
+- Remove: "Tab", "Register", "Button", "Screen", common phrases
+- Lowercase
+- Replace spaces/special chars with underscore
 
-The AI doesn't explore blindly - it uses Phase 1 predictions to guide exploration efficiently:
+**You'll see:**
+- `X nodes created`
+- `Y edges created`
+- All with `_temp` suffix
 
-**Strategy: Confirm, Don't Discover**
-
-**If menu_type = 'horizontal' with N predicted items:**
-```
-For each predicted item (e.g., ['home', 'replay', 'settings']):
-  1. Press RIGHT (i times) to move to position
-  2. Press OK to enter
-  3. Take screenshot
-  4. Ask AI: "Is this the '{predicted_item}' screen?"
-  5. If YES → Create node (prediction confirmed!)
-     If NO → Ask AI "What screen is this?" and create with actual name
-  6. Press BACK to return to menu
-```
-
-**If menu_type = 'vertical' with N predicted items:**
-- Same strategy but using DOWN instead of RIGHT
-
-**If menu_type = 'grid' or 'mixed':**
-- Fallback to testing all 4 directions (UP, DOWN, LEFT, RIGHT)
-
-**Key Advantages:**
-- ✅ **Efficient**: If AI predicted 4 items, we only test 4 positions (not all directions)
-- ✅ **Smart**: Horizontal menu → only test RIGHT/LEFT (not UP/DOWN)
-- ✅ **Self-Correcting**: If prediction is wrong, AI adjusts on-the-fly
-- ✅ **Deep Recursion**: At each new screen, AI re-analyzes and provides fresh predictions
-
-**Optimization:** AI only analyzes after OK/BACK, not for every DPAD movement!
-
-### Phase 3: Node & Edge Creation
-All nodes and edges created with `_temp` suffix:
-
-**Nodes:** `home_temp`, `settings_temp`, `home_settings_temp`  
-**Edges:** `edge_home_to_settings_temp`  
-**Subtrees:** `settings_subtree_temp` (for nested navigation)
-
-### Phase 4: User Approval
-**Two options:**
-1. **Confirm** → Rename all: `home_temp` → `home`, `settings_temp` → `settings`
-2. **Cancel** → Delete all temp nodes/edges/subtrees from database
+**Your Decision:**
+- ✅ **Start Validation** → Proceed to Phase 2b
+- ❌ **Cancel** → Delete temp structure
 
 ---
 
-## Naming Convention
+### Phase 2b: Validation (UNIVERSAL - Works for All!)
 
-The AI follows your established naming rules:
+**What happens (incremental, with auto-continue):**
 
-### Horizontal Navigation (Context Visible)
-```
-home (root)
-├── home_settings_temp    # Can still see "home" context
-├── home_profile_temp     # Can still see "home" context
-└── home_replay_temp      # Can still see "home" context
-```
+For each edge, system tests navigation:
 
-### New Screen (Entered via OK)
+#### Mobile/Web:
 ```
-home_settings_temp → [OK pressed] → settings_temp
-```
-✅ **New Screen** = Cannot see previous menu anymore  
-✅ **Drop Prefix** = Just `settings_temp`, not `home_settings_temp`
-
-### Subtree Creation (Depth 1+)
-```
-settings_temp (depth 1)
-└── [SUBTREE CREATED] settings_subtree_temp
-    ├── settings_audio_temp
-    ├── settings_video_temp
-    └── settings_audio_dolby_temp
+1. Click the target element
+2. Wait 2s
+3. Check if screen changed (home elements gone?)
+4. Press BACK
+5. Check if returned (home elements visible?)
+6. Update edge with tested actions
 ```
 
-**Rule:** Node at depth 1 (entered via OK from root) → Create subtree automatically
+#### TV/STB:
+```
+1. Try each direction (RIGHT, LEFT, DOWN, UP)
+2. For each: Press DIRECTION → Press OK
+3. Check if screen changed (AI vision)
+4. When found working sequence:
+   a. Press BACK
+   b. Check if returned (AI vision)
+5. Update edge with working direction + OK
+```
+
+**Modal behavior:**
+- Small, fixed to top-right corner
+- No shadow
+- Watch ReactFlow graph update in real-time!
+
+**Progress display:**
+```
+🔄 Validating 3/10
+Current: TV Guide Tab
+  ✅ Click success
+  ✅ Back success
+```
+
+**When complete:**
+- ✅ **Finalize** → Remove `_temp` suffix, save permanently
+- ❌ **Cancel** → Delete all temp nodes/edges
 
 ---
 
-## Technical Architecture
+## How the Universal Algorithm Works
 
-### Backend Components
+### Key Insight: Edges vs Nodes
 
-#### 1. **ExplorationEngine** (Main Orchestrator)
+**OLD thinking (WRONG):**
+- Every clickable element = a node
+- Causes confusion between focus states and actual screens
+
+**NEW thinking (CORRECT):**
+- Clickable element = an EDGE (action to navigate)
+- New screen entered = a NODE (destination)
+
+---
+
+### Phase 1: Analysis
+
+#### For Mobile/Web:
 ```python
-# backend_host/src/services/ai_exploration/exploration_engine.py
-
-class ExplorationEngine:
-    def start_exploration(self) -> Dict:
-        # Phase 1: AI anticipates tree structure
-        # Phase 2: Depth-first exploration
-        # Phase 3: Create temp nodes/edges/subtrees
+1. Parse UI dump (XML for Android, JSON for web)
+2. Extract clickable elements:
+   ["TV Guide Tab", "Replay Register", "Search Button", ...]
+3. Filter out:
+   - Non-interactive elements (checked via clickable property)
+   - Generic labels ("image", "icon", "loading")
+   - Dynamic content (> 30 chars, or contains price/date patterns)
+4. Return list of navigation targets (max 20)
 ```
 
-#### 2. **ScreenAnalyzer** (AI Vision)
+#### For TV/STB:
 ```python
-# backend_host/src/services/ai_exploration/screen_analyzer.py
-
-class ScreenAnalyzer:
-    def anticipate_tree(screenshot_path) -> Dict:
-        # AI predicts menu structure
-        
-    def is_new_screen(before, after, action) -> Dict:
-        # AI determines if navigation succeeded
+1. Capture screenshot
+2. AI vision analysis:
+   "List all visible menu items line by line"
+3. Extract menu items:
+   ["home", "tv_guide", "replay", "search", ...]
+4. Return list of navigation targets
 ```
 
-**Reuses:** `VideoAIHelpers` for screenshot capture + Qwen AI analysis
+---
 
-#### 3. **NavigationStrategy** (DPAD Testing)
+### Phase 2a: Structure Creation
+
+**For each navigation target:**
+
 ```python
-# backend_host/src/services/ai_exploration/navigation_strategy.py
+# 1. Generate node name
+target = "TV Guide Tab"
+node_name = target_to_node_name(target)  # → "tvguide"
 
-class NavigationStrategy:
-    def test_direction(direction) -> bool:
-        # Test DPAD_RIGHT, LEFT, UP, DOWN
-        
-    def press_ok_and_analyze(screenshot) -> Dict:
-        # Press OK and check if new screen
-```
-
-**Reuses:** `ControllerFactory` for device commands
-
-#### 4. **NodeGenerator** (Naming + Structure)
-```python
-# backend_host/src/services/ai_exploration/node_generator.py
-
-class NodeGenerator:
-    def generate_node_name(ai_suggestion, parent, context_visible) -> str:
-        # Follows your naming convention + _temp suffix
-        
-    def create_node_data(node_name, position, ai_analysis) -> Dict:
-        # Creates node data for save_node()
-        
-    def create_edge_data(source, target, actions) -> Dict:
-        # Creates edge data for save_edge()
-```
-
-### HTTP Routes (Auto-Proxied)
-
-```
-Frontend → /server/ai-generation/* → (auto_proxy) → /host/ai-generation/*
-```
-
-#### Routes:
-1. **POST /start-exploration** - Start background exploration
-2. **GET /exploration-status/<id>** - Poll for progress (every 5s)
-3. **POST /approve-generation** - Rename temp nodes (remove _temp)
-4. **POST /cancel-exploration** - Delete all temp nodes
-
-### Database Operations
-
-**Uses existing navigation_trees_db functions:**
-```python
-from shared.src.lib.database.navigation_trees_db import (
-    save_node,           # Create node with _temp
-    save_edge,           # Create edge with _temp
-    create_sub_tree,     # Create subtree with _temp
-    delete_node,         # Delete on cancel
-    delete_tree_cascade  # Delete subtrees on cancel
+# 2. Create node
+create_node(
+  id="tvguide_temp",
+  label="TV Guide",
+  position=calculated
 )
-```
 
-**NO new database tables needed!** ✅
+# 3. Create edge with empty actions
+create_edge(
+  id="edge_home_temp_to_tvguide_temp_temp",
+  source="home_temp",
+  target="tvguide_temp",
+  action_sets=[
+    {id: "home_to_tvguide", actions: []},     # Forward (empty)
+    {id: "tvguide_to_home", actions: []}      # Reverse (empty)
+  ]
+)
 
----
-
-## Example Exploration Flow
-
-### Scenario: Android TV Home Screen
-
-**1. User starts exploration:**
-```
-Device: android_mobile
-Tree: horizon_android_mobile_main
-Depth: 5
-```
-
-**2. AI anticipates (Phase 1):**
-```
-Screenshot Analysis:
-- Menu type: horizontal
-- Items: [home, replay, guide, settings]
-- Predicted depth: 3
-- Strategy: test_right_left_first_then_ok
-```
-
-**3. AI explores (Phase 2):**
-```
-Current: home_temp
-  Test DPAD_RIGHT → Press OK
-    → New screen detected: "settings"
-    → Create: settings_temp (node)
-    → Create: edge_home_to_settings_temp (edge)
-    → Create: settings_subtree_temp (subtree, depth 1)
-    → Press BACK
-    
-  Test DPAD_LEFT → Press OK
-    → New screen detected: "replay"
-    → Create: replay_temp (node)
-    → Create: edge_home_to_replay_temp (edge)
-    → Press BACK
-```
-
-**4. User sees in NavigationEditor:**
-```
-ReactFlow shows:
-- home_temp
-- settings_temp
-- replay_temp
-- Edges connecting them
-```
-
-**5. User approves:**
-```
-Confirm clicked:
-  ✅ Rename: home_temp → home
-  ✅ Rename: settings_temp → settings
-  ✅ Rename: replay_temp → replay
-  ✅ Rename edges: edge_home_to_settings_temp → edge_home_to_settings
-  ✅ Save to database permanently
+# 4. Store mapping for validation
+target_to_node_map["TV Guide Tab"] = "tvguide_temp"
 ```
 
 ---
 
-## AI Model Selection
+### Phase 2b: Validation (UNIVERSAL!)
 
-### Current: Qwen (Default)
+**The algorithm that works for EVERYTHING:**
+
 ```python
-# Uses existing VideoAIHelpers with Qwen vision model
-VideoAIHelpers.analyze_with_vision(screenshot, prompt, model_name='qwen')
-```
-
-### Future: User-Selectable Models
-```
-Planned: Allow user to choose from 3 OpenRouter vision models
-- Qwen (fast, accurate for menus)
-- GPT-4 Vision (more expensive, very accurate)
-- Claude Vision (balanced)
+for each target in navigation_targets:
+    
+    node_name = target_to_node_map[target]
+    
+    # ═══════════════════════════════════════
+    # STEP 1: TRY TO ENTER THE DESTINATION
+    # ═══════════════════════════════════════
+    
+    if mobile or web:
+        # Single action - click immediately enters
+        actions = [{"command": "click_element", "params": {"text": target}}]
+        execute(actions)
+        wait(2s)
+    
+    elif tv or stb:
+        # Must navigate + press OK to enter
+        directions = ["RIGHT", "LEFT", "DOWN", "UP"]
+        actions = None
+        
+        for direction in directions:
+            # Navigate to element, then press OK to ENTER
+            test_actions = [
+                {"command": "press_key", "params": {"key": direction}},
+                {"command": "press_key", "params": {"key": "OK"}}
+            ]
+            execute(test_actions)
+            wait(2s)
+            
+            # Did we enter a new screen?
+            if screen_changed():
+                actions = test_actions
+                break  # Found working sequence!
+            
+            # Didn't work, try next direction
+            # (We're still on home, just different focus)
+    
+    # ═══════════════════════════════════════
+    # STEP 2: VERIFY WE ENTERED NEW SCREEN
+    # ═══════════════════════════════════════
+    
+    if screen_changed():
+        # SUCCESS! We entered the destination
+        
+        # Save forward actions
+        edge = get_edge(f"edge_home_temp_to_{node_name}_temp")
+        edge.action_sets[0].actions = actions
+        
+        # ═══════════════════════════════════════
+        # STEP 3: TEST RETURN (BACK)
+        # ═══════════════════════════════════════
+        
+        execute([{"command": "press_key", "params": {"key": "BACK"}}])
+        wait(2s)
+        
+        # Verify we're back on home
+        if back_to_home():
+            # Save reverse actions
+            edge.action_sets[1].actions = [
+                {"command": "press_key", "params": {"key": "BACK"}}
+            ]
+            result = "✅✅ Both directions work"
+        else:
+            result = "✅❌ Forward works, back failed"
+        
+        # Update edge in database
+        update_edge(edge)
+    
+    else:
+        # Failed to enter destination
+        result = "❌ Could not enter destination"
 ```
 
 ---
 
-## Best Practices
+## Screen Change Detection
 
-### Before Starting
-✅ Device on stable home screen  
-✅ Device control is active  
-✅ Start with lower depth (3-5) for testing  
-✅ Stable network connection
+### Mobile/Web:
+```python
+def screen_changed() -> bool:
+    """Check if we left the home screen"""
+    # Get all navigation targets from Phase 1
+    home_elements = ["Home Tab", "TV Guide Tab", "Replay Tab", ...]
+    
+    # Try to find any of them
+    for element in home_elements:
+        if wait_for_element(element, timeout=1):
+            return False  # Still see home element = still on home
+    
+    return True  # All home elements gone = entered new screen
+```
 
-### During Exploration
-✅ Monitor AI reasoning in real-time  
-✅ Can cancel at any time if issues  
-✅ Let exploration complete (don't interrupt)
+### TV/STB:
+```python
+def screen_changed() -> bool:
+    """Check if screen is different using AI vision"""
+    current_screenshot = capture_screenshot()
+    
+    # Ask AI: "Is this a different screen from home?"
+    is_different = ai_vision_compare(
+        home_screenshot,
+        current_screenshot
+    )
+    
+    return is_different
+```
 
-### After Completion
-✅ Review all proposed nodes carefully  
-✅ Check node names make sense  
-✅ Verify edges connect correctly  
-✅ Uncheck any incorrect items before confirming
+### Verify Return to Home:
+```python
+def back_to_home() -> bool:
+    """Check if we returned to home screen"""
+    # Mobile/Web: Check if first navigation target is visible
+    home_indicator = navigation_targets[0]  # e.g., "Home Tab"
+    return wait_for_element(home_indicator, timeout=5)
+    
+    # TV/STB: Compare screenshot with original home screenshot
+    return ai_vision_compare(current_screenshot, home_screenshot)
+```
+
+---
+
+## Platform Comparison
+
+| Aspect | Mobile/Web | TV/STB |
+|--------|------------|--------|
+| **Navigation** | Click once | Direction + OK |
+| **Entry** | Immediate | After OK press |
+| **Discovery** | UI Dump parsing | AI Vision |
+| **Validation** | Same (screen_changed?) | Same (screen_changed?) |
+| **Return** | Same (BACK key) | Same (BACK key) |
+| **Intermediate states** | None | Yes (focus moves) |
+
+---
+
+## Node Naming Convention
+
+### Target → Node Name Conversion
+
+**Function:**
+```python
+def target_to_node_name(target_text: str) -> str:
+    """
+    Convert navigation target to node name
+    
+    Examples:
+    "TV Guide Tab" → "tvguide"
+    "Replay Register" → "replay"
+    "Films & Series" → "movies_and_series"
+    "Aktuell gewählte Registerkarte Settings" → "settings"
+    """
+    text = target_text.lower()
+    
+    # Remove common words
+    remove_words = [
+        'tab', 'register', 'button', 'screen', 'menu', 'page',
+        'aktuell gewählte registerkarte',  # "currently selected tab" (German)
+        'currently selected',
+        'doppeltippen zum öffnen',  # "double tap to open" (German)
+        'double tap to',
+    ]
+    
+    for word in remove_words:
+        text = text.replace(word, ' ')
+    
+    # Replace special chars with underscore
+    text = re.sub(r'[^a-z0-9]+', '_', text)
+    
+    # Clean up
+    text = re.sub(r'_+', '_', text)  # Remove consecutive underscores
+    text = text.strip('_')  # Strip leading/trailing
+    
+    return text or 'unknown'
+```
+
+---
+
+## Benefits of the Universal Algorithm
+
+1. **Works everywhere**: Mobile, web, TV, STB - same logic
+2. **Simple**: Edges = actions, Nodes = destinations
+3. **No intermediate states**: Only care about screens we can ENTER
+4. **Robust**: Tests both forward and reverse navigation
+5. **Accurate**: Names derived from actual UI elements
+6. **Efficient**: Creates structure first, validates incrementally
+7. **Transparent**: User sees real-time progress
+
+---
+
+## Technical Implementation
+
+### Backend Routes
+
+**`/start-exploration` (Phase 1)**
+- Captures screenshot
+- Analyzes with UI dump (mobile/web) or AI vision (TV/STB)
+- Returns list of navigation targets
+- Status: `awaiting_approval`
+
+**`/continue-exploration` (Phase 2a)**
+- Creates `home_temp` node
+- Creates destination nodes for each target (using `target_to_node_name`)
+- Creates edges with empty `action_sets`
+- Stores `target_to_node_map`
+- Status: `structure_created`
+
+**`/start-validation` (Phase 2b init)**
+- Initializes validation index
+- Status: `awaiting_validation`
+
+**`/validate-next-item` (Phase 2b loop)**
+- Gets current target from list
+- Looks up node name from mapping
+- Tests navigation (click or direction+OK)
+- Tests return (BACK)
+- Updates edge `action_sets`
+- Increments index
+- Status: `awaiting_validation` or `validation_complete`
 
 ---
 
 ## Troubleshooting
 
-### "AI Generate button not visible"
-**Fix:** Ensure device control is active (take control first)
+### Phase 1: No items found
+- **Mobile/Web**: Check if UI dump is working (`dump_elements()`)
+- **TV/STB**: Check if screenshot is captured and AI vision is responding
 
-### "Exploration fails immediately"
-**Check:**
-- Device is responsive to commands
-- Screenshot capture is working
-- OpenRouter API access is configured
+### Phase 2a: Nodes not created
+- Check console logs for database errors
+- Verify `target_to_node_name()` is generating valid node names
 
-### "No nodes/edges generated"
-**Try:**
-- Start from a different screen
-- Increase exploration depth
-- Check device navigation works manually
+### Phase 2b: Click/navigation fails
+- **Mobile/Web**: Element text may have changed - check UI dump
+- **TV/STB**: Try different directions, check AI vision analysis
 
-### "Generated navigation doesn't work"
-**Solution:**
-- Review proposed edges before approving
-- Test navigation manually first
-- Delete incorrect nodes and re-explore
+### Phase 2b: Back verification fails
+- Home indicator may not be the first item
+- Try using a stable home element (logo, app name)
 
 ---
 
-## Performance & Limitations
+## Future Enhancements
 
-### Current Version (V1)
-- **Depth Limit:** 10 levels maximum
-- **Device Support:** android_mobile, android_tv
-- **AI Model:** Qwen (OpenRouter)
-- **Speed:** ~5-10 seconds per screen analyzed
-- **Accuracy:** ~85% for standard menu structures
-
-### Known Limitations
-- ⚠️ Dynamic menus may confuse AI
-- ⚠️ Loading states not yet detected
-- ⚠️ Complex animations may cause issues
-- ⚠️ Non-standard UI layouts need testing
-
-### Future Enhancements
-- 🔄 Loading state detection
-- 🔄 Multi-model AI support
-- 🔄 Better error recovery
-- 🔄 Re-navigation for deeper exploration
-- 🔄 Screenshot similarity comparison
-- 🔄 Support for more device types
-
----
-
-## Integration with Existing Features
-
-### NavigationEditor
-- ✅ Same device control system
-- ✅ Same ReactFlow visualization
-- ✅ Same node/edge editing
-- ✅ Immediate visual feedback
-
-### Database
-- ✅ Uses existing navigation_trees_db
-- ✅ Same node/edge structure
-- ✅ Compatible with all navigation features
-- ✅ Subtree support included
-
-### MCP Server
-- ✅ Can be triggered via MCP tools (future)
-- ✅ Status polling available
-- ✅ Approval workflow compatible
-
----
-
-## File Structure
-
-### Backend Host
-```
-backend_host/src/
-├── services/ai_exploration/
-│   ├── __init__.py
-│   ├── exploration_engine.py      # Main orchestrator
-│   ├── screen_analyzer.py         # AI vision analysis
-│   ├── navigation_strategy.py     # DPAD testing
-│   └── node_generator.py          # Naming + structure
-│
-└── routes/
-    └── ai_generation.py            # 4 HTTP endpoints
-```
-
-### Frontend (Existing - No Changes!)
-```
-frontend/src/
-├── components/navigation/
-│   ├── AIGenerationModal.tsx      # ✅ Already exists
-│   └── Navigation_EditorHeader.tsx # ✅ Already integrated
-│
-└── hooks/
-    └── useGenerateModel.ts         # ✅ Already exists
-```
-
----
-
-## API Reference
-
-### POST /host/ai-generation/start-exploration
-**Request:**
-```json
-{
-  "tree_id": "uuid",
-  "device_id": "device_1",
-  "device_model_name": "android_mobile",
-  "userinterface_name": "horizon_android_mobile",
-  "team_id": "team_1",
-  "exploration_depth": 5
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "exploration_id": "uuid",
-  "message": "Exploration started"
-}
-```
-
-### GET /host/ai-generation/exploration-status/<id>
-**Response (exploring):**
-```json
-{
-  "success": true,
-  "status": "exploring",
-  "current_step": "Testing DPAD_RIGHT from home_temp...",
-  "progress": {
-    "total_screens_found": 5,
-    "screens_analyzed": 3,
-    "nodes_proposed": 3,
-    "edges_proposed": 2
-  }
-}
-```
-
-**Response (completed):**
-```json
-{
-  "success": true,
-  "status": "completed",
-  "proposed_nodes": [
-    {"id": "home_temp", "name": "Home", "screen_type": "menu"},
-    {"id": "settings_temp", "name": "Settings", "screen_type": "menu"}
-  ],
-  "proposed_edges": [
-    {"id": "edge_home_to_settings_temp", "source": "home_temp", "target": "settings_temp"}
-  ]
-}
-```
-
-### POST /host/ai-generation/approve-generation
-**Request:**
-```json
-{
-  "exploration_id": "uuid",
-  "tree_id": "uuid",
-  "approved_nodes": ["home_temp", "settings_temp"],
-  "approved_edges": ["edge_home_to_settings_temp"],
-  "team_id": "team_1"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "nodes_created": 2,
-  "edges_created": 1,
-  "message": "Successfully created 2 nodes and 1 edge"
-}
-```
-
-### POST /host/ai-generation/cancel-exploration
-**Request:**
-```json
-{
-  "exploration_id": "uuid",
-  "team_id": "team_1"
-}
-```
-
-**Response:**
-```json
-{
-  "success": true,
-  "message": "Exploration cancelled, temporary nodes deleted"
-}
-```
-
----
-
-## Conclusion
-
-AI Tree Creation provides a powerful, automated way to generate navigation structures while maintaining full compatibility with your existing navigation system. The non-destructive `_temp` suffix approach ensures safety, while the depth-first exploration strategy ensures comprehensive coverage.
-
-**Key Benefits:**
-- 🚀 **Fast** - Generate trees in minutes instead of hours
-- 🎯 **Accurate** - AI vision understands menu structures
-- 🛡️ **Safe** - Non-destructive temp nodes with user approval
-- 🔄 **Compatible** - Works with all existing navigation features
-- 📊 **Smart** - AI anticipates tree structure before exploring
-
-**Version:** 1.0.0  
-**Last Updated:** 2025-01-04
-
+1. **Recursive exploration**: After validating depth 1, explore each child node
+2. **Multiple AI models**: Allow user to select from 3 OpenRouter vision models
+3. **Subtree creation**: Automatically create subtrees after 2 depth levels
+4. **Edge confidence scores**: Rate edge quality based on validation success
+5. **Smart retry**: If edge fails, try alternative navigation sequences

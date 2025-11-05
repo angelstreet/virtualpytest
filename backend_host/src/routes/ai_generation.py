@@ -394,13 +394,16 @@ def continue_exploration():
         nodes_created = ['home_temp']
         edges_created = []
         
-        # 2. Create all child nodes
+        # 2. Create all child nodes (using UNIVERSAL naming)
         for idx, item in enumerate(items):
+            # item is a navigation target (EDGE) - convert to node name (DESTINATION)
+            node_name_clean = node_gen.target_to_node_name(item)
+            
             # Skip if it's 'home' (already created as root)
-            if item.lower() == 'home':
+            if node_name_clean == 'home':
                 continue
             
-            node_name = f"{item}_temp"
+            node_name = f"{node_name_clean}_temp"
             position_x = 250 + (idx % 5) * 200
             position_y = 300 + (idx // 5) * 150
             
@@ -408,9 +411,9 @@ def continue_exploration():
                 node_name=node_name,
                 position={'x': position_x, 'y': position_y},
                 ai_analysis={
-                    'suggested_name': item,
+                    'suggested_name': node_name_clean,
                     'screen_type': 'screen',
-                    'reasoning': f'Detected from UI: {item}'
+                    'reasoning': f'Navigation target: {item}'
                 },
                 node_type='screen'
             )
@@ -418,6 +421,11 @@ def continue_exploration():
             node_result = save_node(tree_id, node_data, team_id)
             if node_result['success']:
                 nodes_created.append(node_name)
+                
+                # Store mapping: original_text → node_name for validation
+                if 'target_to_node_map' not in session:
+                    session['target_to_node_map'] = {}
+                session['target_to_node_map'][item] = node_name
             
             # 3. Create edge with EMPTY actions (to be filled during validation)
             edge_data = node_gen.create_edge_data(
@@ -584,12 +592,25 @@ def validate_next_item():
         
         current_item = items_to_validate[current_index]
         
-        # Skip 'home' if it appears in the list
-        if current_item.lower() == 'home':
+        # Get node name from mapping (current_item is the original target text)
+        target_to_node_map = session.get('target_to_node_map', {})
+        node_name = target_to_node_map.get(current_item)
+        
+        if not node_name:
+            # Fallback: try to generate node name
+            from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
+            node_gen = NodeGenerator(tree_id, team_id)
+            node_name_clean = node_gen.target_to_node_name(current_item)
+            node_name = f"{node_name_clean}_temp"
+        
+        # Skip 'home' if it appears
+        if 'home' in node_name.lower() and node_name != 'home_temp':
             session['current_validation_index'] = current_index + 1
             return validate_next_item()  # Recursive call for next item
         
-        print(f"[@route:ai_generation:validate_next_item] Validating item {current_index + 1}/{len(items_to_validate)}: {current_item}")
+        print(f"[@route:ai_generation:validate_next_item] Validating item {current_index + 1}/{len(items_to_validate)}")
+        print(f"  Target text: {current_item}")
+        print(f"  Destination node: {node_name}")
         
         session['status'] = 'validating'
         session['current_step'] = f"Validating {current_index + 1}/{len(items_to_validate)}: {current_item}"
@@ -607,7 +628,11 @@ def validate_next_item():
         click_result = 'failed'
         back_result = 'failed'
         
-        # 1. Click element
+        # Get first item from exploration plan as home indicator
+        all_items = session.get('exploration_plan', {}).get('items', [])
+        home_indicator = all_items[0] if all_items else 'home'
+        
+        # 1. Click element (navigation target)
         try:
             result = controller.click_element(text=current_item)
             click_success = result if isinstance(result, bool) else result.get('success', False)
@@ -624,9 +649,10 @@ def validate_next_item():
                 controller.press_key('BACK')
                 time.sleep(2)
                 
-                # 3. Verify we're back (try to find the element again)
+                # 3. Verify we're back on HOME (not by finding current_item, but by finding home indicator)
+                print(f"    🔍 Verifying return to home by checking: {home_indicator}")
                 is_back = controller.wait_for_element_by_text(
-                    text=current_item,
+                    text=home_indicator,
                     timeout=5
                 )
                 back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
@@ -639,7 +665,8 @@ def validate_next_item():
         # 4. Update edge with validated actions
         from shared.src.lib.database.navigation_trees_db import get_edge_by_id, update_edge
         
-        edge_id = f"edge_home_temp_to_{current_item}_temp_temp"
+        # Build correct edge_id using the actual node name
+        edge_id = f"edge_home_temp_to_{node_name}_temp"
         edge_result = get_edge_by_id(tree_id, edge_id, team_id)
         
         if edge_result['success']:
