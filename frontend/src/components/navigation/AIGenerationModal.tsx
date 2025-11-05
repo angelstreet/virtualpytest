@@ -53,6 +53,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const [explorationDepth, setExplorationDepth] = useState(5);
   const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
   const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
+  const hasAutoStartedRef = React.useRef(false); // Track if we've auto-started validation
 
   const {
     explorationId,
@@ -112,15 +113,38 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
   }, [hasResults, proposedNodes, proposedEdges]);
 
-  // Reset state when modal closes
+  // Reset state when modal closes (but only if NOT in middle of validation workflow)
   useEffect(() => {
-    if (!isOpen) {
+    if (!isOpen && !isStructureCreated && !isAwaitingValidation && !isValidating) {
+      // Only reset if we're truly done (not in the middle of structure→validation flow)
       resetState();
       setSelectedNodeIds([]);
       setSelectedEdgeIds([]);
       setExplorationDepth(5);
+      hasAutoStartedRef.current = false;
+    } else if (!isOpen) {
+      // Modal closed but workflow is active - just reset local UI state
+      setSelectedNodeIds([]);
+      setSelectedEdgeIds([]);
+      hasAutoStartedRef.current = false;
     }
-  }, [isOpen, resetState]);
+  }, [isOpen, isStructureCreated, isAwaitingValidation, isValidating, resetState]);
+
+  // Auto-start validation when modal reopens in 'structure_created' state
+  useEffect(() => {
+    if (isOpen && isStructureCreated && !hasAutoStartedRef.current) {
+      console.log('[@AIGenerationModal] Auto-starting validation after 2s...');
+      hasAutoStartedRef.current = true; // Mark as started to prevent re-triggering
+      
+      // Sleep 2s for UI/UX (let user see the modal reopened)
+      const timer = setTimeout(async () => {
+        console.log('[@AIGenerationModal] Calling handleStartValidation...');
+        await handleStartValidation();
+      }, 2000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [isOpen, isStructureCreated]);
 
   const handleStart = async () => {
     await startExploration(explorationDepth);

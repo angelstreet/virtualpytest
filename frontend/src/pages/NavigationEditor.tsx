@@ -1473,11 +1473,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             nodesCreated={validationNodesCount}
             edgesCreated={validationEdgesCount}
             onStartValidation={() => {
-              // TODO: Implement start validation
-              console.log('[@NavigationEditor] Start validation clicked');
-              // This will trigger Phase 2b validation
-              // For now, just close the prompt
+              console.log('[@NavigationEditor] Start validation clicked - reopening modal');
               setShowValidationPrompt(false);
+              setIsAIGenerationOpen(true); // Reopen modal - it will auto-start validation
             }}
             onCancel={async () => {
               // Delete all _temp nodes/edges using frontend state
