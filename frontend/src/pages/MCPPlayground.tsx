@@ -44,7 +44,6 @@ const MCPPlaygroundContent: React.FC = () => {
         userinterfaceName={hookData.userinterfaceName}
         setUserinterfaceName={hookData.setUserinterfaceName}
         isLoadingTree={hookData.isLoadingTree}
-        currentTreeId={hookData.currentTreeId}
       />
 
       {/* REUSE BuilderMainContainer - Same as TestCaseBuilder */}

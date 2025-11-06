@@ -11,7 +11,6 @@ import {
 } from '@mui/material';
 import React, { useEffect, useCallback, useRef, useState, useMemo } from 'react';
 import { useParams } from 'react-router-dom';
-
 import { DEFAULT_DEVICE_RESOLUTION } from '../config/deviceResolutions';
 import ReactFlow, {
   Background,

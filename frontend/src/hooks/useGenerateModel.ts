@@ -114,17 +114,6 @@ export const useGenerateModel = ({
     }
   }, [isControlActive, treeId, selectedHost, selectedDeviceId]);
 
-  // Polling effect - polls every 5 seconds when exploring
-  useEffect(() => {
-    if (isExploring && explorationId && selectedHost) {
-      const interval = setInterval(() => {
-        fetchExplorationStatus();
-      }, 5000);
-      
-      return () => clearInterval(interval);
-    }
-  }, [isExploring, explorationId, selectedHost]);
-
   const resetState = useCallback(() => {
     console.log('[@useGenerateModel:resetState] 🔴 RESETTING ALL HOOK STATE');
     console.trace('[@useGenerateModel:resetState] Call stack:');
@@ -204,6 +193,17 @@ export const useGenerateModel = ({
       setIsExploring(false);
     }
   }, [explorationId, explorationHostName, progress, currentAnalysis]);
+
+  // Polling effect - polls every 5 seconds when exploring
+  useEffect(() => {
+    if (isExploring && explorationId && explorationHostName) {
+      const interval = setInterval(() => {
+        fetchExplorationStatus();
+      }, 5000);
+      
+      return () => clearInterval(interval);
+    }
+  }, [isExploring, explorationId, explorationHostName, fetchExplorationStatus]);
 
   const startExploration = useCallback(async (depth: number = 5) => {
     if (!treeId || !selectedHost || !selectedDeviceId || !isControlActive) {

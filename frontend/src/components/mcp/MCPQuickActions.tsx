@@ -56,7 +56,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
     if (!availableActions) return [];
     
     const items: any[] = [];
-    Object.entries(availableActions).forEach(([category, actions]: [string, any]) => {
+    Object.entries(availableActions).forEach(([_category, actions]: [string, any]) => {
       if (Array.isArray(actions)) {
         actions.slice(0, 10).forEach((action: any) => {
           const label = action.label || action.command || action.id;
@@ -75,7 +75,7 @@ export const MCPQuickActions: React.FC<MCPQuickActionsProps> = ({
     if (!availableVerifications) return [];
     
     const items: any[] = [];
-    Object.entries(availableVerifications).forEach(([category, verifications]: [string, any]) => {
+    Object.entries(availableVerifications).forEach(([_category, verifications]: [string, any]) => {
       if (typeof verifications === 'object' && !Array.isArray(verifications)) {
         // Handle dict structure (method_name: {description, params})
         Object.entries(verifications).slice(0, 10).forEach(([methodName, _]: [string, any]) => {

@@ -52,7 +52,7 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
   // Calculate progress
   const totalBlocks = blockStates.size;
   const completedBlocks = Array.from(blockStates.values()).filter(
-    state => state.status === 'success' || state.status === 'failure'
+    (state: any) => state.status === 'success' || state.status === 'failure'
   ).length;
   const progress = totalBlocks > 0 ? (completedBlocks / totalBlocks) * 100 : 0;
   
@@ -185,7 +185,7 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
             {/* Block States (summary) - Only for test case execution */}
             {!isMCPProxyResult && blockStates.size > 0 && (
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                {Array.from(blockStates.entries()).map(([blockId, state]) => (
+                {Array.from(blockStates.entries()).map(([blockId, state]: [string, any]) => (
                   <Chip
                     key={blockId}
                     label={`Block ${blockId.substring(0, 8)}`}

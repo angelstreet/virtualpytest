@@ -89,8 +89,6 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
   const {
     isControlLoading,
     handleDeviceControl,
-    controlError,
-    clearError,
   } = useDeviceControlWithForceUnlock({
     host: selectedHost,
     device_id: selectedDeviceId,
@@ -245,7 +243,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
   const { generateTestCaseFromPrompt } = useTestCaseAI();
   const { executeTestCase } = useTestCaseExecution();
   const unifiedExecution = useExecutionState();
-  const { executePrompt: executeMCPPrompt, isExecuting: isMCPExecuting } = useMCPProxy();  // NEW: MCP Proxy
+  const { executePrompt: executeMCPPrompt } = useMCPProxy();  // NEW: MCP Proxy
   
   const [prompt, setPrompt] = useState<string>('');
   const [isGenerating, setIsGenerating] = useState<boolean>(false);
@@ -297,7 +295,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
       .filter(n => !['start', 'success', 'failure'].includes(n.type || ''))
       .map(n => n.id);
     
-    unifiedExecution.startExecution('mcp_command', blockIds);
+    unifiedExecution.startExecution('single_block' as any, blockIds);
     
     try {
       const response = await executeTestCase(
@@ -401,7 +399,7 @@ export function useMCPPlaygroundPage(): UseMCPPlaygroundPageReturn {
     }
   }, [prompt, userinterfaceName, selectedDeviceId, selectedHost, currentTreeId, executeMCPPrompt, addToHistory]);
   
-  const handleDisambiguationResolve = useCallback(async (resolutions: Record<string, string>) => {
+  const handleDisambiguationResolve = useCallback(async (_resolutions: Record<string, string>) => {
     if (!disambiguationData) return;
     
     if (!selectedDeviceId || !selectedHost) {
