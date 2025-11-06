@@ -4,6 +4,46 @@
 
 AI Tree Creation automatically explores user interfaces and generates complete navigation trees with nodes, edges, and subtrees. The system uses a **UNIVERSAL algorithm** that works identically for mobile, web, TV, and STB platforms by focusing on **destinations (nodes)** and **navigation actions (edges)**.
 
+## Architecture: 3-Component Design
+
+The AI generation flow uses **3 separate components** for clean separation of concerns:
+
+```
+┌─────────────────────────────────────────┐
+│  AIGenerationModal (Phase 1)            │
+│  ├─ Configuration (depth)               │
+│  ├─ AI explores & analyzes screen       │
+│  ├─ Shows plan preview                  │
+│  └─ Buttons: Abort | Retry | Create     │
+└──────────────┬──────────────────────────┘
+               │ onStructureCreated()
+               ▼
+┌─────────────────────────────────────────┐
+│  ValidationReadyPrompt (Transition)     │
+│  ├─ "✅ Preview"                         │
+│  ├─ Stats: X nodes, Y edges             │
+│  └─ Button: Start Validation            │
+└──────────────┬──────────────────────────┘
+               │ Opens ValidationModal
+               ▼
+┌─────────────────────────────────────────┐
+│  ValidationModal (Phase 2b)             │
+│  ├─ Progress: Step X/Y                  │
+│  ├─ Real-time results (✅/❌)           │
+│  ├─ Auto-validates each step            │
+│  └─ Button: Finalize                    │
+└─────────────────────────────────────────┘
+```
+
+### Why 3 Components?
+
+**Benefits:**
+- ✅ **Single Responsibility**: Each component does ONE thing
+- ✅ **Clean Transitions**: Visual feedback at each phase
+- ✅ **Easy to Maintain**: Test and debug independently
+- ✅ **Better UX**: User sees clear progress through workflow
+- ✅ **No Complex State**: No nested conditions or complex logic
+
 ---
 
 ## Core Principle: The Universal Algorithm
@@ -67,7 +107,9 @@ AI Tree Creation automatically explores user interfaces and generates complete n
 **What happens (automatically after approval):**
 - Creates `home_temp` node (root)
 - Creates destination nodes for each target
-- Creates edges with **empty actions**
+- Creates edges with **ACTIONS FILLED IN**
+
+**Important:** Edges are created WITH actions immediately, not empty!
 
 **Node Naming (UNIVERSAL):**
 ```
@@ -93,9 +135,13 @@ AI Tree Creation automatically explores user interfaces and generates complete n
 
 ---
 
-### Phase 2b: Validation (UNIVERSAL - Works for All!)
+### Phase 2b: Validation (INFORMATIVE ONLY)
 
-**What happens (incremental, with auto-continue):**
+**Modal: ValidationModal (small, fixed top-right corner)**
+
+**Purpose:** Test if the created actions work correctly (INFORMATIVE - does NOT modify edges)
+
+**What happens (auto-running test):**
 
 For each edge, system tests navigation:
 
@@ -401,6 +447,61 @@ def target_to_node_name(target_text: str) -> str:
 5. **Accurate**: Names derived from actual UI elements
 6. **Efficient**: Creates structure first, validates incrementally
 7. **Transparent**: User sees real-time progress
+
+---
+
+## Frontend Architecture
+
+### Component Structure
+
+**1. AIGenerationModal** (`frontend/src/components/navigation/AIGenerationModal.tsx`)
+- **Phase 1**: Exploration & Approval
+- Shows configuration (depth input)
+- Displays AI analysis results
+- Shows screenshot + plan preview
+- Buttons: Abort, Retry, Create Nodes
+- Closes after structure creation
+
+**2. ValidationReadyPrompt** (`frontend/src/components/navigation/ValidationReadyPrompt.tsx`)
+- **Transition**: Between Phase 2a and 2b
+- Small prompt in top-right corner
+- Shows nodes/edges created count
+- Blinking "Start Validation" button
+- Can cancel to abort workflow
+
+**3. ValidationModal** (`frontend/src/components/navigation/ValidationModal.tsx`)
+- **Phase 2b**: Validation
+- Small modal in top-right corner
+- Auto-starts validation on mount
+- Shows progress (Step X/Y)
+- Displays real-time results (✅/❌)
+- Auto-continues through all steps
+- Finalize button when complete
+
+### State Management
+
+**NavigationEditor orchestrates all 3 components:**
+
+```typescript
+// Phase 1: AIGenerationModal
+const [isAIGenerationOpen, setIsAIGenerationOpen] = useState(false);
+
+// Transition: ValidationReadyPrompt
+const [showValidationPrompt, setShowValidationPrompt] = useState(false);
+const [validationNodesCount, setValidationNodesCount] = useState(0);
+const [validationEdgesCount, setValidationEdgesCount] = useState(0);
+const [explorationId, setExplorationId] = useState<string | null>(null);
+const [explorationHostName, setExplorationHostName] = useState<string | null>(null);
+
+// Phase 2b: ValidationModal
+const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
+```
+
+**Flow:**
+1. User clicks "AI Generate" → opens `AIGenerationModal`
+2. After structure creation → closes modal, shows `ValidationReadyPrompt`
+3. User clicks "Start Validation" → opens `ValidationModal`
+4. After finalization → refreshes ReactFlow with permanent nodes/edges
 
 ---
 

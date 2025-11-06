@@ -580,6 +580,7 @@ export const useGenerateModel = ({
   return {
     // State
     explorationId,
+    explorationHostName,
     isExploring,
     status,
     phase,

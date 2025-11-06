@@ -37,6 +37,7 @@ import { NavigationBreadcrumbCompact } from '../components/navigation/Navigation
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
 import { AIGenerationModal } from '../components/navigation/AIGenerationModal';
 import { ValidationReadyPrompt } from '../components/navigation/ValidationReadyPrompt';
+import { ValidationModal } from '../components/navigation/ValidationModal';
 import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSelectionPanel';
 import { MetricsNotification } from '../components/navigation/MetricsNotification';
 import { MetricsModal } from '../components/navigation/MetricsModal';
@@ -340,6 +341,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const [showValidationPrompt, setShowValidationPrompt] = useState(false);
     const [validationNodesCount, setValidationNodesCount] = useState(0);
     const [validationEdgesCount, setValidationEdgesCount] = useState(0);
+    const [explorationId, setExplorationId] = useState<string | null>(null);
+    const [explorationHostName, setExplorationHostName] = useState<string | null>(null);
+    
+    // Validation Modal state
+    const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
     const [applyAutoLayoutFlag, setApplyAutoLayoutFlag] = useState(false);
 
     // Metrics state
@@ -1443,10 +1449,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedDeviceId={selectedDeviceId}
             userinterfaceName={userInterface?.name}
             onGenerated={handleAIGenerated}
-            onStructureCreated={(nodesCount, edgesCount) => {
+            onStructureCreated={(nodesCount, edgesCount, explId, explHostName) => {
               // Show ValidationReadyPrompt after structure creation
               setValidationNodesCount(nodesCount);
               setValidationEdgesCount(edgesCount);
+              setExplorationId(explId);
+              setExplorationHostName(explHostName);
               setShowValidationPrompt(true);
             }}
             onCleanupTemp={() => {
@@ -1477,9 +1485,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             nodesCreated={validationNodesCount}
             edgesCreated={validationEdgesCount}
             onStartValidation={() => {
-              console.log('[@NavigationEditor] Start validation clicked - reopening modal');
+              console.log('[@NavigationEditor] Start validation clicked - opening ValidationModal');
               setShowValidationPrompt(false);
-              setIsAIGenerationOpen(true); // Reopen modal - it will auto-start validation
+              setIsValidationModalOpen(true);
             }}
             onCancel={async () => {
               // Delete all _temp nodes/edges using frontend state
@@ -1509,6 +1517,33 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               }
               
               setShowValidationPrompt(false);
+            }}
+          />
+        )}
+
+        {/* Validation Modal - Phase 2b: Validation */}
+        {isValidationModalOpen && explorationId && explorationHostName && actualTreeId && (
+          <ValidationModal
+            isOpen={isValidationModalOpen}
+            onClose={() => {
+              setIsValidationModalOpen(false);
+              // Refresh to get updated edges with action_sets
+              handleAIGenerated();
+            }}
+            explorationId={explorationId}
+            explorationHostName={explorationHostName}
+            treeId={actualTreeId}
+            onValidationStarted={() => {
+              console.log('[@NavigationEditor] Validation started');
+            }}
+            onValidationComplete={async () => {
+              console.log('[@NavigationEditor] Validation complete - edges updated automatically');
+              // Refresh to show updated edges
+              await handleAIGenerated();
+              
+              // Reset exploration state
+              setExplorationId(null);
+              setExplorationHostName(null);
             }}
           />
         )}

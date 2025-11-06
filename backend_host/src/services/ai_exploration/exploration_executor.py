@@ -416,23 +416,17 @@ class ExplorationExecutor:
                     # Store mapping
                     self.exploration_state['target_to_node_map'][item] = node_name
                 
-                # Create edge with predicted actions
+                # Create edge with predicted actions (use correct format for action_executor)
                 forward_actions = [{
-                    "action_id": f"action_{home_node_id}_to_{node_name}_forward_1",
-                    "action_type": "click_element",
-                    "params": {"element_identifier": item},
-                    "expected_result": "success",
-                    "reasoning": f"Click on '{item}' to navigate from {home_node_id} to {node_name}",
-                    "validation_status": "pending"
+                    "command": "click_element",
+                    "params": {"text": item},
+                    "delay": 2000
                 }]
                 
                 reverse_actions = [{
-                    "action_id": f"action_{node_name}_to_{home_node_id}_reverse_1",
-                    "action_type": "press_key",
+                    "command": "press_key",
                     "params": {"key": "BACK"},
-                    "expected_result": "success",
-                    "reasoning": f"Press BACK to return from {node_name} to {home_node_id}",
-                    "validation_status": "pending"
+                    "delay": 2000
                 }]
                 
                 edge_data = node_gen.create_edge_data(

@@ -9,11 +9,8 @@ import {
   Typography,
   LinearProgress,
   Chip,
-  FormControlLabel,
-  Checkbox,
   Alert,
   Paper,
-  CircularProgress,
   TextField,
   Grid
 } from '@mui/material';
@@ -21,7 +18,6 @@ import {
   SmartToy as AIIcon,
   Visibility as AnalyzeIcon,
   Navigation as NavigationIcon,
-  CheckCircle as CompleteIcon,
   Error as ErrorIcon,
   Cancel as CancelIcon
 } from '@mui/icons-material';
@@ -34,8 +30,8 @@ interface AIGenerationModalProps {
   selectedHost: any;
   selectedDeviceId: string;
   userinterfaceName?: string;
-  onGenerated: () => void; // Refresh ReactFlow after generation
-  onStructureCreated?: (nodesCount: number, edgesCount: number) => void; // Notify parent of structure creation
+  onGenerated: () => void; // Refresh ReactFlow after structure creation
+  onStructureCreated: (nodesCount: number, edgesCount: number, explorationId: string, explorationHostName: string) => void; // Notify parent to show ValidationReadyPrompt
   onCleanupTemp?: () => void; // Cleanup _temp nodes from frontend state
 }
 
@@ -51,38 +47,23 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   onCleanupTemp
 }) => {
   const [explorationDepth, setExplorationDepth] = useState(5);
-  const [selectedNodeIds, setSelectedNodeIds] = useState<string[]>([]);
-  const [selectedEdgeIds, setSelectedEdgeIds] = useState<string[]>([]);
-  const hasAutoStartedRef = React.useRef(false); // Track if we've auto-started validation
 
   const {
     explorationId,
+    explorationHostName,
     isExploring,
     status,
     currentStep,
     progress,
     currentAnalysis,
     explorationPlan,
-    proposedNodes,
-    proposedEdges,
     error,
-    isGenerating,
-    validationProgress,
-    validationResults,
     startExploration,
     continueExploration,
-    startValidation,
-    validateNextItem,
     cancelExploration,
-    approveGeneration,
     resetState,
     canStart,
-    hasResults,
-    isAwaitingApproval,
-    isStructureCreated,
-    isAwaitingValidation,
-    isValidating,
-    isValidationComplete
+    isAwaitingApproval
   } = useGenerateModel({
     treeId,
     selectedHost,
@@ -90,15 +71,20 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     userinterfaceName,
     isControlActive: true,
     onStructureCreated: (nodesCount, edgesCount) => {
-      console.log('[@AIGenerationModal] Structure created:', nodesCount, 'nodes,', edgesCount, 'edges');
+      console.log('[@AIGenerationModal:Phase1] Structure created:', nodesCount, 'nodes,', edgesCount, 'edges');
       
       // Trigger ReactFlow refresh
       onGenerated();
       
-      // Notify parent to show ValidationReadyPrompt
-      if (onStructureCreated) {
-        onStructureCreated(nodesCount, edgesCount);
+      // Notify parent to show ValidationReadyPrompt with exploration details
+      if (explorationId && explorationHostName) {
+        onStructureCreated(nodesCount, edgesCount, explorationId, explorationHostName);
+      } else {
+        console.error('[@AIGenerationModal:Phase1] Missing exploration details!');
       }
+      
+      // Close this modal - ValidationReadyPrompt will take over
+      onClose();
     },
     onClose: () => {
       // Close modal after structure creation
@@ -106,85 +92,19 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
   });
 
-  // Select all nodes and edges by default when results arrive
+  // Reset state when modal closes
   useEffect(() => {
-    if (hasResults) {
-      setSelectedNodeIds(proposedNodes.map(node => node.id));
-      setSelectedEdgeIds(proposedEdges.map(edge => edge.id));
+    if (!isOpen) {
+      console.log('[@AIGenerationModal:Phase1] Modal closed - preserving state for potential retry');
     }
-  }, [hasResults, proposedNodes, proposedEdges]);
-
-  // DON'T reset state automatically when modal closes
-  // State is only reset explicitly: Cancel button, completion, or modal unmount
-  useEffect(() => {
-    console.log('[@AIGenerationModal:resetEffect] Triggered', {
-      isOpen,
-      isStructureCreated,
-      isAwaitingValidation,
-      isValidating,
-      status,
-      explorationId,
-      hasAutoStarted: hasAutoStartedRef.current
-    });
-    
-    if (isOpen) {
-      console.log('[@AIGenerationModal:resetEffect] 🔓 MODAL OPENED', {
-        currentStatus: status,
-        currentExplorationId: explorationId,
-        isStructureCreated,
-        willAutoStart: isStructureCreated && !hasAutoStartedRef.current
-      });
-    } else {
-      console.log('[@AIGenerationModal:resetEffect] 🚪 MODAL CLOSED (state preserved for workflow)', {
-        preservedStatus: status,
-        preservedExplorationId: explorationId,
-        isStructureCreated
-      });
-      // Just reset local UI state, keep hook state
-      setSelectedNodeIds([]);
-      setSelectedEdgeIds([]);
-      hasAutoStartedRef.current = false;
-    }
-  }, [isOpen, status, explorationId, isStructureCreated, hasAutoStartedRef]);
-
-  // Auto-start validation when modal reopens in 'structure_created' state
-  useEffect(() => {
-    console.log('[@AIGenerationModal:autoStartEffect] Triggered', {
-      isOpen,
-      isStructureCreated,
-      status,
-      explorationId,
-      hasAutoStarted: hasAutoStartedRef.current,
-      shouldAutoStart: isOpen && isStructureCreated && !hasAutoStartedRef.current
-    });
-    
-    if (isOpen && isStructureCreated && !hasAutoStartedRef.current) {
-      console.log('[@AIGenerationModal:autoStartEffect] ✅ AUTO-STARTING VALIDATION in 2s...');
-      hasAutoStartedRef.current = true; // Mark as started to prevent re-triggering
-      
-      // Sleep 2s for UI/UX (let user see the modal reopened)
-      const timer = setTimeout(() => {
-        console.log('[@AIGenerationModal:autoStartEffect] ⏰ Timer fired - calling handleStartValidation...');
-        handleStartValidation(); // Don't await - run async to avoid blocking UI
-      }, 2000);
-      
-      return () => {
-        console.log('[@AIGenerationModal:autoStartEffect] 🧹 Cleanup - clearing timer');
-        clearTimeout(timer);
-      };
-    } else if (isOpen && !isStructureCreated) {
-      console.log('[@AIGenerationModal:autoStartEffect] ❌ Cannot auto-start - isStructureCreated=false');
-    } else if (isOpen && hasAutoStartedRef.current) {
-      console.log('[@AIGenerationModal:autoStartEffect] ⏭️ Already auto-started, skipping');
-    }
-  }, [isOpen, isStructureCreated, status, explorationId]);
+  }, [isOpen]);
 
   const handleStart = async () => {
     await startExploration(explorationDepth);
   };
 
   const handleCancel = async () => {
-    // Call cancelExploration if we have an active exploration session (any phase)
+    // Call cancelExploration if we have an active exploration session
     if (explorationId) {
       await cancelExploration();
       // Clean up _temp nodes from frontend state
@@ -192,61 +112,16 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
     
     // Explicitly reset hook state when canceling
-    console.log('[@AIGenerationModal] Explicitly resetting state on cancel');
+    console.log('[@AIGenerationModal:Phase1] Resetting state on cancel');
     resetState();
     
     onClose();
   };
   
   const handleCreateStructure = async () => {
+    console.log('[@AIGenerationModal:Phase1] Creating structure...');
     await continueExploration(); // Phase 2a: Create nodes/edges
-  };
-  
-  const handleStartValidation = async () => {
-    await startValidation(); // Phase 2b: Initialize validation
-    // Auto-start validating first item (non-blocking to allow UI updates)
-    handleValidateNext(); // Don't await - let it run async
-  };
-  
-  const handleValidateNext = async () => {
-    const result = await validateNextItem();
-    
-    // Fail fast if forward action fails
-    if (result && result.click_result === 'failed') {
-      console.error(`[@AIGenerationModal] Validation failed at step ${result.progress?.current_item}: ${result.item}`);
-      // Don't set error status - keep results visible but stop validation
-      // User can review what worked vs what failed
-      return; // Stop validation loop
-    }
-    
-    if (result && result.has_more_items) {
-      // Auto-continue if more items (small modal in corner)
-      setTimeout(() => handleValidateNext(), 500); // Small delay between validations
-    }
-  };
-
-  const handleApprove = async () => {
-    const result = await approveGeneration(selectedNodeIds, selectedEdgeIds);
-    if (result) {
-      onGenerated(); // Refresh the navigation tree
-      onClose();
-    }
-  };
-
-  const handleNodeSelect = (nodeId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedNodeIds(prev => [...prev, nodeId]);
-    } else {
-      setSelectedNodeIds(prev => prev.filter(id => id !== nodeId));
-    }
-  };
-
-  const handleEdgeSelect = (edgeId: string, checked: boolean) => {
-    if (checked) {
-      setSelectedEdgeIds(prev => [...prev, edgeId]);
-    } else {
-      setSelectedEdgeIds(prev => prev.filter(id => id !== edgeId));
-    }
+    // onStructureCreated callback will be triggered by hook, which closes this modal
   };
 
   const getStatusIcon = () => {
@@ -255,9 +130,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
     switch (status) {
       case 'exploring':
-        return <CircularProgress size={20} />;
+        return <AIIcon color="primary" />;
       case 'completed':
-        return <CompleteIcon color="success" />;
+        return <NavigationIcon color="success" />;
       case 'failed':
         return <ErrorIcon color="error" />;
       default:
@@ -285,21 +160,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     <Dialog
       open={isOpen}
       onClose={onClose}
-      maxWidth={(isValidating || isAwaitingValidation) ? "sm" : "md"}
+      maxWidth="md"
       fullWidth
       PaperProps={{
         sx: { 
-          maxHeight: '90vh',
-          ...(isValidating || isAwaitingValidation ? {
-            position: 'fixed',
-            top: 20,
-            right: 20,
-            margin: 0,
-            maxWidth: '400px',
-            boxShadow: 'none',
-            border: '1px solid',
-            borderColor: 'divider'
-          } : {})
+          maxHeight: '90vh'
         }
       }}
     >
@@ -323,7 +188,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         )}
 
         {/* Configuration Section - Only show when not exploring */}
-        {!isExploring && !hasResults && !isAwaitingApproval && (
+        {!isExploring && !isAwaitingApproval && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12} sm={6}>
@@ -484,11 +349,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </Paper>
         )}
 
-        {/* Exploration Progress Section */}
-        {(isExploring || hasResults) && !isAwaitingApproval && (
+        {/* Exploration Progress Section - Phase 1 only */}
+        {isExploring && (
           <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
-
-
             {/* Current Step */}
             <Box sx={{ mb: 2 }}>
               <Typography variant="subtitle2" color="text.secondary">
@@ -500,16 +363,14 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             </Box>
 
             {/* Progress Indicators */}
-            {isExploring && (
-              <Box sx={{ mb: 2 }}>
-                <LinearProgress variant="indeterminate" sx={{ mb: 1 }} />
-                <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                  <Chip label={`Screens: ${progress.screens_analyzed}/${progress.total_screens_found}`} size="small" />
-                  <Chip label={`Nodes: ${progress.nodes_proposed}`} size="small" />
-                  <Chip label={`Edges: ${progress.edges_proposed}`} size="small" />
-                </Box>
+            <Box sx={{ mb: 2 }}>
+              <LinearProgress variant="indeterminate" sx={{ mb: 1 }} />
+              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
+                <Chip label={`Screens: ${progress.screens_analyzed}/${progress.total_screens_found}`} size="small" />
+                <Chip label={`Nodes: ${progress.nodes_proposed}`} size="small" />
+                <Chip label={`Edges: ${progress.edges_proposed}`} size="small" />
               </Box>
-            )}
+            </Box>
 
             {/* Current Analysis */}
             {currentAnalysis.screen_name && (
@@ -560,216 +421,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                 </Paper>
               </Box>
             )}
-            
-            {/* Validation Progress - Show during Phase 2b */}
-            {(isAwaitingValidation || isValidating || isValidationComplete) && (
-              <Paper sx={{ p: 2, bgcolor: 'transparent', maxHeight: '60vh', overflow: 'auto' }}>
-                {/* Header with progress */}
-                <Box sx={{ mb: 2, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pb: 1 }}>
-                  <Typography variant="h6" sx={{ mb: 1 }}>
-                    {isAwaitingValidation && '⏳ Validation Starting...'}
-                    {isValidating && '🔄 VALIDATION IN PROGRESS'}
-                    {isValidationComplete && '✅ VALIDATION COMPLETE'}
-                  </Typography>
-                  
-                  {(isValidating || isValidationComplete) && validationProgress.total > 0 && (
-                    <>
-                      <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                        Step {validationProgress.current}/{validationProgress.total}
-                      </Typography>
-                      <LinearProgress 
-                        variant="determinate" 
-                        value={(validationProgress.current / validationProgress.total) * 100} 
-                        sx={{ mb: 1 }}
-                      />
-                    </>
-                  )}
-                </Box>
-
-                {/* Validation Steps List */}
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                  {/* Show completed results */}
-                  {validationResults.map((result, index) => (
-                    <Paper 
-                      key={index}
-                      sx={{ 
-                        p: 1.5, 
-                        bgcolor: 'background.default',
-                        border: '1px solid',
-                        borderColor: result.forward.result === 'failure' ? 'error.main' : 'success.main'
-                      }}
-                    >
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        {result.forward.result === 'success' ? '✅' : '❌'} Step {result.step}: "{result.itemName}" → {result.nodeName}
-                      </Typography>
-                      
-                      {/* Forward action */}
-                      <Box sx={{ ml: 2, mb: 0.5 }}>
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block' }}>
-                          ➡️ Forward: {result.forward.action}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            ml: 2, 
-                            color: result.forward.result === 'success' ? 'success.main' : 'error.main',
-                            display: 'block'
-                          }}
-                        >
-                          Result: {result.forward.result === 'success' ? '✅ SUCCESS' : '❌ FAILURE'}
-                          {result.forward.result === 'failure' && ` - ${result.forward.message}`}
-                        </Typography>
-                      </Box>
-                      
-                      {/* Reverse action */}
-                      <Box sx={{ ml: 2 }}>
-                        <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block' }}>
-                          ⬅️ Reverse: {result.reverse.action}
-                        </Typography>
-                        <Typography 
-                          variant="caption" 
-                          sx={{ 
-                            ml: 2, 
-                            color: result.reverse.result === 'success' ? 'success.main' : 
-                                   result.reverse.result === 'warning' ? 'warning.main' : 
-                                   result.reverse.result === 'skipped' ? 'text.secondary' : 'error.main',
-                            display: 'block'
-                          }}
-                        >
-                          Result: {
-                            result.reverse.result === 'success' ? '✅ SUCCESS' :
-                            result.reverse.result === 'warning' ? '⚠️ WARNING' :
-                            result.reverse.result === 'skipped' ? '⏭️ SKIPPED' : '❌ FAILURE'
-                          }
-                          {result.reverse.message && result.reverse.result !== 'success' && ` - ${result.reverse.message}`}
-                        </Typography>
-                      </Box>
-                    </Paper>
-                  ))}
-                  
-                  {/* Show current step if validating */}
-                  {isValidating && validationProgress.current > validationResults.length && (
-                    <Paper sx={{ p: 1.5, bgcolor: 'info.dark', border: '1px solid', borderColor: 'info.main' }}>
-                      <Typography variant="body2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                        🔄 Step {validationProgress.current} (IN PROGRESS)
-                      </Typography>
-                      <Typography variant="caption" sx={{ fontFamily: 'monospace', ml: 2, display: 'block' }}>
-                        {currentStep || 'Processing...'}
-                      </Typography>
-                    </Paper>
-                  )}
-                  
-                  {/* Show pending steps */}
-                  {validationProgress.total > 0 && 
-                   [...Array(validationProgress.total - validationProgress.current)].map((_, index) => (
-                    <Paper 
-                      key={`pending-${index}`}
-                      sx={{ p: 1, bgcolor: 'action.hover', opacity: 0.5 }}
-                    >
-                      <Typography variant="body2" color="text.secondary">
-                        ⏳ Step {validationProgress.current + index + 1} (PENDING)
-                      </Typography>
-                    </Paper>
-                  ))}
-                </Box>
-
-                {/* Summary at the end */}
-                {isValidationComplete && validationResults.length > 0 && (
-                  <Box sx={{ mt: 2, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1 }}>
-                      📊 Summary
-                    </Typography>
-                    <Typography variant="body2">
-                      ✅ Successful: {validationResults.filter(r => r.forward.result === 'success').length}/{validationResults.length} forward actions
-                    </Typography>
-                    <Typography variant="body2">
-                      ❌ Failed: {validationResults.filter(r => r.forward.result === 'failure').length}/{validationResults.length} forward actions
-                    </Typography>
-                    <Typography variant="body2">
-                      ⚠️ Reverse warnings: {validationResults.filter(r => r.reverse.result === 'warning').length}/{validationResults.length}
-                    </Typography>
-                  </Box>
-                )}
-              </Paper>
-            )}
-
-            {/* Proposed Changes - Only show when exploration is complete */}
-            {hasResults && (
-              <Box sx={{ flex: 1, overflow: 'auto' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 2 }}>
-                  <NavigationIcon />
-                  <Typography variant="h6">
-                    Proposed Navigation Structure
-                  </Typography>
-                </Box>
-
-                {/* Proposed Nodes */}
-                {proposedNodes.length > 0 && (
-                  <Box sx={{ mb: 3 }}>
-                    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-                      Nodes ({proposedNodes.length})
-                    </Typography>
-                    <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                      {proposedNodes.map((node) => (
-                        <Paper key={node.id} sx={{ p: 1, mb: 1, bgcolor: 'transparent' }}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={selectedNodeIds.includes(node.id)}
-                                onChange={(e) => handleNodeSelect(node.id, e.target.checked)}
-                              />
-                            }
-                            label={
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                  {node.name} ({node.id})
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  Type: {node.screen_type} • {node.reasoning}
-                                </Typography>
-                              </Box>
-                            }
-                          />
-                        </Paper>
-                      ))}
-                    </Box>
-                  </Box>
-                )}
-
-                {/* Proposed Edges */}
-                {proposedEdges.length > 0 && (
-                  <Box>
-                    <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: 'medium' }}>
-                      Edges ({proposedEdges.length})
-                    </Typography>
-                    <Box sx={{ maxHeight: 200, overflow: 'auto' }}>
-                      {proposedEdges.map((edge) => (
-                        <Paper key={edge.id} sx={{ p: 1, mb: 1, bgcolor: 'transparent' }}>
-                          <FormControlLabel
-                            control={
-                              <Checkbox
-                                checked={selectedEdgeIds.includes(edge.id)}
-                                onChange={(e) => handleEdgeSelect(edge.id, e.target.checked)}
-                              />
-                            }
-                            label={
-                              <Box>
-                                <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                                  {edge.source} → {edge.target}
-                                </Typography>
-                                <Typography variant="caption" color="text.secondary">
-                                  {edge.reasoning}
-                                </Typography>
-                              </Box>
-                            }
-                          />
-                        </Paper>
-                      ))}
-                    </Box>
-                  </Box>
-                )}
-              </Box>
-            )}
           </Paper>
         )}
       </DialogContent>
@@ -803,68 +454,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             </Button>
           </>
         )}
-        
-        {/* Phase 2a: Structure Created - Show Start Validation */}
-        {isStructureCreated && (
-          <>
-            <Button
-              onClick={handleCancel}
-              variant="outlined"
-              startIcon={<CancelIcon />}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={handleStartValidation}
-              variant="contained"
-              color="primary"
-              startIcon={<CompleteIcon />}
-            >
-              Start Validation
-            </Button>
-          </>
-        )}
-        
-        {/* Phase 2b: Validating - Show progress (auto-running) */}
-        {(isAwaitingValidation || isValidating) && (
-          <Button
-            onClick={handleCancel}
-            variant="outlined"
-            color="error"
-            startIcon={<CancelIcon />}
-            disabled={isValidating}
-          >
-            {isValidating ? 'Validating...' : 'Cancel'}
-          </Button>
-        )}
-        
-        {/* Phase 2b: Validation Complete - Show Finalize */}
-        {isValidationComplete && (
-          <>
-            <Button
-              onClick={handleCancel}
-              variant="outlined"
-              startIcon={<CancelIcon />}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={() => {
-                // TODO: Call finalize endpoint to rename _temp nodes/edges
-                onGenerated();
-                onClose();
-              }}
-              variant="contained"
-              color="success"
-              startIcon={<CompleteIcon />}
-            >
-              Finalize
-            </Button>
-          </>
-        )}
 
         {/* Initial State: Show Close and Start */}
-        {!isExploring && !hasResults && !isAwaitingApproval && !isStructureCreated && !isAwaitingValidation && !isValidating && !isValidationComplete && (
+        {!isExploring && !isAwaitingApproval && (
           <>
             <Button
               onClick={handleCancel}
@@ -884,8 +476,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </>
         )}
 
-        {/* Exploring (Phase 1): Show Cancel */}
-        {isExploring && !isValidating && (
+        {/* Exploring: Show Cancel */}
+        {isExploring && (
           <Button
             onClick={handleCancel}
             variant="outlined"
@@ -894,28 +486,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           >
             Cancel
           </Button>
-        )}
-
-        {/* OLD Results flow (keeping for now) */}
-        {hasResults && !isValidationComplete && (
-          <>
-            <Button
-              onClick={handleCancel}
-              variant="outlined"
-              startIcon={<CancelIcon />}
-            >
-              Close
-            </Button>
-            <Button
-              onClick={handleApprove}
-              variant="contained"
-              color="success"
-              startIcon={isGenerating ? <CircularProgress size={20} /> : <CompleteIcon />}
-              disabled={isGenerating || (selectedNodeIds.length === 0 && selectedEdgeIds.length === 0)}
-            >
-              {isGenerating ? 'Generating...' : `Generate (${selectedNodeIds.length + selectedEdgeIds.length} items)`}
-            </Button>
-          </>
         )}
       </DialogActions>
     </Dialog>
