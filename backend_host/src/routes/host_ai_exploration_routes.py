@@ -373,3 +373,98 @@ def cancel_exploration():
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+# =====================================================
+# ORPHANED TEMP NODES MANAGEMENT (No Session Required)
+# =====================================================
+
+@host_ai_exploration_bp.route('/check-temp-nodes', methods=['GET'])
+def check_temp_nodes():
+    """
+    Check if tree has orphaned _temp nodes/edges (works without active session)
+    
+    Query params: tree_id, team_id
+    """
+    try:
+        tree_id = request.args.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not tree_id or not team_id:
+            return jsonify({'success': False, 'error': 'tree_id and team_id required'}), 400
+        
+        print(f"[@route:ai_generation:check_temp_nodes] Checking tree {tree_id}")
+        
+        # Use static method - no device needed!
+        from backend_host.src.services.ai_exploration.exploration_executor import ExplorationExecutor
+        result = ExplorationExecutor.check_temp_nodes_in_tree(tree_id, team_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:check_temp_nodes] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@host_ai_exploration_bp.route('/finalize-temp-nodes', methods=['POST'])
+def finalize_temp_nodes():
+    """
+    Finalize orphaned _temp nodes: rename all to permanent (works without active session)
+    
+    Body: {'tree_id': 'uuid'}
+    Query params: team_id
+    """
+    try:
+        data = request.get_json() or {}
+        tree_id = data.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not tree_id or not team_id:
+            return jsonify({'success': False, 'error': 'tree_id and team_id required'}), 400
+        
+        print(f"[@route:ai_generation:finalize_temp_nodes] Finalizing tree {tree_id}")
+        
+        # Use static method - no device needed!
+        from backend_host.src.services.ai_exploration.exploration_executor import ExplorationExecutor
+        result = ExplorationExecutor.finalize_temp_nodes_in_tree(tree_id, team_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:finalize_temp_nodes] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@host_ai_exploration_bp.route('/abort-temp-nodes', methods=['POST'])
+def abort_temp_nodes():
+    """
+    Abort orphaned _temp nodes: delete all (works without active session)
+    
+    Body: {'tree_id': 'uuid'}
+    Query params: team_id
+    """
+    try:
+        data = request.get_json() or {}
+        tree_id = data.get('tree_id')
+        team_id = request.args.get('team_id')
+        
+        if not tree_id or not team_id:
+            return jsonify({'success': False, 'error': 'tree_id and team_id required'}), 400
+        
+        print(f"[@route:ai_generation:abort_temp_nodes] Aborting temp nodes in tree {tree_id}")
+        
+        # Use static method - no device needed!
+        from backend_host.src.services.ai_exploration.exploration_executor import ExplorationExecutor
+        result = ExplorationExecutor.abort_temp_nodes_in_tree(tree_id, team_id)
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:abort_temp_nodes] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500

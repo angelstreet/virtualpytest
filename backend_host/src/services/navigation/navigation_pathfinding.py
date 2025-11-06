@@ -1,6 +1,10 @@
 """
 Unified Pathfinding System for Navigation Trees
 Uses NetworkX for cross-tree shortest path calculations with fail-early behavior
+
+DOM-SPECIFIC OPTIMIZATION:
+- Sibling Shortcuts: Nodes sharing the same parent (e.g., nav bar) are directly reachable
+- Example: home_tvguide → home_replay uses the same action as home → home_replay
 """
 
 import networkx as nx

@@ -920,4 +920,170 @@ class ExplorationExecutor:
                 'success': True,
                 'message': 'Exploration cancelled, temporary nodes deleted'
             }
+    
+    @staticmethod
+    def check_temp_nodes_in_tree(tree_id: str, team_id: str) -> Dict[str, Any]:
+        """
+        Check if tree has any _temp nodes/edges (works without active session)
+        
+        Returns:
+            {
+                'has_temp_nodes': True,
+                'temp_node_count': 5,
+                'temp_edge_count': 4
+            }
+        """
+        from backend_host.src.services.navigation.crud import get_tree_nodes, get_tree_edges
+        
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        edges_result = get_tree_edges(tree_id, team_id)
+        
+        if not nodes_result.get('success') or not edges_result.get('success'):
+            return {'success': False, 'error': 'Failed to get tree data'}
+        
+        nodes = nodes_result.get('nodes', [])
+        edges = edges_result.get('edges', [])
+        
+        temp_node_count = sum(1 for n in nodes if n.get('node_id', '').endswith('_temp'))
+        temp_edge_count = sum(1 for e in edges if '_temp' in e.get('edge_id', ''))
+        
+        return {
+            'success': True,
+            'has_temp_nodes': temp_node_count > 0 or temp_edge_count > 0,
+            'temp_node_count': temp_node_count,
+            'temp_edge_count': temp_edge_count
+        }
+    
+    @staticmethod
+    def finalize_temp_nodes_in_tree(tree_id: str, team_id: str) -> Dict[str, Any]:
+        """
+        Finalize ALL temp nodes in tree (works without active session)
+        Reuses the same logic as finalize_structure() but works on any tree
+        
+        Returns:
+            {
+                'success': True,
+                'nodes_renamed': 5,
+                'edges_renamed': 4
+            }
+        """
+        from backend_host.src.services.navigation.crud import get_tree_nodes, get_tree_edges, update_node, update_edge
+        
+        print(f"[@ExplorationExecutor:finalize_temp_nodes_in_tree] Renaming _temp nodes/edges in tree {tree_id}")
+        
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        edges_result = get_tree_edges(tree_id, team_id)
+        
+        if not nodes_result.get('success') or not edges_result.get('success'):
+            return {'success': False, 'error': 'Failed to get tree data'}
+        
+        nodes = nodes_result.get('nodes', [])
+        edges = edges_result.get('edges', [])
+        
+        nodes_renamed = 0
+        edges_renamed = 0
+        
+        # Rename nodes: remove _temp suffix
+        for node in nodes:
+            node_id = node.get('node_id', '')
+            if node_id.endswith('_temp'):
+                new_node_id = node_id.replace('_temp', '')
+                node['node_id'] = new_node_id
+                
+                result = update_node(tree_id, node_id, node, team_id)
+                if result.get('success'):
+                    nodes_renamed += 1
+                    print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
+                else:
+                    print(f"  ❌ Failed to rename node: {node_id}")
+        
+        # Rename edges: remove _temp suffix from edge_id, source, target
+        for edge in edges:
+            edge_id = edge.get('edge_id', '')
+            source = edge.get('source', '')
+            target = edge.get('target', '')
+            
+            if '_temp' in edge_id or '_temp' in source or '_temp' in target:
+                new_edge_id = edge_id.replace('_temp', '')
+                new_source = source.replace('_temp', '')
+                new_target = target.replace('_temp', '')
+                
+                edge['edge_id'] = new_edge_id
+                edge['source'] = new_source
+                edge['target'] = new_target
+                
+                result = update_edge(tree_id, edge_id, edge, team_id)
+                if result.get('success'):
+                    edges_renamed += 1
+                    print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
+                else:
+                    print(f"  ❌ Failed to rename edge: {edge_id}")
+        
+        print(f"[@ExplorationExecutor:finalize_temp_nodes_in_tree] ✅ Complete: {nodes_renamed} nodes, {edges_renamed} edges")
+        
+        return {
+            'success': True,
+            'nodes_renamed': nodes_renamed,
+            'edges_renamed': edges_renamed,
+            'message': f'Finalized {nodes_renamed} nodes and {edges_renamed} edges'
+        }
+    
+    @staticmethod
+    def abort_temp_nodes_in_tree(tree_id: str, team_id: str) -> Dict[str, Any]:
+        """
+        Delete ALL temp nodes in tree (works without active session)
+        
+        Returns:
+            {
+                'success': True,
+                'nodes_deleted': 5,
+                'edges_deleted': 4
+            }
+        """
+        from backend_host.src.services.navigation.crud import get_tree_nodes, get_tree_edges
+        
+        print(f"[@ExplorationExecutor:abort_temp_nodes_in_tree] Deleting _temp nodes/edges in tree {tree_id}")
+        
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        edges_result = get_tree_edges(tree_id, team_id)
+        
+        if not nodes_result.get('success') or not edges_result.get('success'):
+            return {'success': False, 'error': 'Failed to get tree data'}
+        
+        nodes = nodes_result.get('nodes', [])
+        edges = edges_result.get('edges', [])
+        
+        nodes_deleted = 0
+        edges_deleted = 0
+        
+        # Delete temp nodes
+        for node in nodes:
+            node_id = node.get('node_id', '')
+            if node_id.endswith('_temp'):
+                result = delete_node(tree_id, node_id, team_id)
+                if result.get('success'):
+                    nodes_deleted += 1
+                    print(f"  🗑️  Deleted node: {node_id}")
+                else:
+                    print(f"  ❌ Failed to delete node: {node_id}")
+        
+        # Delete temp edges (edges connected to temp nodes are auto-deleted by DB cascade)
+        for edge in edges:
+            edge_id = edge.get('edge_id', '')
+            if '_temp' in edge_id:
+                result = delete_edge(tree_id, edge_id, team_id)
+                if result.get('success'):
+                    edges_deleted += 1
+                    print(f"  🗑️  Deleted edge: {edge_id}")
+                else:
+                    print(f"  ❌ Failed to delete edge: {edge_id}")
+        
+        print(f"[@ExplorationExecutor:abort_temp_nodes_in_tree] ✅ Complete: {nodes_deleted} nodes, {edges_deleted} edges")
+        
+        return {
+            'success': True,
+            'nodes_deleted': nodes_deleted,
+            'edges_deleted': edges_deleted,
+            'message': f'Deleted {nodes_deleted} temp nodes and {edges_deleted} temp edges'
+        }
 
