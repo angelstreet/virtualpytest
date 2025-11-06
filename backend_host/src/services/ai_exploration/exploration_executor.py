@@ -285,6 +285,7 @@ class ExplorationExecutor:
         return {
             'success': True,
             'exploration_id': exploration_id,
+            'host_name': self.host_name,
             'message': 'Exploration started'
         }
     

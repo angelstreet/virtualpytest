@@ -196,12 +196,26 @@ export const useGenerateModel = ({
 
   // Polling effect - polls every 5 seconds when exploring
   useEffect(() => {
+    console.log('[@useGenerateModel:pollingEffect] Triggered', {
+      isExploring,
+      explorationId,
+      explorationHostName,
+      willStartPolling: isExploring && explorationId && explorationHostName
+    });
+    
     if (isExploring && explorationId && explorationHostName) {
+      console.log('[@useGenerateModel:pollingEffect] ✅ Starting polling interval (5s)');
       const interval = setInterval(() => {
+        console.log('[@useGenerateModel:pollingEffect] ⏰ Interval fired - calling fetchExplorationStatus');
         fetchExplorationStatus();
       }, 5000);
       
-      return () => clearInterval(interval);
+      return () => {
+        console.log('[@useGenerateModel:pollingEffect] 🧹 Cleanup - clearing interval');
+        clearInterval(interval);
+      };
+    } else {
+      console.log('[@useGenerateModel:pollingEffect] ❌ NOT starting polling - conditions not met');
     }
   }, [isExploring, explorationId, explorationHostName, fetchExplorationStatus]);
 
@@ -274,6 +288,8 @@ export const useGenerateModel = ({
         setExplorationHostName(data.host_name); // Store host_name from response
         setCurrentStep('Exploration started successfully');
         console.log('[@useGenerateModel:startExploration] Exploration started:', data.exploration_id);
+        console.log('[@useGenerateModel:startExploration] 🔍 DEBUG - explorationHostName set to:', data.host_name);
+        console.log('[@useGenerateModel:startExploration] 🔍 DEBUG - isExploring:', true);
       } else {
         throw new Error(data.error || 'Failed to start exploration');
       }
