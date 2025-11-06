@@ -144,6 +144,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         // Refresh tree to show renamed nodes
         onGenerated();
         setHasTempNodes(false);
+        
+        // Close modal after successful validation
+        onClose();
       } else {
         console.error('[@AIGenerationModal] ❌ Validation failed:', data.error);
       }
@@ -177,6 +180,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         onGenerated();
         onCleanupTemp?.();
         setHasTempNodes(false);
+        
+        // Close modal after successful abort
+        onClose();
       } else {
         console.error('[@AIGenerationModal] ❌ Abort failed:', data.error);
       }

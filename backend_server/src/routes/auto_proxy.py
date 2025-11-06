@@ -124,7 +124,7 @@ def auto_proxy(endpoint):
             if any(endpoint.endswith(ep) for ep in cache_invalidation_endpoints):
                 tree_id = data.get('tree_id') if data else None
                 if tree_id:
-                    from backend_server.src.lib.navigation.navigation_tree_utils import invalidate_cached_tree
+                    from backend_server.src.routes.server_navigation_trees_routes import invalidate_cached_tree
                     invalidate_cached_tree(tree_id, team_id)
                     print(f"[@auto_proxy] 🔄 Cache invalidated for tree {tree_id} after {endpoint}")
         

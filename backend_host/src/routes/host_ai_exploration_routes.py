@@ -276,7 +276,7 @@ def finalize_structure():
         print(f"[@route:ai_generation:finalize_structure] Renaming _temp nodes/edges for tree: {tree_id}")
         
         # Get all nodes and edges from tree
-        from shared.src.lib.database.navigation_trees_db import get_tree_nodes, get_tree_edges, update_node, update_edge
+        from shared.src.lib.database.navigation_trees_db import get_tree_nodes, get_tree_edges, save_node, save_edge, delete_node, delete_edge
         
         nodes_result = get_tree_nodes(tree_id, team_id)
         edges_result = get_tree_edges(tree_id, team_id)
@@ -290,37 +290,46 @@ def finalize_structure():
         nodes_renamed = 0
         edges_renamed = 0
         
-        # Rename nodes: remove _temp suffix
+        # Rename nodes: delete old, create new without _temp suffix
         for node in nodes:
             node_id = node.get('node_id', '')
             if node_id.endswith('_temp'):
                 new_node_id = node_id.replace('_temp', '')
+                
+                # Update node_id in the data
                 node['node_id'] = new_node_id
                 
-                result = update_node(tree_id, node_id, node, team_id)
+                # Create new node with updated id
+                result = save_node(tree_id, node, team_id)
                 if result.get('success'):
+                    # Delete old _temp node
+                    delete_node(tree_id, node_id, team_id)
                     nodes_renamed += 1
                     print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
                 else:
                     print(f"  ❌ Failed to rename node: {node_id}")
         
-        # Rename edges: remove _temp suffix from edge_id, source, target
+        # Rename edges: delete old, create new without _temp suffix
         for edge in edges:
             edge_id = edge.get('edge_id', '')
-            source = edge.get('source', '')
-            target = edge.get('target', '')
+            source = edge.get('source_node_id', '')
+            target = edge.get('target_node_id', '')
             
             if '_temp' in edge_id or '_temp' in source or '_temp' in target:
                 new_edge_id = edge_id.replace('_temp', '')
                 new_source = source.replace('_temp', '')
                 new_target = target.replace('_temp', '')
                 
+                # Update edge data
                 edge['edge_id'] = new_edge_id
-                edge['source'] = new_source
-                edge['target'] = new_target
+                edge['source_node_id'] = new_source
+                edge['target_node_id'] = new_target
                 
-                result = update_edge(tree_id, edge_id, edge, team_id)
+                # Create new edge with updated ids
+                result = save_edge(tree_id, edge, team_id)
                 if result.get('success'):
+                    # Delete old _temp edge
+                    delete_edge(tree_id, edge_id, team_id)
                     edges_renamed += 1
                     print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
                 else:
