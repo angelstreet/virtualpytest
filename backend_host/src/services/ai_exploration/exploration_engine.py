@@ -14,7 +14,8 @@ from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_edge,
     create_sub_tree,
-    get_tree_metadata
+    get_tree_metadata,
+    get_node_by_id
 )
 
 
@@ -271,6 +272,15 @@ Exploration will navigate through these items using {self.prediction.get('strate
         """
         import time
         
+        # Generate node name that would be created
+        new_node_name = f"{item}_temp"
+        
+        # ✅ PROTECTION: Check if node already exists (important for subtrees)
+        existing_node = get_node_by_id(self.tree_id, new_node_name, self.team_id)
+        if existing_node.get('success') and existing_node.get('node'):
+            print(f"    ⏭️ Node '{new_node_name}' already exists - skipping exploration")
+            return {'success': False, 'error': f'Node {new_node_name} already exists'}
+        
         # 1. Click element
         click_success = False
         if item.startswith('dynamic_'):
@@ -321,8 +331,7 @@ Exploration will navigate through these items using {self.prediction.get('strate
         else:
             print(f"    ⚠️ BACK failed - only forward edge created")
         
-        # 4. Create node and edge
-        new_node_name = f"{item}_temp"
+        # 4. Create node and edge (node name already generated above for duplicate check)
         
         # Calculate position
         position_x = 250 + (len(self.created_nodes) % 3) * 300
@@ -500,6 +509,15 @@ Exploration will navigate through these items using {self.prediction.get('strate
         for i, item in enumerate(predicted_items):
             print(f"\n  [{i+1}/{len(predicted_items)}] Testing: {item}")
             
+            # Generate node name that would be created
+            new_node_name = f"{self.node_generator.target_to_node_name(item)}_temp"
+            
+            # ✅ PROTECTION: Check if node already exists (important for subtrees)
+            existing_node = get_node_by_id(self.tree_id, new_node_name, self.team_id)
+            if existing_node.get('success') and existing_node.get('node'):
+                print(f"    ⏭️ Node '{new_node_name}' already exists - skipping exploration")
+                continue
+            
             # Notify progress
             if self.progress_callback:
                 self.progress_callback(
@@ -554,8 +572,7 @@ Exploration will navigate through these items using {self.prediction.get('strate
             else:
                 print(f"    ⚠️ BACK failed - only forward edge created")
             
-            # 4. Create node and edge
-            new_node_name = f"{self.node_generator.target_to_node_name(item)}_temp"
+            # 4. Create node and edge (node name already generated above for duplicate check)
             
             # Calculate position
             position_x = 250 + (len(self.created_nodes) % 3) * 300

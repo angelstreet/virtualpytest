@@ -127,10 +127,18 @@ class ScreenAnalyzer:
             List of element names (strings)
         """
         interactive_elements = []
-        dynamic_counter = 1
         
         # Filter out common non-interactive text
         ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration']
+        
+        # UI accessibility hints to strip (before dynamic content detection)
+        # ONLY strip instructions/state, NOT element types (Tab, Button, etc.)
+        accessibility_patterns = [
+            ', Double-tap to Open',
+            ', Double-tap to activate',
+            ', Double-tap to select',
+            ' currently selected',
+        ]
         
         # Dynamic content indicators (program titles, prices, descriptions)
         dynamic_indicators = [
@@ -148,7 +156,6 @@ class ScreenAnalyzer:
             
             # Get the best label for this element
             label = None
-            is_dynamic = False
             
             # Priority 1: text
             if elem.text and elem.text != '<no text>' and elem.text.strip():
@@ -173,19 +180,30 @@ class ScreenAnalyzer:
             if any(keyword in label.lower() for keyword in ignore_keywords):
                 continue
             
-            # ✅ Detect dynamic content
+            # ✅ CLEAN: Strip accessibility hints BEFORE dynamic content detection
+            original_label = label
+            for pattern in accessibility_patterns:
+                if pattern.lower() in label.lower():
+                    # Case-insensitive removal
+                    import re
+                    label = re.sub(re.escape(pattern), '', label, flags=re.IGNORECASE).strip()
+            
+            # Clean up extra commas/spaces after stripping
+            label = label.rstrip(',').strip()
+            
+            # Skip if label became empty after cleaning
+            if not label:
+                continue
+            
+            # ✅ Detect and SKIP dynamic content (AFTER cleaning accessibility text)
             # 1. Very long labels (> 30 chars) = likely program description
             # 2. Contains time patterns or replay keywords
+            # We SKIP these because we can't click on "dynamic_1" - it's not a real element
             if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
-                is_dynamic = True
-                # Replace with generic name
-                label = f"dynamic_{dynamic_counter}"
-                dynamic_counter += 1
+                continue  # Skip dynamic content entirely
             
-            # Add to list (avoid duplicates for static, allow duplicates for dynamic)
-            if is_dynamic:
-                interactive_elements.append(label)
-            elif label not in interactive_elements:
+            # Add to list (avoid duplicates)
+            if label not in interactive_elements:
                 interactive_elements.append(label)
         
         return interactive_elements[:20]  # Limit to top 20 elements
@@ -203,10 +221,18 @@ class ScreenAnalyzer:
             List of element names (strings)
         """
         interactive_elements = []
-        dynamic_counter = 1
         
         # Filter out common non-interactive keywords
         ignore_keywords = ['image', 'icon', 'loading', 'placeholder', 'decoration', 'logo']
+        
+        # UI accessibility hints to strip (before dynamic content detection)
+        # ONLY strip instructions/state, NOT element types (Tab, Button, etc.)
+        accessibility_patterns = [
+            ', Double-tap to Open',
+            ', Double-tap to activate',
+            ', Double-tap to select',
+            ' currently selected',
+        ]
         
         # Dynamic content indicators (same as mobile)
         dynamic_indicators = [
@@ -221,7 +247,6 @@ class ScreenAnalyzer:
             # Web elements are already filtered to 'interactive' type
             # Get the best label
             label = None
-            is_dynamic = False
             
             # Priority 1: text content
             if elem.get('text') and elem['text'].strip():
@@ -248,19 +273,29 @@ class ScreenAnalyzer:
             if any(keyword in label.lower() for keyword in ignore_keywords):
                 continue
             
-            # ✅ Detect dynamic content (same logic as mobile)
+            # ✅ CLEAN: Strip accessibility hints BEFORE dynamic content detection
+            import re
+            for pattern in accessibility_patterns:
+                if pattern.lower() in label.lower():
+                    # Case-insensitive removal
+                    label = re.sub(re.escape(pattern), '', label, flags=re.IGNORECASE).strip()
+            
+            # Clean up extra commas/spaces after stripping
+            label = label.rstrip(',').strip()
+            
+            # Skip if label became empty after cleaning
+            if not label:
+                continue
+            
+            # ✅ Detect and SKIP dynamic content (AFTER cleaning accessibility text)
             # 1. Very long labels (> 30 chars) = likely program description
             # 2. Contains price, time, or content indicators
+            # We SKIP these because we can't click on "dynamic_1" - it's not a real element
             if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
-                is_dynamic = True
-                # Replace with generic name
-                label = f"dynamic_{dynamic_counter}"
-                dynamic_counter += 1
+                continue  # Skip dynamic content entirely
             
-            # Add to list (avoid duplicates for static, allow duplicates for dynamic)
-            if is_dynamic:
-                interactive_elements.append(label)
-            elif label not in interactive_elements:
+            # Add to list (avoid duplicates)
+            if label not in interactive_elements:
                 interactive_elements.append(label)
         
         return interactive_elements[:20]  # Limit to top 20 elements
