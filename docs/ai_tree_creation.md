@@ -239,11 +239,15 @@ Step 1: "TV Guide Tab"
 1. Parse UI dump (XML for Android, JSON for web)
 2. Extract clickable elements:
    ["TV Guide Tab", "Replay Register", "Search Button", ...]
-3. Filter out:
+3. Strip accessibility hints (preserves element identifiers):
+   "Live TV Tab, Double-tap to Open" → "Live TV Tab"
+   "TV guide Tab currently selected" → "TV guide Tab"
+4. Filter out and SKIP entirely:
    - Non-interactive elements (checked via clickable property)
    - Generic labels ("image", "icon", "loading")
    - Dynamic content (> 30 chars, or contains price/date patterns)
-4. Return list of navigation targets (max 20)
+   NOTE: Dynamic content is SKIPPED, not renamed to "dynamic_X"
+5. Return list of static navigation targets only (max 20)
 ```
 
 #### For TV/STB:
@@ -260,11 +264,23 @@ Step 1: "TV Guide Tab"
 
 ### Phase 2a: 2-Level Exploration
 
+**Protection against duplicate nodes:**
+- Before exploring each item, system checks if node already exists
+- If node exists (important for subtrees re-exploration), skips that item
+- Saves time and prevents unnecessary device interactions
+
 **For each level-1 navigation target:**
 
 ```python
-# 1. Click level-1 item
+# 0. Check if node already exists (duplicate protection)
 target_level1 = "Settings Tab"
+node_level1 = "settings_temp"
+
+if node_exists(node_level1):
+    print("⏭️ Node already exists - skipping")
+    continue
+
+# 1. Click level-1 item
 click_element(target_level1)
 wait(2s)
 
@@ -276,6 +292,13 @@ level2_items = parse_ui_dump()  # ["WiFi", "Bluetooth", "Account", ...]
 
 # 4. For each level-2 item:
 for level2_item in level2_items:
+    # 4.0. Check if level-2 node exists (duplicate protection)
+    node_level2 = f"settings_{level2_item.lower()}_temp"
+    
+    if node_exists(node_level2):
+        print("⏭️ Node already exists - skipping")
+        continue
+    
     # 4.1. Click level-2 item
     click_element(level2_item)  # "WiFi"
     wait(2s)
@@ -402,6 +425,83 @@ for each target in navigation_targets:
 ```
 
 **Key Point:** Testing is INFORMATIVE. Edges keep their actions regardless of test results!
+
+---
+
+## Element Filtering & Cleaning
+
+### Accessibility Text Stripping (Phase 1)
+
+**Problem:** UI elements often include accessibility hints that interfere with navigation:
+- `"Live TV Tab, Double-tap to Open"` ❌ (comma triggers dynamic content filter)
+- `"TV guide Tab currently selected"` ❌ (too long)
+
+**Solution:** Strip accessibility hints BEFORE checking for dynamic content:
+
+```python
+accessibility_patterns = [
+    ', Double-tap to Open',      # Accessibility instruction
+    ', Double-tap to activate',   # Accessibility instruction
+    ', Double-tap to select',     # Accessibility instruction
+    ' currently selected',        # UI state
+]
+
+# Apply cleaning
+for pattern in accessibility_patterns:
+    if pattern.lower() in label.lower():
+        label = re.sub(re.escape(pattern), '', label, flags=re.IGNORECASE).strip()
+
+# Clean up trailing commas/spaces
+label = label.rstrip(',').strip()
+```
+
+**Result:**
+- `"Live TV Tab, Double-tap to Open"` → `"Live TV Tab"` ✅
+- `"TV guide Tab currently selected"` → `"TV guide Tab"` ✅
+- `"Search channel. Button"` → `"Search channel. Button"` ✅
+
+**Important:** We ONLY strip instructions/state, NOT element types like "Tab" or "Button" - these are part of the identifier needed for clicking!
+
+### Dynamic Content Detection (Phase 1)
+
+**What is dynamic content?**
+- Program titles: "Escape to the Country BBC One HD 6 November 16:00"
+- Prices: "Premium Plan - $9.99/month"
+- Descriptions: Long text > 30 characters with dates/times
+
+**Detection rules:**
+```python
+# After stripping accessibility text, check for dynamic patterns
+dynamic_indicators = [
+    'available for replay', 'watch now', 'continue watching',
+    'chf', 'usd', 'eur', 'gbp', '$', '€', '£',  # Prices
+    ' from ', ' to ',  # Time/price ranges
+    'season ', 'episode ', 's0', 'e0',  # TV series
+    ','  # Remaining commas (after accessibility stripping)
+]
+
+# If label > 30 chars OR contains dynamic indicators
+if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
+    continue  # SKIP entirely - don't create node
+```
+
+**Important:** Dynamic content is **SKIPPED entirely**, NOT renamed to `dynamic_1`, `dynamic_2`, etc.
+
+**Why skip instead of rename?**
+- ❌ Can't click on `"dynamic_1"` - it doesn't exist in the UI
+- ❌ Creates useless action sets like `click_element(text="dynamic_1")`
+- ❌ Wastes exploration time on non-navigable content
+- ✅ Only real, clickable navigation elements are included
+
+**Examples:**
+
+| Element Text | After Cleaning | Result |
+|-------------|----------------|--------|
+| `"Live TV Tab, Double-tap to Open"` | `"Live TV Tab"` | ✅ Kept (navigation) |
+| `"TV guide Tab currently selected"` | `"TV guide Tab"` | ✅ Kept (navigation) |
+| `"Escape to the Country BBC One HD, Available for replay"` | (cleaned) | ❌ Skipped (dynamic - has comma + replay keyword) |
+| `"Lost and Found in the Lakes BBC One HD 6 November 15:30"` | (cleaned) | ❌ Skipped (dynamic - > 30 chars + date) |
+| `"Search channel. Button"` | `"Search channel. Button"` | ✅ Kept (navigation) |
 
 ---
 
@@ -548,6 +648,14 @@ Level 1: "TV Guide Tab" → tvguide_temp
 5. **Works Everywhere**: Mobile, web, TV, STB - same 2-level logic
 6. **Time Efficient**: 60-120 seconds for complete 2-level structure
 7. **Predictable**: Always know what you'll get (main + sub-items)
+8. **Smart Filtering**: 
+   - ✅ Strips accessibility hints while preserving element identifiers
+   - ✅ Skips dynamic content (program titles, prices) automatically
+   - ✅ Only includes real, clickable navigation elements
+9. **Duplicate Protection**: 
+   - ✅ Checks if nodes already exist before exploring
+   - ✅ Important for subtree re-exploration
+   - ✅ Saves time and prevents unnecessary device interactions
 
 ---
 
@@ -571,6 +679,8 @@ Level 1: "TV Guide Tab" → tvguide_temp
 5. **Accurate**: Names derived from actual UI elements
 6. **Efficient**: Creates structure first, validates incrementally
 7. **Transparent**: User sees real-time progress
+8. **Smart Filtering**: Only real navigation elements (skips dynamic content)
+9. **Duplicate Protection**: Prevents re-exploration of existing nodes
 
 ---
 

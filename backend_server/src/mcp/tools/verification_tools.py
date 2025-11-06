@@ -194,6 +194,87 @@ class VerificationTools:
         print(f"[@MCP:verify_device_state] Sync execution completed")
         return self.formatter.format_api_response(result)
     
+    def dump_ui_elements(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Dump UI elements from current device screen
+        
+        REUSES existing /host/device/ui-dump or verification endpoints
+        
+        Args:
+            params: {
+                'device_id': str (OPTIONAL - defaults to 'device1'),
+                'host_name': str (OPTIONAL - defaults to 'sunri-pi1'),
+                'team_id': str (OPTIONAL),
+                'platform': str (OPTIONAL - 'mobile', 'web', 'tv')
+            }
+            
+        Returns:
+            MCP-formatted response with UI elements array
+        """
+        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        platform = params.get('platform', 'mobile')
+        
+        query_params = {
+            'device_id': device_id,
+            'host_name': host_name,
+            'team_id': team_id,
+            'platform': platform
+        }
+        
+        print(f"[@MCP:dump_ui_elements] Dumping UI for {device_id} on {host_name}")
+        
+        # Try /host/device/ui-dump endpoint
+        result = self.api.get('/host/device/ui-dump', params=query_params)
+        
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to dump UI elements')
+            return {"content": [{"type": "text", "text": f"❌ UI dump failed: {error_msg}"}], "isError": True}
+        
+        # Extract elements
+        elements = result.get('elements', result.get('data', []))
+        
+        if not elements:
+            return {"content": [{"type": "text", "text": "⚠️ No UI elements found on screen"}], "isError": False}
+        
+        # Format summary
+        clickable_count = sum(1 for el in elements if el.get('clickable', False))
+        
+        response_text = f"📋 UI Elements Dump ({device_id}):\n\n"
+        response_text += f"Total elements: {len(elements)}\n"
+        response_text += f"Clickable elements: {clickable_count}\n\n"
+        
+        # Show first 20 clickable elements
+        clickable_elements = [el for el in elements if el.get('clickable', False)][:20]
+        
+        if clickable_elements:
+            response_text += "**Clickable Elements:**\n"
+            for el in clickable_elements:
+                text = el.get('text', el.get('content-desc', ''))
+                resource_id = el.get('resource-id', '')
+                bounds = el.get('bounds', '')
+                
+                if text:
+                    response_text += f"  • \"{text}\""
+                    if resource_id:
+                        response_text += f" (id: {resource_id})"
+                    response_text += "\n"
+                elif resource_id:
+                    response_text += f"  • {resource_id}\n"
+            
+            if len(clickable_elements) < clickable_count:
+                response_text += f"  ... and {clickable_count - len(clickable_elements)} more\n"
+        
+        return {
+            "content": [{"type": "text", "text": response_text}],
+            "isError": False,
+            "elements": elements,  # Include full data for programmatic use
+            "total": len(elements),
+            "clickable_count": clickable_count
+        }
+    
     def _poll_verification_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 30) -> Dict[str, Any]:
         """
         Poll verification execution until complete

@@ -41,6 +41,7 @@ from .tools.transcript_tools import TranscriptTools
 from .tools.device_tools import DeviceTools
 from .tools.logs_tools import LogsTools
 from .tools.script_tools import ScriptTools
+from .tools.tree_tools import TreeTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
@@ -72,6 +73,7 @@ class VirtualPyTestMCPServer:
         self.device_tools = DeviceTools(self.api_client)
         self.logs_tools = LogsTools(self.api_client)
         self.script_tools = ScriptTools(self.api_client)
+        self.tree_tools = TreeTools(self.api_client)
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -89,6 +91,7 @@ class VirtualPyTestMCPServer:
             # Verification tools
             'list_verifications': self.verification_tools.list_verifications,
             'verify_device_state': self.verification_tools.verify_device_state,
+            'dump_ui_elements': self.verification_tools.dump_ui_elements,
             
             # TestCase tools
             'execute_testcase': self.testcase_tools.execute_testcase,
@@ -116,6 +119,15 @@ class VirtualPyTestMCPServer:
             # Logs tools
             'view_logs': self.logs_tools.view_logs,
             'list_services': self.logs_tools.list_services,
+            
+            # Tree CRUD tools (NEW - Primitives)
+            'create_node': self.tree_tools.create_node,
+            'update_node': self.tree_tools.update_node,
+            'delete_node': self.tree_tools.delete_node,
+            'create_edge': self.tree_tools.create_edge,
+            'update_edge': self.tree_tools.update_edge,
+            'delete_edge': self.tree_tools.delete_edge,
+            'create_subtree': self.tree_tools.create_subtree,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -667,6 +679,213 @@ Example workflow:
                 "inputSchema": {
                     "type": "object",
                     "properties": {},
+                    "required": []
+                }
+            },
+            # ═══════════════════════════════════════════════════
+            # PRIMITIVE TOOLS - Tree CRUD & UI Inspection
+            # ═══════════════════════════════════════════════════
+            {
+                "name": "create_node",
+                "description": """Create a node in navigation tree
+
+Atomic primitive for building navigation structures.
+Can be composed for AI exploration, manual tree building, or tree refactoring.
+
+Example:
+  create_node(
+    tree_id="main_tree",
+    label="settings",
+    type="screen",
+    position={"x": 100, "y": 200}
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "label": {"type": "string", "description": "Node label/name"},
+                        "node_id": {"type": "string", "description": "Node identifier (optional - auto-generated if omitted)"},
+                        "type": {"type": "string", "description": "Node type (default: 'screen')"},
+                        "position": {"type": "object", "description": "Position {x, y} coordinates (optional)"},
+                        "data": {"type": "object", "description": "Custom metadata (optional)"}
+                    },
+                    "required": ["tree_id", "label"]
+                }
+            },
+            {
+                "name": "update_node",
+                "description": """Update an existing node
+
+Modify node properties like label, position, type, or custom data.
+
+Example:
+  update_node(
+    tree_id="main_tree",
+    node_id="settings",
+    updates={"label": "settings_main", "position": {"x": 150, "y": 200}}
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "node_id": {"type": "string", "description": "Node identifier to update"},
+                        "updates": {"type": "object", "description": "Fields to update (label, position, type, data)"}
+                    },
+                    "required": ["tree_id", "node_id", "updates"]
+                }
+            },
+            {
+                "name": "delete_node",
+                "description": """Delete a node from navigation tree
+
+Removes node and all connected edges.
+
+Example:
+  delete_node(
+    tree_id="main_tree",
+    node_id="old_node"
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "node_id": {"type": "string", "description": "Node identifier to delete"}
+                    },
+                    "required": ["tree_id", "node_id"]
+                }
+            },
+            {
+                "name": "create_edge",
+                "description": """Create an edge between two nodes
+
+Defines navigation path with forward and backward actions.
+
+Example:
+  create_edge(
+    tree_id="main_tree",
+    source_node_id="home",
+    target_node_id="settings",
+    action_sets=[
+      {
+        "id": "home_to_settings",
+        "actions": [{"command": "click_element", "params": {"text": "Settings"}, "delay": 2000}]
+      },
+      {
+        "id": "settings_to_home",
+        "actions": [{"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}]
+      }
+    ]
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "source_node_id": {"type": "string", "description": "Source node ID"},
+                        "target_node_id": {"type": "string", "description": "Target node ID"},
+                        "action_sets": {"type": "array", "description": "Array of action sets (forward/backward)"},
+                        "edge_id": {"type": "string", "description": "Edge identifier (optional - auto-generated if omitted)"}
+                    },
+                    "required": ["tree_id", "source_node_id", "target_node_id"]
+                }
+            },
+            {
+                "name": "update_edge",
+                "description": """Update edge actions
+
+Fix or modify navigation actions after testing.
+
+Example:
+  update_edge(
+    tree_id="main_tree",
+    edge_id="edge_home_settings",
+    action_sets=[...new actions...]
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "edge_id": {"type": "string", "description": "Edge identifier to update"},
+                        "action_sets": {"type": "array", "description": "New action sets (replaces existing)"}
+                    },
+                    "required": ["tree_id", "edge_id", "action_sets"]
+                }
+            },
+            {
+                "name": "delete_edge",
+                "description": """Delete an edge from navigation tree
+
+Example:
+  delete_edge(
+    tree_id="main_tree",
+    edge_id="edge_old"
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "edge_id": {"type": "string", "description": "Edge identifier to delete"}
+                    },
+                    "required": ["tree_id", "edge_id"]
+                }
+            },
+            {
+                "name": "create_subtree",
+                "description": """Create a subtree for a parent node
+
+Required for recursive tree exploration - allows exploring deeper levels.
+
+Example workflow:
+  1. create_node(id="settings") in main tree
+  2. create_subtree(parent_node_id="settings", subtree_name="settings_subtree")
+     → Returns: {"subtree_tree_id": "subtree-123"}
+  3. navigate_to_node(target="settings")
+  4. create_node(tree_id="subtree-123", ...) in subtree
+  5. Repeat for deeper levels
+
+Example:
+  create_subtree(
+    parent_tree_id="main_tree",
+    parent_node_id="settings",
+    subtree_name="settings_subtree"
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "parent_tree_id": {"type": "string", "description": "Parent tree ID"},
+                        "parent_node_id": {"type": "string", "description": "Parent node ID to attach subtree to"},
+                        "subtree_name": {"type": "string", "description": "Name for the subtree (e.g., 'settings_subtree')"}
+                    },
+                    "required": ["parent_tree_id", "parent_node_id", "subtree_name"]
+                }
+            },
+            {
+                "name": "dump_ui_elements",
+                "description": """Dump UI elements from current device screen
+
+CRITICAL for debugging failed navigation or verification.
+Returns all UI elements with text, resource-id, clickable status, bounds.
+
+Use cases:
+- Debug failed edge: "Element not found" → dump to see actual element names
+- Verify screen: Check if expected elements are present
+- Discover navigation targets: See what's clickable on current screen
+
+Example:
+  # After navigation fails
+  elements = dump_ui_elements(device_id="device1", platform="mobile")
+  # Returns: [{"text": "Settings Tab", "clickable": true, "resource-id": "tab_settings"}, ...]
+  
+  # LLM analyzes: "Ah! It's 'Settings Tab', not 'Settings'"
+  # Fix edge with correct element name
+  update_edge(edge_id="...", actions=[...click "Settings Tab"...])""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                        "host_name": {"type": "string", "description": "Host name (optional - defaults to 'sunri-pi1')"},
+                        "platform": {"type": "string", "description": "Platform type (optional: 'mobile', 'web', 'tv')"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
                     "required": []
                 }
             }
