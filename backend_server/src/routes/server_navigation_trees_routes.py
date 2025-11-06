@@ -953,7 +953,12 @@ def get_tree_by_userinterface_id(userinterface_id):
                 # Cache for next time (note: we cache WITH metrics if requested)
                 set_cached_tree(tree_id, team_id, response_data)
                 
-                return jsonify(response_data)
+                # Prevent browser caching - always fetch fresh from server
+                response = jsonify(response_data)
+                response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate'
+                response.headers['Pragma'] = 'no-cache'
+                response.headers['Expires'] = '0'
+                return response
             else:
                 return jsonify({
                     'success': False,

@@ -358,11 +358,56 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
           }}
         />
 
+        {/* VERTICAL HANDLES - Simple IDs for database edges */}
+        {/* Top target - for incoming edges from below */}
+        <Handle
+          type="target"
+          position={Position.Top}
+          id="top-target"
+          isConnectable={true}
+          isConnectableStart={false}
+          isConnectableEnd={true}
+          style={{
+            background: '#4caf50',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            top: -7,
+            cursor: 'crosshair',
+            zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
+          }}
+        />
+
+        {/* Bottom source - for outgoing edges downward */}
+        <Handle
+          type="source"
+          position={Position.Bottom}
+          id="bottom-source"
+          isConnectable={true}
+          isConnectableStart={true}
+          isConnectableEnd={false}
+          style={{
+            background: '#1976d2',
+            border: '2px solid #fff',
+            width: '16px',
+            height: '16px',
+            borderRadius: '50%',
+            left: '50%',
+            transform: 'translateX(-50%)',
+            bottom: -7,
+            cursor: 'crosshair',
+            zIndex: getZIndex('NAVIGATION_NODE_HANDLES'),
+          }}
+        />
+
         {/* Top Handles - Overlapping */}
         {/* Top: SOURCE for menu connections */}
         <Handle
           type="source"
-          position={Position.Top}
+          position={Position.Bottom}
           id="top-left-menu-source"
           isConnectable={true}
           isConnectableStart={true}
@@ -408,7 +453,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
         {/* Bottom: TARGET for menu connections */}
         <Handle
           type="target"
-          position={Position.Bottom}
+          position={Position.Top}
           id="bottom-left-menu-target"
           isConnectable={true}
           isConnectableStart={false}

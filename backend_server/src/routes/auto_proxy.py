@@ -112,6 +112,22 @@ def auto_proxy(endpoint):
             host_endpoint, target_method, data, query_params, timeout=timeout
         )
         
+        # Invalidate navigation tree cache for AI exploration operations
+        if status_code == 200 and response_data.get('success'):
+            # These AI exploration operations modify the navigation tree
+            cache_invalidation_endpoints = [
+                'ai-generation/continue-exploration',
+                'ai-generation/finalize-structure',
+                'ai-generation/cleanup-temp'
+            ]
+            
+            if any(endpoint.endswith(ep) for ep in cache_invalidation_endpoints):
+                tree_id = data.get('tree_id') if data else None
+                if tree_id:
+                    from backend_server.src.lib.navigation.navigation_tree_utils import invalidate_cached_tree
+                    invalidate_cached_tree(tree_id, team_id)
+                    print(f"[@auto_proxy] 🔄 Cache invalidated for tree {tree_id} after {endpoint}")
+        
         # Store in cache if successful getStreamUrl
         if endpoint == 'av/getStreamUrl' and status_code == 200 and response_data.get('success'):
             host_name = data.get('host_name') if data else query_params.get('host_name')

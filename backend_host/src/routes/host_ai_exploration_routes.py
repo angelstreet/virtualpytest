@@ -258,27 +258,82 @@ def validate_next_item():
 def finalize_structure():
     """
     Finalize structure: Rename all _temp nodes/edges to permanent
+    Works standalone without active exploration session.
     
-    Body: {'exploration_id': 'abc123'}
+    Body: {'tree_id': 'uuid'} (optional: 'device_id' for backwards compatibility)
     Query params: team_id
     """
     try:
         data = request.get_json() or {}
-        device_id = data.get('device_id', 'device1')
+        team_id = request.args.get('team_id')
+        tree_id = data.get('tree_id')
         
-        # Get device
-        if device_id not in current_app.host_devices:
-            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        if not tree_id:
+            return jsonify({'success': False, 'error': 'tree_id required'}), 400
         
-        device = current_app.host_devices[device_id]
+        print(f"[@route:ai_generation:finalize_structure] Renaming _temp nodes/edges for tree: {tree_id}")
         
-        # Delegate to exploration executor
-        result = device.exploration_executor.finalize_structure()
+        # Get all nodes and edges from tree
+        from shared.src.lib.database.navigation_trees_db import get_tree_nodes, get_tree_edges, update_node, update_edge
         
-        if result.get('success'):
-            return jsonify(result), 200
-        else:
-            return jsonify(result), 400
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        edges_result = get_tree_edges(tree_id, team_id)
+        
+        if not nodes_result.get('success') or not edges_result.get('success'):
+            return jsonify({'success': False, 'error': 'Failed to get tree data'}), 400
+        
+        nodes = nodes_result.get('nodes', [])
+        edges = edges_result.get('edges', [])
+        
+        nodes_renamed = 0
+        edges_renamed = 0
+        
+        # Rename nodes: remove _temp suffix
+        for node in nodes:
+            node_id = node.get('node_id', '')
+            if node_id.endswith('_temp'):
+                new_node_id = node_id.replace('_temp', '')
+                node['node_id'] = new_node_id
+                
+                result = update_node(tree_id, node_id, node, team_id)
+                if result.get('success'):
+                    nodes_renamed += 1
+                    print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
+                else:
+                    print(f"  ❌ Failed to rename node: {node_id}")
+        
+        # Rename edges: remove _temp suffix from edge_id, source, target
+        for edge in edges:
+            edge_id = edge.get('edge_id', '')
+            source = edge.get('source', '')
+            target = edge.get('target', '')
+            
+            if '_temp' in edge_id or '_temp' in source or '_temp' in target:
+                new_edge_id = edge_id.replace('_temp', '')
+                new_source = source.replace('_temp', '')
+                new_target = target.replace('_temp', '')
+                
+                edge['edge_id'] = new_edge_id
+                edge['source'] = new_source
+                edge['target'] = new_target
+                
+                result = update_edge(tree_id, edge_id, edge, team_id)
+                if result.get('success'):
+                    edges_renamed += 1
+                    print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
+                else:
+                    print(f"  ❌ Failed to rename edge: {edge_id}")
+        
+        print(f"[@route:ai_generation:finalize_structure] Complete: {nodes_renamed} nodes, {edges_renamed} edges renamed")
+        
+        return jsonify({
+            'success': True,
+            'nodes_renamed': nodes_renamed,
+            'edges_renamed': edges_renamed,
+            'message': f'Finalized: {nodes_renamed} nodes and {edges_renamed} edges renamed'
+        })
             
     except Exception as e:
         print(f"[@route:ai_generation:finalize_structure] Error: {e}")
@@ -370,101 +425,6 @@ def cancel_exploration():
         
     except Exception as e:
         print(f"[@route:ai_generation:cancel_exploration] Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-# =====================================================
-# ORPHANED TEMP NODES MANAGEMENT (No Session Required)
-# =====================================================
-
-@host_ai_exploration_bp.route('/check-temp-nodes', methods=['GET'])
-def check_temp_nodes():
-    """
-    Check if tree has orphaned _temp nodes/edges (works without active session)
-    
-    Query params: tree_id, team_id
-    """
-    try:
-        tree_id = request.args.get('tree_id')
-        team_id = request.args.get('team_id')
-        
-        if not tree_id or not team_id:
-            return jsonify({'success': False, 'error': 'tree_id and team_id required'}), 400
-        
-        print(f"[@route:ai_generation:check_temp_nodes] Checking tree {tree_id}")
-        
-        # Use static method - no device needed!
-        from backend_host.src.services.ai_exploration.exploration_executor import ExplorationExecutor
-        result = ExplorationExecutor.check_temp_nodes_in_tree(tree_id, team_id)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"[@route:ai_generation:check_temp_nodes] Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@host_ai_exploration_bp.route('/finalize-temp-nodes', methods=['POST'])
-def finalize_temp_nodes():
-    """
-    Finalize orphaned _temp nodes: rename all to permanent (works without active session)
-    
-    Body: {'tree_id': 'uuid'}
-    Query params: team_id
-    """
-    try:
-        data = request.get_json() or {}
-        tree_id = data.get('tree_id')
-        team_id = request.args.get('team_id')
-        
-        if not tree_id or not team_id:
-            return jsonify({'success': False, 'error': 'tree_id and team_id required'}), 400
-        
-        print(f"[@route:ai_generation:finalize_temp_nodes] Finalizing tree {tree_id}")
-        
-        # Use static method - no device needed!
-        from backend_host.src.services.ai_exploration.exploration_executor import ExplorationExecutor
-        result = ExplorationExecutor.finalize_temp_nodes_in_tree(tree_id, team_id)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"[@route:ai_generation:finalize_temp_nodes] Error: {e}")
-        import traceback
-        traceback.print_exc()
-        return jsonify({'success': False, 'error': str(e)}), 500
-
-
-@host_ai_exploration_bp.route('/abort-temp-nodes', methods=['POST'])
-def abort_temp_nodes():
-    """
-    Abort orphaned _temp nodes: delete all (works without active session)
-    
-    Body: {'tree_id': 'uuid'}
-    Query params: team_id
-    """
-    try:
-        data = request.get_json() or {}
-        tree_id = data.get('tree_id')
-        team_id = request.args.get('team_id')
-        
-        if not tree_id or not team_id:
-            return jsonify({'success': False, 'error': 'tree_id and team_id required'}), 400
-        
-        print(f"[@route:ai_generation:abort_temp_nodes] Aborting temp nodes in tree {tree_id}")
-        
-        # Use static method - no device needed!
-        from backend_host.src.services.ai_exploration.exploration_executor import ExplorationExecutor
-        result = ExplorationExecutor.abort_temp_nodes_in_tree(tree_id, team_id)
-        
-        return jsonify(result)
-        
-    except Exception as e:
-        print(f"[@route:ai_generation:abort_temp_nodes] Error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500

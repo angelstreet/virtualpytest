@@ -12,16 +12,21 @@ import {
   Alert,
   Paper,
   TextField,
-  Grid
+  Grid,
+  CircularProgress
 } from '@mui/material';
 import {
   SmartToy as AIIcon,
   Visibility as AnalyzeIcon,
   Navigation as NavigationIcon,
   Error as ErrorIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  CheckCircle as ValidateIcon,
+  DeleteForever as AbortIcon
 } from '@mui/icons-material';
 import { useGenerateModel } from '../../hooks/useGenerateModel';
+import { useNavigation } from '../../contexts/navigation/NavigationContext';
+import { buildServerUrl } from '../../utils/buildUrlUtils';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -47,6 +52,12 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   onCleanupTemp
 }) => {
   const [explorationDepth, setExplorationDepth] = useState(5);
+  const [hasTempNodes, setHasTempNodes] = useState(false);
+  const [isValidating, setIsValidating] = useState(false);
+  const [isAborting, setIsAborting] = useState(false);
+  
+  // Get navigation context to access nodes
+  const { nodes } = useNavigation();
 
   const {
     explorationId,
@@ -99,7 +110,90 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
   }, [isOpen]);
 
+  // Check for _temp nodes when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      const tempNodesExist = nodes.some(n => n.id.endsWith('_temp'));
+      setHasTempNodes(tempNodesExist);
+      if (tempNodesExist) {
+        const tempCount = nodes.filter(n => n.id.endsWith('_temp')).length;
+        console.log(`[@AIGenerationModal] Found ${tempCount} _temp nodes in tree`);
+      }
+    }
+  }, [isOpen, nodes]);
+
+  const handleValidatePrevious = async () => {
+    console.log('[@AIGenerationModal] Validating previous _temp nodes...');
+    setIsValidating(true);
+    
+    try {
+      const response = await fetch(buildServerUrl('/server/ai-generation/finalize-structure'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tree_id: treeId,
+          host_name: selectedHost?.host_name
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[@AIGenerationModal] ✅ Validated:', data.nodes_renamed, 'nodes,', data.edges_renamed, 'edges');
+        
+        // Refresh tree to show renamed nodes
+        onGenerated();
+        setHasTempNodes(false);
+      } else {
+        console.error('[@AIGenerationModal] ❌ Validation failed:', data.error);
+      }
+    } catch (error) {
+      console.error('[@AIGenerationModal] ❌ Validation error:', error);
+    } finally {
+      setIsValidating(false);
+    }
+  };
+
+  const handleAbortPrevious = async () => {
+    console.log('[@AIGenerationModal] Aborting previous _temp nodes...');
+    setIsAborting(true);
+    
+    try {
+      const response = await fetch(buildServerUrl('/server/ai-generation/cleanup-temp'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          tree_id: treeId,
+          host_name: selectedHost?.host_name
+        })
+      });
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[@AIGenerationModal] ✅ Aborted:', data.nodes_deleted, 'nodes,', data.edges_deleted, 'edges');
+        
+        // Refresh tree to remove deleted nodes
+        onGenerated();
+        onCleanupTemp?.();
+        setHasTempNodes(false);
+      } else {
+        console.error('[@AIGenerationModal] ❌ Abort failed:', data.error);
+      }
+    } catch (error) {
+      console.error('[@AIGenerationModal] ❌ Abort error:', error);
+    } finally {
+      setIsAborting(false);
+    }
+  };
+
   const handleStart = async () => {
+    // Auto-abort any existing temp nodes before starting new exploration
+    if (hasTempNodes) {
+      console.log('[@AIGenerationModal] Auto-aborting existing _temp nodes before new exploration');
+      await handleAbortPrevious();
+    }
+    
     await startExploration(explorationDepth);
   };
 
@@ -371,61 +465,44 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                 <Chip label={`Edges: ${progress.edges_proposed}`} size="small" />
               </Box>
             </Box>
-
-            {/* Current Analysis */}
-            {currentAnalysis.screen_name && (
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="subtitle2" color="text.secondary">
-                  Current Analysis:
-                </Typography>
-                <Paper sx={{ p: 1, bgcolor: 'transparent' }}>
-                  {/* Screenshot Preview */}
-                  {currentAnalysis.screenshot && (
-                    <Box sx={{ mb: 1 }}>
-                      <img
-                        src={currentAnalysis.screenshot}
-                        alt="Current screen being analyzed"
-                        style={{
-                          maxWidth: '100%',
-                          maxHeight: '200px',
-                          objectFit: 'contain',
-                          borderRadius: '4px',
-                          border: '1px solid rgba(255, 255, 255, 0.12)'
-                        }}
-                      />
-                    </Box>
-                  )}
-                  <Typography variant="body2" sx={{ fontWeight: 'medium' }}>
-                    Screen: {currentAnalysis.screen_name}
-                  </Typography>
-                  {currentAnalysis.elements_found.length > 0 && (
-                    <Box sx={{ mt: 1 }}>
-                      <Typography variant="caption" color="text.secondary">
-                        Elements found:
-                      </Typography>
-                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-                        {currentAnalysis.elements_found.slice(0, 5).map((element, index) => (
-                          <Chip key={index} label={element} size="small" variant="outlined" />
-                        ))}
-                        {currentAnalysis.elements_found.length > 5 && (
-                          <Chip label={`+${currentAnalysis.elements_found.length - 5} more`} size="small" />
-                        )}
-                      </Box>
-                    </Box>
-                  )}
-                  {currentAnalysis.reasoning && (
-                    <Typography variant="body2" sx={{ mt: 1, fontStyle: 'italic' }}>
-                      {currentAnalysis.reasoning}
-                    </Typography>
-                  )}
-                </Paper>
-              </Box>
-            )}
           </Paper>
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, gap: 1 }}>
+      <DialogActions sx={{ p: 2, gap: 1, position: 'relative' }}>
+        {/* Bottom-Left: Validate/Abort Previous - Show when temp nodes exist */}
+        {hasTempNodes && !isExploring && !isAwaitingApproval && (
+          <Box sx={{ position: 'absolute', left: 16, bottom: 16, display: 'flex', gap: 1 }}>
+            <Button
+              variant="contained"
+              onClick={handleAbortPrevious}
+              disabled={isValidating || isAborting}
+              startIcon={isAborting ? <CircularProgress size={16} /> : <AbortIcon />}
+              sx={{
+                bgcolor: 'error.main',
+                '&:hover': { bgcolor: 'error.dark' },
+                textTransform: 'none'
+              }}
+            >
+              {isAborting ? 'Aborting...' : 'Abort Previous'}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleValidatePrevious}
+              disabled={isValidating || isAborting}
+              startIcon={isValidating ? <CircularProgress size={16} /> : <ValidateIcon />}
+              sx={{
+                bgcolor: 'success.main',
+                '&:hover': { bgcolor: 'success.dark' },
+                textTransform: 'none'
+              }}
+            >
+              {isValidating ? 'Validating...' : 'Validate Previous'}
+            </Button>
+            
+          </Box>
+        )}
+
         {/* Phase 1: Awaiting Approval - Show Abort, Retry, Create Nodes */}
         {isAwaitingApproval && (
           <>

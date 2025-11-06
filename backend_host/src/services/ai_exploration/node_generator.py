@@ -193,8 +193,7 @@ class NodeGenerator:
         target: str,
         actions: List[Dict],
         reverse_actions: List[Dict] = None,
-        label: str = '',
-        relationship: str = 'parent-child'
+        label: str = ''
     ) -> Dict:
         """
         Create edge data structure for save_edge() with bidirectional support
@@ -205,10 +204,6 @@ class NodeGenerator:
             actions: List of forward actions (source → target)
             reverse_actions: List of reverse actions (target → source), optional
             label: Optional custom label
-            relationship: Type of relationship ('parent-child', 'sibling-left', 'sibling-right')
-                - 'parent-child': Use top/bottom handles (default for exploration)
-                - 'sibling-left': Sibling to the left (use right→left handles)
-                - 'sibling-right': Sibling to the right (use left→right handles)
             
         Returns:
             Edge data dict ready for save_edge() with 2 action sets (bidirectional)
@@ -227,24 +222,6 @@ class NodeGenerator:
         # Display labels
         source_label = source.replace('_temp', '')
         target_label = target.replace('_temp', '')
-        
-        # Determine handle positions based on relationship
-        if relationship == 'parent-child':
-            # Parent → Child: Use top/bottom handles (vertical layout)
-            source_handle = 'bottom-source'
-            target_handle = 'top-target'
-        elif relationship == 'sibling-right':
-            # Sibling going right: Use left→right handles
-            source_handle = 'right-source'
-            target_handle = 'left-target'
-        elif relationship == 'sibling-left':
-            # Sibling going left: Use right→left handles
-            source_handle = 'left-source'
-            target_handle = 'right-target'
-        else:
-            # Default: parent-child (top/bottom)
-            source_handle = 'bottom-source'
-            target_handle = 'top-target'
         
         # Build bidirectional action sets
         action_sets = [
@@ -275,9 +252,8 @@ class NodeGenerator:
             'data': {
                 'ai_generated': True,
                 'discovered_at': datetime.now(timezone.utc).isoformat(),
-                'sourceHandle': source_handle,
-                'targetHandle': target_handle,
-                'priority': 'p3'
+                'sourceHandle': 'bottom-source',  # ✅ Vertical edges: source at bottom
+                'targetHandle': 'top-target'      # ✅ Vertical edges: target at top
             }
         }
     
@@ -311,70 +287,4 @@ class NodeGenerator:
         renamed['source_node_id'] = renamed['source_node_id'].replace('_temp', '')
         renamed['target_node_id'] = renamed['target_node_id'].replace('_temp', '')
         return renamed
-    
-    def create_sibling_chain_edges(
-        self,
-        sibling_nodes: List[str],
-        navigation_method: str = 'dpad'
-    ) -> List[Dict]:
-        """
-        Create sequential sibling connections (left-to-right chain)
-        
-        Creates edges: sibling[0] ↔ sibling[1] ↔ sibling[2] ↔ ...
-        This avoids creating N×(N-1) edges between all siblings
-        
-        Args:
-            sibling_nodes: List of sibling node names (with _temp)
-            navigation_method: 'dpad' (for TV) or 'click' (for mobile)
-            
-        Returns:
-            List of edge data dicts ready for save_edge()
-        """
-        edges = []
-        
-        if len(sibling_nodes) < 2:
-            # Need at least 2 siblings to create a chain
-            return edges
-        
-        print(f"[@node_generator] Creating sibling chain for {len(sibling_nodes)} nodes")
-        
-        for i in range(len(sibling_nodes) - 1):
-            left_sibling = sibling_nodes[i]
-            right_sibling = sibling_nodes[i + 1]
-            
-            # Determine actions based on navigation method
-            if navigation_method == 'dpad':
-                # TV/STB: Use DPAD navigation
-                forward_actions = [
-                    {'command': 'press_key', 'params': {'key': 'RIGHT'}, 'delay': 500}
-                ]
-                backward_actions = [
-                    {'command': 'press_key', 'params': {'key': 'LEFT'}, 'delay': 500}
-                ]
-            else:
-                # Mobile: Use swipe gestures (or click if elements are visible)
-                forward_actions = [
-                    {'command': 'swipe', 'params': {'direction': 'left'}, 'delay': 500}
-                ]
-                backward_actions = [
-                    {'command': 'swipe', 'params': {'direction': 'right'}, 'delay': 500}
-                ]
-            
-            # Create edge with sibling-right relationship (left → right)
-            edge_data = self.create_edge_data(
-                source=left_sibling,
-                target=right_sibling,
-                actions=forward_actions,
-                reverse_actions=backward_actions,
-                relationship='sibling-right'
-            )
-            
-            edges.append(edge_data)
-            
-            left_label = left_sibling.replace('_temp', '')
-            right_label = right_sibling.replace('_temp', '')
-            print(f"  ↔ {left_label} ↔ {right_label}")
-        
-        print(f"[@node_generator] Created {len(edges)} sibling chain edges")
-        return edges
 
