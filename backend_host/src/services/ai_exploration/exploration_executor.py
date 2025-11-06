@@ -220,9 +220,7 @@ class ExplorationExecutor:
                 # Create or reuse engine
                 self.exploration_engine = ExplorationEngine(
                     tree_id=tree_id,
-                    device_id=self.device_id,
-                    host_name=self.host_name,
-                    device_model_name=self.device_model,
+                    device=self.device,  # Pass device directly (no Flask context needed!)
                     team_id=team_id,
                     userinterface_name=userinterface_name,
                     depth_limit=exploration_depth,

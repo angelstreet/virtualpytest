@@ -24,58 +24,46 @@ class ExplorationEngine:
     def __init__(
         self,
         tree_id: str,
-        device_id: str,
-        host_name: str,
-        device_model_name: str,
+        device,  # Device instance (passed from ExplorationExecutor)
         team_id: str,
         userinterface_name: str,
         depth_limit: int = 5,
-        screenshot_callback=None,  # Optional callback to update screenshot in session
-        progress_callback=None  # Optional callback to update progress in session
+        screenshot_callback=None,
+        progress_callback=None
     ):
         """
         Initialize exploration engine
         
         Args:
             tree_id: Tree ID to add nodes to
-            device_id: Device ID
-            host_name: Host name
-            device_model_name: Device model (e.g., 'android_mobile')
+            device: Device instance (from ExplorationExecutor)
             team_id: Team ID
             userinterface_name: UI name (e.g., 'horizon_android_mobile')
             depth_limit: Maximum depth to explore
             screenshot_callback: Optional callback function to notify when screenshot is captured
             progress_callback: Optional callback function to notify of progress updates
         """
+        self.device = device
         self.tree_id = tree_id
-        self.device_id = device_id
-        self.host_name = host_name
-        self.device_model_name = device_model_name
+        self.device_id = device.device_id
+        self.host_name = device.host_name
+        self.device_model_name = device.device_model
         self.team_id = team_id
         self.userinterface_name = userinterface_name
         self.depth_limit = depth_limit
-        self.screenshot_callback = screenshot_callback  # Store callback
-        self.progress_callback = progress_callback  # Store progress callback
-        
-        # Get device from registry (same pattern as goto.py and zap_executor.py)
-        from flask import current_app
-        
-        if not hasattr(current_app, 'host_devices') or device_id not in current_app.host_devices:
-            raise ValueError(f"Device {device_id} not found in registry")
-        
-        self.device = current_app.host_devices[device_id]
+        self.screenshot_callback = screenshot_callback
+        self.progress_callback = progress_callback
         
         # Use existing remote controller (already initialized with correct device_ip)
         self.controller = self.device._get_controller('remote')
         if not self.controller:
-            raise ValueError(f"No remote controller found for device {device_id}")
+            raise ValueError(f"No remote controller found for device {self.device_id}")
         
         # Initialize components with existing controller
         self.screen_analyzer = ScreenAnalyzer(
-            device_id=device_id,
-            host_name=host_name,
-            device_model_name=device_model_name,
-            controller=self.controller
+            device=self.device,  # Pass device directly
+            controller=self.controller,
+            ai_model='qwen'
         )
         
         self.navigation_strategy = NavigationStrategy(self.controller, self.screen_analyzer)

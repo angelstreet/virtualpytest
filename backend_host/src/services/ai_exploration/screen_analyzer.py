@@ -10,20 +10,19 @@ import json
 class ScreenAnalyzer:
     """AI vision analysis using existing VideoAIHelpers"""
     
-    def __init__(self, device_id: str, host_name: str, device_model_name: str = None, controller = None, ai_model: str = 'qwen'):
+    def __init__(self, device, controller=None, ai_model: str = 'qwen'):
         """
         Initialize with device context
         
         Args:
-            device_id: Device ID
-            host_name: Host name
-            device_model_name: Device model (e.g., 'android_mobile') for screenshot source selection
+            device: Device instance (from ExplorationEngine)
             controller: Remote controller instance (for android_mobile native screenshots)
             ai_model: 'qwen' (default), later: user-selectable
         """
-        self.device_id = device_id
-        self.host_name = host_name
-        self.device_model_name = device_model_name
+        self.device = device
+        self.device_id = device.device_id
+        self.host_name = device.host_name
+        self.device_model_name = device.device_model
         self.controller = controller
         self.ai_model = ai_model
         
@@ -514,9 +513,13 @@ Context visible = Can you still see elements from the previous screen?
                     
                     return cold_path
             
-            # Fallback to HDMI capture for all other devices
-            from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
-            temp_screenshot = VideoAIHelpers.capture_screenshot(self.device_id, self.host_name)
+            # Fallback to HDMI capture for all other devices using device's AV controller
+            av_controller = self.device._get_controller('av')
+            if not av_controller:
+                print(f"[@screen_analyzer:capture_screenshot] No AV controller found for device {self.device_id}")
+                return None
+            
+            temp_screenshot = av_controller.take_screenshot()
             
             if temp_screenshot:
                 # Copy to cold storage
