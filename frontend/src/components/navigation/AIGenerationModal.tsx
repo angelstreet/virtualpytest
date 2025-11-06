@@ -291,15 +291,14 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Grid container spacing={2} alignItems="center">
               <Grid item xs={12}>
-                <Alert severity="info" icon={<AIIcon />}>
-                  <Typography variant="body2">
-                    <strong>2-Level Exploration:</strong> The system will explore main navigation items (level 1) 
-                    and their sub-items (level 2) automatically.
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Host: {selectedHost?.host_name} | Device: {selectedDeviceId}
-                  </Typography>
-                </Alert>
+                <Typography variant="body2">
+                  The system will explore main navigation items
+                  and their sub-items
+                </Typography>
+                <Typography variant="body2" sx={{ mt: 1 }}>
+                  Host: {selectedHost?.host_name} | Device: {selectedDeviceId}
+                </Typography>
+           
               </Grid>
             </Grid>
           </Paper>
