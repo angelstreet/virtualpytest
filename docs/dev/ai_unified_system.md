@@ -512,12 +512,12 @@ User creates: Entry → Home node
 #### **Phase 2: AI Exploration (Automated)**
 ```python
 class AINavigationExplorer(AIAgentController):
-    def explore_and_generate_model(self, home_node_id: str):
+    def explore_and_generate_model(self, home_id: str):
         """AI-driven navigation model generation"""
         
         # 1. Start from user-defined home
-        current_position = home_node_id
-        exploration_queue = [home_node_id]
+        current_position = home_id
+        exploration_queue = [home_id]
         
         while exploration_queue:
             current_node = exploration_queue.pop(0)

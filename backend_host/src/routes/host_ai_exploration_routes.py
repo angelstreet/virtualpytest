@@ -254,6 +254,39 @@ def validate_next_item():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@host_ai_exploration_bp.route('/finalize-structure', methods=['POST'])
+def finalize_structure():
+    """
+    Finalize structure: Rename all _temp nodes/edges to permanent
+    
+    Body: {'exploration_id': 'abc123'}
+    Query params: team_id
+    """
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        # Get device
+        if device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        
+        # Delegate to exploration executor
+        result = device.exploration_executor.finalize_structure()
+        
+        if result.get('success'):
+            return jsonify(result), 200
+        else:
+            return jsonify(result), 400
+            
+    except Exception as e:
+        print(f"[@route:ai_generation:finalize_structure] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @host_ai_exploration_bp.route('/approve-generation', methods=['POST'])
 def approve_generation():
     """

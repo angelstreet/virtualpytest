@@ -74,6 +74,7 @@ import {
   UINavigationNode as UINavigationNodeType,
 } from '../types/pages/Navigation_Types';
 import { getZIndex } from '../utils/zIndexUtils';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {
@@ -1526,8 +1527,30 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           <ValidationModal
             isOpen={isValidationModalOpen}
             onClose={() => {
+              // Cancel button clicked - delete _temp nodes/edges
+              console.log('[@NavigationEditor] User cancelled - deleting _temp nodes/edges');
               setIsValidationModalOpen(false);
-              // Refresh to get updated edges with action_sets
+              
+              // Clean up _temp nodes from frontend state
+              const tempNodes = nodes.filter(node => node.id.endsWith('_temp'));
+              const tempEdges = edges.filter(edge => edge.id.includes('_temp'));
+              
+              if (tempNodes.length > 0 || tempEdges.length > 0) {
+                const remainingEdges = edges.filter(edge => !edge.id.includes('_temp'));
+                setEdges(remainingEdges);
+                
+                const remainingNodes = nodes.filter(node => !node.id.endsWith('_temp'));
+                setNodes(remainingNodes);
+                
+                setHasUnsavedChanges(true);
+                console.log(`[@NavigationEditor] Deleted ${tempNodes.length} _temp nodes and ${tempEdges.length} _temp edges`);
+              }
+              
+              // Reset exploration state
+              setExplorationId(null);
+              setExplorationHostName(null);
+              
+              // Refresh to sync with backend
               handleAIGenerated();
             }}
             explorationId={explorationId}
@@ -1537,8 +1560,34 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               console.log('[@NavigationEditor] Validation started');
             }}
             onValidationComplete={async () => {
-              console.log('[@NavigationEditor] Validation complete - edges updated automatically');
-              // Refresh to show updated edges
+              // Confirm button clicked - rename _temp to permanent
+              console.log('[@NavigationEditor] User confirmed - renaming _temp nodes/edges');
+              
+              // Call backend to rename _temp nodes/edges
+              try {
+                const response = await fetch(
+                  buildServerUrl(`/server/ai-generation/finalize-structure`),
+                  {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      exploration_id: explorationId,
+                      host_name: explorationHostName,
+                      tree_id: actualTreeId
+                    })
+                  }
+                );
+                
+                if (response.ok) {
+                  console.log('[@NavigationEditor] Structure finalized - _temp suffix removed');
+                } else {
+                  console.error('[@NavigationEditor] Failed to finalize structure');
+                }
+              } catch (err) {
+                console.error('[@NavigationEditor] Error finalizing structure:', err);
+              }
+              
+              // Refresh to show permanent nodes/edges
               await handleAIGenerated();
               
               // Reset exploration state

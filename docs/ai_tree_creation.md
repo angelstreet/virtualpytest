@@ -29,9 +29,9 @@ The AI generation flow uses **3 separate components** for clean separation of co
 ┌─────────────────────────────────────────┐
 │  ValidationModal (Phase 2b)             │
 │  ├─ Progress: Step X/Y                  │
-│  ├─ Real-time results (✅/❌)           │
-│  ├─ Auto-validates each step            │
-│  └─ Button: Finalize                    │
+│  ├─ Real-time test results (✅/❌)      │
+│  ├─ Auto-tests each step                │
+│  └─ Buttons: Confirm & Save | Cancel    │
 └─────────────────────────────────────────┘
 ```
 
@@ -106,8 +106,10 @@ The AI generation flow uses **3 separate components** for clean separation of co
 
 **What happens (automatically after approval):**
 - Creates `home_temp` node (root)
-- Creates destination nodes for each target
-- Creates edges with **ACTIONS FILLED IN**
+- **Collects all destination nodes data**
+- **Collects all edges data with ACTIONS FILLED IN**
+- **Batch saves all nodes at once**
+- **Batch saves all edges at once**
 
 **Important:** Edges are created WITH actions immediately, not empty!
 
@@ -123,6 +125,8 @@ The AI generation flow uses **3 separate components** for clean separation of co
 - Remove: "Tab", "Register", "Button", "Screen", common phrases
 - Lowercase
 - Replace spaces/special chars with underscore
+
+**Performance:** Batch saving reduces database writes from 20+ to 2 operations for 10 items!
 
 **You'll see:**
 - `X nodes created`
@@ -147,41 +151,45 @@ For each edge, system tests navigation:
 
 #### Mobile/Web:
 ```
-1. Click the target element
+1. Execute saved action: click_element("TV Guide Tab")
 2. Wait 2s
-3. Check if screen changed (home elements gone?)
-4. Press BACK
-5. Check if returned (home elements visible?)
-6. Update edge with tested actions
+3. Check if screen changed → Show ✅ or ❌
+4. Execute saved action: press_key(BACK)
+5. Check if returned home → Show ✅ or ⚠️
 ```
 
 #### TV/STB:
 ```
-1. Try each direction (RIGHT, LEFT, DOWN, UP)
-2. For each: Press DIRECTION → Press OK
-3. Check if screen changed (AI vision)
-4. When found working sequence:
-   a. Press BACK
-   b. Check if returned (AI vision)
-5. Update edge with working direction + OK
+1. Execute saved action: press_key(RIGHT) + press_key(OK)
+2. Wait 2s
+3. Check if screen changed (AI vision) → Show ✅ or ❌
+4. Execute saved action: press_key(BACK)
+5. Check if returned (AI vision) → Show ✅ or ⚠️
 ```
 
 **Modal behavior:**
 - Small, fixed to top-right corner
 - No shadow
-- Watch ReactFlow graph update in real-time!
+- Watch ReactFlow graph (edges already created with actions!)
+- Modal just shows TESTING results
 
 **Progress display:**
 ```
-🔄 Validating 3/10
-Current: TV Guide Tab
-  ✅ Click success
-  ✅ Back success
+🔄 Testing 3/10
+
+Step 1: "TV Guide Tab"
+  Step 1.1 (Forward): home → tvguide
+  ✅ SUCCESS (click_element "TV Guide Tab")
+  
+  Step 1.2 (Backward): tvguide → home  
+  ✅ SUCCESS (press_key BACK)
 ```
 
 **When complete:**
-- ✅ **Finalize** → Remove `_temp` suffix, save permanently
-- ❌ **Cancel** → Delete all temp nodes/edges
+- ✅ **Confirm & Save** → Remove `_temp` suffix, make permanent
+- ❌ **Cancel & Delete** → Delete all `_temp` nodes/edges
+
+**User can decide** after seeing test results! If too many failures → Cancel instead of saving.
 
 ---
 
@@ -241,99 +249,91 @@ create_node(
   position=calculated
 )
 
-# 3. Create edge with empty actions
+# 3. Create edge WITH actions (not empty!)
 create_edge(
   id="edge_home_temp_to_tvguide_temp_temp",
   source="home_temp",
   target="tvguide_temp",
   action_sets=[
-    {id: "home_to_tvguide", actions: []},     # Forward (empty)
-    {id: "tvguide_to_home", actions: []}      # Reverse (empty)
+    {
+      id: "home_to_tvguide",
+      actions: [
+        {"command": "click_element", "params": {"text": "TV Guide Tab"}, "delay": 2000}
+      ]
+    },
+    {
+      id: "tvguide_to_home",
+      actions: [
+        {"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}
+      ]
+    }
   ]
 )
 
-# 4. Store mapping for validation
+# 4. Store mapping for testing
 target_to_node_map["TV Guide Tab"] = "tvguide_temp"
 ```
 
+**Key Point:** Edges are created WITH actions already filled in! Phase 2b just TESTS them.
+
 ---
 
-### Phase 2b: Validation (UNIVERSAL!)
+### Phase 2b: Testing (INFORMATIVE ONLY!)
 
-**The algorithm that works for EVERYTHING:**
+**The testing algorithm (does NOT modify edges):**
 
 ```python
 for each target in navigation_targets:
     
     node_name = target_to_node_map[target]
+    edge = get_edge(f"edge_home_temp_to_{node_name}_temp")
+    
+    # Edge already has actions! We just TEST them
+    forward_actions = edge.action_sets[0].actions
+    backward_actions = edge.action_sets[1].actions
     
     # ═══════════════════════════════════════
-    # STEP 1: TRY TO ENTER THE DESTINATION
+    # STEP 1: TEST FORWARD ACTION
     # ═══════════════════════════════════════
     
-    if mobile or web:
-        # Single action - click immediately enters
-        actions = [{"command": "click_element", "params": {"text": target}}]
-        execute(actions)
-        wait(2s)
-    
-    elif tv or stb:
-        # Must navigate + press OK to enter
-        directions = ["RIGHT", "LEFT", "DOWN", "UP"]
-        actions = None
-        
-        for direction in directions:
-            # Navigate to element, then press OK to ENTER
-            test_actions = [
-                {"command": "press_key", "params": {"key": direction}},
-                {"command": "press_key", "params": {"key": "OK"}}
-            ]
-            execute(test_actions)
-            wait(2s)
-            
-            # Did we enter a new screen?
-            if screen_changed():
-                actions = test_actions
-                break  # Found working sequence!
-            
-            # Didn't work, try next direction
-            # (We're still on home, just different focus)
-    
-    # ═══════════════════════════════════════
-    # STEP 2: VERIFY WE ENTERED NEW SCREEN
-    # ═══════════════════════════════════════
-    
-    if screen_changed():
-        # SUCCESS! We entered the destination
-        
-        # Save forward actions
-        edge = get_edge(f"edge_home_temp_to_{node_name}_temp")
-        edge.action_sets[0].actions = actions
-        
-        # ═══════════════════════════════════════
-        # STEP 3: TEST RETURN (BACK)
-        # ═══════════════════════════════════════
-        
-        execute([{"command": "press_key", "params": {"key": "BACK"}}])
+    try:
+        execute(forward_actions)
         wait(2s)
         
-        # Verify we're back on home
-        if back_to_home():
-            # Save reverse actions
-            edge.action_sets[1].actions = [
-                {"command": "press_key", "params": {"key": "BACK"}}
-            ]
-            result = "✅✅ Both directions work"
+        if screen_changed():
+            forward_result = "✅ SUCCESS"
         else:
-            result = "✅❌ Forward works, back failed"
-        
-        # Update edge in database
-        update_edge(edge)
+            forward_result = "❌ FAILURE - screen didn't change"
+    except Exception as e:
+        forward_result = f"❌ FAILURE - {e}"
     
-    else:
-        # Failed to enter destination
-        result = "❌ Could not enter destination"
+    # ═══════════════════════════════════════
+    # STEP 2: TEST BACKWARD ACTION
+    # ═══════════════════════════════════════
+    
+    try:
+        execute(backward_actions)
+        wait(2s)
+        
+        if back_to_home():
+            backward_result = "✅ SUCCESS"
+        else:
+            backward_result = "⚠️ WARNING - not back home"
+    except Exception as e:
+        backward_result = f"❌ FAILURE - {e}"
+    
+    # ═══════════════════════════════════════
+    # STEP 3: SHOW RESULTS (don't modify edge!)
+    # ═══════════════════════════════════════
+    
+    print(f"Step {idx}.1 (Forward): {source} → {target}")
+    print(f"  {forward_result} ({forward_actions})")
+    
+    print(f"Step {idx}.2 (Backward): {target} → {source}")
+    print(f"  {backward_result} ({backward_actions})")
 ```
+
+**Key Point:** Testing is INFORMATIVE. Edges keep their actions regardless of test results!
 
 ---
 
@@ -470,13 +470,17 @@ def target_to_node_name(target_text: str) -> str:
 - Can cancel to abort workflow
 
 **3. ValidationModal** (`frontend/src/components/navigation/ValidationModal.tsx`)
-- **Phase 2b**: Validation
+- **Phase 2b**: Testing (Informative)
 - Small modal in top-right corner
-- Auto-starts validation on mount
+- Auto-starts testing on mount
 - Shows progress (Step X/Y)
-- Displays real-time results (✅/❌)
+- Displays real-time test results (✅/❌)
+- Step X.1 (Forward): source → target
+- Step X.2 (Backward): target → source
 - Auto-continues through all steps
-- Finalize button when complete
+- **Two buttons when complete**:
+  - ✅ **Confirm & Save** → Rename _temp to permanent
+  - ❌ **Cancel & Delete** → Delete all _temp nodes/edges
 
 ### State Management
 
@@ -501,7 +505,10 @@ const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 1. User clicks "AI Generate" → opens `AIGenerationModal`
 2. After structure creation → closes modal, shows `ValidationReadyPrompt`
 3. User clicks "Start Validation" → opens `ValidationModal`
-4. After finalization → refreshes ReactFlow with permanent nodes/edges
+4. Testing shows ✅/❌ for each step
+5. User decides:
+   - ✅ **Confirm & Save** → Remove _temp suffix, permanent nodes/edges
+   - ❌ **Cancel & Delete** → Delete all _temp, nothing saved
 
 ---
 
@@ -518,7 +525,7 @@ const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 **`/continue-exploration` (Phase 2a)**
 - Creates `home_temp` node
 - Creates destination nodes for each target (using `target_to_node_name`)
-- Creates edges with empty `action_sets`
+- Creates edges with ACTIONS FILLED IN (not empty!)
 - Stores `target_to_node_map`
 - Status: `structure_created`
 
@@ -529,9 +536,10 @@ const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 **`/validate-next-item` (Phase 2b loop)**
 - Gets current target from list
 - Looks up node name from mapping
-- Tests navigation (click or direction+OK)
-- Tests return (BACK)
-- Updates edge `action_sets`
+- Gets edge (already has actions!)
+- Tests forward action → Show ✅ or ❌
+- Tests backward action → Show ✅ or ⚠️
+- Does NOT modify edge
 - Increments index
 - Status: `awaiting_validation` or `validation_complete`
 
@@ -546,14 +554,20 @@ const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 ### Phase 2a: Nodes not created
 - Check console logs for database errors
 - Verify `target_to_node_name()` is generating valid node names
+- Check that edges are created with correct action format:
+  ```json
+  {"command": "click_element", "params": {"text": "..."}, "delay": 2000}
+  ```
 
-### Phase 2b: Click/navigation fails
-- **Mobile/Web**: Element text may have changed - check UI dump
-- **TV/STB**: Try different directions, check AI vision analysis
+### Phase 2b: Test failures
+- **If forward test fails**: Element text may have changed - check UI dump
+- **If backward test fails**: Try different BACK strategy or check home detection
+- **Important**: Test failures don't break the workflow! Edges keep their actions.
 
-### Phase 2b: Back verification fails
-- Home indicator may not be the first item
-- Try using a stable home element (logo, app name)
+### Edges show "No action selected"
+- This was a bug in older versions (action format mismatch)
+- Fixed in Phase 2a - edges now use correct format: `{"command": ..., "params": ...}`
+- If still seeing this, check backend logs for edge creation
 
 ---
 

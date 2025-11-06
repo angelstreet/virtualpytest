@@ -609,22 +609,22 @@ class NavigationExecutor:
                     print(f"[@navigation_executor:execute_navigation] Not at target '{target_node_label or target_node_id}' - checking if at HOME as fallback position")
                     
                     # Find home node by trying common variations: "home", "Home", "HOME"
-                    home_node_id = None
+                    home_id = None
                     home_node_label = None
                     for potential_home_label in ["home", "Home", "HOME"]:
                         try:
-                            home_node_id = self.get_node_id(potential_home_label, tree_id, team_id)
+                            home_id = self.get_node_id(potential_home_label, tree_id, team_id)
                             home_node_label = potential_home_label
-                            print(f"[@navigation_executor:execute_navigation] Found home node: {home_node_id} (label: {home_node_label})")
+                            print(f"[@navigation_executor:execute_navigation] Found home node: {home_id} (label: {home_node_label})")
                             break
                         except ValueError:
                             continue
                     
                     # Only verify home if: (1) home exists, (2) target is NOT home
-                    if home_node_id and home_node_id != target_node_id:
+                    if home_id and home_id != target_node_id:
                         print(f"[@navigation_executor:execute_navigation] Target is not home - verifying if at home")
                         home_verification = await self.device.verification_executor.verify_node(
-                            node_id=home_node_id,
+                            node_id=home_id,
                             userinterface_name=userinterface_name,
                             team_id=team_id,
                             tree_id=tree_id
@@ -633,12 +633,12 @@ class NavigationExecutor:
                         if home_verification.get('success') and home_verification.get('has_verifications', True):
                             print(f"[@navigation_executor:execute_navigation] ✅ Already at HOME - will navigate from HOME → {target_node_label or target_node_id}")
                             # Update position to home so pathfinding starts from there
-                            self.update_current_position(home_node_id, tree_id, home_node_label)
+                            self.update_current_position(home_id, tree_id, home_node_label)
                             nav_context['last_verified_timestamp'] = time.time()
                             # Continue to pathfinding (don't return)
                         else:
                             print(f"[@navigation_executor:execute_navigation] Not at home - will navigate from entry")
-                    elif home_node_id == target_node_id:
+                    elif home_id == target_node_id:
                         print(f"[@navigation_executor:execute_navigation] Target IS home - skipping duplicate home verification")
                     else:
                         print(f"[@navigation_executor:execute_navigation] No home node found in tree - will navigate from entry")

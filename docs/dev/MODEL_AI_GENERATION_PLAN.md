@@ -174,7 +174,7 @@ POST /server/ai-generation/start-exploration
   "host_ip": "192.168.1.100",
   "device_id": "uuid",
   "exploration_depth": 5,
-  "start_node_id": "home_node_id"  // Optional
+  "start_node_id": "home_id"  // Optional
 }
 Response: {
   "success": true,

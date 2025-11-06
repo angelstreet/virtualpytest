@@ -46,12 +46,12 @@ Entry Node → Home Node
 class AINavigationExplorer(AIAgentController):
     """AI-driven navigation model generation using existing infrastructure"""
     
-    def explore_and_generate_model(self, home_node_id: str, max_nodes: int = 50) -> Dict:
+    def explore_and_generate_model(self, home_id: str, max_nodes: int = 50) -> Dict:
         """
         Main AI exploration workflow
         
         Args:
-            home_node_id: User-created home node to start from
+            home_id: User-created home node to start from
             max_nodes: Maximum nodes to discover (safety limit)
             
         Returns:
@@ -59,12 +59,12 @@ class AINavigationExplorer(AIAgentController):
         """
         
         # Initialize exploration state
-        current_position = home_node_id
-        discovered_nodes = {home_node_id: {'source': 'user_created', 'verified': True}}
-        exploration_queue = [home_node_id]
+        current_position = home_id
+        discovered_nodes = {home_id: {'source': 'user_created', 'verified': True}}
+        exploration_queue = [home_id]
         generated_edges = []
         
-        print(f"AI Explorer: Starting from home node {home_node_id}")
+        print(f"AI Explorer: Starting from home node {home_id}")
         
         # Exploration loop
         while exploration_queue and len(discovered_nodes) < max_nodes:
@@ -115,7 +115,7 @@ class AINavigationExplorer(AIAgentController):
                 except Exception as e:
                     print(f"AI Explorer: Action exploration failed: {e}")
                     # Attempt recovery to known position
-                    self.recover_to_known_position(home_node_id)
+                    self.recover_to_known_position(home_id)
         
         # 3. MODEL OPTIMIZATION
         optimized_model = self.optimize_generated_model(discovered_nodes, generated_edges)

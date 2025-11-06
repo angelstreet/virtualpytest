@@ -452,17 +452,29 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           </Button>
         )}
         
-        {/* After validation complete - show Close */}
+        {/* After validation complete - show Confirm and Cancel */}
         {isValidationComplete && (
-          <Button
-            onClick={onClose}
-            variant="contained"
-            color="success"
-            startIcon={<CompleteIcon />}
-            fullWidth
-          >
-            Close
-          </Button>
+          <>
+            <Button
+              onClick={onClose}
+              variant="outlined"
+              color="error"
+              startIcon={<CancelIcon />}
+            >
+              Cancel & Delete
+            </Button>
+            <Button
+              onClick={() => {
+                onValidationComplete?.();
+                onClose();
+              }}
+              variant="contained"
+              color="success"
+              startIcon={<CompleteIcon />}
+            >
+              Confirm & Save
+            </Button>
+          </>
         )}
         
         {/* Error state */}

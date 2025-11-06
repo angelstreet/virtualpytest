@@ -106,7 +106,7 @@ class ExplorationExecutor:
             'items_to_validate': [],
             'current_validation_index': 0,
             'target_to_node_map': {},
-            'home_node_id': None,
+            'home_id': None,
             'nodes_created': [],
             'edges_created': [],
             'started_at': None,
@@ -166,7 +166,7 @@ class ExplorationExecutor:
                 'items_to_validate': [],
                 'current_validation_index': 0,
                 'target_to_node_map': {},
-                'home_node_id': None,
+                'home_id': None,
                 'nodes_created': [],
                 'edges_created': [],
                 'started_at': datetime.now(timezone.utc).isoformat(),
@@ -327,6 +327,7 @@ class ExplorationExecutor:
     def continue_exploration(self, team_id: str) -> Dict[str, Any]:
         """
         Phase 2a: Create all nodes and edges structure (instant)
+        Uses BATCH SAVE for efficiency.
         
         Returns:
             {
@@ -353,15 +354,15 @@ class ExplorationExecutor:
             node_gen = NodeGenerator(tree_id, team_id)
             
             # Check if home node exists
-            home_node_result = get_node_by_id(tree_id, 'home-node', team_id)
+            home_node_result = get_node_by_id(tree_id, 'home', team_id)
             if not (home_node_result.get('success') and home_node_result.get('node')):
                 home_node_result = get_node_by_id(tree_id, 'home', team_id)
             
             if home_node_result.get('success') and home_node_result.get('node'):
                 existing_node = home_node_result['node']
-                home_node_id = existing_node['node_id']
+                home_id = existing_node['node_id']
                 nodes_created = []
-                print(f"  ♻️  Reusing existing '{home_node_id}' node")
+                print(f"  ♻️  Reusing existing '{home_id}' node")
             else:
                 # Create home_temp
                 home_node = node_gen.create_node_data(
@@ -379,11 +380,13 @@ class ExplorationExecutor:
                 if not home_result['success']:
                     return {'success': False, 'error': f"Failed to create home node: {home_result.get('error')}"}
                 
-                home_node_id = 'home_temp'
+                home_id = 'home_temp'
                 nodes_created = ['home_temp']
                 print(f"  ✅ Created home_temp node")
             
-            edges_created = []
+            # ✅ BATCH COLLECTION: Collect all nodes and edges before saving
+            nodes_to_save = []
+            edges_to_save = []
             
             # Create child nodes and edges
             for idx, item in enumerate(items):
@@ -397,6 +400,7 @@ class ExplorationExecutor:
                 position_x = 250 + (idx % 5) * 200
                 position_y = 300 + (idx // 5) * 150
                 
+                # Create node data
                 node_data = node_gen.create_node_data(
                     node_name=node_name,
                     position={'x': position_x, 'y': position_y},
@@ -407,19 +411,16 @@ class ExplorationExecutor:
                     },
                     node_type='screen'
                 )
+                nodes_to_save.append(node_data)
+                nodes_created.append(node_name)
                 
-                node_result = save_node(tree_id, node_data, team_id)
-                if node_result['success']:
-                    nodes_created.append(node_name)
-                    print(f"  ✅ Created node: {node_name}")
-                    
-                    # Store mapping
-                    self.exploration_state['target_to_node_map'][item] = node_name
+                # Store mapping
+                self.exploration_state['target_to_node_map'][item] = node_name
                 
-                # Create edge with predicted actions (use correct format for action_executor)
+                # ✅ Create edge with predicted actions (use element_id for frontend compatibility)
                 forward_actions = [{
                     "command": "click_element",
-                    "params": {"text": item},
+                    "params": {"element_id": item},  # Frontend expects "element_id", not "text"
                     "delay": 2000
                 }]
                 
@@ -430,23 +431,39 @@ class ExplorationExecutor:
                 }]
                 
                 edge_data = node_gen.create_edge_data(
-                    source=home_node_id,
+                    source=home_id,
                     target=node_name,
                     actions=forward_actions,
                     reverse_actions=reverse_actions,
                     label=item
                 )
-                
+                edges_to_save.append(edge_data)
+            
+            # ✅ BATCH SAVE: Save all nodes at once
+            print(f"  💾 Batch saving {len(nodes_to_save)} nodes...")
+            for node_data in nodes_to_save:
+                node_result = save_node(tree_id, node_data, team_id)
+                if node_result['success']:
+                    print(f"  ✅ Created node: {node_data['node_id']}")
+                else:
+                    print(f"  ❌ Failed to create node {node_data['node_id']}: {node_result.get('error')}")
+            
+            # ✅ BATCH SAVE: Save all edges at once
+            print(f"  💾 Batch saving {len(edges_to_save)} edges...")
+            edges_created = []
+            for edge_data in edges_to_save:
                 edge_result = save_edge(tree_id, edge_data, team_id)
                 if edge_result['success']:
                     edges_created.append(edge_data['edge_id'])
-                    print(f"  ✅ Created edge: {home_node_id} → {node_name}")
+                    print(f"  ✅ Created edge: {edge_data['source_node_id']} → {edge_data['target_node_id']}")
+                else:
+                    print(f"  ❌ Failed to create edge {edge_data['edge_id']}: {edge_result.get('error')}")
             
             # Update state
             self.exploration_state['status'] = 'structure_created'
             self.exploration_state['nodes_created'] = nodes_created
             self.exploration_state['edges_created'] = edges_created
-            self.exploration_state['home_node_id'] = home_node_id
+            self.exploration_state['home_id'] = home_id
             self.exploration_state['current_step'] = f'Created {len(nodes_created)} nodes and {len(edges_created)} edges. Ready to validate.'
             self.exploration_state['items_to_validate'] = items
             self.exploration_state['current_validation_index'] = 0
@@ -484,6 +501,88 @@ class ExplorationExecutor:
                 'success': True,
                 'message': 'Ready to start validation',
                 'total_items': len(self.exploration_state['items_to_validate'])
+            }
+    
+    def finalize_structure(self) -> Dict[str, Any]:
+        """
+        Finalize structure: Rename all _temp nodes/edges to permanent
+        
+        Returns:
+            {
+                'success': True,
+                'nodes_renamed': 5,
+                'edges_renamed': 4
+            }
+        """
+        with self._lock:
+            if not self.current_exploration_id:
+                return {'success': False, 'error': 'No active exploration'}
+            
+            tree_id = self.exploration_state['tree_id']
+            team_id = self.exploration_state['team_id']
+            
+            print(f"[@ExplorationExecutor:finalize_structure] Renaming _temp nodes/edges for {self.current_exploration_id}")
+            
+            # Get all nodes and edges from tree
+            from backend_host.src.services.navigation.crud import get_tree_nodes, get_tree_edges, update_node, update_edge
+            
+            nodes_result = get_tree_nodes(tree_id, team_id)
+            edges_result = get_tree_edges(tree_id, team_id)
+            
+            if not nodes_result.get('success') or not edges_result.get('success'):
+                return {'success': False, 'error': 'Failed to get tree data'}
+            
+            nodes = nodes_result.get('nodes', [])
+            edges = edges_result.get('edges', [])
+            
+            nodes_renamed = 0
+            edges_renamed = 0
+            
+            # Rename nodes: remove _temp suffix
+            for node in nodes:
+                node_id = node.get('node_id', '')
+                if node_id.endswith('_temp'):
+                    new_node_id = node_id.replace('_temp', '')
+                    node['node_id'] = new_node_id
+                    
+                    result = update_node(tree_id, node_id, node, team_id)
+                    if result.get('success'):
+                        nodes_renamed += 1
+                        print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
+                    else:
+                        print(f"  ❌ Failed to rename node: {node_id}")
+            
+            # Rename edges: remove _temp suffix from edge_id, source, target
+            for edge in edges:
+                edge_id = edge.get('edge_id', '')
+                source = edge.get('source', '')
+                target = edge.get('target', '')
+                
+                if '_temp' in edge_id or '_temp' in source or '_temp' in target:
+                    new_edge_id = edge_id.replace('_temp', '')
+                    new_source = source.replace('_temp', '')
+                    new_target = target.replace('_temp', '')
+                    
+                    edge['edge_id'] = new_edge_id
+                    edge['source'] = new_source
+                    edge['target'] = new_target
+                    
+                    result = update_edge(tree_id, edge_id, edge, team_id)
+                    if result.get('success'):
+                        edges_renamed += 1
+                        print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
+                    else:
+                        print(f"  ❌ Failed to rename edge: {edge_id}")
+            
+            # Update state
+            self.exploration_state['status'] = 'finalized'
+            self.exploration_state['current_step'] = f'Finalized: {nodes_renamed} nodes and {edges_renamed} edges renamed'
+            
+            return {
+                'success': True,
+                'nodes_renamed': nodes_renamed,
+                'edges_renamed': edges_renamed,
+                'message': 'Structure finalized successfully'
             }
     
     def validate_next_item(self) -> Dict[str, Any]:
@@ -663,8 +762,8 @@ class ExplorationExecutor:
         
         # 3. Update edge with validation results (using action_sets like frontend)
         with self._lock:
-            home_node_id = self.exploration_state['home_node_id']
-            edge_id = f"edge_{home_node_id}_to_{node_name}_temp"
+            home_id = self.exploration_state['home_id']
+            edge_id = f"edge_{home_id}_to_{node_name}_temp"
             
             edge_result = get_edge_by_id(tree_id, edge_id, team_id)
             edge_updated = False
@@ -672,25 +771,23 @@ class ExplorationExecutor:
             if edge_result['success']:
                 edge = edge_result['edge']
                 
-                # Follow frontend pattern: get action_sets, find default, update actions within it
+                # ✅ CORRECT: action_sets[0] = forward (with actions), action_sets[1] = reverse (with actions)
+                # NOT: action_sets[0] with reverse_actions - that's wrong!
                 action_sets = edge.get('action_sets', [])
-                if len(action_sets) > 0:
-                    # Get first action set (forward direction)
-                    action_set = action_sets[0]
+                if len(action_sets) >= 2:
+                    # Update forward direction (action_sets[0])
+                    if action_sets[0].get('actions') and len(action_sets[0]['actions']) > 0:
+                        action_sets[0]['actions'][0]['validation_status'] = click_result
+                        action_sets[0]['actions'][0]['validated_at'] = time.time()
+                        action_sets[0]['actions'][0]['actual_result'] = click_result
                     
-                    # Update forward actions validation status
-                    if action_set.get('actions') and len(action_set['actions']) > 0:
-                        action_set['actions'][0]['validation_status'] = click_result
-                        action_set['actions'][0]['validated_at'] = time.time()
-                        action_set['actions'][0]['actual_result'] = click_result
+                    # ✅ FIX: Update reverse direction (action_sets[1].actions, NOT action_sets[0].reverse_actions)
+                    if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
+                        action_sets[1]['actions'][0]['validation_status'] = back_result
+                        action_sets[1]['actions'][0]['validated_at'] = time.time()
+                        action_sets[1]['actions'][0]['actual_result'] = back_result
                     
-                    # Update reverse actions validation status
-                    if action_set.get('reverse_actions') and len(action_set['reverse_actions']) > 0:
-                        action_set['reverse_actions'][0]['validation_status'] = back_result
-                        action_set['reverse_actions'][0]['validated_at'] = time.time()
-                        action_set['reverse_actions'][0]['actual_result'] = back_result
-                    
-                    # Save with action_sets structure (same as frontend)
+                    # Save updated edge with correct action_sets structure
                     update_result = save_edge(tree_id, edge, team_id)
                     edge_updated = update_result.get('success', False)
             
@@ -717,14 +814,14 @@ class ExplorationExecutor:
                 'screenshot_url': screenshot_url,
                 'action_sets': {
                     'forward': {
-                        'source': home_node_id,
+                        'source': home_id,
                         'target': node_name_display,
                         'action': f'click_element("{current_item}")',
                         'result': click_result
                     },
                     'reverse': {
                         'source': node_name_display,
-                        'target': home_node_id,
+                        'target': home_id,
                         'action': 'press_key(BACK)',
                         'result': back_result
                     }

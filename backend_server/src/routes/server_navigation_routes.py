@@ -175,33 +175,33 @@ def create_empty_navigation_config(interface_name):
         print(f"[@route:create_empty_navigation_config] Created entry node: {entry_node_id}")
         
         # Create home node
-        home_node_id = 'home-node'
-        home_node_data = {
-            'node_id': home_node_id,
+        home_id = 'home'
+        home_data = {
+            'node_id': home_id,
             'label': 'home',
             'node_type': 'screen',
             'position_x': 300,
             'position_y': 200,
             'data': {
                 'type': 'screen',
-                'label': 'Home',
+                'label': 'home',
                 'description': 'Home screen - main landing page',
                 'is_root': False
             },
             'verifications': []
         }
         
-        home_result = save_node(tree_id, home_node_data, team_id)
+        home_result = save_node(tree_id, home_data, team_id)
         if not home_result['success']:
             return jsonify({
                 'success': False,
                 'error': f"Failed to create home node: {home_result.get('error', 'Unknown error')}"
             }), 500
         
-        print(f"[@route:create_empty_navigation_config] Created home node: {home_node_id}")
+        print(f"[@route:create_empty_navigation_config] Created home node: {home_id}")
         
         # Create edge connecting entry to home
-        edge_id = f"edge-{entry_node_id}-to-{home_node_id}"
+        edge_id = f"edge-{entry_node_id}-to-{home_id}"
         timestamp = int(datetime.now().timestamp() * 1000)
         action_set_id = f'actionset-{timestamp}'
         
@@ -209,12 +209,12 @@ def create_empty_navigation_config(interface_name):
         edge_data = {
             'edge_id': edge_id,
             'source_node_id': entry_node_id,
-            'target_node_id': home_node_id,
-            'label': 'Entry→Home',
+            'target_node_id': home_id,
+            'label': 'Entry→home',
             'action_sets': [
                 {
                     'id': action_set_id,
-                    'label': 'Entry→Home_1',
+                    'label': 'Entry→home',
                     'actions': [],
                     'retry_actions': [],
                     'failure_actions': [],
