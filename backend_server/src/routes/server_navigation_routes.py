@@ -186,7 +186,7 @@ def create_empty_navigation_config(interface_name):
                 'type': 'screen',
                 'label': 'home',
                 'description': 'Home screen - main landing page',
-                'is_root': False
+                'is_root': True
             },
             'verifications': []
         }

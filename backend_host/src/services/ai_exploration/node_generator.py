@@ -156,7 +156,8 @@ class NodeGenerator:
         node_name: str,
         position: Dict[str, int],
         ai_analysis: Dict,
-        node_type: str = 'screen'
+        node_type: str = 'screen',
+        is_root: bool = False
     ) -> Dict:
         """
         Create node data structure for save_node()
@@ -166,6 +167,7 @@ class NodeGenerator:
             position: {'x': 250, 'y': 250}
             ai_analysis: AI analysis result
             node_type: 'screen', 'menu', etc.
+            is_root: False
             
         Returns:
             Node data dict ready for save_node()
@@ -178,6 +180,7 @@ class NodeGenerator:
             'position_y': position['y'],
             'data': {
                 'type': node_type,  # Keep type in data for ReactFlow compatibility
+                'is_root': is_root,
                 'ai_generated': True,
                 'ai_suggestion': ai_analysis.get('suggested_name', ''),
                 'screen_type': ai_analysis.get('screen_type', 'screen'),

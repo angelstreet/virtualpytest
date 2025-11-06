@@ -65,6 +65,8 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
   const isRootNode = data.is_root === true;
   // Check if this is an entry point node
   const isEntryNode = data.type === 'entry';
+  // Check if this is a menu node
+  const isMenuNode = data.type === 'menu';
   // Context node check removed since shadows are disabled
   // Check if this is the current position
   const isCurrentPosition = currentNodeId === id;
@@ -247,6 +249,26 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         </div>
       )}
 
+      {/* Menu Type Indicator */}
+      {isMenuNode && (
+        <div
+          style={{
+            position: 'absolute',
+            top: '4px',
+            right: '4px',
+            backgroundColor: UI_BADGE_COLORS.menu.background,
+            color: UI_BADGE_COLORS.menu.textColor,
+            fontSize: '10px',
+            fontWeight: 'bold',
+            padding: '2px 6px',
+            borderRadius: '4px',
+            zIndex: getZIndex('NAVIGATION_NODE_BADGES'),
+          }}
+        >
+          MENU
+        </div>
+      )}
+
       {/* Left Handles - Overlapping for Bidirectional Effect */}
       {/* Left: TARGET for receiving connections */}
       <Handle
@@ -257,7 +279,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
         isConnectableStart={false}
         isConnectableEnd={true}
         style={{
-          background: '#1976d2',
+          background: data.is_root ? '#ffc107' : '#1976d2',
           border: '2px solid #fff',
           width: '16px',
           height: '16px',
@@ -344,7 +366,7 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
       {/* Top: SOURCE for menu connections */}
       <Handle
         type="source"
-        position={Position.Bottom}
+        position={Position.Top}
         id="top-left-menu-source"
         isConnectable={true}
         isConnectableStart={true}
@@ -506,23 +528,6 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
           >
             {data.type === 'entry' ? 'Entry Point' : 'Double-click to explore'}
           </div>
-        )}
-
-        {/* Visual indicator for nodes that can have sub-trees */}
-        {data.type !== 'entry' && (
-          <div
-            style={{
-              position: 'absolute',
-              top: '4px',
-              right: '4px',
-              width: '8px',
-              height: '8px',
-              backgroundColor: '#2196F3',
-              borderRadius: '50%',
-              opacity: 0.7,
-            }}
-            title="Can contain actions"
-          />
         )}
       </div>
 

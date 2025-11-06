@@ -42,7 +42,6 @@ import { EdgeSelectionPanel } from '../components/navigation/Navigation_EdgeSele
 import { MetricsNotification } from '../components/navigation/MetricsNotification';
 import { MetricsModal } from '../components/navigation/MetricsModal';
 import { NavigationEditorHeader } from '../components/navigation/Navigation_EditorHeader';
-import { UIMenuNode } from '../components/navigation/Navigation_MenuNode';
 import { NavigationEdgeComponent } from '../components/navigation/Navigation_NavigationEdge';
 import { UINavigationNode } from '../components/navigation/Navigation_NavigationNode';
 import { UIActionNode } from '../components/navigation/Navigation_ActionNode';
@@ -79,7 +78,7 @@ import { buildServerUrl } from '../utils/buildUrlUtils';
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {
   screen: UINavigationNode,
-  menu: UIMenuNode,
+  menu: UINavigationNode,
   action: UIActionNode,
   entry: UINavigationNode, // Entry nodes use the same component as screen nodes but with different styling
 };
