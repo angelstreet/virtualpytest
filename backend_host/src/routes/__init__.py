@@ -29,5 +29,6 @@ from . import (
     host_campaign_routes,
     host_transcript_routes,
     host_deployment_routes,
-    host_builder_routes
+    host_builder_routes,
+    host_ai_exploration_routes
 ) 
