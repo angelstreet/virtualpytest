@@ -48,7 +48,7 @@ export interface UseMCPPlaygroundPageReturn {
   
   // Prompt & AI
   prompt: string;
-  setPrompt: (prompt: string) => void;
+  setPrompt: React.Dispatch<React.SetStateAction<string>>;
   isGenerating: boolean;
   handleGenerate: () => Promise<void>;
   

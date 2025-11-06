@@ -73,7 +73,6 @@ import {
   UINavigationNode as UINavigationNodeType,
 } from '../types/pages/Navigation_Types';
 import { getZIndex } from '../utils/zIndexUtils';
-import { buildServerUrl } from '../utils/buildUrlUtils';
 
 // Node types for React Flow - defined outside component to prevent recreation on every render
 const nodeTypes = {
@@ -1428,8 +1427,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           />
         )}
 
-        {/* AI Generation Modal - Always mounted to preserve hook state */}
-        {isControlActive && selectedHost && selectedDeviceId && actualTreeId && (
+        {/* AI Generation Modal - Only mount when user opens it or validation prompt is active */}
+        {(isAIGenerationOpen || showValidationPrompt) && isControlActive && selectedHost && selectedDeviceId && actualTreeId && (
           <AIGenerationModal
             isOpen={isAIGenerationOpen}
             onClose={() => setIsAIGenerationOpen(false)}

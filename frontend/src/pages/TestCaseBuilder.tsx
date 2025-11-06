@@ -383,7 +383,6 @@ const TestCaseBuilderContent: React.FC = () => {
         userinterfaceName={hookData.userinterfaceName}
         setUserinterfaceName={hookData.setUserinterfaceName}
         isLoadingTree={hookData.isLoadingTree}
-        currentTreeId={hookData.currentTreeId}
         testcaseName={hookData.testcaseName}
         hasUnsavedChanges={hookData.hasUnsavedChanges}
         handleNew={wrappedHandleNew}

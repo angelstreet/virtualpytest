@@ -185,7 +185,7 @@ export const MCPExecutionResult: React.FC<MCPExecutionResultProps> = ({
             {/* Block States (summary) - Only for test case execution */}
             {!isMCPProxyResult && blockStates.size > 0 && (
               <Stack direction="row" spacing={1} sx={{ flexWrap: 'wrap', gap: 1 }}>
-                {Array.from(blockStates.entries()).map(([blockId, state]: [string, any]) => (
+                {(Array.from(blockStates.entries()) as [string, any][]).map(([blockId, state]) => (
                   <Chip
                     key={blockId}
                     label={`Block ${blockId.substring(0, 8)}`}
