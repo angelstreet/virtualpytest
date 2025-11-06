@@ -119,15 +119,15 @@ class ExplorationExecutor:
         
         print(f"[@ExplorationExecutor] Initialized for device {device.device_id}")
     
-    def start_exploration(self, tree_id: str, userinterface_name: str, 
-                         exploration_depth: int, team_id: str) -> Dict[str, Any]:
+    def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str) -> Dict[str, Any]:
         """
         Start AI exploration (Phase 1: Analysis)
+        
+        Note: Exploration depth is FIXED at 2 levels (main items + sub-items)
         
         Args:
             tree_id: Navigation tree ID
             userinterface_name: User interface name
-            exploration_depth: Depth limit for exploration
             team_id: Team ID
             
         Returns:
@@ -178,7 +178,7 @@ class ExplorationExecutor:
             print(f"  Tree: {tree_id}")
             print(f"  Device: {self.device_model} ({self.device_id})")
             print(f"  UI: {userinterface_name}")
-            print(f"  Depth: {exploration_depth}")
+            print(f"  Depth: FIXED at 2 levels")
         
         # Start exploration in background thread
         def run_exploration():
@@ -235,7 +235,6 @@ class ExplorationExecutor:
                     device=self.device,  # Pass device directly (no Flask context needed!)
                     team_id=team_id,
                     userinterface_name=userinterface_name,
-                    depth_limit=exploration_depth,
                     screenshot_callback=update_screenshot,
                     progress_callback=update_progress
                 )
@@ -353,36 +352,14 @@ class ExplorationExecutor:
             
             node_gen = NodeGenerator(tree_id, team_id)
             
-            # Check if home node exists
+            # Home node should already exist - userinterfaces have home by default
             home_node_result = get_node_by_id(tree_id, 'home', team_id)
             if not (home_node_result.get('success') and home_node_result.get('node')):
-                home_node_result = get_node_by_id(tree_id, 'home', team_id)
+                return {'success': False, 'error': 'Home node does not exist. Userinterface should have home node by default.'}
             
-            if home_node_result.get('success') and home_node_result.get('node'):
-                existing_node = home_node_result['node']
-                home_id = existing_node['node_id']
-                nodes_created = []
-                print(f"  ♻️  Reusing existing '{home_id}' node")
-            else:
-                # Create home_temp
-                home_node = node_gen.create_node_data(
-                    node_name='home_temp',
-                    position={'x': 250, 'y': 100},
-                    ai_analysis={
-                        'suggested_name': 'home',
-                        'screen_type': 'screen',
-                        'reasoning': 'Root node - initial screen'
-                    },
-                    node_type='screen'
-                )
-                
-                home_result = save_node(tree_id, home_node, team_id)
-                if not home_result['success']:
-                    return {'success': False, 'error': f"Failed to create home node: {home_result.get('error')}"}
-                
-                home_id = 'home_temp'
-                nodes_created = ['home_temp']
-                print(f"  ✅ Created home_temp node")
+            home_id = home_node_result['node']['node_id']
+            nodes_created = []
+            print(f"  ♻️  Using existing '{home_id}' node")
             
             # ✅ BATCH COLLECTION: Collect all nodes and edges before saving
             nodes_to_save = []

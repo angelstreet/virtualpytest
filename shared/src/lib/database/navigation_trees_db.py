@@ -257,6 +257,15 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         if 'data' not in node_data or node_data['data'] is None:
             node_data['data'] = {}
         
+        # Sync data.type with node_type for frontend compatibility
+        if 'node_type' in node_data:
+            node_data['data']['type'] = node_data['node_type']
+        
+        # Log what we're about to save
+        print(f"[@db:navigation_trees:save_node] Saving node {node_data['node_id']}")
+        print(f"[@db:navigation_trees:save_node] data.is_root = {node_data.get('data', {}).get('is_root')}")
+        print(f"[@db:navigation_trees:save_node] Full data field: {node_data.get('data')}")
+        
         # Ensure style field is never null - database constraint requires it
         if 'style' not in node_data or node_data['style'] is None:
             node_data['style'] = {}

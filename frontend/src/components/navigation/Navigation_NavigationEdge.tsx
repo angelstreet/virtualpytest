@@ -58,6 +58,27 @@ export const NavigationEdgeComponent: React.FC<EdgeProps<UINavigationEdgeType['d
   const sourceNode = nodes.find((node) => node.id === source);
   const targetNode = nodes.find((node) => node.id === target);
 
+  // 🎨 OVERRIDE: Edges connecting to root nodes should be GOLD
+  if (targetNode?.data?.is_root === true) {
+    console.log(`[@NavigationEdge] Edge ${id} connecting to ROOT node ${target}:`, {
+      targetNodeData: targetNode.data,
+      isRoot: targetNode.data.is_root,
+      settingColor: '#ffc107'
+    });
+    edgeColors = {
+      stroke: '#ffc107',
+      strokeWidth: 3,
+      strokeDasharray: '',
+      opacity: 1,
+    };
+  } else if (targetNode) {
+    console.log(`[@NavigationEdge] Edge ${id} to NON-ROOT node ${target}:`, {
+      targetNodeData: targetNode.data,
+      isRoot: targetNode.data?.is_root,
+      currentColor: edgeColors.stroke
+    });
+  }
+
   // Check if this is an entry-to-home connection
   const isEntryToHome =
     sourceNode?.data?.type === 'entry' &&

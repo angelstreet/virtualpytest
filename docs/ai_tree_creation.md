@@ -1,8 +1,14 @@
-# AI Tree Creation - Automated Navigation Tree Generation
+# AI Tree Creation - Automated 2-Level Navigation Tree Generation
 
 ## Overview
 
 AI Tree Creation automatically explores user interfaces and generates complete navigation trees with nodes, edges, and subtrees. The system uses a **UNIVERSAL algorithm** that works identically for mobile, web, TV, and STB platforms by focusing on **destinations (nodes)** and **navigation actions (edges)**.
+
+**🎯 Fixed 2-Level Exploration:** The system always explores **2 levels deep**:
+- **Level 1**: Main navigation items (Home, Settings, TV Guide, etc.)
+- **Level 2**: Sub-navigation items (Settings → WiFi, Bluetooth, Account, etc.)
+
+This provides an immediate, usable navigation tree without requiring configuration.
 
 ## Architecture: 3-Component Design
 
@@ -76,8 +82,8 @@ The AI generation flow uses **3 separate components** for clean separation of co
 3. Click "Take Control" button
 4. **AI Generate** button appears in header (only when control is active)
 5. Click **AI Generate** to open exploration modal
-6. Set exploration depth (1-10 levels, default: 5)
-7. Click **Start** (Phase 1: Analysis)
+6. Click **Start** (Phase 1: Analysis) - No configuration needed!
+   - The system automatically explores **2 levels** (main + sub-items)
 
 ---
 
@@ -102,35 +108,54 @@ The AI generation flow uses **3 separate components** for clean separation of co
 
 ---
 
-### Phase 2a: Structure Creation (Instant)
+### Phase 2a: Structure Creation (2-Level Exploration)
 
 **What happens (automatically after approval):**
 - Creates `home_temp` node (root)
-- **Collects all destination nodes data**
-- **Collects all edges data with ACTIONS FILLED IN**
-- **Batch saves all nodes at once**
-- **Batch saves all edges at once**
+- **For each level-1 item:**
+  1. Click level-1 item (e.g., "Settings")
+  2. Analyze screen for level-2 items
+  3. Create level-1 node: `settings_temp`
+  4. **For each level-2 item found:**
+     - Click level-2 item (e.g., "WiFi")
+     - Press BACK to level-1
+     - Create level-2 node with parent prefix: `settings_wifi_temp`
+     - Create level-2 edge: `settings_temp` ↔ `settings_wifi_temp`
+  5. Press BACK to home
+  6. Create level-1 edge: `home_temp` ↔ `settings_temp`
+  7. Create subtree: `settings` (if level-2 nodes exist)
+- **Batch saves all nodes and edges**
 
-**Important:** Edges are created WITH actions immediately, not empty!
-
-**Node Naming (UNIVERSAL):**
+**Node Naming (parent_child format):**
 ```
+Level 1:
+"Settings Tab" → settings_temp
+
+Level 2 (with parent prefix):
+"WiFi" → settings_wifi_temp
+"Bluetooth" → settings_bluetooth_temp
+"Account" → settings_account_temp
+
+Another Level 1:
 "TV Guide Tab" → tvguide_temp
-"Replay Register" → replay_temp
-"Films & Series" → movies_and_series_temp
-"Aktuell gewählte Registerkarte Settings" → settings_temp
+
+Level 2 (with parent prefix):
+"Channels" → tvguide_channels_temp
+"Favorites" → tvguide_favorites_temp
 ```
 
 **Rules:**
-- Remove: "Tab", "Register", "Button", "Screen", common phrases
-- Lowercase
-- Replace spaces/special chars with underscore
+- Level-1 nodes: Remove "Tab", "Register", "Button", lowercase, underscore
+- Level-2 nodes: `{parent}_{child}` format (e.g., `settings_wifi`)
+- Subtrees: Created automatically for level-1 nodes with level-2 children
 
-**Performance:** Batch saving reduces database writes from 20+ to 2 operations for 10 items!
+**Performance:** Completes in ~60-120 seconds for 10 level-1 items with 5 level-2 items each
 
 **You'll see:**
-- `X nodes created`
-- `Y edges created`
+- `X level-1 nodes created`
+- `Y level-2 nodes created`
+- `Z edges created`
+- `N subtrees created`
 - All with `_temp` suffix
 
 **Your Decision:**
@@ -233,48 +258,91 @@ Step 1: "TV Guide Tab"
 
 ---
 
-### Phase 2a: Structure Creation
+### Phase 2a: 2-Level Exploration
 
-**For each navigation target:**
+**For each level-1 navigation target:**
 
 ```python
-# 1. Generate node name
-target = "TV Guide Tab"
-node_name = target_to_node_name(target)  # → "tvguide"
+# 1. Click level-1 item
+target_level1 = "Settings Tab"
+click_element(target_level1)
+wait(2s)
 
-# 2. Create node
+# 2. Generate level-1 node name
+node_level1 = "settings_temp"
+
+# 3. Analyze screen for level-2 items
+level2_items = parse_ui_dump()  # ["WiFi", "Bluetooth", "Account", ...]
+
+# 4. For each level-2 item:
+for level2_item in level2_items:
+    # 4.1. Click level-2 item
+    click_element(level2_item)  # "WiFi"
+    wait(2s)
+    
+    # 4.2. Press BACK to level-1
+    press_key(BACK)
+    wait(2s)
+    
+    # 4.3. Generate level-2 node name with parent prefix
+    node_level2 = f"settings_wifi_temp"  # parent_child format!
+    
+    # 4.4. Create level-2 node
+    create_node(
+        id=node_level2,
+        label="settings_wifi",
+        position=calculated
+    )
+    
+    # 4.5. Create level-2 edge WITH actions (not empty!)
+    create_edge(
+        id="edge_settings_temp_to_settings_wifi_temp",
+        source="settings_temp",
+        target="settings_wifi_temp",
+        action_sets=[
+            {
+                id: "settings_to_settings_wifi",
+                actions: [
+                    {"command": "click_element", "params": {"text": "WiFi"}, "delay": 2000}
+                ]
+            },
+            {
+                id: "settings_wifi_to_settings",
+                actions: [
+                    {"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}
+                ]
+            }
+        ]
+    )
+
+# 5. Press BACK to home from level-1
+press_key(BACK)
+wait(2s)
+
+# 6. Create level-1 node
 create_node(
-  id="tvguide_temp",
-  label="TV Guide",
-  position=calculated
+    id="settings_temp",
+    label="settings",
+    position=calculated
 )
 
-# 3. Create edge WITH actions (not empty!)
+# 7. Create level-1 edge
 create_edge(
-  id="edge_home_temp_to_tvguide_temp_temp",
-  source="home_temp",
-  target="tvguide_temp",
-  action_sets=[
-    {
-      id: "home_to_tvguide",
-      actions: [
-        {"command": "click_element", "params": {"text": "TV Guide Tab"}, "delay": 2000}
-      ]
-    },
-    {
-      id: "tvguide_to_home",
-      actions: [
-        {"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}
-      ]
-    }
-  ]
+    id="edge_home_temp_to_settings_temp",
+    source="home_temp",
+    target="settings_temp",
+    action_sets=[...]
 )
 
-# 4. Store mapping for testing
-target_to_node_map["TV Guide Tab"] = "tvguide_temp"
+# 8. Create subtree (if level-2 nodes exist)
+if level2_nodes_created:
+    create_sub_tree(
+        parent_node="settings_temp",
+        name="settings_subtree"
+    )
 ```
 
-**Key Point:** Edges are created WITH actions already filled in! Phase 2b just TESTS them.
+**Key Point:** All nodes and edges are created WITH actions already filled in!
 
 ---
 
@@ -387,18 +455,20 @@ def back_to_home() -> bool:
 
 | Aspect | Mobile/Web | TV/STB |
 |--------|------------|--------|
-| **Navigation** | Click once | Direction + OK |
+| **Level-1 Navigation** | Click once | Direction + OK |
+| **Level-2 Navigation** | Click once | Direction + OK |
 | **Entry** | Immediate | After OK press |
 | **Discovery** | UI Dump parsing | AI Vision |
 | **Validation** | Same (screen_changed?) | Same (screen_changed?) |
 | **Return** | Same (BACK key) | Same (BACK key) |
-| **Intermediate states** | None | Yes (focus moves) |
+| **Depth** | **FIXED at 2 levels** | **FIXED at 2 levels** |
+| **Naming** | `parent_child` | `parent_child` |
 
 ---
 
 ## Node Naming Convention
 
-### Target → Node Name Conversion
+### Level-1 Nodes: Target → Node Name
 
 **Function:**
 ```python
@@ -436,9 +506,63 @@ def target_to_node_name(target_text: str) -> str:
     return text or 'unknown'
 ```
 
+### Level-2 Nodes: parent_child Format
+
+**Level-2 nodes always use the parent prefix:**
+
+```python
+def generate_level2_node_name(parent_node: str, child_text: str) -> str:
+    """
+    Generate level-2 node name with parent prefix
+    
+    Examples:
+    parent="settings_temp", child="WiFi" → "settings_wifi_temp"
+    parent="tvguide_temp", child="Channels" → "tvguide_channels_temp"
+    """
+    parent_base = parent_node.replace('_temp', '')
+    child_base = target_to_node_name(child_text)
+    return f"{parent_base}_{child_base}_temp"
+```
+
+**Examples:**
+```
+Level 1: "Settings Tab" → settings_temp
+  Level 2: "WiFi" → settings_wifi_temp
+  Level 2: "Bluetooth" → settings_bluetooth_temp
+  Level 2: "Display" → settings_display_temp
+
+Level 1: "TV Guide Tab" → tvguide_temp
+  Level 2: "Channels" → tvguide_channels_temp
+  Level 2: "Favorites" → tvguide_favorites_temp
+  Level 2: "Search" → tvguide_search_temp
+```
+
 ---
 
-## Benefits of the Universal Algorithm
+## Benefits of 2-Level Fixed Exploration
+
+1. **No Configuration Needed**: Click and go - no depth to set
+2. **Complete Tree Immediately**: Get usable navigation structure in one run
+3. **Automatic Organization**: Subtrees created automatically with logical structure
+4. **Parent-Child Naming**: Clear relationship (`settings_wifi`, `settings_bluetooth`)
+5. **Works Everywhere**: Mobile, web, TV, STB - same 2-level logic
+6. **Time Efficient**: 60-120 seconds for complete 2-level structure
+7. **Predictable**: Always know what you'll get (main + sub-items)
+
+---
+
+## How the 2-Level Algorithm Works
+
+### Key Principle
+
+**Navigation targets (buttons, tabs, menu items) are EDGES, not nodes.**
+
+- **Node** = A destination screen we can ENTER
+- **Edge** = The actions required to reach that destination
+- **Level 1** = Main navigation destinations
+- **Level 2** = Sub-navigation within each level-1 destination
+
+---
 
 1. **Works everywhere**: Mobile, web, TV, STB - same logic
 2. **Simple**: Edges = actions, Nodes = destinations
@@ -573,8 +697,9 @@ const [isValidationModalOpen, setIsValidationModalOpen] = useState(false);
 
 ## Future Enhancements
 
-1. **Recursive exploration**: After validating depth 1, explore each child node
+1. **Level-3 exploration**: Option to go deeper for specific subtrees
 2. **Multiple AI models**: Allow user to select from 3 OpenRouter vision models
-3. **Subtree creation**: Automatically create subtrees after 2 depth levels
-4. **Edge confidence scores**: Rate edge quality based on validation success
-5. **Smart retry**: If edge fails, try alternative navigation sequences
+3. **Edge confidence scores**: Rate edge quality based on validation success
+4. **Smart retry**: If edge fails, try alternative navigation sequences
+5. **Parallel exploration**: Explore multiple level-1 items simultaneously
+6. **Custom naming rules**: Allow user-defined naming patterns

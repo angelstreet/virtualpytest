@@ -51,7 +51,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   onStructureCreated,
   onCleanupTemp
 }) => {
-  const [explorationDepth, setExplorationDepth] = useState(5);
   const [hasTempNodes, setHasTempNodes] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isAborting, setIsAborting] = useState(false);
@@ -200,7 +199,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       await handleAbortPrevious();
     }
     
-    await startExploration(explorationDepth);
+    await startExploration();
   };
 
   const handleCancel = async () => {
@@ -291,23 +290,16 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         {!isExploring && !isAwaitingApproval && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Grid container spacing={2} alignItems="center">
-              <Grid item xs={12} sm={6}>
-                <TextField
-                  label="Depth"
-                  type="number"
-                  value={explorationDepth}
-                  onChange={(e) => setExplorationDepth(Number(e.target.value))}
-                  inputProps={{ min: 1, max: 10 }}
-                  size="small"
-                  fullWidth
-                />
-              </Grid>
-              <Grid item xs={12} sm={6}>
-                <Typography variant="body2" color="text.secondary">
-                  Host: {selectedHost?.host_name}
-                  <br />
-                  Device: {selectedDeviceId}
-                </Typography>
+              <Grid item xs={12}>
+                <Alert severity="info" icon={<AIIcon />}>
+                  <Typography variant="body2">
+                    <strong>2-Level Exploration:</strong> The system will explore main navigation items (level 1) 
+                    and their sub-items (level 2) automatically.
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Host: {selectedHost?.host_name} | Device: {selectedDeviceId}
+                  </Typography>
+                </Alert>
               </Grid>
             </Grid>
           </Paper>

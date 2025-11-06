@@ -219,7 +219,7 @@ export const useGenerateModel = ({
     }
   }, [isExploring, explorationId, explorationHostName, fetchExplorationStatus]);
 
-  const startExploration = useCallback(async (depth: number = 5) => {
+  const startExploration = useCallback(async () => {
     if (!treeId || !selectedHost || !selectedDeviceId || !isControlActive) {
       setError('Missing required parameters for exploration');
       return;
@@ -254,17 +254,16 @@ export const useGenerateModel = ({
         console.warn('[@useGenerateModel:startExploration] Cleanup error, continuing anyway:', cleanupErr);
       }
       
-      setCurrentStep('Starting AI exploration...');
+      setCurrentStep('Starting AI exploration (2-level depth)...');
       
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
         treeId,
         host_name: selectedHost.host_name,
         device_id: selectedDeviceId,
-        userinterface_name: userinterfaceName,
-        exploration_depth: depth
+        userinterface_name: userinterfaceName
       });
 
-      // ✅ STEP 2: Start new exploration
+      // ✅ STEP 2: Start new exploration (depth is fixed at 2 levels)
       const response = await fetch(buildServerUrl('/server/ai-generation/start-exploration'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -272,8 +271,7 @@ export const useGenerateModel = ({
           tree_id: treeId,
           host_name: selectedHost.host_name,  // ← Just the name!
           device_id: selectedDeviceId,
-          userinterface_name: userinterfaceName,
-          exploration_depth: depth
+          userinterface_name: userinterfaceName
         })
       });
 

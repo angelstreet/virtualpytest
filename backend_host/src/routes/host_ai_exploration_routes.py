@@ -86,11 +86,12 @@ def start_exploration():
     """
     Start AI exploration - delegates to device.exploration_executor
     
+    Note: Exploration depth is FIXED at 2 levels (main items + sub-items)
+    
     Request body:
     {
         'tree_id': 'uuid',
         'device_id': 'device1',
-        'exploration_depth': 5,
         'userinterface_name': 'horizon_android_mobile'
     }
     Query params: team_id (auto-added)
@@ -103,7 +104,6 @@ def start_exploration():
         tree_id = data.get('tree_id')
         device_id = data.get('device_id', 'device1')
         userinterface_name = data.get('userinterface_name')
-        exploration_depth = data.get('exploration_depth', 5)
         
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id required'}), 400
@@ -118,11 +118,10 @@ def start_exploration():
         
         device = current_app.host_devices[device_id]
         
-        # Delegate to exploration executor
+        # Delegate to exploration executor (depth is fixed at 2 levels)
         result = device.exploration_executor.start_exploration(
             tree_id=tree_id,
             userinterface_name=userinterface_name,
-            exploration_depth=exploration_depth,
             team_id=team_id
         )
         
