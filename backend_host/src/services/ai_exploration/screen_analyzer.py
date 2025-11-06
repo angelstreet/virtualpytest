@@ -516,10 +516,21 @@ Context visible = Can you still see elements from the previous screen?
             # Fallback to HDMI capture for all other devices using device's AV controller
             av_controller = self.device._get_controller('av')
             if not av_controller:
-                print(f"[@screen_analyzer:capture_screenshot] No AV controller found for device {self.device_id}")
+                print(f"[@screen_analyzer:capture_screenshot] ❌ FAIL EARLY: No AV controller found for device {self.device_id}")
                 return None
             
+            print(f"[@screen_analyzer:capture_screenshot] Attempting HDMI capture via AV controller...")
             temp_screenshot = av_controller.take_screenshot()
+            
+            if not temp_screenshot:
+                print(f"[@screen_analyzer:capture_screenshot] ❌ FAIL EARLY: AV controller returned None/empty")
+                return None
+            
+            # Verify file exists
+            import os
+            if not os.path.exists(temp_screenshot):
+                print(f"[@screen_analyzer:capture_screenshot] ❌ FAIL EARLY: Screenshot file doesn't exist: {temp_screenshot}")
+                return None
             
             if temp_screenshot:
                 # Copy to cold storage

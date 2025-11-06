@@ -247,9 +247,11 @@ class ExplorationExecutor:
                             'screenshot': existing_screenshot
                         }
                     else:
+                        error_msg = result.get('error', 'Failed to analyze screen')
+                        print(f"[@ExplorationExecutor:run_exploration] ❌ EXPLORATION FAILED: {error_msg}")
                         self.exploration_state['status'] = 'failed'
-                        self.exploration_state['error'] = result.get('error', 'Failed to analyze screen')
-                        self.exploration_state['current_step'] = f"Analysis failed: {result.get('error')}"
+                        self.exploration_state['error'] = error_msg
+                        self.exploration_state['current_step'] = f"❌ Failed: {error_msg}"
                     
                     self.exploration_state['completed_at'] = datetime.now(timezone.utc).isoformat()
                 
