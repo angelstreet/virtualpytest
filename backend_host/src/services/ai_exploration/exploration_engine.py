@@ -41,7 +41,7 @@ class ExplorationEngine:
             screenshot_callback: Optional callback function to notify when screenshot is captured
             progress_callback: Optional callback function to notify of progress updates
         
-        Note: Exploration depth is FIXED at 2 levels (level-1 main items + level-2 sub-items)
+        Note: Exploration is SIMPLE - only 1 level (click → back → create node/edge)
         """
         self.device = device
         self.tree_id = tree_id
@@ -473,277 +473,136 @@ Exploration will navigate through these items using {self.prediction.get('strate
         depth: int
     ):
         """
-        Mobile/Web validation: FIXED 2-LEVEL EXPLORATION
+        Mobile/Web validation: SIMPLE 1-LEVEL EXPLORATION
         
-        Level 1: Main navigation items (home → settings, tv_guide, etc.)
-        Level 2: Sub-navigation items (settings → settings_wifi, settings_bluetooth, etc.)
-        
-        Workflow for each level-1 item:
-        1. Click level-1 element
-        2. Wait and analyze screen for level-2 items
-        3. Create subtree with parent_child naming (e.g., settings_wifi)
-        4. For each level-2 item: click, test, create node/edge
-        5. Navigate back to level-1
-        6. Navigate back to home
+        Workflow for each item:
+        1. Click element
+        2. Wait 2s
+        3. Press BACK
+        4. Verify returned to home
+        5. Create node and edge
         
         Args:
             current_node: Current node name (e.g., 'home_temp')
             prediction: AI prediction with items to click
-            depth: Current depth (0=home, 1=main items, 2=sub-items)
+            depth: Current depth (always 0 for simple exploration)
         """
-        print(f"\n[@exploration_engine] 📱 MOBILE/WEB 2-LEVEL EXPLORATION: {current_node} (depth={depth})")
+        print(f"\n[@exploration_engine] 📱 MOBILE/WEB SIMPLE EXPLORATION: {current_node} (depth={depth})")
         
         predicted_items = prediction.get('items', [])
-        print(f"  Level-1 items to explore: {len(predicted_items)}")
+        print(f"  Items to explore: {len(predicted_items)}")
         
-        # Get a known source element to verify BACK (use first non-target item or 'Home')
-        home_indicator = predicted_items[0] if predicted_items else 'Home'
+        # Get a known source element to verify BACK (use first item or 'Home')
+        source_element = predicted_items[0] if predicted_items else 'Home'
         
         import time
         
-        # ════════════════════════════════════════════════════════════════
-        # LEVEL 1: Explore main navigation items
-        # ════════════════════════════════════════════════════════════════
-        for i, level1_item in enumerate(predicted_items):
-            print(f"\n  ┌─ LEVEL 1 [{i+1}/{len(predicted_items)}]: {level1_item}")
+        for i, item in enumerate(predicted_items):
+            print(f"\n  [{i+1}/{len(predicted_items)}] Testing: {item}")
             
             # Notify progress
             if self.progress_callback:
                 self.progress_callback(
-                    step=f"Level 1: Exploring {i+1}/{len(predicted_items)}: {level1_item}",
+                    step=f"Exploring {i+1}/{len(predicted_items)}: {item}",
                     screenshot=None,
-                    analysis={'screen_name': level1_item, 'elements_found': [level1_item], 'reasoning': f'Clicking on {level1_item}'}
+                    analysis={'screen_name': item, 'elements_found': [item], 'reasoning': f'Clicking on {item}'}
                 )
             
-            # 1.1. Click level-1 element
+            # 1. Click element
             click_success = False
-            if level1_item.startswith('dynamic_'):
-                print(f"    ⚠️ Dynamic element {level1_item} - skipping")
+            if item.startswith('dynamic_'):
+                print(f"    ⚠️ Dynamic element {item} - skipping")
                 continue
             else:
                 try:
-                    result = self.controller.click_element(text=level1_item)
+                    result = self.controller.click_element(text=item)
                     click_success = result if isinstance(result, bool) else result.get('success', False)
                 except Exception as e:
                     print(f"    ❌ Click failed: {e}")
                     click_success = False
             
             if not click_success:
-                print(f"    ⏭️ Click failed - skipping {level1_item}")
+                print(f"    ⏭️ Click failed - skipping {item}")
                 continue
             
-            print(f"    ✅ Level-1 click succeeded")
+            print(f"    ✅ Click succeeded")
             time.sleep(2)
             
-            # 1.2. Generate level-1 node name (e.g., "TV Guide Tab" → "tvguide")
-            level1_node_name = f"{self.node_generator.target_to_node_name(level1_item)}_temp"
-            
-            # 1.3. Get UI dump for level-2 analysis
-            print(f"    📊 Analyzing screen for level-2 items...")
-            try:
-                level2_prediction = self.screen_analyzer.anticipate_tree(None)  # Analyze current screen
-                level2_items = level2_prediction.get('items', [])
-                print(f"    ✅ Found {len(level2_items)} level-2 items: {level2_items[:5]}...")
-            except Exception as e:
-                print(f"    ⚠️ Level-2 analysis failed: {e}")
-                level2_items = []
-            
-            # ════════════════════════════════════════════════════════════════
-            # LEVEL 2: Explore sub-navigation items (if any)
-            # ════════════════════════════════════════════════════════════════
-            level2_nodes_created = []
-            if level2_items:
-                print(f"    │")
-                print(f"    ├─ LEVEL 2: Exploring {len(level2_items)} sub-items")
-                
-                for j, level2_item in enumerate(level2_items[:10]):  # Limit to 10 sub-items
-                    print(f"    │  ├─ [{j+1}/{min(len(level2_items), 10)}]: {level2_item}")
-                    
-                    # 2.1. Click level-2 element
-                    click2_success = False
-                    if level2_item.startswith('dynamic_'):
-                        print(f"    │  │  ⚠️ Dynamic element - skipping")
-                        continue
-                    else:
-                        try:
-                            result2 = self.controller.click_element(text=level2_item)
-                            click2_success = result2 if isinstance(result2, bool) else result2.get('success', False)
-                        except Exception as e:
-                            print(f"    │  │  ❌ Click failed: {e}")
-                            click2_success = False
-                    
-                    if not click2_success:
-                        print(f"    │  │  ⏭️ Click failed - skipping")
-                        continue
-                    
-                    print(f"    │  │  ✅ Click succeeded")
-                    time.sleep(2)
-                    
-                    # 2.2. Press BACK to return to level-1
-                    print(f"    │  │  ⬅️ Pressing BACK to level-1...")
-                    try:
-                        self.controller.press_key('BACK')
-                        time.sleep(2)
-                        
-                        # Verify we're back on level-1 (check for level1_item)
-                        is_back = self.controller.wait_for_element_by_text(
-                            text=level2_items[0] if level2_items else level1_item,
-                            timeout=3
-                        )
-                        back2_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
-                    except Exception as e:
-                        print(f"    │  │  ⚠️ BACK failed: {e}")
-                        back2_success = False
-                    
-                    if back2_success:
-                        print(f"    │  │  ✅ BACK succeeded")
-                    else:
-                        print(f"    │  │  ⚠️ BACK failed")
-                    
-                    # 2.3. Generate level-2 node name with parent prefix (e.g., "settings_wifi_temp")
-                    level2_base_name = self.node_generator.target_to_node_name(level2_item)
-                    level1_base_name = level1_node_name.replace('_temp', '')
-                    level2_node_name = f"{level1_base_name}_{level2_base_name}_temp"
-                    
-                    # 2.4. Create level-2 node
-                    position_x = 250 + (len(self.created_nodes) % 5) * 250
-                    position_y = 400 + (len(self.created_nodes) // 5) * 180
-                    
-                    node2_data = self.node_generator.create_node_data(
-                        node_name=level2_node_name,
-                        position={'x': position_x, 'y': position_y},
-                        ai_analysis={
-                            'suggested_name': level2_item,
-                            'screen_type': 'screen',
-                            'reasoning': f'Sub-item of {level1_item}'
-                        },
-                        node_type='screen'
-                    )
-                    
-                    node2_result = save_node(self.tree_id, node2_data, self.team_id)
-                    if node2_result['success']:
-                        self.created_nodes.append(level2_node_name)
-                        level2_nodes_created.append(level2_node_name)
-                        print(f"    │  │  ✅ Created node: {level2_node_name}")
-                    else:
-                        print(f"    │  │  ❌ Failed to create node: {node2_result.get('error')}")
-                        continue
-                    
-                    # 2.5. Create level-2 edge (level1 → level2)
-                    forward2_actions = [
-                        {'command': 'click_element', 'params': {'text': level2_item}, 'delay': 2000}
-                    ]
-                    backward2_actions = [
-                        {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
-                    ] if back2_success else []
-                    
-                    edge2_data = self.node_generator.create_edge_data(
-                        source=level1_node_name,
-                        target=level2_node_name,
-                        actions=forward2_actions,
-                        reverse_actions=backward2_actions
-                    )
-                    
-                    edge2_result = save_edge(self.tree_id, edge2_data, self.team_id)
-                    if edge2_result['success']:
-                        self.created_edges.append(edge2_data['edge_id'])
-                        print(f"    │  │  ✅ Created edge: {level1_node_name} ↔ {level2_node_name}")
-            
-            # ════════════════════════════════════════════════════════════════
-            # Back to home from level-1
-            # ════════════════════════════════════════════════════════════════
-            print(f"    │")
-            print(f"    └─ ⬅️ Returning to home...")
+            # 2. Press BACK
+            print(f"    ⬅️ Pressing BACK...")
             try:
                 self.controller.press_key('BACK')
                 time.sleep(2)
-                
-                # Verify we're back home
-                is_home = self.controller.wait_for_element_by_text(
-                    text=home_indicator,
+            except Exception as e:
+                print(f"    ❌ BACK failed: {e}")
+                continue
+            
+            # 3. Verify we're back on source screen
+            print(f"    🔍 Verifying source element '{source_element}' is visible...")
+            try:
+                is_back = self.controller.wait_for_element_by_text(
+                    text=source_element,
                     timeout=5
                 )
-                back1_success = is_home if isinstance(is_home, bool) else is_home.get('success', False)
+                back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
             except Exception as e:
-                print(f"       ⚠️ BACK to home failed: {e}")
-                back1_success = False
+                print(f"    ⚠️ Back verification failed: {e}")
+                back_success = False
             
-            if back1_success:
-                print(f"       ✅ BACK to home succeeded")
+            if back_success:
+                print(f"    ✅ BACK succeeded - both directions valid")
             else:
-                print(f"       ⚠️ BACK to home failed")
+                print(f"    ⚠️ BACK failed - only forward edge created")
             
-            # ════════════════════════════════════════════════════════════════
-            # Create level-1 node and edge (home → level1)
-            # ════════════════════════════════════════════════════════════════
-            position_x = 250 + (len(self.created_nodes) % 5) * 250
-            position_y = 250
+            # 4. Create node and edge
+            new_node_name = f"{self.node_generator.target_to_node_name(item)}_temp"
             
-            node1_data = self.node_generator.create_node_data(
-                node_name=level1_node_name,
+            # Calculate position
+            position_x = 250 + (len(self.created_nodes) % 3) * 300
+            position_y = 250 + (len(self.created_nodes) // 3) * 200
+            
+            # Create node
+            node_data = self.node_generator.create_node_data(
+                node_name=new_node_name,
                 position={'x': position_x, 'y': position_y},
                 ai_analysis={
-                    'suggested_name': level1_item,
+                    'suggested_name': item,
                     'screen_type': 'screen',
-                    'reasoning': f'Main navigation item'
+                    'reasoning': f'Reached by clicking {item}'
                 },
                 node_type='screen'
             )
             
-            node1_result = save_node(self.tree_id, node1_data, self.team_id)
-            if node1_result['success']:
-                self.created_nodes.append(level1_node_name)
-                print(f"       ✅ Created level-1 node: {level1_node_name}")
+            node_result = save_node(self.tree_id, node_data, self.team_id)
+            if node_result['success']:
+                self.created_nodes.append(new_node_name)
+                print(f"    ✅ Created node: {new_node_name}")
             else:
-                print(f"       ❌ Failed to create level-1 node: {node1_result.get('error')}")
+                print(f"    ❌ Failed to create node: {node_result.get('error')}")
                 continue
             
-            # Create level-1 edge (home → level1)
-            forward1_actions = [
-                {'command': 'click_element', 'params': {'text': level1_item}, 'delay': 2000}
+            # Create edge with bidirectional action sets
+            forward_actions = [
+                {'command': 'click_element', 'params': {'text': item}, 'delay': 2000}
             ]
-            backward1_actions = [
-                {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
-            ] if back1_success else []
             
-            edge1_data = self.node_generator.create_edge_data(
+            backward_actions = [
+                {'command': 'press_key', 'params': {'key': 'BACK'}, 'delay': 2000}
+            ] if back_success else []
+            
+            edge_data = self.node_generator.create_edge_data(
                 source=current_node,
-                target=level1_node_name,
-                actions=forward1_actions,
-                reverse_actions=backward1_actions
+                target=new_node_name,
+                actions=forward_actions,
+                reverse_actions=backward_actions
             )
             
-            edge1_result = save_edge(self.tree_id, edge1_data, self.team_id)
-            if edge1_result['success']:
-                self.created_edges.append(edge1_data['edge_id'])
-                print(f"       ✅ Created edge: {current_node} ↔ {level1_node_name}")
-            
-            # ════════════════════════════════════════════════════════════════
-            # Create subtree for level-1 node (if level-2 nodes exist)
-            # ════════════════════════════════════════════════════════════════
-            if level2_nodes_created:
-                print(f"       🌲 Creating subtree for {level1_node_name}...")
-                subtree_name = level1_node_name.replace('_temp', '')
-                
-                subtree_result = create_sub_tree(
-                    parent_tree_id=self.tree_id,
-                    parent_node_id=level1_node_name,
-                    tree_data={
-                        'name': f'{subtree_name}_subtree',
-                        'userinterface_id': None
-                    },
-                    team_id=self.team_id
-                )
-                
-                if subtree_result['success']:
-                    self.created_subtrees.append(subtree_result['tree']['id'])
-                    print(f"       ✅ Subtree created with {len(level2_nodes_created)} children")
+            edge_result = save_edge(self.tree_id, edge_data, self.team_id)
+            if edge_result['success']:
+                self.created_edges.append(edge_data['edge_id'])
+                print(f"    ✅ Created edge: {current_node} ↔ {new_node_name} ({'bidirectional' if back_success else 'forward only'})")
         
-        print(f"\n[@exploration_engine] 2-level exploration complete:")
-        print(f"  → Level-1 nodes: {len([n for n in self.created_nodes if n.count('_') == 1])}")
-        print(f"  → Level-2 nodes: {len([n for n in self.created_nodes if n.count('_') >= 2])}")
-        print(f"  → Total edges: {len(self.created_edges)}")
-        print(f"  → Subtrees: {len(self.created_subtrees)}")
+        print(f"\n[@exploration_engine] Simple exploration complete: {len(self.created_nodes)-1} nodes, {len(self.created_edges)} edges")
     
     def _validate_dpad_based(
         self,
