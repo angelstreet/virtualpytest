@@ -400,7 +400,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       const refreshData = async () => {
         try {
           if (userInterface?.id) {
+            // CRITICAL: Invalidate cache FIRST to force fresh fetch from DB
+            // This ensures we see the newly created _temp nodes immediately
+            console.log('[@NavigationEditor:handleAIGenerated] 🗑️ Invalidating cache for interface:', userInterface.id);
+            navigationConfig.invalidateTreeCache(userInterface.id);
+            
             // Re-fetch tree data after AI generation using navigation hook
+            console.log('[@NavigationEditor:handleAIGenerated] 🔄 Force-refreshing tree after AI structure creation');
             try {
               const result = await loadTreeByUserInterface(userInterface.id);
               // Tree data is automatically updated in the navigation context
@@ -424,7 +430,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         }
       };
       refreshData();
-    }, [userInterface?.id, loadTreeByUserInterface]);
+    }, [userInterface?.id, loadTreeByUserInterface, navigationConfig]);
 
     // Wrap the original click handlers to close goto panel
     const wrappedOnNodeClick = useCallback(
