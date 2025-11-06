@@ -16,7 +16,7 @@ from shared.src.lib.database.navigation_trees_db import (
     delete_edge
 )
 
-host_ai_exploration_bp = Blueprint('host_ai_exploration', __name__, url_prefix='/host/ai-exploration')
+host_ai_exploration_bp = Blueprint('host_ai_exploration', __name__, url_prefix='/host/ai-generation')
 
 
 @host_ai_exploration_bp.route('/cleanup-temp', methods=['POST'])
