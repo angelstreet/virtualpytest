@@ -163,9 +163,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       hasAutoStartedRef.current = true; // Mark as started to prevent re-triggering
       
       // Sleep 2s for UI/UX (let user see the modal reopened)
-      const timer = setTimeout(async () => {
+      const timer = setTimeout(() => {
         console.log('[@AIGenerationModal:autoStartEffect] ⏰ Timer fired - calling handleStartValidation...');
-        await handleStartValidation();
+        handleStartValidation(); // Don't await - run async to avoid blocking UI
       }, 2000);
       
       return () => {

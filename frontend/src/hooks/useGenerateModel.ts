@@ -300,12 +300,11 @@ export const useGenerateModel = ({
       
       console.log('[@useGenerateModel:continueExploration] Creating structure (Phase 2a):', explorationId);
 
-      const response = await fetch(buildServerUrl('/server/ai-generation/continue-exploration'), {
+      const response = await fetch(buildServerUrl(`/server/ai-generation/continue-exploration?host_name=${encodeURIComponent(explorationHostName)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId,
-          host_name: explorationHostName
+          exploration_id: explorationId
         })
       });
 
@@ -364,12 +363,11 @@ export const useGenerateModel = ({
       
       console.log('[@useGenerateModel:startValidation] Starting validation (Phase 2b)');
 
-      const response = await fetch(buildServerUrl('/server/ai-generation/start-validation'), {
+      const response = await fetch(buildServerUrl(`/server/ai-generation/start-validation?host_name=${encodeURIComponent(explorationHostName)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId,
-          host_name: explorationHostName
+          exploration_id: explorationId
         })
       });
 
@@ -404,12 +402,11 @@ export const useGenerateModel = ({
       
       console.log('[@useGenerateModel:validateNextItem] Validating next item');
 
-      const response = await fetch(buildServerUrl('/server/ai-generation/validate-next-item'), {
+      const response = await fetch(buildServerUrl(`/server/ai-generation/validate-next-item?host_name=${encodeURIComponent(explorationHostName)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId,
-          host_name: explorationHostName
+          exploration_id: explorationId
         })
       });
 
@@ -492,12 +489,11 @@ export const useGenerateModel = ({
       console.log('[@useGenerateModel:cancelExploration] Cancelling exploration:', explorationId);
       
       // Cancel the exploration session
-      await fetch(buildServerUrl('/server/ai-generation/cancel-exploration'), {
+      await fetch(buildServerUrl(`/server/ai-generation/cancel-exploration?host_name=${encodeURIComponent(selectedHost.host_name)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId,
-          host_name: selectedHost.host_name
+          exploration_id: explorationId
         })
       });
 
@@ -527,13 +523,12 @@ export const useGenerateModel = ({
         treeId
       });
 
-      const response = await fetch(buildServerUrl('/server/ai-generation/approve-generation'), {
+      const response = await fetch(buildServerUrl(`/server/ai-generation/approve-generation?host_name=${encodeURIComponent(selectedHost.host_name)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           exploration_id: explorationId,
           tree_id: treeId,
-          host_name: selectedHost.host_name,
           approved_nodes: nodeIds,
           approved_edges: edgeIds
         })

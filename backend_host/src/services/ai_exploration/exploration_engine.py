@@ -121,8 +121,12 @@ class ExplorationEngine:
                     analysis=None
                 )
             
+            print(f"[@exploration_engine:analyze_and_plan] About to call _phase1_anticipation with screenshot: {self.initial_screenshot}")
+            
             # AI analyzes and predicts structure
             self.prediction = self._phase1_anticipation(self.initial_screenshot)
+            
+            print(f"[@exploration_engine:analyze_and_plan] _phase1_anticipation completed, prediction: {self.prediction}")
             
             # Build reasoning for user
             reasoning = f"""Menu Type: {self.prediction.get('menu_type', 'unknown')}

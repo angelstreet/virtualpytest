@@ -183,6 +183,7 @@ class ExplorationExecutor:
         # Start exploration in background thread
         def run_exploration():
             try:
+                # Update state (acquire lock briefly)
                 with self._lock:
                     self.exploration_state['status'] = 'exploring'
                     self.exploration_state['current_step'] = 'Capturing initial screenshot...'
@@ -192,23 +193,27 @@ class ExplorationExecutor:
                     """Convert screenshot path to URL"""
                     try:
                         from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-                        from backend_host.src.lib.utils.host_utils import get_host_instance
                         
-                        host = get_host_instance()
-                        screenshot_url = buildHostImageUrl(host.to_dict(), screenshot_path)
+                        # Use self.device.host directly (no Flask context needed!)
+                        host_dict = {
+                            'host_name': self.host_name,
+                            'host_ip': getattr(self.device, 'host_ip', 'localhost'),
+                            'host_port': getattr(self.device, 'host_port', 6109)
+                        }
+                        screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
                         
                         with self._lock:
                             self.exploration_state['current_analysis']['screenshot'] = screenshot_url
                     except Exception as e:
                         print(f"[@ExplorationExecutor] Screenshot URL conversion failed: {e}")
+                        import traceback
+                        traceback.print_exc()
                 
                 def update_progress(step: str, screenshot: str = None, analysis: dict = None):
-                    """Update progress"""
+                    """Update progress (avoid nested lock acquisition)."""
+                    screenshot_to_update = None
                     with self._lock:
                         self.exploration_state['current_step'] = step
-                        
-                        if screenshot:
-                            update_screenshot(screenshot)
                         
                         if analysis:
                             self.exploration_state['current_analysis'].update({
@@ -216,6 +221,13 @@ class ExplorationExecutor:
                                 'elements_found': analysis.get('elements_found', []),
                                 'reasoning': analysis.get('reasoning', '')
                             })
+                        
+                        # Defer screenshot update outside the lock to avoid deadlock
+                        if screenshot:
+                            screenshot_to_update = screenshot
+                    
+                    if screenshot_to_update:
+                        update_screenshot(screenshot_to_update)
                 
                 # Create or reuse engine
                 self.exploration_engine = ExplorationEngine(
@@ -577,7 +589,27 @@ class ExplorationExecutor:
         # 2. Press BACK (with double-back fallback)
         if click_result == 'success':
             try:
-                adb_verifier = self.device._get_controller('verification')
+                # Select verification controller based on device model
+                device_model = self.device_model.lower()
+                verifier = None
+                
+                if 'mobile' in device_model:
+                    # Mobile: Use ADB verification
+                    for v in self.device.get_controllers('verification'):
+                        if getattr(v, 'verification_type', None) == 'adb':
+                            verifier = v
+                            print(f"    📱 Using ADB verification for mobile device")
+                            break
+                elif 'host' in device_model:
+                    # Web (host): Use Playwright verification
+                    for v in self.device.get_controllers('verification'):
+                        if getattr(v, 'verification_type', None) == 'web':
+                            verifier = v
+                            print(f"    🌐 Using Playwright verification for web device")
+                            break
+                else:
+                    # TV/STB: Image verification (not supported in AI exploration)
+                    print(f"    ⚠️ Device model '{device_model}' requires image verification - not supported in AI exploration")
                 
                 controller.press_key('BACK')
                 time.sleep(5)
@@ -585,17 +617,26 @@ class ExplorationExecutor:
                 print(f"    🔍 Verifying return to home: {home_indicator}")
                 
                 back_success = False
-                if adb_verifier:
-                    success, message, details = adb_verifier.waitForElementToAppear(
-                        search_term=home_indicator,
-                        timeout=3.0
-                    )
+                if verifier:
+                    # Handle async (Playwright) vs sync (ADB) verifications
+                    import inspect
+                    if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                        import asyncio
+                        success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                            search_term=home_indicator,
+                            timeout=3.0
+                        ))
+                    else:
+                        success, message, details = verifier.waitForElementToAppear(
+                            search_term=home_indicator,
+                            timeout=3.0
+                        )
                     back_success = success
                     print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
                 else:
-                    is_back = controller.verify_element_exists(text=home_indicator)
-                    back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
-                    print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}")
+                    # Fallback if no verifier available
+                    print(f"    ⚠️ No verifier available for device model '{device_model}'")
+                    back_success = False
                 
                 # Double-back fallback
                 if not back_success:
@@ -603,23 +644,29 @@ class ExplorationExecutor:
                     controller.press_key('BACK')
                     time.sleep(5)
                     
-                    if adb_verifier:
-                        success, message, details = adb_verifier.waitForElementToAppear(
-                            search_term=home_indicator,
-                            timeout=5.0
-                        )
+                    if verifier:
+                        import inspect
+                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                            import asyncio
+                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                                search_term=home_indicator,
+                                timeout=5.0
+                            ))
+                        else:
+                            success, message, details = verifier.waitForElementToAppear(
+                                search_term=home_indicator,
+                                timeout=5.0
+                            )
                         back_success = success
                         print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
                     else:
-                        is_back = controller.verify_element_exists(text=home_indicator)
-                        back_success = is_back if isinstance(is_back, bool) else is_back.get('success', False)
-                        print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}")
+                        back_success = False
                 
                 back_result = 'success' if back_success else 'failed'
             except Exception as e:
                 print(f"    ⚠️ Back failed: {e}")
         
-        # 3. Update edge with validation results
+        # 3. Update edge with validation results (using action_sets like frontend)
         with self._lock:
             home_node_id = self.exploration_state['home_node_id']
             edge_id = f"edge_{home_node_id}_to_{node_name}_temp"
@@ -630,23 +677,27 @@ class ExplorationExecutor:
             if edge_result['success']:
                 edge = edge_result['edge']
                 
-                forward_actions = edge.get('actions', [])
-                if len(forward_actions) > 0:
-                    forward_actions[0]['validation_status'] = click_result
-                    forward_actions[0]['validated_at'] = time.time()
-                    forward_actions[0]['actual_result'] = click_result
-                
-                reverse_actions = edge.get('reverse_actions', [])
-                if len(reverse_actions) > 0:
-                    reverse_actions[0]['validation_status'] = back_result
-                    reverse_actions[0]['validated_at'] = time.time()
-                    reverse_actions[0]['actual_result'] = back_result
-                
-                edge['actions'] = forward_actions
-                edge['reverse_actions'] = reverse_actions
-                
-                update_result = save_edge(tree_id, edge, team_id)
-                edge_updated = update_result.get('success', False)
+                # Follow frontend pattern: get action_sets, find default, update actions within it
+                action_sets = edge.get('action_sets', [])
+                if len(action_sets) > 0:
+                    # Get first action set (forward direction)
+                    action_set = action_sets[0]
+                    
+                    # Update forward actions validation status
+                    if action_set.get('actions') and len(action_set['actions']) > 0:
+                        action_set['actions'][0]['validation_status'] = click_result
+                        action_set['actions'][0]['validated_at'] = time.time()
+                        action_set['actions'][0]['actual_result'] = click_result
+                    
+                    # Update reverse actions validation status
+                    if action_set.get('reverse_actions') and len(action_set['reverse_actions']) > 0:
+                        action_set['reverse_actions'][0]['validation_status'] = back_result
+                        action_set['reverse_actions'][0]['validated_at'] = time.time()
+                        action_set['reverse_actions'][0]['actual_result'] = back_result
+                    
+                    # Save with action_sets structure (same as frontend)
+                    update_result = save_edge(tree_id, edge, team_id)
+                    edge_updated = update_result.get('success', False)
             
             # Move to next
             self.exploration_state['current_validation_index'] = current_index + 1
