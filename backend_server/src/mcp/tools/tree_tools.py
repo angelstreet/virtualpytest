@@ -43,15 +43,23 @@ class TreeTools:
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
             # Build node payload - backend expects: node_id, label, node_type, data
+            # Generate temporary ID like frontend does (node-timestamp)
+            # Backend/database will replace with clean ID if not explicitly provided
+            import time
+            timestamp = int(time.time() * 1000)  # milliseconds like Date.now()
+            
             node_data = {
                 'label': params['label'],
                 'node_type': params.get('type', 'screen'),
                 'data': params.get('data', {})
             }
             
-            # Add node_id if provided
+            # Only add node_id if explicitly provided by user, otherwise use temp ID
             if 'node_id' in params:
                 node_data['node_id'] = params['node_id']
+            else:
+                # Temporary ID like frontend: node-{timestamp}
+                node_data['node_id'] = f"node-{timestamp}"
             
             # Add position to data if provided
             if 'position' in params:
@@ -80,8 +88,7 @@ class TreeTools:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
                     f"Failed to create node: {error_msg}",
-                    ErrorCategory.BACKEND,
-                    details=result
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:
@@ -243,6 +250,11 @@ class TreeTools:
                 action_set_label = action_sets[0].get('label', '')
                 label = action_set_label.replace(' → ', '→').replace(' ', '')
             
+            # Generate temporary ID like frontend does (edge-source-target-timestamp)
+            # Backend/database will replace with clean ID if not explicitly provided
+            import time
+            timestamp = int(time.time() * 1000)  # milliseconds like Date.now()
+            
             edge_data = {
                 'source_node_id': params['source_node_id'],
                 'target_node_id': params['target_node_id'],
@@ -262,9 +274,12 @@ class TreeTools:
                 }
             }
             
-            # Add edge_id if provided
+            # Only add edge_id if explicitly provided by user, otherwise use temp ID
             if 'edge_id' in params:
                 edge_data['edge_id'] = params['edge_id']
+            else:
+                # Temporary ID like frontend: edge-{source}-{target}-{timestamp}
+                edge_data['edge_id'] = f"edge-{params['source_node_id']}-{params['target_node_id']}-{timestamp}"
             
             self.logger.info(
                 f"Creating edge in tree {tree_id}: "
