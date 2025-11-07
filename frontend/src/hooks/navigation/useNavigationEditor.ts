@@ -266,6 +266,7 @@ export const useNavigationEditor = () => {
       
       if (isConditionalEdge) {
         // MANUAL CONDITIONAL: Find sibling edges from same source to reuse action_set_id
+        // CRITICAL: Only look at FORWARD edges (same source + sourceHandle) - ignore reverse
         siblingEdges = navigation.edges.filter(
           (e) => 
             e.source === connection.source && 
@@ -274,20 +275,25 @@ export const useNavigationEditor = () => {
         );
         
         if (siblingEdges.length > 0) {
-          // Found sibling edge(s) - reuse their action_set_id AND copy their actions
+          // Found sibling edge(s) - reuse their FORWARD action_set_id AND copy their FORWARD actions
           const firstSibling = siblingEdges[0];
           const siblingActionSets = firstSibling.data?.action_sets || [];
+          
+          // CRITICAL: Only use the FIRST action set (forward direction)
+          // The second action set (reverse direction) is independent and NOT part of the conditional group
           if (siblingActionSets.length > 0) {
-            conditionalActionSetId = siblingActionSets[0].id;
-            // CRITICAL: Copy actions from sibling so all siblings share the SAME actions (even if empty)
+            const forwardActionSet = siblingActionSets[0]; // Always the forward direction
+            conditionalActionSetId = forwardActionSet.id;
+            
+            // Copy FORWARD actions only (reverse direction is independent)
             siblingActionsToShare = {
-              actions: siblingActionSets[0].actions || [],
-              retry_actions: siblingActionSets[0].retry_actions || [],
-              failure_actions: siblingActionSets[0].failure_actions || [],
+              actions: forwardActionSet.actions || [],
+              retry_actions: forwardActionSet.retry_actions || [],
+              failure_actions: forwardActionSet.failure_actions || [],
             };
-            console.log(`[@useNavigationEditor:onConnect] 🔗 MANUAL conditional edge - reusing action_set_id: ${conditionalActionSetId}`);
-            console.log(`[@useNavigationEditor:onConnect] 🔗 Copying ${siblingActionsToShare.actions.length} actions from sibling`);
-            console.log(`[@useNavigationEditor:onConnect] 🔗 ${siblingEdges.length + 1} total edges will share this action`);
+            console.log(`[@useNavigationEditor:onConnect] 🔗 CONDITIONAL edge - reusing FORWARD action_set_id: ${conditionalActionSetId}`);
+            console.log(`[@useNavigationEditor:onConnect] 🔗 Copying ${siblingActionsToShare.actions.length} FORWARD actions from sibling`);
+            console.log(`[@useNavigationEditor:onConnect] 🔗 ${siblingEdges.length + 1} edges will share this FORWARD action (reverse is independent)`);
           }
         }
       } else {
@@ -300,12 +306,15 @@ export const useNavigationEditor = () => {
         const cleanSourceLabel = sourceLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
         const cleanTargetLabel = targetLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
         
-        // Use conditional action_set_id if provided, otherwise generate new
+        // CONDITIONAL EDGES: Only FORWARD action uses shared action_set_id
+        // Reverse action ALWAYS gets unique ID (not part of conditional group)
         const forwardActionSetId = conditionalSetId || `${cleanSourceLabel}_to_${cleanTargetLabel}`;
+        const reverseActionSetId = `${cleanTargetLabel}_to_${cleanSourceLabel}`; // Always unique
         
         return {
           label: `${sourceLabel}→${targetLabel}`,
           action_sets: [
+            // FORWARD direction - may share action_set_id with sibling edges
             {
               id: forwardActionSetId,  // ✅ Shared ID for conditional edges
               label: `${sourceLabel} → ${targetLabel}`,
@@ -314,8 +323,9 @@ export const useNavigationEditor = () => {
               retry_actions: sharedActions?.retry_actions || [],
               failure_actions: sharedActions?.failure_actions || [],
             },
+            // REVERSE direction - always unique (NOT part of conditional group)
             {
-              id: `${cleanTargetLabel}_to_${cleanSourceLabel}`,
+              id: reverseActionSetId,  // ✅ Always unique - reverse is independent
               label: `${targetLabel} → ${sourceLabel}`,
               actions: [],
               retry_actions: [],
@@ -324,7 +334,7 @@ export const useNavigationEditor = () => {
           ],
           default_action_set_id: forwardActionSetId,  // ✅ Use conditional ID as default
           final_wait_time: 2000,
-          is_conditional: !!conditionalSetId,  // ✅ Mark as conditional edge
+          is_conditional: !!conditionalSetId,  // ✅ Mark as conditional edge (shares forward action only)
         };
       };
 

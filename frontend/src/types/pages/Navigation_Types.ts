@@ -92,8 +92,9 @@ export interface UINavigationEdgeData {
   threshold?: number; // Threshold in milliseconds
   sourceHandle?: string; // ReactFlow source handle
   targetHandle?: string; // ReactFlow target handle
-  is_conditional?: boolean; // Whether this edge is part of a conditional group (multiple edges sharing same action)
+  is_conditional?: boolean; // Whether this edge is part of a conditional group (multiple edges sharing same FORWARD action)
   is_conditional_primary?: boolean; // Whether this edge is the PRIMARY edge in a conditional group (owns the actions, fully editable)
+  // NOTE: Conditional edges only share FORWARD actions (action_sets[0]). Reverse actions (action_sets[1]) are independent.
   enable_sibling_shortcuts?: boolean; // Allow this edge to create sibling shortcuts for web/mobile DOM sharing (default: false)
   metrics?: {
     volume: number;
