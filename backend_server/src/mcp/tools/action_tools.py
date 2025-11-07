@@ -104,14 +104,21 @@ class ActionTools:
         
         REUSES existing /server/action/executeBatch endpoint (same as frontend)
         
+        ⚠️ CRITICAL - COMMAND VALIDATION:
+        - ALWAYS call list_actions() FIRST to get valid commands for your device
+        - ONLY use commands returned by list_actions() - invalid commands will FAIL
+        - For android_mobile/android_tv: Use 'click_element' with text (NOT 'click_element_by_index')
+        - For web: Use 'click_element' with text/selector
+        - Example: {"command": "click_element", "params": {"element_id": "Home Tab"}}
+        
         Args:
             params: {
                 'device_id': str (REQUIRED),
                 'host_name': str (OPTIONAL),
                 'team_id': str (REQUIRED),
                 'actions': List[Dict] (REQUIRED) - [{
-                    'command': str,
-                    'params': dict,
+                    'command': str (MUST be from list_actions() output),
+                    'params': dict (structure depends on command),
                     'delay': int (ms, optional)
                 }],
                 'retry_actions': List[Dict] (OPTIONAL),

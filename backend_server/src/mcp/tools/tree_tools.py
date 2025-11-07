@@ -231,6 +231,14 @@ class TreeTools:
                          5. Each action_set needs "id", "label", "actions", "retry_actions", "failure_actions"
                          6. Bidirectional edges need 2 action_sets (forward + backward)
                          
+                         ⛔ COMMAND VALIDATION - MUST READ:
+                         - ONLY use commands from list_actions() for your device model
+                         - Invalid commands will FAIL with clear error messages
+                         - For android_mobile/tv: Use "click_element" with text parameter
+                         - NEVER use "click_element_by_index" - this command DOES NOT EXIST
+                         - Example: {"command": "click_element", "params": {"element_id": "Home Tab"}}
+                         - If unsure, call list_actions(device_id='...', host_name='...') first
+                         
                          📋 COMPLETE EXAMPLES (COPY THESE EXACTLY):
                          
                          🔴 REMOTE/INFRARED (STB, TV):

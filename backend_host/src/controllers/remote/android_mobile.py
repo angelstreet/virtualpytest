@@ -1085,12 +1085,33 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 return {'success': False, 'message': 'getMenuInfo should be called via verification route, not action route'}
             
             else:
-                print(f"Remote[{self.device_type.upper()}]: Unknown command: {command}")
-                return False
+                # ❌ VALIDATION: Raise clear error for unknown commands
+                valid_commands = [
+                    'press_key', 'input_text', 'launch_app', 'close_app', 
+                    'click_element', 'click_element_by_id', 'tap_coordinates',
+                    'swipe', 'swipe_up', 'swipe_down', 'swipe_left', 'swipe_right',
+                    'SWIPE_UP', 'SWIPE_DOWN', 'SWIPE_LEFT', 'SWIPE_RIGHT',
+                    'dump_elements', 'get_installed_apps'
+                ]
+                error_msg = (
+                    f"❌ Invalid command '{command}' for android_mobile device. "
+                    f"Valid commands: {', '.join(valid_commands)}. "
+                    f"Did you mean 'click_element' (text-based) instead of 'click_element_by_index'? "
+                    f"Use list_actions() to see all available commands."
+                )
+                print(f"Remote[{self.device_type.upper()}]: {error_msg}")
+                # Return dict with error instead of False for better error propagation
+                return {'success': False, 'error': error_msg}
         
         # First attempt
         try:
             result = _execute_specific_command()
+            
+            # Handle dict returns (for error messages)
+            if isinstance(result, dict):
+                if not result.get('success', False):
+                    print(f"Remote[{self.device_type.upper()}]: Command '{command}' returned error: {result.get('error', 'Unknown error')}")
+                return result.get('success', False)
             
             # If command failed, try reconnecting and retry once
             if not result:
