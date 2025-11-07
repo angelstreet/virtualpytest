@@ -5,7 +5,7 @@ alwaysApply: true
 ---
 
 # NO BACKWARD COMPATIBILITY OR FALLBACK CODE
-
+i 
 **NEVER implement backward compatibility, legacy support, or fallback mechanisms.**
 
 ## Rules:

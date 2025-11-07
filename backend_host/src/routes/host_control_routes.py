@@ -137,29 +137,29 @@ def list_devices():
     try:
         print(f"[@route:list_devices] Getting available devices")
         
-        host_device = getattr(current_app, 'my_host_device', None)
+        # Use host_devices registry created in app.py
+        host_devices = getattr(current_app, 'host_devices', {})
         
-        if not host_device:
+        if not host_devices:
             return jsonify({
                 'success': False,
                 'error': 'Host device object not initialized'
             })
         
-        # Get devices from host configuration
-        devices = host_device.get('devices', [])
-        
-        if not devices:
+        # Build devices list from registered devices
+        devices = []
+        for device_id, device in host_devices.items():
             device_info = {
-                'device_id': 'default',
-                'device_name': host_device.get('device_name', 'Unknown Device'),
-                'device_model': host_device.get('device_model', 'unknown'),
-                'device_ip': host_device.get('device_ip'),
-                'device_port': host_device.get('device_port'),
+                'device_id': device_id,
+                'device_name': getattr(device, 'device_name', device_id),
+                'device_model': getattr(device, 'device_model', 'unknown'),
+                'device_ip': getattr(device, 'device_ip', None),
+                'device_port': getattr(device, 'device_port', None),
                 'video_device': None,
                 'video_stream_path': None,
                 'video_capture_path': None
             }
-            devices = [device_info]
+            devices.append(device_info)
         
         # Get available controller types for each device
         available_device_ids = list_available_devices()

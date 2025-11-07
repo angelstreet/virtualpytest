@@ -221,7 +221,54 @@ class TreeTools:
                            Example: "tv_guide" (NOT the UUID from 'id' field!)
             source_label: Source node label (REQUIRED) - same as source_node_id for simple nodes
             target_label: Target node label (REQUIRED) - same as target_node_id for simple nodes
-            action_sets: Array of action sets - id and label auto-generated if missing
+            action_sets: Array of action sets with CORRECT FORMAT for each controller type:
+                         
+                         REMOTE (infrared):
+                         {
+                           "id": "home_to_settings",
+                           "label": "home → settings",
+                           "actions": [
+                             {
+                               "command": "press_key",
+                               "action_type": "remote",
+                               "params": {"key": "RIGHT"}
+                             }
+                           ],
+                           "retry_actions": [],
+                           "failure_actions": []
+                         }
+                         
+                         WEB (playwright):
+                         {
+                           "id": "home_to_settings",
+                           "label": "home → settings",
+                           "actions": [
+                             {
+                               "command": "click_element",
+                               "params": {"element_id": "Settings Button"}
+                             }
+                           ],
+                           "retry_actions": [],
+                           "failure_actions": []
+                         }
+                         
+                         ADB/MOBILE:
+                         {
+                           "id": "home_to_settings",
+                           "label": "home → settings",
+                           "actions": [
+                             {
+                               "command": "click_element",
+                               "params": {"text": "Settings Tab"}
+                             }
+                           ],
+                           "retry_actions": [],
+                           "failure_actions": []
+                         }
+                         
+                         ⚠️ IMPORTANT: Do NOT use "delay" at action level or "wait_time" in params
+                         unless specifically required by the controller command.
+            
             edge_id: Edge identifier (optional - auto-generated if omitted)
             label: Edge label (optional - auto-generated from labels)
             priority: Edge priority p1/p2/p3 (optional - default p3)

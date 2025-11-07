@@ -42,10 +42,10 @@ class DeviceTools:
         if host_name:
             query_params['host_name'] = host_name
         
-        # Call API
-        result = self.api.get('/host/devices', params=query_params)
+        # Call API (auto-proxied from /server/devices to /host/devices)
+        result = self.api.get('/server/devices', params=query_params)
         
-        return result
+        return self.formatter.format_api_response(result)
     
     def get_execution_status(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -82,5 +82,5 @@ class DeviceTools:
         # Call API
         result = self.api.get(endpoint)
         
-        return result
+        return self.formatter.format_api_response(result)
 
