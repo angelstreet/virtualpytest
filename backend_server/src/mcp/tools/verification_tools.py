@@ -198,7 +198,7 @@ class VerificationTools:
         """
         Dump UI elements from current device screen
         
-        REUSES existing /host/device/ui-dump or verification endpoints
+        REUSES existing verification endpoints
         
         Args:
             params: {
@@ -225,8 +225,8 @@ class VerificationTools:
         
         print(f"[@MCP:dump_ui_elements] Dumping UI for {device_id} on {host_name}")
         
-        # Use /host/remote/dumpUi endpoint (POST)
-        result = self.api.post('/host/remote/dumpUi', data=query_params)
+        # Use /server/remote/dumpUi endpoint (proxies to backend_host)
+        result = self.api.post('/server/remote/dumpUi', data=query_params)
         
         # Check for errors
         if not result.get('success'):
