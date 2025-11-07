@@ -221,53 +221,167 @@ class TreeTools:
                            Example: "tv_guide" (NOT the UUID from 'id' field!)
             source_label: Source node label (REQUIRED) - same as source_node_id for simple nodes
             target_label: Target node label (REQUIRED) - same as target_node_id for simple nodes
-            action_sets: Array of action sets with CORRECT FORMAT for each controller type:
+            action_sets: Array of action sets (REQUIRED) - MUST contain bidirectional actions
                          
-                         REMOTE (infrared):
-                         {
-                           "id": "home_to_settings",
-                           "label": "home → settings",
-                           "actions": [
-                             {
-                               "command": "press_key",
-                               "action_type": "remote",
-                               "params": {"key": "RIGHT"}
-                             }
-                           ],
-                           "retry_actions": [],
-                           "failure_actions": []
-                         }
+                         ⚠️ CRITICAL FORMAT RULES:
+                         1. Web/Remote: MUST include "action_type" field in EACH action
+                         2. Mobile/ADB: NO "action_type" field needed (controller routes by device model)
+                         3. Web/Remote: Include "wait_time" in params for timing control
+                         4. Mobile/ADB: NO "wait_time" needed (ADB handles timing automatically)
+                         5. Each action_set needs "id", "label", "actions", "retry_actions", "failure_actions"
+                         6. Bidirectional edges need 2 action_sets (forward + backward)
                          
-                         WEB (playwright):
-                         {
-                           "id": "home_to_settings",
-                           "label": "home → settings",
-                           "actions": [
-                             {
-                               "command": "click_element",
-                               "params": {"element_id": "Settings Button"}
-                             }
-                           ],
-                           "retry_actions": [],
-                           "failure_actions": []
-                         }
+                         📋 COMPLETE EXAMPLES (COPY THESE EXACTLY):
                          
-                         ADB/MOBILE:
-                         {
-                           "id": "home_to_settings",
-                           "label": "home → settings",
-                           "actions": [
-                             {
-                               "command": "click_element",
-                               "params": {"text": "Settings Tab"}
-                             }
-                           ],
-                           "retry_actions": [],
-                           "failure_actions": []
-                         }
+                         🔴 REMOTE/INFRARED (STB, TV):
+                         [
+                           {
+                             "id": "home_to_settings",
+                             "label": "home → settings",
+                             "actions": [
+                               {
+                                 "command": "press_key",
+                                 "action_type": "remote",
+                                 "params": {
+                                   "key": "RIGHT",
+                                   "wait_time": 1500
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           },
+                           {
+                             "id": "settings_to_home",
+                             "label": "settings → home",
+                             "actions": [
+                               {
+                                 "command": "press_key",
+                                 "action_type": "remote",
+                                 "params": {
+                                   "key": "LEFT",
+                                   "wait_time": 1500
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           }
+                         ]
                          
-                         ⚠️ IMPORTANT: Do NOT use "delay" at action level or "wait_time" in params
-                         unless specifically required by the controller command.
+                         🌐 WEB (Playwright/Browser):
+                         [
+                           {
+                             "id": "welcome_to_admin",
+                             "label": "welcome → admin",
+                             "actions": [
+                               {
+                                 "command": "click_element",
+                                 "action_type": "web",
+                                 "params": {
+                                   "element_id": "Admin",
+                                   "wait_time": 1000
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           },
+                           {
+                             "id": "admin_to_welcome",
+                             "label": "admin → welcome",
+                             "actions": [
+                               {
+                                 "command": "click_element",
+                                 "action_type": "web",
+                                 "params": {
+                                   "element_id": "Home",
+                                   "wait_time": 1000
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           }
+                         ]
+                         
+                         📱 MOBILE/ADB (Android):
+                         [
+                           {
+                             "id": "home_to_home_movies_series",
+                             "label": "home → home_movies_series",
+                             "actions": [
+                               {
+                                 "command": "click_element",
+                                 "params": {
+                                   "element_id": "Movies & Series Tab"
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           },
+                           {
+                             "id": "home_movies_series_to_home",
+                             "label": "home_movies_series → home",
+                             "actions": [
+                               {
+                                 "command": "click_element",
+                                 "params": {
+                                   "element_id": "Home Tab"
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           }
+                         ]
+                         
+                         📊 MULTIPLE ACTIONS IN SEQUENCE (Web example):
+                         [
+                           {
+                             "id": "home_to_settings",
+                             "label": "home → settings",
+                             "actions": [
+                               {
+                                 "command": "press_key",
+                                 "action_type": "web",
+                                 "params": {
+                                   "key": "OK",
+                                   "wait_time": 200
+                                 }
+                               },
+                               {
+                                 "command": "tap_x_y",
+                                 "action_type": "web",
+                                 "params": {
+                                   "x": 226,
+                                   "y": 847,
+                                   "wait_time": 500
+                                 }
+                               }
+                             ],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           },
+                           {
+                             "id": "settings_to_home",
+                             "label": "settings → home",
+                             "actions": [],
+                             "retry_actions": [],
+                             "failure_actions": []
+                           }
+                         ]
+                         
+                         ❌ COMMON MISTAKES TO AVOID:
+                         1. Web/Remote: Missing "action_type" field → ALWAYS include it
+                         2. Mobile/ADB: Including "action_type" → DO NOT include it
+                         3. Mobile/ADB: Including "wait_time" → DO NOT include it (ADB handles timing)
+                         4. Using "delay" at action level → Never use "delay", use "wait_time" in params (web/remote only)
+                         5. Only one action_set → Need 2 for bidirectional navigation
+                         6. Wrong param names: 
+                            - Remote: use "key" (e.g., "RIGHT", "OK", "BACK")
+                            - Web/Mobile: use "element_id" (e.g., "Admin", "Movies & Series Tab")
             
             edge_id: Edge identifier (optional - auto-generated if omitted)
             label: Edge label (optional - auto-generated from labels)
@@ -422,9 +536,23 @@ class TreeTools:
         Update an existing edge's actions
         
         Args:
-            tree_id: Navigation tree ID
-            edge_id: Edge identifier to update
-            action_sets: New action sets (replaces existing)
+            tree_id: Navigation tree ID (REQUIRED)
+            edge_id: Edge identifier to update (REQUIRED)
+            action_sets: New action sets to replace existing (REQUIRED)
+                         
+                         ⚠️ MUST USE SAME FORMAT AS create_edge:
+                         - Web/Remote: Include "action_type" in each action
+                         - Mobile/ADB: NO "action_type" field
+                         - Web/Remote: Include "wait_time" in params
+                         - Mobile/ADB: NO "wait_time" field
+                         - Include "id", "label", "actions", "retry_actions", "failure_actions"
+                         
+                         See create_edge() docstring for complete examples.
+                         
+                         Quick Reference:
+                         - Remote: {"command": "press_key", "action_type": "remote", "params": {"key": "RIGHT", "wait_time": 1500}}
+                         - Web: {"command": "click_element", "action_type": "web", "params": {"element_id": "Admin", "wait_time": 1000}}
+                         - Mobile: {"command": "click_element", "params": {"element_id": "Movies & Series Tab"}}
         
         Returns:
             Updated edge object
