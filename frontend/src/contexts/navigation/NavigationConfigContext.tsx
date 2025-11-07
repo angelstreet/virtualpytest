@@ -101,7 +101,7 @@ const loadTreeCacheFromStorage = (): Map<string, TreeCacheEntry> => {
       
       Object.entries(parsed).forEach(([key, entry]: [string, any]) => {
         const age = now - entry.timestamp;
-        if (age < CACHE_CONFIG.MEDIUM_TTL) {
+        if (age < CACHE_CONFIG.VERY_SHORT_TTL) {
           cache.set(key, entry as TreeCacheEntry);
           validCount++;
         } else {
