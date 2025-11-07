@@ -697,6 +697,39 @@ Example workflow:
 Atomic primitive for building navigation structures.
 Can be composed for AI exploration, manual tree building, or tree refactoring.
 
+⚠️ IMPORTANT - NODE ID USAGE:
+The tool returns the PERMANENT database UUID immediately. Use this ID for creating edges.
+- create_node() → Returns permanent UUID (e.g., "60f8c86e-d0ec-4dd9-bbf5-88f7f74e016e")
+- Use this UUID directly in create_edge(source_node_id=..., target_node_id=...)
+- NO need to call list_navigation_nodes() to get IDs
+
+Workflow for building navigation trees:
+  # Step 1: Create nodes
+  result1 = create_node(tree_id="main", label="home")
+  # Returns: ✅ Node created: home (ID: abc-123-uuid)
+  home_id = "abc-123-uuid"  # Extract from response
+  
+  result2 = create_node(tree_id="main", label="settings")
+  # Returns: ✅ Node created: settings (ID: def-456-uuid)
+  settings_id = "def-456-uuid"  # Extract from response
+  
+  # Step 2: Create edges with the returned permanent IDs
+  create_edge(
+    tree_id="main",
+    source_node_id=home_id,      # ✅ Use permanent UUID from step 1
+    target_node_id=settings_id,   # ✅ Use permanent UUID from step 1
+    action_sets=[
+      {
+        "id": "home_to_settings",
+        "actions": [{"command": "click_element", "params": {"text": "Settings"}, "delay": 2000}]
+      },
+      {
+        "id": "settings_to_home",
+        "actions": [{"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}]
+      }
+    ]
+  )
+
 Example:
   create_node(
     tree_id="main_tree",
@@ -764,6 +797,29 @@ Example:
                 "description": """Create an edge between two nodes
 
 Defines navigation path with forward and backward actions.
+
+⚠️ IMPORTANT - USE PERMANENT NODE IDs:
+- source_node_id and target_node_id MUST be the permanent UUIDs returned by create_node()
+- These are NOT temporary IDs - they are the actual database UUIDs
+- The edge will be invalid if you use temporary or incorrect IDs
+
+Best Practice Workflow:
+  # Step 1: Create nodes and capture their permanent IDs
+  result1 = create_node(tree_id="main", label="home")
+  # Parse: "✅ Node created: home (ID: abc-123-uuid)"
+  home_id = "abc-123-uuid"
+  
+  result2 = create_node(tree_id="main", label="settings")  
+  # Parse: "✅ Node created: settings (ID: def-456-uuid)"
+  settings_id = "def-456-uuid"
+  
+  # Step 2: Create edge using those permanent IDs
+  create_edge(
+    tree_id="main",
+    source_node_id=home_id,      # ✅ Permanent UUID
+    target_node_id=settings_id,   # ✅ Permanent UUID
+    action_sets=[...]
+  )
 
 Example:
   create_edge(

@@ -42,11 +42,9 @@ class TreeTools:
             tree_id = params['tree_id']
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
-            # Build node payload - backend expects: node_id, label, node_type, data
-            # Generate temporary ID like frontend does (node-timestamp)
-            # Backend/database will replace with clean ID if not explicitly provided
-            import time
-            timestamp = int(time.time() * 1000)  # milliseconds like Date.now()
+            # Build node payload - backend expects: label, node_type, data
+            # node_id is required - generate it if not provided
+            import uuid
             
             node_data = {
                 'label': params['label'],
@@ -54,12 +52,12 @@ class TreeTools:
                 'data': params.get('data', {})
             }
             
-            # Only add node_id if explicitly provided by user, otherwise use temp ID
+            # node_id is required by database - generate UUID if not provided
             if 'node_id' in params:
                 node_data['node_id'] = params['node_id']
             else:
-                # Temporary ID like frontend: node-{timestamp}
-                node_data['node_id'] = f"node-{timestamp}"
+                # Generate UUID for node_id field (this is separate from database id field)
+                node_data['node_id'] = str(uuid.uuid4())
             
             # Add position to data if provided
             if 'position' in params:
@@ -80,9 +78,12 @@ class TreeTools:
             
             if result.get('success'):
                 node = result.get('node', {})
+                # Return the permanent database ID (node_id field from database)
+                # This is critical for edge creation - edges must use these permanent IDs
+                permanent_id = node.get('node_id') or node.get('id')
                 
                 return self.formatter.format_success(
-                    f"✅ Node created: {node.get('label')} (ID: {node.get('node_id')})"
+                    f"✅ Node created: {node.get('label')} (ID: {permanent_id})"
                 )
             else:
                 error_msg = result.get('error', 'Unknown error')
@@ -233,6 +234,7 @@ class TreeTools:
             Created edge object
         """
         try:
+            import uuid
             tree_id = params['tree_id']
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
@@ -249,11 +251,6 @@ class TreeTools:
                 # Extract labels from first action set: "source → target" → "source→target"
                 action_set_label = action_sets[0].get('label', '')
                 label = action_set_label.replace(' → ', '→').replace(' ', '')
-            
-            # Generate temporary ID like frontend does (edge-source-target-timestamp)
-            # Backend/database will replace with clean ID if not explicitly provided
-            import time
-            timestamp = int(time.time() * 1000)  # milliseconds like Date.now()
             
             edge_data = {
                 'source_node_id': params['source_node_id'],
@@ -274,12 +271,12 @@ class TreeTools:
                 }
             }
             
-            # Only add edge_id if explicitly provided by user, otherwise use temp ID
+            # edge_id is required by database - generate UUID if not provided
             if 'edge_id' in params:
                 edge_data['edge_id'] = params['edge_id']
             else:
-                # Temporary ID like frontend: edge-{source}-{target}-{timestamp}
-                edge_data['edge_id'] = f"edge-{params['source_node_id']}-{params['target_node_id']}-{timestamp}"
+                # Generate UUID for edge_id field
+                edge_data['edge_id'] = str(uuid.uuid4())
             
             self.logger.info(
                 f"Creating edge in tree {tree_id}: "
@@ -295,9 +292,11 @@ class TreeTools:
             
             if result.get('success'):
                 edge = result.get('edge', {})
+                # Return permanent database IDs for both source and target nodes
+                permanent_edge_id = edge.get('edge_id') or edge.get('id')
                 
                 return self.formatter.format_success(
-                    f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')}"
+                    f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')} (ID: {permanent_edge_id})"
                 )
             else:
                 error_msg = result.get('error', 'Unknown error')
