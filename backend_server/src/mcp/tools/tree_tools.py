@@ -185,25 +185,25 @@ class TreeTools:
         try:
             tree_id = params['tree_id']
             node_id = params['node_id']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
             self.logger.info(f"Deleting node {node_id} from tree {tree_id}")
             
             # Call backend
-            response = self.api_client.delete(
-                f'/server/navigationTrees/{tree_id}/nodes/{node_id}'
+            result = self.api_client.delete(
+                f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200 or response.status_code == 204:
+            if result.get('success'):
                 return self.formatter.format_success(
-                    f"✅ Node deleted: {node_id}",
-                    data={"node_id": node_id}
+                    f"✅ Node deleted: {node_id}"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to delete node: {error_data.get('error', response.text)}",
-                    ErrorCategory.BACKEND,
-                    details=error_data
+                    f"Failed to delete node: {error_msg}",
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:
@@ -226,18 +226,28 @@ class TreeTools:
         """
         try:
             tree_id = params['tree_id']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
-            # Build edge payload
+            # Build edge payload - backend expects: edge_id, source_node_id, target_node_id, action_sets, default_action_set_id
+            action_sets = params.get('action_sets', [])
+            
+            # Determine default_action_set_id (first action set by default)
+            default_action_set_id = action_sets[0]['id'] if action_sets else 'forward'
+            
             edge_data = {
-                'source': params['source_node_id'],
-                'target': params['target_node_id'],
+                'source_node_id': params['source_node_id'],
+                'target_node_id': params['target_node_id'],
+                'action_sets': action_sets,
+                'default_action_set_id': default_action_set_id,
                 'data': {
-                    'action_sets': params.get('action_sets', [])
+                    'sourceHandle': 'bottom-source',  # Vertical edges: source at bottom
+                    'targetHandle': 'top-target'      # Vertical edges: target at top
                 }
             }
             
+            # Add edge_id if provided
             if 'edge_id' in params:
-                edge_data['id'] = params['edge_id']
+                edge_data['edge_id'] = params['edge_id']
             
             self.logger.info(
                 f"Creating edge in tree {tree_id}: "
@@ -245,25 +255,23 @@ class TreeTools:
             )
             
             # Call backend
-            response = self.api_client.post(
+            result = self.api_client.post(
                 f'/server/navigationTrees/{tree_id}/edges',
-                json=edge_data
+                data=edge_data,
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200 or response.status_code == 201:
-                result = response.json()
-                edge = result.get('edge', result)
+            if result.get('success'):
+                edge = result.get('edge', {})
                 
                 return self.formatter.format_success(
-                    f"✅ Edge created: {edge.get('source')} → {edge.get('target')}",
-                    data={"edge": edge}
+                    f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')}"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to create edge: {error_data.get('error', response.text)}",
-                    ErrorCategory.BACKEND,
-                    details=error_data
+                    f"Failed to create edge: {error_msg}",
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:
@@ -285,36 +293,57 @@ class TreeTools:
         try:
             tree_id = params['tree_id']
             edge_id = params['edge_id']
-            
-            # Build update payload
-            updates = {
-                'data': {
-                    'action_sets': params['action_sets']
-                }
-            }
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
             self.logger.info(f"Updating edge {edge_id} in tree {tree_id}")
             
-            # Call backend
-            response = self.api_client.patch(
+            # STEP 1: Fetch existing edge to avoid overwriting data
+            existing_result = self.api_client.get(
                 f'/server/navigationTrees/{tree_id}/edges/{edge_id}',
-                json=updates
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200:
-                result = response.json()
-                edge = result.get('edge', result)
+            if not existing_result.get('success'):
+                return self.formatter.format_error(
+                    f"Failed to fetch existing edge: {existing_result.get('error')}",
+                    ErrorCategory.BACKEND
+                )
+            
+            existing_edge = existing_result.get('edge', {})
+            
+            # STEP 2: Merge updates with existing edge data
+            action_sets = params['action_sets']
+            default_action_set_id = action_sets[0]['id'] if action_sets else existing_edge.get('default_action_set_id', 'forward')
+            
+            merged_data = {
+                'edge_id': edge_id,
+                'source_node_id': existing_edge.get('source_node_id'),
+                'target_node_id': existing_edge.get('target_node_id'),
+                'action_sets': action_sets,
+                'default_action_set_id': default_action_set_id,
+                'label': existing_edge.get('label', ''),
+                'data': existing_edge.get('data', {}),
+                'final_wait_time': existing_edge.get('final_wait_time', 0)
+            }
+            
+            # STEP 3: Call backend with merged data
+            result = self.api_client.put(
+                f'/server/navigationTrees/{tree_id}/edges/{edge_id}',
+                data=merged_data,
+                params={'team_id': team_id}
+            )
+            
+            if result.get('success'):
+                edge = result.get('edge', {})
                 
                 return self.formatter.format_success(
-                    f"✅ Edge updated: {edge.get('id')}",
-                    data={"edge": edge}
+                    f"✅ Edge updated: {edge.get('edge_id')}"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to update edge: {error_data.get('error', response.text)}",
-                    ErrorCategory.BACKEND,
-                    details=error_data
+                    f"Failed to update edge: {error_msg}",
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:
@@ -335,25 +364,25 @@ class TreeTools:
         try:
             tree_id = params['tree_id']
             edge_id = params['edge_id']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
             self.logger.info(f"Deleting edge {edge_id} from tree {tree_id}")
             
             # Call backend
-            response = self.api_client.delete(
-                f'/server/navigationTrees/{tree_id}/edges/{edge_id}'
+            result = self.api_client.delete(
+                f'/server/navigationTrees/{tree_id}/edges/{edge_id}',
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200 or response.status_code == 204:
+            if result.get('success'):
                 return self.formatter.format_success(
-                    f"✅ Edge deleted: {edge_id}",
-                    data={"edge_id": edge_id}
+                    f"✅ Edge deleted: {edge_id}"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to delete edge: {error_data.get('error', response.text)}",
-                    ErrorCategory.BACKEND,
-                    details=error_data
+                    f"Failed to delete edge: {error_msg}",
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:

@@ -110,6 +110,51 @@ class MCPAPIClient:
                 'network_error': True
             }
     
+    def delete(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        DELETE request to backend_server API
+        
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            
+        Returns:
+            Raw API response dict
+        """
+        url = f"{self.base_url}{endpoint}"
+        
+        try:
+            response = requests.delete(
+                url,
+                params=params or {},
+                timeout=self.timeout
+            )
+            
+            if response.status_code in [200, 202, 204]:
+                # 204 No Content might have empty body
+                if response.status_code == 204 or not response.text:
+                    return {'success': True}
+                return response.json()
+            else:
+                return {
+                    'success': False,
+                    'error': f'HTTP {response.status_code}: {response.text}',
+                    'status_code': response.status_code
+                }
+                
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': f'Request timeout ({self.timeout}s)',
+                'timeout': True
+            }
+        except requests.exceptions.RequestException as e:
+            return {
+                'success': False,
+                'error': f'Network error: {str(e)}',
+                'network_error': True
+            }
+    
     def get(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         GET request to backend_server API
