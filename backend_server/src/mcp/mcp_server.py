@@ -835,33 +835,75 @@ Best Practice Workflow (From Scratch):
    result2 = create_node(tree_id='your_tree_id', label='settings')  # Returns: ✅ Node created: settings (node_id: 'settings')
    settings_id = 'settings'  # Extract the string 'settings'
 
-3. Create the edge using STRING node_ids:
+3. Create the edge - FORMAT DEPENDS ON DEVICE TYPE:
+
+   📱 MOBILE/ADB (Android):
    create_edge(
      tree_id='your_tree_id',
-     source_node_id=home_id,       # 'home' ✅
-     target_node_id=settings_id,   # 'settings' ✅
-     source_label='home',          # Matches label from create_node
-     target_label='settings',      # Matches label from create_node
+     source_node_id='home',
+     target_node_id='settings',
+     source_label='home',
+     target_label='settings',
      action_sets=[
-       {
-         "id": "home_to_settings",  # Auto-generated if omitted
-         "actions": [{"command": "click_element", "params": {"text": "Settings"}, "delay": 2000}]
-       },
-       {
-         "id": "settings_to_home",  # Auto-generated if omitted
-         "actions": [{"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}]
-       }
+       {"id": "home_to_settings", "label": "home → settings",
+        "actions": [{"command": "click_element", "params": {"element_id": "Settings Tab"}}],
+        "retry_actions": [], "failure_actions": []},
+       {"id": "settings_to_home", "label": "settings → home",
+        "actions": [{"command": "click_element", "params": {"element_id": "Home Tab"}}],
+        "retry_actions": [], "failure_actions": []}
      ]
-   )  # Returns: ✅ Edge created: home → settings (ID: some_uuid)
+   )
+
+   🌐 WEB (Playwright):
+   create_edge(
+     tree_id='your_tree_id',
+     source_node_id='home',
+     target_node_id='admin',
+     source_label='home',
+     target_label='admin',
+     action_sets=[
+       {"id": "home_to_admin", "label": "home → admin",
+        "actions": [{"command": "click_element", "action_type": "web", "params": {"element_id": "Admin", "wait_time": 1000}}],
+        "retry_actions": [], "failure_actions": []},
+       {"id": "admin_to_home", "label": "admin → home",
+        "actions": [{"command": "click_element", "action_type": "web", "params": {"element_id": "Home", "wait_time": 1000}}],
+        "retry_actions": [], "failure_actions": []}
+     ]
+   )
+
+   🔴 REMOTE/IR (STB/TV):
+   create_edge(
+     tree_id='your_tree_id',
+     source_node_id='home',
+     target_node_id='settings',
+     source_label='home',
+     target_label='settings',
+     action_sets=[
+       {"id": "home_to_settings", "label": "home → settings",
+        "actions": [{"command": "press_key", "action_type": "remote", "params": {"key": "RIGHT", "wait_time": 1500}}],
+        "retry_actions": [], "failure_actions": []},
+       {"id": "settings_to_home", "label": "settings → home",
+        "actions": [{"command": "press_key", "action_type": "remote", "params": {"key": "LEFT", "wait_time": 1500}}],
+        "retry_actions": [], "failure_actions": []}
+     ]
+   )
+
+   ⚠️ KEY DIFFERENCES:
+   - Mobile: NO action_type, NO wait_time, use element_id
+   - Web: MUST have action_type="web", wait_time in params, use element_id
+   - Remote: MUST have action_type="remote", wait_time in params, use key
+   - All need: id, label, actions, retry_actions, failure_actions
 
 4. Test the edge:
    take_control(tree_id='your_tree_id')  # Once per session
    navigate_to_node(tree_id='your_tree_id', target_node_id='settings')  # Uses the new edge
 
 Tips:
-- action_sets: Provide at least one (forward). Backward is optional but recommended for bidirectional nav.
-- If error: "must be the node_id string... not database UUID" – switch to string IDs from list_navigation_nodes.
-- For existing nodes: Always use list_navigation_nodes to get the correct string node_id.
+- action_sets: Must include id, label, actions, retry_actions, failure_actions for each set
+- Bidirectional nav: Provide 2 action_sets (forward + backward) for best results
+- Device-specific format: Follow the examples above for your device type (Mobile/Web/Remote)
+- If error: "must be the node_id string... not database UUID" – switch to string IDs from list_navigation_nodes
+- For existing nodes: Always use list_navigation_nodes to get the correct string node_id
 - Subtrees: Create via create_subtree, then use the new tree_id for edges within it.""",
                 "inputSchema": {
                     "type": "object",
@@ -871,7 +913,7 @@ Tips:
                         "target_node_id": {"type": "string", "description": "Target node ID (string like 'settings' from list_navigation_nodes or create_node – NOT a UUID!)"},
                         "source_label": {"type": "string", "description": "Source node label (REQUIRED - matches the label used in create_node)"},
                         "target_label": {"type": "string", "description": "Target node label (REQUIRED - matches the label used in create_node)"},
-                        "action_sets": {"type": "array", "description": "Array of action sets (forward/backward)"},
+                        "action_sets": {"type": "array", "description": "Array of action sets with bidirectional navigation. Each action_set requires: id, label, actions[], retry_actions[], failure_actions[]. Format differs by device type: Mobile uses element_id (NO action_type/wait_time), Web uses element_id + action_type='web' + wait_time in params, Remote uses key + action_type='remote' + wait_time in params. See examples in description above."},
                         "edge_id": {"type": "string", "description": "Edge identifier (optional - auto-generated if omitted)"},
                         "label": {"type": "string", "description": "Edge label in format 'source→target' (optional - auto-generated from action_sets if omitted)"},
                         "final_wait_time": {"type": "number", "description": "Wait time after edge execution in ms - default: 2000"},
