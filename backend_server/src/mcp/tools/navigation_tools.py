@@ -72,14 +72,22 @@ class NavigationTools:
                 return {"content": [{"type": "text", "text": f"No navigation nodes found for '{userinterface_name}'"}], "isError": False}
             
             response_text = f"📋 Navigation nodes for '{userinterface_name}' (tree: {tree_id}, {len(filtered_nodes)} nodes):\n\n"
-            response_text += "  Use 'node_id' field (NOT 'id' field) when creating edges!\n\n"
+            response_text += "  ⚠️  CRITICAL: Use the node_id STRING shown below (e.g., 'home'), NOT the database UUID!\n"
+            response_text += "      For create_edge: source_node_id='home' ✅  NOT source_node_id='ce97c317-...' ❌\n\n"
             
             for node in filtered_nodes[:50]:  # Limit display to first 50
-                node_id = node.get('id', 'unknown')
+                # CRITICAL: Show node_id (the string identifier), not id (the UUID)
+                node_id = node.get('id', 'unknown')  # This is the string identifier from frontend
+                db_uuid = node.get('node_id') or node.get('_id')  # This is the database UUID
                 label = node.get('label', 'unnamed')
                 node_type = node.get('type', 'unknown')
                 
-                response_text += f"  • {label} (node_id: {node_id}, type: {node_type})\n"
+                # Show the string identifier prominently
+                response_text += f"  • {label}\n"
+                response_text += f"      → node_id: '{node_id}' ← USE THIS in create_edge()\n"
+                if db_uuid:
+                    response_text += f"      (DB UUID: {db_uuid}... - internal only)\n"
+                response_text += f"      type: {node_type}\n"
             
             if len(filtered_nodes) > 50:
                 response_text += f"\n... and {len(filtered_nodes) - 50} more nodes\n"
@@ -119,20 +127,28 @@ class NavigationTools:
             return {"content": [{"type": "text", "text": f"No navigation nodes found in tree {tree_id}"}], "isError": False}
         
         response_text = f"📋 Navigation nodes in tree {tree_id} (showing {len(nodes)} of {total}):\n\n"
+        response_text += "  ⚠️  CRITICAL: Use the node_id STRING shown below (e.g., 'home'), NOT the database UUID!\n"
+        response_text += "      For create_edge: source_node_id='home' ✅  NOT source_node_id='ce97c317-...' ❌\n\n"
         
         for node in nodes[:50]:  # Limit display to first 50
-            node_id = node.get('id', 'unknown')
+            # CRITICAL: Show node_id (the string identifier), not id (the UUID)
+            node_id = node.get('node_id', node.get('id', 'unknown'))  # Try node_id first, fallback to id
+            db_uuid = node.get('id') if node.get('node_id') else None  # Show UUID only if separate
             label = node.get('label', 'unnamed')
             node_type = node.get('type', 'unknown')
             
-            response_text += f"  • {label} (id: {node_id}, type: {node_type})\n"
+            response_text += f"  • {label}\n"
+            response_text += f"      → node_id: '{node_id}' ← USE THIS in create_edge()\n"
+            if db_uuid and db_uuid != node_id:
+                response_text += f"      (DB UUID: {db_uuid}... - internal only)\n"
+            response_text += f"      type: {node_type}\n"
             
             # Show position if available
             position = node.get('position')
             if position:
                 x = position.get('x', 0)
                 y = position.get('y', 0)
-                response_text += f"    position: ({x}, {y})\n"
+                response_text += f"      position: ({x}, {y})\n"
         
         if len(nodes) > 50:
             response_text += f"\n... and {len(nodes) - 50} more nodes\n"

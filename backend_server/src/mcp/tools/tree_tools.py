@@ -78,12 +78,12 @@ class TreeTools:
             
             if result.get('success'):
                 node = result.get('node', {})
-                # Return the permanent database ID (node_id field from database)
-                # This is critical for edge creation - edges must use these permanent IDs
-                permanent_id = node.get('node_id') or node.get('id')
+                # Return the node_id string (NOT the database UUID!)
+                node_id_str = node.get('node_id') or node_data.get('node_id')
                 
                 return self.formatter.format_success(
-                    f"✅ Node created: {node.get('label')} (ID: {permanent_id})"
+                    f"✅ Node created: {node.get('label')} (node_id: '{node_id_str}')\n"
+                    f"   Use node_id='{node_id_str}' when creating edges (NOT the database UUID!)"
                 )
             else:
                 error_msg = result.get('error', 'Unknown error')
