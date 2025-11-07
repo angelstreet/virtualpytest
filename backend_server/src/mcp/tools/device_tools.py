@@ -43,7 +43,7 @@ class DeviceTools:
             query_params['host_name'] = host_name
         
         # Call API
-        result = self.api.get('/host/control/listDevices', params=query_params)
+        result = self.api.get('/host/devices', params=query_params)
         
         return result
     

@@ -77,8 +77,8 @@ class NavigationTools:
             
             for node in filtered_nodes[:50]:  # Limit display to first 50
                 # CRITICAL: Show node_id (the string identifier), not id (the UUID)
-                node_id = node.get('id', 'unknown')  # This is the string identifier from frontend
-                db_uuid = node.get('node_id') or node.get('_id')  # This is the database UUID
+                node_id = node.get('node_id', 'unknown')  # This is the actual node_id string (e.g., 'home')
+                db_uuid = node.get('id')  # This is the database UUID (primary key)
                 label = node.get('label', 'unnamed')
                 node_type = node.get('type', 'unknown')
                 
@@ -132,14 +132,14 @@ class NavigationTools:
         
         for node in nodes[:50]:  # Limit display to first 50
             # CRITICAL: Show node_id (the string identifier), not id (the UUID)
-            node_id = node.get('node_id', node.get('id', 'unknown'))  # Try node_id first, fallback to id
-            db_uuid = node.get('id') if node.get('node_id') else None  # Show UUID only if separate
+            node_id = node.get('node_id', 'unknown')  # This is the actual node_id string (e.g., 'home')
+            db_uuid = node.get('id')  # This is the database UUID (primary key)
             label = node.get('label', 'unnamed')
             node_type = node.get('type', 'unknown')
             
             response_text += f"  • {label}\n"
             response_text += f"      → node_id: '{node_id}' ← USE THIS in create_edge()\n"
-            if db_uuid and db_uuid != node_id:
+            if db_uuid:
                 response_text += f"      (DB UUID: {db_uuid}... - internal only)\n"
             response_text += f"      type: {node_type}\n"
             
