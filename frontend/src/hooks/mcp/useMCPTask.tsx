@@ -1,13 +1,29 @@
 import { useState, useCallback } from 'react';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+
+interface MCPTaskProps {
+  device_id?: string;
+  host_name?: string;
+  userinterface_name?: string;
+  device_model?: string;
+  team_id?: string;
+}
+
 interface MCPTaskResponse {
   success: boolean;
   result?: string;
   tool_executed?: string;
   tool_result?: any;
   ai_analysis?: string;
+  ai_response?: string;
   execution_log?: any[];
+  tool_calls?: Array<{
+    tool: string;
+    arguments: any;
+    result: any;
+  }>;
+  iterations?: number;
   error?: string;
 }
 
@@ -30,7 +46,14 @@ interface UseMCPTaskReturn {
   clearResponse: () => void;
 }
 
-export const useMCPTask = (): UseMCPTaskReturn => {
+export const useMCPTask = (props?: MCPTaskProps): UseMCPTaskReturn => {
+  // Device context - use props or defaults
+  const device_id = props?.device_id || 'device1';
+  const host_name = props?.host_name || 'sunri-pi1';
+  const userinterface_name = props?.userinterface_name || 'mobile_test';
+  const device_model = props?.device_model || 'android_mobile';
+  const team_id = props?.team_id || 'team_1';
+
   // Panel visibility state
   const [isPanelVisible, setIsPanelVisible] = useState(false);
 
@@ -66,20 +89,36 @@ export const useMCPTask = (): UseMCPTaskReturn => {
     setLastResponse(null);
 
     try {
-      const response = await fetch(buildServerUrl('/server/ai-tools/mcp/execute-task'), {
+      const response = await fetch(buildServerUrl('/server/mcp-proxy/execute-prompt'), {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          task: currentTask.trim(),
+          prompt: currentTask.trim(),
+          device_id,
+          host_name,
+          userinterface_name,
+          device_model,
+          team_id,
         }),
       });
 
       const data: MCPTaskResponse = await response.json();
 
       if (response.ok) {
-        setLastResponse(data);
+        // Map the MCP proxy response to our expected format
+        const mappedResponse: MCPTaskResponse = {
+          success: data.success,
+          result: data.result ? JSON.stringify(data.result, null, 2) : 'Task completed',
+          tool_executed: data.tool_calls?.[0]?.tool || 'MCP Tool',
+          tool_result: data.result,
+          ai_analysis: data.ai_response || `Completed in ${data.iterations || 1} iteration(s)`,
+          execution_log: data.tool_calls,
+          error: data.error,
+        };
+        
+        setLastResponse(mappedResponse);
         // Clear task input on success
         if (data.success) {
           setCurrentTask('');
@@ -99,7 +138,7 @@ export const useMCPTask = (): UseMCPTaskReturn => {
     } finally {
       setIsExecuting(false);
     }
-  }, [currentTask, isExecuting]);
+  }, [currentTask, isExecuting, device_id, host_name, userinterface_name, device_model, team_id]);
 
   // Clear response
   const clearResponse = useCallback(() => {

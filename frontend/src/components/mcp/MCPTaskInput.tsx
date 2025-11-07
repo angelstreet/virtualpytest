@@ -4,9 +4,15 @@ import { SmartToy, Send, CheckCircle, Error } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 import { useMCPTask } from '../../hooks/mcp/useMCPTask';
+import { useHostManager } from '../../contexts/HostManagerContext';
 
 export const MCPTaskInput: React.FC = () => {
   const navigate = useNavigate();
+  const { selectedHost, selectedDeviceId } = useHostManager();
+
+  // Get the device_model from the selected device
+  const selectedDevice = selectedHost?.devices?.find((d) => d.device_id === selectedDeviceId);
+  const device_model = selectedDevice?.device_model || 'android_mobile';
 
   const {
     // Panel state
@@ -24,7 +30,13 @@ export const MCPTaskInput: React.FC = () => {
     // Actions
     executeTask,
     clearResponse,
-  } = useMCPTask();
+  } = useMCPTask({
+    device_id: selectedDeviceId || 'device1',
+    host_name: selectedHost?.host_name || 'sunri-pi1',
+    userinterface_name: 'mobile_test', // You can make this dynamic if needed
+    device_model,
+    team_id: 'team_1',
+  });
 
   // Handle navigation based on response
   useEffect(() => {
