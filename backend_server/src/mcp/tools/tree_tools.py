@@ -226,31 +226,50 @@ class TreeTools:
             tree_id: Navigation tree ID
             source_node_id: Source node ID
             target_node_id: Target node ID
-            action_sets: Array of action sets (forward/backward)
+            source_label: Source node label (REQUIRED)
+            target_label: Target node label (REQUIRED)
+            action_sets: Array of action sets - id and label auto-generated if missing
             edge_id: Edge identifier (optional - auto-generated if omitted)
-            label: Edge label (optional - auto-generated if omitted)
+            label: Edge label (optional - auto-generated from labels)
         
         Returns:
             Created edge object
         """
         try:
             import uuid
+            import re
             tree_id = params['tree_id']
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
+            source_label = params['source_label']
+            target_label = params['target_label']
             
             # Build edge payload - backend expects: edge_id, source_node_id, target_node_id, action_sets, default_action_set_id
             action_sets = params.get('action_sets', [])
             
+            # Clean labels for ID format (matches frontend useNavigationEditor.ts line 300-301)
+            clean_source = re.sub(r'[^a-z0-9]', '_', source_label.lower())
+            clean_target = re.sub(r'[^a-z0-9]', '_', target_label.lower())
+            
+            # Auto-generate action_set id and label if missing (matches frontend useNavigationEditor.ts line 310-322)
+            for i, action_set in enumerate(action_sets):
+                if i == 0:
+                    # Forward direction
+                    if 'id' not in action_set or not action_set['id']:
+                        action_set['id'] = f"{clean_source}_to_{clean_target}"
+                    if 'label' not in action_set or not action_set['label']:
+                        action_set['label'] = f"{source_label} → {target_label}"
+                elif i == 1:
+                    # Backward direction
+                    if 'id' not in action_set or not action_set['id']:
+                        action_set['id'] = f"{clean_target}_to_{clean_source}"
+                    if 'label' not in action_set or not action_set['label']:
+                        action_set['label'] = f"{target_label} → {source_label}"
+            
             # Determine default_action_set_id (first action set by default)
             default_action_set_id = action_sets[0]['id'] if action_sets else 'forward'
             
-            # Generate label from action set labels if not provided
-            # Format: "source→target" (matches frontend format in useNavigationEditor.ts line 307)
-            label = params.get('label')
-            if not label and action_sets and len(action_sets) > 0:
-                # Extract labels from first action set: "source → target" → "source→target"
-                action_set_label = action_sets[0].get('label', '')
-                label = action_set_label.replace(' → ', '→').replace(' ', '')
+            # Auto-generate top-level edge label (matches frontend useNavigationEditor.ts line 307)
+            label = params.get('label') or f"{source_label}→{target_label}"
             
             edge_data = {
                 'source_node_id': params['source_node_id'],
