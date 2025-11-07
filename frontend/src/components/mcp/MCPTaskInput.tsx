@@ -4,14 +4,15 @@ import { SmartToy, Send, CheckCircle, Error } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 import { useMCPTask } from '../../hooks/mcp/useMCPTask';
-import { useHostManager } from '../../contexts/HostManagerContext';
+import { useHostManager } from '../../hooks/useHostManager';
+import { Device } from '../../types/common/Host_Types';
 
 export const MCPTaskInput: React.FC = () => {
   const navigate = useNavigate();
   const { selectedHost, selectedDeviceId } = useHostManager();
 
   // Get the device_model from the selected device
-  const selectedDevice = selectedHost?.devices?.find((d) => d.device_id === selectedDeviceId);
+  const selectedDevice = selectedHost?.devices?.find((d: Device) => d.device_id === selectedDeviceId);
   const device_model = selectedDevice?.device_model || 'android_mobile';
 
   const {
