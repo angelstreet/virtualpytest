@@ -363,7 +363,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
         <Handle
           type="target"
           position={Position.Top}
-          id="top-target"
+          id="top-right-menu-target"
           isConnectable={true}
           isConnectableStart={false}
           isConnectableEnd={true}
@@ -385,7 +385,7 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
         <Handle
           type="source"
           position={Position.Bottom}
-          id="bottom-source"
+          id="bottom-right-menu-source"
           isConnectable={true}
           isConnectableStart={true}
           isConnectableEnd={false}

@@ -233,46 +233,14 @@ class VerificationTools:
             error_msg = result.get('error', 'Failed to dump UI elements')
             return {"content": [{"type": "text", "text": f"❌ UI dump failed: {error_msg}"}], "isError": True}
         
-        # Extract elements
-        elements = result.get('elements', result.get('data', []))
-        
-        if not elements:
-            return {"content": [{"type": "text", "text": "⚠️ No UI elements found on screen"}], "isError": False}
-        
-        # Format summary
-        clickable_count = sum(1 for el in elements if el.get('clickable', False))
-        
-        response_text = f"📋 UI Elements Dump ({device_id}):\n\n"
-        response_text += f"Total elements: {len(elements)}\n"
-        response_text += f"Clickable elements: {clickable_count}\n\n"
-        
-        # Show first 20 clickable elements
-        clickable_elements = [el for el in elements if el.get('clickable', False)][:20]
-        
-        if clickable_elements:
-            response_text += "**Clickable Elements:**\n"
-            for el in clickable_elements:
-                text = el.get('text', el.get('content-desc', ''))
-                resource_id = el.get('resource-id', '')
-                bounds = el.get('bounds', '')
-                
-                if text:
-                    response_text += f"  • \"{text}\""
-                    if resource_id:
-                        response_text += f" (id: {resource_id})"
-                    response_text += "\n"
-                elif resource_id:
-                    response_text += f"  • {resource_id}\n"
-            
-            if len(clickable_elements) < clickable_count:
-                response_text += f"  ... and {clickable_count - len(clickable_elements)} more\n"
+        # Return raw output from API - backend already formats it correctly
+        raw_output = result.get('output', '')
         
         return {
-            "content": [{"type": "text", "text": response_text}],
+            "content": [{"type": "text", "text": raw_output}],
             "isError": False,
-            "elements": elements,  # Include full data for programmatic use
-            "total": len(elements),
-            "clickable_count": clickable_count
+            "elements": result.get('elements', []),
+            "raw_result": result
         }
     
     def _poll_verification_completion(self, execution_id: str, device_id: str, host_name: str, team_id: str, max_wait: int = 30) -> Dict[str, Any]:

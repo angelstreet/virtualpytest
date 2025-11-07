@@ -251,11 +251,11 @@ class TreeTools:
                 'label': label or '',  # ✅ TOP-LEVEL label field (matches frontend)
                 'final_wait_time': params.get('final_wait_time', 2000),  # ✅ TOP-LEVEL final_wait_time (matches frontend line 326)
                 'data': {
-                    # ✅ ACCEPT handle params or default to simple vertical (matches frontend lines 336-341)
-                    # Available handles: bottom-source, top-target, left-source, left-target, right-source, right-target,
-                    #                    top-left-menu-source, top-right-menu-target, bottom-left-menu-target, bottom-right-menu-source
-                    'sourceHandle': params.get('sourceHandle', 'bottom-source'),  # Default: simple vertical from bottom
-                    'targetHandle': params.get('targetHandle', 'top-target'),     # Default: simple vertical to top
+                    # ✅ ACCEPT handle params or default to menu handles (matches node_generator.py line 258-259)
+                    # Available handles: bottom-right-menu-source, top-right-menu-target, left-source, left-target, right-source, right-target,
+                    #                    top-left-menu-source, bottom-left-menu-target
+                    'sourceHandle': params.get('sourceHandle', 'bottom-right-menu-source'),  # Default: menu handle from bottom-right
+                    'targetHandle': params.get('targetHandle', 'top-right-menu-target'),     # Default: menu handle to top-right
                     'priority': params.get('priority', 'p3'),  # Default priority p3
                     'is_conditional': params.get('is_conditional', False),  # ✅ Matches frontend line 327
                     'is_conditional_primary': params.get('is_conditional_primary', False)
@@ -352,8 +352,8 @@ class TreeTools:
                 'label': label,  # ✅ Use generated or provided label
                 'data': {
                     # Allow overriding metadata or preserve existing
-                    'sourceHandle': params.get('sourceHandle', existing_data.get('sourceHandle', 'bottom-source')),
-                    'targetHandle': params.get('targetHandle', existing_data.get('targetHandle', 'top-target')),
+                    'sourceHandle': params.get('sourceHandle', existing_data.get('sourceHandle', 'bottom-right-menu-source')),
+                    'targetHandle': params.get('targetHandle', existing_data.get('targetHandle', 'top-right-menu-target')),
                     'priority': params.get('priority', existing_data.get('priority', 'p3')),
                     'is_conditional': params.get('is_conditional', existing_data.get('is_conditional', False)),
                     'is_conditional_primary': params.get('is_conditional_primary', existing_data.get('is_conditional_primary', False))

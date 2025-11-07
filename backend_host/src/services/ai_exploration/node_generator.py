@@ -255,8 +255,8 @@ class NodeGenerator:
             'data': {
                 'ai_generated': True,
                 'discovered_at': datetime.now(timezone.utc).isoformat(),
-                'sourceHandle': 'bottom-source',  # ✅ Vertical edges: source at bottom
-                'targetHandle': 'top-target'      # ✅ Vertical edges: target at top
+                'sourceHandle': 'bottom-right-menu-source',  # ✅ Vertical edges: source at bottom
+                'targetHandle': 'top-right-menu-target'      # ✅ Vertical edges: target at top
             }
         }
     
