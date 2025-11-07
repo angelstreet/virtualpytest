@@ -42,22 +42,13 @@ class TreeTools:
             tree_id = params['tree_id']
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
-            # Build node payload - backend expects: label, node_type, data
-            # node_id is required - generate it if not provided
-            import uuid
-            
+            # Build node payload - backend expects: label, node_type, data, node_id
             node_data = {
                 'label': params['label'],
+                'node_id': params['label'],  # node_id is always the label
                 'node_type': params.get('type', 'screen'),
                 'data': params.get('data', {})
             }
-            
-            # node_id is required by database - generate UUID if not provided
-            if 'node_id' in params:
-                node_data['node_id'] = params['node_id']
-            else:
-                # Generate UUID for node_id field (this is separate from database id field)
-                node_data['node_id'] = str(uuid.uuid4())
             
             # Add position to data if provided
             if 'position' in params:
