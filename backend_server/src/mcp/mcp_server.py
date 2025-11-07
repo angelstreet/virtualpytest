@@ -129,6 +129,10 @@ class VirtualPyTestMCPServer:
             'update_edge': self.tree_tools.update_edge,
             'delete_edge': self.tree_tools.delete_edge,
             'create_subtree': self.tree_tools.create_subtree,
+            
+            # Tree READ tools (NEW - Query primitives)
+            'get_node': self.tree_tools.get_node,
+            'get_edge': self.tree_tools.get_edge,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -864,6 +868,48 @@ Example:
                         "subtree_name": {"type": "string", "description": "Name for the subtree (e.g., 'settings_subtree')"}
                     },
                     "required": ["parent_tree_id", "parent_node_id", "subtree_name"]
+                }
+            },
+            {
+                "name": "get_node",
+                "description": """Get a specific node by ID
+
+Returns full node details including position, data, and verifications.
+Use this to inspect node structure before updating or to verify node creation.
+
+Example:
+  get_node(
+    tree_id="main_tree",
+    node_id="settings"
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "node_id": {"type": "string", "description": "Node identifier"}
+                    },
+                    "required": ["tree_id", "node_id"]
+                }
+            },
+            {
+                "name": "get_edge",
+                "description": """Get a specific edge by ID
+
+Returns full edge details including action_sets, handles, and metadata.
+Use this to inspect edge structure before updating or to verify edge creation.
+
+Example:
+  get_edge(
+    tree_id="main_tree",
+    edge_id="edge_home_settings"
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "edge_id": {"type": "string", "description": "Edge identifier"}
+                    },
+                    "required": ["tree_id", "edge_id"]
                 }
             },
             {

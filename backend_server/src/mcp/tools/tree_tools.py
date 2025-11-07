@@ -476,4 +476,90 @@ class TreeTools:
         except Exception as e:
             self.logger.error(f"Error creating subtree: {e}", exc_info=True)
             return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
+    
+    def get_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get a specific node by ID
+        
+        Args:
+            tree_id: Navigation tree ID
+            node_id: Node identifier
+        
+        Returns:
+            Full node object with all fields
+        """
+        try:
+            tree_id = params['tree_id']
+            node_id = params['node_id']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
+            
+            result = self.api_client.get(
+                f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
+                params={'team_id': team_id}
+            )
+            
+            if result.get('success'):
+                node = result.get('node', {})
+                return self.formatter.format_success({
+                    'node_id': node.get('node_id'),
+                    'label': node.get('label'),
+                    'type': node.get('node_type'),
+                    'position': {'x': node.get('position_x'), 'y': node.get('position_y')},
+                    'data': node.get('data', {}),
+                    'verifications': node.get('verifications', [])
+                })
+            else:
+                error_msg = result.get('error', 'Unknown error')
+                return self.formatter.format_error(
+                    f"Failed to get node: {error_msg}",
+                    ErrorCategory.BACKEND
+                )
+        
+        except Exception as e:
+            self.logger.error(f"Error getting node: {e}", exc_info=True)
+            return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
+    
+    def get_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get a specific edge by ID
+        
+        Args:
+            tree_id: Navigation tree ID
+            edge_id: Edge identifier
+        
+        Returns:
+            Full edge object with all fields
+        """
+        try:
+            tree_id = params['tree_id']
+            edge_id = params['edge_id']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
+            
+            result = self.api_client.get(
+                f'/server/navigationTrees/{tree_id}/edges/{edge_id}',
+                params={'team_id': team_id}
+            )
+            
+            if result.get('success'):
+                edge = result.get('edge', {})
+                return self.formatter.format_success({
+                    'edge_id': edge.get('edge_id'),
+                    'source_node_id': edge.get('source_node_id'),
+                    'target_node_id': edge.get('target_node_id'),
+                    'label': edge.get('label'),
+                    'action_sets': edge.get('action_sets', []),
+                    'default_action_set_id': edge.get('default_action_set_id'),
+                    'final_wait_time': edge.get('final_wait_time'),
+                    'data': edge.get('data', {})
+                })
+            else:
+                error_msg = result.get('error', 'Unknown error')
+                return self.formatter.format_error(
+                    f"Failed to get edge: {error_msg}",
+                    ErrorCategory.BACKEND
+                )
+        
+        except Exception as e:
+            self.logger.error(f"Error getting edge: {e}", exc_info=True)
+            return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
 
