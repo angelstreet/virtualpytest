@@ -813,58 +813,64 @@ Example:
 
 Defines navigation path with forward and backward actions.
 
-⚠️ IMPORTANT - USE PERMANENT NODE IDs:
-- source_node_id and target_node_id MUST be the permanent UUIDs returned by create_node()
-- These are NOT temporary IDs - they are the actual database UUIDs
-- The edge will be invalid if you use temporary or incorrect IDs
+⚠️ CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
+- Use the 'node_id' field from list_navigation_nodes() or create_node() response.
+- Examples: source_node_id='home' ✅ | source_node_id='ce97c317-...' ❌ (this is a database UUID and will error).
+- If creating new nodes: create_node returns "node_id: 'home'" – use that string value.
+- Validation will reject UUIDs with an error message.
 
 ⚠️ HANDLES - FIXED TO MENU HANDLES ONLY:
 - sourceHandle: ALWAYS "bottom-right-menu-source" (auto-applied)
 - targetHandle: ALWAYS "top-right-menu-target" (auto-applied)
-- These handles create vertical connections between nodes for navigation trees
+- These create vertical connections between nodes.
 
-Best Practice Workflow:
-  # Step 1: Create nodes and capture their permanent IDs
-  result1 = create_node(tree_id="main", label="home")
-  # Parse: "✅ Node created: home (ID: abc-123-uuid)"
-  home_id = "abc-123-uuid"
-  
-  result2 = create_node(tree_id="main", label="settings")  
-  # Parse: "✅ Node created: settings (ID: def-456-uuid)"
-  settings_id = "def-456-uuid"
-  
-  # Step 2: Create edge using those permanent IDs
-  create_edge(
-    tree_id="main",
-    source_node_id=home_id,      # ✅ Permanent UUID
-    target_node_id=settings_id,   # ✅ Permanent UUID
-    action_sets=[...]
-  )
+Best Practice Workflow (From Scratch):
+1. (Optional) List existing nodes to get string node_ids:
+   list_navigation_nodes(userinterface_name='your_ui')  # Returns: • home (node_id: 'home', ...) → Use 'home'
 
-Example:
-  create_edge(
-    tree_id="main_tree",
-    source_node_id="home",
-    target_node_id="settings",
-    action_sets=[
-      {
-        "id": "home_to_settings",
-        "actions": [{"command": "click_element", "params": {"text": "Settings"}, "delay": 2000}]
-      },
-      {
-        "id": "settings_to_home",
-        "actions": [{"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}]
-      }
-    ]
-  )""",
+2. Create nodes if needed (returns string node_id):
+   result1 = create_node(tree_id='your_tree_id', label='home')  # Returns: ✅ Node created: home (node_id: 'home')
+   home_id = 'home'  # Extract the string 'home'
+
+   result2 = create_node(tree_id='your_tree_id', label='settings')  # Returns: ✅ Node created: settings (node_id: 'settings')
+   settings_id = 'settings'  # Extract the string 'settings'
+
+3. Create the edge using STRING node_ids:
+   create_edge(
+     tree_id='your_tree_id',
+     source_node_id=home_id,       # 'home' ✅
+     target_node_id=settings_id,   # 'settings' ✅
+     source_label='home',          # Matches label from create_node
+     target_label='settings',      # Matches label from create_node
+     action_sets=[
+       {
+         "id": "home_to_settings",  # Auto-generated if omitted
+         "actions": [{"command": "click_element", "params": {"text": "Settings"}, "delay": 2000}]
+       },
+       {
+         "id": "settings_to_home",  # Auto-generated if omitted
+         "actions": [{"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}]
+       }
+     ]
+   )  # Returns: ✅ Edge created: home → settings (ID: some_uuid)
+
+4. Test the edge:
+   take_control(tree_id='your_tree_id')  # Once per session
+   navigate_to_node(tree_id='your_tree_id', target_node_id='settings')  # Uses the new edge
+
+Tips:
+- action_sets: Provide at least one (forward). Backward is optional but recommended for bidirectional nav.
+- If error: "must be the node_id string... not database UUID" – switch to string IDs from list_navigation_nodes.
+- For existing nodes: Always use list_navigation_nodes to get the correct string node_id.
+- Subtrees: Create via create_subtree, then use the new tree_id for edges within it.""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
                         "tree_id": {"type": "string", "description": "Navigation tree ID"},
-                        "source_node_id": {"type": "string", "description": "Source node ID (permanent UUID from create_node)"},
-                        "target_node_id": {"type": "string", "description": "Target node ID (permanent UUID from create_node)"},
-                        "source_label": {"type": "string", "description": "Source node label (REQUIRED - same as used in create_node)"},
-                        "target_label": {"type": "string", "description": "Target node label (REQUIRED - same as used in create_node)"},
+                        "source_node_id": {"type": "string", "description": "Source node ID (string like 'home' from list_navigation_nodes or create_node – NOT a UUID!)"},
+                        "target_node_id": {"type": "string", "description": "Target node ID (string like 'settings' from list_navigation_nodes or create_node – NOT a UUID!)"},
+                        "source_label": {"type": "string", "description": "Source node label (REQUIRED - matches the label used in create_node)"},
+                        "target_label": {"type": "string", "description": "Target node label (REQUIRED - matches the label used in create_node)"},
                         "action_sets": {"type": "array", "description": "Array of action sets (forward/backward)"},
                         "edge_id": {"type": "string", "description": "Edge identifier (optional - auto-generated if omitted)"},
                         "label": {"type": "string", "description": "Edge label in format 'source→target' (optional - auto-generated from action_sets if omitted)"},
