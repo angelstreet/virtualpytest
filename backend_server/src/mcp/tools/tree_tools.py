@@ -250,7 +250,7 @@ class TreeTools:
             clean_source = re.sub(r'[^a-z0-9]', '_', source_label.lower())
             clean_target = re.sub(r'[^a-z0-9]', '_', target_label.lower())
             
-            # Auto-generate action_set id and label if missing (matches frontend useNavigationEditor.ts line 310-322)
+            # Auto-generate action_set id, label, and empty arrays if missing (matches frontend useNavigationEditor.ts line 310-322)
             for i, action_set in enumerate(action_sets):
                 if i == 0:
                     # Forward direction
@@ -264,6 +264,12 @@ class TreeTools:
                         action_set['id'] = f"{clean_target}_to_{clean_source}"
                     if 'label' not in action_set or not action_set['label']:
                         action_set['label'] = f"{target_label} → {source_label}"
+                
+                # Always ensure retry_actions and failure_actions exist (frontend always includes these)
+                if 'retry_actions' not in action_set:
+                    action_set['retry_actions'] = []
+                if 'failure_actions' not in action_set:
+                    action_set['failure_actions'] = []
             
             # Determine default_action_set_id (first action set by default)
             default_action_set_id = action_sets[0]['id'] if action_sets else 'forward'
