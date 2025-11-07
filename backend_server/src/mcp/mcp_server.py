@@ -803,6 +803,11 @@ Defines navigation path with forward and backward actions.
 - These are NOT temporary IDs - they are the actual database UUIDs
 - The edge will be invalid if you use temporary or incorrect IDs
 
+⚠️ HANDLES - FIXED TO MENU HANDLES ONLY:
+- sourceHandle: ALWAYS "bottom-right-menu-source" (auto-applied)
+- targetHandle: ALWAYS "top-right-menu-target" (auto-applied)
+- These handles create vertical connections between nodes for navigation trees
+
 Best Practice Workflow:
   # Step 1: Create nodes and capture their permanent IDs
   result1 = create_node(tree_id="main", label="home")
@@ -847,8 +852,6 @@ Example:
                         "edge_id": {"type": "string", "description": "Edge identifier (optional - auto-generated if omitted)"},
                         "label": {"type": "string", "description": "Edge label in format 'source→target' (optional - auto-generated from action_sets if omitted)"},
                         "final_wait_time": {"type": "number", "description": "Wait time after edge execution in ms - default: 2000"},
-                        "sourceHandle": {"type": "string", "description": "Source handle ID (optional): bottom-right-menu-source (default), top-left-menu-source, bottom-right-menu-source, left-source, right-source"},
-                        "targetHandle": {"type": "string", "description": "Target handle ID (optional): top-right-menu-target (default), top-right-menu-target, bottom-left-menu-target, left-target, right-target"},
                         "priority": {"type": "string", "description": "Edge priority: p1 (high), p2 (medium), p3 (low) - default: p3"},
                         "is_conditional": {"type": "boolean", "description": "Whether edge has conditions - default: false"},
                         "is_conditional_primary": {"type": "boolean", "description": "If conditional, is this primary path - default: false"}

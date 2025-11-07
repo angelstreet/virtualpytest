@@ -260,13 +260,11 @@ class TreeTools:
                 'label': label or '',  # ✅ TOP-LEVEL label field (matches frontend)
                 'final_wait_time': params.get('final_wait_time', 2000),  # ✅ TOP-LEVEL final_wait_time (matches frontend line 326)
                 'data': {
-                    # ✅ ACCEPT handle params or default to menu handles (matches node_generator.py line 258-259)
-                    # Available handles: bottom-right-menu-source, top-right-menu-target, left-source, left-target, right-source, right-target,
-                    #                    top-left-menu-source, bottom-left-menu-target
-                    'sourceHandle': params.get('sourceHandle', 'bottom-right-menu-source'),  # Default: menu handle from bottom-right
-                    'targetHandle': params.get('targetHandle', 'top-right-menu-target'),     # Default: menu handle to top-right
+                    # ✅ FIXED handles - only menu handles supported
+                    'sourceHandle': 'bottom-right-menu-source',  # Fixed: menu handle from bottom-right
+                    'targetHandle': 'top-right-menu-target',     # Fixed: menu handle to top-right
                     'priority': params.get('priority', 'p3'),  # Default priority p3
-                    'is_conditional': params.get('is_conditional', False),  # ✅ Matches frontend line 327
+                    'is_conditional': params.get('is_conditional', False),
                     'is_conditional_primary': params.get('is_conditional_primary', False)
                 }
             }
