@@ -225,8 +225,8 @@ class VerificationTools:
         
         print(f"[@MCP:dump_ui_elements] Dumping UI for {device_id} on {host_name}")
         
-        # Try /host/device/ui-dump endpoint
-        result = self.api.get('/host/device/ui-dump', params=query_params)
+        # Use /host/remote/dumpUi endpoint (POST)
+        result = self.api.post('/host/remote/dumpUi', data=query_params)
         
         # Check for errors
         if not result.get('success'):

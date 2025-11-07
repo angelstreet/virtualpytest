@@ -405,6 +405,7 @@ class TreeTools:
             parent_tree_id = params['parent_tree_id']
             parent_node_id = params['parent_node_id']
             subtree_name = params['subtree_name']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
             self.logger.info(
                 f"Creating subtree '{subtree_name}' for node {parent_node_id} "
@@ -417,25 +418,24 @@ class TreeTools:
             }
             
             # Call backend
-            response = self.api_client.post(
+            result = self.api_client.post(
                 f'/server/navigationTrees/{parent_tree_id}/nodes/{parent_node_id}/subtrees',
-                json=subtree_data
+                data=subtree_data,
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200 or response.status_code == 201:
-                result = response.json()
-                subtree = result.get('tree', result)
+            if result.get('success'):
+                subtree = result.get('tree', {})
+                subtree_id = subtree.get('id')
                 
                 return self.formatter.format_success(
-                    f"✅ Subtree created: {subtree_name} (ID: {subtree.get('id')})",
-                    data={"subtree": subtree, "subtree_tree_id": subtree.get('id')}
+                    f"✅ Subtree created: {subtree_name} (ID: {subtree_id})"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to create subtree: {error_data.get('error', response.text)}",
-                    ErrorCategory.BACKEND,
-                    details=error_data
+                    f"Failed to create subtree: {error_msg}",
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:
