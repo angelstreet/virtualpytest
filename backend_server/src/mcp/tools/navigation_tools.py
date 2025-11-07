@@ -72,13 +72,14 @@ class NavigationTools:
                 return {"content": [{"type": "text", "text": f"No navigation nodes found for '{userinterface_name}'"}], "isError": False}
             
             response_text = f"📋 Navigation nodes for '{userinterface_name}' (tree: {tree_id}, {len(filtered_nodes)} nodes):\n\n"
+            response_text += "  Use 'node_id' field (NOT 'id' field) when creating edges!\n\n"
             
             for node in filtered_nodes[:50]:  # Limit display to first 50
                 node_id = node.get('id', 'unknown')
                 label = node.get('label', 'unnamed')
                 node_type = node.get('type', 'unknown')
                 
-                response_text += f"  • {label} (id: {node_id}, type: {node_type})\n"
+                response_text += f"  • {label} (node_id: {node_id}, type: {node_type})\n"
             
             if len(filtered_nodes) > 50:
                 response_text += f"\n... and {len(filtered_nodes) - 50} more nodes\n"

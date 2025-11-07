@@ -224,14 +224,41 @@ class TreeTools:
         
         Args:
             tree_id: Navigation tree ID (REQUIRED)
-            source_node_id: Source node ID (REQUIRED)
-            target_node_id: Target node ID (REQUIRED)
-            source_label: Source node label (REQUIRED - you have this from node creation)
-            target_label: Target node label (REQUIRED - you have this from node creation)
+            source_node_id: Source node_id string (REQUIRED) - USE 'node_id' field from list_navigation_nodes
+                           Example: "home" (NOT the UUID from 'id' field!)
+            target_node_id: Target node_id string (REQUIRED) - USE 'node_id' field from list_navigation_nodes
+                           Example: "tv_guide" (NOT the UUID from 'id' field!)
+            source_label: Source node label (REQUIRED) - same as source_node_id for simple nodes
+            target_label: Target node label (REQUIRED) - same as target_node_id for simple nodes
             action_sets: Array of action sets - id and label auto-generated if missing
             edge_id: Edge identifier (optional - auto-generated if omitted)
             label: Edge label (optional - auto-generated from labels)
             priority: Edge priority p1/p2/p3 (optional - default p3)
+        
+        IMPORTANT: When calling list_navigation_nodes, the response contains TWO ID fields:
+            - 'node_id': "home" ← USE THIS for source_node_id and target_node_id
+            - 'id': "ce97c317-7394-466d-b20d-328a5d53e479" ← DO NOT USE THIS (database UUID)
+        
+        Example:
+            list_navigation_nodes returns:
+                • home (id: ce97c317-7394-466d-b20d-328a5d53e479, type: screen)
+                           ↑ DO NOT USE                ↑ USE THIS
+            
+            Correct call:
+                create_edge(
+                    source_node_id="home",      ← Correct! Uses node_id string
+                    target_node_id="tv_guide",  ← Correct! Uses node_id string
+                    source_label="home",
+                    target_label="tv_guide",
+                    ...
+                )
+            
+            WRONG call:
+                create_edge(
+                    source_node_id="ce97c317-7394-466d-b20d-328a5d53e479",  ← WRONG! This is the database UUID
+                    target_node_id="3a90bcb0-cd5c-4c80-bd7a-4b7ef9869744",  ← WRONG! This is the database UUID
+                    ...
+                )
         
         Returns:
             Created edge object
@@ -243,6 +270,25 @@ class TreeTools:
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             source_label = params['source_label']  # REQUIRED - no fetch
             target_label = params['target_label']  # REQUIRED - no fetch
+            
+            # ✅ VALIDATION: Ensure source_node_id and target_node_id are node_id strings, not database UUIDs
+            source_node_id = params['source_node_id']
+            target_node_id = params['target_node_id']
+            
+            # Check if user provided UUID instead of node_id (UUID format: 8-4-4-4-12 hex digits)
+            uuid_pattern = r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$'
+            
+            if re.match(uuid_pattern, source_node_id):
+                raise ValueError(
+                    f"source_node_id must be the node_id string (e.g., 'home'), not database UUID '{source_node_id}'. "
+                    f"Use the 'node_id' field from list_navigation_nodes, not the 'id' field."
+                )
+            
+            if re.match(uuid_pattern, target_node_id):
+                raise ValueError(
+                    f"target_node_id must be the node_id string (e.g., 'tv_guide'), not database UUID '{target_node_id}'. "
+                    f"Use the 'node_id' field from list_navigation_nodes, not the 'id' field."
+                )
             
             # Build edge payload - backend expects: edge_id, source_node_id, target_node_id, action_sets, default_action_set_id
             action_sets = params.get('action_sets', [])
@@ -279,8 +325,8 @@ class TreeTools:
             label = params.get('label') or f"{source_label}→{target_label}"
             
             edge_data = {
-                'source_node_id': params['source_node_id'],
-                'target_node_id': params['target_node_id'],
+                'source_node_id': source_node_id,  # ✅ Use validated node_id
+                'target_node_id': target_node_id,  # ✅ Use validated node_id
                 'action_sets': action_sets,
                 'default_action_set_id': default_action_set_id,
                 'label': label or '',  # ✅ TOP-LEVEL label field (matches frontend)
@@ -304,7 +350,7 @@ class TreeTools:
             
             self.logger.info(
                 f"Creating edge in tree {tree_id}: "
-                f"{params['source_node_id']} → {params['target_node_id']}"
+                f"{source_node_id} → {target_node_id}"
             )
             
             # Call backend
