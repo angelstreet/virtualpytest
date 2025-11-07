@@ -298,6 +298,11 @@ def create_unified_networkx_graph(all_trees_data: List[Dict]) -> nx.DiGraph:
     
     print(f"[@navigation:graph:create_unified_networkx_graph] Added {total_nodes} nodes and {total_edges} edges from individual trees")
     
+    # Phase 1.5: Create sibling shortcuts for web/mobile DOM navigation
+    sibling_shortcuts_created = _create_sibling_shortcuts(unified_graph)
+    if sibling_shortcuts_created > 0:
+        print(f"[@navigation:graph:create_unified_networkx_graph] ✅ Created {sibling_shortcuts_created} sibling shortcut edges for DOM navigation")
+    
     # Phase 2: Add cross-tree edges for nested tree navigation
     cross_tree_edges_added = 0
     
@@ -514,4 +519,107 @@ def validate_graph(graph: nx.DiGraph) -> Dict:
             'exit_points': len(get_exit_points(graph)),
             'isolated_nodes': len(isolated)
         }
-    } 
+    }
+
+
+def _create_sibling_shortcuts(G: nx.DiGraph) -> int:
+    """
+    Create shortcut edges between sibling nodes (nodes sharing same parent)
+    ONLY for edges marked with enable_sibling_shortcuts=True
+    
+    For web/mobile DOM navigation: Nav bars/tab bars are shared across sibling screens,
+    so siblings are directly reachable using the same actions as parent → target.
+    
+    Example:
+        home → home_tvguide [enable_sibling_shortcuts: True]
+        home → home_replay [enable_sibling_shortcuts: True]
+        home → home_saved [enable_sibling_shortcuts: True]
+        
+    Creates shortcuts:
+        home_tvguide ↔ home_replay (using same action as home → home_replay)
+        home_tvguide ↔ home_saved (using same action as home → home_saved)
+        home_replay ↔ home_saved (using same action as home → home_saved)
+    
+    Args:
+        G: NetworkX directed graph
+        
+    Returns:
+        Number of sibling shortcut edges created
+    """
+    shortcuts_created = 0
+    
+    # Find all parent→child edges that opt-in to sibling sharing
+    parent_children_map = {}  # parent_id → [(child_id, edge_data), ...]
+    
+    for from_node, to_node, edge_data in G.edges(data=True):
+        # Check if this edge enables sibling shortcuts
+        # Look in both edge_data directly and in action_sets
+        enable_shortcuts = edge_data.get('enable_sibling_shortcuts', False)
+        
+        # Also check in action_sets if present (for backward compatibility)
+        if not enable_shortcuts:
+            action_sets = edge_data.get('action_sets', [])
+            if action_sets and len(action_sets) > 0:
+                # Check first action set
+                enable_shortcuts = action_sets[0].get('enable_sibling_shortcuts', False)
+        
+        if enable_shortcuts:
+            if from_node not in parent_children_map:
+                parent_children_map[from_node] = []
+            parent_children_map[from_node].append((to_node, edge_data))
+    
+    # Create shortcuts between siblings
+    for parent_node, children in parent_children_map.items():
+        if len(children) < 2:
+            continue  # Need at least 2 children to create shortcuts
+        
+        parent_info = get_node_info(G, parent_node) or {}
+        parent_label = parent_info.get('label', parent_node)
+        
+        print(f"[@navigation:graph:sibling_shortcuts] Parent '{parent_label}' has {len(children)} siblings with shortcuts enabled")
+        
+        # Create bidirectional shortcuts between all sibling pairs
+        for i, (sibling_a, _) in enumerate(children):
+            for sibling_b, edge_data_b in children[i+1:]:
+                # Skip if shortcut already exists
+                if G.has_edge(sibling_a, sibling_b):
+                    continue
+                
+                sibling_a_info = get_node_info(G, sibling_a) or {}
+                sibling_b_info = get_node_info(G, sibling_b) or {}
+                sibling_a_label = sibling_a_info.get('label', sibling_a)
+                sibling_b_label = sibling_b_info.get('label', sibling_b)
+                
+                # Create shortcut: sibling_a → sibling_b (reusing parent → sibling_b actions)
+                shortcut_edge_data = {
+                    **edge_data_b,  # Copy all edge properties from parent → sibling_b
+                    'edge_id': f'sibling_shortcut_{sibling_a}_{sibling_b}',
+                    'edge_type': 'SIBLING_SHORTCUT',
+                    'is_sibling_shortcut': True,
+                    'original_parent': parent_node,
+                    'shortcut_info': f"Shortcut from {sibling_a_label} to {sibling_b_label} via shared parent {parent_label}"
+                }
+                
+                G.add_edge(sibling_a, sibling_b, **shortcut_edge_data)
+                print(f"[@navigation:graph:sibling_shortcuts]   ✅ {sibling_a_label} → {sibling_b_label}")
+                shortcuts_created += 1
+                
+                # Create reverse shortcut: sibling_b → sibling_a
+                # Find parent → sibling_a edge data
+                if G.has_edge(parent_node, sibling_a):
+                    edge_data_a = G.edges[parent_node, sibling_a]
+                    
+                    reverse_shortcut_edge_data = {
+                        **edge_data_a,  # Copy all edge properties from parent → sibling_a
+                        'edge_id': f'sibling_shortcut_{sibling_b}_{sibling_a}',
+                        'edge_type': 'SIBLING_SHORTCUT',
+                        'is_sibling_shortcut': True,
+                        'original_parent': parent_node,
+                        'shortcut_info': f"Shortcut from {sibling_b_label} to {sibling_a_label} via shared parent {parent_label}"
+                    }
+                    
+                    G.add_edge(sibling_b, sibling_a, **reverse_shortcut_edge_data)
+                    print(f"[@navigation:graph:sibling_shortcuts]   ✅ {sibling_b_label} → {sibling_a_label}")
+                    shortcuts_created += 1
+    
+    return shortcuts_created 

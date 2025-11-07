@@ -94,6 +94,7 @@ export interface UINavigationEdgeData {
   targetHandle?: string; // ReactFlow target handle
   is_conditional?: boolean; // Whether this edge is part of a conditional group (multiple edges sharing same action)
   is_conditional_primary?: boolean; // Whether this edge is the PRIMARY edge in a conditional group (owns the actions, fully editable)
+  enable_sibling_shortcuts?: boolean; // Allow this edge to create sibling shortcuts for web/mobile DOM sharing (default: false)
   metrics?: {
     volume: number;
     success_rate: number;
@@ -257,6 +258,7 @@ export interface EdgeForm {
   direction?: 'forward' | 'reverse'; // Simple direction indicator for editing
   priority?: 'p1' | 'p2' | 'p3'; // Priority level
   threshold?: number; // Threshold in milliseconds
+  enable_sibling_shortcuts?: boolean; // Allow this edge to create sibling shortcuts for web/mobile DOM sharing (default: false)
 }
 
 // =====================================================

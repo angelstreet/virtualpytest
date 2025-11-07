@@ -296,6 +296,34 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             />
           </Box>
 
+          {/* Sibling Shortcuts Checkbox */}
+          <Box sx={{ mb: 1 }}>
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={edgeForm?.enable_sibling_shortcuts ?? false}
+                  onChange={(e) =>
+                    setEdgeForm({
+                      ...edgeForm,
+                      enable_sibling_shortcuts: e.target.checked,
+                    })
+                  }
+                  size="small"
+                />
+              }
+              label={
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                  <Typography variant="body2" sx={{ fontSize: '0.875rem' }}>
+                    Enable sibling shortcuts
+                  </Typography>
+                  <Typography variant="caption" sx={{ fontSize: '0.75rem', color: 'text.secondary', fontStyle: 'italic' }}>
+                    (web/mobile: allow direct navigation between sibling nodes)
+                  </Typography>
+                </Box>
+              }
+            />
+          </Box>
+
           {/* Main Actions */}
           <Box
             sx={{
