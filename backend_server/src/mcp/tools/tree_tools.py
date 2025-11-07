@@ -220,6 +220,7 @@ class TreeTools:
             target_node_id: Target node ID
             action_sets: Array of action sets (forward/backward)
             edge_id: Edge identifier (optional - auto-generated if omitted)
+            label: Edge label (optional - auto-generated if omitted)
         
         Returns:
             Created edge object
@@ -234,14 +235,30 @@ class TreeTools:
             # Determine default_action_set_id (first action set by default)
             default_action_set_id = action_sets[0]['id'] if action_sets else 'forward'
             
+            # Generate label from action set labels if not provided
+            # Format: "source→target" (matches frontend format in useNavigationEditor.ts line 307)
+            label = params.get('label')
+            if not label and action_sets and len(action_sets) > 0:
+                # Extract labels from first action set: "source → target" → "source→target"
+                action_set_label = action_sets[0].get('label', '')
+                label = action_set_label.replace(' → ', '→').replace(' ', '')
+            
             edge_data = {
                 'source_node_id': params['source_node_id'],
                 'target_node_id': params['target_node_id'],
                 'action_sets': action_sets,
                 'default_action_set_id': default_action_set_id,
+                'label': label or '',  # ✅ TOP-LEVEL label field (matches frontend)
+                'final_wait_time': params.get('final_wait_time', 2000),  # ✅ TOP-LEVEL final_wait_time (matches frontend line 326)
                 'data': {
-                    'sourceHandle': 'bottom-source',  # Vertical edges: source at bottom
-                    'targetHandle': 'top-target'      # Vertical edges: target at top
+                    # ✅ ACCEPT handle params or default to simple vertical (matches frontend lines 336-341)
+                    # Available handles: bottom-source, top-target, left-source, left-target, right-source, right-target,
+                    #                    top-left-menu-source, top-right-menu-target, bottom-left-menu-target, bottom-right-menu-source
+                    'sourceHandle': params.get('sourceHandle', 'bottom-source'),  # Default: simple vertical from bottom
+                    'targetHandle': params.get('targetHandle', 'top-target'),     # Default: simple vertical to top
+                    'priority': params.get('priority', 'p3'),  # Default priority p3
+                    'is_conditional': params.get('is_conditional', False),  # ✅ Matches frontend line 327
+                    'is_conditional_primary': params.get('is_conditional_primary', False)
                 }
             }
             
@@ -315,6 +332,9 @@ class TreeTools:
             action_sets = params['action_sets']
             default_action_set_id = action_sets[0]['id'] if action_sets else existing_edge.get('default_action_set_id', 'forward')
             
+            # Merge existing data with updates
+            existing_data = existing_edge.get('data', {})
+            
             merged_data = {
                 'edge_id': edge_id,
                 'source_node_id': existing_edge.get('source_node_id'),
@@ -322,7 +342,14 @@ class TreeTools:
                 'action_sets': action_sets,
                 'default_action_set_id': default_action_set_id,
                 'label': existing_edge.get('label', ''),
-                'data': existing_edge.get('data', {}),
+                'data': {
+                    # Preserve existing metadata
+                    'sourceHandle': existing_data.get('sourceHandle', 'bottom-source'),
+                    'targetHandle': existing_data.get('targetHandle', 'top-target'),
+                    'priority': existing_data.get('priority', 'p3'),
+                    'is_conditional': existing_data.get('is_conditional', False),
+                    'is_conditional_primary': existing_data.get('is_conditional_primary', False)
+                },
                 'final_wait_time': existing_edge.get('final_wait_time', 0)
             }
             
