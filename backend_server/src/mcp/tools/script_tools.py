@@ -6,11 +6,55 @@ from shared.src.lib.config.constants import APP_CONFIG
 
 
 class ScriptTools:
-    """Script execution tools"""
+    """Script execution and listing tools"""
     
     def __init__(self, api_client: MCPAPIClient):
         self.api = api_client
         self.formatter = MCPFormatter()
+    
+    def list_scripts(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        List all available Python scripts
+        
+        REUSES existing /server/script/list endpoint (same as frontend)
+        Pattern from server_script_routes.py line 284
+        
+        Args:
+            params: {
+                'team_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            MCP-formatted response with list of scripts
+        """
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        
+        query_params = {'team_id': team_id}
+        
+        # Call EXISTING endpoint - SAME as frontend (RunTests.tsx line 331)
+        print(f"[@MCP:list_scripts] Calling /server/script/list")
+        result = self.api.get('/server/script/list', params=query_params)
+        
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to list scripts')
+            return {"content": [{"type": "text", "text": f"❌ List failed: {error_msg}"}], "isError": True}
+        
+        # Format response
+        scripts = result.get('scripts', [])
+        if not scripts:
+            return {"content": [{"type": "text", "text": "No scripts found"}], "isError": False}
+        
+        scripts_dir = result.get('scripts_directory', 'unknown')
+        response_text = f"📋 Found {len(scripts)} script(s) in {scripts_dir}:\n\n"
+        
+        for script in scripts[:30]:  # Limit to first 30
+            response_text += f"- {script}\n"
+        
+        if len(scripts) > 30:
+            response_text += f"\n... and {len(scripts) - 30} more"
+        
+        return {"content": [{"type": "text", "text": response_text}], "isError": False, "scripts": scripts}
     
     def execute_script(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """

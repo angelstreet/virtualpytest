@@ -102,6 +102,7 @@ class VirtualPyTestMCPServer:
             'load_testcase': self.testcase_tools.load_testcase,
             
             # Script tools
+            'list_scripts': self.script_tools.list_scripts,
             'execute_script': self.script_tools.execute_script,
             
             # AI tools
@@ -478,29 +479,54 @@ IMPORTANT: Call list_verifications() first to see exact command structure for th
             },
             {
                 "name": "execute_testcase",
-                "description": """Execute a test case graph on device
+                "description": """Execute a test case by name (or graph for unsaved testcases)
 
-Executes graph from generate_test_graph() or loaded testcase.
-Polls automatically until completion (up to 5 minutes).""",
+Executes saved test cases by name or unsaved testcases by graph.
+Polls automatically until completion (up to 5 minutes).
+
+Usage:
+  # Execute saved testcase by name
+  execute_testcase(
+    testcase_name='Login Flow Test',
+    host_name='sunri-pi1',
+    device_id='device1',
+    userinterface_name='horizon_android_mobile'
+  )
+  
+  # Execute unsaved testcase with graph
+  execute_testcase(
+    testcase_name='temp_test',
+    graph_json=graph_from_generate_test_graph,
+    host_name='sunri-pi1',
+    device_id='device1',
+    userinterface_name='horizon_android_mobile'
+  )""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
-                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1') - MUST match take_control"},
-                        "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
-                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
-                        "graph_json": {"type": "object", "description": "Test case graph from generate_test_graph()"},
-                        "testcase_name": {"type": "string", "description": "Name for execution logs (optional)"},
-                        "userinterface_name": {"type": "string", "description": "User interface name (optional)"}
+                        "testcase_name": {"type": "string", "description": "Test case name like 'Login Flow Test' (REQUIRED)"},
+                        "host_name": {"type": "string", "description": "Host name where device is connected (REQUIRED)"},
+                        "device_id": {"type": "string", "description": "Device identifier (REQUIRED)"},
+                        "userinterface_name": {"type": "string", "description": "User interface name (REQUIRED)"},
+                        "graph_json": {"type": "object", "description": "Test case graph from generate_test_graph() - only for unsaved testcases (OPTIONAL)"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                     },
-                    "required": ["graph_json"]
+                    "required": ["testcase_name", "host_name", "device_id", "userinterface_name"]
                 }
             },
             {
                 "name": "execute_testcase_by_id",
-                "description": """MCP CONVENIENCE: Load and execute a saved test case by ID
+                "description": """⚠️ DEPRECATED: Load and execute a saved test case by ID
 
-This combines load + execute for MCP convenience.
-Use this when you want to run a saved testcase without manually passing graph_json.
+DEPRECATED: Use execute_testcase(testcase_name='...') instead.
+This wrapper is kept for backward compatibility only.
+
+Example:
+  # OLD WAY (deprecated)
+  execute_testcase_by_id(testcase_id='abc-123-def-456', ...)
+  
+  # NEW WAY (preferred)
+  execute_testcase(testcase_name='Login Flow Test', ...)
 
 Polls automatically until completion (up to 5 minutes).""",
                 "inputSchema": {
@@ -561,6 +587,22 @@ Loads test case graph that can be passed to execute_testcase().""",
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                     },
                     "required": ["testcase_id"]
+                }
+            },
+            {
+                "name": "list_scripts",
+                "description": """List all available Python scripts
+
+Returns all scripts from the scripts directory.
+
+Example:
+  list_scripts()""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": []
                 }
             },
             {

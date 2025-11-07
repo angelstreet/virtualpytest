@@ -20,36 +20,97 @@ class TestCaseTools:
     
     def execute_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute a test case graph on a device
+        Execute a test case by name (or graph for unsaved testcases)
         
         REUSES existing /server/testcase/execute endpoint (same as frontend)
         Pattern from server_testcase_routes.py line 167
         
         Args:
             params: {
-                'device_id': str (REQUIRED),
+                'testcase_name': str (REQUIRED) - Test case name like 'Login Flow Test',
                 'host_name': str (REQUIRED),
-                'team_id': str (OPTIONAL),
-                'graph_json': Dict (REQUIRED) - Graph definition from generate_test_graph,
-                'testcase_name': str (OPTIONAL) - Name for execution logs,
-                'userinterface_name': str (OPTIONAL)
+                'device_id': str (REQUIRED),
+                'userinterface_name': str (REQUIRED),
+                'graph_json': Dict (OPTIONAL) - For unsaved/temporary testcases only,
+                'team_id': str (OPTIONAL)
             }
             
         Returns:
             MCP-formatted response with execution results
         """
+        testcase_name = params.get('testcase_name')
         device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
         host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         graph_json = params.get('graph_json')
-        testcase_name = params.get('testcase_name', 'mcp_testcase')
         userinterface_name = params.get('userinterface_name', '')
         
         # Validate required parameters
-        if not graph_json:
-            return {"content": [{"type": "text", "text": "Error: graph_json is required"}], "isError": True}
+        if not testcase_name:
+            return {"content": [{"type": "text", "text": "Error: testcase_name is required"}], "isError": True}
         if not host_name:
             return {"content": [{"type": "text", "text": "Error: host_name is required"}], "isError": True}
+        
+        # If no graph_json provided, load by name
+        if not graph_json:
+            print(f"[@MCP:execute_testcase] Loading testcase '{testcase_name}' by name")
+            
+            # Step 1: List all testcases
+            list_result = self.api.get('/server/testcase/list', params={'team_id': team_id})
+            
+            if not list_result.get('success'):
+                error_msg = list_result.get('error', 'Failed to list test cases')
+                return {"content": [{"type": "text", "text": f"❌ Failed to lookup testcase: {error_msg}"}], "isError": True}
+            
+            # Step 2: Find testcase by name
+            testcases = list_result.get('testcases', [])
+            matching_testcase = None
+            for tc in testcases:
+                if tc.get('testcase_name') == testcase_name:
+                    matching_testcase = tc
+                    break
+            
+            if not matching_testcase:
+                return {"content": [{"type": "text", "text": f"❌ Test case '{testcase_name}' not found. Use list_testcases() to see available testcases."}], "isError": True}
+            
+            testcase_id = matching_testcase.get('testcase_id')
+            print(f"[@MCP:execute_testcase] Found testcase with ID: {testcase_id}")
+            
+            # Step 3: Load the graph
+            load_result = self.api.get(f'/server/testcase/{testcase_id}', params={'team_id': team_id})
+            
+            if not load_result.get('success'):
+                error_msg = load_result.get('error', 'Failed to load test case')
+                return {"content": [{"type": "text", "text": f"❌ Failed to load testcase: {error_msg}"}], "isError": True}
+            
+            testcase = load_result.get('testcase', {})
+            graph_json = testcase.get('graph_json')
+            testcase_interface = testcase.get('userinterface_name', '')
+            
+            if not graph_json:
+                return {"content": [{"type": "text", "text": "Error: Testcase has no graph_json"}], "isError": True}
+            
+            # Use testcase's interface if not overridden
+            if not userinterface_name:
+                userinterface_name = testcase_interface
+            
+            print(f"[@MCP:execute_testcase] Loaded graph for '{testcase_name}' with interface '{userinterface_name}'")
+            
+            # Prepare inputValues with runtime values (SAME as execute_testcase_by_id)
+            if 'scriptConfig' in graph_json and 'inputs' in graph_json['scriptConfig']:
+                print(f"[@MCP:execute_testcase] Preparing inputValues with runtime values")
+                
+                for input_def in graph_json['scriptConfig']['inputs']:
+                    value = input_def.get('default', '')
+                    if input_def['name'] == 'host_name':
+                        value = host_name
+                    elif input_def['name'] == 'device_name':
+                        value = device_id
+                    elif input_def['name'] == 'userinterface_name':
+                        value = userinterface_name
+                    
+                    input_def['value'] = value
+                    print(f"[@MCP:execute_testcase]   Set input '{input_def['name']}' = {value}")
         
         # Build request - SAME format as frontend
         data = {
@@ -85,10 +146,10 @@ class TestCaseTools:
     
     def execute_testcase_by_id(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        MCP CONVENIENCE WRAPPER: Load and execute a saved test case by ID
+        LEGACY WRAPPER: Load and execute a saved test case by ID
         
-        This is a helper specifically for MCP that combines load + execute in one call.
-        Frontend doesn't need this because it can pass graph_json between functions.
+        ⚠️ DEPRECATED: Use execute_testcase(testcase_name=...) instead
+        This wrapper is kept for backward compatibility with existing MCP clients.
         
         Args:
             params: {
@@ -158,13 +219,14 @@ class TestCaseTools:
                 input_def['value'] = value
                 print(f"[@MCP:execute_testcase_by_id]   Set input '{input_def['name']}' = {value}")
         
-        # Step 2: Execute the loaded graph with updated inputs
+        # Step 2: Call the new execute_testcase with name instead of graph_json
+        # (graph_json is already loaded and passed as optional parameter)
         return self.execute_testcase({
+            'testcase_name': testcase_name,
             'device_id': device_id,
             'host_name': host_name,
             'team_id': team_id,
-            'graph_json': graph_json,
-            'testcase_name': testcase_name,
+            'graph_json': graph_json,  # Pass pre-loaded graph to skip lookup
             'userinterface_name': userinterface_name
         })
     
