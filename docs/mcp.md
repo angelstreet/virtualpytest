@@ -12,7 +12,7 @@
 
 ## 🎯 Core Capabilities
 
-The MCP server exposes **21 tools** for complete device automation:
+The MCP server exposes **29 tools** for complete device automation:
 
 ### 🔐 **Control Tools** (CRITICAL - MUST BE FIRST)
 - **`take_control`** - Lock device & generate navigation cache (REQUIRED FIRST)
@@ -55,6 +55,16 @@ The MCP server exposes **21 tools** for complete device automation:
 - **`list_services`** - List available systemd services
 - **`view_logs`** - View systemd service logs via journalctl
 
+### 🔧 **Primitive Tools** (NEW - For AI-Driven Exploration)
+- **`create_node`** - Create node in navigation tree
+- **`update_node`** - Update node properties
+- **`delete_node`** - Delete node from tree
+- **`create_edge`** - Create edge with navigation actions
+- **`update_edge`** - Update edge actions
+- **`delete_edge`** - Delete edge from tree
+- **`create_subtree`** - Create subtree for recursive exploration
+- **`dump_ui_elements`** - Dump UI elements from current screen
+
 ---
 
 ## 🌐 MCP Integration Options
@@ -72,11 +82,410 @@ Web interface using OpenRouter (Qwen/Phi-3) with function calling to simulate MC
 
 ---
 
+## 🔧 Primitive Tools for AI-Driven Exploration
+
+### Overview
+
+The **8 primitive tools** provide atomic building blocks for navigation tree management. Unlike specialized workflows, these tools can be **composed** by the LLM for any purpose:
+
+- ✅ **AI exploration** - Build trees automatically
+- ✅ **Manual tree building** - Create nodes/edges one by one
+- ✅ **Debugging & fixing** - Update broken edges after testing
+- ✅ **Tree refactoring** - Restructure existing trees
+- ✅ **Quality assurance** - Validate tree structure
+
+### Architecture Philosophy
+
+**Stateless Primitives > Stateful Workflows**
+
+```
+❌ OLD: Specialized exploration tools
+   start_exploration() → continue_exploration() → finalize_exploration()
+   (Rigid workflow, limited to exploration only)
+
+✅ NEW: Composable primitives
+   dump_ui_elements() + create_node() + execute_device_action() + create_edge()
+   (Flexible composition, works for any workflow)
+```
+
+### The 8 Primitive Tools
+
+#### **Tree Structure Management**
+
+1. **`create_node`** - Add node to tree
+2. **`update_node`** - Modify node properties
+3. **`delete_node`** - Remove node
+4. **`create_edge`** - Add edge with actions
+5. **`update_edge`** - Fix edge actions
+6. **`delete_edge`** - Remove edge
+7. **`create_subtree`** - Create subtree for deeper exploration
+
+#### **UI Inspection**
+
+8. **`dump_ui_elements`** - See what's on screen (critical for debugging)
+
+---
+
+## 🎯 AI Exploration Workflows
+
+### Workflow 1: Manual Tree Building (Test-First)
+
+```python
+# LLM orchestrates primitives for exploration
+
+# 1. Inspect current screen
+elements = dump_ui_elements(device_id="device1", platform="mobile")
+# Returns: ["Home Tab", "Settings Tab", "TV Guide Tab", ...]
+
+# 2. Create root node
+create_node(
+    tree_id="main_tree",
+    label="home",
+    position={"x": 0, "y": 0}
+)
+
+# 3. For each navigation target
+for target in ["Settings Tab", "TV Guide Tab"]:
+    # 3a. Test navigation first
+    execute_device_action(actions=[
+        {"command": "click_element", "params": {"text": target}}
+    ])
+    
+    # 3b. Verify we moved
+    verify_device_state(verifications=[...])
+    
+    # 3c. If success, create node + edge
+    node_id = target.lower().replace(" tab", "")
+    
+    create_node(
+        tree_id="main_tree",
+        node_id=node_id,
+        label=node_id
+    )
+    
+    create_edge(
+        tree_id="main_tree",
+        source_node_id="home",
+        target_node_id=node_id,
+        action_sets=[
+            {
+                "id": f"home_to_{node_id}",
+                "actions": [{"command": "click_element", "params": {"text": target}}]
+            },
+            {
+                "id": f"{node_id}_to_home",
+                "actions": [{"command": "press_key", "params": {"key": "BACK"}}]
+            }
+        ]
+    )
+    
+    # 3d. Navigate back
+    execute_device_action(actions=[{"command": "press_key", "params": {"key": "BACK"}}])
+
+# Result: 3 nodes + 3 edges, all tested and working!
+```
+
+### Workflow 2: Debug & Fix Failed Edge
+
+```python
+# Edge from home → settings fails
+
+# 1. Navigate to source
+navigate_to_node(target_node_label="home")
+
+# 2. Dump UI to see actual element names
+elements = dump_ui_elements(device_id="device1")
+# Returns: [{"text": "Settings Tab", "clickable": true, ...}, ...]
+
+# 3. LLM analyzes: "Ah! It's 'Settings Tab', not 'Settings'"
+
+# 4. Update edge with correct element name
+update_edge(
+    tree_id="main_tree",
+    edge_id="edge_home_settings",
+    action_sets=[
+        {
+            "id": "home_to_settings",
+            "actions": [{"command": "click_element", "params": {"text": "Settings Tab"}}]
+        },
+        {
+            "id": "settings_to_home",
+            "actions": [{"command": "press_key", "params": {"key": "BACK"}}]
+        }
+    ]
+)
+
+# 5. Test fix
+navigate_to_node(target_node_label="settings")
+# ✅ Works now!
+```
+
+### Workflow 3: Recursive Subtree Exploration
+
+```python
+# Explore main tree + subtrees automatically
+
+# === LEVEL 1: Main Tree ===
+main_tree_id = "abc-123"
+
+# 1. Inspect & create main tree
+elements = dump_ui_elements()
+for element in elements:
+    create_node(tree_id=main_tree_id, label=element)
+    create_edge(tree_id=main_tree_id, ...)
+
+# === LEVEL 2: Subtrees ===
+for node in ["settings", "tvguide", "replay"]:
+    # 2. Create subtree
+    result = create_subtree(
+        parent_tree_id=main_tree_id,
+        parent_node_id=node,
+        subtree_name=f"{node}_subtree"
+    )
+    subtree_id = result['subtree_tree_id']
+    
+    # 3. Navigate to parent
+    navigate_to_node(tree_id=main_tree_id, target_node_label=node)
+    
+    # 4. Inspect subtree screen
+    elements = dump_ui_elements()
+    
+    # 5. Create subtree nodes/edges (SAME primitives, different tree_id!)
+    for element in elements:
+        create_node(tree_id=subtree_id, label=f"{node}_{element}")
+        create_edge(tree_id=subtree_id, ...)
+    
+    # 6. Navigate back
+    navigate_to_node(target_node_label="home")
+
+# Result: Complete 2-level tree automatically!
+```
+
+### Workflow 4: Iterative Refinement
+
+```python
+# Create → Test → Fix → Re-test loop
+
+# 1. Create structure (fast creation)
+create_node(...)
+create_edge(...)
+
+# 2. Test edge
+result = navigate_to_node(target_node_label="settings")
+
+# 3. If failed, debug
+if not result.success:
+    # See what's actually on screen
+    elements = dump_ui_elements()
+    
+    # Find correct element
+    correct_element = find_similar(elements, "settings")
+    
+    # Update edge
+    update_edge(edge_id="...", action_sets=[...correct_element...])
+    
+    # Re-test
+    result = navigate_to_node(target_node_label="settings")
+    
+    if result.success:
+        print("✅ Fixed!")
+    else:
+        # Still failing, delete node
+        delete_node(node_id="settings")
+        print("⚠️ Skipped problematic node")
+```
+
+---
+
+## 🛠️ Primitive Tools Reference
+
+### create_node
+
+Create a node in navigation tree.
+
+**Parameters:**
+```json
+{
+  "tree_id": "main_tree",        // REQUIRED
+  "label": "settings",            // REQUIRED
+  "node_id": "settings",          // Optional - auto-generated if omitted
+  "type": "screen",               // Optional - default: "screen"
+  "position": {"x": 100, "y": 200}, // Optional
+  "data": {}                      // Optional - custom metadata
+}
+```
+
+**Returns:**
+```json
+{
+  "node": {
+    "id": "settings",
+    "label": "settings",
+    "type": "screen",
+    "position": {"x": 100, "y": 200}
+  }
+}
+```
+
+---
+
+### update_node
+
+Update existing node properties.
+
+**Parameters:**
+```json
+{
+  "tree_id": "main_tree",
+  "node_id": "settings",
+  "updates": {
+    "label": "settings_main",
+    "position": {"x": 150, "y": 200}
+  }
+}
+```
+
+---
+
+### delete_node
+
+Delete node and connected edges.
+
+**Parameters:**
+```json
+{
+  "tree_id": "main_tree",
+  "node_id": "old_node"
+}
+```
+
+---
+
+### create_edge
+
+Create edge with navigation actions.
+
+**Parameters:**
+```json
+{
+  "tree_id": "main_tree",
+  "source_node_id": "home",
+  "target_node_id": "settings",
+  "action_sets": [
+    {
+      "id": "home_to_settings",
+      "actions": [
+        {"command": "click_element", "params": {"text": "Settings Tab"}, "delay": 2000}
+      ]
+    },
+    {
+      "id": "settings_to_home",
+      "actions": [
+        {"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}
+      ]
+    }
+  ]
+}
+```
+
+---
+
+### update_edge
+
+Update edge actions (for fixing broken navigation).
+
+**Parameters:**
+```json
+{
+  "tree_id": "main_tree",
+  "edge_id": "edge_home_settings",
+  "action_sets": [
+    // New action sets
+  ]
+}
+```
+
+---
+
+### delete_edge
+
+Delete edge from tree.
+
+**Parameters:**
+```json
+{
+  "tree_id": "main_tree",
+  "edge_id": "edge_old"
+}
+```
+
+---
+
+### create_subtree
+
+Create subtree for deeper exploration.
+
+**Parameters:**
+```json
+{
+  "parent_tree_id": "main_tree",
+  "parent_node_id": "settings",
+  "subtree_name": "settings_subtree"
+}
+```
+
+**Returns:**
+```json
+{
+  "subtree": {
+    "id": "subtree-abc-123",
+    "name": "settings_subtree"
+  },
+  "subtree_tree_id": "subtree-abc-123"  // Use this for create_node in subtree!
+}
+```
+
+---
+
+### dump_ui_elements
+
+Dump UI elements from current screen.
+
+**Parameters:**
+```json
+{
+  "device_id": "device1",           // Optional - defaults to 'device1'
+  "host_name": "sunri-pi1",         // Optional - defaults to 'sunri-pi1'
+  "platform": "mobile",             // Optional - 'mobile', 'web', 'tv'
+  "team_id": "team_1"              // Optional - uses default
+}
+```
+
+**Returns:**
+```json
+{
+  "elements": [
+    {
+      "text": "Settings Tab",
+      "resource-id": "tab_settings",
+      "clickable": true,
+      "bounds": "[0,0][100,50]"
+    },
+    {
+      "text": "TV Guide Tab",
+      "resource-id": "tab_tvguide",
+      "clickable": true,
+      "bounds": "[100,0][200,50]"
+    }
+  ],
+  "total": 45,
+  "clickable_count": 12
+}
+```
+
+---
+
 ## 🚀 Quick Start: MCP Playground (OpenRouter)
-
-**For users without Claude API access who use OpenRouter (Qwen/Phi-3)**
-
-### What is MCP Playground?
 
 A web-based interface at `/builder/mcp-playground` that:
 - Accepts natural language prompts (text or voice)
@@ -339,7 +748,7 @@ curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
      https://dev.virtualpytest.com/server/mcp/health
 
 # Expected response:
-# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 21}
+# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 29}
 ```
 
 ### 2. Discover Available Commands (NEW!)
@@ -1216,20 +1625,23 @@ backend_server/src/mcp/
 ├── mcp_server.py          # Main MCP server (synchronous)
 ├── tools/
 │   ├── control_tools.py   # take_control, release_control
-│   ├── action_tools.py    # execute_device_action
-│   ├── navigation_tools.py # navigate_to_node
-│   ├── verification_tools.py # verify_device_state
-│   ├── testcase_tools.py  # execute_testcase
+│   ├── action_tools.py    # execute_device_action, list_actions
+│   ├── navigation_tools.py # navigate_to_node, list_navigation_nodes
+│   ├── verification_tools.py # verify_device_state, list_verifications, dump_ui_elements
+│   ├── testcase_tools.py  # execute_testcase, save/load/list testcases
 │   ├── ai_tools.py        # generate_test_graph
 │   ├── screenshot_tools.py # capture_screenshot
 │   ├── transcript_tools.py # get_transcript
-│   └── device_tools.py    # get_device_info, get_execution_status
+│   ├── device_tools.py    # get_device_info, get_execution_status
+│   ├── logs_tools.py      # view_logs, list_services
+│   ├── script_tools.py    # execute_script
+│   └── tree_tools.py      # create/update/delete node/edge, create_subtree (NEW)
 ├── config/
 │   └── tools_config.json  # Tool definitions & schemas
 └── utils/
     ├── api_client.py      # Reusable HTTP client (raw responses)
     ├── mcp_formatter.py   # MCP response formatting (7 error categories)
-    └── input_validator.py # JSON Schema validation (NEW)
+    └── input_validator.py # JSON Schema validation
 ```
 
 ### Architecture Principles (2025 Update)
@@ -1246,6 +1658,12 @@ backend_server/src/mcp/
 - **Error Categorization** - 7 error types (validation, timeout, network, backend, not_found, unauthorized, unknown)
 - **Smart Defaults** - Optional `team_id`, `host_name`, `device_id` with sensible fallbacks
 - **No Legacy Code** - Clean implementation, no backward compatibility cruft
+
+**✅ Composable Primitives (v4.0.0):**
+- **Stateless Tools** - No complex state management
+- **Atomic Operations** - Each tool does ONE thing
+- **LLM Orchestration** - LLM decides workflow, not hardcoded
+- **Reusable Everywhere** - Same primitives for exploration, debugging, refactoring
 
 ---
 
@@ -1382,11 +1800,13 @@ tail -f mcp_server.log
 
 Available tools on startup:
 ```
-[INFO] VirtualPyTest MCP Server initialized with 11 tools
+[INFO] VirtualPyTest MCP Server initialized with 29 tools
 [INFO] Available tools:
   - take_control: Lock device and generate cache
   - release_control: Release device lock
   - execute_device_action: Execute commands
+  - create_node: Create node in navigation tree
+  - dump_ui_elements: Dump UI elements from screen
   ...
 ```
 
@@ -1523,7 +1943,7 @@ print("Control released")
 After configuration:
 1. Restart Cursor (Cmd+Q, reopen)
 2. Open chat window
-3. Look for "🔌 MCP Tools" - you'll see 11 VirtualPyTest tools
+3. Look for "🔌 MCP Tools" - you'll see 29 VirtualPyTest tools
 4. Use natural language to control devices!
 
 **Example prompts:**
@@ -1946,8 +2366,32 @@ Display result + update history
 
 ---
 
-**Version**: 3.0.0  
-**Last Updated**: 2025-01-04
+**Version**: 4.0.0  
+**Last Updated**: 2025-01-06
+
+## 🎉 What's New in v4.0.0 (January 2025)
+
+### 🔧 Primitive Tools for AI-Driven Exploration
+
+**8 New Atomic Primitives:**
+- ✅ **Tree CRUD** - `create_node`, `update_node`, `delete_node`, `create_edge`, `update_edge`, `delete_edge`, `create_subtree`
+- ✅ **UI Inspection** - `dump_ui_elements` (for debugging & validation)
+
+**Why Primitives?**
+- **Composable** - LLM orchestrates tools for any workflow
+- **Flexible** - Not limited to one exploration pattern
+- **Stateless** - No complex state management
+- **Reusable** - Same tools for exploration, debugging, refactoring
+
+**Use Cases:**
+1. **AI Exploration** - Build trees automatically by composing primitives
+2. **Debug & Fix** - `dump_ui_elements()` → see actual element names → `update_edge()` with correct names
+3. **Recursive Exploration** - `create_subtree()` → navigate → explore → repeat
+4. **Iterative Refinement** - Test → dump → fix → re-test loop
+
+**Tool Count:** 29 tools (was 21 in v3.0.0)
+
+---
 
 ## 🎉 What's New in v3.0.0
 
@@ -2028,7 +2472,8 @@ None! All v2.0.0 tool calls remain compatible:
 
 - **v1.0.0** (2024): 11 tools (basic automation)
 - **v2.0.0** (2025-01): 11 tools (production-ready quality)
-- **v3.0.0** (2025-01): **21 tools** (complete automation suite + web UI)
+- **v3.0.0** (2025-01): 21 tools (complete automation suite + web UI)
+- **v4.0.0** (2025-01): **29 tools** (+ primitive tools for AI-driven exploration)
 
 ---
 
