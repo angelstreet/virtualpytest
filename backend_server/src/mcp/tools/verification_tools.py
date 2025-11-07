@@ -233,17 +233,30 @@ class VerificationTools:
             error_msg = result.get('error', 'Failed to dump UI elements')
             return {"content": [{"type": "text", "text": f"❌ UI dump failed: {error_msg}"}], "isError": True}
         
-        # Extract elements from API response
+        # ✅ Get elements from backend and format like the console output
+        # Backend provides elements array, we format it to match console logs
         elements = result.get('elements', [])
         
-        # Format output matching backend_host console format (appium_remote.py line 379)
+        if not elements:
+            return {"content": [{"type": "text", "text": "No UI elements found"}], "isError": False}
+        
+        # Format output matching backend_host console format (host_remote_routes.py prints this)
         formatted_lines = []
         for i, element in enumerate(elements):
-            # Get element name (prefer text, fallback to contentDesc, then className)
-            name = element.get('text', '').strip()
-            if not name:
-                name = element.get('contentDesc', '').strip()
-            if not name:
+            # ✅ Get element name with EXACT same priority as backend console logs (android_mobile.py line 255-271)
+            # Priority 1: content_desc (contentDesc in JSON)
+            # Priority 2: text
+            # Priority 3: className
+            name = ""
+            
+            content_desc = element.get('contentDesc', '').strip()
+            text = element.get('text', '').strip()
+            
+            if content_desc and content_desc != '<no content-desc>':
+                name = content_desc
+            elif text and text != '<no text>':
+                name = f'"{text}"'  # Wrap text in quotes like console logs
+            else:
                 class_name = element.get('className', '')
                 name = class_name.split('.')[-1] if class_name else "Unknown"
             
