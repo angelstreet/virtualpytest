@@ -863,6 +863,16 @@ Example:
                 "name": "dump_ui_elements",
                 "description": """Dump UI elements from current device screen
 
+⚠️ **DEVICE MODEL COMPATIBILITY:**
+- ✅ **android_mobile**: Use this tool (gets UI hierarchy via ADB)
+- ✅ **web**: Use this tool (gets DOM elements)
+- ❌ **android_tv / other**: Use capture_screenshot + AI vision instead (no UI dump support)
+
+**How to choose:**
+1. Call get_device_info() first to check device_model
+2. If device_model is "android_mobile" or "web" → use dump_ui_elements()
+3. If device_model is "android_tv" or other → use capture_screenshot() + AI vision
+
 CRITICAL for debugging failed navigation or verification.
 Returns all UI elements with text, resource-id, clickable status, bounds.
 
@@ -870,11 +880,20 @@ Use cases:
 - Debug failed edge: "Element not found" → dump to see actual element names
 - Verify screen: Check if expected elements are present
 - Discover navigation targets: See what's clickable on current screen
+- AI exploration: Identify clickable elements to create nodes/edges
 
 Example:
-  # After navigation fails
-  elements = dump_ui_elements(device_id="device1", platform="mobile")
-  # Returns: [{"text": "Settings Tab", "clickable": true, "resource-id": "tab_settings"}, ...]
+  # Step 1: Check device model
+  device_info = get_device_info(device_id="device1")
+  device_model = device_info['device_model']  # e.g., "android_mobile"
+  
+  # Step 2: Choose inspection method
+  if device_model in ["android_mobile", "web"]:
+      elements = dump_ui_elements(device_id="device1", platform="mobile")
+      # Returns: [{"text": "Settings Tab", "clickable": true, "resource-id": "tab_settings"}, ...]
+  else:
+      screenshot = capture_screenshot(device_id="device1")
+      # Use AI vision to analyze screenshot
   
   # LLM analyzes: "Ah! It's 'Settings Tab', not 'Settings'"
   # Fix edge with correct element name
