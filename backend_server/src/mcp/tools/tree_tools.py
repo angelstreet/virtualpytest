@@ -40,43 +40,48 @@ class TreeTools:
         """
         try:
             tree_id = params['tree_id']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
-            # Build node payload
+            # Build node payload - backend expects: node_id, label, node_type, data
             node_data = {
                 'label': params['label'],
-                'type': params.get('type', 'screen'),
+                'node_type': params.get('type', 'screen'),
+                'data': params.get('data', {})
             }
             
-            # Add optional fields
+            # Add node_id if provided
             if 'node_id' in params:
-                node_data['id'] = params['node_id']
+                node_data['node_id'] = params['node_id']
+            
+            # Add position to data if provided
             if 'position' in params:
-                node_data['position'] = params['position']
-            if 'data' in params:
-                node_data['data'] = params['data']
+                pos = params['position']
+                node_data['data']['position'] = pos
+                # Also set position_x and position_y for database columns
+                node_data['position_x'] = pos.get('x', 0)
+                node_data['position_y'] = pos.get('y', 0)
             
             self.logger.info(f"Creating node in tree {tree_id}: {node_data.get('label')}")
             
             # Call backend
-            response = self.api_client.post(
+            result = self.api_client.post(
                 f'/server/navigationTrees/{tree_id}/nodes',
-                json=node_data
+                data=node_data,
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200 or response.status_code == 201:
-                result = response.json()
-                node = result.get('node', result)
+            if result.get('success'):
+                node = result.get('node', {})
                 
                 return self.formatter.format_success(
-                    f"✅ Node created: {node.get('label')} (ID: {node.get('id')})",
-                    data={"node": node}
+                    f"✅ Node created: {node.get('label')} (ID: {node.get('node_id')})"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to create node: {error_data.get('error', response.text)}",
+                    f"Failed to create node: {error_msg}",
                     ErrorCategory.BACKEND,
-                    details=error_data
+                    details=result
                 )
         
         except Exception as e:

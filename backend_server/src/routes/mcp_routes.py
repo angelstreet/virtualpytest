@@ -126,7 +126,7 @@ def mcp_endpoint():
             }), 400
         
         # Handle tool call
-        result = asyncio.run(mcp_server.handle_tool_call(tool_name, params))
+        result = mcp_server.handle_tool_call(tool_name, params)
         
         return jsonify(result)
         
