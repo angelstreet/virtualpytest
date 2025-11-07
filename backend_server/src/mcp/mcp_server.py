@@ -147,6 +147,9 @@ class VirtualPyTestMCPServer:
             
         Returns:
             MCP-formatted response
+            
+        Raises:
+            ValueError: If tool returns an error (isError: True)
         """
         try:
             self.logger.info(f"Handling tool call: {tool_name}")
@@ -155,7 +158,8 @@ class VirtualPyTestMCPServer:
             # Check if tool exists
             if tool_name not in self.tool_handlers:
                 error_msg = f"Unknown tool: {tool_name}. Available tools: {list(self.tool_handlers.keys())}"
-                return self.formatter.format_error(error_msg, ErrorCategory.NOT_FOUND)
+                error_response = self.formatter.format_error(error_msg, ErrorCategory.NOT_FOUND)
+                raise ValueError(error_response['content'][0]['text'])
             
             # Validate input parameters against tool schema
             tool_schema = self._get_tool_schema(tool_name)
@@ -168,21 +172,32 @@ class VirtualPyTestMCPServer:
                 
                 if not is_valid:
                     self.logger.warning(f"Validation failed for {tool_name}: {validation_error}")
-                    return self.formatter.format_validation_error(tool_name, validation_error)
+                    error_response = self.formatter.format_validation_error(tool_name, validation_error)
+                    raise ValueError(error_response['content'][0]['text'])
             
             # Execute tool (synchronous)
             handler = self.tool_handlers[tool_name]
             result = handler(params)
             
+            # Check if result indicates an error
+            if result.get('isError', False):
+                error_text = result['content'][0]['text']
+                self.logger.error(f"Tool {tool_name} returned error: {error_text}")
+                raise ValueError(error_text)
+            
             self.logger.info(f"Tool {tool_name} completed successfully")
             return result
             
+        except ValueError:
+            # Re-raise ValueError as-is (these are our formatted errors)
+            raise
         except Exception as e:
             self.logger.error(f"Tool call error for {tool_name}: {e}", exc_info=True)
-            return self.formatter.format_error(
+            error_response = self.formatter.format_error(
                 f"Tool execution error: {str(e)}",
                 ErrorCategory.BACKEND
             )
+            raise ValueError(error_response['content'][0]['text'])
     
     def _get_tool_schema(self, tool_name: str) -> Optional[Dict[str, Any]]:
         """
@@ -846,8 +861,10 @@ Example:
                     "type": "object",
                     "properties": {
                         "tree_id": {"type": "string", "description": "Navigation tree ID"},
-                        "source_node_id": {"type": "string", "description": "Source node ID"},
-                        "target_node_id": {"type": "string", "description": "Target node ID"},
+                        "source_node_id": {"type": "string", "description": "Source node ID (permanent UUID from create_node)"},
+                        "target_node_id": {"type": "string", "description": "Target node ID (permanent UUID from create_node)"},
+                        "source_label": {"type": "string", "description": "Source node label (REQUIRED - same as used in create_node)"},
+                        "target_label": {"type": "string", "description": "Target node label (REQUIRED - same as used in create_node)"},
                         "action_sets": {"type": "array", "description": "Array of action sets (forward/backward)"},
                         "edge_id": {"type": "string", "description": "Edge identifier (optional - auto-generated if omitted)"},
                         "label": {"type": "string", "description": "Edge label in format 'source→target' (optional - auto-generated from action_sets if omitted)"},
@@ -856,7 +873,7 @@ Example:
                         "is_conditional": {"type": "boolean", "description": "Whether edge has conditions - default: false"},
                         "is_conditional_primary": {"type": "boolean", "description": "If conditional, is this primary path - default: false"}
                     },
-                    "required": ["tree_id", "source_node_id", "target_node_id"]
+                    "required": ["tree_id", "source_node_id", "target_node_id", "source_label", "target_label"]
                 }
             },
             {
