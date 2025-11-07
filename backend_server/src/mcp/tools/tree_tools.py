@@ -332,6 +332,14 @@ class TreeTools:
             action_sets = params['action_sets']
             default_action_set_id = action_sets[0]['id'] if action_sets else existing_edge.get('default_action_set_id', 'forward')
             
+            # Generate label from action_sets if not provided (same logic as create_edge)
+            label = params.get('label')
+            if not label and action_sets and len(action_sets) > 0:
+                action_set_label = action_sets[0].get('label', '')
+                label = action_set_label.replace(' → ', '→').replace(' ', '')
+            if not label:
+                label = existing_edge.get('label', '')
+            
             # Merge existing data with updates
             existing_data = existing_edge.get('data', {})
             
@@ -341,16 +349,16 @@ class TreeTools:
                 'target_node_id': existing_edge.get('target_node_id'),
                 'action_sets': action_sets,
                 'default_action_set_id': default_action_set_id,
-                'label': existing_edge.get('label', ''),
+                'label': label,  # ✅ Use generated or provided label
                 'data': {
-                    # Preserve existing metadata
-                    'sourceHandle': existing_data.get('sourceHandle', 'bottom-source'),
-                    'targetHandle': existing_data.get('targetHandle', 'top-target'),
-                    'priority': existing_data.get('priority', 'p3'),
-                    'is_conditional': existing_data.get('is_conditional', False),
-                    'is_conditional_primary': existing_data.get('is_conditional_primary', False)
+                    # Allow overriding metadata or preserve existing
+                    'sourceHandle': params.get('sourceHandle', existing_data.get('sourceHandle', 'bottom-source')),
+                    'targetHandle': params.get('targetHandle', existing_data.get('targetHandle', 'top-target')),
+                    'priority': params.get('priority', existing_data.get('priority', 'p3')),
+                    'is_conditional': params.get('is_conditional', existing_data.get('is_conditional', False)),
+                    'is_conditional_primary': params.get('is_conditional_primary', existing_data.get('is_conditional_primary', False))
                 },
-                'final_wait_time': existing_edge.get('final_wait_time', 0)
+                'final_wait_time': params.get('final_wait_time', existing_edge.get('final_wait_time') or 2000)  # ✅ Allow override, default to 2000 if missing
             }
             
             # STEP 3: Call backend with merged data
