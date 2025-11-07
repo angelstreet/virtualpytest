@@ -223,14 +223,15 @@ class TreeTools:
         Create an edge between two nodes
         
         Args:
-            tree_id: Navigation tree ID
-            source_node_id: Source node ID
-            target_node_id: Target node ID
-            source_label: Source node label (REQUIRED)
-            target_label: Target node label (REQUIRED)
+            tree_id: Navigation tree ID (REQUIRED)
+            source_node_id: Source node ID (REQUIRED)
+            target_node_id: Target node ID (REQUIRED)
+            source_label: Source node label (REQUIRED - you have this from node creation)
+            target_label: Target node label (REQUIRED - you have this from node creation)
             action_sets: Array of action sets - id and label auto-generated if missing
             edge_id: Edge identifier (optional - auto-generated if omitted)
             label: Edge label (optional - auto-generated from labels)
+            priority: Edge priority p1/p2/p3 (optional - default p3)
         
         Returns:
             Created edge object
@@ -240,8 +241,8 @@ class TreeTools:
             import re
             tree_id = params['tree_id']
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
-            source_label = params['source_label']
-            target_label = params['target_label']
+            source_label = params['source_label']  # REQUIRED - no fetch
+            target_label = params['target_label']  # REQUIRED - no fetch
             
             # Build edge payload - backend expects: edge_id, source_node_id, target_node_id, action_sets, default_action_set_id
             action_sets = params.get('action_sets', [])
