@@ -81,7 +81,7 @@ export const SERVER_CONFIG = {
 export const CACHE_CONFIG = {
   /**
    * Very short cache - for frequently changing data (30 seconds)
-   * Used for: Host restart status, server/host data
+   * Used for: Navigation trees, navigation previews, host restart status, server/host data
    */
   VERY_SHORT_TTL: 30 * 1000,
 
@@ -93,7 +93,7 @@ export const CACHE_CONFIG = {
 
   /**
    * Medium cache - for semi-static data (5 minutes)
-   * Used for: Navigation trees, navigation previews
+   * Used for: Currently unused (previously used for navigation trees)
    */
   MEDIUM_TTL: 5 * 60 * 1000,
 

@@ -254,7 +254,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     const cached = treeCache.current.get(cacheKey);
     if (cached) {
       const age = Date.now() - cached.timestamp;
-      if (age < CACHE_CONFIG.MEDIUM_TTL) {
+      if (age < CACHE_CONFIG.VERY_SHORT_TTL) {
         const ageSeconds = Math.floor(age / 1000);
         console.log(`[@TreeCache] ✅ HIT: interface ${userInterfaceId} from ${selectedServer} (age: ${ageSeconds}s, metrics: ${includeMetrics}, nested: ${includeNested})`);
         
@@ -299,11 +299,11 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
         scheduleCacheSave();
         
         if (includeNested && result.nested_trees_count) {
-          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with ${result.nested_trees_count} trees, ${result.tree.metadata.nodes.length} total nodes (TTL: 5min)`);
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with ${result.nested_trees_count} trees, ${result.tree.metadata.nodes.length} total nodes (TTL: 30s)`);
         } else if (result.metrics) {
-          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with metrics (nodes: ${Object.keys(result.metrics.nodes || {}).length}, edges: ${Object.keys(result.metrics.edges || {}).length}, TTL: 5min)`);
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} with metrics (nodes: ${Object.keys(result.metrics.nodes || {}).length}, edges: ${Object.keys(result.metrics.edges || {}).length}, TTL: 30s)`);
         } else {
-          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} (total: ${treeCache.current.size}, TTL: 5min)`);
+          console.log(`[@TreeCache] 💾 Cached interface ${userInterfaceId} from ${selectedServer} (total: ${treeCache.current.size}, TTL: 30s)`);
         }
         
         return result;
