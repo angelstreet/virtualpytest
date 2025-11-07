@@ -66,6 +66,50 @@ class MCPAPIClient:
                 'network_error': True
             }
     
+    def put(self, endpoint: str, data: Dict[str, Any] = None, params: Dict[str, Any] = None) -> Dict[str, Any]:
+        """
+        PUT request to backend_server API
+        
+        Args:
+            endpoint: API endpoint
+            data: JSON body
+            params: Query parameters
+            
+        Returns:
+            Raw API response dict
+        """
+        url = f"{self.base_url}{endpoint}"
+        
+        try:
+            response = requests.put(
+                url,
+                json=data or {},
+                params=params or {},
+                timeout=self.timeout
+            )
+            
+            if response.status_code in [200, 202]:
+                return response.json()
+            else:
+                return {
+                    'success': False,
+                    'error': f'HTTP {response.status_code}: {response.text}',
+                    'status_code': response.status_code
+                }
+                
+        except requests.exceptions.Timeout:
+            return {
+                'success': False,
+                'error': f'Request timeout ({self.timeout}s)',
+                'timeout': True
+            }
+        except requests.exceptions.RequestException as e:
+            return {
+                'success': False,
+                'error': f'Network error: {str(e)}',
+                'network_error': True
+            }
+    
     def get(self, endpoint: str, params: Dict[str, Any] = None) -> Dict[str, Any]:
         """
         GET request to backend_server API

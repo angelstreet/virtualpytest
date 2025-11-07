@@ -104,29 +104,67 @@ class TreeTools:
             tree_id = params['tree_id']
             node_id = params['node_id']
             updates = params['updates']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
             
             self.logger.info(f"Updating node {node_id} in tree {tree_id}")
             
-            # Call backend
-            response = self.api_client.patch(
+            # STEP 1: Fetch existing node to avoid overwriting data
+            existing_result = self.api_client.get(
                 f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
-                json=updates
+                params={'team_id': team_id}
             )
             
-            if response.status_code == 200:
-                result = response.json()
-                node = result.get('node', result)
+            if not existing_result.get('success'):
+                return self.formatter.format_error(
+                    f"Failed to fetch existing node: {existing_result.get('error')}",
+                    ErrorCategory.BACKEND
+                )
+            
+            existing_node = existing_result.get('node', {})
+            
+            # STEP 2: Merge updates with existing node data
+            merged_data = {
+                'node_id': node_id,
+                'label': updates.get('label', existing_node.get('label')),
+                'node_type': updates.get('type', existing_node.get('node_type')),
+                'data': existing_node.get('data', {}),  # Start with existing data
+                'style': existing_node.get('style', {}),
+                'verifications': existing_node.get('verifications', [])
+            }
+            
+            # Merge data field if provided
+            if 'data' in updates:
+                merged_data['data'].update(updates['data'])
+            
+            # Handle position - merge into data.position
+            if 'position' in updates:
+                pos = updates['position']
+                merged_data['data']['position'] = pos
+                merged_data['position_x'] = pos.get('x', 0)
+                merged_data['position_y'] = pos.get('y', 0)
+            else:
+                # Preserve existing position
+                merged_data['position_x'] = existing_node.get('position_x', 0)
+                merged_data['position_y'] = existing_node.get('position_y', 0)
+            
+            # STEP 3: Call backend with merged data
+            result = self.api_client.put(
+                f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
+                data=merged_data,
+                params={'team_id': team_id}
+            )
+            
+            if result.get('success'):
+                node = result.get('node', {})
                 
                 return self.formatter.format_success(
-                    f"✅ Node updated: {node.get('label')}",
-                    data={"node": node}
+                    f"✅ Node updated: {node.get('label')}"
                 )
             else:
-                error_data = response.json() if response.text else {}
+                error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
-                    f"Failed to update node: {error_data.get('error', response.text)}",
-                    ErrorCategory.BACKEND,
-                    details=error_data
+                    f"Failed to update node: {error_msg}",
+                    ErrorCategory.BACKEND
                 )
         
         except Exception as e:
