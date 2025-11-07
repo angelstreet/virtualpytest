@@ -233,13 +233,39 @@ class VerificationTools:
             error_msg = result.get('error', 'Failed to dump UI elements')
             return {"content": [{"type": "text", "text": f"❌ UI dump failed: {error_msg}"}], "isError": True}
         
-        # Return raw output from API - backend already formats it correctly
-        raw_output = result.get('output', '')
+        # Extract elements from API response
+        elements = result.get('elements', [])
+        
+        # Format output matching backend_host console format (appium_remote.py line 379)
+        formatted_lines = []
+        for i, element in enumerate(elements):
+            # Get element name (prefer text, fallback to contentDesc, then className)
+            name = element.get('text', '').strip()
+            if not name:
+                name = element.get('contentDesc', '').strip()
+            if not name:
+                class_name = element.get('className', '')
+                name = class_name.split('.')[-1] if class_name else "Unknown"
+            
+            # Parse bounds to get x, y, width, height
+            bounds = element.get('bounds', {})
+            x = bounds.get('left', 0)
+            y = bounds.get('top', 0)
+            width = bounds.get('right', 0) - x
+            height = bounds.get('bottom', 0) - y
+            
+            element_id = element.get('id', i)
+            
+            formatted_lines.append(
+                f"[HOST] Remote[ANDROID_MOBILE]: Element: {name} | Index: {element_id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}"
+            )
+        
+        raw_output = '\n'.join(formatted_lines)
         
         return {
             "content": [{"type": "text", "text": raw_output}],
             "isError": False,
-            "elements": result.get('elements', []),
+            "elements": elements,
             "raw_result": result
         }
     
