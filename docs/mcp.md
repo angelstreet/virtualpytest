@@ -345,7 +345,7 @@ Create a node in navigation tree.
 
 ### update_node
 
-Update existing node properties.
+Update existing node properties (including verifications).
 
 **Parameters:**
 ```json
@@ -354,10 +354,26 @@ Update existing node properties.
   "node_id": "settings",
   "updates": {
     "label": "settings_main",
-    "position": {"x": 150, "y": 200}
+    "position": {"x": 150, "y": 200},
+    "verifications": [
+      {
+        "command": "waitForElementToAppear",
+        "params": {"search_term": "Settings", "timeout": 10},
+        "verification_type": "adb"
+      }
+    ]
   }
 }
 ```
+
+**Supported Fields:**
+- `label` - Node display name
+- `position` - {x, y} coordinates
+- `type` - Node type (screen, menu, etc.)
+- `data` - Custom metadata object
+- `verifications` - Array of verification objects (NEW in v4.2.0)
+
+**Note:** The `verifications` field allows you to add or replace node verifications. Use `verify_node` to test verifications after updating.
 
 ---
 
@@ -507,7 +523,7 @@ This tool mirrors the frontend's `executeActionSet` function from `useEdge.ts` (
 
 ### verify_node
 
-Execute embedded verifications for a specific node without navigation (frontend: useNode.ts verification handling).
+Execute embedded verifications for a specific node without navigation (frontend: Navigation_NodeEditDialog.tsx "Run" button).
 
 **Parameters:**
 ```json
@@ -525,7 +541,7 @@ Execute embedded verifications for a specific node without navigation (frontend:
 ```json
 {
   "success": true,
-  "message": "Node verification passed: 3/3 verifications succeeded\n   Node: home"
+  "message": "Verification completed: 1/1 passed\n   Node: home\n   ✅ waitForElementToAppear: Element 'Startseite' found"
 }
 ```
 
@@ -537,18 +553,28 @@ verify_node({
     "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
     "userinterface_name": "netflix_mobile"
 })
-# Returns: ✅ Node verification passed: 3/3 verifications succeeded
+# Returns: ✅ Verification completed: 1/1 passed
 ```
 
+**How It Works:**
+1. Gets the node's embedded verifications
+2. Calls `/server/verification/executeBatch` directly (same as frontend's "Run" button)
+3. Polls for async completion (up to 30s)
+4. Returns verification results with pass/fail details
+
 **Use Cases:**
-- **Test Node Verifications** - Verify node checks work without navigation
-- **Debug Verification Logic** - Test specific node verifications after updating
-- **Manual Verification** - Execute verifications directly from UI or scripts
+- **Test Node Verifications** - Verify node checks work independently
+- **Debug Verification Logic** - Test specific node verifications after updating them via `update_node`
+- **Manual Verification** - Execute verifications directly from MCP or scripts
+- **Quality Assurance** - Validate verifications before full navigation testing
 
 **Frontend Equivalent:**
-This tool mirrors how the frontend handles node verifications during navigation in `useNode.ts` → `executeNavigation` (line 403-411), which automatically runs node verifications after reaching the target.
+This tool mirrors the frontend's "Run" button in `Navigation_NodeEditDialog.tsx` (line 195), which calls `useVerification.handleTest()` → `/server/verification/executeBatch` (line 247 in `useVerification.ts`).
 
-**Note:** If the node has no verifications, the tool returns an informational message without error.
+**Note:** 
+- If the node has no verifications, the tool returns: "ℹ️ Node has no verifications to run"
+- This does NOT trigger navigation - it executes verifications directly on the current screen
+- For navigation-based verification, use `navigate_to_node` which automatically runs verifications
 
 ---
 
@@ -2857,28 +2883,46 @@ Display result + update history
 
 2. **Node Verification** - Test node verifications independently
    ```python
-   # Verify home node checks pass
+   # Add verification to node
+   update_node({
+       "node_id": "home",
+       "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+       "updates": {
+           "verifications": [{
+               "command": "waitForElementToAppear",
+               "params": {"search_term": "Startseite", "timeout": 10},
+               "verification_type": "adb"
+           }]
+       }
+   })
+   
+   # Verify home node checks pass (without navigation)
    verify_node({
        "node_id": "home",
        "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
        "userinterface_name": "netflix_mobile"
    })
+   # Returns: ✅ Verification completed: 1/1 passed
    ```
 
-3. **Debugging Workflow** - Update edge → test edge → verify it works
+3. **Debugging Workflow** - Update node/edge → test directly → verify
    ```python
    # 1. Update edge with new actions
    update_edge(...)
    
-   # 2. Test the edge directly
+   # 2. Test the edge directly (without full navigation)
    execute_edge(...)
    
-   # 3. Verify result without full navigation
+   # 3. Update node with verifications
+   update_node(updates={"verifications": [...]})
+   
+   # 4. Test verifications directly (without navigation)
+   verify_node(...)
    ```
 
 **Frontend Equivalent:**
 - `execute_edge` → `useEdge.ts` → `executeActionSet` (line 104-161)
-- `verify_node` → `useNode.ts` → verification handling (line 403-411)
+- `verify_node` → `Navigation_NodeEditDialog.tsx` → "Run" button → `useVerification.handleTest()` (line 247)
 
 **Tool Count:** 37 tools (was 35 in v4.1.0)
 

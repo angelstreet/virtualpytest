@@ -128,7 +128,7 @@ class TreeTools:
                 'node_type': updates.get('type', existing_node.get('node_type')),
                 'data': existing_node.get('data', {}),  # Start with existing data
                 'style': existing_node.get('style', {}),
-                'verifications': existing_node.get('verifications', [])
+                'verifications': updates.get('verifications', existing_node.get('verifications', []))  # ✅ FIX: Accept verifications from updates
             }
             
             # Merge data field if provided

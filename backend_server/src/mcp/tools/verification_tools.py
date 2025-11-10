@@ -327,12 +327,10 @@ class VerificationTools:
     
     def verify_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Execute verifications for a specific node (frontend: useNode.ts line 403-411)
+        Execute verifications for a specific node (frontend: NodeEditDialog "Run" button)
         
-        This runs the embedded verifications in a node, useful for:
-        - Testing node verifications without navigation
-        - Debugging verification logic
-        - Manual verification execution from UI
+        This runs the embedded verifications directly using /server/verification/executeBatch.
+        Frontend pattern: useVerification.ts handleTest (line 247) - NOT navigation!
         
         Args:
             node_id: Node identifier (REQUIRED)
@@ -374,32 +372,36 @@ class VerificationTools:
             
             node = node_result.get('node', {})
             verifications = node.get('verifications', [])
+            node_label = node.get('label', node_id)
             
             if not verifications:
-                return {"content": [{"type": "text", "text": f"ℹ️ Node {node_id} has no verifications to run"}], "isError": False}
+                return {"content": [{"type": "text", "text": f"ℹ️ Node {node_label} has no verifications to run"}], "isError": False}
             
-            print(f"[@MCP:verify_node] Node has {len(verifications)} verifications to execute")
+            print(f"[@MCP:verify_node] Node has {len(verifications)} verifications - executing directly")
             
-            # STEP 2: Execute verifications (same as frontend - calls verify_device_state)
-            # Frontend pattern from useNode.ts: navigation automatically runs node verifications
-            # We'll call the existing verify_device_state logic
+            # STEP 2: Execute verifications directly using /server/verification/executeBatch
+            # SAME as frontend useVerification.ts line 247
+            # Add userinterface_name to each verification for proper reference resolution
+            verifications_with_ui = [
+                {**v, 'userinterface_name': userinterface_name}
+                for v in verifications
+            ]
             
             result = self.api.post(
-                '/server/verification/verify',
+                '/server/verification/executeBatch',
                 data={
                     'host_name': host_name,
                     'device_id': device_id,
-                    'userinterface_name': userinterface_name,
-                    'verifications': verifications,
-                    'tree_id': tree_id,
-                    'node_id': node_id
+                    'verifications': verifications_with_ui,
+                    'node_id': node_id,
+                    'tree_id': tree_id
                 },
                 params={'team_id': team_id}
             )
             
             if not result.get('success'):
                 error_msg = result.get('error', 'Unknown error')
-                return {"content": [{"type": "text", "text": f"❌ Node verification failed: {error_msg}"}], "isError": True}
+                return {"content": [{"type": "text", "text": f"❌ Verification execution failed: {error_msg}"}], "isError": True}
             
             # STEP 3: Handle async execution - poll for completion
             execution_id = result.get('execution_id')
@@ -408,18 +410,16 @@ class VerificationTools:
                 return self._poll_verification_completion(execution_id, device_id, host_name, team_id, max_wait=30)
             
             # Synchronous result
-            verification_results = result.get('verification_results', [])
-            passed_count = sum(1 for vr in verification_results if vr.get('success'))
-            total_count = len(verification_results)
+            verification_results = result.get('results', [])
+            passed_count = result.get('passed_count', 0)
+            total_count = result.get('total_count', 0)
             
-            success_all = passed_count == total_count
-            
-            if success_all:
-                return {"content": [{"type": "text", "text": f"✅ Node verification passed: {passed_count}/{total_count} verifications succeeded\n   Node: {node.get('label', node_id)}"}], "isError": False}
+            if passed_count == total_count:
+                return {"content": [{"type": "text", "text": f"✅ Node verification passed: {passed_count}/{total_count} verifications succeeded\n   Node: {node_label}"}], "isError": False}
             else:
-                failed_verifications = [vr for vr in verification_results if not vr.get('success')]
-                failure_details = "\n   - ".join([f"{vr.get('command', 'unknown')}: {vr.get('message', 'no details')}" for vr in failed_verifications])
-                return {"content": [{"type": "text", "text": f"❌ Node verification failed: {passed_count}/{total_count} verifications succeeded\n   Node: {node.get('label', node_id)}\n   Failed:\n   - {failure_details}"}], "isError": True}
+                failed = [vr for vr in verification_results if not vr.get('success')]
+                failure_details = "\n   - ".join([f"{vr.get('command', 'unknown')}: {vr.get('message', 'no details')}" for vr in failed])
+                return {"content": [{"type": "text", "text": f"❌ Node verification failed: {passed_count}/{total_count} verifications succeeded\n   Node: {node_label}\n   Failed:\n   - {failure_details}"}], "isError": True}
         
         except Exception as e:
             print(f"[@MCP:verify_node] Error: {e}")
