@@ -219,6 +219,54 @@ Create 12 requirements using backend Requirements API:
 
 ## 🧪 Phase 3: Create Testcases from Graph (30 minutes)
 
+### 🎯 CRITICAL CONCEPT - NAVIGATION IS AUTONOMOUS
+
+**Understanding the Two-Layer Architecture:**
+
+**Layer 1: Navigation Tree (Phase 1 - App-Specific)**
+- ✅ Already defines HOW to move between screens
+- ✅ Contains all click actions, delays, element IDs
+- ✅ Example: `home -(click "The Witcher")→ content_detail -(click "Play")→ player`
+- ✅ Built once per app (Netflix, YouTube, Hulu each have their own tree)
+
+**Layer 2: Test Cases (Phase 3 - Reusable)**
+- ✅ Defines WHAT to test, not HOW to navigate
+- ✅ Uses navigation nodes that reference tree node labels
+- ✅ Example: `{"type": "navigation", "data": {"target_node_label": "player"}}`
+- ✅ Reusable across apps by changing only `userinterface_name`
+
+**Why This Matters:**
+1. **Test cases are DECLARATIVE**: "Go to player" not "Click this, then that"
+2. **Navigation tree is IMPERATIVE**: Contains all the explicit actions
+3. **Reusability**: Same testcase works on Netflix, YouTube, Hulu (different nav trees, same test logic)
+4. **Maintainability**: UI changes only require updating navigation tree, not all testcases
+
+**Correct Test Case Structure:**
+```json
+{
+  "nodes": [
+    {"id": "nav1", "type": "navigation", "data": {"target_node_label": "player"}},
+    {"id": "verify1", "type": "verification", "data": {"waitForElement": "play_button"}}
+  ]
+}
+```
+
+**❌ WRONG (Don't Duplicate Navigation Actions):**
+```json
+{
+  "nodes": [
+    {"id": "action1", "type": "action", "data": {"command": "click_element", "text": "The Witcher"}},
+    {"id": "action2", "type": "action", "data": {"command": "click_element", "text": "Play"}}
+  ]
+}
+```
+
+**When to Use Action Nodes:**
+- ✅ Non-navigation actions: pause video, adjust volume, search text
+- ❌ NOT for navigation between screens (use navigation nodes!)
+
+---
+
 Create 12-15 testcases by **manually constructing graph_json** from node sequences.
 
 **CRITICAL:** Do NOT use `generate_test_graph`. Manually construct graph_json following the template in `testcase_graph_template.md`.

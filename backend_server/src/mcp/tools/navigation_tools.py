@@ -164,6 +164,19 @@ class NavigationTools:
         """
         Navigate to a target node in UI tree
         
+        ⚠️ AUTONOMOUS NAVIGATION:
+        This tool uses the pre-built navigation tree to automatically find and execute
+        the path to the target node. You only need to specify WHERE to go (target_node_label),
+        the system handles HOW to get there using the navigation tree edges.
+        
+        Example:
+          - Navigation tree has: home → content_detail → player (with all actions defined)
+          - You call: navigate_to_node(target_node_label="player")
+          - System automatically: Finds path, executes home→content_detail→player actions
+        
+        This is why test cases can be reusable across apps!
+        Test cases say "go to player", navigation tree defines how to get there for each app.
+        
         Uses pathfinding to find optimal path and executes navigation.
         Requires take_control to be called first (cache must be ready).
         

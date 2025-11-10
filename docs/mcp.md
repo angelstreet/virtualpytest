@@ -95,6 +95,61 @@ This documentation has been modularized for easier navigation and maintenance.
 
 ---
 
+## 🧭 Navigation Autonomy Concept
+
+**CRITICAL UNDERSTANDING FOR AI TEST GENERATION:**
+
+### The Two-Layer Architecture
+
+**Layer 1: Navigation Tree (App-Specific)**
+- Defines HOW to move between screens
+- Contains explicit actions (click_element, press_key, etc.)
+- Built once per app (Netflix, YouTube, etc.)
+- Example: `home -(click "Play")→ player`
+
+**Layer 2: Test Cases (Reusable)**
+- Defines WHAT to test
+- References navigation tree nodes by label
+- Reusable across apps by changing `userinterface_name`
+- Example: Navigate to "player" → Verify video plays
+
+### Why This Matters
+
+❌ **Wrong Approach (Manual Navigation in Test Cases):**
+```json
+{
+  "type": "action",
+  "data": {"command": "click_element", "text": "Play"}
+}
+```
+*Problem: Hardcodes Netflix-specific actions, not reusable*
+
+✅ **Correct Approach (Reference Navigation Tree):**
+```json
+{
+  "type": "navigation",
+  "data": {"target_node_label": "player"}
+}
+```
+*Solution: Uses navigation tree, works for any streaming app*
+
+### When to Use What
+
+- **`navigate_to_node`**: Go to screens defined in navigation tree (DECLARATIVE)
+- **`execute_device_action`**: One-off actions NOT part of navigation (pause video, adjust volume)
+- **`verify_device_state`**: Check screen state after navigation
+
+### Benefits
+
+1. **Reusability**: Same test case works on Netflix, YouTube, Hulu
+2. **Maintainability**: UI changes only affect navigation tree, not test cases
+3. **Separation of Concerns**: Navigation logic vs. test logic
+4. **Declarative Testing**: Say "go to player" not "click this, then that"
+
+→ See: [Navigation Tools](mcp/mcp_tools_navigation.md) | [TestCase Tools](mcp/mcp_tools_testcase.md)
+
+---
+
 ## 🎯 Tool Categories Overview
 
 ### By Functionality

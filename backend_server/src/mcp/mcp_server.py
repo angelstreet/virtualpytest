@@ -801,6 +801,30 @@ Example:
                 "name": "generate_test_graph",
                 "description": """Generate test case graph from natural language using AI
 
+⚠️ CRITICAL - NAVIGATION IS AUTONOMOUS:
+The navigation tree (from Phase 1) already defines HOW to move between screens.
+Test cases should use 'navigation' nodes that reference tree nodes by label.
+
+**Architecture:**
+- Navigation Tree = HOW to navigate (app-specific, built once)
+- Test Case = WHAT to test (reusable across apps)
+
+**Correct Usage:**
+```json
+{"type": "navigation", "data": {"target_node_label": "player"}}
+```
+This automatically uses the pre-built navigation tree to go home→content_detail→player.
+
+**DO NOT** create manual action sequences for navigation:
+```json
+❌ {"type": "action", "data": {"command": "click_element", "text": "Play"}}
+```
+
+**When to Use Actions:**
+- Use 'action' nodes ONLY for non-navigation actions (pause, volume, text input)
+- Use 'navigation' nodes to move between screens in the tree
+- Use 'verification' nodes to check screen state
+
 Takes a prompt like "Navigate to settings and verify WiFi is enabled"
 Returns executable graph that can be:
 1. Passed to execute_testcase() to run immediately
