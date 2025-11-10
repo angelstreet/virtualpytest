@@ -1147,6 +1147,12 @@ Execute batch of actions on device (remote commands, ADB, web, desktop).
 
 **⚠️ PREREQUISITE:** `take_control()` must be called first.
 
+**Executes direct device commands including:**
+- 🚀 **Launch apps** (`launch_app`)
+- 📱 **UI interactions** (swipe, click, type)
+- 🔑 **Key presses** (`press_key`)
+- And more...
+
 **Parameters:**
 ```json
 {
@@ -1163,16 +1169,69 @@ Execute batch of actions on device (remote commands, ADB, web, desktop).
 
 **Returns:** `execution_id` for async polling (polls automatically)
 
-**Example:**
+**Common Examples:**
+
+**🚀 Launch App:**
 ```python
-result = execute_device_action({
-    "actions": [
-        {"command": "swipe_up", "params": {}, "delay": 500}
-    ]
+execute_device_action({
+    "device_id": "device1",
+    "actions": [{
+        "command": "launch_app",
+        "params": {"package": "com.netflix.mediaclient"},
+        "delay": 2000
+    }]
 })
-# MCP automatically polls until completion (max 180s)
+# MCP automatically polls until completion
 # Returns: ✅ Action execution completed: 1/1 passed
 ```
+
+**📱 Swipe:**
+```python
+execute_device_action({
+    "actions": [{"command": "swipe_up", "params": {}, "delay": 500}]
+})
+```
+
+**👆 Click Element:**
+```python
+execute_device_action({
+    "actions": [{
+        "command": "click_element",
+        "params": {"text": "Home"},
+        "delay": 1000
+    }]
+})
+```
+
+**⌨️ Type Text:**
+```python
+execute_device_action({
+    "actions": [{
+        "command": "type_text",
+        "params": {"text": "Hello World"},
+        "delay": 500
+    }]
+})
+```
+
+**🔑 Press Key:**
+```python
+execute_device_action({
+    "actions": [{
+        "command": "press_key",
+        "params": {"key": "BACK"},
+        "delay": 500
+    }]
+})
+```
+
+**Device Model Specific:**
+- **android_mobile/android_tv**: Use ADB/Remote commands
+  - Examples: `launch_app`, `swipe_up`, `swipe_down`, `click_element`, `click_element_by_id`, `type_text`, `press_key`
+- **web/desktop**: Use web automation commands
+  - Examples: `web_click`, `web_type`, `web_navigate`
+
+**💡 Tip:** Call `list_actions()` first to discover all available commands for your device.
 
 ---
 

@@ -313,19 +313,60 @@ Example:
 
 ✅ NO PREREQUISITES - Just call this directly for any device actions.
 
-Executes commands like swipe, click, type, etc.
+Executes direct device commands including:
+- Launch apps (launch_app)
+- UI interactions (swipe, click, type)
+- Key presses (press_key)
+- And more...
+
 Returns execution_id for async operations - polls automatically until completion.
 
 Device Model Specific:
 - android_mobile/android_tv: Use ADB/Remote commands
-  Examples: swipe_up, swipe_down, click_element, click_element_by_id, type_text, key
+  Examples: launch_app, swipe_up, swipe_down, click_element, click_element_by_id, type_text, press_key
 - web/desktop: Use web automation commands
   Examples: web_click, web_type, web_navigate
 
-Examples:
-- Swipe: execute_device_action(actions=[{"command": "swipe_up"}])
-- Click: execute_device_action(actions=[{"command": "click_element", "params": {"text": "Home"}}])
-- Type: execute_device_action(actions=[{"command": "type_text", "params": {"text": "Hello"}}])
+Common Examples:
+
+🚀 Launch App:
+  execute_device_action({
+    "device_id": "device1",
+    "actions": [{
+      "command": "launch_app",
+      "params": {"package": "com.netflix.mediaclient"},
+      "delay": 2000
+    }]
+  })
+
+📱 Swipe:
+  execute_device_action({
+    "actions": [{"command": "swipe_up"}]
+  })
+
+👆 Click Element:
+  execute_device_action({
+    "actions": [{
+      "command": "click_element",
+      "params": {"text": "Home"}
+    }]
+  })
+
+⌨️ Type Text:
+  execute_device_action({
+    "actions": [{
+      "command": "type_text",
+      "params": {"text": "Hello"}
+    }]
+  })
+
+🔑 Press Key:
+  execute_device_action({
+    "actions": [{
+      "command": "press_key",
+      "params": {"key": "BACK"}
+    }]
+  })
 
 If you're unsure about available commands, call list_actions() first.""",
                 "inputSchema": {
@@ -341,7 +382,7 @@ If you're unsure about available commands, call list_actions() first.""",
                                 "properties": {
                                     "command": {
                                         "type": "string",
-                                        "description": "Action command to execute (e.g., 'click_element', 'swipe', 'type_text'). Call list_actions() first to see all available commands."
+                                        "description": "Action command to execute (e.g., 'launch_app', 'click_element', 'swipe', 'type_text', 'press_key'). Call list_actions() first to see all available commands."
                                     },
                                     "params": {
                                         "type": "object",
