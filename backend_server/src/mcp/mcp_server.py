@@ -5,57 +5,58 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 50 core tools for device automation:
+This server provides 51 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. list_actions - List available device actions
 3. execute_device_action - Execute remote/ADB/web/desktop commands
 4. list_navigation_nodes - List nodes in tree
 5. navigate_to_node - Navigate through UI trees
-6. list_verifications - List verification methods
-7. verify_device_state - Verify UI elements and device states
-8. dump_ui_elements - Dump UI hierarchy
-9. execute_testcase - Run complete test cases
-10. execute_testcase_by_id - MCP convenience: Load and run saved testcase
-11. save_testcase - Save test case graphs to database
-12. list_testcases - List all saved test cases
-13. load_testcase - Load a saved test case by ID
-14. list_scripts - List all available Python scripts
-15. execute_script - Execute Python scripts with CLI parameters
-16. generate_test_graph - AI-powered test generation
-17. capture_screenshot - Capture screenshots for vision analysis
-18. get_transcript - Fetch audio transcripts
-19. get_device_info - Get device capabilities and info
-20. get_execution_status - Poll async execution status
-21. view_logs - View systemd service logs
-22. list_services - List available systemd services
-23. create_node - Create navigation tree nodes
-24. update_node - Update node properties
-25. delete_node - Delete nodes from trees
-26. create_edge - Create edges with actions
-27. update_edge - Update edge actions
-28. delete_edge - Delete edges
-29. create_subtree - Create nested subtrees
-30. get_node - Get node details
-31. get_edge - Get edge details
-32. execute_edge - Execute edge actions directly
-33. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
-34. create_userinterface - Create new app models
-35. list_userinterfaces - List all app models
-36. get_userinterface_complete - Get complete tree data
-37. list_nodes - List nodes with verifications
-38. list_edges - List edges with actions
-39. delete_userinterface - Delete userinterface models
-40. verify_node - Verify node verifications directly
-41. create_requirement - Create new requirement
-42. list_requirements - List all requirements  
-43. get_requirement - Get requirement by ID
-44. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
-45. link_testcase_to_requirement - Link testcase for coverage
-46. unlink_testcase_from_requirement - Unlink testcase
-47. get_testcase_requirements - Get testcase requirements
-48. get_requirement_coverage - Get requirement coverage details
-49. get_coverage_summary - Get overall coverage metrics
-50. get_uncovered_requirements - Get requirements without coverage
+6. preview_userinterface - Get compact text preview of navigation tree (NEW - "What do we test?")
+7. list_verifications - List verification methods
+8. verify_device_state - Verify UI elements and device states
+9. dump_ui_elements - Dump UI hierarchy
+10. execute_testcase - Run complete test cases
+11. execute_testcase_by_id - MCP convenience: Load and run saved testcase
+12. save_testcase - Save test case graphs to database
+13. list_testcases - List all saved test cases
+14. load_testcase - Load a saved test case by ID
+15. list_scripts - List all available Python scripts
+16. execute_script - Execute Python scripts with CLI parameters
+17. generate_test_graph - AI-powered test generation
+18. capture_screenshot - Capture screenshots for vision analysis
+19. get_transcript - Fetch audio transcripts
+20. get_device_info - Get device capabilities and info
+21. get_execution_status - Poll async execution status
+22. view_logs - View systemd service logs
+23. list_services - List available systemd services
+24. create_node - Create navigation tree nodes
+25. update_node - Update node properties
+26. delete_node - Delete nodes from trees
+27. create_edge - Create edges with actions
+28. update_edge - Update edge actions
+29. delete_edge - Delete edges
+30. create_subtree - Create nested subtrees
+31. get_node - Get node details
+32. get_edge - Get edge details
+33. execute_edge - Execute edge actions directly
+34. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
+35. create_userinterface - Create new app models
+36. list_userinterfaces - List all app models
+37. get_userinterface_complete - Get complete tree data
+38. list_nodes - List nodes with verifications
+39. list_edges - List edges with actions
+40. delete_userinterface - Delete userinterface models
+41. verify_node - Verify node verifications directly
+42. create_requirement - Create new requirement
+43. list_requirements - List all requirements  
+44. get_requirement - Get requirement by ID
+45. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
+46. link_testcase_to_requirement - Link testcase for coverage
+47. unlink_testcase_from_requirement - Unlink testcase
+48. get_testcase_requirements - Get testcase requirements
+49. get_requirement_coverage - Get requirement coverage details
+50. get_coverage_summary - Get overall coverage metrics
+51. get_uncovered_requirements - Get requirements without coverage
 """
 
 import logging
