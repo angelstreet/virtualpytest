@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 34 core tools for device automation:
+This server provides 37 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. execute_device_action - Execute remote/ADB/web/desktop commands
 3. navigate_to_node - Navigate through UI trees
@@ -32,15 +32,17 @@ This server provides 34 core tools for device automation:
 24. create_subtree - Create nested subtrees
 25. get_node - Get node details
 26. get_edge - Get edge details
-27. dump_ui_elements - Dump UI hierarchy
-28. list_actions - List available device actions
-29. list_navigation_nodes - List nodes in tree
-30. list_verifications - List verification methods
-31. create_userinterface - Create new app models (NEW)
-32. list_userinterfaces - List all app models (NEW)
-33. get_userinterface_complete - Get complete tree data (NEW)
-34. list_nodes - List nodes with verifications (NEW)
-35. list_edges - List edges with actions (NEW)
+27. execute_edge - Execute edge actions (NEW)
+28. dump_ui_elements - Dump UI hierarchy
+29. list_actions - List available device actions
+30. list_navigation_nodes - List nodes in tree
+31. list_verifications - List verification methods
+32. create_userinterface - Create new app models
+33. list_userinterfaces - List all app models
+34. get_userinterface_complete - Get complete tree data
+35. list_nodes - List nodes with verifications
+36. list_edges - List edges with actions
+37. verify_node - Verify node verifications (NEW)
 """
 
 import logging
@@ -154,6 +156,7 @@ class VirtualPyTestMCPServer:
             # Tree READ tools (NEW - Query primitives)
             'get_node': self.tree_tools.get_node,
             'get_edge': self.tree_tools.get_edge,
+            'execute_edge': self.tree_tools.execute_edge,  # NEW - Execute edge actions
             
             # UserInterface Management tools (NEW)
             'create_userinterface': self.userinterface_tools.create_userinterface,
@@ -162,6 +165,9 @@ class VirtualPyTestMCPServer:
             'list_nodes': self.userinterface_tools.list_nodes,
             'list_edges': self.userinterface_tools.list_edges,
             'delete_userinterface': self.userinterface_tools.delete_userinterface,
+            
+            # Verification tools (NEW - Node verification)
+            'verify_node': self.verification_tools.verify_node,  # NEW - Verify node
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -1148,6 +1154,45 @@ Example:
                 }
             },
             {
+                "name": "execute_edge",
+                "description": """Execute a specific edge's action set (frontend: useEdge.ts executeActionSet)
+
+This executes the actions in an edge's action set, useful for:
+- Testing individual edges without full navigation
+- Debugging edge actions
+- Manual edge execution from UI
+
+Args:
+    edge_id: Edge identifier (REQUIRED)
+    tree_id: Navigation tree ID (REQUIRED)
+    action_set_id: Specific action set to execute (optional - uses default if omitted)
+    device_id: Device identifier (optional - defaults to 'device1')
+    host_name: Host name (optional - defaults to 'sunri-pi1')
+    team_id: Team ID (optional - defaults to default)
+
+Returns:
+    Action execution results with success/failure status
+
+Example:
+    execute_edge({
+        "edge_id": "edge-entry-node-to-home",
+        "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+        "action_set_id": "actionset-1762771271791"  # optional
+    })""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "edge_id": {"type": "string", "description": "Edge identifier"},
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "action_set_id": {"type": "string", "description": "Specific action set to execute (optional - uses default if omitted)"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                        "host_name": {"type": "string", "description": "Host name (optional - defaults to 'sunri-pi1')"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["tree_id", "edge_id"]
+                }
+            },
+            {
                 "name": "dump_ui_elements",
                 "description": """Dump UI elements from current device screen
 
@@ -1351,6 +1396,45 @@ Returns: Success confirmation or confirmation request""",
                         "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                     },
                     "required": ["userinterface_id"]
+                }
+            },
+            {
+                "name": "verify_node",
+                "description": """Execute verifications for a specific node (frontend: useNode.ts line 403-411)
+
+This runs the embedded verifications in a node, useful for:
+- Testing node verifications without navigation
+- Debugging verification logic
+- Manual verification execution from UI
+
+Args:
+    node_id: Node identifier (REQUIRED)
+    tree_id: Navigation tree ID (REQUIRED)
+    device_id: Device identifier (optional - defaults to 'device1')
+    host_name: Host name (optional - defaults to 'sunri-pi1')
+    userinterface_name: User interface name (REQUIRED)
+    team_id: Team ID (optional - defaults to default)
+
+Returns:
+    Verification results with pass/fail status
+
+Example:
+    verify_node({
+        "node_id": "home",
+        "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+        "userinterface_name": "netflix_mobile"
+    })""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "node_id": {"type": "string", "description": "Node identifier"},
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "userinterface_name": {"type": "string", "description": "User interface name"},
+                        "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
+                        "host_name": {"type": "string", "description": "Host name (optional - defaults to 'sunri-pi1')"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["node_id", "tree_id", "userinterface_name"]
                 }
             }
         ]

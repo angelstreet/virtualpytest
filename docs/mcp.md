@@ -12,7 +12,7 @@
 
 ## 🎯 Core Capabilities
 
-The MCP server exposes **35 tools** for complete device automation:
+The MCP server exposes **37 tools** for complete device automation:
 
 ### 🔐 **Control Tools** (CRITICAL - MUST BE FIRST)
 - **`take_control`** - Lock device & generate navigation cache (REQUIRED FIRST)
@@ -66,6 +66,7 @@ The MCP server exposes **35 tools** for complete device automation:
 - **`dump_ui_elements`** - Dump UI elements from current screen
 - **`get_node`** - Get specific node by ID
 - **`get_edge`** - Get specific edge by ID
+- **`execute_edge`** - Execute edge actions directly (NEW)
 
 ### 🎨 **UserInterface Management Tools** (NEW - For App Model Creation)
 - **`create_userinterface`** - Create new app UI model (e.g., Netflix, YouTube)
@@ -74,6 +75,9 @@ The MCP server exposes **35 tools** for complete device automation:
 - **`list_nodes`** - List all nodes in a navigation tree
 - **`list_edges`** - List all edges in a navigation tree
 - **`delete_userinterface`** - Delete a userinterface model
+
+### ✅ **Node Verification Tools** (NEW)
+- **`verify_node`** - Execute node verifications without navigation (NEW)
 
 ---
 
@@ -457,6 +461,97 @@ Create subtree for deeper exploration.
 
 ---
 
+### execute_edge
+
+Execute a specific edge's action set without full navigation (frontend: useEdge.ts executeActionSet).
+
+**Parameters:**
+```json
+{
+  "edge_id": "edge-entry-node-to-home",    // REQUIRED - Edge identifier
+  "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",  // REQUIRED - Navigation tree ID
+  "action_set_id": "actionset-1762771271791",  // Optional - uses default if omitted
+  "device_id": "device1",                  // Optional - defaults to 'device1'
+  "host_name": "sunri-pi1",                // Optional - defaults to 'sunri-pi1'
+  "team_id": "team_1"                      // Optional - uses default
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "message": "Edge executed: Entry→home\n   Direction: forward (entry-node → home)\n   Action Set: actionset-1762771271791\n   Actions: 1 executed\n   Result: Action execution completed: 1/1 passed"
+}
+```
+
+**Example:**
+```python
+# Execute the entry→home edge in netflix_mobile
+execute_edge({
+    "edge_id": "edge-entry-node-to-home",
+    "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0"
+})
+# Returns: ✅ Edge executed with launch_app action
+```
+
+**Use Cases:**
+- **Test Individual Edges** - Verify edge actions work without full navigation
+- **Debug Edge Actions** - Test specific edges after updating them
+- **Manual Edge Execution** - Execute edges directly from UI or scripts
+
+**Frontend Equivalent:**
+This tool mirrors the frontend's `executeActionSet` function from `useEdge.ts` (line 104-161), which executes edge actions with navigation context for proper metrics recording.
+
+---
+
+### verify_node
+
+Execute embedded verifications for a specific node without navigation (frontend: useNode.ts verification handling).
+
+**Parameters:**
+```json
+{
+  "node_id": "home",                       // REQUIRED - Node identifier
+  "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",  // REQUIRED - Navigation tree ID
+  "userinterface_name": "netflix_mobile",  // REQUIRED - User interface name
+  "device_id": "device1",                  // Optional - defaults to 'device1'
+  "host_name": "sunri-pi1",                // Optional - defaults to 'sunri-pi1'
+  "team_id": "team_1"                      // Optional - uses default
+}
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "message": "Node verification passed: 3/3 verifications succeeded\n   Node: home"
+}
+```
+
+**Example:**
+```python
+# Verify home node in netflix_mobile
+verify_node({
+    "node_id": "home",
+    "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+    "userinterface_name": "netflix_mobile"
+})
+# Returns: ✅ Node verification passed: 3/3 verifications succeeded
+```
+
+**Use Cases:**
+- **Test Node Verifications** - Verify node checks work without navigation
+- **Debug Verification Logic** - Test specific node verifications after updating
+- **Manual Verification** - Execute verifications directly from UI or scripts
+
+**Frontend Equivalent:**
+This tool mirrors how the frontend handles node verifications during navigation in `useNode.ts` → `executeNavigation` (line 403-411), which automatically runs node verifications after reaching the target.
+
+**Note:** If the node has no verifications, the tool returns an informational message without error.
+
+---
+
 ### dump_ui_elements
 
 Dump UI elements from current screen.
@@ -758,7 +853,7 @@ curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
      https://dev.virtualpytest.com/server/mcp/health
 
 # Expected response:
-# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 35}
+# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 37}
 ```
 
 ### 2. Discover Available Commands (NEW!)
@@ -2733,8 +2828,61 @@ Display result + update history
 
 ---
 
-**Version**: 4.1.0  
-**Last Updated**: 2025-01-10
+**Version**: 4.2.0  
+**Last Updated**: 2025-11-10
+
+## 🎉 What's New in v4.2.0 (November 2025)
+
+### 🎮 Edge Execution & Node Verification Tools
+
+**2 New Tools for Direct Testing:**
+- ✅ **`execute_edge`** - Execute edge actions without full navigation
+- ✅ **`verify_node`** - Execute node verifications without navigation
+
+**Why These Tools?**
+- **Test Individual Components** - Test edges and nodes independently
+- **Debug Faster** - Verify specific edges/nodes without full navigation overhead
+- **Frontend Parity** - Mirrors how frontend executes edges and verifications
+- **Manual Testing** - Execute specific actions/verifications from UI or scripts
+
+**Use Cases:**
+1. **Edge Testing** - Verify edge actions work correctly after updates
+   ```python
+   # Test the entry→home edge with launch_app action
+   execute_edge({
+       "edge_id": "edge-entry-node-to-home",
+       "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0"
+   })
+   ```
+
+2. **Node Verification** - Test node verifications independently
+   ```python
+   # Verify home node checks pass
+   verify_node({
+       "node_id": "home",
+       "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+       "userinterface_name": "netflix_mobile"
+   })
+   ```
+
+3. **Debugging Workflow** - Update edge → test edge → verify it works
+   ```python
+   # 1. Update edge with new actions
+   update_edge(...)
+   
+   # 2. Test the edge directly
+   execute_edge(...)
+   
+   # 3. Verify result without full navigation
+   ```
+
+**Frontend Equivalent:**
+- `execute_edge` → `useEdge.ts` → `executeActionSet` (line 104-161)
+- `verify_node` → `useNode.ts` → verification handling (line 403-411)
+
+**Tool Count:** 37 tools (was 35 in v4.1.0)
+
+---
 
 ## 🎉 What's New in v4.1.0 (January 2025)
 
@@ -2905,7 +3053,8 @@ None! All v2.0.0 tool calls remain compatible:
 - **v2.0.0** (2025-01): 11 tools (production-ready quality)
 - **v3.0.0** (2025-01): 21 tools (complete automation suite + web UI)
 - **v4.0.0** (2025-01): 29 tools (+ primitive tools for AI-driven exploration)
-- **v4.1.0** (2025-01): **35 tools** (+ userinterface management tools)
+- **v4.1.0** (2025-01): 35 tools (+ userinterface management tools)
+- **v4.2.0** (2025-11): **37 tools** (+ execute_edge & verify_node)
 
 ---
 

@@ -324,4 +324,104 @@ class VerificationTools:
         
         print(f"[@MCP:poll_verification] Verification timed out after {max_wait}s")
         return {"content": [{"type": "text", "text": f"⏱️ Verification timed out after {max_wait}s"}], "isError": True}
+    
+    def verify_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Execute verifications for a specific node (frontend: useNode.ts line 403-411)
+        
+        This runs the embedded verifications in a node, useful for:
+        - Testing node verifications without navigation
+        - Debugging verification logic
+        - Manual verification execution from UI
+        
+        Args:
+            node_id: Node identifier (REQUIRED)
+            tree_id: Navigation tree ID (REQUIRED)
+            device_id: Device identifier (optional - defaults to 'device1')
+            host_name: Host name (optional - defaults to 'sunri-pi1')
+            userinterface_name: User interface name (REQUIRED)
+            team_id: Team ID (optional - defaults to default)
+        
+        Returns:
+            Verification results with pass/fail status
+        
+        Example:
+            verify_node({
+                "node_id": "home",
+                "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+                "userinterface_name": "netflix_mobile"
+            })
+        """
+        try:
+            node_id = params['node_id']
+            tree_id = params['tree_id']
+            userinterface_name = params['userinterface_name']
+            device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+            host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+            team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+            
+            print(f"[@MCP:verify_node] Verifying node {node_id} in tree {tree_id}")
+            
+            # STEP 1: Get the node to retrieve embedded verifications
+            node_result = self.api.get(
+                f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
+                params={'team_id': team_id}
+            )
+            
+            if not node_result.get('success'):
+                error_msg = node_result.get('error', 'Unknown error')
+                return {"content": [{"type": "text", "text": f"❌ Failed to get node: {error_msg}"}], "isError": True}
+            
+            node = node_result.get('node', {})
+            verifications = node.get('verifications', [])
+            
+            if not verifications:
+                return {"content": [{"type": "text", "text": f"ℹ️ Node {node_id} has no verifications to run"}], "isError": False}
+            
+            print(f"[@MCP:verify_node] Node has {len(verifications)} verifications to execute")
+            
+            # STEP 2: Execute verifications (same as frontend - calls verify_device_state)
+            # Frontend pattern from useNode.ts: navigation automatically runs node verifications
+            # We'll call the existing verify_device_state logic
+            
+            result = self.api.post(
+                '/server/verification/verify',
+                data={
+                    'host_name': host_name,
+                    'device_id': device_id,
+                    'userinterface_name': userinterface_name,
+                    'verifications': verifications,
+                    'tree_id': tree_id,
+                    'node_id': node_id
+                },
+                params={'team_id': team_id}
+            )
+            
+            if not result.get('success'):
+                error_msg = result.get('error', 'Unknown error')
+                return {"content": [{"type": "text", "text": f"❌ Node verification failed: {error_msg}"}], "isError": True}
+            
+            # STEP 3: Handle async execution - poll for completion
+            execution_id = result.get('execution_id')
+            if execution_id:
+                print(f"[@MCP:verify_node] Async verification started, polling execution {execution_id}")
+                return self._poll_verification_completion(execution_id, device_id, host_name, team_id, max_wait=30)
+            
+            # Synchronous result
+            verification_results = result.get('verification_results', [])
+            passed_count = sum(1 for vr in verification_results if vr.get('success'))
+            total_count = len(verification_results)
+            
+            success_all = passed_count == total_count
+            
+            if success_all:
+                return {"content": [{"type": "text", "text": f"✅ Node verification passed: {passed_count}/{total_count} verifications succeeded\n   Node: {node.get('label', node_id)}"}], "isError": False}
+            else:
+                failed_verifications = [vr for vr in verification_results if not vr.get('success')]
+                failure_details = "\n   - ".join([f"{vr.get('command', 'unknown')}: {vr.get('message', 'no details')}" for vr in failed_verifications])
+                return {"content": [{"type": "text", "text": f"❌ Node verification failed: {passed_count}/{total_count} verifications succeeded\n   Node: {node.get('label', node_id)}\n   Failed:\n   - {failure_details}"}], "isError": True}
+        
+        except Exception as e:
+            print(f"[@MCP:verify_node] Error: {e}")
+            return {"content": [{"type": "text", "text": f"❌ Error verifying node: {str(e)}"}], "isError": True}
 
