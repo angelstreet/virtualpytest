@@ -4,6 +4,11 @@ import {
   CheckCircle as CheckIcon,
   TrendingUp as TrendingUpIcon,
   FilterList as FilterIcon,
+  ArrowUpward as SortAscIcon,
+  ArrowDownward as SortDescIcon,
+  Link as LinkIcon,
+  Refresh as RefreshIcon,
+  BarChart as StatsIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -27,9 +32,15 @@ import {
   TableRow,
   Paper,
   Button,
+  Tooltip,
+  IconButton,
+  TableSortLabel,
 } from '@mui/material';
-import React from 'react';
+import React, { useState } from 'react';
 import { useCoverage } from '../hooks/pages/useCoverage';
+
+type SortField = 'category' | 'total' | 'covered' | 'coverage_percentage';
+type SortOrder = 'asc' | 'desc';
 
 const Coverage: React.FC = () => {
   const {
@@ -44,6 +55,9 @@ const Coverage: React.FC = () => {
     refreshAll,
   } = useCoverage();
 
+  const [sortField, setSortField] = useState<SortField>('coverage_percentage');
+  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+
   // Get coverage color based on percentage
   const getCoverageColor = (percentage: number) => {
     if (percentage >= 80) return 'success';
@@ -51,58 +65,144 @@ const Coverage: React.FC = () => {
     return 'error';
   };
 
+  // Handle sorting
+  const handleSort = (field: SortField) => {
+    if (sortField === field) {
+      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
+    } else {
+      setSortField(field);
+      setSortOrder('asc');
+    }
+  };
+
+  // Sort category data
+  const getSortedCategories = () => {
+    if (!coverageSummary) return [];
+    const entries = Object.entries(coverageSummary.by_category);
+    return entries.sort((a, b) => {
+      const [catA, dataA] = a;
+      const [catB, dataB] = b;
+      let comparison = 0;
+      
+      switch (sortField) {
+        case 'category':
+          comparison = catA.localeCompare(catB);
+          break;
+        case 'total':
+          comparison = dataA.total - dataB.total;
+          break;
+        case 'covered':
+          comparison = dataA.covered - dataB.covered;
+          break;
+        case 'coverage_percentage':
+          comparison = dataA.coverage_percentage - dataB.coverage_percentage;
+          break;
+      }
+      
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
+  };
+
+  // Calculate active filter count
+  const activeFilterCount = Object.values(filters).filter(v => v !== undefined && v !== '').length;
+
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ mb: 3, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-        <Box>
-          <Typography variant="h4" gutterBottom>
-            Requirements Coverage
-          </Typography>
-          <Typography variant="body1" color="textSecondary">
-            Track test coverage across all requirements and identify gaps in testing.
-          </Typography>
-        </Box>
-        <Button variant="outlined" startIcon={<FilterIcon />} onClick={() => refreshAll()}>
-          Refresh
-        </Button>
+      <Box sx={{ mb: 0.5 }}>
+        <Typography variant="h4" sx={{ mb: 1 }}>
+          Requirements Coverage
+        </Typography>
+      </Box>
+
+      {/* Quick Stats */}
+      <Box sx={{ mb: 1 }}>
+        <Card>
+          <CardContent sx={{ py: 0.5 }}>
+            <Box display="flex" alignItems="center" justifyContent="space-between">
+              <Box display="flex" alignItems="center" gap={1}>
+                <StatsIcon color="primary" />
+                <Typography variant="h6" sx={{ my: 0 }}>Quick Stats</Typography>
+              </Box>
+              <Box display="flex" alignItems="center" gap={4}>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Total Requirements</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {coverageSummary?.total_requirements || 0}
+                  </Typography>
+                </Box>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Coverage</Typography>
+                  <Typography variant="body2" fontWeight="bold" color={
+                    coverageSummary ? getCoverageColor(coverageSummary.coverage_percentage) + '.main' : 'text.primary'
+                  }>
+                    {coverageSummary?.coverage_percentage.toFixed(1) || 0}%
+                  </Typography>
+                </Box>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Categories</Typography>
+                  <Typography variant="body2" fontWeight="bold">
+                    {coverageSummary ? Object.keys(coverageSummary.by_category).length : 0}
+                  </Typography>
+                </Box>
+                <Box display="flex" alignItems="center" gap={1}>
+                  <Typography variant="body2">Gaps</Typography>
+                  <Typography variant="body2" fontWeight="bold" color="error.main">
+                    {uncoveredRequirements.length}
+                  </Typography>
+                </Box>
+              </Box>
+            </Box>
+          </CardContent>
+        </Card>
       </Box>
 
       {/* Filters */}
-      <Grid container spacing={2} sx={{ mb: 3 }}>
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Category</InputLabel>
-            <Select
-              value={filters.category || ''}
-              onChange={(e) => setFilters({ ...filters, category: e.target.value || undefined })}
-              label="Category"
-            >
-              <MenuItem value="">All Categories</MenuItem>
-              <MenuItem value="playback">Playback</MenuItem>
-              <MenuItem value="auth">Authentication</MenuItem>
-              <MenuItem value="navigation">Navigation</MenuItem>
-              <MenuItem value="search">Search</MenuItem>
-              <MenuItem value="ui">UI/UX</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-        <Grid item xs={12} sm={6} md={3}>
-          <FormControl fullWidth size="small">
-            <InputLabel>Priority</InputLabel>
-            <Select
-              value={filters.priority || ''}
-              onChange={(e) => setFilters({ ...filters, priority: e.target.value || undefined })}
-              label="Priority"
-            >
-              <MenuItem value="">All Priorities</MenuItem>
-              <MenuItem value="P1">P1 - Critical</MenuItem>
-              <MenuItem value="P2">P2 - High</MenuItem>
-              <MenuItem value="P3">P3 - Medium</MenuItem>
-            </Select>
-          </FormControl>
-        </Grid>
-      </Grid>
+      <Box sx={{ mb: 1, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Category</InputLabel>
+          <Select
+            value={filters.category || ''}
+            onChange={(e) => setFilters({ ...filters, category: e.target.value || undefined })}
+            label="Category"
+          >
+            <MenuItem value="">All Categories</MenuItem>
+            <MenuItem value="playback">Playback</MenuItem>
+            <MenuItem value="auth">Authentication</MenuItem>
+            <MenuItem value="navigation">Navigation</MenuItem>
+            <MenuItem value="search">Search</MenuItem>
+            <MenuItem value="ui">UI/UX</MenuItem>
+          </Select>
+        </FormControl>
+        <FormControl size="small" sx={{ minWidth: 200 }}>
+          <InputLabel>Priority</InputLabel>
+          <Select
+            value={filters.priority || ''}
+            onChange={(e) => setFilters({ ...filters, priority: e.target.value || undefined })}
+            label="Priority"
+          >
+            <MenuItem value="">All Priorities</MenuItem>
+            <MenuItem value="P1">P1 - Critical</MenuItem>
+            <MenuItem value="P2">P2 - High</MenuItem>
+            <MenuItem value="P3">P3 - Medium</MenuItem>
+          </Select>
+        </FormControl>
+        {activeFilterCount > 0 && (
+          <Chip 
+            label={`${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`}
+            size="small"
+            onDelete={() => setFilters({})}
+            color="primary"
+          />
+        )}
+        <Box sx={{ ml: 'auto' }}>
+          <Tooltip title="Refresh data">
+            <IconButton size="small" onClick={() => refreshAll()}>
+              <RefreshIcon />
+            </IconButton>
+          </Tooltip>
+        </Box>
+      </Box>
 
       {/* Error Display */}
       {(summaryError || uncoveredError) && (
@@ -121,104 +221,100 @@ const Coverage: React.FC = () => {
       {/* Overall Coverage Summary */}
       {!isLoadingSummary && coverageSummary && (
         <>
-          <Grid container spacing={3} sx={{ mb: 4 }}>
-            {/* Total Coverage Card */}
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <CoverageIcon color="primary" />
-                      <Typography variant="h6">Overall Coverage</Typography>
-                    </Box>
-                  </Box>
-                  <Typography variant="h3" color="primary" gutterBottom>
-                    {coverageSummary.coverage_percentage.toFixed(1)}%
-                  </Typography>
-                  <LinearProgress
-                    variant="determinate"
-                    value={coverageSummary.coverage_percentage}
-                    color={getCoverageColor(coverageSummary.coverage_percentage) as any}
-                    sx={{ height: 8, borderRadius: 4, mb: 2 }}
-                  />
-                  <Typography variant="body2" color="textSecondary">
-                    {coverageSummary.total_covered} of {coverageSummary.total_requirements} requirements covered
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Covered Requirements Card */}
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <CheckIcon color="success" />
-                      <Typography variant="h6">Covered</Typography>
-                    </Box>
-                  </Box>
-                  <Typography variant="h3" color="success.main" gutterBottom>
-                    {coverageSummary.total_covered}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Requirements with at least one testcase or script
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-
-            {/* Uncovered Requirements Card */}
-            <Grid item xs={12} md={4}>
-              <Card>
-                <CardContent>
-                  <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
-                    <Box display="flex" alignItems="center" gap={1}>
-                      <WarningIcon color="error" />
-                      <Typography variant="h6">Uncovered</Typography>
-                    </Box>
-                  </Box>
-                  <Typography variant="h3" color="error.main" gutterBottom>
-                    {coverageSummary.total_requirements - coverageSummary.total_covered}
-                  </Typography>
-                  <Typography variant="body2" color="textSecondary">
-                    Requirements without any coverage
-                  </Typography>
-                </CardContent>
-              </Card>
-            </Grid>
-          </Grid>
-
           {/* Coverage by Category */}
-          <Card sx={{ mb: 4 }}>
+          <Card sx={{ mb: 1 }}>
             <CardContent>
-              <Typography variant="h6" gutterBottom>
-                Coverage by Category
-              </Typography>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="h6" sx={{ my: 0 }}>
+                  Coverage by Category
+                </Typography>
+              </Box>
               <TableContainer>
-                <Table>
+                <Table size="small" sx={{ 
+                  '& .MuiTableRow-root': { height: '40px' },
+                  '& .MuiTableCell-root': { 
+                    px: 1, 
+                    py: 0.5,
+                    fontSize: '0.875rem',
+                  }
+                }}>
                   <TableHead>
                     <TableRow>
-                      <TableCell>Category</TableCell>
-                      <TableCell align="center">Total</TableCell>
-                      <TableCell align="center">Covered</TableCell>
-                      <TableCell align="center">Testcases</TableCell>
-                      <TableCell align="center">Scripts</TableCell>
-                      <TableCell align="right">Coverage %</TableCell>
-                      <TableCell align="right">Progress</TableCell>
+                      <TableCell sx={{ py: 1 }}>
+                        <TableSortLabel
+                          active={sortField === 'category'}
+                          direction={sortField === 'category' ? sortOrder : 'asc'}
+                          onClick={() => handleSort('category')}
+                        >
+                          <strong>Category</strong>
+                        </TableSortLabel>
+                      </TableCell>
+                      <TableCell align="center" sx={{ py: 1 }}>
+                        <Tooltip title="Total requirements in this category">
+                          <TableSortLabel
+                            active={sortField === 'total'}
+                            direction={sortField === 'total' ? sortOrder : 'asc'}
+                            onClick={() => handleSort('total')}
+                          >
+                            <strong>Total</strong>
+                          </TableSortLabel>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="center" sx={{ py: 1 }}>
+                        <Tooltip title="Requirements with test coverage">
+                          <TableSortLabel
+                            active={sortField === 'covered'}
+                            direction={sortField === 'covered' ? sortOrder : 'asc'}
+                            onClick={() => handleSort('covered')}
+                          >
+                            <strong>Covered</strong>
+                          </TableSortLabel>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="center" sx={{ py: 1 }}>
+                        <Tooltip title="Number of linked testcases">
+                          <strong>Testcases</strong>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="center" sx={{ py: 1 }}>
+                        <Tooltip title="Number of linked scripts">
+                          <strong>Scripts</strong>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 1 }}>
+                        <Tooltip title="Coverage percentage (80%+ is excellent)">
+                          <TableSortLabel
+                            active={sortField === 'coverage_percentage'}
+                            direction={sortField === 'coverage_percentage' ? sortOrder : 'asc'}
+                            onClick={() => handleSort('coverage_percentage')}
+                          >
+                            <strong>Coverage %</strong>
+                          </TableSortLabel>
+                        </Tooltip>
+                      </TableCell>
+                      <TableCell align="right" sx={{ py: 1 }}>
+                        <strong>Progress</strong>
+                      </TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {Object.entries(coverageSummary.by_category).map(([category, data]) => (
-                      <TableRow key={category} hover>
-                        <TableCell>
+                    {getSortedCategories().map(([category, data]) => (
+                      <TableRow
+                        key={category}
+                        sx={{
+                          '&:hover': {
+                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                          },
+                        }}
+                      >
+                        <TableCell sx={{ py: 0.5 }}>
                           <Chip label={category} size="small" />
                         </TableCell>
-                        <TableCell align="center">{data.total}</TableCell>
-                        <TableCell align="center">{data.covered}</TableCell>
-                        <TableCell align="center">{data.testcase_count}</TableCell>
-                        <TableCell align="center">{data.script_count}</TableCell>
-                        <TableCell align="right">
+                        <TableCell align="center" sx={{ py: 0.5 }}>{data.total}</TableCell>
+                        <TableCell align="center" sx={{ py: 0.5 }}>{data.covered}</TableCell>
+                        <TableCell align="center" sx={{ py: 0.5 }}>{data.testcase_count}</TableCell>
+                        <TableCell align="center" sx={{ py: 0.5 }}>{data.script_count}</TableCell>
+                        <TableCell align="right" sx={{ py: 0.5 }}>
                           <Typography
                             variant="body2"
                             fontWeight="medium"
@@ -233,7 +329,7 @@ const Coverage: React.FC = () => {
                             {data.coverage_percentage.toFixed(1)}%
                           </Typography>
                         </TableCell>
-                        <TableCell align="right" sx={{ width: 150 }}>
+                        <TableCell align="right" sx={{ width: 150, py: 0.5 }}>
                           <LinearProgress
                             variant="determinate"
                             value={data.coverage_percentage}
@@ -254,13 +350,13 @@ const Coverage: React.FC = () => {
       {/* Uncovered Requirements */}
       <Card>
         <CardContent>
-          <Box display="flex" alignItems="center" justifyContent="space-between" mb={2}>
+          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
             <Box display="flex" alignItems="center" gap={1}>
               <WarningIcon color="error" />
-              <Typography variant="h6">Uncovered Requirements</Typography>
+              <Typography variant="h6" sx={{ my: 0 }}>Uncovered Requirements</Typography>
             </Box>
             <Chip
-              label={`${uncoveredRequirements.length} gaps`}
+              label={`${uncoveredRequirements.length} gap${uncoveredRequirements.length !== 1 ? 's' : ''}`}
               color="error"
               size="small"
             />
@@ -280,32 +376,50 @@ const Coverage: React.FC = () => {
 
           {!isLoadingUncovered && uncoveredRequirements.length > 0 && (
             <TableContainer component={Paper} variant="outlined">
-              <Table size="small">
+              <Table size="small" sx={{ 
+                '& .MuiTableRow-root': { height: '40px' },
+                '& .MuiTableCell-root': { 
+                  px: 1, 
+                  py: 0.5,
+                  fontSize: '0.875rem',
+                }
+              }}>
                 <TableHead>
                   <TableRow>
-                    <TableCell>Code</TableCell>
-                    <TableCell>Name</TableCell>
-                    <TableCell>Category</TableCell>
-                    <TableCell>Priority</TableCell>
-                    <TableCell>App Type</TableCell>
-                    <TableCell>Device</TableCell>
+                    <TableCell sx={{ py: 1 }}><strong>Code</strong></TableCell>
+                    <TableCell sx={{ py: 1 }}><strong>Name</strong></TableCell>
+                    <TableCell sx={{ py: 1 }}><strong>Category</strong></TableCell>
+                    <TableCell sx={{ py: 1 }}>
+                      <Tooltip title="P1 = Critical, P2 = High, P3 = Medium">
+                        <strong>Priority</strong>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={{ py: 1 }}><strong>App Type</strong></TableCell>
+                    <TableCell sx={{ py: 1 }}><strong>Device</strong></TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {uncoveredRequirements.map((req) => (
-                    <TableRow key={req.requirement_id} hover>
-                      <TableCell>
+                    <TableRow
+                      key={req.requirement_id}
+                      sx={{
+                        '&:hover': {
+                          backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                        },
+                      }}
+                    >
+                      <TableCell sx={{ py: 0.5 }}>
                         <Typography variant="body2" fontWeight="medium">
                           {req.requirement_code}
                         </Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
                         <Typography variant="body2">{req.requirement_name}</Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
                         <Chip label={req.category || 'none'} size="small" />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
                         <Chip
                           label={req.priority}
                           size="small"
@@ -318,10 +432,10 @@ const Coverage: React.FC = () => {
                           }
                         />
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
                         <Typography variant="caption">{req.app_type}</Typography>
                       </TableCell>
-                      <TableCell>
+                      <TableCell sx={{ py: 0.5 }}>
                         <Typography variant="caption">{req.device_model}</Typography>
                       </TableCell>
                     </TableRow>
@@ -335,7 +449,7 @@ const Coverage: React.FC = () => {
 
       {/* Summary Stats */}
       {coverageSummary && (
-        <Box sx={{ mt: 3, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
+        <Box sx={{ mt: 1, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
           <Typography variant="caption" color="textSecondary" display="block">
             💡 <strong>Tip:</strong> Focus on P1 (Critical) uncovered requirements first. Link testcases
             and scripts to requirements from the Requirements page to improve coverage.

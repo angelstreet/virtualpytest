@@ -5,6 +5,15 @@ import {
   FilterList as FilterIcon,
   Link as LinkIcon,
   Search as SearchIcon,
+  Clear as ClearIcon,
+  CheckCircle as CoveredIcon,
+  Warning as PartialIcon,
+  Error as UncoveredIcon,
+  ExpandMore as ExpandIcon,
+  BarChart as StatsIcon,
+  Refresh as RefreshIcon,
+  Delete as DeleteIcon,
+  ContentCopy as DuplicateIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -33,6 +42,9 @@ import {
   DialogTitle,
   DialogContent,
   DialogActions,
+  Tooltip,
+  Collapse,
+  InputAdornment,
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useRequirements, Requirement } from '../hooks/pages/useRequirements';
@@ -57,6 +69,7 @@ const Requirements: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
+  const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
 
   // Create/Edit form state
   const [formData, setFormData] = useState({
@@ -292,7 +305,14 @@ const Requirements: React.FC = () => {
                 </TableRow>
               ) : (
                 filteredRequirements.map((req) => (
-                  <TableRow key={req.requirement_id} hover>
+                  <TableRow
+                    key={req.requirement_id}
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                      },
+                    }}
+                  >
                     <TableCell>
                       <Typography variant="body2" fontWeight="medium">
                         {req.requirement_code}

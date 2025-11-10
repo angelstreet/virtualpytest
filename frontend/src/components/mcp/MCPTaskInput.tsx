@@ -122,13 +122,14 @@ export const MCPTaskInput: React.FC = () => {
         <SmartToy />
       </IconButton>
 
-      {/* Sliding Task Panel - WIDER */}
+      {/* Sliding Task Panel - WIDER, NO HORIZONTAL SCROLL */}
       <Box
         sx={{
           width: isPanelVisible ? '600px' : '0px',
           height: isPanelVisible ? 'auto' : '0px',
           maxHeight: isPanelVisible ? '85vh' : '0px',
-          overflow: isPanelVisible ? 'auto' : 'hidden',
+          overflowY: isPanelVisible ? 'auto' : 'hidden',
+          overflowX: 'hidden',
           transition: 'width 300ms ease-in-out, height 300ms ease-in-out',
           backgroundColor: isPanelVisible ? 'rgba(0,0,0,0.85)' : 'transparent',
           borderRadius: isPanelVisible ? 1 : 0,
@@ -136,7 +137,7 @@ export const MCPTaskInput: React.FC = () => {
         }}
       >
         {isPanelVisible && (
-          <Box sx={{ p: 2, width: '600px' }}>
+          <Box sx={{ p: 2, width: '100%', maxWidth: '600px', boxSizing: 'border-box' }}>
             {/* Header */}
             <Typography
               variant="subtitle2"
@@ -225,6 +226,10 @@ export const MCPTaskInput: React.FC = () => {
                   backgroundColor: 'rgba(0, 0, 0, 0.8)',
                   borderRadius: 1,
                   border: `1px solid ${lastResponse.success ? '#4caf50' : '#f44336'}`,
+                  width: '100%',
+                  maxWidth: '100%',
+                  boxSizing: 'border-box',
+                  overflowX: 'hidden',
                 }}
               >
                 {/* Response Header */}
@@ -248,19 +253,57 @@ export const MCPTaskInput: React.FC = () => {
 
                 {/* Error Message (if failed) */}
                 {!lastResponse.success && (
-                  <Typography
-                    variant="body2"
-                    sx={{
-                      color: '#ffffff',
-                      fontSize: '0.75rem',
-                      lineHeight: 1.3,
-                      mb: 1,
-                      wordWrap: 'break-word',
-                      overflowWrap: 'break-word',
-                    }}
-                  >
-                    {lastResponse.error || 'Unknown error occurred'}
-                  </Typography>
+                  <Box>
+                    <Typography
+                      variant="body2"
+                      sx={{
+                        color: '#ffffff',
+                        fontSize: '0.75rem',
+                        lineHeight: 1.3,
+                        mb: 1,
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                      }}
+                    >
+                      {lastResponse.error || 'Unknown error occurred'}
+                    </Typography>
+
+                    {/* Show AI Reasoning if available on error */}
+                    {lastResponse.ai_response && (
+                      <Box
+                        sx={{
+                          mt: 1,
+                          p: 1,
+                          bgcolor: 'rgba(255, 193, 7, 0.1)',
+                          borderRadius: 1,
+                          border: '1px solid rgba(255, 193, 7, 0.3)',
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: '0.7rem',
+                            color: '#ffb74d',
+                            fontWeight: 600,
+                            mb: 0.5,
+                          }}
+                        >
+                          AI Analysis:
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: '0.7rem',
+                            lineHeight: 1.5,
+                            color: '#e0e0e0',
+                            whiteSpace: 'pre-wrap',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word',
+                          }}
+                        >
+                          {lastResponse.ai_response}
+                        </Typography>
+                      </Box>
+                    )}
+                  </Box>
                 )}
 
                 {/* SUCCESS: Show Useful Result First */}
@@ -272,6 +315,9 @@ export const MCPTaskInput: React.FC = () => {
                       bgcolor: 'rgba(76, 175, 80, 0.1)',
                       borderRadius: 1,
                       border: '1px solid rgba(76, 175, 80, 0.3)',
+                      width: '100%',
+                      maxWidth: '100%',
+                      boxSizing: 'border-box',
                     }}
                   >
                     <Typography
@@ -283,6 +329,7 @@ export const MCPTaskInput: React.FC = () => {
                         wordWrap: 'break-word',
                         overflowWrap: 'break-word',
                         overflowX: 'hidden',
+                        maxWidth: '100%',
                       }}
                     >
                       {lastResponse.result || 'Task completed'}
@@ -297,11 +344,14 @@ export const MCPTaskInput: React.FC = () => {
                     onChange={() => setToolsExpanded(!toolsExpanded)}
                     sx={{
                       mt: 1,
+                      width: '100%',
+                      maxWidth: '100%',
                       border: 1,
                       borderColor: 'divider',
                       boxShadow: 'none',
                       bgcolor: 'transparent',
                       '&:before': { display: 'none' },
+                      boxSizing: 'border-box',
                     }}
                   >
                     <AccordionSummary
@@ -453,11 +503,14 @@ export const MCPTaskInput: React.FC = () => {
                     onChange={() => setReasoningExpanded(!reasoningExpanded)}
                     sx={{
                       mt: 1,
+                      width: '100%',
+                      maxWidth: '100%',
                       border: 1,
                       borderColor: 'divider',
                       boxShadow: 'none',
                       bgcolor: 'transparent',
                       '&:before': { display: 'none' },
+                      boxSizing: 'border-box',
                     }}
                   >
                     <AccordionSummary
@@ -534,7 +587,7 @@ export const MCPTaskInput: React.FC = () => {
               </Box>
             )}
 
-            {/* Quick Examples */}
+            {/* Quick Examples - IMPROVED TIPS */}
             {!lastResponse && !isExecuting && (
               <Box sx={{ mt: 1 }}>
                 <Typography
@@ -548,7 +601,7 @@ export const MCPTaskInput: React.FC = () => {
                 >
                   Quick examples:
                 </Typography>
-                {['Go to rec page', 'Go to dashboard', 'Execute remote command'].map((example) => (
+                {['list all userinterface', 'list all host', 'list all devices for host sunri-pi1'].map((example) => (
                   <Button
                     key={example}
                     size="small"

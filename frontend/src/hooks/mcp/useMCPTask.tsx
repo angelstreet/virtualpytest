@@ -107,6 +107,18 @@ export const useMCPTask = (props?: MCPTaskProps): UseMCPTaskReturn => {
       const data: MCPTaskResponse = await response.json();
 
       if (response.ok) {
+        // Check if the backend returned an error (success: false)
+        if (!data.success || data.error) {
+          setLastResponse({
+            success: false,
+            error: data.error || 'AI execution failed',
+            ai_response: data.ai_response,
+            tool_calls: data.tool_calls || [],
+            execution_log: data.tool_calls || [],
+          });
+          return;
+        }
+
         // Map the MCP proxy response to our expected format
         const mappedResponse: MCPTaskResponse = {
           success: data.success,
