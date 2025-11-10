@@ -240,6 +240,11 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     fetchAvailableActions,
   } = useDeviceData();
   
+  // ==================== AUTO-LOAD FROM SESSION STORAGE ====================
+  // Check if there's a testcase ID to load from TestCaseEditor
+  // Note: loadTestCase will be extracted from useTestCaseBuilder() later
+  const hasCheckedSessionStorage = useRef(false);
+  
   useEffect(() => {
     setControlState(selectedHost, selectedDeviceId, isControlActive);
   }, [selectedHost, selectedDeviceId, isControlActive, setControlState]);
@@ -459,6 +464,42 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   //     fetchTestCaseList();
   //   }
   // }, [loadDialogOpen, fetchTestCaseList]);
+  
+  // ==================== AUTO-LOAD FROM SESSION STORAGE ====================
+  // Auto-load testcase from TestCaseEditor if stored in sessionStorage
+  useEffect(() => {
+    if (hasCheckedSessionStorage.current) return;
+    
+    const testcaseToLoad = sessionStorage.getItem('testcase_to_load');
+    if (testcaseToLoad) {
+      console.log('[@useTestCaseBuilderPage] Auto-loading testcase from sessionStorage:', testcaseToLoad);
+      hasCheckedSessionStorage.current = true;
+      
+      // Clear the flag
+      sessionStorage.removeItem('testcase_to_load');
+      
+      // Load the testcase after a short delay to let the UI render
+      setTimeout(() => {
+        loadTestCase(testcaseToLoad).then(() => {
+          console.log('[@useTestCaseBuilderPage] Testcase loaded successfully');
+          setSnackbar({
+            open: true,
+            message: 'Test case loaded successfully',
+            severity: 'success',
+          });
+        }).catch((error) => {
+          console.error('[@useTestCaseBuilderPage] Failed to load testcase:', error);
+          setSnackbar({
+            open: true,
+            message: `Failed to load test case: ${error}`,
+            severity: 'error',
+          });
+        });
+      }, 100);
+    } else {
+      hasCheckedSessionStorage.current = true;
+    }
+  }, [loadTestCase, setSnackbar]);
   
   // ==================== AV PANEL ====================
   const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);

@@ -15,11 +15,15 @@ import { TestCaseSelector } from '../components/testcase/TestCaseSelector';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 const TestCaseEditor: React.FC = () => {
-  // Handle testcase load (navigate to builder)
+  // Handle testcase load - store in sessionStorage and navigate to builder
   const handleLoad = (testcaseId: string) => {
     console.log('[@TestCaseEditor] Loading testcase:', testcaseId);
-    // Navigate to TestCase Builder with loaded testcase
-    window.location.href = `/test-creation/testcase-builder?load=${testcaseId}`;
+    
+    // Store testcase ID to load in sessionStorage
+    sessionStorage.setItem('testcase_to_load', testcaseId);
+    
+    // Navigate to TestCase Builder (it will check sessionStorage on mount)
+    window.location.href = '/builder/test-builder';
   };
 
   // Handle testcase delete
@@ -44,7 +48,9 @@ const TestCaseEditor: React.FC = () => {
 
   // Navigate to TestCase Builder for new test case
   const handleCreateNew = () => {
-    window.location.href = '/test-creation/testcase-builder';
+    // Clear any stored testcase to load
+    sessionStorage.removeItem('testcase_to_load');
+    window.location.href = '/builder/test-builder';
   };
 
   return (
