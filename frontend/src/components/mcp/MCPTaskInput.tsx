@@ -1,6 +1,28 @@
-import React, { useEffect } from 'react';
-import { Box, IconButton, TextField, Button, Typography, CircularProgress } from '@mui/material';
-import { SmartToy, Send, CheckCircle, Error } from '@mui/icons-material';
+import React, { useEffect, useState } from 'react';
+import { 
+  Box, 
+  IconButton, 
+  TextField, 
+  Button, 
+  Typography, 
+  CircularProgress,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Paper,
+  Divider,
+  Stack,
+  Chip,
+} from '@mui/material';
+import { 
+  SmartToy, 
+  Send, 
+  CheckCircle, 
+  Error,
+  ExpandMore as ExpandMoreIcon,
+  Build as ToolIcon,
+  Psychology as ReasoningIcon,
+} from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 
 import { useMCPTask } from '../../hooks/mcp/useMCPTask';
@@ -10,6 +32,10 @@ import { Device } from '../../types/common/Host_Types';
 export const MCPTaskInput: React.FC = () => {
   const navigate = useNavigate();
   const { selectedHost, selectedDeviceId } = useHostManager();
+
+  // State for expandable sections - COLLAPSED BY DEFAULT
+  const [toolsExpanded, setToolsExpanded] = useState(false);
+  const [reasoningExpanded, setReasoningExpanded] = useState(false);
 
   // Get the device_model from the selected device
   const selectedDevice = selectedHost?.devices?.find((d: Device) => d.device_id === selectedDeviceId);
@@ -96,12 +122,13 @@ export const MCPTaskInput: React.FC = () => {
         <SmartToy />
       </IconButton>
 
-      {/* Sliding Task Panel */}
+      {/* Sliding Task Panel - WIDER */}
       <Box
         sx={{
-          width: isPanelVisible ? '360px' : '0px',
+          width: isPanelVisible ? '600px' : '0px',
           height: isPanelVisible ? 'auto' : '0px',
-          overflow: 'hidden',
+          maxHeight: isPanelVisible ? '85vh' : '0px',
+          overflow: isPanelVisible ? 'auto' : 'hidden',
           transition: 'width 300ms ease-in-out, height 300ms ease-in-out',
           backgroundColor: isPanelVisible ? 'rgba(0,0,0,0.85)' : 'transparent',
           borderRadius: isPanelVisible ? 1 : 0,
@@ -109,7 +136,7 @@ export const MCPTaskInput: React.FC = () => {
         }}
       >
         {isPanelVisible && (
-          <Box sx={{ p: 2, width: '360px' }}>
+          <Box sx={{ p: 2, width: '600px' }}>
             {/* Header */}
             <Typography
               variant="subtitle2"
@@ -127,7 +154,7 @@ export const MCPTaskInput: React.FC = () => {
             <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', mb: 1 }}>
               <TextField
                 size="small"
-                placeholder="Enter task (e.g., 'Go to rec page')"
+                placeholder="Enter task (e.g., 'list userinterface')"
                 value={currentTask}
                 onChange={(e) => setCurrentTask(e.target.value)}
                 onKeyDown={handleKeyDown}
@@ -140,7 +167,7 @@ export const MCPTaskInput: React.FC = () => {
                   spellCheck: false,
                 }}
                 sx={{
-                  width: '240px',
+                  flex: 1,
                   '& .MuiOutlinedInput-root': {
                     backgroundColor: 'rgba(0, 0, 0, 0.7)',
                     '& fieldset': {
@@ -189,7 +216,7 @@ export const MCPTaskInput: React.FC = () => {
               </Button>
             </Box>
 
-            {/* Response Display */}
+            {/* Response Display - NEW: Useful Result First, Then Expandable Boxes */}
             {lastResponse && (
               <Box
                 sx={{
@@ -198,7 +225,6 @@ export const MCPTaskInput: React.FC = () => {
                   backgroundColor: 'rgba(0, 0, 0, 0.8)',
                   borderRadius: 1,
                   border: `1px solid ${lastResponse.success ? '#4caf50' : '#f44336'}`,
-                  maxWidth: '320px',
                 }}
               >
                 {/* Response Header */}
@@ -220,64 +246,271 @@ export const MCPTaskInput: React.FC = () => {
                   </Typography>
                 </Box>
 
-                {/* Response Content */}
-                {lastResponse.success ? (
-                  <>
-                    {/* AI Analysis */}
-                    {lastResponse.ai_analysis && (
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: '#e0e0e0',
-                          fontSize: '0.75rem',
-                          lineHeight: 1.3,
-                          mb: 1,
-                          fontStyle: 'italic',
-                        }}
-                      >
-                        AI: {lastResponse.ai_analysis}
-                      </Typography>
-                    )}
-
-                    {/* Tool Executed */}
-                    {lastResponse.tool_executed && (
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          color: '#4caf50',
-                          fontSize: '0.75rem',
-                          lineHeight: 1.3,
-                          mb: 0.5,
-                        }}
-                      >
-                        Tool: {lastResponse.tool_executed}
-                      </Typography>
-                    )}
-
-                    {/* Result */}
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        color: '#ffffff',
-                        fontSize: '0.75rem',
-                        lineHeight: 1.3,
-                      }}
-                    >
-                      {lastResponse.result || 'Task completed'}
-                    </Typography>
-                  </>
-                ) : (
-                  /* Error Message */
+                {/* Error Message (if failed) */}
+                {!lastResponse.success && (
                   <Typography
                     variant="body2"
                     sx={{
                       color: '#ffffff',
                       fontSize: '0.75rem',
                       lineHeight: 1.3,
+                      mb: 1,
+                      wordWrap: 'break-word',
+                      overflowWrap: 'break-word',
                     }}
                   >
                     {lastResponse.error || 'Unknown error occurred'}
                   </Typography>
+                )}
+
+                {/* SUCCESS: Show Useful Result First */}
+                {lastResponse.success && (
+                  <Box
+                    sx={{
+                      mb: 2,
+                      p: 1.5,
+                      bgcolor: 'rgba(76, 175, 80, 0.1)',
+                      borderRadius: 1,
+                      border: '1px solid rgba(76, 175, 80, 0.3)',
+                    }}
+                  >
+                    <Typography
+                      sx={{
+                        fontSize: '0.75rem',
+                        lineHeight: 1.6,
+                        color: '#e0e0e0',
+                        whiteSpace: 'pre-wrap',
+                        wordWrap: 'break-word',
+                        overflowWrap: 'break-word',
+                        overflowX: 'hidden',
+                      }}
+                    >
+                      {lastResponse.result || 'Task completed'}
+                    </Typography>
+                  </Box>
+                )}
+
+                {/* Tools Section - COLLAPSED BY DEFAULT */}
+                {lastResponse.success && lastResponse.execution_log && lastResponse.execution_log.length > 0 && (
+                  <Accordion 
+                    expanded={toolsExpanded} 
+                    onChange={() => setToolsExpanded(!toolsExpanded)}
+                    sx={{
+                      mt: 1,
+                      border: 1,
+                      borderColor: 'divider',
+                      boxShadow: 'none',
+                      bgcolor: 'transparent',
+                      '&:before': { display: 'none' },
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon sx={{ color: '#4caf50' }} />}
+                      sx={{
+                        bgcolor: 'rgba(76, 175, 80, 0.1)',
+                        minHeight: '36px',
+                        '&.Mui-expanded': {
+                          minHeight: '36px',
+                        },
+                        '& .MuiAccordionSummary-content': {
+                          my: 0.5,
+                        },
+                        '&:hover': {
+                          bgcolor: 'rgba(76, 175, 80, 0.2)',
+                        },
+                      }}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <ToolIcon sx={{ color: '#4caf50', fontSize: 16 }} />
+                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#4caf50' }}>
+                          Tools Used
+                        </Typography>
+                        <Chip 
+                          label={lastResponse.execution_log.length} 
+                          size="small" 
+                          sx={{ 
+                            height: 18,
+                            fontSize: '0.65rem',
+                            bgcolor: '#4caf50',
+                            color: '#000',
+                          }}
+                        />
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 1 }}>
+                      <Stack spacing={1}>
+                        {lastResponse.execution_log.map((toolCall: any, index: number) => (
+                          <Paper
+                            key={index}
+                            elevation={0}
+                            sx={{
+                              p: 1.5,
+                              border: 1,
+                              borderColor: 'rgba(76, 175, 80, 0.3)',
+                              borderRadius: 1,
+                              bgcolor: 'rgba(0, 0, 0, 0.5)',
+                            }}
+                          >
+                            <Stack spacing={1}>
+                              {/* Tool Name */}
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                                <Typography sx={{ 
+                                  fontSize: '0.75rem', 
+                                  fontWeight: 600, 
+                                  color: '#4caf50',
+                                  wordWrap: 'break-word',
+                                  overflowWrap: 'break-word',
+                                }}>
+                                  {index + 1}. {toolCall.tool}
+                                </Typography>
+                              </Box>
+
+                              <Divider sx={{ borderColor: 'rgba(76, 175, 80, 0.2)' }} />
+
+                              {/* Arguments */}
+                              {toolCall.arguments && Object.keys(toolCall.arguments).length > 0 && (
+                                <Box>
+                                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#888', mb: 0.5 }}>
+                                    Arguments:
+                                  </Typography>
+                                  <Paper
+                                    elevation={0}
+                                    sx={{
+                                      p: 1,
+                                      bgcolor: 'rgba(0, 0, 0, 0.7)',
+                                      border: 1,
+                                      borderColor: 'rgba(76, 175, 80, 0.2)',
+                                      borderRadius: 1,
+                                      fontFamily: 'monospace',
+                                      fontSize: '0.65rem',
+                                      maxHeight: '150px',
+                                      overflowY: 'auto',
+                                      overflowX: 'hidden',
+                                      wordWrap: 'break-word',
+                                    }}
+                                  >
+                                    <pre style={{ 
+                                      margin: 0, 
+                                      whiteSpace: 'pre-wrap', 
+                                      wordBreak: 'break-word', 
+                                      color: '#e0e0e0',
+                                      overflowWrap: 'break-word',
+                                    }}>
+                                      {JSON.stringify(toolCall.arguments, null, 2)}
+                                    </pre>
+                                  </Paper>
+                                </Box>
+                              )}
+
+                              {/* Result */}
+                              {toolCall.result && (
+                                <Box>
+                                  <Typography sx={{ fontSize: '0.7rem', fontWeight: 600, color: '#888', mb: 0.5 }}>
+                                    Result:
+                                  </Typography>
+                                  <Paper
+                                    elevation={0}
+                                    sx={{
+                                      p: 1,
+                                      bgcolor: 'rgba(0, 0, 0, 0.7)',
+                                      border: 1,
+                                      borderColor: 'rgba(76, 175, 80, 0.2)',
+                                      borderRadius: 1,
+                                      fontFamily: 'monospace',
+                                      fontSize: '0.65rem',
+                                      maxHeight: '150px',
+                                      overflowY: 'auto',
+                                      overflowX: 'hidden',
+                                      wordWrap: 'break-word',
+                                    }}
+                                  >
+                                    <pre style={{ 
+                                      margin: 0, 
+                                      whiteSpace: 'pre-wrap', 
+                                      wordBreak: 'break-word', 
+                                      color: '#e0e0e0',
+                                      overflowWrap: 'break-word',
+                                    }}>
+                                      {typeof toolCall.result === 'string' 
+                                        ? toolCall.result 
+                                        : JSON.stringify(toolCall.result, null, 2)}
+                                    </pre>
+                                  </Paper>
+                                </Box>
+                              )}
+                            </Stack>
+                          </Paper>
+                        ))}
+                      </Stack>
+                    </AccordionDetails>
+                  </Accordion>
+                )}
+
+                {/* Reasoning Section - COLLAPSED BY DEFAULT */}
+                {lastResponse.success && lastResponse.ai_analysis && (
+                  <Accordion 
+                    expanded={reasoningExpanded} 
+                    onChange={() => setReasoningExpanded(!reasoningExpanded)}
+                    sx={{
+                      mt: 1,
+                      border: 1,
+                      borderColor: 'divider',
+                      boxShadow: 'none',
+                      bgcolor: 'transparent',
+                      '&:before': { display: 'none' },
+                    }}
+                  >
+                    <AccordionSummary
+                      expandIcon={<ExpandMoreIcon sx={{ color: '#66bb6a' }} />}
+                      sx={{
+                        bgcolor: 'rgba(102, 187, 106, 0.1)',
+                        minHeight: '36px',
+                        '&.Mui-expanded': {
+                          minHeight: '36px',
+                        },
+                        '& .MuiAccordionSummary-content': {
+                          my: 0.5,
+                        },
+                        '&:hover': {
+                          bgcolor: 'rgba(102, 187, 106, 0.2)',
+                        },
+                      }}
+                    >
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <ReasoningIcon sx={{ color: '#66bb6a', fontSize: 16 }} />
+                        <Typography sx={{ fontSize: '0.8rem', fontWeight: 600, color: '#66bb6a' }}>
+                          AI Reasoning
+                        </Typography>
+                      </Stack>
+                    </AccordionSummary>
+                    <AccordionDetails sx={{ p: 1 }}>
+                      <Paper
+                        elevation={0}
+                        sx={{
+                          p: 1.5,
+                          border: 1,
+                          borderColor: 'rgba(102, 187, 106, 0.3)',
+                          borderRadius: 1,
+                          bgcolor: 'rgba(0, 0, 0, 0.5)',
+                        }}
+                      >
+                        <Typography 
+                          sx={{ 
+                            whiteSpace: 'pre-wrap',
+                            fontFamily: 'monospace',
+                            fontSize: '0.7rem',
+                            lineHeight: 1.6,
+                            color: '#e0e0e0',
+                            wordWrap: 'break-word',
+                            overflowWrap: 'break-word',
+                            overflowX: 'hidden',
+                          }}
+                        >
+                          {lastResponse.ai_analysis}
+                        </Typography>
+                      </Paper>
+                    </AccordionDetails>
+                  </Accordion>
                 )}
 
                 {/* Clear button */}

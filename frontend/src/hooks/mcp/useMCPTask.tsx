@@ -114,7 +114,10 @@ export const useMCPTask = (props?: MCPTaskProps): UseMCPTaskReturn => {
           tool_executed: data.tool_calls?.[0]?.tool || 'MCP Tool',
           tool_result: data.result,
           ai_analysis: data.ai_response || `Completed in ${data.iterations || 1} iteration(s)`,
-          execution_log: data.tool_calls,
+          ai_response: data.ai_response,
+          execution_log: data.tool_calls || [],  // Pass tool_calls as execution_log
+          tool_calls: data.tool_calls || [],
+          iterations: data.iterations,
           error: data.error,
         };
         
