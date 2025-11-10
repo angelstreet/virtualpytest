@@ -35,7 +35,6 @@ import {
   DialogContent,
   DialogActions,
   Tooltip,
-  Collapse,
   InputAdornment,
 } from '@mui/material';
 import React, { useState } from 'react';

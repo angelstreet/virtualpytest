@@ -351,6 +351,41 @@ class TestCaseTools:
         if not graph_json:
             return {"content": [{"type": "text", "text": "Error: graph_json is required"}], "isError": True}
         
+        # ==================== VALIDATE GRAPH STRUCTURE ====================
+        # Validate before saving to catch errors early
+        validation_errors = []
+        
+        nodes = graph_json.get('nodes', [])
+        edges = graph_json.get('edges', [])
+        
+        # Check navigation blocks
+        for node in nodes:
+            if node.get('type') == 'navigation':
+                data = node.get('data', {})
+                if not data.get('target_node') and not data.get('target_node_id'):
+                    validation_errors.append(
+                        f"❌ Navigation node '{node.get('id')}' missing 'target_node' (UUID). "
+                        f"Use target_node with UUID from navigation tree, not target_node_label."
+                    )
+        
+        # Check edge types
+        for edge in edges:
+            edge_type = edge.get('type')
+            if edge_type and edge_type not in ['success', 'failure']:
+                validation_errors.append(
+                    f"❌ Edge '{edge.get('id')}' has invalid type '{edge_type}'. "
+                    f"Must be 'success' or 'failure'."
+                )
+        
+        # Return validation errors if any
+        if validation_errors:
+            error_msg = "Graph validation failed:\n" + "\n".join(validation_errors)
+            error_msg += "\n\n💡 See docs/LESSONS_LEARNED_testcase_validation.md for correct format."
+            return {
+                "content": [{"type": "text", "text": error_msg}],
+                "isError": True
+            }
+        
         # Build request - SAME format as frontend
         data = {
             'testcase_name': testcase_name,
