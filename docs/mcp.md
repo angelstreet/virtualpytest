@@ -12,7 +12,7 @@
 
 ## 🎯 Core Capabilities
 
-The MCP server exposes **39 tools** for complete device automation:
+The MCP server exposes **49 tools** for complete device automation:
 
 ### 🔐 **Control Tools** (CRITICAL - MUST BE FIRST)
 - **`take_control`** - Lock device & generate navigation cache (REQUIRED FIRST)
@@ -78,6 +78,18 @@ The MCP server exposes **39 tools** for complete device automation:
 
 ### ✅ **Node Verification Tools** (NEW)
 - **`verify_node`** - Execute node verifications without navigation (NEW)
+
+### 📋 **Requirements Management Tools** (NEW - Phase 2025-11)
+- **`create_requirement`** - Create new requirement with app_type/device_model
+- **`list_requirements`** - List all requirements with filters
+- **`get_requirement`** - Get requirement details by ID
+- **`update_requirement`** - Update requirement fields (app_type, device_model for reusability)
+- **`link_testcase_to_requirement`** - Link testcase to requirement for coverage
+- **`unlink_testcase_from_requirement`** - Unlink testcase from requirement
+- **`get_testcase_requirements`** - Get all requirements linked to testcase
+- **`get_requirement_coverage`** - Get coverage details for requirement
+- **`get_coverage_summary`** - Get overall coverage metrics and breakdowns
+- **`get_uncovered_requirements`** - Get requirements without test coverage
 
 ---
 
@@ -879,7 +891,7 @@ curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
      https://dev.virtualpytest.com/server/mcp/health
 
 # Expected response:
-# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 39}
+# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 49}
 ```
 
 ### 2. Discover Available Commands (NEW!)
@@ -2301,13 +2313,15 @@ tail -f mcp_server.log
 
 Available tools on startup:
 ```
-[INFO] VirtualPyTest MCP Server initialized with 29 tools
+[INFO] VirtualPyTest MCP Server initialized with 49 tools
 [INFO] Available tools:
   - take_control: Lock device and generate cache
   - release_control: Release device lock
   - execute_device_action: Execute commands
   - create_node: Create node in navigation tree
   - dump_ui_elements: Dump UI elements from screen
+  - create_requirement: Create requirement with app_type/device_model
+  - update_requirement: Update requirement fields for reusability
   ...
 ```
 
@@ -2867,8 +2881,97 @@ Display result + update history
 
 ---
 
-**Version**: 4.2.1  
+**Version**: 4.3.0  
 **Last Updated**: 2025-11-10
+
+## 🎉 What's New in v4.3.0 (November 2025)
+
+### 📋 **Requirements Management Tools**
+
+**10 New Tools for Requirements & Coverage Tracking:**
+- ✅ **`create_requirement`** - Create requirements with app_type/device_model for reusability
+- ✅ **`list_requirements`** - List requirements with filters (category, priority, status)
+- ✅ **`get_requirement`** - Get requirement details by ID
+- ✅ **`update_requirement`** - Update requirements including app_type and device_model (**NEW**)
+- ✅ **`link_testcase_to_requirement`** - Link testcases for coverage tracking
+- ✅ **`unlink_testcase_from_requirement`** - Remove testcase links
+- ✅ **`get_testcase_requirements`** - Get requirements covered by testcase
+- ✅ **`get_requirement_coverage`** - Get detailed coverage for requirement
+- ✅ **`get_coverage_summary`** - Get overall coverage metrics with breakdowns
+- ✅ **`get_uncovered_requirements`** - Identify coverage gaps
+
+**Why Requirements Management?**
+- **Hybrid Approach** - Generic streaming requirements (`app_type: "streaming"`) reusable across Netflix, YouTube, Disney+
+- **App-Specific** - Netflix-specific requirements (`app_type: "netflix"`) for unique features
+- **Device-Specific** - Platform behaviors (`device_model: "android_mobile"`)
+- **Coverage Tracking** - Link testcases to requirements, track coverage metrics
+- **Gap Analysis** - Identify uncovered requirements automatically
+
+**Hybrid Requirements Strategy:**
+```python
+# Generic streaming requirement (reusable across apps)
+create_requirement({
+    "requirement_code": "REQ_STREAM_PLAY_001",
+    "requirement_name": "User can play video content",
+    "app_type": "streaming",        # Works for Netflix, YouTube, etc.
+    "device_model": "all",
+    "priority": "P1"
+})
+
+# App-specific requirement
+create_requirement({
+    "requirement_code": "REQ_NETFLIX_PROFILES_001",
+    "requirement_name": "User can switch Netflix profiles",
+    "app_type": "netflix",          # Netflix-specific
+    "device_model": "all",
+    "priority": "P1"
+})
+
+# Update existing requirement to be generic
+update_requirement({
+    "requirement_id": "abc-123",
+    "app_type": "streaming",        # Make it reusable
+    "device_model": "android_mobile"
+})
+```
+
+**Example Workflow:**
+```python
+# 1. Create requirements
+req_id = create_requirement({
+    "requirement_code": "REQ_PLAYBACK_001",
+    "requirement_name": "User can play video",
+    "app_type": "streaming",
+    "device_model": "all",
+    "priority": "P1",
+    "category": "playback"
+})
+
+# 2. Create testcase
+testcase_id = save_testcase({
+    "testcase_name": "Basic Playback Test",
+    "graph_json": {...}
+})
+
+# 3. Link testcase to requirement
+link_testcase_to_requirement({
+    "testcase_id": testcase_id,
+    "requirement_id": req_id,
+    "coverage_type": "full"
+})
+
+# 4. Get coverage summary
+summary = get_coverage_summary()
+# Returns: Total: 12, Covered: 8, Uncovered: 4, Coverage: 66.7%
+
+# 5. Find gaps
+gaps = get_uncovered_requirements()
+# Returns: List of requirements without test coverage
+```
+
+**Tool Count:** 49 tools (was 39 in v4.2.1)
+
+---
 
 ## 🎉 What's New in v4.2.1 (November 2025)
 
@@ -3133,8 +3236,9 @@ None! All v2.0.0 tool calls remain compatible:
 - **v3.0.0** (2025-01): 21 tools (complete automation suite + web UI)
 - **v4.0.0** (2025-01): 29 tools (+ primitive tools for AI-driven exploration)
 - **v4.1.0** (2025-01): 35 tools (+ userinterface management tools)
-- **v4.2.0** (2025-11): **39 tools** (+ execute_edge & verify_node)
-- **v4.2.1** (2025-11): **39 tools** (documentation aligned with implementation)
+- **v4.2.0** (2025-11): 39 tools (+ execute_edge & verify_node)
+- **v4.2.1** (2025-11): 39 tools (documentation aligned with implementation)
+- **v4.3.0** (2025-11): **49 tools** (+ requirements management with hybrid approach)
 
 ---
 

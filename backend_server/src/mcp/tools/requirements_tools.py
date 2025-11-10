@@ -112,6 +112,76 @@ class RequirementsTools:
         
         return {"content": [{"type": "text", "text": response_text}], "isError": False}
     
+    def update_requirement(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Update an existing requirement
+        
+        Args:
+            params: {
+                'requirement_id': str (REQUIRED)
+                'requirement_name': str (OPTIONAL)
+                'requirement_code': str (OPTIONAL)
+                'description': str (OPTIONAL)
+                'priority': str (OPTIONAL)
+                'category': str (OPTIONAL)
+                'app_type': str (OPTIONAL)
+                'device_model': str (OPTIONAL)
+                'status': str (OPTIONAL)
+                'acceptance_criteria': str (OPTIONAL)
+                'team_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            MCP-formatted response
+        """
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        requirement_id = params.get('requirement_id')
+        
+        if not requirement_id:
+            return {"content": [{"type": "text", "text": "❌ Error: requirement_id is required"}], "isError": True}
+        
+        # Build update body - only include fields that are provided
+        body = {'team_id': team_id}
+        
+        if params.get('requirement_name'):
+            body['requirement_name'] = params.get('requirement_name')
+        if params.get('requirement_code'):
+            body['requirement_code'] = params.get('requirement_code')
+        if params.get('description'):
+            body['description'] = params.get('description')
+        if params.get('priority'):
+            body['priority'] = params.get('priority')
+        if params.get('category'):
+            body['category'] = params.get('category')
+        if params.get('app_type'):
+            body['app_type'] = params.get('app_type')
+        if params.get('device_model'):
+            body['device_model'] = params.get('device_model')
+        if params.get('status'):
+            body['status'] = params.get('status')
+        if params.get('acceptance_criteria'):
+            body['acceptance_criteria'] = params.get('acceptance_criteria')
+        
+        if len(body) == 1:  # Only team_id
+            return {"content": [{"type": "text", "text": "❌ Error: No fields to update"}], "isError": True}
+        
+        print(f"[@MCP:update_requirement] Updating requirement: {requirement_id}")
+        result = self.api.put(f'/server/requirements/{requirement_id}', data=body)
+        
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to update requirement')
+            return {"content": [{"type": "text", "text": f"❌ Update failed: {error_msg}"}], "isError": True}
+        
+        response_text = f"✅ Requirement updated: {requirement_id}"
+        if body.get('requirement_code'):
+            response_text += f"\n   Code: {body['requirement_code']}"
+        if body.get('app_type'):
+            response_text += f"\n   App Type: {body['app_type']}"
+        if body.get('device_model'):
+            response_text += f"\n   Device Model: {body['device_model']}"
+        
+        return {"content": [{"type": "text", "text": response_text}], "isError": False}
+    
     def get_requirement(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Get requirement by ID

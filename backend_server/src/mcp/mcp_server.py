@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 48 core tools for device automation:
+This server provides 49 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. list_actions - List available device actions
 3. execute_device_action - Execute remote/ADB/web/desktop commands
@@ -46,14 +46,15 @@ This server provides 48 core tools for device automation:
 38. delete_userinterface - Delete userinterface models
 39. verify_node - Verify node verifications directly
 40. create_requirement - Create new requirement
-41. list_requirements - List all requirements
-42. get_requirement - Get requirement details
-43. link_testcase_to_requirement - Link testcase for coverage
-44. unlink_testcase_from_requirement - Unlink testcase
-45. get_testcase_requirements - Get testcase requirements
-46. get_requirement_coverage - Get requirement coverage details
-47. get_coverage_summary - Get overall coverage metrics
-48. get_uncovered_requirements - List uncovered requirements
+41. list_requirements - List all requirements  
+42. get_requirement - Get requirement by ID
+43. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
+44. link_testcase_to_requirement - Link testcase for coverage
+45. unlink_testcase_from_requirement - Unlink testcase
+46. get_testcase_requirements - Get testcase requirements
+47. get_requirement_coverage - Get requirement coverage details
+48. get_coverage_summary - Get overall coverage metrics
+49. get_uncovered_requirements - Get requirements without coverage
 """
 
 import logging
@@ -186,6 +187,7 @@ class VirtualPyTestMCPServer:
             'create_requirement': self.requirements_tools.create_requirement,
             'list_requirements': self.requirements_tools.list_requirements,
             'get_requirement': self.requirements_tools.get_requirement,
+            'update_requirement': self.requirements_tools.update_requirement,
             'link_testcase_to_requirement': self.requirements_tools.link_testcase_to_requirement,
             'unlink_testcase_from_requirement': self.requirements_tools.unlink_testcase_from_requirement,
             'get_testcase_requirements': self.requirements_tools.get_testcase_requirements,
@@ -1529,6 +1531,37 @@ Example:
                     "type": "object",
                     "properties": {
                         "requirement_id": {"type": "string", "description": "Requirement ID"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["requirement_id"]
+                }
+            },
+            {
+                "name": "update_requirement",
+                "description": """Update an existing requirement
+
+Modify requirement fields including app_type and device_model for reusability.
+
+Example:
+  update_requirement(
+    requirement_id='abc-123-def',
+    app_type='streaming',
+    device_model='all',
+    description='Updated description'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "requirement_id": {"type": "string", "description": "Requirement ID (REQUIRED)"},
+                        "requirement_name": {"type": "string", "description": "Requirement name (optional)"},
+                        "requirement_code": {"type": "string", "description": "Requirement code (optional)"},
+                        "description": {"type": "string", "description": "Description (optional)"},
+                        "priority": {"type": "string", "description": "Priority: P1, P2, P3 (optional)"},
+                        "category": {"type": "string", "description": "Category (optional)"},
+                        "app_type": {"type": "string", "description": "App type: 'streaming', 'social', 'all' (optional)"},
+                        "device_model": {"type": "string", "description": "Device model: 'android_mobile', 'android_tv', 'web', 'all' (optional)"},
+                        "status": {"type": "string", "description": "Status: 'active', 'deprecated' (optional)"},
+                        "acceptance_criteria": {"type": "string", "description": "Acceptance criteria (optional)"},
                         "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                     },
                     "required": ["requirement_id"]
