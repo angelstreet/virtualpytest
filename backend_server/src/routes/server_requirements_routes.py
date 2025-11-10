@@ -157,11 +157,15 @@ def requirements_update(requirement_id):
         success = update_requirement(
             requirement_id=requirement_id,
             team_id=team_id,
+            requirement_code=data.get('requirement_code'),
             requirement_name=data.get('requirement_name'),
+            category=data.get('category'),
             description=data.get('description'),
             priority=data.get('priority'),
             status=data.get('status'),
-            acceptance_criteria=data.get('acceptance_criteria')
+            acceptance_criteria=data.get('acceptance_criteria'),
+            app_type=data.get('app_type'),
+            device_model=data.get('device_model')
         )
         
         if success:

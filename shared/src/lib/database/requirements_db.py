@@ -151,11 +151,15 @@ def get_requirement_by_code(requirement_code: str, team_id: str) -> Optional[Dic
 def update_requirement(
     requirement_id: str,
     team_id: str,
+    requirement_code: str = None,
     requirement_name: str = None,
+    category: str = None,
     description: str = None,
     priority: str = None,
     status: str = None,
-    acceptance_criteria: List[str] = None
+    acceptance_criteria: List[str] = None,
+    app_type: str = None,
+    device_model: str = None
 ) -> bool:
     """Update requirement."""
     supabase = get_supabase()
@@ -165,8 +169,12 @@ def update_requirement(
     try:
         update_data = {}
         
+        if requirement_code is not None:
+            update_data['requirement_code'] = requirement_code
         if requirement_name is not None:
             update_data['requirement_name'] = requirement_name
+        if category is not None:
+            update_data['category'] = category
         if description is not None:
             update_data['description'] = description
         if priority is not None:
@@ -175,6 +183,10 @@ def update_requirement(
             update_data['status'] = status
         if acceptance_criteria is not None:
             update_data['acceptance_criteria'] = acceptance_criteria
+        if app_type is not None:
+            update_data['app_type'] = app_type
+        if device_model is not None:
+            update_data['device_model'] = device_model
         
         if not update_data:
             print("[@requirements_db] WARNING: No fields to update")

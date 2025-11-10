@@ -101,7 +101,9 @@ class RequirementsTools:
         
         for req in requirements[:50]:  # Limit to 50 for readability
             response_text += f"• {req['requirement_code']} - {req['requirement_name']}\n"
+            response_text += f"  ID: {req.get('requirement_id', 'N/A')}\n"
             response_text += f"  Priority: {req.get('priority', 'N/A')} | Category: {req.get('category', 'N/A')}\n"
+            response_text += f"  App Type: {req.get('app_type', 'N/A')} | Device Model: {req.get('device_model', 'N/A')}\n"
             if req.get('description'):
                 desc = req['description'][:100] + '...' if len(req['description']) > 100 else req['description']
                 response_text += f"  Description: {desc}\n"
