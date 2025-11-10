@@ -80,34 +80,51 @@ Create nodes for key screens (entry and home already exist):
 Create edges with bidirectional action_sets using actual element_ids from UI dump:
 
 1. **entry → home** (update existing edge)
-   - Forward: launch_app with package com.netflix.mediaclient, delay 8000ms
-   - Then: tap_coordinates to dismiss popup, delay 2000ms
+   - **CRITICAL**: First close_app (com.netflix.mediaclient, wait_time 1000ms) to ensure clean state
+   - Then: launch_app with package com.netflix.mediaclient, wait_time 8000ms
+   - Then: tap_coordinates to dismiss popup, wait_time 2000ms
+   - **Why**: If app is already running, launch_app won't return to home screen. Always close first!
 
 2. **home ↔ search**
-   - Forward: click_element on search tab, delay 2000ms
-   - Backward: click_element on home tab, delay 2000ms
+   - Forward: click_element on search tab, wait_time 2000ms
+   - Backward: click_element on home tab, wait_time 2000ms
 
 3. **home → content_detail**
-   - Forward: click_element on first content card, delay 2000ms
-   - Backward: press_key BACK, delay 1500ms
+   - Forward: click_element on first content card, wait_time 2000ms
+   - Backward: press_key BACK, wait_time 1500ms
 
 4. **content_detail → player**
-   - Forward: click_element on play button, delay 5000ms
-   - Backward: press_key BACK, delay 1500ms
+   - Forward: click_element on play button, wait_time 5000ms
+   - Backward: press_key BACK, wait_time 1500ms
 
 5. **home ↔ downloads**
-   - Forward: click_element on downloads tab, delay 2000ms
-   - Backward: click_element on home tab, delay 2000ms
+   - Forward: click_element on downloads tab, wait_time 2000ms
+   - Backward: click_element on home tab, wait_time 2000ms
 
 6. **home ↔ more**
-   - Forward: click_element on more/profile tab, delay 2000ms
-   - Backward: click_element on home tab, delay 2000ms
+   - Forward: click_element on more/profile tab, wait_time 2000ms
+   - Backward: click_element on home tab, wait_time 2000ms
 
 7. **search → content_detail**
    - Forward: click_element on search input, type_text "Stranger Things", click_element on first result
-   - Backward: press_key BACK, delay 1500ms
+   - Backward: press_key BACK, wait_time 1500ms
 
 **Format:** All edges must have action_sets with id, label, actions, retry_actions, failure_actions. Use element_id from UI dump, not guesses.
+
+**Example JSON structure for entry → home edge:**
+```json
+{
+  "id": "entry_to_home",
+  "label": "entry → home",
+  "actions": [
+    {"command": "close_app", "params": {"package": "com.netflix.mediaclient", "wait_time": 1000}},
+    {"command": "launch_app", "params": {"package": "com.netflix.mediaclient", "wait_time": 8000}},
+    {"command": "tap_coordinates", "params": {"x": 540, "y": 1645, "wait_time": 2000}}
+  ],
+  "retry_actions": [],
+  "failure_actions": []
+}
+```
 
 ### Step 5: Add Verifications
 Update each node with verifications using update_node:

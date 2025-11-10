@@ -132,16 +132,36 @@ take_control({
 ---
 
 ### Step 4: Launch Application
+
+**⚠️ ANDROID DEVICES ONLY: Force Close First**
+
+For `android_mobile` and `android_tv`, the entry→home edge MUST close the app before launching to ensure a clean state:
+
 ```
 execute_edge({
     "edge_id": "edge-entry-node-to-home",
     "tree_id": "<TREE_ID>"
 })
 ```
-**What This Does:**
-- Executes the pre-created entry→home edge
-- Runs `launch_app` with package name
-- Waits for app to load
+
+**Default Entry→Home Edge Structure:**
+- **For Android**: close_app → launch_app → (optional dismiss popup)
+- **For Web/STB**: Just launch_app or navigate
+
+**Why Android Needs This:**
+- If app is already running, `launch_app` resumes where user left off (not home screen)
+- `close_app` uses `am force-stop` to ensure clean launch
+- This prevents navigation failures when tests run multiple times
+
+**Example Android Entry→Home Actions:**
+```json
+{
+  "actions": [
+    {"command": "close_app", "params": {"package": "com.example.app", "wait_time": 1000}},
+    {"command": "launch_app", "params": {"package": "com.example.app", "wait_time": 8000}}
+  ]
+}
+```
 
 **Validation:** Wait 8-10 seconds for app to fully load before proceeding
 
