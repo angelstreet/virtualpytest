@@ -18,7 +18,8 @@ import { BuilderProvider } from './contexts/builder/BuilderContext';
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Rec = React.lazy(() => import('./pages/Rec'));
 const CampaignEditor = React.lazy(() => import('./pages/CampaignEditor'));
-const Collections = React.lazy(() => import('./pages/Collections'));
+const Requirements = React.lazy(() => import('./pages/Requirements'));
+const Coverage = React.lazy(() => import('./pages/Coverage'));
 const Models = React.lazy(() => import('./pages/Models'));
 const GrafanaDashboard = React.lazy(() => import('./pages/GrafanaDashboard'));
 const RunTests = React.lazy(() => import('./pages/RunTests'));
@@ -181,7 +182,8 @@ const App: React.FC = () => {
                   <Route path="/test-plan/test-cases" element={<TestCaseEditor />} />
                   <Route path="/test-plan/testcase-builder" element={<TestCaseBuilder />} /> {/* Legacy redirect */}
                   <Route path="/test-plan/campaigns" element={<CampaignEditor />} />
-                  <Route path="/test-plan/collections" element={<Collections />} />
+                  <Route path="/test-plan/requirements" element={<Requirements />} />
+                  <Route path="/test-plan/coverage" element={<Coverage />} />
 
                   {/* Test Execution Routes */}
                   <Route path="/test-execution/run-tests" element={<RunTests />} />

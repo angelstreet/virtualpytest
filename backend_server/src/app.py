@@ -184,6 +184,10 @@ def register_all_server_routes(app):
         from routes import server_testcase_routes
         print("[@backend_server:routes] ✅ server_testcase_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_requirements_routes...")
+        from routes import server_requirements_routes
+        print("[@backend_server:routes] ✅ server_requirements_routes imported successfully")
+        
         print("[@backend_server:routes] 🔍 Importing server_executable_routes...")
         from routes import server_executable_routes
         print("[@backend_server:routes] ✅ server_executable_routes imported successfully")
@@ -285,6 +289,7 @@ def register_all_server_routes(app):
             (server_validation_routes.server_validation_bp, 'Validation operations'),
             (server_campaign_routes.server_campaign_bp, 'Campaign management'),
             (server_testcase_routes.server_testcase_bp, 'Test case management'),
+            (server_requirements_routes.server_requirements_bp, 'Requirements management'),
             (server_executable_routes.server_executable_bp, 'Unified executable listing (scripts + testcases)'),
             (server_userinterface_routes.server_userinterface_bp, 'User interface management'),
             (server_execution_results_routes.server_execution_results_bp, 'Execution results'),
