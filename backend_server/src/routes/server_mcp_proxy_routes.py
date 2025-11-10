@@ -112,6 +112,8 @@ Note: Based on device model:
         max_iterations = 3
         iteration = 0
         last_tool_result = None
+        all_tool_calls = []  # Track all tool calls for frontend display
+        ai_reasoning_parts = []  # Collect AI reasoning from each iteration
         
         while iteration < max_iterations:
             iteration += 1
@@ -149,13 +151,22 @@ Note: Based on device model:
             
             print(f"[@mcp_proxy] OpenRouter response: {list(message.keys())}")
             
+            # Collect AI reasoning (content) if present
+            ai_content = message.get('content', '')
+            if ai_content:
+                ai_reasoning_parts.append(f"[Iteration {iteration}] {ai_content}")
+                print(f"[@mcp_proxy] AI reasoning: {ai_content}")
+            
             # Check if AI called a tool
             if 'tool_calls' not in message or not message['tool_calls']:
-                ai_content = message.get('content', 'No response')
-                ai_reasoning = message.get('reasoning', 'No reasoning provided')
+                ai_reasoning_text = message.get('reasoning', 'No reasoning provided')
                 print(f"[@mcp_proxy] ⚠️ AI did not call any tool (iteration {iteration})")
                 print(f"[@mcp_proxy] AI content: {ai_content}")
-                print(f"[@mcp_proxy] AI reasoning: {ai_reasoning}")
+                print(f"[@mcp_proxy] AI reasoning: {ai_reasoning_text}")
+                
+                # Add to reasoning parts
+                if ai_reasoning_text:
+                    ai_reasoning_parts.append(f"[Final reasoning] {ai_reasoning_text}")
                 
                 # If this is after some tool execution, return the last result
                 if last_tool_result:
@@ -163,8 +174,8 @@ Note: Based on device model:
                     return jsonify({
                         'success': True,
                         'result': last_tool_result,
-                        'tool_calls': [],  # No more tool calls
-                        'ai_response': ai_content,
+                        'tool_calls': all_tool_calls,
+                        'ai_response': '\n\n'.join(ai_reasoning_parts) if ai_reasoning_parts else ai_content,
                         'iterations': iteration
                     })
                 
@@ -172,9 +183,9 @@ Note: Based on device model:
                 return jsonify({
                     'success': False,
                     'error': 'AI did not call any tool',
-                    'tool_calls': [],
-                    'ai_response': ai_content,
-                    'ai_reasoning': ai_reasoning
+                    'tool_calls': all_tool_calls,
+                    'ai_response': '\n\n'.join(ai_reasoning_parts) if ai_reasoning_parts else ai_content,
+                    'ai_reasoning': ai_reasoning_text
                 }), 400
             
             # Add assistant message to conversation
@@ -265,6 +276,21 @@ Note: Based on device model:
             
             last_tool_result = result
             
+            # Track this tool call for frontend display
+            all_tool_calls.append({
+                'tool': function_name,
+                'arguments': function_args,
+                'result': result
+            })
+            
+            # Add reasoning about what the tool did
+            tool_description = f"[Tool {len(all_tool_calls)}] Executed {function_name}"
+            if execution_success:
+                tool_description += " ✅ SUCCESS"
+            else:
+                tool_description += f" ❌ FAILED: {result.get('error', 'Unknown error')}"
+            ai_reasoning_parts.append(tool_description)
+            
             # If this was an execution tool (not a list/info tool), consider stopping
             if function_name in ['execute_device_action', 'navigate_to_node', 'verify_device_state', 'execute_testcase']:
                 if execution_success:
@@ -272,12 +298,8 @@ Note: Based on device model:
                     return jsonify({
                         'success': True,
                         'result': result,
-                        'tool_calls': [{
-                            'tool': function_name,
-                            'arguments': function_args,
-                            'result': result
-                        }],
-                        'ai_response': '',
+                        'tool_calls': all_tool_calls,
+                        'ai_response': '\n\n'.join(ai_reasoning_parts),
                         'iterations': iteration
                     })
                 else:
@@ -287,12 +309,8 @@ Note: Based on device model:
                         'success': False,
                         'error': f'Tool execution failed: {error_msg}',
                         'result': result,
-                        'tool_calls': [{
-                            'tool': function_name,
-                            'arguments': function_args,
-                            'result': result
-                        }],
-                        'ai_response': '',
+                        'tool_calls': all_tool_calls,
+                        'ai_response': '\n\n'.join(ai_reasoning_parts),
                         'iterations': iteration
                     }), 500
             
@@ -304,8 +322,8 @@ Note: Based on device model:
         return jsonify({
             'success': True,
             'result': last_tool_result or {},
-            'tool_calls': [],
-            'ai_response': f'Completed {max_iterations} iterations',
+            'tool_calls': all_tool_calls,
+            'ai_response': '\n\n'.join(ai_reasoning_parts) if ai_reasoning_parts else f'Completed {max_iterations} iterations',
             'iterations': max_iterations
         })
         

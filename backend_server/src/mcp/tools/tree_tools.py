@@ -821,6 +821,118 @@ class TreeTools:
             self.logger.error(f"Error getting edge: {e}", exc_info=True)
             return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
     
+    def save_node_screenshot(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Take screenshot and save it to a specific node (frontend: useNode.ts takeAndSaveScreenshot)
+        
+        This wraps the screenshot capture and node update into a single operation:
+        1. Takes screenshot from device
+        2. Saves it to userinterface-specific path
+        3. Updates node with screenshot URL
+        
+        Frontend equivalent: useNode.ts line 99-160
+        
+        Args:
+            tree_id: Navigation tree ID (REQUIRED)
+            node_id: Node identifier to attach screenshot to (REQUIRED)
+            label: Node label used as filename (REQUIRED)
+            host_name: Host where device is connected (REQUIRED)
+            device_id: Device identifier (REQUIRED)
+            userinterface_name: User interface name for organizing screenshots (REQUIRED)
+            team_id: Team ID (optional - defaults to default)
+        
+        Returns:
+            {
+                "success": true,
+                "screenshot_url": "/screenshots/netflix_mobile/home_screen.png",
+                "node_id": "home"
+            }
+        
+        Example:
+            save_node_screenshot({
+                "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+                "node_id": "home",
+                "label": "Home Screen",
+                "host_name": "sunri-pi1",
+                "device_id": "device1",
+                "userinterface_name": "netflix_mobile"
+            })
+        """
+        try:
+            import re
+            import time
+            
+            tree_id = params['tree_id']
+            node_id = params['node_id']
+            label = params['label']
+            host_name = params['host_name']
+            device_id = params['device_id']
+            userinterface_name = params['userinterface_name']
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
+            
+            self.logger.info(f"Saving screenshot for node {node_id} ({label}) in tree {tree_id}")
+            
+            # STEP 1: Sanitize filename (same as frontend - useNode.ts line 124)
+            # Remove spaces and special characters
+            sanitized_filename = re.sub(r'\s+', '_', label)
+            sanitized_filename = re.sub(r'[^a-zA-Z0-9_-]', '', sanitized_filename)
+            
+            # STEP 2: Take and save screenshot (same as frontend - useNode.ts line 126-137)
+            screenshot_result = self.api_client.post(
+                '/server/av/saveScreenshot',
+                data={
+                    'host_name': host_name,
+                    'device_id': device_id,
+                    'filename': sanitized_filename,
+                    'userinterface_name': userinterface_name
+                }
+            )
+            
+            if not screenshot_result.get('success'):
+                error_msg = screenshot_result.get('message', 'Failed to save screenshot')
+                return self.formatter.format_error(
+                    f"Screenshot capture failed: {error_msg}",
+                    ErrorCategory.BACKEND
+                )
+            
+            screenshot_url = screenshot_result.get('screenshot_url')
+            if not screenshot_url:
+                return self.formatter.format_error(
+                    "Screenshot saved but no URL returned",
+                    ErrorCategory.BACKEND
+                )
+            
+            # STEP 3: Update node with screenshot URL (same as frontend - useNode.ts line 142-146)
+            update_result = self.api_client.put(
+                f'/server/navigationTrees/{tree_id}/nodes/{node_id}',
+                data={
+                    'screenshot': screenshot_url,
+                    'screenshot_timestamp': int(time.time() * 1000)  # Force cache bust
+                },
+                params={'team_id': team_id}
+            )
+            
+            if update_result.get('success'):
+                return self.formatter.format_success(
+                    f"✅ Screenshot saved to node: {label}\n"
+                    f"   Node ID: {node_id}\n"
+                    f"   Screenshot URL: {screenshot_url}\n"
+                    f"   Tree ID: {tree_id}\n"
+                    f"\n💡 Screenshot attached to node and visible in UI"
+                )
+            else:
+                error_msg = update_result.get('error', 'Unknown error')
+                return self.formatter.format_error(
+                    f"Screenshot saved but node update failed: {error_msg}\n"
+                    f"Screenshot URL: {screenshot_url}\n"
+                    f"You may need to manually update the node.",
+                    ErrorCategory.BACKEND
+                )
+        
+        except Exception as e:
+            self.logger.error(f"Error saving node screenshot: {e}", exc_info=True)
+            return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
+    
     def execute_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Execute a specific edge's action set (frontend: useEdge.ts executeActionSet)

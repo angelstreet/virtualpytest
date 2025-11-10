@@ -80,13 +80,58 @@ Update each node with verifications using update_node:
 - **downloads:** waitForElementToAppear with text "Downloads", timeout 5000ms
 - **more:** waitForElementToAppear with text "Account" or "Profile", timeout 5000ms
 
-### Step 6: Test Navigation
-Test navigation to each node:
-- navigate_to_node for home, search, content_detail, player, downloads, more
-- execute_edge for critical edges (entry → home, content_detail → player)
-- verify_node for all nodes
+### Step 6: Validate Navigation Tree (CRITICAL - DO NOT SKIP)
 
-Debug failures by dumping UI and updating element_ids.
+**This step MUST be completed before Phase 3 (creating testcases).**
+
+Test and validate EVERY edge and node to ensure the navigation tree works:
+
+#### 6.1: Test Entry → Home Edge
+```
+execute_edge for entry→home edge
+- If fails: dump_ui_elements, check element_ids, update_edge with correct actions
+- Verify app launches and reaches home screen
+```
+
+#### 6.2: Test Each Node Navigation
+For each node (home, search, content_detail, player, downloads, more):
+```
+navigate_to_node(target_node_label='node_name')
+- If fails: check logs, dump UI, verify edge actions
+- Fix edge actions with correct element_ids
+- Retry until success
+```
+
+#### 6.3: Test Each Node Verification
+For each node:
+```
+verify_node(node_id='node_name')
+- If fails: dump_ui_elements to see actual elements on screen
+- Update node verifications with correct element_ids/text
+- Retry until verification passes
+```
+
+#### 6.4: Test Critical Edges Individually
+```
+execute_edge for home→search
+execute_edge for search→home
+execute_edge for home→content_detail
+execute_edge for content_detail→player
+execute_edge for player→content_detail (back button)
+- Debug and fix each edge that fails
+```
+
+#### 6.5: Full Navigation Path Test
+```
+navigate_to_node from entry to each node in sequence:
+entry → home → search → downloads → more → home
+entry → home → content_detail → player
+- Ensure complete navigation flow works end-to-end
+```
+
+**SUCCESS CRITERIA**: All nodes reachable, all verifications pass, all edges work bidirectionally.
+
+**DO NOT proceed to Phase 3 until this step is 100% complete!**
 
 ---
 
@@ -174,15 +219,23 @@ Create 12 requirements using backend Requirements API:
 
 ## 🧪 Phase 3: Create Testcases from Graph (30 minutes)
 
-Create 12-15 testcases by manually constructing graph_json from node sequences.
+Create 12-15 testcases by **manually constructing graph_json** from node sequences.
+
+**CRITICAL:** Do NOT use `generate_test_graph`. Manually construct graph_json following the template in `testcase_graph_template.md`.
+
+**CRITICAL:** Use **GENERIC** testcase names and descriptions (not Netflix-specific) so they can be reused on YouTube, Hulu, etc. by changing only the `userinterface_name`. The navigation tree is what makes testcases app-specific, not the testcase itself.
 
 ### Testcase Creation Process
 
 For each test:
 1. Define node sequence (e.g., ["entry", "home", "content_detail", "player"])
-2. Manually construct graph_json with nodes and edges arrays
-3. Save testcase with minimal description (descriptive intent only, no full template)
-4. Link testcase to relevant requirements using Requirements API
+2. **Manually construct graph_json** with nodes and edges arrays following `testcase_graph_template.md`
+3. Use actual node UUIDs from `list_navigation_nodes()` for `target_node_id`
+4. Use actual element_ids from UI dump for verification/action params
+5. **Use generic testcase name** (e.g., `Playback_001_BasicVideoPlayback` NOT `Netflix_Playback_001`)
+6. **Use generic description** (e.g., "Navigate from home to player" NOT "Navigate Netflix home to Netflix player")
+7. Save testcase using `save_testcase(testcase_name="...", graph_json={...})`
+8. Link testcase to relevant requirements using `link_testcase_to_requirement`
 
 ### Testcase Definitions
 
@@ -294,9 +347,17 @@ For each test:
 
 ### Graph Construction Format
 
-For each testcase, construct graph_json with:
-- **nodes array:** Each node has {id, label, type: "screen"}
-- **edges array:** Each edge has {id, source, target, label: "source → target"}
+**Refer to `testcase_graph_template.md` for complete graph_json structure.**
+
+Key requirements:
+- **nodes array:** Must include `start`, `success`, `failure`, and functional nodes
+- **edges array:** Connect nodes with success/failure paths
+- **scriptConfig:** Include required inputs (device_model_name, host_name, device_name, userinterface_name)
+
+**Node types:**
+- `navigation` - Navigate to tree nodes (use target_node_label: "home", "search", etc.)
+- `verification` - Verify screen state (waitForElementToAppear, check_text_on_screen)
+- `action` - Execute device actions (click_element, type_text, press_key)
 
 Use node IDs that match the navigation tree (entry, home, search, content_detail, player, downloads, more).
 

@@ -81,16 +81,14 @@ const MCPPlaygroundContent: React.FC = () => {
                 </Grid>
               </Grid>
               
-              {/* ROW 2: Execution Result (full width) */}
+              {/* ROW 2: Execution Result (full width) - WIDER, NO HEIGHT LIMIT */}
               <Grid container>
                 <Grid item xs={12}>
-                  <Box sx={{ maxHeight: '200px', overflow: 'auto' }}>
-                    <MCPExecutionResult
-                      unifiedExecution={hookData.unifiedExecution}
-                      executionResult={hookData.executionResult}
-                      isGenerating={hookData.isGenerating}
-                    />
-                  </Box>
+                  <MCPExecutionResult
+                    unifiedExecution={hookData.unifiedExecution}
+                    executionResult={hookData.executionResult}
+                    isGenerating={hookData.isGenerating}
+                  />
                 </Grid>
               </Grid>
               

@@ -358,8 +358,8 @@ class TestCaseTools:
             'description': description,
             'userinterface_name': userinterface_name,
             'folder': folder,
-            'tags': tags,
-            'creation_method': 'mcp_ai'
+            'tags': tags
+            # creation_method defaults to 'visual' in database
         }
         
         query_params = {'team_id': team_id}

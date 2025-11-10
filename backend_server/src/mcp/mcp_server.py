@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 49 core tools for device automation:
+This server provides 50 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. list_actions - List available device actions
 3. execute_device_action - Execute remote/ADB/web/desktop commands
@@ -38,23 +38,24 @@ This server provides 49 core tools for device automation:
 30. get_node - Get node details
 31. get_edge - Get edge details
 32. execute_edge - Execute edge actions directly
-33. create_userinterface - Create new app models
-34. list_userinterfaces - List all app models
-35. get_userinterface_complete - Get complete tree data
-36. list_nodes - List nodes with verifications
-37. list_edges - List edges with actions
-38. delete_userinterface - Delete userinterface models
-39. verify_node - Verify node verifications directly
-40. create_requirement - Create new requirement
-41. list_requirements - List all requirements  
-42. get_requirement - Get requirement by ID
-43. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
-44. link_testcase_to_requirement - Link testcase for coverage
-45. unlink_testcase_from_requirement - Unlink testcase
-46. get_testcase_requirements - Get testcase requirements
-47. get_requirement_coverage - Get requirement coverage details
-48. get_coverage_summary - Get overall coverage metrics
-49. get_uncovered_requirements - Get requirements without coverage
+33. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
+34. create_userinterface - Create new app models
+35. list_userinterfaces - List all app models
+36. get_userinterface_complete - Get complete tree data
+37. list_nodes - List nodes with verifications
+38. list_edges - List edges with actions
+39. delete_userinterface - Delete userinterface models
+40. verify_node - Verify node verifications directly
+41. create_requirement - Create new requirement
+42. list_requirements - List all requirements  
+43. get_requirement - Get requirement by ID
+44. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
+45. link_testcase_to_requirement - Link testcase for coverage
+46. unlink_testcase_from_requirement - Unlink testcase
+47. get_testcase_requirements - Get testcase requirements
+48. get_requirement_coverage - Get requirement coverage details
+49. get_coverage_summary - Get overall coverage metrics
+50. get_uncovered_requirements - Get requirements without coverage
 """
 
 import logging
@@ -171,6 +172,7 @@ class VirtualPyTestMCPServer:
             'get_node': self.tree_tools.get_node,
             'get_edge': self.tree_tools.get_edge,
             'execute_edge': self.tree_tools.execute_edge,  # NEW - Execute edge actions
+            'save_node_screenshot': self.tree_tools.save_node_screenshot,  # NEW - Save screenshot to node
             
             # UserInterface Management tools (NEW)
             'create_userinterface': self.userinterface_tools.create_userinterface,
@@ -1216,6 +1218,58 @@ Example:
                         "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                     },
                     "required": ["tree_id", "edge_id"]
+                }
+            },
+            {
+                "name": "save_node_screenshot",
+                "description": """Take screenshot and save it to a specific node (frontend: useNode.ts takeAndSaveScreenshot)
+
+This wraps the screenshot capture and node update into a single operation:
+1. Takes screenshot from device
+2. Saves it to userinterface-specific path
+3. Updates node with screenshot URL
+
+Frontend equivalent: useNode.ts line 99-160
+
+Use this after navigating to a node to automatically capture and attach screenshot.
+
+Args:
+    tree_id: Navigation tree ID (REQUIRED)
+    node_id: Node identifier to attach screenshot to (REQUIRED)
+    label: Node label used as filename (REQUIRED)
+    host_name: Host where device is connected (REQUIRED)
+    device_id: Device identifier (REQUIRED)
+    userinterface_name: User interface name for organizing screenshots (REQUIRED)
+    team_id: Team ID (optional - defaults to default)
+
+Returns:
+    {
+        "success": true,
+        "screenshot_url": "/screenshots/netflix_mobile/home_screen.png",
+        "node_id": "home"
+    }
+
+Example:
+    save_node_screenshot({
+        "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
+        "node_id": "home",
+        "label": "Home Screen",
+        "host_name": "sunri-pi1",
+        "device_id": "device1",
+        "userinterface_name": "netflix_mobile"
+    })""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "node_id": {"type": "string", "description": "Node identifier to attach screenshot to"},
+                        "label": {"type": "string", "description": "Node label used as filename"},
+                        "host_name": {"type": "string", "description": "Host where device is connected"},
+                        "device_id": {"type": "string", "description": "Device identifier"},
+                        "userinterface_name": {"type": "string", "description": "User interface name for organizing screenshots"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["tree_id", "node_id", "label", "host_name", "device_id", "userinterface_name"]
                 }
             },
             {
