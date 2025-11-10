@@ -46,7 +46,7 @@ class RequirementsTools:
         }
         
         print(f"[@MCP:create_requirement] Creating requirement: {body['requirement_code']}")
-        result = self.api.post('/server/requirements/create', json=body)
+        result = self.api.post('/server/requirements/create', data=body)
         
         if not result.get('success'):
             error_msg = result.get('error', 'Failed to create requirement')
@@ -176,7 +176,7 @@ class RequirementsTools:
         }
         
         print(f"[@MCP:link_testcase_to_requirement] Linking testcase {body['testcase_id']} to requirement {body['requirement_id']}")
-        result = self.api.post('/server/requirements/link-testcase', json=body)
+        result = self.api.post('/server/requirements/link-testcase', data=body)
         
         if not result.get('success'):
             error_msg = result.get('error', 'Failed to link testcase')
@@ -205,7 +205,7 @@ class RequirementsTools:
         }
         
         print(f"[@MCP:unlink_testcase_from_requirement] Unlinking testcase {body['testcase_id']} from requirement {body['requirement_id']}")
-        result = self.api.post('/server/requirements/unlink-testcase', json=body)
+        result = self.api.post('/server/requirements/unlink-testcase', data=body)
         
         if not result.get('success'):
             error_msg = result.get('error', 'Failed to unlink testcase')
