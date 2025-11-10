@@ -55,6 +55,29 @@ class MCPFormatter:
         }
     
     @staticmethod
+    def format_image_response(image_data: str, mime_type: str = "image/png") -> Dict[str, Any]:
+        """
+        Format image response in MCP format for AI vision analysis
+        
+        Args:
+            image_data: Base64-encoded image data
+            mime_type: MIME type of the image (default: image/png)
+            
+        Returns:
+            MCP-formatted response with image content for AI vision models
+        """
+        return {
+            "content": [
+                {
+                    "type": "image",
+                    "data": image_data,
+                    "mimeType": mime_type
+                }
+            ],
+            "isError": False
+        }
+    
+    @staticmethod
     def format_error(error_msg: str, category: ErrorCategory = ErrorCategory.UNKNOWN) -> Dict[str, Any]:
         """
         Format error response in MCP format

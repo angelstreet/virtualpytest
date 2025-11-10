@@ -33,7 +33,7 @@ class ScreenshotTools:
             }
             
         Returns:
-            MCP-formatted response with base64 screenshot and optional UI dump
+            MCP-formatted response with base64 screenshot for AI vision analysis
         """
         device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
@@ -60,5 +60,13 @@ class ScreenshotTools:
             # Screenshot only
             result = self.api.post('/server/remote/takeScreenshot', data=data, params=query_params)
         
-        return result
+        # Check if successful
+        if not result.get('success'):
+            return self.formatter.format_api_response(result)
+        
+        # Extract screenshot data
+        screenshot_data = result.get('screenshot', '')
+        
+        # Format as image response for AI vision analysis
+        return self.formatter.format_image_response(screenshot_data, mime_type="image/png")
 
