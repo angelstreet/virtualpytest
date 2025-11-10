@@ -368,7 +368,13 @@ class NavigationTools:
         for node in nodes:
             node_id = node.get('node_id', node.get('id', 'unknown'))
             label = node.get('label', node_id)
-            output += f"• {label} ({node_id})\n"
+            
+            # Skip entry-node (technical node, not a real screen)
+            if node_id == 'entry-node' or label == 'Entry':
+                continue
+            
+            # Show only label (for human readability)
+            output += f"• {label}\n"
             
             # Get verifications from ROOT level (single source of truth)
             verifications = node.get('verifications', [])

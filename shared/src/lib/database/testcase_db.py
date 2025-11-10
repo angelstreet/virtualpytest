@@ -212,7 +212,8 @@ def update_testcase(
     userinterface_name: str = None,
     team_id: str = None,
     folder: str = None,
-    tags: List[str] = None
+    tags: List[str] = None,
+    testcase_name: str = None
 ) -> bool:
     """
     Update test case definition.
@@ -225,6 +226,7 @@ def update_testcase(
         team_id: Team ID for security check
         folder: Updated folder name (user-selected or typed)
         tags: Updated list of tag names
+        testcase_name: Updated testcase name (for renaming)
     
     Returns:
         True on success, False on failure
@@ -245,6 +247,9 @@ def update_testcase(
         
         if userinterface_name is not None:
             update_data['userinterface_name'] = userinterface_name
+        
+        if testcase_name is not None:
+            update_data['testcase_name'] = testcase_name
         
         if folder is not None:
             folder_id = get_or_create_folder(folder)
@@ -271,11 +276,16 @@ def update_testcase(
         if tags is not None:
             set_executable_tags('testcase', testcase_id, tags)
         
-        print(f"[@testcase_db] Updated test case: {testcase_id}")
+        name_info = f" -> {testcase_name}" if testcase_name else ""
+        print(f"[@testcase_db] Updated test case: {testcase_id}{name_info}")
         return True
         
     except Exception as e:
-        print(f"[@testcase_db] ERROR updating test case: {e}")
+        error_msg = str(e)
+        if testcase_name and ('duplicate key' in error_msg.lower() or 'unique constraint' in error_msg.lower()):
+            print(f"[@testcase_db] ERROR: Testcase name already exists: {testcase_name}")
+        else:
+            print(f"[@testcase_db] ERROR updating test case: {e}")
         return False
 
 

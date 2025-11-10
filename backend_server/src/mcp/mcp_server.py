@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 51 core tools for device automation:
+This server provides 52 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. list_actions - List available device actions
 3. execute_device_action - Execute remote/ADB/web/desktop commands
@@ -20,43 +20,44 @@ This server provides 51 core tools for device automation:
 12. save_testcase - Save test case graphs to database
 13. list_testcases - List all saved test cases
 14. load_testcase - Load a saved test case by ID
-15. list_scripts - List all available Python scripts
-16. execute_script - Execute Python scripts with CLI parameters
-17. generate_test_graph - AI-powered test generation
-18. capture_screenshot - Capture screenshots for vision analysis
-19. get_transcript - Fetch audio transcripts
-20. get_device_info - Get device capabilities and info
-21. get_execution_status - Poll async execution status
-22. view_logs - View systemd service logs
-23. list_services - List available systemd services
-24. create_node - Create navigation tree nodes
-25. update_node - Update node properties
-26. delete_node - Delete nodes from trees
-27. create_edge - Create edges with actions
-28. update_edge - Update edge actions
-29. delete_edge - Delete edges
-30. create_subtree - Create nested subtrees
-31. get_node - Get node details
-32. get_edge - Get edge details
-33. execute_edge - Execute edge actions directly
-34. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
-35. create_userinterface - Create new app models
-36. list_userinterfaces - List all app models
-37. get_userinterface_complete - Get complete tree data
-38. list_nodes - List nodes with verifications
-39. list_edges - List edges with actions
-40. delete_userinterface - Delete userinterface models
-41. verify_node - Verify node verifications directly
-42. create_requirement - Create new requirement
-43. list_requirements - List all requirements  
-44. get_requirement - Get requirement by ID
-45. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
-46. link_testcase_to_requirement - Link testcase for coverage
-47. unlink_testcase_from_requirement - Unlink testcase
-48. get_testcase_requirements - Get testcase requirements
-49. get_requirement_coverage - Get requirement coverage details
-50. get_coverage_summary - Get overall coverage metrics
-51. get_uncovered_requirements - Get requirements without coverage
+15. rename_testcase - Rename an existing test case (NEW)
+16. list_scripts - List all available Python scripts
+17. execute_script - Execute Python scripts with CLI parameters
+18. generate_test_graph - AI-powered test generation
+19. capture_screenshot - Capture screenshots for vision analysis
+20. get_transcript - Fetch audio transcripts
+21. get_device_info - Get device capabilities and info
+22. get_execution_status - Poll async execution status
+23. view_logs - View systemd service logs
+24. list_services - List available systemd services
+25. create_node - Create navigation tree nodes
+26. update_node - Update node properties
+27. delete_node - Delete nodes from trees
+28. create_edge - Create edges with actions
+29. update_edge - Update edge actions
+30. delete_edge - Delete edges
+31. create_subtree - Create nested subtrees
+32. get_node - Get node details
+33. get_edge - Get edge details
+34. execute_edge - Execute edge actions directly
+35. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
+36. create_userinterface - Create new app models
+37. list_userinterfaces - List all app models
+38. get_userinterface_complete - Get complete tree data
+39. list_nodes - List nodes with verifications
+40. list_edges - List edges with actions
+41. delete_userinterface - Delete userinterface models
+42. verify_node - Verify node verifications directly
+43. create_requirement - Create new requirement
+44. list_requirements - List all requirements  
+45. get_requirement - Get requirement by ID
+46. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
+47. link_testcase_to_requirement - Link testcase for coverage
+48. unlink_testcase_from_requirement - Unlink testcase
+49. get_testcase_requirements - Get testcase requirements
+50. get_requirement_coverage - Get requirement coverage details
+51. get_coverage_summary - Get overall coverage metrics
+52. get_uncovered_requirements - Get requirements without coverage
 """
 
 import logging
@@ -139,6 +140,7 @@ class VirtualPyTestMCPServer:
             'save_testcase': self.testcase_tools.save_testcase,
             'list_testcases': self.testcase_tools.list_testcases,
             'load_testcase': self.testcase_tools.load_testcase,
+            'rename_testcase': self.testcase_tools.rename_testcase,
             
             # Script tools
             'list_scripts': self.script_tools.list_scripts,
@@ -726,6 +728,27 @@ Loads test case graph that can be passed to execute_testcase().""",
                         "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
                     },
                     "required": ["testcase_id"]
+                }
+            },
+            {
+                "name": "rename_testcase",
+                "description": """Rename an existing test case
+
+Updates the testcase_name field while preserving all other data.
+
+Example:
+  rename_testcase(
+    testcase_id='abc-123-def-456',
+    new_name='TC_PLAY_01_BasicPlayback'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_id": {"type": "string", "description": "Test case UUID to rename (from list_testcases)"},
+                        "new_name": {"type": "string", "description": "New name for the testcase"},
+                        "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"}
+                    },
+                    "required": ["testcase_id", "new_name"]
                 }
             },
             {

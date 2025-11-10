@@ -49,7 +49,8 @@ def testcase_save():
                 userinterface_name=data.get('userinterface_name'),
                 team_id=team_id,
                 folder=data.get('folder'),  # NEW: Folder name
-                tags=data.get('tags')  # NEW: List of tag names
+                tags=data.get('tags'),  # NEW: List of tag names
+                testcase_name=data.get('testcase_name')  # NEW: Support renaming
             )
             
             if success:

@@ -472,4 +472,60 @@ class TestCaseTools:
             "testcase": testcase,
             "graph_json": testcase.get('graph_json')
         }
+    
+    def rename_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Rename an existing test case
+        
+        USES /server/testcase/save endpoint with testcase_id for update
+        Pattern from server_testcase_routes.py line 28 (update path)
+        
+        Args:
+            params: {
+                'testcase_id': str (REQUIRED) - Test case UUID to rename,
+                'new_name': str (REQUIRED) - New testcase name,
+                'team_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            MCP-formatted response with rename result
+        """
+        testcase_id = params.get('testcase_id')
+        new_name = params.get('new_name')
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        
+        # Validate required parameters
+        if not testcase_id:
+            return {"content": [{"type": "text", "text": "Error: testcase_id is required"}], "isError": True}
+        if not new_name:
+            return {"content": [{"type": "text", "text": "Error: new_name is required"}], "isError": True}
+        
+        # Get the current testcase to preserve its data
+        query_params = {'team_id': team_id}
+        load_result = self.api.get(f'/server/testcase/{testcase_id}', params=query_params)
+        
+        if not load_result.get('success'):
+            error_msg = load_result.get('error', 'Failed to load test case')
+            return {"content": [{"type": "text", "text": f"❌ Failed to load testcase: {error_msg}"}], "isError": True}
+        
+        testcase = load_result.get('testcase', {})
+        old_name = testcase.get('testcase_name', 'unknown')
+        
+        # Build update request with only the name change
+        data = {
+            'testcase_id': testcase_id,
+            'testcase_name': new_name
+        }
+        
+        # Call update endpoint
+        print(f"[@MCP:rename_testcase] Renaming '{old_name}' -> '{new_name}' (ID: {testcase_id})")
+        result = self.api.post('/server/testcase/save', data=data, params=query_params)
+        
+        # Check for errors
+        if not result.get('success'):
+            error_msg = result.get('error', 'Failed to rename test case')
+            return {"content": [{"type": "text", "text": f"❌ Rename failed: {error_msg}"}], "isError": True}
+        
+        # Success
+        return {"content": [{"type": "text", "text": f"✅ Test case renamed: '{old_name}' → '{new_name}' (ID: {testcase_id})"}], "isError": False}
 
