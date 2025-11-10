@@ -12,11 +12,10 @@
 
 ## 🎯 Core Capabilities
 
-The MCP server exposes **37 tools** for complete device automation:
+The MCP server exposes **39 tools** for complete device automation:
 
 ### 🔐 **Control Tools** (CRITICAL - MUST BE FIRST)
 - **`take_control`** - Lock device & generate navigation cache (REQUIRED FIRST)
-- **`release_control`** - Release device lock when done
 
 ### 🎮 **Action Tools**
 - **`list_actions`** - List available actions for a device
@@ -38,6 +37,7 @@ The MCP server exposes **37 tools** for complete device automation:
 - **`execute_testcase_by_id`** - Load and execute saved test case in one call (convenience wrapper)
 
 ### 🐍 **Script Tools**
+- **`list_scripts`** - List all available Python scripts
 - **`execute_script`** - Execute Python scripts with CLI parameters (async with polling)
 
 ### 🤖 **AI Tools**
@@ -879,7 +879,7 @@ curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
      https://dev.virtualpytest.com/server/mcp/health
 
 # Expected response:
-# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 37}
+# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 39}
 ```
 
 ### 2. Discover Available Commands (NEW!)
@@ -2867,8 +2867,30 @@ Display result + update history
 
 ---
 
-**Version**: 4.2.0  
+**Version**: 4.2.1  
 **Last Updated**: 2025-11-10
+
+## 🎉 What's New in v4.2.1 (November 2025)
+
+### ✅ **Tool Count Correction & Documentation Alignment**
+
+**Fixed Documentation Issues:**
+- ✅ **Corrected tool count** - Updated from 37 to **39 tools**
+- ✅ **Removed `release_control`** - This tool was documented but NOT implemented (removed from docs)
+- ✅ **Added `list_scripts`** - Tool was implemented but missing from capability list
+- ✅ **Updated health endpoint example** - Now correctly shows `tools_count: 39`
+
+**Tool Count Evolution:**
+- **v4.2.0** (2025-11): 37 tools documented → **39 tools** actually implemented ✅
+- **v4.2.1** (2025-11): Documentation now aligned with implementation
+
+**What Changed:**
+- Documentation now accurately reflects the 39 implemented tools
+- Removed mention of non-existent `release_control` tool
+- Added `list_scripts` to Script Tools section
+- Updated all tool count references (health endpoint, capability list, version history)
+
+---
 
 ## 🎉 What's New in v4.2.0 (November 2025)
 
@@ -3111,7 +3133,8 @@ None! All v2.0.0 tool calls remain compatible:
 - **v3.0.0** (2025-01): 21 tools (complete automation suite + web UI)
 - **v4.0.0** (2025-01): 29 tools (+ primitive tools for AI-driven exploration)
 - **v4.1.0** (2025-01): 35 tools (+ userinterface management tools)
-- **v4.2.0** (2025-11): **37 tools** (+ execute_edge & verify_node)
+- **v4.2.0** (2025-11): **39 tools** (+ execute_edge & verify_node)
+- **v4.2.1** (2025-11): **39 tools** (documentation aligned with implementation)
 
 ---
 

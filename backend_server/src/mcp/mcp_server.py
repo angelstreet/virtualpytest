@@ -5,44 +5,46 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 37 core tools for device automation:
+This server provides 39 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
-2. execute_device_action - Execute remote/ADB/web/desktop commands
-3. navigate_to_node - Navigate through UI trees
-4. verify_device_state - Verify UI elements and device states
-5. execute_testcase - Run complete test cases
-6. execute_testcase_by_id - MCP convenience: Load and run saved testcase
-7. save_testcase - Save test case graphs to database
-8. list_testcases - List all saved test cases
-9. load_testcase - Load a saved test case by ID
-10. execute_script - Execute Python scripts with CLI parameters
-11. generate_test_graph - AI-powered test generation
-12. capture_screenshot - Capture screenshots for vision analysis
-13. get_transcript - Fetch audio transcripts
-14. get_device_info - Get device capabilities and info
-15. get_execution_status - Poll async execution status
-16. view_logs - View systemd service logs
-17. list_services - List available systemd services
-18. create_node - Create navigation tree nodes
-19. update_node - Update node properties
-20. delete_node - Delete nodes from trees
-21. create_edge - Create edges with actions
-22. update_edge - Update edge actions
-23. delete_edge - Delete edges
-24. create_subtree - Create nested subtrees
-25. get_node - Get node details
-26. get_edge - Get edge details
-27. execute_edge - Execute edge actions (NEW)
-28. dump_ui_elements - Dump UI hierarchy
-29. list_actions - List available device actions
-30. list_navigation_nodes - List nodes in tree
-31. list_verifications - List verification methods
-32. create_userinterface - Create new app models
-33. list_userinterfaces - List all app models
-34. get_userinterface_complete - Get complete tree data
-35. list_nodes - List nodes with verifications
-36. list_edges - List edges with actions
-37. verify_node - Verify node verifications (NEW)
+2. list_actions - List available device actions
+3. execute_device_action - Execute remote/ADB/web/desktop commands
+4. list_navigation_nodes - List nodes in tree
+5. navigate_to_node - Navigate through UI trees
+6. list_verifications - List verification methods
+7. verify_device_state - Verify UI elements and device states
+8. dump_ui_elements - Dump UI hierarchy
+9. execute_testcase - Run complete test cases
+10. execute_testcase_by_id - MCP convenience: Load and run saved testcase
+11. save_testcase - Save test case graphs to database
+12. list_testcases - List all saved test cases
+13. load_testcase - Load a saved test case by ID
+14. list_scripts - List all available Python scripts
+15. execute_script - Execute Python scripts with CLI parameters
+16. generate_test_graph - AI-powered test generation
+17. capture_screenshot - Capture screenshots for vision analysis
+18. get_transcript - Fetch audio transcripts
+19. get_device_info - Get device capabilities and info
+20. get_execution_status - Poll async execution status
+21. view_logs - View systemd service logs
+22. list_services - List available systemd services
+23. create_node - Create navigation tree nodes
+24. update_node - Update node properties
+25. delete_node - Delete nodes from trees
+26. create_edge - Create edges with actions
+27. update_edge - Update edge actions
+28. delete_edge - Delete edges
+29. create_subtree - Create nested subtrees
+30. get_node - Get node details
+31. get_edge - Get edge details
+32. execute_edge - Execute edge actions directly
+33. create_userinterface - Create new app models
+34. list_userinterfaces - List all app models
+35. get_userinterface_complete - Get complete tree data
+36. list_nodes - List nodes with verifications
+37. list_edges - List edges with actions
+38. delete_userinterface - Delete userinterface models
+39. verify_node - Verify node verifications directly
 """
 
 import logging
