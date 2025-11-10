@@ -125,6 +125,7 @@ class VirtualPyTestMCPServer:
             # Navigation tools
             'list_navigation_nodes': self.navigation_tools.list_navigation_nodes,
             'navigate_to_node': self.navigation_tools.navigate_to_node,
+            'preview_userinterface': self.navigation_tools.preview_userinterface,
             
             # Verification tools
             'list_verifications': self.verification_tools.list_verifications,
@@ -518,6 +519,40 @@ Example workflow:
                         "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
                     },
                     "required": ["tree_id", "userinterface_name"]
+                }
+            },
+            {
+                "name": "preview_userinterface",
+                "description": """Get compact text preview of userinterface navigation tree
+
+Shows all nodes, edges, actions, and verifications in 8-10 lines.
+Perfect for answering "What do we test and how?"
+
+✅ NO PREREQUISITES - Just call with userinterface_name
+
+Output format:
+  netflix_mobile (7 nodes, 13 transitions)
+  
+  Entry→home: launch_app + tap(540,1645) [✓ Startseite]
+  home⟷search: click(Suchen) ⟷ click(Nach oben navigieren) [✓ Suchen]
+  home⟷content_detail: click(The Witcher) ⟷ BACK [✓ abspielen]
+  ...
+
+Use cases:
+- Quick overview of test coverage
+- Share navigation structure with stakeholders
+- Understand what actions are tested
+- Verify navigation completeness
+
+Example:
+  preview_userinterface(userinterface_name='netflix_mobile')""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'netflix_mobile', 'horizon_android_tv')"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default if omitted)"}
+                    },
+                    "required": ["userinterface_name"]
                 }
             },
             {

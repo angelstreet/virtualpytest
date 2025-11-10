@@ -1,12 +1,6 @@
 import {
-  Assessment as CoverageIcon,
   Warning as WarningIcon,
   CheckCircle as CheckIcon,
-  TrendingUp as TrendingUpIcon,
-  FilterList as FilterIcon,
-  ArrowUpward as SortAscIcon,
-  ArrowDownward as SortDescIcon,
-  Link as LinkIcon,
   Refresh as RefreshIcon,
   BarChart as StatsIcon,
 } from '@mui/icons-material';
@@ -15,7 +9,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   LinearProgress,
   Chip,
   FormControl,
@@ -31,7 +24,6 @@ import {
   TableHead,
   TableRow,
   Paper,
-  Button,
   Tooltip,
   IconButton,
   TableSortLabel,

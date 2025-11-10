@@ -284,4 +284,162 @@ class NavigationTools:
         
         print(f"[@MCP:poll_navigation] Navigation timed out after {max_wait}s")
         return {"content": [{"type": "text", "text": f"⏱️ Navigation timed out after {max_wait}s"}], "isError": True}
+    
+    def preview_userinterface(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Get compact text preview of userinterface navigation tree
+        
+        Shows all nodes, edges, actions, and verifications in compact format.
+        Perfect for quick overview: "What do we test and how?"
+        
+        Args:
+            params: {
+                'userinterface_name': str (REQUIRED) - e.g., 'netflix_mobile'
+                'team_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            Compact text showing all transitions (8-10 lines)
+            
+        Example output:
+            netflix_mobile (7 nodes, 13 transitions)
+            
+            Entry→home: launch_app + tap(540,1645) [✓ Startseite]
+            home⟷search: click(Suchen) ⟷ click(Nach oben navigieren) [✓ Suchen]
+            home⟷content_detail: click(The Witcher) ⟷ BACK [✓ abspielen]
+            ...
+        """
+        userinterface_name = params.get('userinterface_name')
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
+        
+        if not userinterface_name:
+            return {"content": [{"type": "text", "text": "Error: userinterface_name is required"}], "isError": True}
+        
+        # Get complete userinterface data
+        try:
+            # Step 1: Get userinterface by name
+            ui_result = self.api.get(f'/server/userinterface/getUserInterfaceByName/{userinterface_name}', params={'team_id': team_id})
+            if not ui_result or not ui_result.get('id'):
+                return {"content": [{"type": "text", "text": f"Error: User interface '{userinterface_name}' not found"}], "isError": True}
+            
+            userinterface_id = ui_result['id']
+            
+            # Step 2: Get complete tree data
+            complete_data = self.api.get(f'/server/navigation/userinterface/{userinterface_id}/complete', params={'team_id': team_id})
+            
+            if not complete_data or not complete_data.get('nodes'):
+                return {"content": [{"type": "text", "text": f"Error: No navigation data found for '{userinterface_name}'"}], "isError": True}
+            
+            # Format compact preview
+            output = self._format_compact_preview(userinterface_name, complete_data)
+            
+            return {
+                "content": [{"type": "text", "text": output}],
+                "isError": False
+            }
+            
+        except Exception as e:
+            return {"content": [{"type": "text", "text": f"Error: {str(e)}"}], "isError": True}
+    
+    def _format_compact_preview(self, ui_name: str, data: Dict[str, Any]) -> str:
+        """Format navigation tree as compact text"""
+        nodes = data.get('nodes', [])
+        edges = data.get('edges', [])
+        
+        # Create node lookup for verifications
+        node_lookup = {node['id']: node for node in nodes}
+        
+        # Count transitions (edges * 2 for bidirectional, - entry edge)
+        transition_count = sum(2 if len(edge.get('action_sets', [])) > 1 else 1 for edge in edges)
+        
+        output = f"{ui_name} ({len(nodes)} nodes, {transition_count} transitions)\n\n"
+        
+        for edge in edges:
+            source_label = edge.get('source_label', 'unknown')
+            target_label = edge.get('target_label', 'unknown')
+            action_sets = edge.get('action_sets', [])
+            
+            if not action_sets:
+                continue
+            
+            # Get forward and backward actions
+            forward_actions = self._format_actions(action_sets[0].get('actions', []))
+            backward_actions = None
+            if len(action_sets) > 1 and action_sets[1].get('actions'):
+                backward_actions = self._format_actions(action_sets[1].get('actions', []))
+            
+            # Get target node verification
+            target_node = node_lookup.get(edge.get('target_node_id'))
+            verification = self._get_verification_summary(target_node) if target_node else ""
+            
+            # Format line
+            if backward_actions:
+                output += f"{source_label}⟷{target_label}: {forward_actions} ⟷ {backward_actions} {verification}\n"
+            else:
+                output += f"{source_label}→{target_label}: {forward_actions} {verification}\n"
+        
+        return output
+    
+    def _format_actions(self, actions: list) -> str:
+        """Format action list to compact string"""
+        if not actions:
+            return "none"
+        
+        formatted = []
+        for action in actions[:3]:  # Limit to first 3 actions
+            cmd = action.get('command', 'unknown')
+            params = action.get('params', {})
+            
+            if cmd == 'launch_app':
+                formatted.append('launch_app')
+            elif cmd == 'tap_coordinates':
+                x = params.get('x', 0)
+                y = params.get('y', 0)
+                formatted.append(f'tap({x},{y})')
+            elif cmd == 'click_element':
+                element_id = params.get('element_id', 'unknown')
+                # Truncate long element names
+                if len(element_id) > 20:
+                    element_id = element_id[:17] + '...'
+                formatted.append(f'click({element_id})')
+            elif cmd == 'press_key':
+                key = params.get('key', 'unknown')
+                formatted.append(key)
+            elif cmd == 'type_text':
+                text = params.get('text', '')
+                if len(text) > 15:
+                    text = text[:12] + '...'
+                formatted.append(f'type({text})')
+            else:
+                formatted.append(cmd)
+        
+        if len(actions) > 3:
+            formatted.append(f'+{len(actions)-3}more')
+        
+        return ' + '.join(formatted)
+    
+    def _get_verification_summary(self, node: Dict[str, Any]) -> str:
+        """Extract verification summary from node"""
+        if not node:
+            return ""
+        
+        verifications = node.get('data', {}).get('verifications', [])
+        if not verifications:
+            return ""
+        
+        # Get first verification only for compact view
+        verif = verifications[0]
+        method = verif.get('method', '')
+        expected = verif.get('expected', True)
+        params = verif.get('params', {})
+        
+        # Format based on method
+        if 'Element' in method:
+            text = params.get('text', '')
+            if len(text) > 15:
+                text = text[:12] + '...'
+            symbol = '✓' if expected else '✗'
+            return f"[{symbol} {text}]"
+        
+        return ""
 
