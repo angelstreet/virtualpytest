@@ -172,8 +172,7 @@ execute_device_action({
     "device_id": "device1",
     "actions": [{
         "command": "launch_app",
-        "params": {"package": "com.netflix.mediaclient"},
-        "delay": 8000
+        "params": {"package": "com.netflix.mediaclient", "wait_time": 8000}
     }]
 })
 # MCP automatically polls until completion
@@ -183,7 +182,7 @@ execute_device_action({
 **📱 Swipe:**
 ```python
 execute_device_action({
-    "actions": [{"command": "swipe_up", "params": {}, "delay": 1000}]
+    "actions": [{"command": "swipe_up", "params": {"wait_time": 1000}}]
 })
 ```
 
@@ -192,8 +191,7 @@ execute_device_action({
 execute_device_action({
     "actions": [{
         "command": "click_element",
-        "params": {"text": "Home"},
-        "delay": 2000
+        "params": {"text": "Home", "wait_time": 2000}
     }]
 })
 ```
@@ -203,8 +201,7 @@ execute_device_action({
 execute_device_action({
     "actions": [{
         "command": "type_text",
-        "params": {"text": "Hello World"},
-        "delay": 1000
+        "params": {"text": "Hello World", "wait_time": 1000}
     }]
 })
 ```
@@ -214,8 +211,7 @@ execute_device_action({
 execute_device_action({
     "actions": [{
         "command": "press_key",
-        "params": {"key": "BACK"},
-        "delay": 1500
+        "params": {"key": "BACK", "wait_time": 1500}
     }]
 })
 ```
@@ -230,32 +226,35 @@ execute_device_action({
 
 ---
 
-## ⏱️ Action Delay Guidelines
+## ⏱️ Action Wait Time Guidelines
 
 ### 🎯 Critical Understanding
 
-**The `delay` field is a TOP-LEVEL sibling of `command` and `params`, NOT inside `params`!**
+**The `wait_time` field goes INSIDE `params`, NOT as a top-level field!**
 
 ```json
 ✅ CORRECT:
 {
   "command": "launch_app",
-  "params": {"package": "com.example.app"},
-  "delay": 8000
+  "params": {
+    "package": "com.example.app",
+    "wait_time": 8000
+  }
 }
 
 ❌ WRONG:
 {
   "command": "launch_app",
-  "params": {"package": "com.example.app", "delay": 8000}
+  "params": {"package": "com.example.app"},
+  "delay": 8000
 }
 ```
 
-The `delay` value is in **milliseconds** and represents the wait time **AFTER** the action completes, before executing the next action.
+The `wait_time` value is in **milliseconds** and represents the wait time **AFTER** the action completes, before executing the next action.
 
 ---
 
-### 📋 Standard Delays by Operation
+### 📋 Standard Wait Times by Operation
 
 | Operation Type | Standard Delay (ms) | Use Case | Reason |
 |----------------|---------------------|----------|--------|
@@ -285,9 +284,9 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 {
   "command": "launch_app",
   "params": {
-    "package": "com.example.app"
-  },
-  "delay": 8000  ← Wait 8 seconds AFTER launch completes
+    "package": "com.example.app",
+    "wait_time": 8000
+  }
 }
 ```
 
@@ -301,32 +300,31 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 
 ### 🚨 Common Mistakes
 
-#### ❌ Mistake 1: Delay in Wrong Place
+#### ❌ Mistake 1: wait_time as Top-Level Field
 ```json
 {
   "command": "launch_app",
   "params": {
-    "package": "com.example.app",
-    "delay": 8000  ← WRONG! Delay is NOT a param
-  }
+    "package": "com.example.app"
+  },
+  "delay": 8000  ← WRONG! Should be wait_time inside params
 }
 ```
 
-#### ❌ Mistake 2: No Delay After Heavy Operation
+#### ❌ Mistake 2: No Wait Time After Heavy Operation
 ```json
 {
   "command": "launch_app",
   "params": {"package": "..."}
-  // Missing delay field = immediate next action = FAILURE!
+  // Missing wait_time = immediate next action = FAILURE!
 }
 ```
 
-#### ❌ Mistake 3: Delay Too Short
+#### ❌ Mistake 3: Wait Time Too Short
 ```json
 {
   "command": "launch_app",
-  "params": {"package": "..."},
-  "delay": 2000  ← TOO SHORT! App won't be ready
+  "params": {"package": "...", "wait_time": 2000}  ← TOO SHORT!
 }
 ```
 
@@ -334,8 +332,7 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 ```json
 {
   "command": "click_element",
-  "params": {"element_id": "..."},
-  "delay": 2  ← WRONG! Use 2000 (milliseconds)
+  "params": {"element_id": "...", "wait_time": 2}  ← WRONG! Use 2000
 }
 ```
 
@@ -356,7 +353,7 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 2. **Simple UI:** -500ms for lightweight screens
 3. **Back Navigation:** Already optimized at 1500ms
 
-#### Minimum Safe Delays:
+#### Minimum Safe Wait Times:
 
 ```json
 {
@@ -367,7 +364,7 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 }
 ```
 
-**Recommendation:** Use standard delays from table above, increase if failures occur.
+**Recommendation:** Use standard wait times from table above, increase if failures occur.
 
 ---
 
@@ -378,9 +375,9 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 {
   "command": "launch_app",
   "params": {
-    "package": "com.netflix.mediaclient"
-  },
-  "delay": 8000
+    "package": "com.netflix.mediaclient",
+    "wait_time": 8000
+  }
 }
 ```
 **Why 8000ms?** App needs time for: splash screen, initialization, home screen render.
@@ -392,9 +389,9 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 {
   "command": "click_element",
   "params": {
-    "element_id": "Search Tab"
-  },
-  "delay": 2000
+    "element_id": "Search Tab",
+    "wait_time": 2000
+  }
 }
 ```
 **Why 2000ms?** Tab animation + screen transition + content load.
@@ -406,9 +403,9 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 {
   "command": "click_element",
   "params": {
-    "element_id": "Play"
-  },
-  "delay": 5000
+    "element_id": "Play",
+    "wait_time": 5000
+  }
 }
 ```
 **Why 5000ms?** Video player needs: initialization, buffering, controls setup.
@@ -421,18 +418,15 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
   "actions": [
     {
       "command": "launch_app",
-      "params": {"package": "com.netflix.mediaclient"},
-      "delay": 8000
+      "params": {"package": "com.netflix.mediaclient", "wait_time": 8000}
     },
     {
       "command": "tap_coordinates",
-      "params": {"x": 540, "y": 1645},
-      "delay": 2000
+      "params": {"x": 540, "y": 1645, "wait_time": 2000}
     },
     {
       "command": "click_element",
-      "params": {"element_id": "Dismiss"},
-      "delay": 1000
+      "params": {"element_id": "Dismiss", "wait_time": 1000}
     }
   ]
 }
@@ -449,7 +443,7 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 
 ```
 ┌──────────────────────────────────────────────────────┐
-│ QUICK DELAY REFERENCE                                │
+│ QUICK WAIT TIME REFERENCE                            │
 ├──────────────────────────────────────────────────────┤
 │ launch_app           → 8000ms  (8 seconds)          │
 │ click_element        → 2000ms  (2 seconds)          │
@@ -460,7 +454,7 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 │ video operations     → 5000ms  (5 seconds)          │
 │ search + results     → 3000ms  (3 seconds)          │
 ├──────────────────────────────────────────────────────┤
-│ CRITICAL: delay is TOP-LEVEL, NOT in params!        │
+│ CRITICAL: wait_time goes INSIDE params!             │
 └──────────────────────────────────────────────────────┘
 ```
 
@@ -468,12 +462,12 @@ The `delay` value is in **milliseconds** and represents the wait time **AFTER** 
 
 ### 🎓 For AI Models: Key Takeaways
 
-1. **ALWAYS include `delay` field** in every action
-2. **`delay` is SIBLING** of `command` and `params`
+1. **ALWAYS include `wait_time` field** in params for every action
+2. **`wait_time` is INSIDE `params`**, not top-level
 3. **Use milliseconds** (1 second = 1000ms)
-4. **Start with standard delays** from table
+4. **Start with standard wait times** from table
 5. **Increase if failures occur** (+2000ms increments)
-6. **App launch needs longest delay** (8000ms minimum)
+6. **App launch needs longest wait** (8000ms minimum)
 7. **Video operations need 5000ms** minimum
 8. **Tab/menu navigation: 2000ms** standard
 9. **Back navigation: 1500ms** (faster than forward)

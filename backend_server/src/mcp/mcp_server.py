@@ -359,14 +359,13 @@ Executes direct device commands including:
 
 Returns execution_id for async operations - polls automatically until completion.
 
-⏱️ CRITICAL - ACTION DELAYS:
-Each action MUST include a 'delay' field (milliseconds) to wait AFTER execution.
-The 'delay' field is TOP-LEVEL, NOT in params:
+⏱️ CRITICAL - ACTION WAIT TIMES:
+Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
 
-✅ CORRECT: {"command": "launch_app", "params": {...}, "delay": 8000}
-❌ WRONG: {"command": "launch_app", "params": {..., "delay": 8000}}
+✅ CORRECT: {"command": "launch_app", "params": {"package": "...", "wait_time": 8000}}
+❌ WRONG: {"command": "launch_app", "params": {"package": "..."}, "delay": 8000}
 
-Standard Delays (milliseconds):
+Standard Wait Times (milliseconds) - INSIDE params:
 - launch_app:     8000  (app initialization)
 - click_element:  2000  (screen transition)
 - tap_coordinates: 2000  (screen taps)
@@ -388,22 +387,20 @@ Common Examples:
     "device_id": "device1",
     "actions": [{
       "command": "launch_app",
-      "params": {"package": "com.netflix.mediaclient"},
-      "delay": 8000
+      "params": {"package": "com.netflix.mediaclient", "wait_time": 8000}
     }]
   })
 
 📱 Swipe:
   execute_device_action({
-    "actions": [{"command": "swipe_up", "delay": 1000}]
+    "actions": [{"command": "swipe_up", "params": {"wait_time": 1000}}]
   })
 
 👆 Click Element:
   execute_device_action({
     "actions": [{
       "command": "click_element",
-      "params": {"text": "Home"},
-      "delay": 2000
+      "params": {"text": "Home", "wait_time": 2000}
     }]
   })
 
@@ -411,8 +408,7 @@ Common Examples:
   execute_device_action({
     "actions": [{
       "command": "type_text",
-      "params": {"text": "Hello"},
-      "delay": 1000
+      "params": {"text": "Hello", "wait_time": 1000}
     }]
   })
 
@@ -420,8 +416,7 @@ Common Examples:
   execute_device_action({
     "actions": [{
       "command": "press_key",
-      "params": {"key": "BACK"},
-      "delay": 1500
+      "params": {"key": "BACK", "wait_time": 1500}
     }]
   })
 

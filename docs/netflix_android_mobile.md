@@ -19,13 +19,51 @@ Build complete Netflix Android mobile test automation: create UI model, define r
 
 ---
 
+## ⏱️ Action Delay Standards
+
+**CRITICAL:** All edge actions MUST include proper `delay` fields to ensure reliable navigation.
+
+### Standard Delays
+- **launch_app:** 8000ms (app initialization)
+- **click_element:** 2000ms (screen transitions)
+- **tap_coordinates:** 2000ms (screen taps)
+- **press_key (BACK):** 1500ms (back navigation)
+- **press_key (other):** 1000ms (key presses)
+- **video playback:** 5000ms (player init)
+- **content load:** 3000ms (heavy pages)
+
+### Critical Rules
+1. **delay is TOP-LEVEL** field in action object, NOT in params
+2. **Always in milliseconds** (1 second = 1000ms)
+3. **Missing delay = immediate execution = race condition**
+
+### Example
+```json
+✅ CORRECT:
+{
+  "command": "launch_app",
+  "params": {"package": "com.netflix.mediaclient"},
+  "delay": 8000
+}
+
+❌ WRONG:
+{
+  "command": "launch_app",
+  "params": {"package": "com.netflix.mediaclient", "delay": 8000}
+}
+```
+
+**See:** [MCP Action Tools - Delay Guidelines](mcp/mcp_tools_action.md#⏱️-action-delay-guidelines)
+
+---
+
 ## 📋 Phase 1: Build Navigation Model (45 minutes)
 
 ### Step 1: Create User Interface
 Create userinterface "netflix_mobile" for device_model "android_mobile"
 
 ### Step 2: Launch & Discover
-1. Launch Netflix app (package: com.netflix.mediaclient, delay: 3000ms)
+1. Launch Netflix app (package: com.netflix.mediaclient, delay: 8000ms)
 2. Dump UI elements to identify all clickable elements and their IDs
 3. Capture screenshot for visual reference
 4. Get tree_id using list_navigation_nodes
@@ -42,7 +80,8 @@ Create nodes for key screens (entry and home already exist):
 Create edges with bidirectional action_sets using actual element_ids from UI dump:
 
 1. **entry → home** (update existing edge)
-   - Forward: launch_app with package com.netflix.mediaclient, delay 3000ms
+   - Forward: launch_app with package com.netflix.mediaclient, delay 8000ms
+   - Then: tap_coordinates to dismiss popup, delay 2000ms
 
 2. **home ↔ search**
    - Forward: click_element on search tab, delay 2000ms
@@ -53,7 +92,7 @@ Create edges with bidirectional action_sets using actual element_ids from UI dum
    - Backward: press_key BACK, delay 1500ms
 
 4. **content_detail → player**
-   - Forward: click_element on play button, delay 3000ms
+   - Forward: click_element on play button, delay 5000ms
    - Backward: press_key BACK, delay 1500ms
 
 5. **home ↔ downloads**

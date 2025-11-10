@@ -109,9 +109,9 @@ Web interface using OpenRouter (Qwen/Phi-3) with function calling to simulate MC
 ---
 ## 📋 Prerequisites
 
-### Important: Action Delays
+### Important: Action Wait Times
 
-All device actions require proper delays to prevent timing issues and ensure reliable automation.
+All device actions require proper wait times to prevent timing issues and ensure reliable automation.
 
 **Quick Reference:**
 - App launch: 8000ms (8 seconds)
@@ -120,9 +120,9 @@ All device actions require proper delays to prevent timing issues and ensure rel
 - Text input: 1000ms (1 second)
 - Video operations: 5000ms (5 seconds)
 
-**Critical:** The `delay` field is TOP-LEVEL in action objects, NOT in params.
+**Critical:** The `wait_time` field goes INSIDE `params`, NOT as top-level.
 
-**See:** [Action Tools - Delay Guidelines](mcp_tools_action.md#⏱️-action-delay-guidelines) for complete standards and examples.
+**See:** [Action Tools - Wait Time Guidelines](mcp_tools_action.md#⏱️-action-wait-time-guidelines) for complete standards and examples.
 
 ---
 

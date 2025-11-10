@@ -22,14 +22,14 @@ This prompt guides automation engineers to quickly generate navigation tree mode
 
 ---
 
-## ⏱️ Action Delay Standards
+## ⏱️ Action Wait Time Standards
 
-**CRITICAL:** All actions MUST include proper delays to prevent race conditions and ensure reliable automation.
+**CRITICAL:** All actions MUST include proper wait times to prevent race conditions and ensure reliable automation.
 
-### Standard Delays Table
+### Standard Wait Times Table
 
-| Operation | Delay (ms) | When to Use |
-|-----------|------------|-------------|
+| Operation | Wait Time (ms) | When to Use |
+|-----------|----------------|-------------|
 | **launch_app** | 8000 | Entry→Home (app launch) |
 | **click_element** | 2000 | Tab navigation, menu items |
 | **tap_coordinates** | 2000 | Screen taps |
@@ -41,9 +41,9 @@ This prompt guides automation engineers to quickly generate navigation tree mode
 
 ### Critical Rules
 
-1. **Delay is TOP-LEVEL** field in action object, NOT in params
+1. **wait_time goes INSIDE params** field, NOT as top-level
 2. **Always in milliseconds** (1 second = 1000ms)
-3. **Missing delay = race condition = unreliable test**
+3. **Missing wait_time = race condition = unreliable test**
 4. **Increase by +2000ms** if operation fails due to timing
 
 ### Example Structure
@@ -52,18 +52,21 @@ This prompt guides automation engineers to quickly generate navigation tree mode
 ✅ CORRECT:
 {
   "command": "launch_app",
-  "params": {"package": "com.example.app"},
-  "delay": 8000
+  "params": {
+    "package": "com.example.app",
+    "wait_time": 8000
+  }
 }
 
 ❌ WRONG:
 {
   "command": "launch_app",
-  "params": {"package": "com.example.app", "delay": 8000}
+  "params": {"package": "com.example.app"},
+  "delay": 8000
 }
 ```
 
-**See:** [MCP Action Tools - Delay Guidelines](mcp/mcp_tools_action.md#⏱️-action-delay-guidelines) for complete reference.
+**See:** [MCP Action Tools - Wait Time Guidelines](mcp/mcp_tools_action.md#⏱️-action-wait-time-guidelines) for complete reference.
 
 ---
 
