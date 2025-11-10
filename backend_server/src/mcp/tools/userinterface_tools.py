@@ -34,18 +34,48 @@ class UserInterfaceTools:
         """
         try:
             team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
+            device_model = params['device_model']
             
-            # Build payload following backend API
+            # STEP 1: Validate device_model by fetching valid models from database
+            # Uses SAME endpoint as frontend (UserInterface.tsx line 86)
+            self.logger.info(f"Fetching valid device models for validation")
+            
+            models_result = self.api_client.get(
+                '/server/devicemodel/getAllModels',
+                params={'team_id': team_id}
+            )
+            
+            # Extract model names from response
+            if isinstance(models_result, list):
+                valid_model_names = [model.get('name') for model in models_result if model.get('name')]
+            else:
+                valid_model_names = []
+            
+            if not valid_model_names:
+                self.logger.warning("No device models found in database - proceeding without validation")
+            elif device_model not in valid_model_names:
+                # Validation failed - return helpful error
+                return self.formatter.format_error(
+                    f"Invalid device_model: '{device_model}'\n\n"
+                    f"Valid models for your team:\n"
+                    f"  • {chr(10).join('  • '.join(valid_model_names[i:i+3]) for i in range(0, len(valid_model_names), 3))}\n\n"
+                    f"💡 Use one of these model names, or create a custom model first.",
+                    ErrorCategory.VALIDATION
+                )
+            else:
+                self.logger.info(f"✅ Device model '{device_model}' validated successfully")
+            
+            # STEP 2: Build payload following backend API
             interface_data = {
                 'name': params['name'],
-                'models': [params.get('device_model', 'android_mobile')],
+                'models': [device_model],
                 'description': params.get('description', f"UI model for {params['name']}"),
                 'team_id': team_id
             }
             
             self.logger.info(f"Creating userinterface: {interface_data['name']}")
             
-            # Call backend - EXISTING ENDPOINT
+            # STEP 3: Call backend - EXISTING ENDPOINT
             result = self.api_client.post(
                 '/server/userinterface/createUserInterface',
                 data=interface_data,
@@ -58,7 +88,7 @@ class UserInterfaceTools:
                 return self.formatter.format_success(
                     f"✅ Userinterface created: {interface.get('name')}\n"
                     f"   ID: {interface.get('id')}\n"
-                    f"   Device Model: {params.get('device_model')}\n"
+                    f"   Device Model: {device_model}\n"
                     f"   Root Tree: {interface.get('root_tree', {}).get('id', 'pending')}\n"
                     f"\n💡 Use get_userinterface_complete(userinterface_id='{interface.get('id')}') to get full tree data"
                 )
