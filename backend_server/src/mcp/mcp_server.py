@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 17 core tools for device automation:
+This server provides 34 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. execute_device_action - Execute remote/ADB/web/desktop commands
 3. navigate_to_node - Navigate through UI trees
@@ -23,6 +23,24 @@ This server provides 17 core tools for device automation:
 15. get_execution_status - Poll async execution status
 16. view_logs - View systemd service logs
 17. list_services - List available systemd services
+18. create_node - Create navigation tree nodes
+19. update_node - Update node properties
+20. delete_node - Delete nodes from trees
+21. create_edge - Create edges with actions
+22. update_edge - Update edge actions
+23. delete_edge - Delete edges
+24. create_subtree - Create nested subtrees
+25. get_node - Get node details
+26. get_edge - Get edge details
+27. dump_ui_elements - Dump UI hierarchy
+28. list_actions - List available device actions
+29. list_navigation_nodes - List nodes in tree
+30. list_verifications - List verification methods
+31. create_userinterface - Create new app models (NEW)
+32. list_userinterfaces - List all app models (NEW)
+33. get_userinterface_complete - Get complete tree data (NEW)
+34. list_nodes - List nodes with verifications (NEW)
+35. list_edges - List edges with actions (NEW)
 """
 
 import logging
@@ -43,6 +61,7 @@ from .tools.device_tools import DeviceTools
 from .tools.logs_tools import LogsTools
 from .tools.script_tools import ScriptTools
 from .tools.tree_tools import TreeTools
+from .tools.userinterface_tools import UserInterfaceTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
@@ -75,6 +94,7 @@ class VirtualPyTestMCPServer:
         self.logs_tools = LogsTools(self.api_client)
         self.script_tools = ScriptTools(self.api_client)
         self.tree_tools = TreeTools(self.api_client)
+        self.userinterface_tools = UserInterfaceTools(self.api_client)
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -134,6 +154,13 @@ class VirtualPyTestMCPServer:
             # Tree READ tools (NEW - Query primitives)
             'get_node': self.tree_tools.get_node,
             'get_edge': self.tree_tools.get_edge,
+            
+            # UserInterface Management tools (NEW)
+            'create_userinterface': self.userinterface_tools.create_userinterface,
+            'list_userinterfaces': self.userinterface_tools.list_userinterfaces,
+            'get_userinterface_complete': self.userinterface_tools.get_userinterface_complete,
+            'list_nodes': self.userinterface_tools.list_nodes,
+            'list_edges': self.userinterface_tools.list_edges,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -1126,6 +1153,123 @@ Example:
                         "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                     },
                     "required": []
+                }
+            },
+            # ═══════════════════════════════════════════════════
+            # USERINTERFACE MANAGEMENT TOOLS
+            # ═══════════════════════════════════════════════════
+            {
+                "name": "create_userinterface",
+                "description": """Create a new userinterface (app model) like Netflix, YouTube, etc.
+
+Automatically creates:
+- Userinterface metadata
+- Root navigation tree
+- Entry node
+
+Example:
+  create_userinterface(
+    name="netflix_android",
+    device_model="android_mobile",
+    description="Netflix Android TV app"
+  )
+
+Returns: userinterface_id and root tree_id""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "name": {"type": "string", "description": "Interface name (e.g., 'netflix_android', 'youtube_tv')"},
+                        "device_model": {"type": "string", "description": "Device model: 'android_mobile', 'android_tv', 'web', 'host_vnc'"},
+                        "description": {"type": "string", "description": "Optional description"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["name", "device_model"]
+                }
+            },
+            {
+                "name": "list_userinterfaces",
+                "description": """List all userinterfaces (app models) for the team
+
+Shows which apps have navigation trees ready.
+
+Example:
+  list_userinterfaces()
+
+Returns: List of all interfaces with root tree info""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
+                        "force_refresh": {"type": "boolean", "description": "Force cache refresh (optional - default false)"}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "get_userinterface_complete",
+                "description": """Get COMPLETE userinterface with ALL nodes, edges, subtrees, and metrics
+
+This is the RECOMMENDED way to get full tree data in ONE call.
+Returns everything from root tree + all nested subtrees.
+
+Example:
+  complete_tree = get_userinterface_complete(
+    userinterface_id="abc-123-def"
+  )
+  # Returns: {nodes: [...], edges: [...], metrics: {...}}
+
+Replaces multiple calls:
+  ❌ OLD: get_userinterface() → list_nodes() → list_edges() = 3 calls
+  ✅ NEW: get_userinterface_complete() = 1 call""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "userinterface_id": {"type": "string", "description": "User interface UUID (from list_userinterfaces or create_userinterface)"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
+                        "include_metrics": {"type": "boolean", "description": "Include metrics data (optional - default true)"}
+                    },
+                    "required": ["userinterface_id"]
+                }
+            },
+            {
+                "name": "list_nodes",
+                "description": """List all nodes in a navigation tree
+
+Useful for checking what nodes exist after create/delete operations.
+
+Example:
+  list_nodes(tree_id="tree-abc-123")
+
+Returns: List of nodes with verifications count""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
+                        "page": {"type": "integer", "description": "Page number (optional - default 0)"},
+                        "limit": {"type": "integer", "description": "Results per page (optional - default 100)"}
+                    },
+                    "required": ["tree_id"]
+                }
+            },
+            {
+                "name": "list_edges",
+                "description": """List all edges in a navigation tree
+
+Useful for checking what navigation paths exist after create/delete operations.
+
+Example:
+  list_edges(tree_id="tree-abc-123")
+
+Returns: List of edges with action sets""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "tree_id": {"type": "string", "description": "Navigation tree ID"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
+                        "node_ids": {"type": "array", "items": {"type": "string"}, "description": "Optional list of node IDs to filter edges"}
+                    },
+                    "required": ["tree_id"]
                 }
             }
         ]
