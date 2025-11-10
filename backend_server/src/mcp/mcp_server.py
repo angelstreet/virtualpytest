@@ -596,10 +596,36 @@ Can be called MULTIPLE times in the same session.
 
 Device Model Specific:
 - android_mobile/android_tv: Use ADB/Remote verification commands discovered via list_verifications()
-  Must match command structure returned by list_verifications (type, method, params, expected)
+  Must use CORRECT field names: 'command' (not 'method') and 'verification_type' (not 'type')
 - web/desktop: Use web verification methods
 
-IMPORTANT: Call list_verifications() first to see exact command structure for the device model.""",
+IMPORTANT: Call list_verifications() first to see exact command structure for the device model.
+
+**CRITICAL - VERIFICATION FORMAT:**
+Each verification object MUST use:
+- 'command': The verification method name (e.g., 'waitForElementToAppear')
+- 'verification_type': The category (e.g., 'adb', 'image', 'text', 'video')
+- 'params': Method-specific parameters (e.g., 'search_term' for waitForElementToAppear)
+- 'expected': Expected result (optional)
+
+Example:
+```json
+{
+  "command": "waitForElementToAppear",
+  "verification_type": "adb",
+  "params": {"search_term": "Home", "timeout": 5000}
+}
+```
+
+**CRITICAL - PARAMETER NAMES:**
+For waitForElementToAppear, use 'search_term' (NOT 'text'):
+- ✅ CORRECT: {"search_term": "Home", "timeout": 10}
+- ❌ WRONG: {"text": "Home", "timeout": 10}
+
+The backend expects 'search_term' because it supports flexible matching:
+- Text content, accessibility labels, class names
+- Pipe-separated fallbacks: "Settings|Preferences|Options"
+""",
                 "inputSchema": {
                     "type": "object",
                     "properties": {
@@ -608,7 +634,7 @@ IMPORTANT: Call list_verifications() first to see exact command structure for th
                         "userinterface_name": {"type": "string", "description": "User interface name"},
                         "verifications": {
                             "type": "array",
-                            "description": "Array of verification objects with type, method, params, expected",
+                            "description": "Array of verification objects. Each object MUST use 'command' (not 'method') and 'verification_type' (not 'type') to match frontend expectations.",
                             "items": {"type": "object"}
                         },
                         "tree_id": {"type": "string", "description": "Navigation tree ID (optional)"},

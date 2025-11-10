@@ -120,6 +120,13 @@ class VerificationTools:
         
         REUSES existing /server/verification/executeBatch endpoint (same as frontend)
         
+        **CRITICAL - VERIFICATION FORMAT:**
+        Each verification object MUST use:
+        - 'command': The verification method name (NOT 'method')
+        - 'verification_type': The category like 'adb', 'image' (NOT 'type')
+        - 'params': Method-specific parameters
+        - 'expected': Expected result (optional)
+        
         Args:
             params: {
                 'device_id': str (REQUIRED),
@@ -127,8 +134,8 @@ class VerificationTools:
                 'team_id': str (REQUIRED),
                 'userinterface_name': str (REQUIRED),
                 'verifications': List[Dict] (REQUIRED) - [{
-                    'type': str (image/text/adb/video),
-                    'method': str (command name),
+                    'command': str (e.g., 'waitForElementToAppear'),
+                    'verification_type': str (e.g., 'adb', 'image', 'text', 'video'),
                     'params': dict,
                     'expected': any
                 }],
