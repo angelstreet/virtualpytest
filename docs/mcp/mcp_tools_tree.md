@@ -304,6 +304,10 @@ Delete node and connected edges.
 
 Create edge with navigation actions.
 
+**Action Delay Requirements:**
+Each action in action_sets MUST include a 'delay' field (milliseconds).
+Use standard delays: launch_app (8000), click_element (2000), press_key (1500).
+
 **Parameters:**
 ```json
 {
@@ -320,12 +324,52 @@ Create edge with navigation actions.
     {
       "id": "settings_to_home",
       "actions": [
-        {"command": "press_key", "params": {"key": "BACK"}, "delay": 2000}
+        {"command": "press_key", "params": {"key": "BACK"}, "delay": 1500}
       ]
     }
   ]
 }
 ```
+
+---
+
+### ⏱️ Edge Action Delays
+
+When creating edges, each action requires appropriate delays for reliable navigation:
+
+#### Common Edge Patterns
+
+**Tab Navigation:**
+```json
+{"command": "click_element", "params": {"element_id": "Search Tab"}, "delay": 2000}
+```
+- Standard 2-second delay for tab animation + screen transition
+
+**Back Button:**
+```json
+{"command": "press_key", "params": {"key": "BACK"}, "delay": 1500}
+```
+- 1.5 seconds for back navigation (faster than forward)
+
+**App Launch (Entry → Home):**
+```json
+{"command": "launch_app", "params": {"package": "com.example.app"}, "delay": 8000}
+```
+- 8 seconds for app initialization + splash screen + home render
+
+**Content Load (Home → Detail):**
+```json
+{"command": "click_element", "params": {"element_id": "Movie Card"}, "delay": 3000}
+```
+- 3 seconds for heavy page with images/metadata
+
+**Video Start (Detail → Player):**
+```json
+{"command": "click_element", "params": {"element_id": "Play"}, "delay": 5000}
+```
+- 5 seconds for player initialization + buffering
+
+**💡 See:** [Action Tools - Delay Guidelines](mcp_tools_action.md#%EF%B8%8F-action-delay-guidelines) for complete reference.
 
 ---
 

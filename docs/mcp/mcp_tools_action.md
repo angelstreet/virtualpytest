@@ -173,7 +173,7 @@ execute_device_action({
     "actions": [{
         "command": "launch_app",
         "params": {"package": "com.netflix.mediaclient"},
-        "delay": 2000
+        "delay": 8000
     }]
 })
 # MCP automatically polls until completion
@@ -183,7 +183,7 @@ execute_device_action({
 **📱 Swipe:**
 ```python
 execute_device_action({
-    "actions": [{"command": "swipe_up", "params": {}, "delay": 500}]
+    "actions": [{"command": "swipe_up", "params": {}, "delay": 1000}]
 })
 ```
 
@@ -193,7 +193,7 @@ execute_device_action({
     "actions": [{
         "command": "click_element",
         "params": {"text": "Home"},
-        "delay": 1000
+        "delay": 2000
     }]
 })
 ```
@@ -204,7 +204,7 @@ execute_device_action({
     "actions": [{
         "command": "type_text",
         "params": {"text": "Hello World"},
-        "delay": 500
+        "delay": 1000
     }]
 })
 ```
@@ -215,7 +215,7 @@ execute_device_action({
     "actions": [{
         "command": "press_key",
         "params": {"key": "BACK"},
-        "delay": 500
+        "delay": 1500
     }]
 })
 ```
@@ -227,4 +227,255 @@ execute_device_action({
   - Examples: `web_click`, `web_type`, `web_navigate`
 
 **💡 Tip:** Call `list_actions()` first to discover all available commands for your device.
+
+---
+
+## ⏱️ Action Delay Guidelines
+
+### 🎯 Critical Understanding
+
+**The `delay` field is a TOP-LEVEL sibling of `command` and `params`, NOT inside `params`!**
+
+```json
+✅ CORRECT:
+{
+  "command": "launch_app",
+  "params": {"package": "com.example.app"},
+  "delay": 8000
+}
+
+❌ WRONG:
+{
+  "command": "launch_app",
+  "params": {"package": "com.example.app", "delay": 8000}
+}
+```
+
+The `delay` value is in **milliseconds** and represents the wait time **AFTER** the action completes, before executing the next action.
+
+---
+
+### 📋 Standard Delays by Operation
+
+| Operation Type | Standard Delay (ms) | Use Case | Reason |
+|----------------|---------------------|----------|--------|
+| **launch_app** | 8000 (8s) | App initialization | App needs time to load resources, initialize services, render UI |
+| **click_element** | 2000 (2s) | Tab navigation, menu items | Screen transition + UI rendering |
+| **tap_coordinates** | 2000 (2s) | Screen taps | Screen transition + UI rendering |
+| **press_key** (BACK) | 1500 (1.5s) | Back navigation | Faster than forward nav, but still needs UI update |
+| **press_key** (other) | 1000 (1s) | Key presses (HOME, MENU) | Quick UI response |
+| **type_text** | 1000 (1s) | Text input | Input processing + keyboard animation |
+| **swipe** | 1500 (1.5s) | Swipe gestures | Animation completion |
+| **scroll** | 1000 (1s) | Scrolling | Scroll animation |
+
+### Heavy Operations (Longer Delays)
+
+| Operation | Delay (ms) | Context |
+|-----------|------------|---------|
+| **Click "Play" button** | 5000 (5s) | Video player initialization |
+| **Search + Results** | 3000 (3s) | Search execution + results rendering |
+| **Load content detail** | 3000 (3s) | Heavy page with images/metadata |
+| **Login/Authentication** | 4000 (4s) | Network request + validation |
+
+---
+
+### ✅ Example Structure
+
+```json
+{
+  "command": "launch_app",
+  "params": {
+    "package": "com.example.app"
+  },
+  "delay": 8000  ← Wait 8 seconds AFTER launch completes
+}
+```
+
+**Explanation:** 
+- The app starts launching at time 0
+- After launch completes, the system waits 8 seconds
+- Then the next action executes (at ~8+ seconds)
+- This ensures the app is fully initialized and ready
+
+---
+
+### 🚨 Common Mistakes
+
+#### ❌ Mistake 1: Delay in Wrong Place
+```json
+{
+  "command": "launch_app",
+  "params": {
+    "package": "com.example.app",
+    "delay": 8000  ← WRONG! Delay is NOT a param
+  }
+}
+```
+
+#### ❌ Mistake 2: No Delay After Heavy Operation
+```json
+{
+  "command": "launch_app",
+  "params": {"package": "..."}
+  // Missing delay field = immediate next action = FAILURE!
+}
+```
+
+#### ❌ Mistake 3: Delay Too Short
+```json
+{
+  "command": "launch_app",
+  "params": {"package": "..."},
+  "delay": 2000  ← TOO SHORT! App won't be ready
+}
+```
+
+#### ❌ Mistake 4: Using Seconds Instead of Milliseconds
+```json
+{
+  "command": "click_element",
+  "params": {"element_id": "..."},
+  "delay": 2  ← WRONG! Use 2000 (milliseconds)
+}
+```
+
+---
+
+### 🔧 Delay Adjustment Guidelines
+
+#### When to Increase Delays:
+
+1. **Slow Devices:** +2000ms for each operation
+2. **Slow Network:** +3000ms for search/load operations
+3. **Heavy Content:** +1000-2000ms for image-rich pages
+4. **Video Operations:** +2000-3000ms for buffering
+
+#### When Delays Can Be Shorter:
+
+1. **Fast Devices:** -1000ms (but never below minimums)
+2. **Simple UI:** -500ms for lightweight screens
+3. **Back Navigation:** Already optimized at 1500ms
+
+#### Minimum Safe Delays:
+
+```json
+{
+  "launch_app": 5000,      // Absolute minimum (risky)
+  "click_element": 1500,   // Absolute minimum
+  "press_key": 1000,       // Absolute minimum
+  "type_text": 500         // Absolute minimum
+}
+```
+
+**Recommendation:** Use standard delays from table above, increase if failures occur.
+
+---
+
+### 📖 Complete Action Examples
+
+#### Example 1: App Launch
+```json
+{
+  "command": "launch_app",
+  "params": {
+    "package": "com.netflix.mediaclient"
+  },
+  "delay": 8000
+}
+```
+**Why 8000ms?** App needs time for: splash screen, initialization, home screen render.
+
+---
+
+#### Example 2: Tab Navigation
+```json
+{
+  "command": "click_element",
+  "params": {
+    "element_id": "Search Tab"
+  },
+  "delay": 2000
+}
+```
+**Why 2000ms?** Tab animation + screen transition + content load.
+
+---
+
+#### Example 3: Video Playback
+```json
+{
+  "command": "click_element",
+  "params": {
+    "element_id": "Play"
+  },
+  "delay": 5000
+}
+```
+**Why 5000ms?** Video player needs: initialization, buffering, controls setup.
+
+---
+
+#### Example 4: Multiple Sequential Actions
+```json
+{
+  "actions": [
+    {
+      "command": "launch_app",
+      "params": {"package": "com.netflix.mediaclient"},
+      "delay": 8000
+    },
+    {
+      "command": "tap_coordinates",
+      "params": {"x": 540, "y": 1645},
+      "delay": 2000
+    },
+    {
+      "command": "click_element",
+      "params": {"element_id": "Dismiss"},
+      "delay": 1000
+    }
+  ]
+}
+```
+**Execution Timeline:**
+- 0s: App launch starts
+- 8s: Wait completes, tap coordinates
+- 10s: Wait completes, click dismiss
+- 11s: Wait completes, ready for next action
+
+---
+
+### ✅ Quick Reference Card
+
+```
+┌──────────────────────────────────────────────────────┐
+│ QUICK DELAY REFERENCE                                │
+├──────────────────────────────────────────────────────┤
+│ launch_app           → 8000ms  (8 seconds)          │
+│ click_element        → 2000ms  (2 seconds)          │
+│ tap_coordinates      → 2000ms  (2 seconds)          │
+│ press_key (BACK)     → 1500ms  (1.5 seconds)        │
+│ press_key (other)    → 1000ms  (1 second)           │
+│ type_text            → 1000ms  (1 second)           │
+│ video operations     → 5000ms  (5 seconds)          │
+│ search + results     → 3000ms  (3 seconds)          │
+├──────────────────────────────────────────────────────┤
+│ CRITICAL: delay is TOP-LEVEL, NOT in params!        │
+└──────────────────────────────────────────────────────┘
+```
+
+---
+
+### 🎓 For AI Models: Key Takeaways
+
+1. **ALWAYS include `delay` field** in every action
+2. **`delay` is SIBLING** of `command` and `params`
+3. **Use milliseconds** (1 second = 1000ms)
+4. **Start with standard delays** from table
+5. **Increase if failures occur** (+2000ms increments)
+6. **App launch needs longest delay** (8000ms minimum)
+7. **Video operations need 5000ms** minimum
+8. **Tab/menu navigation: 2000ms** standard
+9. **Back navigation: 1500ms** (faster than forward)
+10. **Text input: 1000ms** + extra for search results
 

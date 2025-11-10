@@ -17,7 +17,7 @@ This documentation has been modularized for easier navigation and maintenance.
 
 #### 🔐 Control & Discovery
 - **[Control Tools](mcp/mcp_tools_control.md)** (1 tool) - `take_control` ⚠️ **MUST BE FIRST**
-- **[Action Tools](mcp/mcp_tools_action.md)** (2 tools) - `execute_device_action`, `list_actions`
+- **[Action Tools](mcp/mcp_tools_action.md)** (2 tools) - `execute_device_action`, `list_actions` ⏱️ **[Delay Guidelines](mcp/mcp_tools_action.md#⏱️-action-delay-guidelines)**
 - **[Navigation Tools](mcp/mcp_tools_navigation.md)** (3 tools) - `navigate_to_node`, `list_navigation_nodes`, `preview_userinterface` 🆕
 - **[Verification Tools](mcp/mcp_tools_verification.md)** (4 tools) - `verify_device_state`, `verify_node`, `list_verifications`, `dump_ui_elements`
 

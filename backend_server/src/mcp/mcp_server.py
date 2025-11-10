@@ -359,6 +359,22 @@ Executes direct device commands including:
 
 Returns execution_id for async operations - polls automatically until completion.
 
+⏱️ CRITICAL - ACTION DELAYS:
+Each action MUST include a 'delay' field (milliseconds) to wait AFTER execution.
+The 'delay' field is TOP-LEVEL, NOT in params:
+
+✅ CORRECT: {"command": "launch_app", "params": {...}, "delay": 8000}
+❌ WRONG: {"command": "launch_app", "params": {..., "delay": 8000}}
+
+Standard Delays (milliseconds):
+- launch_app:     8000  (app initialization)
+- click_element:  2000  (screen transition)
+- tap_coordinates: 2000  (screen taps)
+- press_key (BACK): 1500  (back navigation)
+- press_key (other): 1000  (key response)
+- type_text:      1000  (input processing)
+- video playback: 5000  (player initialization)
+
 Device Model Specific:
 - android_mobile/android_tv: Use ADB/Remote commands
   Examples: launch_app, swipe_up, swipe_down, click_element, click_element_by_id, type_text, press_key
@@ -373,20 +389,21 @@ Common Examples:
     "actions": [{
       "command": "launch_app",
       "params": {"package": "com.netflix.mediaclient"},
-      "delay": 2000
+      "delay": 8000
     }]
   })
 
 📱 Swipe:
   execute_device_action({
-    "actions": [{"command": "swipe_up"}]
+    "actions": [{"command": "swipe_up", "delay": 1000}]
   })
 
 👆 Click Element:
   execute_device_action({
     "actions": [{
       "command": "click_element",
-      "params": {"text": "Home"}
+      "params": {"text": "Home"},
+      "delay": 2000
     }]
   })
 
@@ -394,7 +411,8 @@ Common Examples:
   execute_device_action({
     "actions": [{
       "command": "type_text",
-      "params": {"text": "Hello"}
+      "params": {"text": "Hello"},
+      "delay": 1000
     }]
   })
 
@@ -402,7 +420,8 @@ Common Examples:
   execute_device_action({
     "actions": [{
       "command": "press_key",
-      "params": {"key": "BACK"}
+      "params": {"key": "BACK"},
+      "delay": 1500
     }]
   })
 

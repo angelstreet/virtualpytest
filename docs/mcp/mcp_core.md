@@ -109,6 +109,23 @@ Web interface using OpenRouter (Qwen/Phi-3) with function calling to simulate MC
 ---
 ## 📋 Prerequisites
 
+### Important: Action Delays
+
+All device actions require proper delays to prevent timing issues and ensure reliable automation.
+
+**Quick Reference:**
+- App launch: 8000ms (8 seconds)
+- Navigation/clicks: 2000ms (2 seconds)
+- Back button: 1500ms (1.5 seconds)
+- Text input: 1000ms (1 second)
+- Video operations: 5000ms (5 seconds)
+
+**Critical:** The `delay` field is TOP-LEVEL in action objects, NOT in params.
+
+**See:** [Action Tools - Delay Guidelines](mcp_tools_action.md#⏱️-action-delay-guidelines) for complete standards and examples.
+
+---
+
 ### Installation
 
 ```bash

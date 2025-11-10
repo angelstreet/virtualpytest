@@ -22,6 +22,51 @@ This prompt guides automation engineers to quickly generate navigation tree mode
 
 ---
 
+## ⏱️ Action Delay Standards
+
+**CRITICAL:** All actions MUST include proper delays to prevent race conditions and ensure reliable automation.
+
+### Standard Delays Table
+
+| Operation | Delay (ms) | When to Use |
+|-----------|------------|-------------|
+| **launch_app** | 8000 | Entry→Home (app launch) |
+| **click_element** | 2000 | Tab navigation, menu items |
+| **tap_coordinates** | 2000 | Screen taps |
+| **press_key (BACK)** | 1500 | Back navigation |
+| **press_key (other)** | 1000 | Other keys |
+| **type_text** | 1000 | Text input |
+| **Video operations** | 5000 | Player initialization |
+| **Content load** | 3000 | Heavy pages with images |
+
+### Critical Rules
+
+1. **Delay is TOP-LEVEL** field in action object, NOT in params
+2. **Always in milliseconds** (1 second = 1000ms)
+3. **Missing delay = race condition = unreliable test**
+4. **Increase by +2000ms** if operation fails due to timing
+
+### Example Structure
+
+```json
+✅ CORRECT:
+{
+  "command": "launch_app",
+  "params": {"package": "com.example.app"},
+  "delay": 8000
+}
+
+❌ WRONG:
+{
+  "command": "launch_app",
+  "params": {"package": "com.example.app", "delay": 8000}
+}
+```
+
+**See:** [MCP Action Tools - Delay Guidelines](mcp/mcp_tools_action.md#⏱️-action-delay-guidelines) for complete reference.
+
+---
+
 ## 🚀 The Prompt
 
 ```markdown
@@ -95,7 +140,7 @@ execute_edge({
 - Runs `launch_app` with package name
 - Waits for app to load
 
-**Validation:** Wait 3-5 seconds for app to fully load before proceeding
+**Validation:** Wait 8-10 seconds for app to fully load before proceeding
 
 ---
 
@@ -273,7 +318,7 @@ execute_device_action({
     "actions": [{
         "command": "press_key",
         "params": {"key": "BACK"},
-        "delay": 2000
+        "delay": 1500
     }]
 })
 ```
@@ -318,7 +363,7 @@ create_edge({
             "actions": [{
                 "command": "press_key",
                 "params": {"key": "BACK"},
-                "delay": 2000
+                "delay": 1500
             }],
             "retry_actions": [],
             "failure_actions": []
