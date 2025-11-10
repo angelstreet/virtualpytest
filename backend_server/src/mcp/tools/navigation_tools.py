@@ -324,11 +324,20 @@ class NavigationTools:
             
             userinterface_id = ui_result['id']
             
-            # Step 2: Get complete tree data
-            complete_data = self.api.get(f'/server/navigation/userinterface/{userinterface_id}/complete', params={'team_id': team_id})
+            # Step 2: Get complete tree data (same endpoint as get_userinterface_complete)
+            tree_result = self.api.get(
+                f'/server/navigationTrees/getTreeByUserInterfaceId/{userinterface_id}',
+                params={
+                    'team_id': team_id,
+                    'include_nested': 'true',
+                    'include_metrics': 'true'
+                }
+            )
             
-            if not complete_data or not complete_data.get('nodes'):
+            if not tree_result.get('success') or not tree_result.get('tree'):
                 return {"content": [{"type": "text", "text": f"Error: No navigation data found for '{userinterface_name}'"}], "isError": True}
+            
+            complete_data = tree_result['tree'].get('metadata', {})
             
             # Format compact preview
             output = self._format_compact_preview(userinterface_name, complete_data)
@@ -342,41 +351,83 @@ class NavigationTools:
             return {"content": [{"type": "text", "text": f"Error: {str(e)}"}], "isError": True}
     
     def _format_compact_preview(self, ui_name: str, data: Dict[str, Any]) -> str:
-        """Format navigation tree as compact text"""
+        """Format navigation tree as compact text with nodes and transitions"""
         nodes = data.get('nodes', [])
         edges = data.get('edges', [])
         
-        # Create node lookup for verifications
-        node_lookup = {node['id']: node for node in nodes}
+        # Create node lookup (by node_id, not id)
+        node_lookup = {node.get('node_id', node.get('id')): node for node in nodes}
         
-        # Count transitions (edges * 2 for bidirectional, - entry edge)
+        # Count transitions (edges * 2 for bidirectional)
         transition_count = sum(2 if len(edge.get('action_sets', [])) > 1 else 1 for edge in edges)
         
         output = f"{ui_name} ({len(nodes)} nodes, {transition_count} transitions)\n\n"
         
+        # === NODES SECTION ===
+        output += "=== NODES ===\n"
+        for node in nodes:
+            node_id = node.get('node_id', node.get('id', 'unknown'))
+            label = node.get('label', node_id)
+            output += f"• {label} ({node_id})\n"
+            
+            # Get verifications
+            verifications = node.get('data', {}).get('verifications', [])
+            if verifications:
+                for verif in verifications:
+                    method = verif.get('method', '')
+                    expected = verif.get('expected', True)
+                    params = verif.get('params', {})
+                    text = params.get('text', '')
+                    timeout = params.get('timeout', 5000)
+                    symbol = '✓' if expected else '✗'
+                    if expected:
+                        output += f"  Verifications: {symbol} {text} appears ({timeout}ms)\n"
+                    else:
+                        output += f"  Verifications: {symbol} {text} NOT present ({timeout}ms)\n"
+            else:
+                output += f"  Verifications: none\n"
+            output += "\n"
+        
+        # === TRANSITIONS SECTION ===
+        output += "=== TRANSITIONS ===\n"
         for edge in edges:
-            source_label = edge.get('source_label', 'unknown')
-            target_label = edge.get('target_label', 'unknown')
+            # Get source and target labels
+            source_node_id = edge.get('source_node_id', edge.get('source'))
+            target_node_id = edge.get('target_node_id', edge.get('target'))
+            
+            source_label = edge.get('source_label')
+            target_label = edge.get('target_label')
+            
+            if not source_label:
+                source_node = node_lookup.get(source_node_id)
+                source_label = source_node.get('label', source_node_id) if source_node else source_node_id
+            
+            if not target_label:
+                target_node = node_lookup.get(target_node_id)
+                target_label = target_node.get('label', target_node_id) if target_node else target_node_id
+            
             action_sets = edge.get('action_sets', [])
             
             if not action_sets:
                 continue
             
-            # Get forward and backward actions
-            forward_actions = self._format_actions(action_sets[0].get('actions', []))
-            backward_actions = None
-            if len(action_sets) > 1 and action_sets[1].get('actions'):
-                backward_actions = self._format_actions(action_sets[1].get('actions', []))
+            # Check if bidirectional
+            is_bidirectional = len(action_sets) > 1 and action_sets[1].get('actions')
             
-            # Get target node verification
-            target_node = node_lookup.get(edge.get('target_node_id'))
-            verification = self._get_verification_summary(target_node) if target_node else ""
-            
-            # Format line
-            if backward_actions:
-                output += f"{source_label}⟷{target_label}: {forward_actions} ⟷ {backward_actions} {verification}\n"
+            if is_bidirectional:
+                output += f"{source_label} ⟷ {target_label}\n"
+                # Forward actions
+                forward_actions = action_sets[0].get('actions', [])
+                output += f"  Forward: {self._format_actions_with_delay(forward_actions)}\n"
+                # Backward actions
+                backward_actions = action_sets[1].get('actions', [])
+                output += f"  Backward: {self._format_actions_with_delay(backward_actions)}\n"
             else:
-                output += f"{source_label}→{target_label}: {forward_actions} {verification}\n"
+                output += f"{source_label} → {target_label}\n"
+                forward_actions = action_sets[0].get('actions', [])
+                output += f"  Actions: {self._format_actions_with_delay(forward_actions)}\n"
+            
+            output += "\n"
         
         return output
     
@@ -417,6 +468,50 @@ class NavigationTools:
             formatted.append(f'+{len(actions)-3}more')
         
         return ' + '.join(formatted)
+    
+    def _format_actions_with_delay(self, actions: list) -> str:
+        """Format action list with delay information for detailed view"""
+        if not actions:
+            return "none [delay: 0ms]"
+        
+        formatted = []
+        for action in actions:
+            cmd = action.get('command', 'unknown')
+            params = action.get('params', {})
+            
+            if cmd == 'launch_app':
+                package = params.get('package', '')
+                formatted.append(f'launch_app({package})')
+            elif cmd == 'tap_coordinates':
+                x = params.get('x', 0)
+                y = params.get('y', 0)
+                formatted.append(f'tap({x},{y})')
+            elif cmd == 'click_element':
+                element_id = params.get('element_id', 'unknown')
+                if len(element_id) > 30:
+                    element_id = element_id[:27] + '...'
+                formatted.append(f'click({element_id})')
+            elif cmd == 'press_key':
+                key = params.get('key', 'unknown')
+                formatted.append(key)
+            elif cmd == 'type_text':
+                text = params.get('text', '')
+                if len(text) > 20:
+                    text = text[:17] + '...'
+                formatted.append(f'type({text})')
+            else:
+                formatted.append(cmd)
+        
+        # Get delay/wait_time from last action
+        delay = 0
+        if actions:
+            last_action = actions[-1]
+            delay = last_action.get('params', {}).get('wait_time', 0)
+            if not delay:
+                delay = last_action.get('params', {}).get('delay', 0)
+        
+        action_str = ' + '.join(formatted)
+        return f"{action_str} [delay: {delay}ms]"
     
     def _get_verification_summary(self, node: Dict[str, Any]) -> str:
         """Extract verification summary from node"""

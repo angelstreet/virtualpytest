@@ -1,8 +1,8 @@
 # VirtualPyTest MCP Server Documentation
 
-**Version**: 4.3.0  
+**Version**: 4.4.0  
 **Last Updated**: 2025-11-10  
-**Total Tools**: 49
+**Total Tools**: 51
 
 This documentation has been modularized for easier navigation and maintenance.
 
@@ -18,7 +18,7 @@ This documentation has been modularized for easier navigation and maintenance.
 #### 🔐 Control & Discovery
 - **[Control Tools](mcp/mcp_tools_control.md)** (1 tool) - `take_control` ⚠️ **MUST BE FIRST**
 - **[Action Tools](mcp/mcp_tools_action.md)** (2 tools) - `execute_device_action`, `list_actions`
-- **[Navigation Tools](mcp/mcp_tools_navigation.md)** (2 tools) - `navigate_to_node`, `list_navigation_nodes`
+- **[Navigation Tools](mcp/mcp_tools_navigation.md)** (3 tools) - `navigate_to_node`, `list_navigation_nodes`, `preview_userinterface` 🆕
 - **[Verification Tools](mcp/mcp_tools_verification.md)** (4 tools) - `verify_device_state`, `verify_node`, `list_verifications`, `dump_ui_elements`
 
 #### 🔧 Tree Building (Primitives)
@@ -99,8 +99,8 @@ This documentation has been modularized for easier navigation and maintenance.
 
 ### By Functionality
 
-**Discovery & Inspection** (4 tools)
-- `list_actions`, `list_verifications`, `list_navigation_nodes`, `dump_ui_elements`
+**Discovery & Inspection** (5 tools)
+- `list_actions`, `list_verifications`, `list_navigation_nodes`, `dump_ui_elements`, `preview_userinterface` 🆕
 
 **Execution** (5 tools)
 - `execute_device_action`, `navigate_to_node`, `verify_device_state`, `execute_edge`, `verify_node`
@@ -157,11 +157,11 @@ Most tools support optional parameters with sensible defaults:
 
 ## 📊 Statistics
 
-- **Total Tools**: 49
+- **Total Tools**: 51
 - **Tool Categories**: 12
 - **Documentation Pages**: 13
 - **Supported Integrations**: 3 (Cursor, Claude Desktop, MCP Playground)
-- **Lines of Documentation**: 3,300+
+- **Lines of Documentation**: 3,400+
 
 ---
 
@@ -206,6 +206,7 @@ For issues or questions:
 
 ## 📈 Version History
 
+- **v4.4.0** (2025-11): 51 tools (+ preview_userinterface - "What do we test?")
 - **v4.3.0** (2025-11): 49 tools (+ requirements management)
 - **v4.2.1** (2025-11): 39 tools (documentation alignment)
 - **v4.2.0** (2025-11): 39 tools (+ execute_edge & verify_node)

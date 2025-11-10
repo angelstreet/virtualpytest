@@ -6,6 +6,56 @@
 
 ### 🗺️ Navigation
 
+#### preview_userinterface
+
+Get compact text preview of userinterface navigation tree.
+
+Shows all nodes, edges, actions, and verifications in 8-10 lines.
+Perfect for answering **"What do we test and how?"**
+
+**✅ NO PREREQUISITES** - Just call with userinterface_name
+
+**Parameters:**
+```json
+{
+  "userinterface_name": "netflix_mobile",  // REQUIRED
+  "team_id": "team_1"                      // Optional (defaults to default team)
+}
+```
+
+**Returns:** Compact text showing all transitions
+
+**Output Format:**
+```
+netflix_mobile (7 nodes, 13 transitions)
+
+Entry→home: launch_app + tap(540,1645) [✓ Startseite]
+home⟷search: click(Suchen) ⟷ click(Nach oben navigieren) [✓ Suchen]
+home⟷content_detail: click(The Witcher) ⟷ BACK [✓ abspielen]
+content_detail⟷player: click(abspielen) ⟷ BACK [✗ Startseite]
+home⟷downloads: click(Downloads...) ⟷ click(Startseite) [✓ Downloads]
+home⟷more: click(Mein Netflix) ⟷ click(Startseite) [✓ Mein Netflix]
+search⟷content_detail: click(Frankenstein) ⟷ BACK [✓ abspielen]
+```
+
+**Example:**
+```python
+preview_userinterface({"userinterface_name": "netflix_mobile"})
+
+# Returns compact preview of entire navigation tree
+# Shows: nodes, transitions, actions, verifications
+# Perfect for sharing with stakeholders or quick overview
+```
+
+**Use Cases:**
+- Quick overview of test coverage
+- Share navigation structure with stakeholders
+- Understand what actions are tested
+- Verify navigation completeness
+- Answer "What do we test?" in seconds
+
+---
+
 #### navigate_to_node
 
 Navigate to target node in UI tree using pathfinding.
