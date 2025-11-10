@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 39 core tools for device automation:
+This server provides 48 core tools for device automation:
 1. take_control - Lock device and generate navigation cache (ONLY for navigation)
 2. list_actions - List available device actions
 3. execute_device_action - Execute remote/ADB/web/desktop commands
@@ -45,6 +45,15 @@ This server provides 39 core tools for device automation:
 37. list_edges - List edges with actions
 38. delete_userinterface - Delete userinterface models
 39. verify_node - Verify node verifications directly
+40. create_requirement - Create new requirement
+41. list_requirements - List all requirements
+42. get_requirement - Get requirement details
+43. link_testcase_to_requirement - Link testcase for coverage
+44. unlink_testcase_from_requirement - Unlink testcase
+45. get_testcase_requirements - Get testcase requirements
+46. get_requirement_coverage - Get requirement coverage details
+47. get_coverage_summary - Get overall coverage metrics
+48. get_uncovered_requirements - List uncovered requirements
 """
 
 import logging
@@ -66,6 +75,7 @@ from .tools.logs_tools import LogsTools
 from .tools.script_tools import ScriptTools
 from .tools.tree_tools import TreeTools
 from .tools.userinterface_tools import UserInterfaceTools
+from .tools.requirements_tools import RequirementsTools
 
 # Import utilities
 from .utils.api_client import MCPAPIClient
@@ -99,6 +109,7 @@ class VirtualPyTestMCPServer:
         self.script_tools = ScriptTools(self.api_client)
         self.tree_tools = TreeTools(self.api_client)
         self.userinterface_tools = UserInterfaceTools(self.api_client)
+        self.requirements_tools = RequirementsTools(self.api_client)
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -170,6 +181,17 @@ class VirtualPyTestMCPServer:
             
             # Verification tools (NEW - Node verification)
             'verify_node': self.verification_tools.verify_node,  # NEW - Verify node
+            
+            # Requirements Management tools (NEW)
+            'create_requirement': self.requirements_tools.create_requirement,
+            'list_requirements': self.requirements_tools.list_requirements,
+            'get_requirement': self.requirements_tools.get_requirement,
+            'link_testcase_to_requirement': self.requirements_tools.link_testcase_to_requirement,
+            'unlink_testcase_from_requirement': self.requirements_tools.unlink_testcase_from_requirement,
+            'get_testcase_requirements': self.requirements_tools.get_testcase_requirements,
+            'get_requirement_coverage': self.requirements_tools.get_requirement_coverage,
+            'get_coverage_summary': self.requirements_tools.get_coverage_summary,
+            'get_uncovered_requirements': self.requirements_tools.get_uncovered_requirements,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -1437,6 +1459,201 @@ Example:
                         "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                     },
                     "required": ["node_id", "tree_id", "userinterface_name"]
+                }
+            },
+            # ═══════════════════════════════════════════════════
+            # REQUIREMENTS MANAGEMENT TOOLS
+            # ═══════════════════════════════════════════════════
+            {
+                "name": "create_requirement",
+                "description": """Create a new requirement for requirements management
+                
+Creates a requirement with code, title, description, priority, and category.
+Used for tracking test coverage and linking testcases to requirements.
+
+Example:
+  create_requirement(
+    requirement_code='REQ_PLAYBACK_001',
+    requirement_name='User can play video content',
+    description='Users must be able to select and play video content from the catalog',
+    priority='P1',
+    category='playback'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "requirement_code": {"type": "string", "description": "Requirement code (e.g., 'REQ_PLAYBACK_001')"},
+                        "requirement_name": {"type": "string", "description": "Requirement title"},
+                        "description": {"type": "string", "description": "Detailed description (optional)"},
+                        "priority": {"type": "string", "description": "Priority: P1, P2, P3 (optional - default: P2)"},
+                        "category": {"type": "string", "description": "Category (e.g., 'playback', 'navigation', 'search')"},
+                        "acceptance_criteria": {"type": "string", "description": "Acceptance criteria (optional)"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["requirement_code", "requirement_name"]
+                }
+            },
+            {
+                "name": "list_requirements",
+                "description": """List all requirements with optional filters
+
+Returns list of requirements with optional filtering by category, priority, or status.
+
+Example:
+  list_requirements(
+    category='playback',
+    priority='P1'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
+                        "category": {"type": "string", "description": "Filter by category (optional)"},
+                        "priority": {"type": "string", "description": "Filter by priority: P1, P2, P3 (optional)"},
+                        "status": {"type": "string", "description": "Filter by status (optional - default: 'active')"}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "get_requirement",
+                "description": """Get requirement details by ID
+
+Returns full details for a specific requirement.
+
+Example:
+  get_requirement(
+    requirement_id='abc-123-def'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "requirement_id": {"type": "string", "description": "Requirement ID"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["requirement_id"]
+                }
+            },
+            {
+                "name": "link_testcase_to_requirement",
+                "description": """Link testcase to requirement for coverage tracking
+
+Creates a link between a testcase and requirement to track test coverage.
+
+Example:
+  link_testcase_to_requirement(
+    testcase_id='tc-abc-123',
+    requirement_id='req-def-456',
+    coverage_type='full'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_id": {"type": "string", "description": "Testcase ID"},
+                        "requirement_id": {"type": "string", "description": "Requirement ID"},
+                        "coverage_type": {"type": "string", "description": "Coverage type: 'full' or 'partial' (optional - default: 'full')"},
+                        "coverage_notes": {"type": "string", "description": "Coverage notes (optional)"}
+                    },
+                    "required": ["testcase_id", "requirement_id"]
+                }
+            },
+            {
+                "name": "unlink_testcase_from_requirement",
+                "description": """Unlink testcase from requirement
+
+Removes the link between a testcase and requirement.
+
+Example:
+  unlink_testcase_from_requirement(
+    testcase_id='tc-abc-123',
+    requirement_id='req-def-456'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_id": {"type": "string", "description": "Testcase ID"},
+                        "requirement_id": {"type": "string", "description": "Requirement ID"}
+                    },
+                    "required": ["testcase_id", "requirement_id"]
+                }
+            },
+            {
+                "name": "get_testcase_requirements",
+                "description": """Get all requirements linked to a testcase
+
+Returns list of requirements that are covered by a specific testcase.
+
+Example:
+  get_testcase_requirements(
+    testcase_id='tc-abc-123'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "testcase_id": {"type": "string", "description": "Testcase ID"}
+                    },
+                    "required": ["testcase_id"]
+                }
+            },
+            {
+                "name": "get_requirement_coverage",
+                "description": """Get detailed coverage for a requirement
+
+Returns coverage details including linked testcases, scripts, and execution history.
+
+Example:
+  get_requirement_coverage(
+    requirement_id='req-abc-123'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "requirement_id": {"type": "string", "description": "Requirement ID"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["requirement_id"]
+                }
+            },
+            {
+                "name": "get_coverage_summary",
+                "description": """Get coverage summary across all requirements
+
+Returns overall coverage metrics including total requirements, covered/uncovered counts,
+coverage percentage, and breakdowns by priority and category.
+
+Example:
+  get_coverage_summary()
+  
+  # With filters
+  get_coverage_summary(
+    category='playback',
+    priority='P1'
+  )""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"},
+                        "category": {"type": "string", "description": "Filter by category (optional)"},
+                        "priority": {"type": "string", "description": "Filter by priority (optional)"}
+                    },
+                    "required": []
+                }
+            },
+            {
+                "name": "get_uncovered_requirements",
+                "description": """Get all requirements without test coverage
+
+Returns list of requirements that have no linked testcases or scripts.
+Useful for identifying gaps in test coverage.
+
+Example:
+  get_uncovered_requirements()""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": []
                 }
             }
         ]
