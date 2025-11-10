@@ -370,8 +370,8 @@ class NavigationTools:
             label = node.get('label', node_id)
             output += f"• {label} ({node_id})\n"
             
-            # Get verifications
-            verifications = node.get('data', {}).get('verifications', [])
+            # Get verifications from ROOT level (single source of truth)
+            verifications = node.get('verifications', [])
             if verifications:
                 for verif in verifications:
                     method = verif.get('method', '')
@@ -518,7 +518,8 @@ class NavigationTools:
         if not node:
             return ""
         
-        verifications = node.get('data', {}).get('verifications', [])
+        # Get verifications from ROOT level (single source of truth)
+        verifications = node.get('verifications', [])
         if not verifications:
             return ""
         
