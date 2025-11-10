@@ -361,8 +361,13 @@ def create_node_api(tree_id):
         result = save_node(tree_id, node_data, team_id)
         
         if result['success']:
-            # Invalidate cache when node is created
+            # Invalidate tree cache when node is created
             invalidate_cached_tree(tree_id, team_id)
+            
+            # Invalidate user interfaces cache (first node creation makes tree visible)
+            from backend_server.src.routes.server_userinterface_routes import _invalidate_interfaces_cache
+            _invalidate_interfaces_cache(team_id)
+            
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -395,8 +400,11 @@ def update_node_api(tree_id, node_id):
         result = save_node(tree_id, node_data, team_id)
         
         if result['success']:
-            # Invalidate cache when node is updated
+            # Invalidate tree cache when node is updated
             invalidate_cached_tree(tree_id, team_id)
+            
+            # No need to invalidate interfaces cache for node updates (doesn't affect visibility)
+            
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -420,8 +428,13 @@ def delete_node_api(tree_id, node_id):
         result = delete_node(tree_id, node_id, team_id)
         
         if result['success']:
-            # Invalidate cache when node is deleted
+            # Invalidate tree cache when node is deleted
             invalidate_cached_tree(tree_id, team_id)
+            
+            # Invalidate user interfaces cache (deleting all nodes makes tree invisible)
+            from backend_server.src.routes.server_userinterface_routes import _invalidate_interfaces_cache
+            _invalidate_interfaces_cache(team_id)
+            
             return jsonify(result)
         else:
             return jsonify(result), 400
@@ -783,8 +796,14 @@ def save_tree_data_api(tree_id):
         result = save_tree_data(tree_id, nodes, edges, team_id, deleted_node_ids, deleted_edge_ids, viewport)
         
         if result['success']:
-            # Invalidate cache when tree is modified
+            # Invalidate tree cache when tree is modified
             invalidate_cached_tree(tree_id, team_id)
+            
+            # Invalidate user interfaces cache so getAllUserInterfaces refreshes root_tree status
+            from backend_server.src.routes.server_userinterface_routes import _invalidate_interfaces_cache
+            _invalidate_interfaces_cache(team_id)
+            print(f"[@route:navigation_trees:save_batch] Invalidated interfaces cache for team {team_id}")
+            
             return jsonify(result)
         else:
             return jsonify(result), 400

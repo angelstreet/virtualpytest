@@ -77,8 +77,9 @@ def get_compatible_interfaces():
         if cache_key in _compatible_cache:
             cached = _compatible_cache[cache_key]
             age = time.time() - cached['timestamp']
-            if age < CACHE_CONFIG['LONG_TTL']:
-                print(f"[@cache] HIT: Compatible interfaces for {device_model} (age: {age/3600:.1f}h)")
+            # Use MEDIUM_TTL (5 minutes) for compatible interfaces
+            if age < CACHE_CONFIG['MEDIUM_TTL']:
+                print(f"[@cache] HIT: Compatible interfaces for {device_model} (age: {age/60:.1f}m)")
                 return jsonify(cached['data'])
             else:
                 del _compatible_cache[cache_key]
@@ -112,7 +113,7 @@ def get_compatible_interfaces():
                 'data': response_data,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: Compatible interfaces for {device_model} (24h TTL)")
+            print(f"[@cache] SET: Compatible interfaces for {device_model} (5m TTL)")
         
         return jsonify(response_data)
     except Exception as e:
@@ -137,8 +138,10 @@ def get_userinterfaces():
             if team_id in _interfaces_cache:
                 cached = _interfaces_cache[team_id]
                 age = time.time() - cached['timestamp']
-                if age < CACHE_CONFIG['LONG_TTL']:
-                    print(f"[@cache] HIT: User interfaces for team {team_id} (age: {age/3600:.1f}h), returning {len(cached['data'])} interfaces")
+                # Use MEDIUM_TTL (5 minutes) for user interfaces instead of LONG_TTL (24 hours)
+                # User interfaces metadata is relatively stable but can change when trees are modified
+                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                    print(f"[@cache] HIT: User interfaces for team {team_id} (age: {age/60:.1f}m), returning {len(cached['data'])} interfaces")
                     return jsonify(cached['data'])
                 else:
                     del _interfaces_cache[team_id]
@@ -185,7 +188,7 @@ def get_userinterfaces():
                 'data': enriched_interfaces,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: User interfaces for team {team_id} ({len(enriched_interfaces)} interfaces, 24h TTL)")
+            print(f"[@cache] SET: User interfaces for team {team_id} ({len(enriched_interfaces)} interfaces, 5m TTL)")
         
         print(f"[@userinterface:getAllUserInterfaces] Returning {len(enriched_interfaces)} interfaces")
         return jsonify(enriched_interfaces)
