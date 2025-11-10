@@ -101,11 +101,6 @@ const Coverage: React.FC = () => {
   return (
     <Box>
       {/* Header */}
-      <Box sx={{ mb: 0.5 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Requirements Coverage
-        </Typography>
-      </Box>
 
       {/* Quick Stats */}
       <Box sx={{ mb: 1 }}>
@@ -114,7 +109,7 @@ const Coverage: React.FC = () => {
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Box display="flex" alignItems="center" gap={1}>
                 <StatsIcon color="primary" />
-                <Typography variant="h6" sx={{ my: 0 }}>Quick Stats</Typography>
+                <Typography variant="h6" sx={{ my: 0 }}>Coverage</Typography>
               </Box>
               <Box display="flex" alignItems="center" gap={4}>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -438,16 +433,6 @@ const Coverage: React.FC = () => {
           )}
         </CardContent>
       </Card>
-
-      {/* Summary Stats */}
-      {coverageSummary && (
-        <Box sx={{ mt: 1, p: 2, bgcolor: 'background.paper', borderRadius: 1 }}>
-          <Typography variant="caption" color="textSecondary" display="block">
-            💡 <strong>Tip:</strong> Focus on P1 (Critical) uncovered requirements first. Link testcases
-            and scripts to requirements from the Requirements page to improve coverage.
-          </Typography>
-        </Box>
-      )}
     </Box>
   );
 };

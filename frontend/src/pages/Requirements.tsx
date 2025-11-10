@@ -174,13 +174,6 @@ const Requirements: React.FC = () => {
 
   return (
     <Box>
-      {/* Header */}
-      <Box sx={{ mb: 0.5 }}>
-        <Typography variant="h4" sx={{ mb: 1 }}>
-          Requirements Management
-        </Typography>
-      </Box>
-
       {/* Quick Stats */}
       <Box sx={{ mb: 1 }}>
         <Card>
@@ -188,7 +181,7 @@ const Requirements: React.FC = () => {
             <Box display="flex" alignItems="center" justifyContent="space-between">
               <Box display="flex" alignItems="center" gap={1}>
                 <StatsIcon color="primary" />
-                <Typography variant="h6" sx={{ my: 0 }}>Quick Stats</Typography>
+                <Typography variant="h6" sx={{ my: 0 }}>Requirements</Typography>
               </Box>
               <Box display="flex" alignItems="center" gap={4}>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -475,9 +468,15 @@ const Requirements: React.FC = () => {
                           </TableCell>
                         </TableRow>
                         {/* Expanded row details */}
-                        <TableRow>
-                          <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
-                            <Collapse in={expandedRows.has(req.requirement_id)} timeout="auto" unmountOnExit>
+                        {expandedRows.has(req.requirement_id) && (
+                          <TableRow
+                            sx={{
+                              '&:hover': {
+                                backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
+                              },
+                            }}
+                          >
+                            <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
                               <Box sx={{ py: 1, px: 2, bgcolor: 'rgba(0, 0, 0, 0.02)' }}>
                                 {req.description && (
                                   <Box sx={{ mb: 1 }}>
@@ -489,13 +488,15 @@ const Requirements: React.FC = () => {
                                     </Typography>
                                   </Box>
                                 )}
-                                {req.acceptance_criteria && req.acceptance_criteria.length > 0 && (
+                                {req.acceptance_criteria && (Array.isArray(req.acceptance_criteria) ? req.acceptance_criteria.length > 0 : req.acceptance_criteria) && (
                                   <Box>
                                     <Typography variant="caption" color="textSecondary" fontWeight="bold">
                                       Acceptance Criteria:
                                     </Typography>
                                     <Typography variant="body2" sx={{ mt: 0.5 }}>
-                                      {req.acceptance_criteria.join(', ')}
+                                      {Array.isArray(req.acceptance_criteria) 
+                                        ? req.acceptance_criteria.join(', ')
+                                        : req.acceptance_criteria}
                                     </Typography>
                                   </Box>
                                 )}
@@ -505,9 +506,9 @@ const Requirements: React.FC = () => {
                                   </Typography>
                                 )}
                               </Box>
-                            </Collapse>
-                          </TableCell>
-                        </TableRow>
+                            </TableCell>
+                          </TableRow>
+                        )}
                       </React.Fragment>
                     ))
                   )}
