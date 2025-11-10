@@ -94,11 +94,49 @@ class UserInterfaceTools:
                     ErrorCategory.BACKEND
                 )
             
+            self.logger.info(f"Userinterface created, now creating navigation tree...")
+            
+            # STEP 4: Create empty navigation config (SAME AS FRONTEND - line 381-434)
+            # This creates the navigation tree with entry and home nodes automatically
+            # NOTE: team_id MUST be in query params, not body (see line 107 in server_navigation_routes.py)
+            try:
+                config_result = self.api_client.post(
+                    f'/server/navigation/config/createEmpty/{interface.get("name")}',
+                    data={
+                        'userinterface_data': {
+                            'id': interface.get('id'),
+                            'name': interface.get('name'),
+                            'models': interface.get('models', [device_model]),
+                            'min_version': interface.get('min_version', ''),
+                            'max_version': interface.get('max_version', '')
+                        },
+                        'commit_message': f"Create empty navigation config: {interface.get('name')}"
+                    },
+                    params={'team_id': team_id}  # ✅ Query param, not body
+                )
+                
+                if config_result.get('success'):
+                    self.logger.info(f"✅ Navigation tree created with entry/home nodes")
+                else:
+                    self.logger.warning(f"⚠️  Navigation config creation failed: {config_result.get('error')}")
+                    return self.formatter.format_error(
+                        f"Userinterface created, but navigation tree creation failed: {config_result.get('error', 'Unknown error')}\n"
+                        f"You can still use the navigation editor to create it manually.",
+                        ErrorCategory.BACKEND
+                    )
+            except Exception as config_error:
+                self.logger.error(f"Error creating navigation config: {config_error}")
+                return self.formatter.format_error(
+                    f"Userinterface created, but navigation tree creation failed: {str(config_error)}\n"
+                    f"You can still use the navigation editor to create it manually.",
+                    ErrorCategory.BACKEND
+                )
+            
             return self.formatter.format_success(
                 f"✅ Userinterface created: {interface.get('name')}\n"
                 f"   ID: {interface.get('id')}\n"
                 f"   Device Model: {device_model}\n"
-                f"   Root Tree: {interface.get('root_tree', {}).get('id', 'pending')}\n"
+                f"   ✅ Navigation tree created with entry/home nodes\n"
                 f"\n💡 Use get_userinterface_complete(userinterface_id='{interface.get('id')}') to get full tree data"
             )
         
