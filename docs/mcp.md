@@ -12,7 +12,7 @@
 
 ## 🎯 Core Capabilities
 
-The MCP server exposes **29 tools** for complete device automation:
+The MCP server exposes **35 tools** for complete device automation:
 
 ### 🔐 **Control Tools** (CRITICAL - MUST BE FIRST)
 - **`take_control`** - Lock device & generate navigation cache (REQUIRED FIRST)
@@ -64,6 +64,16 @@ The MCP server exposes **29 tools** for complete device automation:
 - **`delete_edge`** - Delete edge from tree
 - **`create_subtree`** - Create subtree for recursive exploration
 - **`dump_ui_elements`** - Dump UI elements from current screen
+- **`get_node`** - Get specific node by ID
+- **`get_edge`** - Get specific edge by ID
+
+### 🎨 **UserInterface Management Tools** (NEW - For App Model Creation)
+- **`create_userinterface`** - Create new app UI model (e.g., Netflix, YouTube)
+- **`list_userinterfaces`** - List all app models for the team
+- **`get_userinterface_complete`** - Get complete tree with all nodes/edges
+- **`list_nodes`** - List all nodes in a navigation tree
+- **`list_edges`** - List all edges in a navigation tree
+- **`delete_userinterface`** - Delete a userinterface model
 
 ---
 
@@ -748,7 +758,7 @@ curl -H "Authorization: Bearer vpt_mcp_secret_key_2025" \
      https://dev.virtualpytest.com/server/mcp/health
 
 # Expected response:
-# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 29}
+# {"status": "healthy", "mcp_version": "1.0.0", "tools_count": 35}
 ```
 
 ### 2. Discover Available Commands (NEW!)
@@ -1598,6 +1608,303 @@ Generate test case from natural language.
 
 ---
 
+### 🎨 UserInterface Management
+
+#### create_userinterface
+
+Create a new userinterface (app model) for testing.
+
+**Parameters:**
+```json
+{
+  "name": "youtube_mobile",              // REQUIRED - Interface name
+  "device_model": "android_mobile",      // REQUIRED - Device model type
+  "description": "YouTube Mobile App",   // Optional
+  "team_id": "team_1"                   // Optional (defaults to 'team_1')
+}
+```
+
+**Device Models:**
+Valid device models are fetched from `/server/devicemodel/getAllModels` and validated:
+- `android_mobile` - Android mobile devices
+- `android_tv` - Android TV devices
+- `web` - Web browsers (Playwright)
+- `host_vnc` - VNC hosts
+- Custom models (if created for your team)
+
+**Returns:**
+```json
+{
+  "success": true,
+  "userinterface_id": "abc-123-def",
+  "name": "youtube_mobile",
+  "device_model": "android_mobile",
+  "root_tree_id": "tree-xyz-789"
+}
+```
+
+**Example:**
+```python
+create_userinterface({
+    "name": "youtube_mobile",
+    "device_model": "android_mobile",
+    "description": "YouTube Mobile App UI Model"
+})
+# Returns: ✅ Userinterface created: youtube_mobile
+#          ID: abc-123-def
+#          Device Model: android_mobile
+#          Root Tree: tree-xyz-789
+```
+
+**Use Case:** Create app models (Netflix, YouTube, etc.) before building navigation trees.
+
+---
+
+#### list_userinterfaces
+
+List all userinterfaces for the team.
+
+**Parameters:**
+```json
+{
+  "team_id": "team_1",                  // Optional (defaults to 'team_1')
+  "force_refresh": false                // Optional (default: false)
+}
+```
+
+**Returns:**
+```json
+{
+  "interfaces": [
+    {
+      "id": "abc-123",
+      "name": "youtube_mobile",
+      "models": ["android_mobile"],
+      "root_tree": {
+        "id": "tree-xyz-789",
+        "name": "youtube_mobile_root"
+      }
+    }
+  ],
+  "total": 10
+}
+```
+
+**Example:**
+```python
+list_userinterfaces({})
+# Returns: 📋 User Interfaces (10 total):
+#          • youtube_mobile (ID: abc-123)
+#            Models: android_mobile
+#            ✅ Has navigation tree (ID: tree-xyz-789)
+```
+
+**Use Case:** Discover available app models before testing.
+
+---
+
+#### get_userinterface_complete
+
+Get COMPLETE userinterface with ALL nodes, edges, subtrees in ONE call.
+
+**Parameters:**
+```json
+{
+  "userinterface_id": "abc-123-def",    // REQUIRED
+  "team_id": "team_1",                  // Optional (defaults to 'team_1')
+  "include_metrics": true               // Optional (default: true)
+}
+```
+
+**Returns:**
+```json
+{
+  "tree": {
+    "id": "tree-xyz-789",
+    "name": "youtube_mobile_root",
+    "metadata": {
+      "nodes": [...],    // ALL nodes (including subtrees)
+      "edges": [...]     // ALL edges (including subtrees)
+    }
+  },
+  "nodes": [...],
+  "edges": [...],
+  "metrics": {...},
+  "total_nodes": 42,
+  "total_edges": 56
+}
+```
+
+**Example:**
+```python
+get_userinterface_complete({
+    "userinterface_id": "abc-123-def"
+})
+# Returns complete tree structure with all nodes/edges
+# This REPLACES multiple calls to list_nodes + list_edges
+```
+
+**Use Case:** Get full tree data in one call instead of multiple requests.
+
+---
+
+#### list_nodes
+
+List all nodes in a navigation tree.
+
+**Parameters:**
+```json
+{
+  "tree_id": "tree-xyz-789",            // REQUIRED
+  "team_id": "team_1",                  // Optional (defaults to 'team_1')
+  "page": 0,                            // Optional (default: 0)
+  "limit": 100                          // Optional (default: 100)
+}
+```
+
+**Returns:**
+```json
+{
+  "nodes": [
+    {
+      "node_id": "home",
+      "label": "home",
+      "type": "screen",
+      "verifications": [...],
+      "position": {"x": 0, "y": 0}
+    }
+  ],
+  "total": 42,
+  "page": 0,
+  "limit": 100
+}
+```
+
+**Example:**
+```python
+list_nodes({
+    "tree_id": "tree-xyz-789"
+})
+# Returns: 📋 Nodes in tree (42 total):
+#          • home (node_id: 'home')
+#            Type: screen
+#            Verifications: 3
+```
+
+**Use Case:** Check nodes after create/delete operations for verification.
+
+---
+
+#### list_edges
+
+List all edges in a navigation tree.
+
+**Parameters:**
+```json
+{
+  "tree_id": "tree-xyz-789",            // REQUIRED
+  "team_id": "team_1",                  // Optional (defaults to 'team_1')
+  "node_ids": ["home", "settings"]      // Optional - filter by node IDs
+}
+```
+
+**Returns:**
+```json
+{
+  "edges": [
+    {
+      "edge_id": "edge_home_settings",
+      "source_node_id": "home",
+      "target_node_id": "settings",
+      "action_sets": [
+        {
+          "id": "home_to_settings",
+          "actions": [...]
+        },
+        {
+          "id": "settings_to_home",
+          "actions": [...]
+        }
+      ]
+    }
+  ],
+  "total": 56
+}
+```
+
+**Example:**
+```python
+list_edges({
+    "tree_id": "tree-xyz-789"
+})
+# Returns: 📋 Edges in tree (56 total):
+#          • home → settings (edge_id: 'edge_home_settings')
+#            Action Sets: 2
+#              - home_to_settings: 1 actions
+#              - settings_to_home: 1 actions
+```
+
+**Use Case:** Check edges after create/delete operations for verification.
+
+---
+
+#### delete_userinterface
+
+Delete a userinterface model (soft delete).
+
+**⚠️ DESTRUCTIVE OPERATION - Requires explicit confirmation**
+
+**Parameters:**
+```json
+{
+  "userinterface_id": "abc-123-def",    // REQUIRED
+  "confirm": true,                      // REQUIRED - Must be true to proceed
+  "team_id": "team_1"                   // Optional (defaults to 'team_1')
+}
+```
+
+**Two-Step Process:**
+
+**Step 1: Attempt to delete (without confirmation)**
+```python
+delete_userinterface({
+    "userinterface_id": "abc-123-def"
+})
+# Returns: ⚠️ DESTRUCTIVE OPERATION - Confirmation Required
+#          You are about to delete userinterface: abc-123-def
+#          This will remove the app model and may affect related navigation trees.
+#
+#          To proceed, call again with 'confirm: true'
+```
+
+**Step 2: Confirm and delete**
+```python
+delete_userinterface({
+    "userinterface_id": "abc-123-def",
+    "confirm": true
+})
+# Returns: ✅ Userinterface deleted: abc-123-def
+#          💡 Use list_userinterfaces() to verify deletion
+```
+
+**Returns:**
+```json
+{
+  "success": true,
+  "status": "deleted"
+}
+```
+
+**Safety Features:**
+- ✅ **Requires explicit confirmation** - AI must call twice
+- ✅ **Clear warning message** - Shows what will be deleted
+- ✅ **Suggests verification** - Recommends list_userinterfaces() first
+- ✅ **Prevents accidental deletion** - No single-call deletion
+
+**Use Case:** Remove unused or test app models safely.
+
+---
+
 ## 🔄 Async Execution & Polling
 
 Long-running operations return `execution_id`:
@@ -1635,7 +1942,8 @@ backend_server/src/mcp/
 │   ├── device_tools.py    # get_device_info, get_execution_status
 │   ├── logs_tools.py      # view_logs, list_services
 │   ├── script_tools.py    # execute_script
-│   └── tree_tools.py      # create/update/delete node/edge, create_subtree (NEW)
+│   ├── tree_tools.py      # create/update/delete node/edge, create_subtree (NEW)
+│   └── userinterface_tools.py # create/list/delete userinterface, list_nodes/edges (NEW)
 ├── config/
 │   └── tools_config.json  # Tool definitions & schemas
 └── utils/
@@ -2366,8 +2674,72 @@ Display result + update history
 
 ---
 
-**Version**: 4.0.0  
-**Last Updated**: 2025-01-06
+**Version**: 4.1.0  
+**Last Updated**: 2025-01-10
+
+## 🎉 What's New in v4.1.0 (January 2025)
+
+### 🎨 UserInterface Management Tools
+
+**6 New Tools for App Model Creation:**
+- ✅ **`create_userinterface`** - Create new app UI models (Netflix, YouTube, etc.)
+- ✅ **`list_userinterfaces`** - List all app models for the team
+- ✅ **`get_userinterface_complete`** - Get complete tree with all nodes/edges in ONE call
+- ✅ **`list_nodes`** - List all nodes in a navigation tree
+- ✅ **`list_edges`** - List all edges in a navigation tree
+- ✅ **`delete_userinterface`** - Delete a userinterface model
+
+**Why UserInterface Management?**
+- **App Model Creation** - Create structured models for any app (Netflix, YouTube, Spotify, etc.)
+- **Device Model Validation** - Validates device_model against database (same protection as frontend)
+- **Complete Tree Access** - Get all nodes/edges in one call instead of multiple requests
+- **Flexible Queries** - List nodes/edges separately for verification after create/delete
+
+**Use Cases:**
+1. **Create App Models** - Before building navigation trees, create the userinterface structure
+2. **Discover Models** - List all available app models before testing
+3. **Verify Structure** - Check nodes/edges after creating them
+4. **Clean Up** - Delete unused or test app models
+
+**Tool Count:** 35 tools (was 29 in v4.0.0)
+
+**Example Workflow:**
+```python
+# 1. Create app model
+create_userinterface({
+    "name": "youtube_mobile",
+    "device_model": "android_mobile",
+    "description": "YouTube Mobile App UI Model"
+})
+# Returns userinterface_id
+
+# 2. List all models
+list_userinterfaces({})
+# See all available app models
+
+# 3. Build navigation tree (using primitive tools)
+create_node(tree_id="...", label="home", ...)
+create_edge(tree_id="...", source="home", target="settings", ...)
+
+# 4. Verify nodes created
+list_nodes(tree_id="...")
+
+# 5. Verify edges created
+list_edges(tree_id="...")
+
+# 6. Get complete tree in one call
+get_userinterface_complete(userinterface_id="...")
+
+# 7. Clean up test models
+delete_userinterface(userinterface_id="...")
+```
+
+**Frontend Parity:**
+- Device model validation uses same API as frontend (`/server/devicemodel/getAllModels`)
+- Same protection against invalid models
+- Dynamic validation (fetches valid models from database)
+
+---
 
 ## 🎉 What's New in v4.0.0 (January 2025)
 
@@ -2473,7 +2845,8 @@ None! All v2.0.0 tool calls remain compatible:
 - **v1.0.0** (2024): 11 tools (basic automation)
 - **v2.0.0** (2025-01): 11 tools (production-ready quality)
 - **v3.0.0** (2025-01): 21 tools (complete automation suite + web UI)
-- **v4.0.0** (2025-01): **29 tools** (+ primitive tools for AI-driven exploration)
+- **v4.0.0** (2025-01): 29 tools (+ primitive tools for AI-driven exploration)
+- **v4.1.0** (2025-01): **35 tools** (+ userinterface management tools)
 
 ---
 

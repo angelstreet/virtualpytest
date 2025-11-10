@@ -82,22 +82,25 @@ class UserInterfaceTools:
                 params={'team_id': team_id}
             )
             
-            if result.get('success') or result.get('id'):
+            # Handle different response formats from backend
+            if result.get('status') == 'success' and result.get('userinterface'):
+                interface = result['userinterface']
+            elif result.get('success') or result.get('id'):
                 interface = result if result.get('id') else result.get('interface', {})
-                
-                return self.formatter.format_success(
-                    f"✅ Userinterface created: {interface.get('name')}\n"
-                    f"   ID: {interface.get('id')}\n"
-                    f"   Device Model: {device_model}\n"
-                    f"   Root Tree: {interface.get('root_tree', {}).get('id', 'pending')}\n"
-                    f"\n💡 Use get_userinterface_complete(userinterface_id='{interface.get('id')}') to get full tree data"
-                )
             else:
                 error_msg = result.get('error', 'Unknown error')
                 return self.formatter.format_error(
                     f"Failed to create userinterface: {error_msg}",
                     ErrorCategory.BACKEND
                 )
+            
+            return self.formatter.format_success(
+                f"✅ Userinterface created: {interface.get('name')}\n"
+                f"   ID: {interface.get('id')}\n"
+                f"   Device Model: {device_model}\n"
+                f"   Root Tree: {interface.get('root_tree', {}).get('id', 'pending')}\n"
+                f"\n💡 Use get_userinterface_complete(userinterface_id='{interface.get('id')}') to get full tree data"
+            )
         
         except Exception as e:
             self.logger.error(f"Error creating userinterface: {e}", exc_info=True)
@@ -370,5 +373,63 @@ class UserInterfaceTools:
         
         except Exception as e:
             self.logger.error(f"Error listing edges: {e}", exc_info=True)
+            return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
+    
+    def delete_userinterface(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Delete a userinterface (soft delete)
+        
+        ⚠️ DESTRUCTIVE OPERATION - Requires explicit confirmation
+        
+        Args:
+            userinterface_id: User interface UUID to delete
+            confirm: REQUIRED - Must be true to proceed (safety check)
+            team_id: Team ID (optional - uses default)
+        
+        Returns:
+            Success confirmation
+        """
+        try:
+            userinterface_id = params['userinterface_id']
+            confirm = params.get('confirm', False)
+            team_id = params.get('team_id', '7fdeb4bb-3639-4ec3-959f-b54769a219ce')
+            
+            # SAFETY CHECK: Require explicit confirmation
+            if not confirm:
+                return self.formatter.format_error(
+                    f"⚠️  DESTRUCTIVE OPERATION - Confirmation Required\n\n"
+                    f"You are about to delete userinterface: {userinterface_id}\n"
+                    f"This will remove the app model and may affect related navigation trees.\n\n"
+                    f"To proceed, call again with 'confirm: true':\n"
+                    f"  delete_userinterface({{\n"
+                    f"    'userinterface_id': '{userinterface_id}',\n"
+                    f"    'confirm': true\n"
+                    f"  }})\n\n"
+                    f"💡 Use list_userinterfaces() first to verify you're deleting the correct one.",
+                    ErrorCategory.VALIDATION
+                )
+            
+            self.logger.info(f"Deleting userinterface {userinterface_id} (confirmed)")
+            
+            # Call backend - EXISTING ENDPOINT
+            result = self.api_client.delete(
+                f'/server/userinterface/deleteUserInterface/{userinterface_id}',
+                params={'team_id': team_id}
+            )
+            
+            if result.get('status') == 'success' or result.get('success'):
+                return self.formatter.format_success(
+                    f"✅ Userinterface deleted: {userinterface_id}\n\n"
+                    f"💡 Use list_userinterfaces() to verify deletion"
+                )
+            else:
+                error_msg = result.get('error', 'User interface not found or failed to delete')
+                return self.formatter.format_error(
+                    f"Failed to delete userinterface: {error_msg}",
+                    ErrorCategory.BACKEND
+                )
+        
+        except Exception as e:
+            self.logger.error(f"Error deleting userinterface: {e}", exc_info=True)
             return self.formatter.format_error(str(e), ErrorCategory.BACKEND)
 

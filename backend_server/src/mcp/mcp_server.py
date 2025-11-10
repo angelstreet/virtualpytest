@@ -161,6 +161,7 @@ class VirtualPyTestMCPServer:
             'get_userinterface_complete': self.userinterface_tools.get_userinterface_complete,
             'list_nodes': self.userinterface_tools.list_nodes,
             'list_edges': self.userinterface_tools.list_edges,
+            'delete_userinterface': self.userinterface_tools.delete_userinterface,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -1270,6 +1271,45 @@ Returns: List of edges with action sets""",
                         "node_ids": {"type": "array", "items": {"type": "string"}, "description": "Optional list of node IDs to filter edges"}
                     },
                     "required": ["tree_id"]
+                }
+            },
+            {
+                "name": "delete_userinterface",
+                "description": """Delete a userinterface (soft delete)
+
+⚠️ DESTRUCTIVE OPERATION - Requires explicit confirmation
+
+Removes a user interface model from the system.
+This operation is destructive and requires explicit confirmation.
+
+Args:
+    userinterface_id: User interface UUID to delete
+    confirm: REQUIRED - Must be true to proceed (safety check)
+    team_id: Team ID (optional - uses default)
+
+Example:
+  # Step 1: Attempt to delete (will ask for confirmation)
+  delete_userinterface(
+    userinterface_id="abc-123-def-456"
+  )
+  # Returns: ⚠️ DESTRUCTIVE OPERATION - Confirmation Required
+  
+  # Step 2: Confirm and delete
+  delete_userinterface(
+    userinterface_id="abc-123-def-456",
+    confirm=true
+  )
+  # Returns: ✅ Userinterface deleted
+
+Returns: Success confirmation or confirmation request""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "userinterface_id": {"type": "string", "description": "User interface UUID to delete"},
+                        "confirm": {"type": "boolean", "description": "REQUIRED - Must be true to proceed (safety check)"},
+                        "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
+                    },
+                    "required": ["userinterface_id"]
                 }
             }
         ]
