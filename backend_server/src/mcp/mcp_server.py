@@ -811,9 +811,19 @@ Test cases should use 'navigation' nodes that reference tree nodes by label.
 
 **Correct Usage:**
 ```json
-{"type": "navigation", "data": {"target_node_label": "player"}}
+{
+  "type": "navigation",
+  "data": {
+    "target_node_id": "fb860f60-1f04-4b45-a952-5debf48f20c5",
+    "target_node_label": "player"
+  }
+}
 ```
 This automatically uses the pre-built navigation tree to go home→content_detail→player.
+
+**REQUIRED FIELDS for Navigation Nodes:**
+- `target_node_id`: UUID from navigation tree (REQUIRED)
+- `target_node_label`: Human-readable label like "home", "player" (REQUIRED)
 
 **DO NOT** create manual action sequences for navigation:
 ```json

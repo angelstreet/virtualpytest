@@ -216,7 +216,8 @@ The `save_testcase` tool validates graph structure **before saving** to catch er
 
 #### Navigation Node ✅
 **REQUIRED FIELDS:**
-- `data.target_node` (UUID from navigation tree) **OR** `data.target_node_id`
+- `data.target_node_id` (UUID from navigation tree) - **REQUIRED**
+- `data.target_node_label` (string label like "home", "player") - **REQUIRED**
 
 **Example:**
 ```json
@@ -225,8 +226,8 @@ The `save_testcase` tool validates graph structure **before saving** to catch er
   "type": "navigation",
   "data": {
     "label": "NavigateToPlayer",
-    "target_node": "fb860f60-1f04-4b45-a952-5debf48f20c5",  // UUID (REQUIRED)
-    "target_node_label": "player"  // Optional (human-readable)
+    "target_node_id": "fb860f60-1f04-4b45-a952-5debf48f20c5",  // UUID (REQUIRED)
+    "target_node_label": "player"  // String label (REQUIRED)
   }
 }
 ```
@@ -236,7 +237,17 @@ The `save_testcase` tool validates graph structure **before saving** to catch er
 {
   "type": "navigation",
   "data": {
-    "target_node_label": "player"  // ❌ Label alone is NOT sufficient
+    "target_node_label": "player"  // ❌ Missing target_node_id
+  }
+}
+```
+
+**❌ WRONG (Deprecated):**
+```json
+{
+  "type": "navigation",
+  "data": {
+    "target_node": "fb860f60-..."  // ❌ Use target_node_id instead
   }
 }
 ```
@@ -299,10 +310,9 @@ The `save_testcase` tool validates graph structure **before saving** to catch er
 
 ### Common Validation Errors
 
-#### Error 1: Missing target_node
+#### Error 1: Missing target_node_id
 ```
-❌ Navigation node 'nav-player' missing 'target_node' (UUID).
-   Use target_node with UUID from navigation tree, not target_node_label.
+❌ Navigation node 'nav-player' missing 'target_node_id' (UUID from navigation tree).
 ```
 
 **Fix:** Get the node UUID from the navigation tree and use it:
@@ -312,11 +322,12 @@ tree = list_navigation_nodes(userinterface_name='netflix_mobile')
 # Find the player node UUID
 player_uuid = "fb860f60-1f04-4b45-a952-5debf48f20c5"
 
-# Use it in navigation node
+# Use it in navigation node (BOTH fields required)
 {
   "type": "navigation",
   "data": {
-    "target_node": player_uuid  // ✅ Correct
+    "target_node_id": player_uuid,  // ✅ UUID (REQUIRED)
+    "target_node_label": "player"   // ✅ String label (REQUIRED)
   }
 }
 ```

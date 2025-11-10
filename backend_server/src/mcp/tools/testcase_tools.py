@@ -358,14 +358,28 @@ class TestCaseTools:
         nodes = graph_json.get('nodes', [])
         edges = graph_json.get('edges', [])
         
-        # Check navigation blocks
+        # Check navigation blocks - MUST use target_node_id (not target_node)
         for node in nodes:
             if node.get('type') == 'navigation':
                 data = node.get('data', {})
-                if not data.get('target_node') and not data.get('target_node_id'):
+                node_id = node.get('id')
+                
+                # Check for target_node_id (REQUIRED)
+                if not data.get('target_node_id'):
                     validation_errors.append(
-                        f"❌ Navigation node '{node.get('id')}' missing 'target_node' (UUID). "
-                        f"Use target_node with UUID from navigation tree, not target_node_label."
+                        f"❌ Navigation node '{node_id}' missing 'target_node_id' (UUID from navigation tree)."
+                    )
+                
+                # Check for target_node_label (REQUIRED for executor)
+                if not data.get('target_node_label'):
+                    validation_errors.append(
+                        f"❌ Navigation node '{node_id}' missing 'target_node_label' (string like 'home', 'player')."
+                    )
+                
+                # Warn if using deprecated 'target_node' field
+                if data.get('target_node') and not data.get('target_node_id'):
+                    validation_errors.append(
+                        f"❌ Navigation node '{node_id}' uses deprecated 'target_node'. Use 'target_node_id' instead."
                     )
         
         # Check edge types
@@ -380,7 +394,10 @@ class TestCaseTools:
         # Return validation errors if any
         if validation_errors:
             error_msg = "Graph validation failed:\n" + "\n".join(validation_errors)
-            error_msg += "\n\n💡 See docs/LESSONS_LEARNED_testcase_validation.md for correct format."
+            error_msg += "\n\n💡 Correct format:"
+            error_msg += "\n  Navigation: {\"target_node_id\": \"<UUID>\", \"target_node_label\": \"home\"}"
+            error_msg += "\n  Edge: {\"type\": \"success\"} or {\"type\": \"failure\"}"
+            error_msg += "\n\n📖 See docs/mcp/mcp_tools_testcase.md#graph-validation-rules"
             return {
                 "content": [{"type": "text", "text": error_msg}],
                 "isError": True
