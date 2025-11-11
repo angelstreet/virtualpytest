@@ -33,10 +33,10 @@ def load_environment_variables(mode='server', calling_script_dir=None):
     print(f"[@app_utils:load_environment_variables] Project root: {project_root}")
     print(f"[@app_utils:load_environment_variables] Looking for project .env at: {project_env_path}")
     
-    # Load project-level .env first
+    # Load project-level .env first (NEVER override OS environment variables from Render)
     if os.path.exists(project_env_path):
-        load_dotenv(project_env_path)
-        print(f"✅ Loaded project environment from: {project_env_path}")
+        load_dotenv(project_env_path, override=False)  # OS env vars (Render) take priority
+        print(f"✅ Loaded project environment from: {project_env_path} (OS env vars take priority)")
         
         # Check for critical variables after loading
         host_name = os.getenv('HOST_NAME')
@@ -46,12 +46,12 @@ def load_environment_variables(mode='server', calling_script_dir=None):
         render_env = os.getenv('RENDER', 'false').lower() == 'true'
         server_url = os.getenv('SERVER_URL')
         
-        if render_env and server_url:
-            print(f"✅ Running on Render with environment variables pre-set")
-            print(f"[@app_utils:load_environment_variables] RENDER=true, SERVER_URL={server_url}")
+        if render_env or server_url:
+            print(f"✅ Running with OS environment variables (Render or Docker)")
+            print(f"[@app_utils:load_environment_variables] SERVER_URL={server_url}")
         else:
-            print(f"❌ Project environment file not found: {project_env_path}")
-            print(f"❌ Please create .env in project root using: cp env.example .env")
+            print(f"⚠️  Project environment file not found: {project_env_path}")
+            print(f"⚠️  Create .env in project root for local development: cp env.example .env")
     
     # Load service-specific .env if calling_script_dir is provided (for host)
     if calling_script_dir:
@@ -59,8 +59,8 @@ def load_environment_variables(mode='server', calling_script_dir=None):
         print(f"[@app_utils:load_environment_variables] Looking for service .env at: {service_env_path}")
         
         if os.path.exists(service_env_path):
-            load_dotenv(service_env_path, override=True)  # Override project .env values
-            print(f"✅ Loaded service environment from: {service_env_path}")
+            load_dotenv(service_env_path, override=False)  # OS env vars still take priority
+            print(f"✅ Loaded service environment from: {service_env_path} (OS env vars take priority)")
             
             # Check for critical variables after loading
             host_name = os.getenv('HOST_NAME')
