@@ -329,10 +329,15 @@ const RunTests: React.FC = () => {
       try {
         console.log('[@RunTests] Loading scripts from API...');
         const response = await fetch(buildServerUrl('/server/script/list'));
+        
+        if (!response.ok) {
+          throw new Error(`API returned ${response.status}`);
+        }
+        
         const data = await response.json();
 
-        if (data.success && data.scripts) {
-          setAvailableScripts(data.scripts);
+        if (data.success) {
+          setAvailableScripts(data.scripts || []);
           
           // Store AI test case metadata for display
           if (data.ai_test_cases_info) {
@@ -340,13 +345,14 @@ const RunTests: React.FC = () => {
           }
 
           // Set default selection to first script if available
-          if (data.scripts.length > 0 && !selectedScript) {
+          if (data.scripts && data.scripts.length > 0 && !selectedScript) {
             setSelectedScript(data.scripts[0]);
           }
           
-          console.log('[@RunTests] Scripts loaded successfully:', data.scripts.length);
+          console.log('[@RunTests] Scripts loaded successfully:', (data.scripts || []).length);
         } else {
-          showError('Failed to load available scripts');
+          // API returned success: false - this is an actual error
+          throw new Error(data.error || 'API returned success: false');
         }
       } catch (error) {
         showError('Failed to load available scripts');

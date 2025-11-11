@@ -385,17 +385,23 @@ export const useCampaign = (): UseCampaignReturn => {
     try {
       setIsLoading(true);
       const response = await fetch(buildServerUrl('/server/script/list'));
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}`);
+      }
+      
       const data = await response.json();
 
-      if (data.success && data.scripts) {
-        setAvailableScripts(data.scripts);
+      if (data.success) {
+        setAvailableScripts(data.scripts || []);
         
         // Also load AI test cases info in the same call (avoid duplicate API calls)
         if (data.ai_test_cases_info) {
           setAiTestCasesInfo(data.ai_test_cases_info);
         }
       } else {
-        throw new Error('Failed to load available scripts');
+        // API returned success: false - this is an actual error
+        throw new Error(data.error || 'API returned success: false');
       }
     } catch (error) {
       console.error('[@hook:useCampaign] Error loading scripts:', error);
