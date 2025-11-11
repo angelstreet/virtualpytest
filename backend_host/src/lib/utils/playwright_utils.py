@@ -98,7 +98,12 @@ class ChromeManager:
     @staticmethod
     def find_chrome_executable() -> str:
         """Find Chrome executable on Linux system."""
-        possible_paths = ['/usr/bin/google-chrome', '/usr/bin/chromium-browser']
+        possible_paths = [
+            '/usr/bin/chromium',           # Debian/Ubuntu chromium package
+            '/usr/bin/chromium-browser',   # Alternative chromium name
+            '/usr/bin/google-chrome',      # Google Chrome
+            '/usr/bin/google-chrome-stable'
+        ]
         for path in possible_paths:
             if os.path.exists(path):
                 return path
