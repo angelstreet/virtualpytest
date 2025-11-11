@@ -376,6 +376,7 @@ const Dashboard: React.FC = () => {
                     py: 0.2,
                     px: 0,
                     borderRadius: 1,
+                    backgroundColor: 'transparent',
                     '&:hover': { backgroundColor: 'grey.100' },
                   }}
                 >
