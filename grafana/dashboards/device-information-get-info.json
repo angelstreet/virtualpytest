@@ -18,6 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
+  "id": 10,
   "links": [],
   "panels": [
     {
@@ -69,7 +70,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  COUNT(DISTINCT device_name) as \"Devices Scanned\",\n  COUNT(DISTINCT metadata->'info'->>'Device') as \"Unique Serials\",\n  COUNT(*) as \"Total Scans\",\n  COUNT(DISTINCT metadata->'info'->>'Build') as \"Firmware Versions\"\nFROM script_results \nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+          "rawSql": "SELECT \n  COUNT(DISTINCT CASE WHEN userinterface_name = 'horizon_android_mobile' THEN device_name END) as \"Android Mobile Devices\",\n  COUNT(DISTINCT CASE WHEN userinterface_name = 'horizon_tv' THEN device_name END) as \"Horizon TV Devices\",\n  COUNT(DISTINCT CASE WHEN userinterface_name = 'iad_gui' THEN device_name END) as \"IAD GUI Devices\",\n  COUNT(DISTINCT device_name) as \"Total Devices\",\n  COUNT(DISTINCT metadata->'info'->>'serial_number') as \"Unique Serials\",\n  COUNT(*) as \"Total Scans\",\n  COUNT(DISTINCT metadata->'info'->>'software_version') as \"Firmware Versions\"\nFROM script_results \nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
           "refId": "A"
         }
       ],
@@ -86,7 +87,7 @@
           "custom": {
             "align": "auto",
             "cellOptions": {
-              "type": "auto"
+              "type": "json-view"
             },
             "inspect": false
           },
@@ -97,15 +98,23 @@
               {
                 "color": "green",
                 "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
               }
             ]
           }
         },
         "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Device Info (JSON)"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 600
+              }
+            ]
+          },
           {
             "matcher": {
               "id": "byName",
@@ -123,101 +132,26 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "User Interface"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 288
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 6,
+        "h": 7,
         "w": 24,
         "x": 0,
         "y": 3
-      },
-      "id": 2,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Last Scanned"
-          }
-        ]
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device Name\",\n  host_name as \"Host\",\n  COALESCE(metadata->'info'->>'Device', metadata->'device_info'->'extracted_fields'->>'Device') as \"Device Type\",\n  COALESCE(metadata->'info'->>'S/N', metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Serial Number\",\n  COALESCE(metadata->'info'->>'MacAddress', metadata->'device_info'->'extracted_fields'->>'mac_address') as \"MAC Address\",\n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as \"Software Version\",\n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as \"Hardware Version\",\n  COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version') as \"DOCSIS Version\",\n  COALESCE(metadata->'info'->>'Device_IP', metadata->'device_info'->'extracted_fields'->>'ipv4_address') as \"IP Address\",\n  COALESCE(metadata->'info'->>'Gateway', metadata->'device_info'->'extracted_fields'->>'default_gateway') as \"Gateway\",\n  COALESCE(metadata->'info'->>'DNS', metadata->'device_info'->'extracted_fields'->>'dns_servers') as \"DNS Servers\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_lease_time' as \"Lease Time\",\n  metadata->'device_info'->'extracted_fields'->>'ipv4_lease_expire' as \"Lease Expires\",\n  COALESCE(metadata->'info'->>'Uptime', metadata->'device_info'->'extracted_fields'->>'system_uptime') as \"Uptime\",\n  COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access') as \"Network Access\",\n  started_at as \"Last Scanned\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, started_at DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Latest Device Information",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Report"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "targetBlank": true,
-                    "title": "View Report",
-                    "url": "${__value.raw}"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 6,
-        "w": 24,
-        "x": 0,
-        "y": 9
       },
       "id": 9,
       "options": {
@@ -243,449 +177,12 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  host_name as \"Host\",\n  userinterface_name as \"User Interface\",\n  COALESCE(metadata->'info'->>'S/N', metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Serial\",\n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as \"Software Version\",\n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as \"Hardware Version\",\n  COALESCE(metadata->'info'->>'MacAddress', metadata->'device_info'->'extracted_fields'->>'mac_address') as \"MAC Address\",\n  COALESCE(metadata->'info'->>'Device_IP', metadata->'device_info'->'extracted_fields'->>'ipv4_address') as \"IP Address\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, started_at DESC",
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND metadata->'info' IS NOT NULL\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, started_at DESC",
           "refId": "A"
         }
       ],
       "title": "Latest Device Info",
       "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": []
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Software Version"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels}"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 0,
-        "y": 15
-      },
-      "id": 3,
-      "options": {
-        "displayLabels": [
-          "name",
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "value",
-            "percent"
-          ]
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as metric,\n  COUNT(DISTINCT device_name)::int as value\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND (metadata->'info'->>'Build' IS NOT NULL OR metadata->'device_info'->'extracted_fields'->>'software_version' IS NOT NULL)\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version')\nORDER BY value DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Firmware Version Distribution",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            }
-          },
-          "mappings": []
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Hardware Version"
-            },
-            "properties": [
-              {
-                "id": "displayName",
-                "value": "${__field.labels}"
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 8,
-        "w": 12,
-        "x": 12,
-        "y": 15
-      },
-      "id": 4,
-      "options": {
-        "displayLabels": [
-          "name",
-          "percent"
-        ],
-        "legend": {
-          "displayMode": "table",
-          "placement": "right",
-          "showLegend": true,
-          "values": [
-            "value",
-            "percent"
-          ]
-        },
-        "pieType": "pie",
-        "reduceOptions": {
-          "calcs": [
-            "lastNotNull"
-          ],
-          "fields": "",
-          "values": true
-        },
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        }
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
-          },
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as metric,\n  COUNT(DISTINCT device_name)::int as value\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND (metadata->'info'->>'HW Version' IS NOT NULL OR metadata->'device_info'->'extracted_fields'->>'hardware_version' IS NOT NULL)\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version')\nORDER BY value DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Hardware Version Distribution",
-      "type": "piechart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "custom": {
-            "align": "auto",
-            "cellOptions": {
-              "type": "auto"
-            },
-            "inspect": false
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": [
-          {
-            "matcher": {
-              "id": "byName",
-              "options": "Report"
-            },
-            "properties": [
-              {
-                "id": "links",
-                "value": [
-                  {
-                    "targetBlank": true,
-                    "title": "View Report",
-                    "url": "${__value.raw}"
-                  }
-                ]
-              }
-            ]
-          }
-        ]
-      },
-      "gridPos": {
-        "h": 9,
-        "w": 24,
-        "x": 0,
-        "y": 23
-      },
-      "id": 5,
-      "options": {
-        "cellHeight": "sm",
-        "footer": {
-          "countRows": false,
-          "fields": "",
-          "reducer": [
-            "sum"
-          ],
-          "show": false
-        },
-        "showHeader": true,
-        "sortBy": [
-          {
-            "desc": true,
-            "displayName": "Scanned At"
-          }
-        ]
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  device_name as \"Device\",\n  host_name as \"Host\",\n  COALESCE(metadata->'info'->>'S/N', metadata->'device_info'->'extracted_fields'->>'serial_number') as \"Serial\",\n  COALESCE(metadata->'info'->>'MacAddress', metadata->'device_info'->'extracted_fields'->>'mac_address') as \"MAC Address\",\n  COALESCE(metadata->'info'->>'Device_IP', metadata->'device_info'->'extracted_fields'->>'ipv4_address') as \"IP Address\",\n  COALESCE(metadata->'info'->>'Build', metadata->'device_info'->'extracted_fields'->>'software_version') as \"SW Version\",\n  COALESCE(metadata->'info'->>'HW Version', metadata->'device_info'->'extracted_fields'->>'hardware_version') as \"HW Version\",\n  COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version') as \"DOCSIS\",\n  COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access') as \"Network\",\n  COALESCE(metadata->'info'->>'Uptime', metadata->'device_info'->'extracted_fields'->>'system_uptime') as \"Uptime\",\n  started_at as \"Scanned At\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  COALESCE(metadata->'extraction_summary'->>'fields_extracted', metadata->'device_info'->'extraction_summary'->>'fields_extracted') as \"Fields Extracted\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY started_at DESC\nLIMIT 100",
-          "refId": "A"
-        }
-      ],
-      "title": "Device Scan History",
-      "type": "table"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 0,
-        "y": 26
-      },
-      "id": 6,
-      "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        },
-        "xField": "Network Status",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access', 'Unknown') as \"Network Status\",\n  COUNT(DISTINCT device_name) as \"Device Count\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'Network', metadata->'device_info'->'extracted_fields'->>'network_access')\nORDER BY \"Device Count\" DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "Devices by Network Status",
-      "type": "barchart"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
-      },
-      "fieldConfig": {
-        "defaults": {
-          "color": {
-            "mode": "palette-classic"
-          },
-          "custom": {
-            "axisBorderShow": false,
-            "axisCenteredZero": false,
-            "axisColorMode": "text",
-            "axisLabel": "",
-            "axisPlacement": "auto",
-            "fillOpacity": 80,
-            "gradientMode": "none",
-            "hideFrom": {
-              "legend": false,
-              "tooltip": false,
-              "viz": false
-            },
-            "lineWidth": 1,
-            "scaleDistribution": {
-              "type": "linear"
-            },
-            "thresholdsStyle": {
-              "mode": "off"
-            }
-          },
-          "mappings": [],
-          "thresholds": {
-            "mode": "absolute",
-            "steps": [
-              {
-                "color": "green",
-                "value": 0
-              },
-              {
-                "color": "red",
-                "value": 80
-              }
-            ]
-          }
-        },
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 7,
-        "w": 12,
-        "x": 12,
-        "y": 26
-      },
-      "id": 7,
-      "options": {
-        "barRadius": 0,
-        "barWidth": 0.97,
-        "fullHighlight": false,
-        "groupWidth": 0.7,
-        "legend": {
-          "calcs": [],
-          "displayMode": "list",
-          "placement": "bottom",
-          "showLegend": true
-        },
-        "orientation": "horizontal",
-        "showValue": "auto",
-        "stacking": "none",
-        "tooltip": {
-          "hideZeros": false,
-          "mode": "single",
-          "sort": "none"
-        },
-        "xField": "DOCSIS Version",
-        "xTickLabelRotation": 0,
-        "xTickLabelSpacing": 0
-      },
-      "pluginVersion": "12.1.1",
-      "targets": [
-        {
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT \n  COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version', 'Unknown') as \"DOCSIS Version\",\n  COUNT(DISTINCT device_name) as \"Device Count\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nGROUP BY COALESCE(metadata->'info'->>'DOCSIS', metadata->'device_info'->'extracted_fields'->>'docsis_version')\nORDER BY \"Device Count\" DESC",
-          "refId": "A"
-        }
-      ],
-      "title": "DOCSIS Version Distribution",
-      "type": "barchart"
     },
     {
       "datasource": {
@@ -748,10 +245,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 24,
         "x": 0,
-        "y": 33
+        "y": 10
       },
       "id": 10,
       "options": {
@@ -777,11 +274,11 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_tv'\nORDER BY device_name, started_at DESC",
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"UI\",\n  host_name as \"Host\",\n  metadata->'info'->>'build_version' as \"Build Version\",\n  metadata->'info'->>'hardware_version' as \"HW Version\",\n  metadata->'info'->>'software_version' as \"SW Version\",\n  metadata->'info'->>'serial_number_stb' as \"Serial STB\",\n  metadata->'info'->>'application_version' as \"App Version\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_tv'\nORDER BY device_name, started_at DESC",
           "refId": "A"
         }
       ],
-      "title": "Horizon TV - Device Info (JSON)",
+      "title": "Horizon TV",
       "type": "table"
     },
     {
@@ -845,10 +342,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 24,
         "x": 0,
-        "y": 41
+        "y": 14
       },
       "id": 11,
       "options": {
@@ -874,11 +371,11 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_android_mobile'\nORDER BY device_name, started_at DESC",
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"UI\",\n  host_name as \"Host\",\n  metadata->'info'->>'OS' as \"OS\",\n  metadata->'info'->>'OV' as \"OV\",\n  metadata->'info'->>'Build' as \"Build\",\n  metadata->'info'->>'Device' as \"Device Type\",\n  metadata->'info'->>'Conviva' as \"Conviva\",\n  metadata->'info'->>'CPE_1_ID' as \"CPE 1 ID\",\n  metadata->'info'->>'CPE_2_ID' as \"CPE 2 ID\",\n  metadata->'info'->>'Device_IP' as \"Device IP\",\n  metadata->'info'->>'Customer_HH' as \"Customer HH\",\n  metadata->'info'->>'Video_Player' as \"Video Player\",\n  metadata->'info'->>'Connection_Type' as \"Connection\",\n  metadata->'info'->>'Mqtt_Cpe_Status' as \"MQTT CPE Status\",\n  metadata->'info'->>'Mqtt_Broker_Status' as \"MQTT Broker\",\n  metadata->'info'->>'OV_Disk_Status' as \"OV Disk\",\n  metadata->'info'->>'OV_Engine_State' as \"OV Engine\",\n  metadata->'info'->>'OV_Power_Status' as \"OV Power\",\n  metadata->'info'->>'OV_Network_Status' as \"OV Network\",\n  metadata->'info'->>'OV_Download_Enabled' as \"OV Download\",\n  metadata->'info'->>'Last_MQTT_status_check' as \"Last MQTT Check\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_android_mobile'\nORDER BY device_name, started_at DESC",
           "refId": "A"
         }
       ],
-      "title": "Horizon Android Mobile - Device Info (JSON)",
+      "title": "Horizon Android Mobile",
       "type": "table"
     },
     {
@@ -942,10 +439,10 @@
         ]
       },
       "gridPos": {
-        "h": 8,
+        "h": 4,
         "w": 24,
         "x": 0,
-        "y": 49
+        "y": 18
       },
       "id": 12,
       "options": {
@@ -971,11 +468,203 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name NOT IN ('horizon_tv', 'horizon_android_mobile')\nORDER BY device_name, started_at DESC",
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"UI\",\n  host_name as \"Host\",\n  metadata->'info'->>'Hardware_version' as \"HW Version\",\n  metadata->'info'->>'Software_version' as \"SW Version\",\n  metadata->'info'->>'Cable_modem_serial_number' as \"Serial Number\",\n  metadata->'info'->>'MAC_address' as \"MAC Address\",\n  metadata->'info'->>'IPv4_address' as \"IPv4 Address\",\n  metadata->'info'->>'Default_gateway' as \"Gateway\",\n  metadata->'info'->>'IPv4_DNS_servers' as \"DNS Servers\",\n  metadata->'info'->>'System_up_time' as \"System Uptime\",\n  metadata->'info'->>'IPv4_lease_expire' as \"Lease Expire\",\n  metadata->'info'->>'Network_access' as \"Network Access\",\n  metadata->'info'->>'Standard_specification_compliant' as \"DOCSIS\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'iad_gui'\nORDER BY device_name, started_at DESC",
           "refId": "A"
         }
       ],
-      "title": "Other Devices - Device Info (JSON)",
+      "title": "IAD GUI",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Device Info (JSON)"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "json-view"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View Report",
+                    "url": "${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 22
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Scanned"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT DISTINCT ON (device_name)\n  device_name as \"Device\",\n  userinterface_name as \"UI\",\n  host_name as \"Host\",\n  metadata->'info'->>'device' as \"Device Type\",\n  metadata->'info'->>'conviva' as \"Conviva\",\n  metadata->'info'->>'video_player' as \"Video Player\",\n  metadata->'info'->>'connection_type' as \"Connection Time\",\n  metadata->'info'->>'settings' as \"Settings\",\n  metadata->'info'->>'information' as \"Information\",\n  metadata->'info'->>'en' as \"Info Text\",\n  metadata->'info'->>'\u00a9_dolby_audio' as \"Dolby Audio\",\n  started_at as \"Last Scanned\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\n  AND userinterface_name = 'horizon_android_tv'\nORDER BY device_name, started_at DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "Horizon Android TV",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Field Value"
+            },
+            "properties": [
+              {
+                "id": "custom.width",
+                "value": 400
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View Report",
+                    "url": "${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Last Scanned"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT \n  device_name as \"Device\",\n  userinterface_name as \"User Interface\",\n  host_name as \"Host\",\n  metadata->'info' as \"Device Info (JSON)\",\n  started_at as \"Scanned At\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name IN ('get_info', 'device_get_info')\n  AND success = true\n  AND metadata->'info' IS NOT NULL\n  AND started_at >= NOW() - INTERVAL '7 days'\nORDER BY started_at DESC\nLIMIT 500",
+          "refId": "A"
+        }
+      ],
+      "title": "All Executions",
       "type": "table"
     }
   ],
@@ -1040,5 +729,5 @@
   "timezone": "browser",
   "title": "Device Information (Get Info)",
   "uid": "9d8b49f4-edb5-4359-918e-c42ef0cdf66a",
-  "version": 12
+  "version": 41
 }
