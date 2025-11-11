@@ -1,5 +1,36 @@
 #!/bin/bash
 
+# Parse command line arguments
+BUILD_HOST=false
+BUILD_SERVER=false
+
+while [[ $# -gt 0 ]]; do
+    case $1 in
+        --host)
+            BUILD_HOST=true
+            shift
+            ;;
+        --server)
+            BUILD_SERVER=true
+            shift
+            ;;
+        *)
+            echo "Unknown option: $1"
+            echo "Usage: $0 [--host] [--server]"
+            echo "  --host    Build and push only backend_host"
+            echo "  --server  Build and push only backend_server"
+            echo "  (no args) Build and push both"
+            exit 1
+            ;;
+    esac
+done
+
+# If no flags specified, build both
+if [ "$BUILD_HOST" = false ] && [ "$BUILD_SERVER" = false ]; then
+    BUILD_HOST=true
+    BUILD_SERVER=true
+fi
+
 # Load environment variables from .env file (in parent directory)
 if [ -f ../.env ]; then
     export $(cat ../.env | grep -E '^(GITHUB_USERNAME|GITHUB_PAT)=' | xargs)
@@ -59,63 +90,73 @@ export BUILDKIT_PROGRESS=plain
 export DOCKER_BUILDKIT=1
 echo "BuildKit variables set"
 
-echo ""
-echo "🏗️  Building virtualpytest-host for linux/amd64..."
-echo "Optimized build: Using BuildKit cache and inline cache for faster builds"
-echo "Expected image size: ~3.7GB (65% smaller after removing torch/CUDA)"
-echo "Starting build at $(date)..."
+# Build and push backend_host if requested
+if [ "$BUILD_HOST" = true ]; then
+    echo ""
+    echo "🏗️  Building virtualpytest-host for linux/amd64..."
+    echo "Optimized build: Using BuildKit cache and inline cache for faster builds"
+    echo "Expected image size: ~3.7GB (65% smaller after removing torch/CUDA)"
+    echo "Starting build at $(date)..."
 
-docker buildx build \
-  --platform linux/amd64 \
-  --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
-  --file ../backend_host/Dockerfile \
-  --build-arg BUILDKIT_INLINE_CACHE=1 \
-  --cache-from ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
-  --push \
-  --progress=plain \
-  ..
+    docker buildx build \
+      --platform linux/amd64 \
+      --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
+      --file ../backend_host/Dockerfile \
+      --build-arg BUILDKIT_INLINE_CACHE=1 \
+      --cache-from ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
+      --push \
+      --progress=plain \
+      ..
 
-BUILD_RESULT=$?
-echo "Build finished at $(date) with exit code: $BUILD_RESULT"
-if [ $BUILD_RESULT -ne 0 ]; then
-    echo "❌ Failed to build virtualpytest-host"
-    exit 1
+    BUILD_RESULT=$?
+    echo "Build finished at $(date) with exit code: $BUILD_RESULT"
+    if [ $BUILD_RESULT -ne 0 ]; then
+        echo "❌ Failed to build virtualpytest-host"
+        exit 1
+    fi
+
+    echo "✅ virtualpytest-host pushed successfully!"
+    docker manifest inspect ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest --verbose 2>/dev/null | grep -E '(size|platform)' | head -5 || echo "Image available at ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
 fi
 
-echo "✅ virtualpytest-host pushed successfully!"
-docker manifest inspect ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest --verbose 2>/dev/null | grep -E '(size|platform)' | head -5 || echo "Image available at ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
+# Build and push backend_server if requested
+if [ "$BUILD_SERVER" = true ]; then
+    echo ""
+    echo "🏗️  Building virtualpytest-server for linux/amd64..."
+    echo "Optimized build: Using BuildKit cache and inline cache for faster builds"
+    echo "Starting build at $(date)..."
 
-echo ""
-echo "🏗️  Building virtualpytest-server for linux/amd64..."
-echo "Optimized build: Using BuildKit cache and inline cache for faster builds"
-echo "Starting build at $(date)..."
+    docker buildx build \
+      --platform linux/amd64 \
+      --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
+      --file ../backend_server/Dockerfile \
+      --build-arg BUILDKIT_INLINE_CACHE=1 \
+      --cache-from ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
+      --push \
+      --progress=plain \
+      ..
 
-docker buildx build \
-  --platform linux/amd64 \
-  --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
-  --file ../backend_server/Dockerfile \
-  --build-arg BUILDKIT_INLINE_CACHE=1 \
-  --cache-from ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
-  --push \
-  --progress=plain \
-  ..
+    BUILD_RESULT=$?
+    echo "Build finished at $(date) with exit code: $BUILD_RESULT"
+    if [ $BUILD_RESULT -ne 0 ]; then
+        echo "❌ Failed to build virtualpytest-server"
+        exit 1
+    fi
 
-BUILD_RESULT=$?
-echo "Build finished at $(date) with exit code: $BUILD_RESULT"
-if [ $BUILD_RESULT -ne 0 ]; then
-    echo "❌ Failed to build virtualpytest-server"
-    exit 1
+    echo "✅ virtualpytest-server pushed successfully!"
+    docker manifest inspect ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest --verbose 2>/dev/null | grep -E '(size|platform)' | head -5 || echo "Image available at ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
 fi
 
-echo "✅ virtualpytest-server pushed successfully!"
-docker manifest inspect ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest --verbose 2>/dev/null | grep -E '(size|platform)' | head -5 || echo "Image available at ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
-
 echo ""
-echo "✅ Successfully pushed both images!"
+echo "✅ Build and push complete!"
 echo ""
-echo "Images available at:"
-echo "  - ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
-echo "  - ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
+echo "Images pushed:"
+if [ "$BUILD_HOST" = true ]; then
+    echo "  - ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
+fi
+if [ "$BUILD_SERVER" = true ]; then
+    echo "  - ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
+fi
 echo ""
 echo "✅ Compatible with Render (linux/amd64)"
 
