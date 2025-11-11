@@ -230,7 +230,7 @@ def main():
     # STEP 2.1: Clear navigation file cache on startup
     print("[@backend_host:main] Step 2.1: Clearing navigation file cache...")
     try:
-        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+        from shared.src.lib.utils.navigation_cache import clear_unified_cache
         clear_unified_cache()  # Clear all file caches
         print("[@backend_host:main] ✅ Navigation file cache cleared")
     except Exception as e:

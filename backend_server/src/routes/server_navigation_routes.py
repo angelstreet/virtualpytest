@@ -580,7 +580,7 @@ def refresh_navigation_cache():
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+            from shared.src.lib.utils.navigation_cache import clear_unified_cache
             
             # Clear the cache for this tree to force a rebuild on next access
             clear_unified_cache(tree_id, team_id)

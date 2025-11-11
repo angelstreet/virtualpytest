@@ -24,7 +24,7 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
     Raises:
         NavigationTreeError: If any part of the loading fails
     """
-    from backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
+    from shared.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
     
     try:
         print(f"🗺️ [TreeManager] Loading navigation tree for '{userinterface_name}'")
@@ -49,7 +49,7 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
         root_tree_id = tree['id']
         
         # 2. CHECK CACHE FIRST before loading from database
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
         cached_graph = get_cached_unified_graph(root_tree_id, team_id)
         
         if cached_graph:
@@ -118,7 +118,7 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
         
         # 6. Populate unified cache (MANDATORY)
         print(f"🔄 [TreeManager] Populating unified cache...")
-        from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+        from shared.src.lib.utils.navigation_cache import populate_unified_cache
         unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
         if not unified_graph:
             raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
@@ -154,7 +154,7 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
         
     except Exception as e:
         # Re-raise navigation-specific errors
-        from backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
+        from shared.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
         if isinstance(e, (NavigationTreeError, UnifiedCacheError)):
             raise e
         else:
@@ -259,7 +259,7 @@ def build_unified_tree_data(hierarchy_data: List[Dict], team_id: str) -> List[Di
     Returns:
         Data structure ready for create_unified_networkx_graph()
     """
-    from backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError
+        from shared.src.lib.utils.navigation_exceptions import NavigationTreeError
     
     try:
         if not hierarchy_data:

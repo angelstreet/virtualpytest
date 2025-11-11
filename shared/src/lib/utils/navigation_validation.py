@@ -5,7 +5,7 @@ Provides health checks and integrity validation for nested tree pathfinding
 
 import networkx as nx
 from typing import Dict, List, Any, Optional
-from shared.src.lib.utils.navigation_exceptions import NavigationError, UnifiedCacheError, PathfindingError
+from .navigation_exceptions import NavigationError, UnifiedCacheError, PathfindingError
 
 
 def validate_unified_cache_health(root_tree_id: str, team_id: str) -> Dict[str, Any]:
@@ -20,7 +20,7 @@ def validate_unified_cache_health(root_tree_id: str, team_id: str) -> Dict[str, 
         Dictionary with validation results and health metrics
     """
     try:
-        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
+        from .navigation_cache import get_cached_unified_graph, get_node_tree_location, get_tree_hierarchy_metadata
         
         print(f"[@navigation:validation:validate_unified_cache_health] Validating unified cache for root tree: {root_tree_id}")
         
@@ -375,7 +375,7 @@ def validate_complete_unified_system(root_tree_id: str, team_id: str) -> Dict[st
         
         # 2. If cache is healthy, validate cross-tree edges
         if cache_validation['success'] and cache_validation.get('cache_populated'):
-            from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
+            from .navigation_cache import get_cached_unified_graph
             unified_graph = get_cached_unified_graph(root_tree_id, team_id)
             
             if unified_graph:

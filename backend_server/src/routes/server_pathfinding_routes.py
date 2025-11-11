@@ -75,8 +75,8 @@ def get_navigation_stats(tree_id):
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
-            from backend_host.src.lib.utils.navigation_graph import validate_graph, get_entry_points
+            from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
+            from shared.src.lib.utils.navigation_graph import validate_graph, get_entry_points
             
             G = get_cached_unified_graph(tree_id, team_id)
             if not G:
@@ -152,7 +152,7 @@ def clear_navigation_cache():
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import invalidate_cache, clear_all_cache
+            from shared.src.lib.utils.navigation_cache import invalidate_cache, clear_all_cache
             
             if tree_id:
                 invalidate_cache(tree_id, team_id)
@@ -207,7 +207,7 @@ def refresh_navigation_cache():
             }), 400
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+            from shared.src.lib.utils.navigation_cache import clear_unified_cache
             
             print(f"[@pathfinding:refresh_cache] Calling clear_unified_cache for tree {tree_id}")
             clear_unified_cache(tree_id, team_id)
@@ -246,7 +246,7 @@ def get_cache_stats():
         print(f"[@pathfinding:cache_stats] Request for cache statistics")
         
         try:
-            from backend_host.src.lib.utils.navigation_cache import get_cache_stats as get_cache_stats_internal
+            from shared.src.lib.utils.navigation_cache import get_cache_stats as get_cache_stats_internal
             
             stats = get_cache_stats_internal()
             

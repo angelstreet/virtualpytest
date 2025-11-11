@@ -30,11 +30,8 @@ WORKDIR /app
 
 # Copy shared library
 COPY shared/ shared/
-# Add shared to PYTHONPATH instead of installing as package
-ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_host/src"
-
-# Copy backend_host (required dependency)
-COPY backend_host/ backend_host/
+# Add shared to PYTHONPATH
+ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_server/src"
 
 # Copy backend_server requirements and install with exact versions (no cache)
 COPY backend_server/requirements.txt backend_server/

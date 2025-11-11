@@ -289,7 +289,7 @@ def check_navigation_cache(tree_id):
             }), 400
         
         # Check if cache exists
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
         cached_graph = get_cached_unified_graph(tree_id, team_id)
         
         exists = cached_graph is not None
@@ -354,7 +354,7 @@ def update_edge_in_cache():
             print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
         # Get the cached graph
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
         
         # DEBUG: Show what caches exist
         available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
@@ -467,7 +467,7 @@ def update_node_in_cache():
             print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
         # Get the cached graph
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
         
         # DEBUG: Show what caches exist
         available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
@@ -552,7 +552,7 @@ def clear_navigation_cache_for_tree(tree_id):
             }), 400
         
         # 1. Clear file cache
-        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+        from shared.src.lib.utils.navigation_cache import clear_unified_cache
         clear_unified_cache(tree_id, team_id)
         
         # 2. Clear in-memory graph from all NavigationExecutor instances
@@ -610,7 +610,7 @@ def populate_navigation_cache(tree_id):
             }), 400
         
         # Check if cache already exists (protection against re-population)
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache, refresh_cache_timestamp
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache, refresh_cache_timestamp
         existing_cache = get_cached_unified_graph(tree_id, team_id)
         
         if existing_cache and not force_repopulate:

@@ -14,8 +14,8 @@ from typing import Dict, List, Optional, Any, Tuple
 
 # Core imports
 from  backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
-from  backend_host.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
-from  backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+from shared.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError, PathfindingError, DatabaseError
+from shared.src.lib.utils.navigation_cache import populate_unified_cache
 
 # Helper functions (extracted for maintainability)
 from backend_host.src.services.navigation.navigation_executor_helpers import (
@@ -118,7 +118,7 @@ class NavigationExecutor:
         # First check if we have a cached unified graph for this interface
         from shared.src.lib.database.userinterface_db import get_userinterface_by_name
         from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
-        from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
         
         # Get interface and root tree ID
         interface_info = get_userinterface_by_name(userinterface_name, team_id)
@@ -254,7 +254,7 @@ class NavigationExecutor:
         
         # 🔄 AUTO-SYNC: If unified_graph not loaded but cache exists, sync from cache
         if not self.unified_graph and team_id:
-            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
             cached_graph = get_cached_unified_graph(tree_id, team_id)
             if cached_graph:
                 self.unified_graph = cached_graph
@@ -321,7 +321,7 @@ class NavigationExecutor:
         
         try:
             from backend_host.src.services.navigation.navigation_pathfinding import find_shortest_path
-            from backend_host.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
+            from shared.src.lib.utils.navigation_exceptions import UnifiedCacheError, PathfindingError
             
             # SIMPLE RULE: Frontend is source of truth when it sends position (even if None)
             if frontend_sent_position:
@@ -392,7 +392,7 @@ class NavigationExecutor:
             # verify target first to catch stale position tracking (e.g., "android_home" vs "home" confusion)
             if not navigation_path and current_position and current_position != target_node_id:
                 # Quick pathfinding check: is target reachable in 1 step?
-                from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+                from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
                 cached_graph = get_cached_unified_graph(tree_id, team_id)
                 if cached_graph and current_position in cached_graph.nodes and target_node_id in cached_graph.nodes:
                     # Check if target is a direct neighbor (1 step away)
@@ -1143,7 +1143,7 @@ class NavigationExecutor:
             # Update position if navigation succeeded (but NOT for action nodes)
             if navigation_path:
                 # Check if final node is an action node - actions don't update device position
-                from  backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+                from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
                 unified_graph = get_cached_unified_graph(tree_id, team_id)
                 if unified_graph:
                     final_node_data = unified_graph.nodes.get(final_node_id, {})
@@ -1601,7 +1601,7 @@ class NavigationExecutor:
         """
         # 🔄 AUTO-SYNC: Try to sync from cache if graph not loaded
         if not self.unified_graph and tree_id and team_id:
-            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
             cached_graph = get_cached_unified_graph(tree_id, team_id)
             if cached_graph:
                 self.unified_graph = cached_graph
@@ -1629,7 +1629,7 @@ class NavigationExecutor:
         """
         # 🔄 AUTO-SYNC: Try to sync from cache if graph not loaded
         if not self.unified_graph and tree_id and team_id:
-            from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+            from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
             cached_graph = get_cached_unified_graph(tree_id, team_id)
             if cached_graph:
                 self.unified_graph = cached_graph

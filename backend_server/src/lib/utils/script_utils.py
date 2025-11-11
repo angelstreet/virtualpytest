@@ -9,20 +9,13 @@ Only contains functions needed by the server (no host-specific functionality).
 import os
 import glob
 
-# Import host-specific function for campaign executor (temporary - should be refactored)
+# Import from shared library (ai_utils is shared between server and host)
 try:
-    import sys
-    # Add backend_host to path for importing ai_utils
-    current_dir = os.path.dirname(os.path.abspath(__file__))
-    project_root = os.path.dirname(os.path.dirname(os.path.dirname(os.path.dirname(current_dir))))
-    backend_host_path = os.path.join(project_root, 'backend_host', 'src')
-    if backend_host_path not in sys.path:
-        sys.path.insert(0, backend_host_path)
-    from  backend_server.src.lib.utils.ai_utils import setup_script_environment
+    from shared.src.lib.utils.ai_utils import setup_script_environment
 except ImportError:
-    # Fallback if host utils not available
+    # Fallback if shared library not available
     def setup_script_environment(script_name: str = "script"):
-        return {'success': False, 'error': 'Host utilities not available on server'}
+        return {'success': False, 'error': 'AI utilities not available'}
 
 
 def get_scripts_directory() -> str:

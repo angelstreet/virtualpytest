@@ -129,7 +129,7 @@ def get_edge_options():
         from shared.src.lib.database.userinterface_db import get_userinterface_by_name
         from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
         from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-        from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache
+        from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, populate_unified_cache
         
         # Get interface and tree ID
         interface_info = get_userinterface_by_name(userinterface_name, team_id)
@@ -171,7 +171,7 @@ def get_edge_options():
                 }), 500
             
             # Populate cache
-            from backend_host.src.lib.utils.navigation_cache import populate_unified_cache
+            from shared.src.lib.utils.navigation_cache import populate_unified_cache
             cached_graph = populate_unified_cache(tree_id, team_id, hierarchy_result['hierarchy'])
             
             if not cached_graph:
