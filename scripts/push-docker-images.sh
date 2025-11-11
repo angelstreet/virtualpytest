@@ -2,7 +2,7 @@
 
 # Load environment variables from .env file
 if [ -f .env ]; then
-    export $(cat .env | grep -E '^(GITHUB_USERNAME|GITHUB_PAT)=' | xargs)
+    export $(cat ../.env | grep -E '^(GITHUB_USERNAME|GITHUB_PAT)=' | xargs)
 else
     echo "Error: .env file not found"
     exit 1
@@ -23,9 +23,13 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "🏗️  Building virtualpytest-host..."
-docker build -t ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
-  -f backend_host/Dockerfile .
+echo "🏗️  Building virtualpytest-host for linux/amd64..."
+docker buildx build \
+  --platform linux/amd64 \
+  --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
+  --file backend_host/Dockerfile \
+  --push \
+  .
 
 if [ $? -ne 0 ]; then
     echo "❌ Failed to build virtualpytest-host"
@@ -33,9 +37,13 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "🏗️  Building virtualpytest-server..."
-docker build -t ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
-  -f backend_server/Dockerfile .
+echo "🏗️  Building virtualpytest-server for linux/amd64..."
+docker buildx build \
+  --platform linux/amd64 \
+  --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
+  --file backend_server/Dockerfile \
+  --push \
+  .
 
 if [ $? -ne 0 ]; then
     echo "❌ Failed to build virtualpytest-server"
@@ -43,31 +51,11 @@ if [ $? -ne 0 ]; then
 fi
 
 echo ""
-echo "📤 Pushing virtualpytest-host to GHCR..."
-docker push ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest
-
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to push virtualpytest-host"
-    exit 1
-fi
-
-echo ""
-echo "📤 Pushing virtualpytest-server to GHCR..."
-docker push ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest
-
-if [ $? -ne 0 ]; then
-    echo "❌ Failed to push virtualpytest-server"
-    exit 1
-fi
-
-echo ""
-echo "✅ Successfully pushed both images to GHCR!"
+echo "✅ Successfully pushed both images!"
 echo ""
 echo "Images available at:"
 echo "  - ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
 echo "  - ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
 echo ""
-echo "To pull them later:"
-echo "  docker pull ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
-echo "  docker pull ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
+echo "✅ Compatible with Render (linux/amd64)"
 
