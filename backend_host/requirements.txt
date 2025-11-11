@@ -45,7 +45,6 @@ inotify>=0.2.10  # Efficient file system event monitoring (used by capture_monit
 # Fixed versions for numpy binary compatibility
 numpy>=1.24.0,<2.0.0
 pyautogui>=0.9.54
-pynput>=1.7.6
 Pillow>=10.0.0,<11.0.0
 opencv-python>=4.8.0,<5.0.0
 ffmpeg-python>=0.2.0
@@ -62,8 +61,7 @@ pyspellchecker>=0.8.0  # For OCR text correction (lightweight spell checking)
 faster-whisper>=1.0.0  # Optimized C++ implementation of Whisper
 #python3 -c "from faster_whisper import WhisperModel; WhisperModel('tiny')"
 
-# Audio dubbing dependencies
-demucs>=4.0.0  # Modern audio separation (replaces Spleeter)
+# Audio processing
 pydub>=0.25.1
 
 # TTS engines - Quality comparison
@@ -91,4 +89,3 @@ networkx
 tapo
 
 #sudo apt install epiphany-browser
-safety>=2.0.0
