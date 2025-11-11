@@ -61,15 +61,18 @@ echo "BuildKit variables set"
 
 echo ""
 echo "🏗️  Building virtualpytest-host for linux/amd64..."
-echo "Command: docker buildx build --platform linux/amd64 --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest --file ../backend_host/Dockerfile --push --progress=auto .."
+echo "Optimized build: Using BuildKit cache and inline cache for faster builds"
+echo "Expected image size: ~3.7GB (65% smaller after removing torch/CUDA)"
 echo "Starting build at $(date)..."
 
 docker buildx build \
   --platform linux/amd64 \
   --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
   --file ../backend_host/Dockerfile \
+  --build-arg BUILDKIT_INLINE_CACHE=1 \
+  --cache-from ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest \
   --push \
-  --progress=auto \
+  --progress=plain \
   ..
 
 BUILD_RESULT=$?
@@ -79,17 +82,22 @@ if [ $BUILD_RESULT -ne 0 ]; then
     exit 1
 fi
 
+echo "✅ virtualpytest-host pushed successfully!"
+docker manifest inspect ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest --verbose 2>/dev/null | grep -E '(size|platform)' | head -5 || echo "Image available at ghcr.io/$GITHUB_USERNAME/virtualpytest-host:latest"
+
 echo ""
 echo "🏗️  Building virtualpytest-server for linux/amd64..."
-echo "Command: docker buildx build --platform linux/amd64 --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest --file ../backend_server/Dockerfile --push --progress=auto .."
+echo "Optimized build: Using BuildKit cache and inline cache for faster builds"
 echo "Starting build at $(date)..."
 
 docker buildx build \
   --platform linux/amd64 \
   --tag ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
   --file ../backend_server/Dockerfile \
+  --build-arg BUILDKIT_INLINE_CACHE=1 \
+  --cache-from ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest \
   --push \
-  --progress=auto \
+  --progress=plain \
   ..
 
 BUILD_RESULT=$?
@@ -98,6 +106,9 @@ if [ $BUILD_RESULT -ne 0 ]; then
     echo "❌ Failed to build virtualpytest-server"
     exit 1
 fi
+
+echo "✅ virtualpytest-server pushed successfully!"
+docker manifest inspect ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest --verbose 2>/dev/null | grep -E '(size|platform)' | head -5 || echo "Image available at ghcr.io/$GITHUB_USERNAME/virtualpytest-server:latest"
 
 echo ""
 echo "✅ Successfully pushed both images!"
