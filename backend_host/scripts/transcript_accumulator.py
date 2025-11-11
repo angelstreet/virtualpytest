@@ -26,7 +26,7 @@ os.environ['MKL_NUM_THREADS'] = '2'          # Intel MKL
 os.environ['OPENBLAS_NUM_THREADS'] = '2'     # OpenBLAS
 os.environ['NUMEXPR_NUM_THREADS'] = '2'      # NumExpr
 os.environ['VECLIB_MAXIMUM_THREADS'] = '2'   # macOS Accelerate
-os.environ['TORCH_NUM_THREADS'] = '2'        # PyTorch (was 2, now 4 for better Whisper performance)
+# os.environ['TORCH_NUM_THREADS'] = '2'      # PyTorch - REMOVED (torch no longer used)
 
 import sys
 import json
