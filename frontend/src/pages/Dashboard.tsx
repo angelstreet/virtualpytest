@@ -353,19 +353,24 @@ const Dashboard: React.FC = () => {
             mb: 1.5,
             boxShadow: 'none',
             border: '1px solid #e0e0e0',
+            backgroundColor: 'transparent',
             '&:before': { display: 'none' },
           }}
         >
           <AccordionSummary
             expandIcon={<ExpandMoreIcon />}
-            sx={{ minHeight: '36px', '& .MuiAccordionSummary-content': { margin: '6px 0' } }}
+            sx={{ 
+              minHeight: '36px', 
+              backgroundColor: 'transparent',
+              '& .MuiAccordionSummary-content': { margin: '6px 0' } 
+            }}
           >
             <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
               Devices ({host.device_count})
             </Typography>
           </AccordionSummary>
-          <AccordionDetails sx={{ pt: 0, pb: 0.5, px: 1 }}>
-            <Box sx={{ maxHeight: '150px', overflowY: 'auto', overflowX: 'hidden' }}>
+          <AccordionDetails sx={{ pt: 0, pb: 0.5, px: 1, backgroundColor: 'transparent' }}>
+            <Box sx={{ maxHeight: '150px', overflowY: 'auto', overflowX: 'hidden', backgroundColor: 'transparent' }}>
               {host.devices.map((device) => (
                 <Box
                   key={device.device_id}
@@ -377,7 +382,6 @@ const Dashboard: React.FC = () => {
                     px: 0,
                     borderRadius: 1,
                     backgroundColor: 'transparent',
-                    '&:hover': { backgroundColor: 'grey.100' },
                   }}
                 >
                   {getDeviceIcon(device.device_model)}
