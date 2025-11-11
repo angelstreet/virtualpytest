@@ -246,7 +246,7 @@ class ChromeManager:
         
         # Set environment
         env = os.environ.copy()
-        env["DISPLAY"] = ":1"
+        env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
         
         # Launch Chrome (with or without cgroup limits) - capture stderr to detect errors
         process = subprocess.Popen(cmd_line, env=env, stderr=subprocess.PIPE, stdout=subprocess.PIPE)

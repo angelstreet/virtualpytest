@@ -109,7 +109,7 @@ class WebKitManager:
         # Launch browser
         cmd_line = [executable_path] + browser_flags
         env = os.environ.copy()
-        env["DISPLAY"] = ":1"
+        env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
         
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         process = subprocess.Popen(cmd_line, env=env)

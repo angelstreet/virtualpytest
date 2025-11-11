@@ -77,7 +77,7 @@ COPY backend_host/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.c
 EXPOSE 6109 6080 5901
 
 # Set display and ADB environment
-ENV DISPLAY=:99
+ENV DISPLAY=:1
 ENV ANDROID_HOME=/home/vptuser/.android
 ENV ADB_VENDOR_KEYS=/home/vptuser/.android
 

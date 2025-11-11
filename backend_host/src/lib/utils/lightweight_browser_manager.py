@@ -106,7 +106,7 @@ class FirefoxManager:
         
         # Set environment
         env = os.environ.copy()
-        env["DISPLAY"] = ":1"
+        env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
         env["MOZ_HEADLESS"] = "1"  # Ensure headless mode
         
         # Launch Firefox
@@ -225,7 +225,7 @@ class WebKitManager:
         
         # Set environment
         env = os.environ.copy()
-        env["DISPLAY"] = ":1"
+        env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
         
         # Launch WebKit
         process = subprocess.Popen(webkit_cmd, env=env)
