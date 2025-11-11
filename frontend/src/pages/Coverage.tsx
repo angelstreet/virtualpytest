@@ -121,9 +121,11 @@ const Coverage: React.FC = () => {
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">Coverage</Typography>
                   <Typography variant="body2" fontWeight="bold" color={
-                    coverageSummary ? getCoverageColor(coverageSummary.coverage_percentage) + '.main' : 'text.primary'
+                    coverageSummary && coverageSummary.coverage_percentage !== undefined 
+                      ? getCoverageColor(coverageSummary.coverage_percentage) + '.main' 
+                      : 'text.primary'
                   }>
-                    {coverageSummary?.coverage_percentage.toFixed(1) || 0}%
+                    {(coverageSummary?.coverage_percentage ?? 0).toFixed(1)}%
                   </Typography>
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -306,21 +308,21 @@ const Coverage: React.FC = () => {
                             variant="body2"
                             fontWeight="medium"
                             color={
-                              data.coverage_percentage >= 80
+                              (data.coverage_percentage ?? 0) >= 80
                                 ? 'success.main'
-                                : data.coverage_percentage >= 50
+                                : (data.coverage_percentage ?? 0) >= 50
                                 ? 'warning.main'
                                 : 'error.main'
                             }
                           >
-                            {data.coverage_percentage.toFixed(1)}%
+                            {(data.coverage_percentage ?? 0).toFixed(1)}%
                           </Typography>
                         </TableCell>
                         <TableCell align="right" sx={{ width: 150, py: 0.5 }}>
                           <LinearProgress
                             variant="determinate"
-                            value={data.coverage_percentage}
-                            color={getCoverageColor(data.coverage_percentage) as any}
+                            value={data.coverage_percentage ?? 0}
+                            color={getCoverageColor(data.coverage_percentage ?? 0) as any}
                             sx={{ height: 6, borderRadius: 3 }}
                           />
                         </TableCell>
