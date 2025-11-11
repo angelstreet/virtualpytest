@@ -1,0 +1,23 @@
+# Grafana Datasource Provisioning
+# Automatically configures Supabase Postgres as datasource on startup
+# Uses existing SUPABASE_DB_URI environment variable from Render
+
+apiVersion: 1
+
+datasources:
+  - name: Supabase PostgreSQL
+    type: postgres
+    access: proxy
+    # Use SUPABASE_DB_URI (format: postgresql://user:password@host:port/database)
+    url: ${SUPABASE_DB_URI}
+    jsonData:
+      sslmode: 'require'
+      postgresVersion: 1500  # PostgreSQL 15
+      timescaledb: false
+      maxOpenConns: 10
+      maxIdleConns: 2
+      connMaxLifetime: 14400
+    isDefault: true
+    editable: true
+    uid: supabase-postgres
+
