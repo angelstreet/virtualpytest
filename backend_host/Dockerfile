@@ -65,25 +65,18 @@ RUN mkdir -p /var/www/html \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /var/run \
     && mkdir -p /home/vptuser/.android \
-    && mkdir -p /etc/nginx/ssl \
     && chown -R vptuser:vptuser /app \
     && chown -R vptuser:vptuser /var/www \
     && chown -R vptuser:vptuser /home/vptuser \
     && chmod -R 755 /var/www \
     && chmod +x /app/backend_host/scripts/*.sh || true
 
-# Generate self-signed SSL certificate for nginx (local testing only - Render provides real certs)
-RUN openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-    -keyout /etc/nginx/ssl/nginx.key \
-    -out /etc/nginx/ssl/nginx.crt \
-    -subj "/C=US/ST=State/L=City/O=Organization/CN=localhost"
-
 # Copy supervisor configuration from docker folder
 COPY backend_host/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 COPY backend_host/docker/nginx.conf /etc/nginx/sites-available/default
 
-# Expose ports 80 (HTTP) and 443 (HTTPS) for nginx
-EXPOSE 80 443
+# Expose port 80 for nginx (Render handles SSL termination)
+EXPOSE 80
 
 # Set display and ADB environment
 ENV DISPLAY=:1
