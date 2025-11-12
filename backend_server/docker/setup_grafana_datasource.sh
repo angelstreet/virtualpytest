@@ -70,6 +70,7 @@ datasources:
     secureJsonData:
       password: ${DB_PASSWORD}
     jsonData:
+      database: ${DB_NAME}
       sslmode: 'require'
       postgresVersion: 1500
       timescaledb: false
