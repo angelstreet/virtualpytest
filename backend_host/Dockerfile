@@ -68,15 +68,22 @@ RUN mkdir -p /var/www/html \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /var/run \
     && mkdir -p /home/vptuser/.android \
+    && mkdir -p /app/backend_host/src \
+    && touch /app/backend_host/src/.env \
     && chown -R vptuser:vptuser /app \
     && chown -R vptuser:vptuser /var/www \
     && chown -R vptuser:vptuser /home/vptuser \
     && chmod -R 755 /var/www \
+    && chmod 644 /app/backend_host/src/.env \
     && chmod +x /app/backend_host/scripts/*.sh || true
 
 # Copy supervisor configuration from docker folder
 COPY backend_host/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 COPY backend_host/docker/nginx.conf /etc/nginx/sites-available/default
+
+# Copy Docker helper scripts
+COPY backend_host/docker/scripts/ backend_host/docker/scripts/
+RUN chmod +x /app/backend_host/docker/scripts/*.sh
 
 # Expose port 80 for nginx (Render handles SSL termination)
 EXPOSE 80
@@ -94,6 +101,6 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
 # However, all processes drop privileges to 'vptuser' via supervisord config
 USER root
 
-# Run supervisor to manage Xvfb, x11vnc, NoVNC, and Flask
-CMD ["/usr/bin/supervisord", "-c", "/etc/supervisor/supervisord.conf", "-n"]
+# Use entrypoint script to generate .env and start supervisord
+CMD ["/app/backend_host/docker/scripts/entrypoint.sh"]
 
