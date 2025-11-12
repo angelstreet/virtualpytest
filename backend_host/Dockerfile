@@ -94,6 +94,7 @@ EXPOSE 80
 
 # Set display and ADB environment
 ENV DISPLAY=:1
+ENV HOST_VIDEO_SOURCE=:1
 ENV ANDROID_HOME=/home/vptuser/.android
 ENV ADB_VENDOR_KEYS=/home/vptuser/.android
 
