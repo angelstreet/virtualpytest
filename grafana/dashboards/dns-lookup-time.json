@@ -23,7 +23,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -92,7 +92,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -161,7 +161,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -230,7 +230,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -317,7 +317,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -415,7 +415,7 @@
       {
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "includeAll": true,
         "label": "User Interface",
@@ -429,7 +429,7 @@
       {
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "includeAll": true,
         "label": "Host",
@@ -443,7 +443,7 @@
       {
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "includeAll": true,
         "label": "Device Name",

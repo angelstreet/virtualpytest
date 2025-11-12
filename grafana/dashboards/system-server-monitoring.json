@@ -23,7 +23,7 @@
   "panels": [
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -115,7 +115,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -146,7 +146,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -203,7 +203,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT ROUND(AVG(cpu_percent), 1) as \"Server CPU %\" FROM system_metrics WHERE $__timeFilter(timestamp) AND server_name IS NOT NULL",
@@ -215,7 +215,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -275,7 +275,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT ROUND(AVG(memory_percent), 1) as \"Server Memory %\" FROM system_metrics WHERE $__timeFilter(timestamp) AND server_name IS NOT NULL",
@@ -287,7 +287,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -344,7 +344,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -375,7 +375,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -430,7 +430,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT MAX(uptime_seconds) as \"Server Uptime\" FROM system_metrics WHERE $__timeFilter(timestamp) AND host_name = 'server'",
@@ -442,7 +442,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -501,7 +501,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT ROUND(AVG(cpu_temperature_celsius), 1) as \"Server CPU Temperature\" FROM system_metrics WHERE $__timeFilter(timestamp) AND host_name = 'server' AND cpu_temperature_celsius IS NOT NULL",
@@ -513,7 +513,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -572,7 +572,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -603,7 +603,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -687,7 +687,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -718,7 +718,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -802,7 +802,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -833,7 +833,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -917,7 +917,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -948,7 +948,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1037,7 +1037,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -1051,7 +1051,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1158,7 +1158,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "time_series",
           "rawSql": "SELECT \n  DATE_TRUNC('minute', timestamp) as time, \n  CONCAT(server_name, '_cpu_temp') as metric, \n  AVG(cpu_temperature_celsius::float) as value \nFROM system_metrics \nWHERE server_name IS NOT NULL\n  AND cpu_temperature_celsius IS NOT NULL\n  AND timestamp >= $__timeFrom()\n  AND timestamp <= $__timeTo()\nGROUP BY DATE_TRUNC('minute', timestamp), server_name\nORDER BY time",
@@ -1170,7 +1170,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1290,7 +1290,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -1321,7 +1321,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1425,7 +1425,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -1456,7 +1456,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1544,7 +1544,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -1558,7 +1558,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1620,7 +1620,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(\n        LEAST(100, (uptime_seconds / 3600.0) / 24.0 * 100), 2\n    ) as \"Daily Availability %\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -1632,7 +1632,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1693,7 +1693,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(\n        LEAST(100, (uptime_seconds / 86400.0) / 7.0 * 100), 2\n    ) as \"Weekly Availability %\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -1705,7 +1705,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1769,7 +1769,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(\n        LEAST(100, (uptime_seconds / 86400.0) / 30.0 * 100), 2\n    ) as \"Monthly Availability %\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -1781,7 +1781,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1842,7 +1842,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(\n        LEAST(100, (uptime_seconds / 86400.0) / 365.0 * 100), 2\n    ) as \"Yearly Availability %\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -1854,7 +1854,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1915,7 +1915,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(uptime_seconds / 3600.0, 1) as \"Daily Uptime (hours)\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -1927,7 +1927,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1988,7 +1988,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(uptime_seconds / 86400.0, 1) as \"Weekly Uptime (days)\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -2000,7 +2000,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2061,7 +2061,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(uptime_seconds / 86400.0, 1) as \"Monthly Uptime (days)\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -2073,7 +2073,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2134,7 +2134,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT \n    ROUND(uptime_seconds / 86400.0, 1) as \"Yearly Uptime (days)\"\nFROM system_metrics \nWHERE host_name = 'server'\n  AND $__timeFilter(timestamp)\nORDER BY timestamp DESC \nLIMIT 1;",
@@ -2146,7 +2146,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2207,7 +2207,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "WITH uptime_analysis AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    LAG(uptime_seconds) OVER (ORDER BY timestamp) as prev_uptime,\n    ROW_NUMBER() OVER (ORDER BY timestamp) as row_num\n  FROM system_metrics \n  WHERE host_name = 'server'\n    AND timestamp >= $__timeFrom()\n    AND timestamp <= $__timeTo()\n  ORDER BY timestamp\n),\nreboot_candidates AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    prev_uptime,\n    (prev_uptime - uptime_seconds) as uptime_drop\n  FROM uptime_analysis\n  WHERE prev_uptime IS NOT NULL \n    AND prev_uptime > uptime_seconds\n    AND (prev_uptime - uptime_seconds) > 3600  -- Significant drop\n),\nreboot_events AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    prev_uptime,\n    uptime_drop,\n    LAG(timestamp) OVER (ORDER BY timestamp) as prev_reboot_time\n  FROM reboot_candidates\n),\nfiltered_reboots AS (\n  SELECT *\n  FROM reboot_events\n  WHERE prev_reboot_time IS NULL  -- First reboot\n     OR timestamp > prev_reboot_time + INTERVAL '10 minutes'  -- At least 10 min gap\n)\nSELECT COUNT(*) as \"Reboots in Selected Period\"\nFROM filtered_reboots",
@@ -2219,7 +2219,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2280,7 +2280,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "WITH uptime_analysis AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    LAG(uptime_seconds) OVER (ORDER BY timestamp) as prev_uptime,\n    ROW_NUMBER() OVER (ORDER BY timestamp) as row_num\n  FROM system_metrics \n  WHERE host_name = 'server'\n    AND timestamp >= $__timeFrom()\n    AND timestamp <= $__timeTo()\n  ORDER BY timestamp\n),\nreboot_candidates AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    prev_uptime,\n    (prev_uptime - uptime_seconds) as uptime_drop\n  FROM uptime_analysis\n  WHERE prev_uptime IS NOT NULL \n    AND prev_uptime > uptime_seconds\n    AND (prev_uptime - uptime_seconds) > 3600  -- Significant drop\n),\nreboot_events AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    prev_uptime,\n    uptime_drop,\n    LAG(timestamp) OVER (ORDER BY timestamp) as prev_reboot_time\n  FROM reboot_candidates\n),\nfiltered_reboots AS (\n  SELECT \n    timestamp as time,\n    'reboot' as metric,\n    1 as value\n  FROM reboot_events\n  WHERE prev_reboot_time IS NULL  -- First reboot\n     OR timestamp > prev_reboot_time + INTERVAL '10 minutes'  -- At least 10 min gap\n)\nSELECT \n  time,\n  metric,\n  value\nFROM filtered_reboots\nORDER BY time",
@@ -2292,7 +2292,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2353,7 +2353,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "WITH uptime_analysis AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    LAG(uptime_seconds) OVER (ORDER BY timestamp) as prev_uptime\n  FROM system_metrics \n  WHERE host_name = 'server'\n    AND timestamp >= $__timeFrom()\n    AND timestamp <= $__timeTo()\n  ORDER BY timestamp\n),\nreboot_candidates AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    prev_uptime,\n    (prev_uptime - uptime_seconds) as uptime_drop\n  FROM uptime_analysis\n  WHERE prev_uptime IS NOT NULL \n    AND prev_uptime > uptime_seconds\n    AND (prev_uptime - uptime_seconds) > 3600  -- Significant drop\n),\nreboot_events AS (\n  SELECT \n    timestamp,\n    LAG(timestamp) OVER (ORDER BY timestamp) as prev_reboot_time\n  FROM reboot_candidates\n),\nfiltered_reboots AS (\n  SELECT timestamp\n  FROM reboot_events\n  WHERE prev_reboot_time IS NULL  -- First reboot\n     OR timestamp > prev_reboot_time + INTERVAL '10 minutes'  -- At least 10 min gap\n)\nSELECT COUNT(*) as \"Total Reboots\"\nFROM filtered_reboots",
@@ -2365,7 +2365,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2426,7 +2426,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "WITH uptime_analysis AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    LAG(uptime_seconds) OVER (ORDER BY timestamp) as prev_uptime\n  FROM system_metrics \n  WHERE host_name = 'server'\n    AND timestamp >= $__timeFrom()\n    AND timestamp <= $__timeTo()\n  ORDER BY timestamp\n),\nreboot_candidates AS (\n  SELECT \n    timestamp,\n    uptime_seconds,\n    prev_uptime,\n    (prev_uptime - uptime_seconds) as uptime_drop\n  FROM uptime_analysis\n  WHERE prev_uptime IS NOT NULL \n    AND prev_uptime > uptime_seconds\n    AND (prev_uptime - uptime_seconds) > 3600  -- Significant drop\n),\nreboot_events AS (\n  SELECT \n    timestamp,\n    LAG(timestamp) OVER (ORDER BY timestamp) as prev_reboot_time\n  FROM reboot_candidates\n),\nfiltered_reboots AS (\n  SELECT \n    timestamp as time,\n    'reboot' as metric,\n    1 as value\n  FROM reboot_events\n  WHERE prev_reboot_time IS NULL  -- First reboot\n     OR timestamp > prev_reboot_time + INTERVAL '10 minutes'  -- At least 10 min gap\n)\nSELECT \n  time,\n  metric,\n  value\nFROM filtered_reboots\nORDER BY time",
@@ -2438,7 +2438,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -2489,7 +2489,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",

@@ -23,7 +23,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "Visual matrix showing feature success across platform-channel combinations",
       "fieldConfig": {
@@ -180,7 +180,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -390,7 +390,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "All script excutions",
       "fieldConfig": {
@@ -475,7 +475,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",

@@ -37,7 +37,7 @@ curl -X POST http://your-grafana-instance/api/dashboards/db \
 
 ### Important Notes:
 - These exports include the `folderUid` for organizational structure
-- Datasource UIDs (e.g., `ceunuuxwxvy80e`) might need to be updated to match your target Grafana instance
+- Datasource UIDs (e.g., `supabase-postgres`) might need to be updated to match your target Grafana instance
 - The `overwrite` flag is set to `false` to prevent accidental overwrites during import
 - All dashboards are exported with their current version and configuration
 

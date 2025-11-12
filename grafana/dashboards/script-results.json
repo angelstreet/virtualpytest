@@ -23,7 +23,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -70,7 +70,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -85,7 +85,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -142,7 +142,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -157,7 +157,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -205,7 +205,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -220,7 +220,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -268,7 +268,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -283,7 +283,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -425,7 +425,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -440,7 +440,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -563,7 +563,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -578,7 +578,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -720,7 +720,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -752,7 +752,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -875,7 +875,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -907,7 +907,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1018,7 +1018,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -1050,7 +1050,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1135,7 +1135,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -1167,7 +1167,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "All script excutions",
       "fieldConfig": {
@@ -1252,7 +1252,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -1393,7 +1393,7 @@
         "current": {},
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "definition": "SELECT DISTINCT userinterface_name FROM script_results WHERE userinterface_name IS NOT NULL ORDER BY userinterface_name",
         "includeAll": true,
@@ -1410,7 +1410,7 @@
         "current": {},
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "definition": "SELECT DISTINCT host_name FROM script_results ORDER BY host_name",
         "includeAll": true,
@@ -1427,7 +1427,7 @@
         "current": {},
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "definition": "SELECT DISTINCT device_name FROM script_results ORDER BY device_name",
         "includeAll": true,
@@ -1444,7 +1444,7 @@
         "current": {},
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "ceunuuxwxvy80e"
+          "uid": "supabase-postgres"
         },
         "definition": "SELECT DISTINCT script_name FROM script_results ORDER BY script_name",
         "includeAll": true,

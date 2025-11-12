@@ -23,7 +23,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "Average blackscreen freeze duration by user interface source",
       "fieldConfig": {
@@ -108,7 +108,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -128,7 +128,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "Average total zap duration by user interface source",
       "fieldConfig": {
@@ -213,7 +213,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -233,7 +233,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "Average audio silence duration by user interface source",
       "fieldConfig": {
@@ -318,7 +318,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -338,7 +338,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "description": "All zapping events (automatic monitoring + script executions) with complete details",
       "fieldConfig": {
@@ -492,7 +492,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",

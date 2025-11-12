@@ -24,7 +24,7 @@
   "panels": [
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -81,7 +81,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT COUNT(*) as \"Active Alerts\" FROM alerts WHERE status = 'active'",
@@ -93,7 +93,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -142,7 +142,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT COUNT(*) as \"Total Alerts\" FROM alerts",
@@ -154,7 +154,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -203,7 +203,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT COUNT(*) as \"Resolved Alerts\" FROM alerts WHERE status = 'resolved'",
@@ -215,7 +215,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -272,7 +272,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT COUNT(*) as \"Blackscreen\" FROM alerts WHERE incident_type = 'blackscreen' AND status = 'active'",
@@ -284,7 +284,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -341,7 +341,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT COUNT(*) as \"Freeze\" FROM alerts WHERE incident_type = 'freeze' AND status = 'active'",
@@ -353,7 +353,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -410,7 +410,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "table",
           "rawSql": "SELECT COUNT(*) as \"Audio Loss\" FROM alerts WHERE incident_type = 'audio_loss' AND status = 'active'",
@@ -422,7 +422,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -516,7 +516,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -530,7 +530,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -610,7 +610,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -641,7 +641,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -717,7 +717,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "time_series",
           "rawSql": "SELECT NOW() as time, device_name as metric, COUNT(*) as value FROM alerts WHERE device_name IS NOT NULL GROUP BY device_name ORDER BY device_name",
@@ -729,7 +729,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -805,7 +805,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "time_series",
           "rawSql": "SELECT NOW() as time, device_name as metric, COUNT(*) as value FROM alerts WHERE status = 'resolved' AND device_name IS NOT NULL GROUP BY device_name ORDER BY device_name",
@@ -817,7 +817,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -901,7 +901,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "time_series",
           "rawSql": "SELECT NOW() as time, device_name as metric, COUNT(*) as value FROM alerts WHERE incident_type = 'blackscreen' AND status = 'active' AND device_name IS NOT NULL GROUP BY device_name ORDER BY device_name",
@@ -913,7 +913,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -997,7 +997,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "time_series",
           "rawSql": "SELECT NOW() as time, device_name as metric, COUNT(*) as value FROM alerts WHERE incident_type = 'freeze' AND status = 'active' AND device_name IS NOT NULL GROUP BY device_name ORDER BY device_name",
@@ -1009,7 +1009,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1093,7 +1093,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "format": "time_series",
           "rawSql": "SELECT NOW() as time, device_name as metric, COUNT(*) as value FROM alerts WHERE incident_type = 'audio_loss' AND status = 'active' AND device_name IS NOT NULL GROUP BY device_name ORDER BY device_name",
@@ -1105,7 +1105,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1190,7 +1190,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "time_series",
@@ -1221,7 +1221,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1278,7 +1278,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
@@ -1309,7 +1309,7 @@
     },
     {
       "datasource": {
-        "uid": "ceunuuxwxvy80e"
+        "uid": "supabase-postgres"
       },
       "fieldConfig": {
         "defaults": {
@@ -1371,7 +1371,7 @@
       "targets": [
         {
           "datasource": {
-            "uid": "ceunuuxwxvy80e"
+            "uid": "supabase-postgres"
           },
           "editorMode": "code",
           "format": "table",
