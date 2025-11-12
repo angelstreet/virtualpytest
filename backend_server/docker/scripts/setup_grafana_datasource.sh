@@ -151,7 +151,14 @@ CSP_TEMPLATE="script-src 'self' 'unsafe-eval' 'unsafe-inline' 'strict-dynamic' \
 sed -i "s|^;content_security_policy_template = .*|content_security_policy_template = \"\"\"$CSP_TEMPLATE\"\"\"|g" "$GRAFANA_INI"
 sed -i "s|^content_security_policy_template = .*|content_security_policy_template = \"\"\"$CSP_TEMPLATE\"\"\"|g" "$GRAFANA_INI"
 
+# Enable anonymous access for embedded dashboards (reduces auth warnings)
+sed -i "s|^;enabled = false|enabled = true|g" "$GRAFANA_INI" 
+sed -i "s|^\[auth.anonymous\]|[auth.anonymous]\nenabled = true|g" "$GRAFANA_INI"
+sed -i "/^\[auth.anonymous\]/a org_name = Main Org." "$GRAFANA_INI"
+sed -i "/^\[auth.anonymous\]/a org_role = Viewer" "$GRAFANA_INI"
+
 echo "✅ Grafana configuration updated dynamically"
 echo "   CSP enabled with frame-ancestors for iframe embedding"
+echo "   Anonymous access enabled for embedded dashboards"
 
 
