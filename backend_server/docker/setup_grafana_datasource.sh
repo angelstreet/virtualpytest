@@ -73,3 +73,57 @@ EOF
 
 echo "✅ Grafana datasource configuration created at $DATASOURCE_FILE"
 
+# ============================================================================
+# Configure grafana.ini dynamically from environment variables
+# ============================================================================
+echo ""
+echo "🔧 Configuring Grafana settings from environment variables..."
+
+GRAFANA_INI="/app/backend_server/config/grafana/grafana.ini"
+
+# Set domain and root URL based on environment
+if [ -n "$GRAFANA_DOMAIN" ]; then
+    DOMAIN="$GRAFANA_DOMAIN"
+else
+    # Default to Render domain if not set
+    DOMAIN="${RENDER_EXTERNAL_HOSTNAME:-www.virtualpytest.com}"
+fi
+
+echo "   Domain: $DOMAIN"
+
+# Set admin credentials from environment
+ADMIN_USER="${GRAFANA_ADMIN_USER:-admin}"
+ADMIN_PASSWORD="${GRAFANA_ADMIN_PASSWORD:-admin}"
+echo "   Admin User: $ADMIN_USER"
+echo "   Admin Password: [HIDDEN]"
+
+# Set secret key from environment
+SECRET_KEY="${GRAFANA_SECRET_KEY:-SW2YcwTIb9zpOOhoPsMm}"
+echo "   Secret Key: [HIDDEN]"
+
+# Configure CSRF trusted origins
+CSRF_ORIGINS="$DOMAIN virtualpytest.com www.virtualpytest.com virtualpytest.onrender.com localhost:5073"
+echo "   CSRF Trusted Origins: $CSRF_ORIGINS"
+
+# Update grafana.ini with sed (inline replacement)
+# Server section
+sed -i "s|^domain = .*|domain = $DOMAIN|g" "$GRAFANA_INI"
+sed -i "s|^root_url = .*|root_url = %(protocol)s://%(domain)s/grafana/|g" "$GRAFANA_INI"
+
+# Security section - uncomment and set values
+sed -i "s|^;admin_user = .*|admin_user = $ADMIN_USER|g" "$GRAFANA_INI"
+sed -i "s|^admin_user = .*|admin_user = $ADMIN_USER|g" "$GRAFANA_INI"
+sed -i "s|^;admin_password = .*|admin_password = $ADMIN_PASSWORD|g" "$GRAFANA_INI"
+sed -i "s|^admin_password = .*|admin_password = $ADMIN_PASSWORD|g" "$GRAFANA_INI"
+sed -i "s|^;secret_key = .*|secret_key = $SECRET_KEY|g" "$GRAFANA_INI"
+sed -i "s|^secret_key = .*|secret_key = $SECRET_KEY|g" "$GRAFANA_INI"
+
+# Cookie settings for cross-origin
+sed -i "s|^cookie_secure = .*|cookie_secure = true|g" "$GRAFANA_INI"
+sed -i "s|^cookie_samesite = .*|cookie_samesite = none|g" "$GRAFANA_INI"
+
+# CSRF trusted origins
+sed -i "s|^csrf_trusted_origins = .*|csrf_trusted_origins = $CSRF_ORIGINS|g" "$GRAFANA_INI"
+
+echo "✅ Grafana configuration updated dynamically"
+
