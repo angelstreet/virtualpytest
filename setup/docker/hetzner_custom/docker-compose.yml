@@ -51,7 +51,7 @@ services:
     container_name: virtualpytest-backend-host-1
     hostname: backend-host-1
     ports:
-      - "6109:6109"
+      - "6109:6109"  # Host port 6109 maps to container port 6109
     volumes:
       - /dev:/dev  # Hardware access for device control
     environment:
@@ -93,7 +93,7 @@ services:
     container_name: virtualpytest-backend-host-2
     hostname: backend-host-2
     ports:
-      - "6110:6109"  # Different external port, same internal port
+      - "6110:6109"  # Host port 6110 maps to container port 6109
     volumes:
       - /dev:/dev  # Hardware access for device control
     environment:

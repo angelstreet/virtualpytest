@@ -89,8 +89,8 @@ COPY backend_host/docker/nginx.conf /etc/nginx/sites-available/default
 COPY backend_host/docker/scripts/ /app/backend_host/docker/scripts/
 RUN chmod +x /app/backend_host/docker/scripts/*.sh
 
-# Expose port 80 for nginx (Render handles SSL termination)
-EXPOSE 80
+# Expose port 6109 for nginx
+EXPOSE 6109
 
 # Set display and ADB environment
 ENV DISPLAY=:1
