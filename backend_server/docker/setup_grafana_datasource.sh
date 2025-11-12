@@ -8,8 +8,10 @@ echo "🔧 Setting up Grafana datasource from SUPABASE_DB_URI..."
 
 # Check if SUPABASE_DB_URI is set
 if [ -z "$SUPABASE_DB_URI" ]; then
-    echo "❌ SUPABASE_DB_URI environment variable is not set"
-    exit 1
+    echo "⚠️ SUPABASE_DB_URI environment variable is not set"
+    echo "⚠️ Grafana will start without Supabase datasource"
+    echo "⚠️ You can add it manually in Grafana UI"
+    exit 0  # Don't fail - allow Grafana to start
 fi
 
 # Parse the connection string
@@ -28,14 +30,19 @@ if [[ $SUPABASE_DB_URI =~ ^postgres(ql)?://([^:]+):([^@]+)@([^:]+):([^/]+)/(.+)$
     echo "   User: $DB_USER"
     echo "   Password: [HIDDEN]"
 else
-    echo "❌ Failed to parse SUPABASE_DB_URI"
+    echo "⚠️ Failed to parse SUPABASE_DB_URI"
     echo "   Expected format: postgresql://user:password@host:port/database"
     echo "   Got: $SUPABASE_DB_URI"
-    exit 1
+    echo "⚠️ Grafana will start without Supabase datasource"
+    exit 0  # Don't fail - allow Grafana to start
 fi
 
 # Create the datasource configuration
 DATASOURCE_FILE="/app/backend_server/config/grafana/provisioning/datasources/supabase.yaml"
+DATASOURCE_DIR="$(dirname "$DATASOURCE_FILE")"
+
+# Ensure directory exists
+mkdir -p "$DATASOURCE_DIR"
 
 cat > "$DATASOURCE_FILE" << EOF
 # Grafana Datasource Provisioning (Auto-generated)

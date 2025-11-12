@@ -85,6 +85,10 @@ RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
 # Copy supervisor configuration (with nginx) from docker folder
 COPY backend_server/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 
+# Copy and set permissions for Grafana datasource setup script
+COPY backend_server/docker/setup_grafana_datasource.sh /app/backend_server/docker/
+RUN chmod +x /app/backend_server/docker/setup_grafana_datasource.sh
+
 # Expose ports for Flask and Grafana
 EXPOSE 5109 3000
 
