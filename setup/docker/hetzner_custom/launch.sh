@@ -24,11 +24,11 @@ fi
 
 # Launch services
 echo "🐳 Starting services..."
-docker-compose -f setup/docker/hetzner_custom/docker-compose.yml up -d
+docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml up -d
 
 # Show status
 echo ""
-docker-compose -f setup/docker/hetzner_custom/docker-compose.yml ps
+docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml ps
 
 echo ""
 echo "🎉 Services started!"
@@ -39,5 +39,5 @@ echo "   Grafana:         http://localhost:3000"
 echo "   Backend Host 1:  http://localhost:6109"
 echo "   Backend Host 2:  http://localhost:6110"
 echo ""
-echo "📊 View logs:  docker-compose -f setup/docker/hetzner_custom/docker-compose.yml logs -f"
-echo "🛑 Stop:       docker-compose -f setup/docker/hetzner_custom/docker-compose.yml down"
+echo "📊 View logs:  docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml logs -f"
+echo "🛑 Stop:       docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml down"
