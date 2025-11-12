@@ -64,6 +64,7 @@ RUN useradd -m -u 1000 vptuser
 
 # Create directories and set proper permissions
 RUN mkdir -p /var/www/html \
+    && mkdir -p /var/www/html/stream \
     && mkdir -p /var/log/supervisor \
     && mkdir -p /var/run \
     && mkdir -p /home/vptuser/.android \

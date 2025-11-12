@@ -29,7 +29,7 @@ log() {
 # Function to start VNC services (always required)
 start_vnc_services() {
     # Check if VNC services are already running
-    if pgrep -f "Xvfb :99" > /dev/null; then
+    if pgrep -f "Xvfb :1" > /dev/null; then
         log "VNC services already running, skipping startup"
         return 0
     fi
@@ -37,11 +37,11 @@ start_vnc_services() {
     log "Starting VNC services..."
     
     # Clean up any existing X locks
-    rm -f /tmp/.X99-lock
+    rm -f /tmp/.X1-lock
     
     # Start Xvfb (virtual display)
-    log "Starting Xvfb virtual display on :99"
-    Xvfb :99 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
+    log "Starting Xvfb virtual display on :1"
+    Xvfb :1 -screen 0 1280x720x24 -ac +extension GLX +render -noreset &
     XVFB_PID=$!
     
     # Wait for Xvfb to start
@@ -49,12 +49,12 @@ start_vnc_services() {
     
     # Start window manager
     log "Starting Fluxbox window manager"
-    DISPLAY=:99 fluxbox &
+    DISPLAY=:1 fluxbox &
     FLUXBOX_PID=$!
     
     # Start x11vnc (VNC server)
     log "Starting x11vnc VNC server on :5900"
-    x11vnc -display :99 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever -q > /dev/null 2>&1 &
+    x11vnc -display :1 -nopw -listen localhost -xkb -ncache 10 -ncache_cr -forever -q > /dev/null 2>&1 &
     X11VNC_PID=$!
     
     # Wait for VNC server to start
@@ -66,7 +66,7 @@ start_vnc_services() {
     NOVNC_PID=$!
     
     log "VNC services started successfully"
-    log "  - Xvfb virtual display on :99"
+    log "  - Xvfb virtual display on :1"
     log "  - Fluxbox window manager"
     log "  - x11vnc VNC server on :5900"
     log "  - NoVNC web client on :6080"
