@@ -48,6 +48,7 @@ COPY backend_server/config/nginx/render.conf /etc/nginx/sites-available/default
 
 # Copy separate Grafana configuration to expected location
 COPY grafana/config/ backend_server/config/grafana/
+COPY grafana/dashboards/ backend_server/config/grafana/dashboards/
 COPY grafana/data/ backend_server/config/grafana/data/
 
 # Set working directory to backend_server
