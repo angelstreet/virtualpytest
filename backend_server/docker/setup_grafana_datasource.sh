@@ -84,12 +84,14 @@ GRAFANA_INI="/app/backend_server/config/grafana/grafana.ini"
 # Set domain and root URL based on environment
 if [ -n "$GRAFANA_DOMAIN" ]; then
     DOMAIN="$GRAFANA_DOMAIN"
+    echo "   Domain: $DOMAIN (from GRAFANA_DOMAIN)"
 else
-    # Default to Render domain if not set
-    DOMAIN="${RENDER_EXTERNAL_HOSTNAME:-www.virtualpytest.com}"
+    # Default to production custom domain
+    DOMAIN="www.virtualpytest.com"
+    echo "⚠️  WARNING: GRAFANA_DOMAIN environment variable is not set"
+    echo "   Using default domain: $DOMAIN"
+    echo "   Recommendation: Set GRAFANA_DOMAIN=www.virtualpytest.com in Render environment"
 fi
-
-echo "   Domain: $DOMAIN"
 
 # Set admin credentials from environment
 ADMIN_USER="${GRAFANA_ADMIN_USER:-admin}"
