@@ -165,6 +165,61 @@ curl http://localhost:6110/health
 open http://localhost:3000
 ```
 
+## Enable HTTPS on a Subdomain (Recommended for Vercel)
+
+Use a public HTTPS URL (e.g., `https://api.yourdomain.com`) that proxies to the backend server (port 5109).
+
+1) DNS (at your registrar, e.g., Namecheap)
+```
+Type: A
+Host: api
+Value: <YOUR_SERVER_PUBLIC_IP>   # e.g., 162.55.54.38
+TTL:  Automatic
+```
+
+2) Nginx on your server (Ubuntu)
+```
+sudo apt update && sudo apt install -y nginx
+sudo ufw allow 80/tcp
+sudo ufw allow 443/tcp
+
+# Create site
+sudo tee /etc/nginx/sites-available/api.yourdomain.com >/dev/null <<'CONF'
+server {
+  listen 80;
+  server_name api.yourdomain.com;
+
+  location / {
+    proxy_pass http://127.0.0.1:5109;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_read_timeout 180s;
+    proxy_connect_timeout 180s;
+    proxy_send_timeout 180s;
+  }
+}
+CONF
+
+sudo ln -sf /etc/nginx/sites-available/api.yourdomain.com /etc/nginx/sites-enabled/api.yourdomain.com
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+3) TLS (Let's Encrypt)
+```
+sudo apt install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d api.yourdomain.com --redirect --agree-tos -m you@example.com -n
+```
+
+4) Verify
+```
+curl https://api.yourdomain.com/health
+curl https://api.yourdomain.com/server/system/getAllHosts
+```
+
+Once HTTPS is working, use `https://api.yourdomain.com` in your frontend environment (e.g., Vercel).
+
 ## Configuration Details
 
 ### Backend Server
