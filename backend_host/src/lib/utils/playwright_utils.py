@@ -124,6 +124,7 @@ class ChromeManager:
             '--no-sandbox',
             '--no-first-run',
             '--no-default-browser-check',
+            '--disable-crashpad',
             '--start-fullscreen',  # Launch Chrome in fullscreen mode
             '--disable-features=Translate,InfiniteSessionRestore,TabRestore,MediaRouter',
             '--disable-extensions',
