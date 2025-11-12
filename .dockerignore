@@ -60,6 +60,9 @@ backend_server/config/grafana/grafana.db*
 grafana/data/grafana.db*
 grafana/data/*.db
 
+# Grafana datasource template (will be generated dynamically from SUPABASE_DB_URI)
+grafana/config/provisioning/datasources/supabase.yaml
+
 # Database backups
 setup/db/backup/
 
