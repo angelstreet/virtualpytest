@@ -78,7 +78,7 @@ datasources:
       connMaxLifetime: 14400
     isDefault: true
     editable: false
-    uid: ceunuuxwxvy80e
+    uid: supabase-postgres
 EOF
 
 echo "✅ Grafana datasource configuration created at $DATASOURCE_FILE"
@@ -138,35 +138,4 @@ sed -i "s|^cookie_samesite = .*|cookie_samesite = none|g" "$GRAFANA_INI"
 sed -i "s|^csrf_trusted_origins = .*|csrf_trusted_origins = $CSRF_ORIGINS|g" "$GRAFANA_INI"
 
 echo "✅ Grafana configuration updated dynamically"
-
-# ============================================================================
-# Update anonymous auth organization name in grafana.ini
-# ============================================================================
-echo ""
-echo "🔧 Configuring anonymous authentication organization..."
-
-# Set the org name in grafana.ini to match what we want
-ORG_NAME="VirtualPyTest"
-sed -i "s|^org_name = .*|org_name = $ORG_NAME|g" "$GRAFANA_INI"
-echo "   Anonymous auth organization: $ORG_NAME"
-
-# Note: On first startup, Grafana creates "Main Org." by default
-# We'll rename it in the background after Grafana starts
-echo "   Starting background task to rename organization after Grafana starts..."
-
-# Run rename task in background (wait for Grafana to create the database)
-(
-    sleep 10
-    GRAFANA_DB="/var/lib/grafana/grafana.db"
-    if [ -f "$GRAFANA_DB" ]; then
-        CURRENT_ORG=$(sqlite3 "$GRAFANA_DB" "SELECT name FROM org WHERE id=1;" 2>/dev/null || echo "")
-        if [ -n "$CURRENT_ORG" ] && [ "$CURRENT_ORG" != "$ORG_NAME" ]; then
-            echo "🔧 Renaming organization from '$CURRENT_ORG' to '$ORG_NAME'"
-            sqlite3 "$GRAFANA_DB" "UPDATE org SET name='$ORG_NAME' WHERE id=1;" 2>/dev/null
-            echo "✅ Organization renamed successfully"
-        fi
-    fi
-) &
-
-echo "✅ Organization setup configured"
 
