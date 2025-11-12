@@ -47,6 +47,10 @@ ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_host/src"
 COPY backend_host/requirements.txt backend_host/
 RUN pip install --no-cache-dir --force-reinstall -r backend_host/requirements.txt
 
+# Install Playwright WebKit browser and all its system dependencies
+RUN playwright install-deps webkit
+RUN playwright install webkit
+
 # Copy backend_host source
 COPY backend_host/src/ backend_host/src/
 
