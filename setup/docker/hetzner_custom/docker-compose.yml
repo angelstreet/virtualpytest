@@ -1,6 +1,6 @@
 # VirtualPyTest Hetzner Custom Deployment
 # 1 Backend Server + 2 Backend Hosts
-# Use: docker-compose -f setup/docker/hetzner_custom/docker-compose.yml up
+# Use: docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml up
 
 services:
   # Backend Server - API + Grafana (Centralized)
@@ -37,8 +37,6 @@ services:
       - GF_SERVER_ROOT_URL=${SERVER_URL:-http://localhost:5109}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       
-    env_file:
-      - ../../../.env
     restart: unless-stopped
     networks:
       - hetzner_network
@@ -59,8 +57,6 @@ services:
       - HOST_PORT=6109
       # All other config loaded from mounted .env file
       
-    env_file:
-      - ../../../.env
     depends_on:
       - backend_server
     privileged: true  # Required for hardware access
@@ -84,8 +80,6 @@ services:
       - HOST_PORT=6110
       # All other config loaded from mounted .env file
       
-    env_file:
-      - ../../../.env
     depends_on:
       - backend_server
     privileged: true  # Required for hardware access
