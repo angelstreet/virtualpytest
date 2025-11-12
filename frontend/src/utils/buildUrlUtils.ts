@@ -49,35 +49,15 @@ export const buildServerUrl = (endpoint: string): string => {
 export const getAllServerUrls = (): string[] => {
   const urls: string[] = [];
   
-  // Primary server (always first)
   const primaryUrl = (import.meta as any).env?.VITE_SERVER_URL;
-  if (primaryUrl && typeof primaryUrl === 'string') {
-    urls.push(primaryUrl);
-  }
+  if (primaryUrl) urls.push(primaryUrl);
   
-  // Slave servers (can be multiple URLs)
   const slaveUrls = (import.meta as any).env?.VITE_SLAVE_SERVER_URL;
-  if (slaveUrls && typeof slaveUrls === 'string') {
-    try {
-      // Try to parse as JSON array first
-      const parsedUrls = JSON.parse(slaveUrls);
-      if (Array.isArray(parsedUrls)) {
-        urls.push(...parsedUrls.filter(url => typeof url === 'string'));
-      } else {
-        // If not an array, treat as single URL
-        urls.push(slaveUrls);
-      }
-    } catch (error) {
-      // If JSON parsing fails, try comma-separated values
-      const commaSeparated = slaveUrls.split(',').map(url => url.trim()).filter(url => url.length > 0);
-      urls.push(...commaSeparated);
-    }
+  if (slaveUrls) {
+    urls.push(...slaveUrls.split(',').map((url: string) => url.trim()).filter((url: string) => url));
   }
   
-  // Fallback to default server if no URLs configured
-  if (urls.length === 0) {
-    urls.push(SERVER_CONFIG.DEFAULT_URL);
-  }
+  if (urls.length === 0) urls.push(SERVER_CONFIG.DEFAULT_URL);
   
   console.log('getAllServerUrls:', urls);
   return urls;
@@ -90,6 +70,13 @@ export const getAllServerUrls = (): string[] => {
  * @returns Complete URL with team_id
  */
 export const buildServerUrlForServer = (serverUrl: string, endpoint: string): string => {
+  // Ensure serverUrl has protocol (http:// or https://)
+  let normalizedServerUrl = serverUrl;
+  if (serverUrl && !serverUrl.match(/^https?:\/\//)) {
+    normalizedServerUrl = `http://${serverUrl}`;
+    console.log(`[buildServerUrlForServer] Added protocol: ${serverUrl} -> ${normalizedServerUrl}`);
+  }
+  
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
   const url = `${serverUrl}/${cleanEndpoint}`;
   
