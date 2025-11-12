@@ -26,6 +26,10 @@ RUN wget -q -O /usr/share/keyrings/grafana.key https://apt.grafana.com/gpg.key \
     && apt-get install -y grafana \
     && rm -rf /var/lib/apt/lists/*
 
+# Install Grafana plugins
+RUN grafana-cli plugins install marcusolsson-gantt-panel \
+    && grafana-cli plugins install volkovlabs-echarts-panel
+
 WORKDIR /app
 
 # Copy shared library
