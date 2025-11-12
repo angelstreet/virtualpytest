@@ -78,7 +78,7 @@ datasources:
       connMaxLifetime: 14400
     isDefault: true
     editable: false
-    uid: supabase-postgres
+    uid: ceunuuxwxvy80e
 EOF
 
 echo "✅ Grafana datasource configuration created at $DATASOURCE_FILE"
