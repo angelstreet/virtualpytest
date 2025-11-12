@@ -2,6 +2,58 @@
 
 **1 Backend Server + 2 Backend Hosts Configuration**
 
+---
+
+## 🚀 Quick Start from Scratch
+
+### 1. Clone Repository
+
+```bash
+# Clone VirtualPyTest from GitHub
+git clone https://github.com/angelstreet/virtualpytest.git
+cd virtualpytest
+```
+
+### 2. Install Docker
+
+```bash
+# Run Docker installation script
+./setup/docker/install_docker.sh
+```
+
+### 3. Configure Environment
+
+```bash
+# Copy server configuration template
+cp setup/docker/hetzner_custom/env.server.example .env
+
+# Edit with your Supabase credentials
+nano .env
+
+# Copy host configuration template
+cp setup/docker/hetzner_custom/env.host.example backend_host/src/.env
+
+# Edit with your hardware configuration
+nano backend_host/src/.env
+```
+
+### 4. Launch Services
+
+```bash
+# Launch 1 server + 2 hosts
+./setup/docker/hetzner_custom/launch.sh
+```
+
+**That's it!** Your VirtualPyTest deployment is running. 🎉
+
+Access points:
+- **Backend Server API**: http://localhost:5109
+- **Grafana Monitoring**: http://localhost:3000
+- **Backend Host 1**: http://localhost:6109
+- **Backend Host 2**: http://localhost:6110
+
+---
+
 ## Architecture
 
 ```
@@ -37,14 +89,38 @@
 
 ## Prerequisites
 
-1. **Docker & Docker Compose** installed
-2. **Supabase account** with database configured
-3. **Hardware access** for device controllers (HDMI capture cards, etc.)
-4. **Environment variables** configured in `.env` file
+1. **Linux Server** (Ubuntu 20.04+ recommended) or local machine
+2. **Docker & Docker Compose** (installed via `install_docker.sh`)
+3. **Supabase account** with database configured ([Get Started](https://supabase.com))
+4. **Hardware access** for device controllers (HDMI capture cards, etc.)
+5. **Git** for cloning repository
 
-## Quick Start
+## Detailed Setup Guide
 
-### 1. Configure Environment
+### 1. Clone and Setup
+
+**Clone Repository:**
+```bash
+# Clone from GitHub
+git clone https://github.com/angelstreet/virtualpytest.git
+cd virtualpytest
+
+# Make scripts executable
+chmod +x setup/docker/install_docker.sh
+chmod +x setup/docker/hetzner_custom/launch.sh
+```
+
+**Install Docker:**
+```bash
+# Install Docker and Docker Compose
+./setup/docker/install_docker.sh
+
+# Verify installation
+docker --version
+docker compose version
+```
+
+### 2. Configure Environment
 
 **Backend Server:**
 ```bash
@@ -64,8 +140,15 @@ cp setup/docker/hetzner_custom/env.host.example backend_host/src/.env
 nano backend_host/src/.env
 ```
 
-### 2. Launch Services
+### 3. Launch Services
 
+**Easy Way (Recommended):**
+```bash
+# Launch with automated script
+./setup/docker/hetzner_custom/launch.sh
+```
+
+**Manual Way:**
 ```bash
 # Start all services (1 server + 2 hosts)
 docker-compose -f setup/docker/hetzner_custom/docker-compose.yml up -d
@@ -77,7 +160,7 @@ docker-compose -f setup/docker/hetzner_custom/docker-compose.yml logs -f
 docker-compose -f setup/docker/hetzner_custom/docker-compose.yml down
 ```
 
-### 3. Verify Services
+### 4. Verify Services
 
 ```bash
 # Check Backend Server

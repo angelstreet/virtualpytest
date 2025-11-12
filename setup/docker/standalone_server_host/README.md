@@ -2,6 +2,53 @@
 
 **Everything included for local development and testing**
 
+---
+
+## 🚀 Quick Start from Scratch
+
+### 1. Clone Repository
+
+```bash
+# Clone VirtualPyTest from GitHub
+git clone https://github.com/angelstreet/virtualpytest.git
+cd virtualpytest
+```
+
+### 2. Install Docker
+
+```bash
+# Run Docker installation script
+./setup/docker/install_docker.sh
+```
+
+### 3. Configure (Optional)
+
+```bash
+# Optional: Copy server configuration
+cp setup/docker/standalone_server_host/env.server.example .env
+
+# Optional: Copy host configuration
+cp setup/docker/standalone_server_host/env.host.example backend_host/src/.env
+
+# Note: Standalone uses local PostgreSQL, so Supabase config is not needed
+```
+
+### 4. Launch
+
+```bash
+# Launch everything!
+./setup/docker/standalone_server_host/launch.sh
+```
+
+**That's it!** Your complete local development environment is running. 🎉
+
+Access points:
+- **Web Interface**: http://localhost:3000
+- **Backend API**: http://localhost:5109
+- **Grafana**: http://localhost:3001
+
+---
+
 ## Architecture
 
 ```
@@ -48,25 +95,72 @@
 
 ## Prerequisites
 
-1. **Docker & Docker Compose** installed
-2. **Environment configuration** (optional - defaults work out of the box)
-3. **Hardware access** (optional - for device control testing)
+1. **Linux, macOS, or Windows with WSL2**
+2. **Docker & Docker Compose** (installed via `install_docker.sh`)
+3. **Git** for cloning repository
+4. **Hardware access** (optional - for device control testing)
 
 **No external dependencies required!** Everything runs locally.
 
-## Environment Configuration
+## Detailed Setup Guide
+
+### 1. Clone and Setup
 
 ```bash
-# Optional: Copy example environment file
-cp setup/docker/standalone_server_host/env.example .env
+# Clone from GitHub
+git clone https://github.com/angelstreet/virtualpytest.git
+cd virtualpytest
+
+# Make scripts executable
+chmod +x setup/docker/install_docker.sh
+chmod +x setup/docker/standalone_server_host/launch.sh
+```
+
+### 2. Install Docker
+
+```bash
+# Install Docker and Docker Compose
+./setup/docker/install_docker.sh
+
+# Verify installation
+docker --version
+docker compose version
+```
+
+## Environment Configuration
+
+Environment files use the same structure as Hetzner deployment:
+
+**Server Configuration:**
+```bash
+# Optional: Copy server environment template
+cp setup/docker/standalone_server_host/env.server.example .env
 
 # Edit if needed (default values work fine)
 nano .env
 ```
 
+**Host Configuration:**
+```bash
+# Optional: Copy host environment template
+cp setup/docker/standalone_server_host/env.host.example backend_host/src/.env
+
+# Edit for hardware configuration
+nano backend_host/src/.env
+```
+
+**Note:** Standalone uses local PostgreSQL instead of Supabase, so external database configuration is not required.
+
 ## Quick Start
 
-### 1. Launch Services
+### Launch Services (Easy Way)
+
+```bash
+# Use the automated launch script
+./setup/docker/standalone_server_host/launch.sh
+```
+
+### Launch Services (Manual Way)
 
 ```bash
 # Easy way - Use launch script
@@ -79,7 +173,7 @@ docker-compose -f setup/docker/standalone_server_host/docker-compose.yml up -d
 docker-compose -f setup/docker/standalone_server_host/docker-compose.yml logs -f
 ```
 
-### 2. Access the Application
+### Access the Application
 
 ```bash
 # Open web interface
@@ -95,7 +189,7 @@ curl http://localhost:6109/health
 open http://localhost:3001
 ```
 
-### 3. Stop Services
+### Stop Services
 
 ```bash
 # Stop all services (keep data)
