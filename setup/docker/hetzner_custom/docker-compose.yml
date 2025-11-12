@@ -38,7 +38,7 @@ services:
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       
     env_file:
-      - ../../../.env
+      - .env
     restart: unless-stopped
     networks:
       - hetzner_network
@@ -69,15 +69,15 @@ services:
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       
-      # Device 1 Configuration
-      - DEVICE1_NAME=${DEVICE1_NAME}
-      - DEVICE1_MODEL=${DEVICE1_MODEL}
+      # Device 1 Configuration (Optional - for hardware testing)
+      - DEVICE1_NAME=${DEVICE1_NAME:-}
+      - DEVICE1_MODEL=${DEVICE1_MODEL:-}
       - DEVICE1_VIDEO=${DEVICE1_VIDEO:-/dev/video0}
       - DEVICE1_AUDIO=${DEVICE1_AUDIO:-plughw:1,0}
       - DEVICE1_REMOTE=${DEVICE1_REMOTE:-ir_blaster}
       
     env_file:
-      - ../../../.env
+      - .env
     depends_on:
       - backend_server
     privileged: true  # Required for hardware access
@@ -111,15 +111,15 @@ services:
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       
-      # Device 1 Configuration
-      - DEVICE1_NAME=${DEVICE1_NAME}
-      - DEVICE1_MODEL=${DEVICE1_MODEL}
+      # Device 1 Configuration (Optional - for hardware testing)
+      - DEVICE1_NAME=${DEVICE1_NAME:-}
+      - DEVICE1_MODEL=${DEVICE1_MODEL:-}
       - DEVICE1_VIDEO=${DEVICE1_VIDEO:-/dev/video0}
       - DEVICE1_AUDIO=${DEVICE1_AUDIO:-plughw:1,0}
       - DEVICE1_REMOTE=${DEVICE1_REMOTE:-ir_blaster}
       
     env_file:
-      - ../../../.env
+      - .env
     depends_on:
       - backend_server
     privileged: true  # Required for hardware access
