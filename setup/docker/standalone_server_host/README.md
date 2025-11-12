@@ -24,14 +24,14 @@ cd virtualpytest
 ### 3. Configure (Optional)
 
 ```bash
-# Optional: Copy server configuration
-cp setup/docker/standalone_server_host/env.server.example .env
+# Optional: Copy environment template (contains server + host config)
+cp setup/docker/standalone_server_host/env.example .env
 
-# Optional: Copy host configuration
-cp setup/docker/standalone_server_host/env.host.example backend_host/src/.env
-
-# Note: Standalone uses local PostgreSQL, so Supabase config is not needed
+# Edit if needed (default values work fine)
+nano .env
 ```
+
+**Note:** Standalone uses local PostgreSQL, so Supabase config is not needed.
 
 ### 4. Launch
 
@@ -129,27 +129,20 @@ docker compose version
 
 ## Environment Configuration
 
-Environment files use the same structure as Hetzner deployment:
+**Single .env file for all services (optional):**
 
-**Server Configuration:**
 ```bash
-# Optional: Copy server environment template
-cp setup/docker/standalone_server_host/env.server.example .env
+# Optional: Copy environment template
+cp setup/docker/standalone_server_host/env.example .env
 
 # Edit if needed (default values work fine)
 nano .env
 ```
 
-**Host Configuration:**
-```bash
-# Optional: Copy host environment template
-cp setup/docker/standalone_server_host/env.host.example backend_host/src/.env
-
-# Edit for hardware configuration
-nano backend_host/src/.env
-```
-
-**Note:** Standalone uses local PostgreSQL instead of Supabase, so external database configuration is not required.
+**Note:** 
+- Standalone uses local PostgreSQL instead of Supabase, so external database configuration is not required
+- All services (server + host + frontend) load from the same `.env` file in project root
+- Default values work out of the box for local development
 
 ## Quick Start
 

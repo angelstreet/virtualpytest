@@ -24,18 +24,14 @@ cd virtualpytest
 ### 3. Configure Environment
 
 ```bash
-# Copy server configuration template
-cp setup/docker/hetzner_custom/env.server.example .env
+# Copy environment template (contains server + hosts config)
+cp setup/docker/hetzner_custom/env.example .env
 
-# Edit with your Supabase credentials
+# Edit with your Supabase and device configuration
 nano .env
-
-# Copy host configuration template
-cp setup/docker/hetzner_custom/env.host.example backend_host/src/.env
-
-# Edit with your hardware configuration
-nano backend_host/src/.env
 ```
+
+**Note:** The `.env` file contains configuration for BOTH server and hosts.
 
 ### 4. Launch Services
 
@@ -122,23 +118,16 @@ docker compose version
 
 ### 2. Configure Environment
 
-**Backend Server:**
+**Single .env file for all services:**
 ```bash
-# Copy server environment template to project root
-cp setup/docker/hetzner_custom/env.server.example .env
+# Copy environment template (contains server + hosts config)
+cp setup/docker/hetzner_custom/env.example .env
 
-# Edit with your Supabase and configuration
+# Edit with your Supabase and device configuration
 nano .env
 ```
 
-**Backend Hosts:**
-```bash
-# Copy host environment template to backend_host/src/
-cp setup/docker/hetzner_custom/env.host.example backend_host/src/.env
-
-# Edit with your hardware configuration
-nano backend_host/src/.env
-```
+**Note:** All services (server + both hosts) load from the same `.env` file in project root.
 
 ### 3. Launch Services
 
