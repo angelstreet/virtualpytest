@@ -81,8 +81,8 @@ RUN mkdir -p /var/www/html \
 COPY backend_host/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
 COPY backend_host/docker/nginx.conf /etc/nginx/sites-available/default
 
-# Copy Docker helper scripts
-COPY backend_host/docker/scripts/ backend_host/docker/scripts/
+# Copy Docker helper scripts (use absolute path to avoid WORKDIR confusion)
+COPY backend_host/docker/scripts/ /app/backend_host/docker/scripts/
 RUN chmod +x /app/backend_host/docker/scripts/*.sh
 
 # Expose port 80 for nginx (Render handles SSL termination)
