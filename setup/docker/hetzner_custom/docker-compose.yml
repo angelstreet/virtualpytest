@@ -25,7 +25,6 @@ services:
       - SUPABASE_DB_URI=${SUPABASE_DB_URI}
       - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      - SUPABASE_SERVICE_ROLE_KEY=${SUPABASE_SERVICE_ROLE_KEY}
       
       # Grafana Configuration
       - GRAFANA_ADMIN_USER=admin
@@ -37,13 +36,6 @@ services:
       - GF_SERVER_DOMAIN=${GRAFANA_DOMAIN:-localhost}
       - GF_SERVER_ROOT_URL=${SERVER_URL:-http://localhost:5109}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-      
-      # Grafana Supabase Datasource Configuration
-      - GF_DATABASE_TYPE=postgres
-      - GF_DATABASE_HOST=${SUPABASE_DB_HOST}
-      - GF_DATABASE_NAME=${SUPABASE_DB_NAME}
-      - GF_DATABASE_USER=${SUPABASE_DB_USER}
-      - GF_DATABASE_PASSWORD=${SUPABASE_DB_PASSWORD}
       
     env_file:
       - ../../../.env
@@ -64,8 +56,8 @@ services:
       - /dev:/dev  # Hardware access for device control
     environment:
       - HOST_PORT=6109
-      - HOST_NAME=${HOST1_NAME:-hetzner-host-1}
-      - HOST_URL=${HOST1_URL:-http://localhost:6109}
+      - HOST_NAME=${HOST_NAME:-hetzner-host-1}
+      - HOST_URL=${HOST_URL:-http://localhost:6109}
       - SERVER_URL=http://backend_server:5109
       - DEBUG=${DEBUG:-false}
       
@@ -78,11 +70,11 @@ services:
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       
       # Device 1 Configuration
-      - DEVICE1_NAME=${HOST1_DEVICE1_NAME:-Device_Host1_1}
-      - DEVICE1_MODEL=${HOST1_DEVICE1_MODEL}
-      - DEVICE1_VIDEO=${HOST1_DEVICE1_VIDEO:-/dev/video0}
-      - DEVICE1_AUDIO=${HOST1_DEVICE1_AUDIO:-plughw:1,0}
-      - DEVICE1_REMOTE=${HOST1_DEVICE1_REMOTE:-ir_blaster}
+      - DEVICE1_NAME=${DEVICE1_NAME}
+      - DEVICE1_MODEL=${DEVICE1_MODEL}
+      - DEVICE1_VIDEO=${DEVICE1_VIDEO:-/dev/video0}
+      - DEVICE1_AUDIO=${DEVICE1_AUDIO:-plughw:1,0}
+      - DEVICE1_REMOTE=${DEVICE1_REMOTE:-ir_blaster}
       
     env_file:
       - ../../../.env
@@ -106,8 +98,8 @@ services:
       - /dev:/dev  # Hardware access for device control
     environment:
       - HOST_PORT=6109
-      - HOST_NAME=${HOST2_NAME:-hetzner-host-2}
-      - HOST_URL=${HOST2_URL:-http://localhost:6110}
+      - HOST_NAME=${HOST_NAME:-hetzner-host-2}
+      - HOST_URL=${HOST_URL:-http://localhost:6110}
       - SERVER_URL=http://backend_server:5109
       - DEBUG=${DEBUG:-false}
       
@@ -120,11 +112,11 @@ services:
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
       
       # Device 1 Configuration
-      - DEVICE1_NAME=${HOST2_DEVICE1_NAME:-Device_Host2_1}
-      - DEVICE1_MODEL=${HOST2_DEVICE1_MODEL}
-      - DEVICE1_VIDEO=${HOST2_DEVICE1_VIDEO:-/dev/video0}
-      - DEVICE1_AUDIO=${HOST2_DEVICE1_AUDIO:-plughw:1,0}
-      - DEVICE1_REMOTE=${HOST2_DEVICE1_REMOTE:-ir_blaster}
+      - DEVICE1_NAME=${DEVICE1_NAME}
+      - DEVICE1_MODEL=${DEVICE1_MODEL}
+      - DEVICE1_VIDEO=${DEVICE1_VIDEO:-/dev/video0}
+      - DEVICE1_AUDIO=${DEVICE1_AUDIO:-plughw:1,0}
+      - DEVICE1_REMOTE=${DEVICE1_REMOTE:-ir_blaster}
       
     env_file:
       - ../../../.env
