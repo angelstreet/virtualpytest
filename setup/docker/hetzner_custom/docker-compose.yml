@@ -51,32 +51,13 @@ services:
     container_name: virtualpytest-backend-host-1
     hostname: backend-host-1
     ports:
-      - "6109:6109"  # Host port 6109 maps to container port 6109
+      - "6109:80"  # External port 6109 maps to internal port 80
     volumes:
       - /dev:/dev  # Hardware access for device control
+      - ../../../backend_host_1/.env:/app/backend_host/src/.env:ro  # Host 1 specific config
     environment:
       - HOST_PORT=6109
-      - HOST_NAME=${HOST1_NAME:-hetzner-host-1}
-      - HOST_URL=${HOST1_URL:-http://localhost:6109}
-      - HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
-      - HOST_VNC_STREAM_PATH=https://api.virtualpytest.com/host1/vnc/vnc_lite.html
-      - SERVER_URL=http://backend_server:5109
-      - DEBUG=${DEBUG:-false}
-      
-      # External Backend Server Connection
-      - SERVER_URL=http://backend_server:5109
-      
-      # External Supabase Database Configuration (optional - direct DB access)
-      - SUPABASE_DB_URI=${SUPABASE_DB_URI}
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      
-      # Device 1 Configuration (Optional - for hardware testing)
-      - DEVICE1_NAME=${DEVICE1_NAME:-}
-      - DEVICE1_MODEL=${DEVICE1_MODEL:-}
-      - DEVICE1_VIDEO=${DEVICE1_VIDEO:-/dev/video0}
-      - DEVICE1_AUDIO=${DEVICE1_AUDIO:-plughw:1,0}
-      - DEVICE1_REMOTE=${DEVICE1_REMOTE:-ir_blaster}
+      # All other config loaded from mounted .env file
       
     env_file:
       - ../../../.env
@@ -95,32 +76,13 @@ services:
     container_name: virtualpytest-backend-host-2
     hostname: backend-host-2
     ports:
-      - "6110:6109"  # Host port 6110 maps to container port 6109
+      - "6110:80"  # External port 6110 maps to internal port 80
     volumes:
       - /dev:/dev  # Hardware access for device control
+      - ../../../backend_host_2/.env:/app/backend_host/src/.env:ro  # Host 2 specific config
     environment:
-      - HOST_PORT=6109
-      - HOST_NAME=${HOST2_NAME:-hetzner-host-2}
-      - HOST_URL=${HOST2_URL:-http://localhost:6110}
-      - HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2
-      - HOST_VNC_STREAM_PATH=https://api.virtualpytest.com/host2/vnc/vnc_lite.html
-      - SERVER_URL=http://backend_server:5109
-      - DEBUG=${DEBUG:-false}
-      
-      # External Backend Server Connection
-      - SERVER_URL=http://backend_server:5109
-      
-      # External Supabase Database Configuration (optional - direct DB access)
-      - SUPABASE_DB_URI=${SUPABASE_DB_URI}
-      - NEXT_PUBLIC_SUPABASE_URL=${NEXT_PUBLIC_SUPABASE_URL}
-      - NEXT_PUBLIC_SUPABASE_ANON_KEY=${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      
-      # Device 1 Configuration (Optional - for hardware testing)
-      - DEVICE1_NAME=${DEVICE1_NAME:-}
-      - DEVICE1_MODEL=${DEVICE1_MODEL:-}
-      - DEVICE1_VIDEO=${DEVICE1_VIDEO:-/dev/video0}
-      - DEVICE1_AUDIO=${DEVICE1_AUDIO:-plughw:1,0}
-      - DEVICE1_REMOTE=${DEVICE1_REMOTE:-ir_blaster}
+      - HOST_PORT=6110
+      # All other config loaded from mounted .env file
       
     env_file:
       - ../../../.env

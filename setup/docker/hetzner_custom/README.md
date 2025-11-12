@@ -23,15 +23,28 @@ cd virtualpytest
 
 ### 3. Configure Environment
 
-```bash
-# Copy environment template (contains server + hosts config)
-cp setup/docker/hetzner_custom/env.example .env
+**Three separate .env files are required:**
 
-# Edit with your Supabase and device configuration
+```bash
+# 1. Server configuration (project root)
+cp setup/docker/hetzner_custom/env.example .env
 nano .env
+
+# 2. Host 1 configuration
+mkdir -p backend_host_1
+cp setup/docker/hetzner_custom/env.host1.example backend_host_1/.env
+nano backend_host_1/.env
+
+# 3. Host 2 configuration
+mkdir -p backend_host_2
+cp setup/docker/hetzner_custom/env.host2.example backend_host_2/.env
+nano backend_host_2/.env
 ```
 
-**Note:** The `.env` file contains configuration for BOTH server and hosts.
+**Configuration details:**
+- **`.env`** - Server configuration (Supabase, Grafana, API keys)
+- **`backend_host_1/.env`** - Host 1 specific (name, URLs, device config)
+- **`backend_host_2/.env`** - Host 2 specific (name, URLs, device config)
 
 ### 4. Launch Services
 
@@ -271,7 +284,7 @@ The backend server runs centralized:
 ### Backend Host 1
 
 First device controller:
-- **Port**: 6109 (external and internal)
+- **Port**: 6109 (external), 80 (internal)
 - **Hostname**: backend-host-1
 - **Connects to**: Backend Server via Docker network
 - **Hardware access**: `/dev` mounted for device control
@@ -279,7 +292,7 @@ First device controller:
 ### Backend Host 2
 
 Second device controller:
-- **Port**: 6110 (external), 6109 (internal)
+- **Port**: 6110 (external), 80 (internal)
 - **Hostname**: backend-host-2
 - **Connects to**: Backend Server via Docker network
 - **Hardware access**: `/dev` mounted for device control

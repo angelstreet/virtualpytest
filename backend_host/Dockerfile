@@ -89,8 +89,8 @@ COPY backend_host/docker/nginx.conf /etc/nginx/sites-available/default
 COPY backend_host/docker/scripts/ /app/backend_host/docker/scripts/
 RUN chmod +x /app/backend_host/docker/scripts/*.sh
 
-# Expose port 6109 for nginx
-EXPOSE 6109
+# Expose port 80 for nginx
+EXPOSE 80
 
 # Set display and ADB environment
 ENV DISPLAY=:1
@@ -100,7 +100,7 @@ ENV ADB_VENDOR_KEYS=/home/vptuser/.android
 
 # Health check for Flask API
 HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
-  CMD curl -f http://localhost:6109/host/system/health || exit 1
+  CMD curl -f http://localhost:80/host/system/health || exit 1
 
 # SECURITY NOTE: supervisord runs as root to manage all services
 # However, all processes drop privileges to 'vptuser' via supervisord config

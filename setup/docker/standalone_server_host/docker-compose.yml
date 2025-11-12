@@ -59,7 +59,7 @@ services:
       dockerfile: backend_host/Dockerfile
     container_name: virtualpytest-backend-host
     ports:
-      - "6109:6109"
+      - "6109:80"  # External port 6109 maps to internal port 80
     volumes:
       - ../../shared:/app/shared:ro
       - ../../backend_host:/app/backend_host:ro
