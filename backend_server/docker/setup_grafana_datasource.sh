@@ -139,3 +139,49 @@ sed -i "s|^csrf_trusted_origins = .*|csrf_trusted_origins = $CSRF_ORIGINS|g" "$G
 
 echo "✅ Grafana configuration updated dynamically"
 
+# ============================================================================
+# Update anonymous auth organization name in grafana.ini
+# ============================================================================
+echo ""
+echo "🔧 Configuring anonymous authentication organization..."
+
+# Set the org name in grafana.ini to match what we want
+ORG_NAME="VirtualPyTest"
+sed -i "s|^org_name = .*|org_name = $ORG_NAME|g" "$GRAFANA_INI"
+echo "   Anonymous auth organization: $ORG_NAME"
+
+# Note: On first startup, Grafana creates "Main Org." by default
+# We need to rename it via Grafana API or directly in the database after Grafana starts
+# For now, we'll create a post-startup script that renames it
+
+# Create a script to rename the organization after Grafana starts
+POST_START_SCRIPT="/app/backend_server/docker/rename_grafana_org.sh"
+cat > "$POST_START_SCRIPT" << 'EOFSCRIPT'
+#!/bin/bash
+# Wait for Grafana to start and create the default org
+sleep 5
+
+GRAFANA_DB="/var/lib/grafana/grafana.db"
+ORG_NAME="VirtualPyTest"
+
+if [ -f "$GRAFANA_DB" ]; then
+    echo "🔧 Checking Grafana organization name..."
+    CURRENT_ORG=$(sqlite3 "$GRAFANA_DB" "SELECT name FROM org WHERE id=1;" 2>/dev/null)
+    
+    if [ "$CURRENT_ORG" != "$ORG_NAME" ] && [ -n "$CURRENT_ORG" ]; then
+        echo "   Renaming organization from '$CURRENT_ORG' to '$ORG_NAME'"
+        sqlite3 "$GRAFANA_DB" "UPDATE org SET name='$ORG_NAME' WHERE id=1;" 2>/dev/null
+        echo "✅ Organization renamed successfully"
+    else
+        echo "   Organization already named: $ORG_NAME"
+    fi
+fi
+EOFSCRIPT
+
+chmod +x "$POST_START_SCRIPT"
+
+# Run the post-start script in the background
+nohup "$POST_START_SCRIPT" &>/dev/null &
+
+echo "✅ Organization setup configured"
+
