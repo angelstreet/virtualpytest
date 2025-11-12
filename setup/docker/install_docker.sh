@@ -5,6 +5,9 @@
 
 set -e
 
+# Set non-interactive mode for apt (works on both Ubuntu and Debian)
+export DEBIAN_FRONTEND=noninteractive
+
 echo "🐳 Installing Docker for VirtualPyTest..."
 
 # Detect if running as root
