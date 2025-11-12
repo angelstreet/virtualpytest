@@ -121,6 +121,7 @@ class ChromeManager:
         return [
             f'--remote-debugging-port={debug_port}',
             f'--user-data-dir={user_data_dir}',
+            '--no-sandbox',
             '--no-first-run',
             '--no-default-browser-check',
             '--start-fullscreen',  # Launch Chrome in fullscreen mode
