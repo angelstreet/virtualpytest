@@ -259,7 +259,7 @@ def build_unified_tree_data(hierarchy_data: List[Dict], team_id: str) -> List[Di
     Returns:
         Data structure ready for create_unified_networkx_graph()
     """
-        from shared.src.lib.utils.navigation_exceptions import NavigationTreeError
+    from shared.src.lib.utils.navigation_exceptions import NavigationTreeError
     
     try:
         if not hierarchy_data:
