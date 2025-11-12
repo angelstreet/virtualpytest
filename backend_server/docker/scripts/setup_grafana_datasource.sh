@@ -154,3 +154,4 @@ sed -i "s|^content_security_policy_template = .*|content_security_policy_templat
 echo "✅ Grafana configuration updated dynamically"
 echo "   CSP enabled with frame-ancestors for iframe embedding"
 
+
