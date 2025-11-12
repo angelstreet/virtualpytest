@@ -44,6 +44,16 @@ DATASOURCE_DIR="$(dirname "$DATASOURCE_FILE")"
 # Ensure directory exists
 mkdir -p "$DATASOURCE_DIR"
 
+# Resolve hostname to IPv4 address to avoid IPv6 issues on Render
+echo "   Resolving hostname to IPv4..."
+DB_IP=$(getent ahostsv4 "$DB_HOST" | head -1 | awk '{print $1}')
+if [ -z "$DB_IP" ]; then
+    echo "⚠️  Failed to resolve $DB_HOST to IPv4, using hostname directly"
+    DB_IP="$DB_HOST"
+else
+    echo "   Resolved to IPv4: $DB_IP"
+fi
+
 cat > "$DATASOURCE_FILE" << EOF
 # Grafana Datasource Provisioning (Auto-generated)
 # Generated from SUPABASE_DB_URI environment variable
@@ -54,7 +64,7 @@ datasources:
   - name: Supabase PostgreSQL
     type: postgres
     access: proxy
-    url: ${DB_HOST}:${DB_PORT}
+    url: ${DB_IP}:${DB_PORT}
     database: ${DB_NAME}
     user: ${DB_USER}
     secureJsonData:
