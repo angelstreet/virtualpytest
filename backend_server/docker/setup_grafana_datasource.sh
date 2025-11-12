@@ -151,37 +151,22 @@ sed -i "s|^org_name = .*|org_name = $ORG_NAME|g" "$GRAFANA_INI"
 echo "   Anonymous auth organization: $ORG_NAME"
 
 # Note: On first startup, Grafana creates "Main Org." by default
-# We need to rename it via Grafana API or directly in the database after Grafana starts
-# For now, we'll create a post-startup script that renames it
+# We'll rename it in the background after Grafana starts
+echo "   Starting background task to rename organization after Grafana starts..."
 
-# Create a script to rename the organization after Grafana starts
-POST_START_SCRIPT="/app/backend_server/docker/rename_grafana_org.sh"
-cat > "$POST_START_SCRIPT" << 'EOFSCRIPT'
-#!/bin/bash
-# Wait for Grafana to start and create the default org
-sleep 5
-
-GRAFANA_DB="/var/lib/grafana/grafana.db"
-ORG_NAME="VirtualPyTest"
-
-if [ -f "$GRAFANA_DB" ]; then
-    echo "🔧 Checking Grafana organization name..."
-    CURRENT_ORG=$(sqlite3 "$GRAFANA_DB" "SELECT name FROM org WHERE id=1;" 2>/dev/null)
-    
-    if [ "$CURRENT_ORG" != "$ORG_NAME" ] && [ -n "$CURRENT_ORG" ]; then
-        echo "   Renaming organization from '$CURRENT_ORG' to '$ORG_NAME'"
-        sqlite3 "$GRAFANA_DB" "UPDATE org SET name='$ORG_NAME' WHERE id=1;" 2>/dev/null
-        echo "✅ Organization renamed successfully"
-    else
-        echo "   Organization already named: $ORG_NAME"
+# Run rename task in background (wait for Grafana to create the database)
+(
+    sleep 10
+    GRAFANA_DB="/var/lib/grafana/grafana.db"
+    if [ -f "$GRAFANA_DB" ]; then
+        CURRENT_ORG=$(sqlite3 "$GRAFANA_DB" "SELECT name FROM org WHERE id=1;" 2>/dev/null || echo "")
+        if [ -n "$CURRENT_ORG" ] && [ "$CURRENT_ORG" != "$ORG_NAME" ]; then
+            echo "🔧 Renaming organization from '$CURRENT_ORG' to '$ORG_NAME'"
+            sqlite3 "$GRAFANA_DB" "UPDATE org SET name='$ORG_NAME' WHERE id=1;" 2>/dev/null
+            echo "✅ Organization renamed successfully"
+        fi
     fi
-fi
-EOFSCRIPT
-
-chmod +x "$POST_START_SCRIPT"
-
-# Run the post-start script in the background
-nohup "$POST_START_SCRIPT" &>/dev/null &
+) &
 
 echo "✅ Organization setup configured"
 
