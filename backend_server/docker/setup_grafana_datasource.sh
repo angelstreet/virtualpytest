@@ -118,6 +118,10 @@ echo "   Secret Key: [HIDDEN]"
 CSRF_ORIGINS="$DOMAIN virtualpytest.com www.virtualpytest.com virtualpytest.onrender.com localhost:5073"
 echo "   CSRF Trusted Origins: $CSRF_ORIGINS"
 
+# Configure allowed iframe embedding domains
+FRAME_ANCESTORS="${GRAFANA_FRAME_ANCESTORS:-https://www.virtualpytest.com https://virtualpytest.com https://virtualpytest.vercel.app https://*.vercel.app}"
+echo "   Frame Ancestors (CSP): $FRAME_ANCESTORS"
+
 # Update grafana.ini with sed (inline replacement)
 # Server section
 sed -i "s|^domain = .*|domain = $DOMAIN|g" "$GRAFANA_INI"
@@ -138,5 +142,15 @@ sed -i "s|^cookie_samesite = .*|cookie_samesite = none|g" "$GRAFANA_INI"
 # CSRF trusted origins
 sed -i "s|^csrf_trusted_origins = .*|csrf_trusted_origins = $CSRF_ORIGINS|g" "$GRAFANA_INI"
 
+# Enable CSP for iframe embedding
+sed -i "s|^;content_security_policy = false|content_security_policy = true|g" "$GRAFANA_INI"
+sed -i "s|^content_security_policy = false|content_security_policy = true|g" "$GRAFANA_INI"
+
+# Add frame-ancestors to CSP template to allow iframe embedding
+CSP_TEMPLATE="script-src 'self' 'unsafe-eval' 'unsafe-inline' 'strict-dynamic' \$NONCE;object-src 'none';font-src 'self';style-src 'self' 'unsafe-inline' blob:;img-src * data:;base-uri 'self';connect-src 'self' grafana.com ws://\$ROOT_PATH wss://\$ROOT_PATH;manifest-src 'self';media-src 'none';form-action 'self';frame-ancestors 'self' $FRAME_ANCESTORS;"
+sed -i "s|^;content_security_policy_template = .*|content_security_policy_template = \"\"\"$CSP_TEMPLATE\"\"\"|g" "$GRAFANA_INI"
+sed -i "s|^content_security_policy_template = .*|content_security_policy_template = \"\"\"$CSP_TEMPLATE\"\"\"|g" "$GRAFANA_INI"
+
 echo "✅ Grafana configuration updated dynamically"
+echo "   CSP enabled with frame-ancestors for iframe embedding"
 
