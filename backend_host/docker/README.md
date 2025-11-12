@@ -11,7 +11,7 @@ This Docker setup provides a **fully containerized backend_host** with:
 - ✅ **Flask API** (port 6109) - Hardware control endpoints
 - ✅ **NoVNC** (port 6080) - Web-based VNC access to virtual display
 - ✅ **x11vnc** (port 5900) - VNC server for remote desktop
-- ✅ **Xvfb** (display :99) - Virtual X11 display
+- ✅ **Xvfb** (display :1) - Virtual X11 display
 - ✅ **Supervisor** - Process management for all services
 - ✅ **ADB support** - Android device control
 - ✅ **Hardware abstraction** - Camera, USB, power control
@@ -163,7 +163,7 @@ docker exec -it virtualpytest-backend-host supervisorctl status
 The container runs 4 services managed by Supervisor:
 
 1. **Xvfb** (priority 1)
-   - Virtual X11 display on :99
+   - Virtual X11 display on :1
    - Resolution: 1920x1080x24
    - Enables GUI applications without physical display
 
@@ -344,7 +344,7 @@ docker network inspect virtualpytest_virtualpytest
 
 ## 📝 Notes
 
-- **Xvfb display** is `:99` (set via `DISPLAY=:99`)
+- **Xvfb display** is `:1` (set via `DISPLAY=:1`)
 - **All logs** go to stdout for Render compatibility
 - **Supervisor** manages process lifecycle and restarts
 - **Non-root user** (`vptuser`) runs all services except supervisor

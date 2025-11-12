@@ -49,8 +49,8 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
         try:
             # Set DISPLAY for VNC environment if not already set
             if sys.platform.startswith('linux') and 'DISPLAY' not in os.environ:
-                print(f"[@controller:PyAutoGUIDesktop] Setting DISPLAY to :99 for VNC environment")
-                os.environ['DISPLAY'] = ':99'
+                print(f"[@controller:PyAutoGUIDesktop] Setting DISPLAY to :1 for VNC environment")
+                os.environ['DISPLAY'] = ':1'
             
             import pyautogui as _pyautogui
             # Configure PyAutoGUI safety features

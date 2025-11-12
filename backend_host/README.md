@@ -47,7 +47,7 @@ python src/app.py
 ### Desktop Access
 - **NoVNC Web Interface**: `http://host:6080` - Browser-based desktop access
 - **VNC Direct**: `host:5900` - Direct VNC client access
-- **Virtual Display**: `:99` - Xvfb virtual display server
+- **Virtual Display**: `:1` - Xvfb virtual display server
 
 ### Audio/Video
 - `POST /host/av/startCapture` - Start A/V capture
@@ -194,7 +194,7 @@ HOST_NAME=render-host-1
 SERVER_URL=https://your-backend-server.onrender.com
 DEBUG=false
 RENDER=true
-DISPLAY=:99
+DISPLAY=:1
 
 # Optional: Add your API keys
 NEXT_PUBLIC_SUPABASE_URL=your_supabase_url

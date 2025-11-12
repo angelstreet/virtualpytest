@@ -155,7 +155,7 @@ class HDMICaptureService:
 ### VNC Integration
 ```python
 class VNCService:
-    def start_vnc_server(self, display=':99'):
+    def start_vnc_server(self, display=':1'):
         # Start Xvfb virtual display
         xvfb_cmd = ['Xvfb', display, '-screen', '0', '1024x768x24']
         self.xvfb_process = subprocess.Popen(xvfb_cmd)
