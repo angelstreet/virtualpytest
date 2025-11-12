@@ -26,12 +26,36 @@ if ! docker compose version &> /dev/null && ! docker-compose --version &> /dev/n
     exit 1
 fi
 
-# Check if .env file exists
+# Check if .env files exist
 if [ ! -f ".env" ]; then
     echo "❌ Error: .env file not found in project root"
-    echo "📝 Please create .env file with required configuration"
-    echo "💡 Copy template: cp setup/docker/hetzner_custom/env.server.example .env"
+    echo ""
+    echo "📝 Please create environment files with required configuration:"
+    echo ""
+    echo "1️⃣  Server configuration (required):"
+    echo "   cp setup/docker/hetzner_custom/env.server.example .env"
+    echo "   nano .env  # Edit with your Supabase credentials"
+    echo ""
+    echo "2️⃣  Host configuration (required):"
+    echo "   cp setup/docker/hetzner_custom/env.host.example backend_host/src/.env"
+    echo "   nano backend_host/src/.env  # Edit with your hardware configuration"
+    echo ""
     exit 1
+fi
+
+# Check if host .env exists
+if [ ! -f "backend_host/src/.env" ]; then
+    echo "⚠️  Warning: backend_host/src/.env file not found"
+    echo ""
+    echo "📝 Host configuration is recommended:"
+    echo "   cp setup/docker/hetzner_custom/env.host.example backend_host/src/.env"
+    echo "   nano backend_host/src/.env  # Edit with your hardware configuration"
+    echo ""
+    read -p "Continue without host configuration? (y/N) " -n 1 -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        exit 1
+    fi
 fi
 
 # Check for required environment variables
@@ -47,11 +71,13 @@ if ! grep -q "GRAFANA_ADMIN_PASSWORD" .env; then
 fi
 
 if [ ${#MISSING_VARS[@]} -gt 0 ]; then
-    echo "⚠️  Warning: Missing required environment variables:"
+    echo "⚠️  Warning: Missing required environment variables in .env:"
     for var in "${MISSING_VARS[@]}"; do
         echo "   - $var"
     done
-    echo "💡 Copy template: cp setup/docker/hetzner_custom/env.server.example .env"
+    echo ""
+    echo "💡 Edit your configuration:"
+    echo "   nano .env  # Add Supabase credentials"
     echo ""
     read -p "Continue anyway? (y/N) " -n 1 -r
     echo
