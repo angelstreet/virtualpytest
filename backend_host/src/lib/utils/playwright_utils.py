@@ -419,7 +419,7 @@ class PlaywrightConnection:
 class PlaywrightUtils:
     """Main utility class combining Chrome management, Playwright operations, and cookie management using SYNC API."""
     
-    def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
+    def __init__(self, auto_accept_cookies: bool = True, user_data_dir: str = "./config/user_data",
                  use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G"):
         """
         Initialize PlaywrightUtils with auto-sizing browser.
@@ -549,14 +549,14 @@ class PlaywrightUtils:
 
 
 # Convenience functions for external use
-def create_playwright_utils(auto_accept_cookies: bool = True, user_data_dir: str = "./backend_host/config/user_data",
+def create_playwright_utils(auto_accept_cookies: bool = True, user_data_dir: str = "./config/user_data",
                            use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> PlaywrightUtils:
     """Create a PlaywrightUtils instance."""
     return PlaywrightUtils(auto_accept_cookies=auto_accept_cookies, user_data_dir=user_data_dir,
                           use_cgroup=use_cgroup, cpu_quota=cpu_quota, memory_max=memory_max, memory_high=memory_high)
 
 
-def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./backend_host/config/user_data",
+def launch_chrome_for_debugging(debug_port: int = 9222, user_data_dir: str = "./config/user_data",
                                use_cgroup: bool = False, cpu_quota: str = "100%", memory_max: str = "4G", memory_high: str = "3G") -> subprocess.Popen:
     """Quick function to launch Chrome with remote debugging and persistent data."""
     resolved_user_data_dir = resolve_user_data_dir(user_data_dir)
