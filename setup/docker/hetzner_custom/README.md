@@ -189,15 +189,53 @@ server {
   listen 80;
   server_name api.yourdomain.com;
 
-  location / {
+  # Backend Server routes
+  location /server/ {
     proxy_pass http://127.0.0.1:5109;
     proxy_set_header Host $host;
     proxy_set_header X-Real-IP $remote_addr;
     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     proxy_set_header X-Forwarded-Proto $scheme;
     proxy_read_timeout 180s;
-    proxy_connect_timeout 180s;
-    proxy_send_timeout 180s;
+  }
+
+  location /health {
+    proxy_pass http://127.0.0.1:5109;
+    proxy_set_header Host $host;
+  }
+
+  # Backend Host 1 routes (rewrite /host1/ to /host/)
+  location /host1/ {
+    rewrite ^/host1/(.*)$ /host/$1 break;
+    proxy_pass http://127.0.0.1:6109;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+  }
+
+  # Backend Host 2 routes (rewrite /host2/ to /host/)
+  location /host2/ {
+    rewrite ^/host2/(.*)$ /host/$1 break;
+    proxy_pass http://127.0.0.1:6110;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;
+    proxy_set_header Connection "upgrade";
+    proxy_read_timeout 3600s;
+  }
+
+  # Default route to backend server
+  location / {
+    proxy_pass http://127.0.0.1:5109;
+    proxy_set_header Host $host;
   }
 }
 CONF

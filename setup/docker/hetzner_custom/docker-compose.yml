@@ -56,8 +56,10 @@ services:
       - /dev:/dev  # Hardware access for device control
     environment:
       - HOST_PORT=6109
-      - HOST_NAME=${HOST_NAME:-hetzner-host-1}
-      - HOST_URL=${HOST_URL:-http://localhost:6109}
+      - HOST_NAME=${HOST1_NAME:-hetzner-host-1}
+      - HOST_URL=${HOST1_URL:-http://localhost:6109}
+      - HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture1
+      - HOST_VNC_STREAM_PATH=https://api.virtualpytest.com/host1/vnc/vnc_lite.html
       - SERVER_URL=http://backend_server:5109
       - DEBUG=${DEBUG:-false}
       
@@ -98,8 +100,10 @@ services:
       - /dev:/dev  # Hardware access for device control
     environment:
       - HOST_PORT=6109
-      - HOST_NAME=${HOST_NAME:-hetzner-host-2}
-      - HOST_URL=${HOST_URL:-http://localhost:6110}
+      - HOST_NAME=${HOST2_NAME:-hetzner-host-2}
+      - HOST_URL=${HOST2_URL:-http://localhost:6110}
+      - HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture2
+      - HOST_VNC_STREAM_PATH=https://api.virtualpytest.com/host2/vnc/vnc_lite.html
       - SERVER_URL=http://backend_server:5109
       - DEBUG=${DEBUG:-false}
       
