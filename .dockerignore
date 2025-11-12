@@ -55,8 +55,10 @@ test_*.py
 # Documentation
 docs/
 
-# Grafana database
+# Grafana database (exclude from all locations)
 backend_server/config/grafana/grafana.db*
+grafana/data/grafana.db*
+grafana/data/*.db
 
 # Database backups
 setup/db/backup/
