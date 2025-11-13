@@ -58,8 +58,14 @@ class WebKitManager:
                 '--disable-gpu',  # Prevent GPU issues in Docker/VMs
                 '--disable-crash-reporter',  # Disable crash handler that blocks startup
                 '--disable-crashpad',  # Fully disable crash reporting system
-                '--crash-dumps-dir=/tmp',  # Set crash dump dir to prevent handler errors
-                '--no-first-run'  # Skip first run wizard
+                '--crash-dumps-dir=/dev/null',  # Crash dumps to null to prevent handler
+                '--breakpad-dump-location=/dev/null',  # Additional crash dump location
+                '--disable-breakpad',  # Disable breakpad crash reporting
+                '--no-first-run',  # Skip first run wizard
+                '--disable-background-networking',  # Reduce background processes
+                '--disable-background-timer-throttling',  # Prevent process throttling
+                '--disable-backgrounding-occluded-windows',
+                '--disable-renderer-backgrounding',
             ]
         else:  # safari or other
             return [
@@ -128,12 +134,14 @@ class WebKitManager:
         print(f'[WebKitManager] {browser_type} launched via bash (PID: {process.pid})')
         
         # Read any immediate output from chromium (non-blocking)
+        devtools_found = False
         try:
             import select
             if select.select([process.stdout], [], [], 0.5)[0]:
                 output = process.stdout.read(8192).decode('utf-8', errors='replace')
                 if 'DevTools listening' in output:
                     print(f'[WebKitManager] ✓ DevTools endpoint detected in output')
+                    devtools_found = True
                 if output:
                     # Only show first few lines
                     lines = output.strip().split('\n')[:5]
