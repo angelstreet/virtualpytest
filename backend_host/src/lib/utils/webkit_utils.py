@@ -53,6 +53,8 @@ class WebKitManager:
             # Chromium/Chrome with lightweight flags
             return [
                 f'--remote-debugging-port={debug_port}',
+                '--remote-debugging-address=0.0.0.0',  # Bind to all interfaces
+                '--no-sandbox',  # Required for Docker/containers
                 '--no-first-run',
                 '--no-default-browser-check',
                 '--disable-extensions',
