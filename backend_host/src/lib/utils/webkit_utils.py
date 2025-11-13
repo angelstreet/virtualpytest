@@ -60,6 +60,7 @@ class WebKitManager:
                 '--disable-crashpad',
                 '--crash-dumps-dir=/tmp',
                 '--no-first-run',
+                '--disable-features=CrashReporting',  # Additional disable for crash features
             ]
         else:  # safari or other
             return [
@@ -123,21 +124,22 @@ class WebKitManager:
         # Bash will background the process, so we get bash's PID, not chromium's
         # Wait for bash to finish and chromium to actually start
         import time as _time
-        _time.sleep(3.0)
+        _time.sleep(5.0)
         
         print(f'[WebKitManager] {browser_type} launched via bash (PID: {process.pid})')
         
         # Read from process.stdout instead of file
         import select
         output = ''
-        while True:
-            ready, _, _ = select.select([process.stdout], [], [], 1.0)
-            if not ready:
-                break
-            data = process.stdout.read(1024)
-            if not data:
-                break
-            output += data.decode('utf-8', errors='ignore')
+        start_time = time.time()
+        while time.time() - start_time < 5.0:
+            ready, _, _ = select.select([process.stdout], [], [], 0.5)
+            if ready:
+                data = process.stdout.read(1024)
+                if data:
+                    output += data.decode('utf-8', errors='ignore')
+                else:
+                    break
 
         if 'DevTools listening' in output:
             print(f'[WebKitManager] ✓ DevTools endpoint detected in output')
