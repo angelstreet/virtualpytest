@@ -118,7 +118,14 @@ class WebKitManager:
         env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
         
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
-        process = subprocess.Popen(cmd_line, env=env)
+        # Launch with proper stdout/stderr handling and process isolation
+        process = subprocess.Popen(
+            cmd_line, 
+            env=env,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+            start_new_session=True  # Detach from parent process group
+        )
         print(f'[WebKitManager] {browser_type} launched with PID: {process.pid}')
         
         # Wait for browser to be ready
