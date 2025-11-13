@@ -176,13 +176,14 @@ server {
 
     # Root-level WebSocket for VNC
     location /websockify {
+        # Default to first host
+        set \$backend_port "${HOST_START_PORT}";
 EOF
 
-# Add all referer checks
+# Add referer-based routing (only if blocks, no unconditional sets)
 for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
     cat >> "$NGINX_FILE" <<EOF
-        set \$backend_port "${PORT}";
         if (\$http_referer ~* "/host${i}/") {
             set \$backend_port "${PORT}";
         }
