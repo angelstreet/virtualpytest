@@ -174,6 +174,13 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
+    # Auto-redirect VNC lite pages to include correct WebSocket path
+    location ~ ^/host([1-8])/vnc/vnc_lite\\.html\$ {
+        if (\$arg_path = "") {
+            return 302 /host\$1/vnc/vnc_lite.html?path=host\$1/websockify;
+        }
+    }
+
     # Root-level WebSocket for VNC
     location /websockify {
         # Default to first host
