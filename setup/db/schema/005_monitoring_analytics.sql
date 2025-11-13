@@ -19,6 +19,7 @@ CREATE TABLE alerts (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     host_name text NOT NULL,
     device_id text NOT NULL,
+    device_name text,
     incident_type text NOT NULL CHECK (incident_type = ANY (ARRAY['blackscreen'::text, 'freeze'::text, 'errors'::text, 'audio_loss'::text, 'macroblocks'::text])),
     status text NOT NULL DEFAULT 'active'::text CHECK (status = ANY (ARRAY['active'::text, 'resolved'::text])),
     consecutive_count integer NOT NULL DEFAULT 1 CHECK (consecutive_count > 0),
@@ -191,6 +192,7 @@ COMMENT ON FUNCTION preview_cleanup_old_alerts() IS 'Preview how many alerts wou
 CREATE INDEX idx_alerts_incident_type ON alerts(incident_type);
 CREATE INDEX idx_alerts_host_name ON alerts(host_name);
 CREATE INDEX idx_alerts_device_id ON alerts(device_id);
+CREATE INDEX idx_alerts_device_name ON alerts(device_name);
 CREATE INDEX idx_alerts_start_time ON alerts(start_time DESC);
 CREATE INDEX idx_alerts_status ON alerts(status);
 CREATE INDEX idx_alerts_status_start_time ON alerts(status, start_time DESC);
