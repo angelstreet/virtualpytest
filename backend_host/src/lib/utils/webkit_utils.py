@@ -108,15 +108,29 @@ class WebKitManager:
         env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
         
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
-        # Launch with proper stdout/stderr handling and process isolation
+        print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
+        
+        # Launch with stderr visible for debugging (keep stdout hidden)
         process = subprocess.Popen(
             cmd_line, 
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
             start_new_session=True  # Detach from parent process group
         )
         print(f'[WebKitManager] {browser_type} launched with PID: {process.pid}')
+        
+        # Check if process died immediately
+        import time as _time
+        _time.sleep(0.5)
+        if process.poll() is not None:
+            stdout, stderr = process.communicate(timeout=1)
+            print(f'[WebKitManager] ERROR: Process died immediately!')
+            print(f'[WebKitManager] Exit code: {process.returncode}')
+            if stderr:
+                print(f'[WebKitManager] STDERR: {stderr.decode("utf-8", errors="replace")[:500]}')
+            if stdout:
+                print(f'[WebKitManager] STDOUT: {stdout.decode("utf-8", errors="replace")[:500]}')
         
         # Wait for browser to be ready
         cls._wait_for_webkit_ready(debug_port)
