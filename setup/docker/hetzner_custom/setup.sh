@@ -151,22 +151,22 @@ server {
 
     # Root-level WebSocket for VNC
     location /websockify {
-        set \$backend_host "127.0.0.1:${HOST_START_PORT}";
 EOF
 
-# Add referer routing for each host
-for i in $(seq 2 $HOST_MAX); do
+# Add all referer checks
+for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
     cat >> "$NGINX_FILE" <<EOF
+        set \$backend_port "${PORT}";
         if (\$http_referer ~* "/host${i}/") {
-            set \$backend_host "127.0.0.1:${PORT}";
+            set \$backend_port "${PORT}";
         }
 EOF
 done
 
 cat >> "$NGINX_FILE" <<'EOF'
         
-        proxy_pass http://$backend_host/websockify;
+        proxy_pass http://127.0.0.1:$backend_port/websockify;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection "upgrade";
