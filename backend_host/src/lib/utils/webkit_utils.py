@@ -108,15 +108,18 @@ class WebKitManager:
 
         browser_flags = cls.get_webkit_flags(debug_port, browser_type)
 
-        # 3) Build exact same bash command as manual script
+        # 3) Build exact same chromium command as manual script,
+        #    but FORCE it to run as vptuser (like your working docker exec).
         cmd_line = [executable_path] + browser_flags
-        # Log Chromium output to a file so we can see why it exits when launched from Flask
-        bash_cmd = ' '.join(cmd_line) + ' >/tmp/chromium_flask.log 2>&1 &'
+        chromium_cmd = ' '.join(cmd_line) + ' >/tmp/chromium_flask.log 2>&1'
+
+        # Use su to run chromium as vptuser so environment matches manual tests
+        bash_cmd = f"su -s /bin/bash vptuser -c '{chromium_cmd}'"
 
         env = os.environ.copy()
         env['DISPLAY'] = ':1'
 
-        print(f'[WebKitManager] Launching via bash: {bash_cmd}')
+        print(f'[WebKitManager] Launching via bash as vptuser: {bash_cmd}')
         print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
 
         process = subprocess.Popen(
@@ -126,7 +129,7 @@ class WebKitManager:
             stderr=subprocess.STDOUT
         )
 
-        print(f'[WebKitManager] Bash PID (not chromium PID): {process.pid}')
+        print(f'[WebKitManager] su/bash PID (not chromium PID): {process.pid}')
 
         # 4) Wait a bit like the manual script before checking anything
         time.sleep(3)
