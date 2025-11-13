@@ -7,7 +7,7 @@
 #   ./run_ffmpeg_and_rename_local.sh host sd      # Restart host with SD
 
 # Enable debugging
-set -x  # Print commands as they execute
+#set -x  # Print commands as they execute
 # set -e  # Exit on error (commented out for debugging)
 
 # Set umask to allow world read/write for shared temp files
