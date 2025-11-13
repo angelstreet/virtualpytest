@@ -180,7 +180,22 @@ EOF
 for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
     cat >> "$NGINX_FILE" <<EOF
-    # Host ${i} - All routes including WebSocket
+    # Host ${i} WebSocket (specific match)
+    location /host${i}/websockify {
+        rewrite ^/host${i}/websockify\$ /websockify break;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade \$http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # Host ${i} All other routes
     location /host${i}/ {
         rewrite ^/host${i}/(.*)$ /host/\$1 break;
         proxy_pass http://127.0.0.1:${PORT};
