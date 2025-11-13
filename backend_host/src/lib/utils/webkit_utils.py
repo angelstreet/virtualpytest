@@ -112,28 +112,46 @@ class WebKitManager:
         print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
         
         # Use bash to launch exactly like manual command - this is what works!
-        bash_cmd = " ".join(cmd_line) + " &"
+        bash_cmd = " ".join(cmd_line) + " 2>&1 &"
         process = subprocess.Popen(
             ["bash", "-c", bash_cmd],
             env=env,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT
         )
         
         # Bash will background the process, so we get bash's PID, not chromium's
         # Wait for bash to finish and chromium to actually start
         import time as _time
-        _time.sleep(1.0)
+        _time.sleep(3.0)
         
         print(f'[WebKitManager] {browser_type} launched via bash (PID: {process.pid})')
         
-        # Find actual chromium PID
+        # Read any immediate output from chromium (non-blocking)
+        try:
+            import select
+            if select.select([process.stdout], [], [], 0.5)[0]:
+                output = process.stdout.read(8192).decode('utf-8', errors='replace')
+                if 'DevTools listening' in output:
+                    print(f'[WebKitManager] ✓ DevTools endpoint detected in output')
+                if output:
+                    # Only show first few lines
+                    lines = output.strip().split('\n')[:5]
+                    for line in lines:
+                        if 'DevTools' in line or 'ERROR' in line[:50]:
+                            print(f'[WebKitManager] {line}')
+        except Exception as e:
+            print(f'[WebKitManager] Could not read chromium output: {e}')
+        
+        # Find actual chromium PID and validate
         try:
             result = subprocess.run(['pgrep', '-n', 'chromium'], 
                                   capture_output=True, text=True, timeout=2)
             if result.returncode == 0 and result.stdout.strip():
                 actual_pid = result.stdout.strip()
-                print(f'[WebKitManager] Actual chromium PID: {actual_pid}')
+                print(f'[WebKitManager] ✓ Chromium process found (PID: {actual_pid})')
+            else:
+                print(f'[WebKitManager] ✗ WARNING: No chromium process found!')
         except Exception as e:
             print(f'[WebKitManager] Could not find chromium PID: {e}')
         
