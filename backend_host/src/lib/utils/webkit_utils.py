@@ -108,19 +108,16 @@ class WebKitManager:
 
         browser_flags = cls.get_webkit_flags(debug_port, browser_type)
 
-        # 3) Build exact same chromium command as manual script,
-        #    but FORCE it to run as vptuser (like your working docker exec).
+        # 3) Build chromium command EXACTLY like the manual working su command:
+        #    su -s /bin/bash vptuser -c "DISPLAY=:1 /usr/bin/chromium ... >/tmp/chromium_su_manual.log 2>&1 &"
         cmd_line = [executable_path] + browser_flags
-        chromium_cmd = ' '.join(cmd_line) + ' >/tmp/chromium_flask.log 2>&1'
-
-        # Use su to run chromium as vptuser so environment matches manual tests
-        bash_cmd = f"su -s /bin/bash vptuser -c '{chromium_cmd}'"
+        chromium_cmd = f"DISPLAY=:1 {' '.join(cmd_line)} >/tmp/chromium_flask.log 2>&1 &"
+        bash_cmd = f'su -s /bin/bash vptuser -c "{chromium_cmd}"'
 
         env = os.environ.copy()
-        env['DISPLAY'] = ':1'
 
         print(f'[WebKitManager] Launching via bash as vptuser: {bash_cmd}')
-        print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
+        print(f'[WebKitManager] ENV DISPLAY (parent): {env.get("DISPLAY", "NOT SET")}')
 
         process = subprocess.Popen(
             ['bash', '-c', bash_cmd],
