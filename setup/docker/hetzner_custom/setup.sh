@@ -360,7 +360,7 @@ for i in $(seq 1 $HOST_MAX); do
 # Backend Host ${i} Configuration (Auto-generated)
 SERVER_URL=http://backend_server:${SERVER_PORT}
 HOST_NAME=hetzner-host-${i}
-HOST_PORT=${PORT}
+HOST_PORT=${HOST_START_PORT}
 HOST_URL=http://backend_host_${i}:80
 HOST_API_URL=http://backend_host_${i}:80
 HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture${i}
