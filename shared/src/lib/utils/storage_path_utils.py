@@ -234,7 +234,7 @@ def parse_active_captures_conf():
                         'quality': parts[2]
                     })
             
-            logger.debug(f"Parsed {len(captures)} capture entries from {active_captures_file}")
+            #logger.debug(f"Parsed {len(captures)} capture entries from {active_captures_file}")
         except Exception as e:
             logger.error(f"❌ Error reading {active_captures_file}: {e}")
     
