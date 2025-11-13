@@ -25,6 +25,7 @@ class WebKitManager:
         
         # On Linux, try to find webkit-based browsers with debug support
         webkit_browsers = [
+            ('/usr/bin/chromium', 'chromium-webkit'),          # Chromium (Debian/Ubuntu default)
             ('/usr/bin/chromium-browser', 'chromium-webkit'),  # Chromium with WebKit flags
             ('/usr/bin/google-chrome', 'chrome-webkit'),       # Chrome with WebKit-like flags
             ('/usr/bin/firefox', 'firefox'),                   # Firefox as lightweight alternative
@@ -222,6 +223,24 @@ class WebKitUtils:
         
         # For all other URLs, default to https
         return f'https://{url}'
+    
+    def kill_chrome(self):
+        """Compatibility method - terminates any running lightweight browser process."""
+        try:
+            # Kill any process using the debug port
+            if self.webkit_manager.is_port_in_use(self.debug_port):
+                print(f'[WebKitUtils] Killing processes on port {self.debug_port}...')
+                result = subprocess.run(['lsof', '-ti', f':{self.debug_port}'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split('\n')
+                    for pid in pids:
+                        if pid.strip():
+                            subprocess.run(['kill', '-9', pid.strip()], timeout=3)
+                            print(f'[WebKitUtils] Killed process {pid.strip()}')
+                time.sleep(1)
+        except Exception as e:
+            print(f'[WebKitUtils] Error killing browser: {e}')
     
     @staticmethod
     def run_async(coro):
