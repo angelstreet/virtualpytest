@@ -64,6 +64,7 @@ services:
       - ../../shared:/app/shared:ro
       - ../../backend_host:/app/backend_host:ro
       - /dev:/dev  # Hardware access for device control
+      - ../../.env:/app/.env:ro  # Shared environment variables (project root)
     environment:
       - HOST_PORT=6109
       - HOST_NAME=standalone-host-1
