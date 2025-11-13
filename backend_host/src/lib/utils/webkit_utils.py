@@ -50,22 +50,16 @@ class WebKitManager:
                 '--profile-manager'
             ]
         elif browser_type in ['chromium-webkit', 'chrome-webkit']:
-            # Chromium/Chrome with minimal proven flags (matched to manual working command)
+            # Simplified flags matching manual
             return [
                 f'--remote-debugging-port={debug_port}',
-                '--remote-debugging-address=0.0.0.0',  # Bind to all interfaces
-                '--no-sandbox',  # Required for Docker/containers
-                '--disable-gpu',  # Prevent GPU issues in Docker/VMs
-                '--disable-crash-reporter',  # Disable crash handler that blocks startup
-                '--disable-crashpad',  # Fully disable crash reporting system
-                '--crash-dumps-dir=/dev/null',  # Crash dumps to null to prevent handler
-                '--breakpad-dump-location=/dev/null',  # Additional crash dump location
-                '--disable-breakpad',  # Disable breakpad crash reporting
-                '--no-first-run',  # Skip first run wizard
-                '--disable-background-networking',  # Reduce background processes
-                '--disable-background-timer-throttling',  # Prevent process throttling
-                '--disable-backgrounding-occluded-windows',
-                '--disable-renderer-backgrounding',
+                '--remote-debugging-address=0.0.0.0',
+                '--no-sandbox',
+                '--disable-gpu',
+                '--disable-crash-reporter',
+                '--disable-crashpad',
+                '--crash-dumps-dir=/tmp',
+                '--no-first-run',
             ]
         else:  # safari or other
             return [
@@ -117,8 +111,8 @@ class WebKitManager:
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
         
-        # Use bash to launch exactly like manual command - this is what works!
-        bash_cmd = " ".join(cmd_line) + " 2>&1 &"
+        # Launch without setsid nohup and file redirection to capture output
+        bash_cmd = f"{' '.join(cmd_line)} 2>&1 &"
         process = subprocess.Popen(
             ["bash", "-c", bash_cmd],
             env=env,
@@ -133,23 +127,26 @@ class WebKitManager:
         
         print(f'[WebKitManager] {browser_type} launched via bash (PID: {process.pid})')
         
-        # Read any immediate output from chromium (non-blocking)
-        devtools_found = False
-        try:
-            import select
-            if select.select([process.stdout], [], [], 0.5)[0]:
-                output = process.stdout.read(8192).decode('utf-8', errors='replace')
-                if 'DevTools listening' in output:
-                    print(f'[WebKitManager] ✓ DevTools endpoint detected in output')
-                    devtools_found = True
-                if output:
-                    # Only show first few lines
-                    lines = output.strip().split('\n')[:5]
-                    for line in lines:
-                        if 'DevTools' in line or 'ERROR' in line[:50]:
-                            print(f'[WebKitManager] {line}')
-        except Exception as e:
-            print(f'[WebKitManager] Could not read chromium output: {e}')
+        # Read from process.stdout instead of file
+        import select
+        output = ''
+        while True:
+            ready, _, _ = select.select([process.stdout], [], [], 1.0)
+            if not ready:
+                break
+            data = process.stdout.read(1024)
+            if not data:
+                break
+            output += data.decode('utf-8', errors='ignore')
+
+        if 'DevTools listening' in output:
+            print(f'[WebKitManager] ✓ DevTools endpoint detected in output')
+            devtools_found = True
+        if output:
+            lines = output.strip().split('\n')[:5]
+            for line in lines:
+                if 'DevTools' in line or 'ERROR' in line[:50]:
+                    print(f'[WebKitManager] {line}')
         
         # Find actual chromium PID and validate
         try:
