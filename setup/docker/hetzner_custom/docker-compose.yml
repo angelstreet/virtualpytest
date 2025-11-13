@@ -1,25 +1,9 @@
 # VirtualPyTest Hetzner Custom Deployment
-# 1 Backend Server + 2 Backend Hosts + Nginx Reverse Proxy
+# 1 Backend Server + 2 Backend Hosts
+# Note: Uses host-level Nginx (not Docker) for reverse proxy on port 80
 # Use: docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml up
 
 services:
-  # Nginx Reverse Proxy - Routes external requests to containers
-  nginx_proxy:
-    image: nginx:alpine
-    container_name: virtualpytest-nginx-proxy
-    ports:
-      - "80:80"
-      - "443:443"
-    volumes:
-      - ./nginx.conf:/etc/nginx/nginx.conf:ro
-    depends_on:
-      - backend_server
-      - backend_host_1
-      - backend_host_2
-    restart: unless-stopped
-    networks:
-      - hetzner_network
-
   # Backend Server - API + Grafana (Centralized)
   backend_server:
     build:
