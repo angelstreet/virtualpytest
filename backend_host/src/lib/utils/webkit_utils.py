@@ -110,7 +110,8 @@ class WebKitManager:
 
         # 3) Build exact same bash command as manual script
         cmd_line = [executable_path] + browser_flags
-        bash_cmd = ' '.join(cmd_line) + ' 2>&1 &'
+        # Log Chromium output to a file so we can see why it exits when launched from Flask
+        bash_cmd = ' '.join(cmd_line) + ' >/tmp/chromium_flask.log 2>&1 &'
 
         env = os.environ.copy()
         env['DISPLAY'] = ':1'
