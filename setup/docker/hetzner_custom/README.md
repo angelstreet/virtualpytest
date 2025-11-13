@@ -46,7 +46,50 @@ nano backend_host_2/.env
 - **`backend_host_1/.env`** - Host 1 specific (name, URLs, device config)
 - **`backend_host_2/.env`** - Host 2 specific (name, URLs, device config)
 
-### 4. Launch Services
+### 4. Setup Cloudflare Tunnel (Required for HTTPS)
+
+```bash
+# Login to Cloudflare
+cloudflared tunnel login
+
+# Create tunnel
+cloudflared tunnel create virtualpytest
+
+# Configure tunnel
+cat > ~/.cloudflared/config.yml << 'EOF'
+tunnel: YOUR-TUNNEL-ID
+credentials-file: /root/.cloudflared/YOUR-TUNNEL-ID.json
+
+ingress:
+  - hostname: api.virtualpytest.com
+    service: http://localhost:80
+  - service: http_status:404
+EOF
+
+# Add DNS record (in Cloudflare dashboard or CLI)
+cloudflared tunnel route dns virtualpytest api.virtualpytest.com
+
+# Start service
+sudo systemctl start cloudflared
+sudo systemctl status cloudflared
+```
+
+### 5. Configure Ubuntu Nginx
+
+```bash
+# Copy nginx config
+sudo cp setup/docker/hetzner_custom/host-nginx.conf /etc/nginx/sites-available/virtualpytest
+
+# Enable site
+sudo ln -sf /etc/nginx/sites-available/virtualpytest /etc/nginx/sites-enabled/virtualpytest
+sudo rm -f /etc/nginx/sites-enabled/default
+
+# Test and reload
+sudo nginx -t
+sudo systemctl reload nginx
+```
+
+### 6. Launch Services
 
 ```bash
 # Launch 1 server + 2 hosts

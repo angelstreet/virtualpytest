@@ -51,6 +51,27 @@ docker-compose --version
 echo ""
 echo "🎉 Docker installation completed!"
 
+# Install Cloudflared for HTTPS tunnel
+echo ""
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+echo "⚙️  Installing Cloudflared..."
+echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
+
+$SUDO mkdir -p /usr/local/bin
+$SUDO curl -L --output /usr/local/bin/cloudflared https://github.com/cloudflare/cloudflared/releases/latest/download/cloudflared-linux-amd64
+$SUDO chmod +x /usr/local/bin/cloudflared
+
+echo "✅ Cloudflared installed"
+
+# Setup cloudflared systemd service
+if [ -f "setup/docker/hetzner_custom/cloudflared.service" ]; then
+    echo "⚙️  Setting up Cloudflared service..."
+    $SUDO cp setup/docker/hetzner_custom/cloudflared.service /etc/systemd/system/
+    $SUDO systemctl daemon-reload
+    $SUDO systemctl enable cloudflared
+    echo "✅ Cloudflared service configured (needs tunnel setup before starting)"
+fi
+
 # Apply group changes for non-root users
 if [ "$EUID" -ne 0 ]; then
     echo "🔧 Applying group changes immediately..."
