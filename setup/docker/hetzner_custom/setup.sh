@@ -37,6 +37,35 @@ echo "   Ports: ${HOST_START_PORT}-$((HOST_START_PORT + HOST_MAX - 1))"
 echo "   Domain: $DOMAIN"
 echo ""
 
+# ============================================
+# 0. CLEANUP EXISTING CONTAINERS
+# ============================================
+echo "🧹 Checking for existing containers..."
+
+# Check if docker-compose.yml exists
+if [ -f "docker-compose.yml" ]; then
+    RUNNING=$(docker-compose -f docker-compose.yml ps -q 2>/dev/null | wc -l)
+    if [ "$RUNNING" -gt 0 ]; then
+        echo "   Found running containers, stopping..."
+        docker-compose -f docker-compose.yml down
+        echo "   ✅ Containers stopped and removed"
+    else
+        echo "   No running containers found"
+    fi
+else
+    echo "   No docker-compose.yml found (first run)"
+fi
+
+# Also check for any orphaned virtualpytest containers
+ORPHANED=$(docker ps -a --filter "name=virtualpytest" -q | wc -l)
+if [ "$ORPHANED" -gt 0 ]; then
+    echo "   Found ${ORPHANED} orphaned containers, removing..."
+    docker rm -f $(docker ps -a --filter "name=virtualpytest" -q) 2>/dev/null
+    echo "   ✅ Orphaned containers removed"
+fi
+
+echo ""
+
 # Check RAM
 TOTAL_RAM=$(free -m | awk '/^Mem:/{print $2}')
 AVAILABLE_RAM=$(free -m | awk '/^Mem:/{print $7}')
@@ -62,7 +91,7 @@ fi
 # ============================================
 # 1. GENERATE NGINX CONFIG
 # ============================================
-echo "🔧 [1/3] Generating nginx config..."
+echo "🔧 [1/4] Generating nginx config..."
 NGINX_FILE="host-nginx.conf"
 
 cat > "$NGINX_FILE" <<EOF
@@ -208,7 +237,7 @@ echo "   ✅ Created: $NGINX_FILE"
 # ============================================
 # 2. GENERATE DOCKER-COMPOSE.YML
 # ============================================
-echo "🔧 [2/3] Generating docker-compose.yml..."
+echo "🔧 [2/4] Generating docker-compose.yml..."
 COMPOSE_FILE="docker-compose.yml"
 
 cat > "$COMPOSE_FILE" <<EOF
@@ -295,7 +324,7 @@ echo "   ✅ Created: $COMPOSE_FILE"
 # ============================================
 # 3. GENERATE HOST .ENV FILES
 # ============================================
-echo "🔧 [3/3] Generating host .env files..."
+echo "🔧 [3/4] Generating host .env files..."
 
 for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
