@@ -82,88 +82,86 @@ class WebKitManager:
     @classmethod
     def launch_webkit_with_debugging(cls, debug_port: int = 9223) -> subprocess.Popen:
         """Launch lightweight browser with remote debugging."""
-        # Kill any process using the debug port
-        if cls.is_port_in_use(debug_port):
-            print(f'[WebKitManager] Port {debug_port} in use, killing processes...')
-            try:
-                result = subprocess.run(['lsof', '-ti', f':{debug_port}'], 
-                                      capture_output=True, text=True, timeout=5)
-                if result.returncode == 0 and result.stdout.strip():
-                    pids = result.stdout.strip().split('\n')
-                    for pid in pids:
-                        if pid.strip():
-                            subprocess.run(['kill', '-9', pid.strip()], timeout=3)
-            except Exception as e:
-                print(f'[WebKitManager] Error killing processes: {e}')
+        # IMPORTANT: keep this function as close as possible to the known-working
+        # manual command you tested inside the container.
+        #
+        # Manual script (simplified):
+        #   pkill -9 chromium
+        #   cmd = ['/usr/bin/chromium', ...flags...]
+        #   env['DISPLAY'] = ':1'
+        #   subprocess.Popen(['bash', '-c', ' '.join(cmd) + ' 2>&1 &'], ...)
+        #   sleep(3)
+        #   pgrep chromium / netstat / socket connect checks
+        #
+        # We intentionally avoid extra complexity here and just mirror that flow.
+
+        # 1) Hard kill any existing chromium (same as manual script)
+        try:
+            subprocess.run(['pkill', '-9', 'chromium'], capture_output=True)
             time.sleep(1)
-        
-        # Find suitable lightweight browser
+        except Exception as e:
+            print(f'[WebKitManager] Warning: pkill chromium failed: {e}')
+
+        # 2) Find executable and flags (still use helper for portability)
         executable_path, browser_type = cls.find_webkit_executable()
         print(f'[WebKitManager] Launching {browser_type} browser: {executable_path}')
-        
-        # Get browser-specific flags
+
         browser_flags = cls.get_webkit_flags(debug_port, browser_type)
-        
-        # Launch browser
+
+        # 3) Build exact same bash command as manual script
         cmd_line = [executable_path] + browser_flags
+        bash_cmd = ' '.join(cmd_line) + ' 2>&1 &'
+
         env = os.environ.copy()
-        env["DISPLAY"] = os.environ.get("DISPLAY", ":1")
-        
-        print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
+        env['DISPLAY'] = ':1'
+
+        print(f'[WebKitManager] Launching via bash: {bash_cmd}')
         print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
-        
-        # Launch without setsid nohup and file redirection to capture output
-        bash_cmd = f"{' '.join(cmd_line)} 2>&1 &"
+
         process = subprocess.Popen(
-            ["bash", "-c", bash_cmd],
+            ['bash', '-c', bash_cmd],
             env=env,
             stdout=subprocess.PIPE,
             stderr=subprocess.STDOUT
         )
-        
-        # Bash will background the process, so we get bash's PID, not chromium's
-        # Wait for bash to finish and chromium to actually start
-        import time as _time
-        _time.sleep(5.0)
-        
-        print(f'[WebKitManager] {browser_type} launched via bash (PID: {process.pid})')
-        
-        # Read from process.stdout instead of file
-        import select
-        output = ''
-        start_time = time.time()
-        while time.time() - start_time < 5.0:
-            ready, _, _ = select.select([process.stdout], [], [], 0.5)
-            if ready:
-                data = process.stdout.read(1024)
-                if data:
-                    output += data.decode('utf-8', errors='ignore')
-                else:
-                    break
 
-        if 'DevTools listening' in output:
-            print(f'[WebKitManager] ✓ DevTools endpoint detected in output')
-            devtools_found = True
-        if output:
-            lines = output.strip().split('\n')[:5]
-            for line in lines:
-                if 'DevTools' in line or 'ERROR' in line[:50]:
-                    print(f'[WebKitManager] {line}')
-        
-        # Find actual chromium PID and validate
+        print(f'[WebKitManager] Bash PID (not chromium PID): {process.pid}')
+
+        # 4) Wait a bit like the manual script before checking anything
+        time.sleep(3)
+
+        # 5) Optional diagnostics: mirror manual checks (chromium count, port, python connect)
         try:
-            result = subprocess.run(['pgrep', '-n', 'chromium'], 
-                                  capture_output=True, text=True, timeout=2)
-            if result.returncode == 0 and result.stdout.strip():
-                actual_pid = result.stdout.strip()
-                print(f'[WebKitManager] ✓ Chromium process found (PID: {actual_pid})')
+            result = subprocess.run(['pgrep', 'chromium'], capture_output=True, text=True)
+            if result.stdout.strip():
+                pids = [p for p in result.stdout.strip().split('\n') if p]
+                print(f'[WebKitManager] Chromium processes: {len(pids)} ({", ".join(pids[:5])})')
             else:
-                print(f'[WebKitManager] ✗ WARNING: No chromium process found!')
+                print('[WebKitManager] Chromium processes: 0')
         except Exception as e:
-            print(f'[WebKitManager] Could not find chromium PID: {e}')
-        
-        # Wait for browser to be ready
-        cls._wait_for_webkit_ready(debug_port)
+            print(f'[WebKitManager] pgrep chromium failed: {e}')
+
+        try:
+            result = subprocess.run(['netstat', '-tuln'], capture_output=True, text=True)
+            if f':{debug_port}' in result.stdout:
+                print(f'[WebKitManager] ✓ Port {debug_port} LISTENING')
+            else:
+                print(f'[WebKitManager] ✗ Port {debug_port} NOT listening')
+        except Exception as e:
+            print(f'[WebKitManager] netstat check failed: {e}')
+
+        # Python-level socket check (like manual script)
+        try:
+            s = socket.socket()
+            s.settimeout(1)
+            s.connect(('127.0.0.1', debug_port))
+            s.close()
+            print(f'[WebKitManager] ✓ Python connection to {debug_port} SUCCESS')
+        except Exception as e:
+            print(f'[WebKitManager] ✗ Python connection to {debug_port} FAILED: {e}')
+
+        # We deliberately do NOT add extra waiting logic here; the caller will
+        # attempt to connect over CDP and handle failures.
         return process
     
     @staticmethod
