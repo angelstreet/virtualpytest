@@ -58,6 +58,7 @@ class WebKitManager:
                 '--disable-gpu',  # Prevent GPU issues in Docker/VMs
                 '--disable-crash-reporter',  # Disable crash handler that blocks startup
                 '--disable-crashpad',  # Fully disable crash reporting system
+                '--crash-dumps-dir=/tmp',  # Set crash dump dir to prevent handler errors
                 '--no-first-run'  # Skip first run wizard
             ]
         else:  # safari or other
@@ -110,13 +111,12 @@ class WebKitManager:
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
         
-        # Launch with stderr visible for debugging (keep stdout hidden)
+        # Launch WITHOUT start_new_session to match manual bash behavior
         process = subprocess.Popen(
             cmd_line, 
             env=env,
             stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            start_new_session=True  # Detach from parent process group
+            stderr=subprocess.PIPE
         )
         print(f'[WebKitManager] {browser_type} launched with PID: {process.pid}')
         
