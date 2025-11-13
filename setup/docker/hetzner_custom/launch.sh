@@ -1,64 +1,76 @@
 #!/bin/bash
-
-# VirtualPyTest - Launch Hetzner Custom Deployment
-# 1 Backend Server + 2 Backend Hosts
+# VirtualPyTest - Launch Services
+# Starts all Docker containers (server + all hosts)
 
 set -e
 
-echo "🚀 Launching VirtualPyTest - Hetzner Custom (1 Server + 2 Hosts)"
-
-# Get to project root directory
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
 cd "$PROJECT_ROOT"
 
-# Check if .env exists
+echo "🚀 VirtualPyTest - Launch Services"
+echo "========================================="
+
+# Check if setup was run
+if [ ! -f "setup/docker/hetzner_custom/docker-compose.yml" ]; then
+    echo "❌ Error: docker-compose.yml not found"
+    echo ""
+    echo "Run setup first:"
+    echo "  cd setup/docker/hetzner_custom"
+    echo "  ./setup.sh"
+    exit 1
+fi
+
+# Check if main .env exists
 if [ ! -f ".env" ]; then
-    echo "❌ Error: .env file not found"
+    echo "❌ Error: .env file not found in project root"
     echo ""
-    echo "Please create .env file:"
+    echo "Create .env file with your configuration:"
     echo "  cp setup/docker/hetzner_custom/env.example .env"
-    echo "  nano .env  # Edit with your server configuration"
+    echo "  nano .env"
     exit 1
 fi
 
-# Check for host-specific .env files
-if [ ! -f "backend_host_1/.env" ]; then
-    echo "❌ Error: backend_host_1/.env file not found"
-    echo ""
-    echo "Please create configuration file:"
-    echo "  mkdir -p backend_host_1"
-    echo "  cp setup/docker/hetzner_custom/env.host1.example backend_host_1/.env"
-    echo "  nano backend_host_1/.env  # Edit with host 1 configuration"
-    exit 1
-fi
-
-if [ ! -f "backend_host_2/.env" ]; then
-    echo "❌ Error: backend_host_2/.env file not found"
-    echo ""
-    echo "Please create configuration file:"
-    echo "  mkdir -p backend_host_2"
-    echo "  cp setup/docker/hetzner_custom/env.host2.example backend_host_2/.env"
-    echo "  nano backend_host_2/.env  # Edit with host 2 configuration"
-    exit 1
-fi
-
-# Launch services
-echo "🐳 Starting services..."
+# Launch
+echo "🐳 Starting Docker containers..."
 docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml up -d
+
+echo ""
+echo "⏳ Waiting for services to start..."
+sleep 5
 
 # Show status
 echo ""
 docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml ps
 
 echo ""
-echo "🎉 Services started!"
+echo "========================================="
+echo "✅ Services Started!"
 echo ""
-echo "📋 Access Points:"
+echo "📋 Local Access:"
 echo "   Backend Server:  http://localhost:5109"
 echo "   Grafana:         http://localhost:3000"
-echo "   Backend Host 1:  http://localhost:6109"
-echo "   Backend Host 2:  http://localhost:6110"
+
+# Show host ports dynamically
+if [ -f "setup/docker/hetzner_custom/config.env" ]; then
+    source setup/docker/hetzner_custom/config.env
+    for i in $(seq 1 $HOST_MAX); do
+        PORT=$((HOST_START_PORT + i - 1))
+        echo "   Backend Host ${i}:   http://localhost:${PORT}"
+    done
+fi
+
 echo ""
-echo "📊 View logs:  docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml logs -f"
-echo "🛑 Stop:       docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml down"
+echo "🌐 Public Access (if nginx configured):"
+if [ -f "setup/docker/hetzner_custom/config.env" ]; then
+    source setup/docker/hetzner_custom/config.env
+    echo "   API: https://${DOMAIN}"
+    for i in $(seq 1 $HOST_MAX); do
+        echo "   VNC Host ${i}: https://${DOMAIN}/host${i}/vnc/vnc_lite.html"
+    done
+fi
+
+echo ""
+echo "📊 View logs:    docker-compose -f setup/docker/hetzner_custom/docker-compose.yml logs -f"
+echo "🛑 Stop:         docker-compose -f setup/docker/hetzner_custom/docker-compose.yml down"
+echo ""
