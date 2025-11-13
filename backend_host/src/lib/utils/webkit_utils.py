@@ -167,7 +167,7 @@ class WebKitConnection:
     """Manages Playwright connections to lightweight browsers via debug protocol."""
     
     @staticmethod
-    async def connect_to_webkit(cdp_url: str = 'http://localhost:9223') -> Tuple[Any, Any, Any, Any]:
+    async def connect_to_webkit(cdp_url: str = 'http://127.0.0.1:9223') -> Tuple[Any, Any, Any, Any]:
         """Connect to lightweight browser via debug protocol and return playwright, browser, context, page."""
         from playwright.async_api import async_playwright
         
@@ -220,7 +220,7 @@ class WebKitUtils:
     
     async def connect_to_webkit(self, target_url: str = None):
         """Connect to lightweight browser via debug protocol."""
-        cdp_url = f'http://localhost:{self.debug_port}'
+        cdp_url = f'http://127.0.0.1:{self.debug_port}'  # Use IPv4 explicitly to avoid IPv6 issues
         return await self.connection.connect_to_webkit(cdp_url)
     
     async def connect_to_chrome(self, target_url: str = None):
@@ -245,9 +245,18 @@ class WebKitUtils:
         # For all other URLs, default to https
         return f'https://{url}'
     
-    def kill_chrome(self):
+    def kill_chrome(self, chrome_process=None):
         """Compatibility method - terminates any running lightweight browser process."""
         try:
+            # If specific process provided, kill it first
+            if chrome_process and chrome_process.poll() is None:
+                try:
+                    chrome_process.terminate()
+                    chrome_process.wait(timeout=3)
+                    print(f'[WebKitUtils] Terminated process {chrome_process.pid}')
+                except Exception as e:
+                    print(f'[WebKitUtils] Error terminating process: {e}')
+            
             # Kill any process using the debug port
             if self.webkit_manager.is_port_in_use(self.debug_port):
                 print(f'[WebKitUtils] Killing processes on port {self.debug_port}...')
