@@ -37,6 +37,24 @@ echo "   Ports: ${HOST_START_PORT}-$((HOST_START_PORT + HOST_MAX - 1))"
 echo "   Domain: $DOMAIN"
 echo ""
 
+# Check if main .env exists
+if [ ! -f "$PROJECT_ROOT/.env" ]; then
+    echo "⚠️  Warning: Main .env file not found at:"
+    echo "   $PROJECT_ROOT/.env"
+    echo ""
+    echo "📝 This file is needed for Docker services to start."
+    echo "   You can create it later before running ./launch.sh"
+    echo ""
+    read -p "Continue anyway? (y/N) " -r
+    echo
+    if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+        echo "Setup cancelled. Create .env file:"
+        echo "  cp setup/docker/hetzner_custom/env.example .env"
+        echo "  nano .env  # Add your Supabase credentials"
+        exit 1
+    fi
+fi
+
 # ============================================
 # 0. CLEANUP EXISTING CONTAINERS
 # ============================================
@@ -44,23 +62,30 @@ echo "🧹 Checking for existing containers..."
 
 # Check if docker-compose.yml exists
 if [ -f "docker-compose.yml" ]; then
-    RUNNING=$(docker-compose -f docker-compose.yml ps -q 2>/dev/null | wc -l)
-    if [ "$RUNNING" -gt 0 ]; then
-        echo "   Found running containers, stopping..."
-        docker-compose -f docker-compose.yml down
-        echo "   ✅ Containers stopped and removed"
+    # Try to find .env file
+    if [ -f "$PROJECT_ROOT/.env" ]; then
+        RUNNING=$(docker-compose --env-file "$PROJECT_ROOT/.env" -f docker-compose.yml ps -q 2>/dev/null | wc -l)
+        if [ "$RUNNING" -gt 0 ]; then
+            echo "   Found running containers, stopping..."
+            docker-compose --env-file "$PROJECT_ROOT/.env" -f docker-compose.yml down
+            echo "   ✅ Containers stopped and removed"
+        else
+            echo "   No running containers found"
+        fi
     else
-        echo "   No running containers found"
+        echo "   ⚠️  Warning: .env file not found at $PROJECT_ROOT/.env"
+        echo "   Trying to stop containers without env file..."
+        docker-compose -f docker-compose.yml down 2>/dev/null || true
     fi
 else
     echo "   No docker-compose.yml found (first run)"
 fi
 
 # Also check for any orphaned virtualpytest containers
-ORPHANED=$(docker ps -a --filter "name=virtualpytest" -q | wc -l)
+ORPHANED=$(docker ps -a --filter "name=virtualpytest" -q 2>/dev/null | wc -l)
 if [ "$ORPHANED" -gt 0 ]; then
     echo "   Found ${ORPHANED} orphaned containers, removing..."
-    docker rm -f $(docker ps -a --filter "name=virtualpytest" -q) 2>/dev/null
+    docker rm -f $(docker ps -a --filter "name=virtualpytest" -q) 2>/dev/null || true
     echo "   ✅ Orphaned containers removed"
 fi
 
