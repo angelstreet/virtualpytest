@@ -57,7 +57,9 @@ services:
       - ../../../.env:/app/.env:ro  # Shared environment variables (project root)
       - ../../../backend_host_1/.env:/app/backend_host/src/.env:ro  # Host 1 specific config
     depends_on:
-      - backend_server
+      backend_server:
+        condition: service_started
+    command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true  # Required for hardware access
     restart: unless-stopped
     networks:
@@ -77,7 +79,9 @@ services:
       - ../../../.env:/app/.env:ro  # Shared environment variables (project root)
       - ../../../backend_host_2/.env:/app/backend_host/src/.env:ro  # Host 2 specific config
     depends_on:
-      - backend_server
+      backend_server:
+        condition: service_started
+    command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true  # Required for hardware access
     restart: unless-stopped
     networks:
