@@ -1,0 +1,14 @@
+# Cloudflare Tunnel Configuration for VirtualPyTest Hetzner
+# Location: /root/.cloudflared/config.yml
+
+tunnel: dc83b01f-b965-4efb-9e83-195c93423477
+credentials-file: /root/.cloudflared/dc83b01f-b965-4efb-9e83-195c93423477.json
+
+ingress:
+  # Route all api.virtualpytest.com traffic to Nginx proxy on port 80
+  - hostname: api.virtualpytest.com
+    service: http://localhost:80
+  
+  # Catch-all rule (required)
+  - service: http_status:404
+
