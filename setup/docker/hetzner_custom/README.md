@@ -46,33 +46,26 @@ nano backend_host_2/.env
 - **`backend_host_1/.env`** - Host 1 specific (name, URLs, device config)
 - **`backend_host_2/.env`** - Host 2 specific (name, URLs, device config)
 
-### 4. Setup Cloudflare Tunnel (Required for HTTPS)
+### 4. Setup Let's Encrypt SSL (Required for HTTPS)
 
 ```bash
-# Login to Cloudflare
-cloudflared tunnel login
+# Install certbot
+apt update && apt install certbot python3-certbot-nginx -y
 
-# Create tunnel
-cloudflared tunnel create virtualpytest
+# Get SSL certificate (replace with your email)
+certbot --nginx -d api.virtualpytest.com --non-interactive --agree-tos --email your-email@example.com
 
-# Configure tunnel
-cat > ~/.cloudflared/config.yml << 'EOF'
-tunnel: YOUR-TUNNEL-ID
-credentials-file: /root/.cloudflared/YOUR-TUNNEL-ID.json
+# Verify auto-renewal is configured
+systemctl status certbot.timer
 
-ingress:
-  - hostname: api.virtualpytest.com
-    service: http://localhost:80
-  - service: http_status:404
-EOF
-
-# Add DNS record (in Cloudflare dashboard or CLI)
-cloudflared tunnel route dns virtualpytest api.virtualpytest.com
-
-# Start service
-sudo systemctl start cloudflared
-sudo systemctl status cloudflared
+# Test renewal (dry run)
+certbot renew --dry-run
 ```
+
+**DNS Setup:**
+- In your DNS provider (Namecheap), add an A record:
+- `api.virtualpytest.com` → Your Hetzner server IP (e.g., `162.55.54.38`)
+- Wait 5-10 minutes for DNS propagation before running certbot
 
 ### 5. Configure Ubuntu Nginx
 
