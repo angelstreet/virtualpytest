@@ -111,26 +111,31 @@ class WebKitManager:
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         print(f'[WebKitManager] DISPLAY environment: {env.get("DISPLAY", "NOT SET")}')
         
-        # Launch WITHOUT start_new_session to match manual bash behavior
+        # Use bash to launch exactly like manual command - this is what works!
+        bash_cmd = " ".join(cmd_line) + " &"
         process = subprocess.Popen(
-            cmd_line, 
+            ["bash", "-c", bash_cmd],
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL
         )
-        print(f'[WebKitManager] {browser_type} launched with PID: {process.pid}')
         
-        # Check if process died immediately
+        # Bash will background the process, so we get bash's PID, not chromium's
+        # Wait for bash to finish and chromium to actually start
         import time as _time
-        _time.sleep(0.5)
-        if process.poll() is not None:
-            stdout, stderr = process.communicate(timeout=1)
-            print(f'[WebKitManager] ERROR: Process died immediately!')
-            print(f'[WebKitManager] Exit code: {process.returncode}')
-            if stderr:
-                print(f'[WebKitManager] STDERR: {stderr.decode("utf-8", errors="replace")[:500]}')
-            if stdout:
-                print(f'[WebKitManager] STDOUT: {stdout.decode("utf-8", errors="replace")[:500]}')
+        _time.sleep(1.0)
+        
+        print(f'[WebKitManager] {browser_type} launched via bash (PID: {process.pid})')
+        
+        # Find actual chromium PID
+        try:
+            result = subprocess.run(['pgrep', '-n', 'chromium'], 
+                                  capture_output=True, text=True, timeout=2)
+            if result.returncode == 0 and result.stdout.strip():
+                actual_pid = result.stdout.strip()
+                print(f'[WebKitManager] Actual chromium PID: {actual_pid}')
+        except Exception as e:
+            print(f'[WebKitManager] Could not find chromium PID: {e}')
         
         # Wait for browser to be ready
         cls._wait_for_webkit_ready(debug_port)
