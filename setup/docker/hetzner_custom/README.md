@@ -82,6 +82,14 @@ sudo nginx -t
 sudo systemctl reload nginx
 ```
 
+**Important: VNC WebSocket Configuration**
+
+The `host-nginx.conf` includes critical WebSocket routing for VNC access:
+- `/host1/websockify` → Routes to Host 1 VNC WebSocket (port 6109)
+- `/host2/websockify` → Routes to Host 2 VNC WebSocket (port 6110)
+
+These routes **must be defined BEFORE** the general `/host1/` and `/host2/` location blocks to ensure nginx matches the WebSocket path correctly. Without these, VNC Lite will fail with "connection is closed" error.
+
 ### 6. Launch Services
 
 ```bash
@@ -92,10 +100,12 @@ sudo systemctl reload nginx
 **That's it!** Your VirtualPyTest deployment is running. 🎉
 
 Access points:
-- **Backend Server API**: http://localhost:5109
-- **Grafana Monitoring**: http://localhost:3000
-- **Backend Host 1**: http://localhost:6109
-- **Backend Host 2**: http://localhost:6110
+- **Backend Server API**: http://localhost:5109 or https://api.virtualpytest.com/server/
+- **Grafana Monitoring**: http://localhost:3000 or https://api.virtualpytest.com/grafana/
+- **Backend Host 1**: http://localhost:6109 or https://api.virtualpytest.com/host1/
+- **Backend Host 2**: http://localhost:6110 or https://api.virtualpytest.com/host2/
+- **VNC Host 1**: https://api.virtualpytest.com/host1/vnc/vnc_lite.html
+- **VNC Host 2**: https://api.virtualpytest.com/host2/vnc/vnc_lite.html
 
 ---
 
@@ -121,9 +131,10 @@ Access points:
 ## What's Included
 
 - ✅ **1 Backend Server** - Centralized API and monitoring
-- ✅ **2 Backend Hosts** - Distributed device controllers
+- ✅ **2 Backend Hosts** - Distributed device controllers with VNC access
 - ✅ **Supabase Database** - External cloud database
 - ✅ **Shared Network** - All services communicate via Docker network
+- ✅ **NoVNC Web Access** - Browser-based remote desktop for each host
 
 ## Ports
 
@@ -384,6 +395,79 @@ backend_host_3:
 ### Multiple Servers (Load Balancing)
 
 For multiple backend servers, use a load balancer (nginx, HAProxy) in front of multiple server instances.
+
+## VNC Remote Desktop Access
+
+Each backend host includes a NoVNC web-based remote desktop accessible via browser.
+
+### Access VNC
+
+**Host 1:**
+```
+https://api.virtualpytest.com/host1/vnc/vnc_lite.html
+```
+
+**Host 2:**
+```
+https://api.virtualpytest.com/host2/vnc/vnc_lite.html
+```
+
+### VNC Architecture
+
+```
+Browser (vnc_lite.html)
+  ↓ HTTPS
+Host Nginx (/host1/vnc/)
+  ↓ Rewrite to /host/vnc/
+Container Nginx (port 80) → NoVNC (port 6080)
+  ↓ WebSocket
+Host Nginx (/host1/websockify)
+  ↓ Rewrite to /websockify  
+Container Nginx → WebSocket Proxy (port 6080)
+  ↓
+x11vnc VNC Server (port 5901)
+  ↓
+Xvfb Virtual Display (:1)
+```
+
+### Verify VNC Services
+
+```bash
+# Check supervisor status inside container
+docker exec -it virtualpytest-backend-host-1 supervisorctl status
+
+# Expected output:
+# fluxbox    RUNNING
+# nginx      RUNNING
+# novnc      RUNNING
+# x11vnc     RUNNING
+# xvfb       RUNNING
+# flask      RUNNING
+
+# Test NoVNC endpoint
+curl -I http://localhost:6109/host/vnc/vnc_lite.html
+
+# Test WebSocket endpoint (should see Upgrade headers)
+curl -I -H "Connection: Upgrade" -H "Upgrade: websocket" \
+  http://localhost:6109/websockify
+```
+
+### Common VNC Issues
+
+**"Connection is closed" error:**
+- Cause: WebSocket routing not configured correctly
+- Fix: Ensure `/host1/websockify` and `/host2/websockify` routes are in `host-nginx.conf` **BEFORE** general `/host1/` and `/host2/` blocks
+- Reload nginx: `sudo systemctl reload nginx`
+
+**Black screen or no display:**
+- Check if Xvfb is running: `docker exec -it virtualpytest-backend-host-1 ps aux | grep Xvfb`
+- Check display: `docker exec -it virtualpytest-backend-host-1 bash -c "DISPLAY=:1 xdpyinfo"`
+
+**NoVNC not accessible:**
+- Check port 6080 inside container: `docker exec -it virtualpytest-backend-host-1 curl -I http://localhost:6080`
+- Check NoVNC logs: `docker logs virtualpytest-backend-host-1 | grep novnc`
+
+---
 
 ## Troubleshooting
 
