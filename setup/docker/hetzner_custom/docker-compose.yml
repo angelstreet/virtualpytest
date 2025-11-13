@@ -13,6 +13,7 @@ services:
       - "5109:5109"  # nginx proxy (Flask API + Grafana)
       - "3000:3000"  # Grafana direct access
     volumes:
+      - ../../../.env:/app/.env:ro  # Shared environment variables (project root)
       - grafana-data:/var/lib/grafana
       - grafana-logs:/var/log/grafana
     environment:
