@@ -50,7 +50,7 @@ class WebKitManager:
                 '--profile-manager'
             ]
         elif browser_type in ['chromium-webkit', 'chrome-webkit']:
-            # Chromium/Chrome with lightweight flags
+            # Chromium/Chrome with minimal proven flags (matched to manual working command)
             return [
                 f'--remote-debugging-port={debug_port}',
                 '--remote-debugging-address=0.0.0.0',  # Bind to all interfaces
@@ -58,17 +58,7 @@ class WebKitManager:
                 '--disable-gpu',  # Prevent GPU issues in Docker/VMs
                 '--disable-crash-reporter',  # Disable crash handler that blocks startup
                 '--disable-crashpad',  # Fully disable crash reporting system
-                '--no-first-run',
-                '--no-default-browser-check',
-                '--disable-extensions',
-                '--disable-background-networking',
-                '--disable-sync',
-                '--disable-translate',
-                '--disable-features=TranslateUI,InfiniteSessionRestore,TabRestore',
-                '--disable-default-apps',
-                '--disable-session-crashed-bubble',
-                '--disable-infobars',
-                '--disable-restore-session-state'
+                '--no-first-run'  # Skip first run wizard
             ]
         else:  # safari or other
             return [
