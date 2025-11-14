@@ -156,8 +156,10 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
       {restartMode && isControlActive ? (
         <RestartPlayer host={host} device={device!} includeAudioAnalysis={true} />
       ) : streamUrl ? (
-        // Check if this is a VNC device - use iframe instead of HLS player
-        device?.device_model === 'host_vnc' ? (
+        // VNC device in LIVE mode: use iframe for live desktop stream
+        // VNC device in ARCHIVE mode: use HLS player for recorded video
+        // Non-VNC devices: always use HLS player
+        device?.device_model === 'host_vnc' && isLiveMode ? (
           (() => {
             const panelCount = (showRemote ? 1 : 0) + (showWeb ? 1 : 0);
             const hasPanel = panelCount > 0 && isControlActive;
