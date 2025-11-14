@@ -228,7 +228,10 @@ def get_segment_capture():
         segment_number = data.get('segment_number')
         fps = data.get('fps', 5)
         
+        print(f"[@route:host_av:getSegmentCapture] 📸 Request received: device_id={device_id}, segment={segment_number}, fps={fps}")
+        
         if segment_number is None:
+            print(f"[@route:host_av:getSegmentCapture] ❌ Missing segment_number")
             return jsonify({
                 'success': False,
                 'error': 'segment_number is required'
