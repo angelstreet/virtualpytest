@@ -404,11 +404,10 @@ services:
       - GRAFANA_ADMIN_USER=admin
       - GRAFANA_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
       - GRAFANA_SECRET_KEY=\${GRAFANA_SECRET_KEY}
-      - GRAFANA_DOMAIN=\${GRAFANA_DOMAIN:-localhost}
       - GF_SERVER_HTTP_PORT=3000
       - GF_SERVER_PROTOCOL=http
-      - GF_SERVER_DOMAIN=\${GRAFANA_DOMAIN:-localhost}
-      - GF_SERVER_ROOT_URL=\${SERVER_URL:-http://localhost:${SERVER_PORT}}/grafana
+      - GF_SERVER_DOMAIN=${DOMAIN}
+      - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
     restart: unless-stopped
     networks:
