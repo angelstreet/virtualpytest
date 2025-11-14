@@ -63,7 +63,13 @@ class WebKitManager:
                 '--disable-breakpad',
                 '--disable-dev-shm-usage',
                 '--disable-gpu-compositing',  # Added to reduce GPU errors
-                '--disable-features=DbusService'  # Added to skip D-Bus integrations
+                '--disable-features=DbusService',  # Added to skip D-Bus integrations
+                '--disable-background-timer-throttling',  # Helps in low-resource containers
+                '--disable-renderer-backgrounding',  # Prevents early termination
+                '--single-process',  # Run in single process (reduces crashes in Docker)
+                '--no-zygote',  # Disable zygote process for stability
+                '--headless=new',  # Use new headless mode (Chromium 109+)
+                '--disable-extensions'  # Reduce startup time
             ]
         else:  # safari or other
             return [
@@ -130,12 +136,13 @@ class WebKitManager:
         print(f'[WebKitManager] Environment DISPLAY: {env.get("DISPLAY")}')
         
         # 6) Launch directly with subprocess.Popen (NO BASH, NO SU!)
-        # This is the key fix - direct execution like playwright_utils.py
+        # Use DEVNULL and start_new_session to fully detach from Flask's process group
         process = subprocess.Popen(
             cmd_line,  # LIST of arguments (not a string!)
             env=env,
-            stdout=open('/dev/null', 'w'),  # Redirect to /dev/null
-            stderr=open('/dev/null', 'w')   # Redirect to /dev/null
+            stdout=subprocess.DEVNULL,  # Use subprocess constant instead of file handle
+            stderr=subprocess.DEVNULL,  # Use subprocess constant instead of file handle
+            start_new_session=True      # Detach from parent process group (critical for Flask)
         )
         
         print(f'[WebKitManager] Chromium launched with PID: {process.pid}')

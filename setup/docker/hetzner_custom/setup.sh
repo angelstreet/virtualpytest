@@ -290,11 +290,18 @@ for i in $(seq 1 $HOST_MAX); do
       - /dev:/dev
       - ../../../.env:/app/.env:ro
       - ../../../backend_host_${i}/.env:/app/backend_host/src/.env:ro
+    environment:
+      - XDG_CONFIG_HOME=/tmp/.chromium
+      - XDG_CACHE_HOME=/tmp/.chromium
+      - XDG_RUNTIME_DIR=/tmp/.chromium
     depends_on:
       backend_server:
         condition: service_started
     command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
     restart: unless-stopped
     networks:
       - hetzner_network
