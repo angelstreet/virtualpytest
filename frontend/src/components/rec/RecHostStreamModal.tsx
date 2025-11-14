@@ -542,21 +542,33 @@ const RecHostStreamModalContent: React.FC<{
 
   // Handle screenshot - calculate from current segment and open in new tab (live mode only)
   const handleScreenshot = useCallback(async () => {
+    console.log('[@component:RecHostStreamModal] 📸 Screenshot button clicked!', {
+      isLiveMode,
+      restartMode,
+      currentSegmentUrl,
+      hasDevice: !!device,
+      hasHost: !!host
+    });
+    
     if (!isLiveMode || restartMode) {
+      console.warn('[@component:RecHostStreamModal] ❌ Not in live mode');
       showError('Screenshot is only available in Live mode');
       return;
     }
     
     if (!currentSegmentUrl) {
+      console.warn('[@component:RecHostStreamModal] ❌ No currentSegmentUrl - video not playing or segment not tracked');
       showError('Failed to take screenshot (video segment missing)');
       return;
     }
 
+    console.log('[@component:RecHostStreamModal] ✅ Calling getCaptureUrlFromStream with:', currentSegmentUrl);
     const captureUrl = await getCaptureUrlFromStream(currentSegmentUrl, device, host);
     if (captureUrl) {
+      console.log(`[@component:RecHostStreamModal] ✅ Opening screenshot: ${captureUrl}`);
       window.open(captureUrl, '_blank');
-      console.log(`[@component:RecHostStreamModal] Opening screenshot: ${captureUrl}`);
     } else {
+      console.error('[@component:RecHostStreamModal] ❌ getCaptureUrlFromStream returned null');
       showError('Could not determine current frame');
     }
   }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
