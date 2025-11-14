@@ -61,6 +61,9 @@ services:
         condition: service_started
     command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true  # Required for hardware access
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
     restart: unless-stopped
     networks:
       - hetzner_network
@@ -83,6 +86,9 @@ services:
         condition: service_started
     command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true  # Required for hardware access
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
     restart: unless-stopped
     networks:
       - hetzner_network
