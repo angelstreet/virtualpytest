@@ -44,6 +44,9 @@ RUN pip install --no-cache-dir --force-reinstall -r backend_server/requirements.
 # Copy backend_server source
 COPY backend_server/src/ backend_server/src/
 
+# Copy backend_server scripts
+COPY backend_server/scripts/ backend_server/scripts/
+
 # Copy backend_server configuration
 COPY backend_server/config/ backend_server/config/
 
