@@ -312,6 +312,15 @@ const getDeviceStreamUrlPath = (host: any, deviceId: string): string => {
         throw new Error(`Device ${deviceId} has no video_stream_path configured`);
       }
 
+      // Special case: VNC devices have full URL in video_stream_path (for live iframe)
+      // For HLS recordings, use video_capture_path instead (converted to stream path)
+      if (device?.device_model === 'host_vnc' && streamPath.startsWith('http')) {
+        // Get capture path and convert to stream path (remove /captures suffix if present)
+        const capturePath = getDeviceCaptureUrlPath(host, deviceId);
+        const streamPathFromCapture = capturePath.replace('/captures', '');
+        return streamPathFromCapture;
+      }
+
       // Remove '/host' prefix if present and ensure starts with /
       const cleanPath = streamPath.replace('/host', '').replace(/^\/+/, '/');
       return cleanPath;
