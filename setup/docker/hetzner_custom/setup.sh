@@ -391,6 +391,8 @@ services:
       - "3000:3000"
     volumes:
       - ../../../.env:/app/.env:ro
+      - ../../../test_scripts:/app/test_scripts:ro
+      - ../../../test_campaign:/app/test_campaign:ro
       - grafana-data:/var/lib/grafana
       - grafana-logs:/var/log/grafana
     environment:
