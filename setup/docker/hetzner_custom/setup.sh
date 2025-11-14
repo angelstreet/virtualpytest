@@ -438,6 +438,9 @@ for i in $(seq 1 $HOST_MAX); do
       - /dev:/dev
       - ../../../.env:/app/.env:ro
       - ../../../backend_host_${i}/.env:/app/backend_host/src/.env:ro
+      - ../../../test_scripts:/app/test_scripts:ro
+      - ../../../test_campaign:/app/test_campaign:ro
+      - ../../../backend_discard:/app/backend_discard:ro
     tmpfs:
       - /var/www/html/stream/capture${i}/hot:size=200M,mode=777
     environment:
@@ -499,6 +502,13 @@ HOST_VIDEO_AUDIO=null
 HOST_VIDEO_FPS=2
 DEBUG=false
 PYTHONUNBUFFERED=1
+
+# R2 Storage - Copy from main .env if exists
+# NOTE: These will be overwritten if present in main .env (OS env vars take priority)
+CLOUDFLARE_R2_ENDPOINT=
+CLOUDFLARE_R2_ACCESS_KEY_ID=
+CLOUDFLARE_R2_SECRET_ACCESS_KEY=
+CLOUDFLARE_R2_PUBLIC_URL=
 EOF
     
     echo "   ✅ Created: backend_host_${i}/.env"

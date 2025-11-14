@@ -65,6 +65,9 @@ services:
       - /dev:/dev  # Hardware access for device control
       - ../../.env:/app/.env:ro  # Shared environment variables (project root)
       - ../../backend_host/.env:/app/backend_host/src/.env:ro  # Host-specific .env
+      - ../../test_scripts:/app/test_scripts:ro  # Test scripts (read-only)
+      - ../../test_campaign:/app/test_campaign:ro  # Campaign scripts (read-only)
+      - ../../backend_discard:/app/backend_discard:ro  # Incident/test verification (read-only)
     tmpfs:
       - /var/www/html/stream/capture1/hot:size=200M,mode=777  # RAM-based hot storage
     environment:
