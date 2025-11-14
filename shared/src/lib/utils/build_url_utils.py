@@ -247,18 +247,27 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
     # Check if this is a VNC device
     device = get_device_by_id(host_info, device_id)
     if device and device.get('device_model') == 'host_vnc':
-        # For VNC devices, return the video_stream_path directly
-        vnc_stream_url = device.get('video_stream_path')
-        if not vnc_stream_url:
-            raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
+        # For VNC devices, derive HLS stream path from video_capture_path (same as screenshots)
+        capture_path = device.get('video_capture_path')
+        if not capture_path:
+            raise ValueError(f"VNC device {device_id} has no video_capture_path configured")
         
-        # Replace localhost with actual host IP for network accessibility
-        if 'localhost' in vnc_stream_url and host_info:
-            host_ip = host_info.get('host_ip') or host_info.get('host_name')
-            if host_ip:
-                vnc_stream_url = vnc_stream_url.replace('localhost', host_ip)
+        # Convert capture path to URL path format (e.g., /var/www/html/stream/capture3 -> /stream/capture3)
+        stream_path = capture_path.replace('/var/www/html', '')
+        if not stream_path.startswith('/'):
+            stream_path = f'/{stream_path}'
         
-        return vnc_stream_url
+        # Build HLS manifest URL
+        host_url = host_info.get('host_url', '')
+        
+        # Check if this is a local IP access (direct to pi)
+        if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
+            # Use relative URL for local access
+            return f"/host{stream_path}/segments/output.m3u8"
+        else:
+            # Use absolute URL with nginx proxy for remote access
+            nginx_host_url = _get_nginx_host_url(host_info)
+            return f"{nginx_host_url}/host{stream_path}/segments/output.m3u8"
     else:
         # For regular devices, return HLS stream URL
         # Get device-specific stream path
