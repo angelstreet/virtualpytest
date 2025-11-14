@@ -22,9 +22,15 @@ HOST_MAX=2
 HOST_START_PORT=6109
 DOMAIN=api.virtualpytest.com
 SERVER_PORT=5109
+
+# Optional VPN Configuration (leave empty to disable)
+# Get free WireGuard config: protonvpn.com → Downloads → WireGuard
+ENABLE_VPN=false
+VPN_CONFIG_PATH=""
+VPN_INTERFACE=wg0
 EOF
     echo "✅ Created config.env with defaults"
-    echo "   Edit config.env to change HOST_MAX"
+    echo "   Edit config.env to change HOST_MAX or enable VPN"
     echo ""
 fi
 
@@ -91,6 +97,25 @@ fi
 
 echo ""
 
+# ============================================
+# 0. INSTALL DEPENDENCIES
+# ============================================
+echo "📦 Installing dependencies..."
+
+# Install WireGuard (lightweight, ~1MB)
+if ! command -v wg &> /dev/null; then
+    echo "   Installing WireGuard..."
+    if sudo apt update && sudo apt install -y wireguard 2>/dev/null; then
+        echo "   ✅ WireGuard installed"
+    else
+        echo "   ⚠️  WireGuard installation failed (non-critical)"
+    fi
+else
+    echo "   ✅ WireGuard already installed"
+fi
+
+echo ""
+
 # Check RAM
 TOTAL_RAM=$(free -m | awk '/^Mem:/{print $2}')
 AVAILABLE_RAM=$(free -m | awk '/^Mem:/{print $7}')
@@ -112,6 +137,61 @@ if [ "$HOST_MAX" -gt "$RECOMMENDED_HOSTS" ]; then
         exit 1
     fi
 fi
+
+# ============================================
+# 0.5. VPN SETUP (Optional)
+# ============================================
+echo "🌐 VPN Configuration:"
+
+if [ "$USE_VPN" = "true" ]; then
+    echo "   VPN enabled in config.env"
+    
+    # Check if wg0.conf exists
+    if [ ! -f "/etc/wireguard/wg0.conf" ]; then
+        echo "   ❌ VPN config not found: /etc/wireguard/wg0.conf"
+        echo ""
+        echo "   Setup VPN:"
+        echo "      1. Get free config: protonvpn.com → Downloads → WireGuard"
+        echo "      2. Download .conf file (pick country: US, NL, etc.)"
+        echo "      3. Upload: scp ~/Downloads/your.conf root@SERVER_IP:~/vpn.conf"
+        echo "      4. Install: sudo cp ~/vpn.conf /etc/wireguard/wg0.conf"
+        echo "      5. Secure:  sudo chmod 600 /etc/wireguard/wg0.conf"
+        echo ""
+        read -p "Continue without VPN? (y/N) " -n 1 -r
+        echo
+        if [[ ! $REPLY =~ ^[Yy]$ ]]; then
+            exit 1
+        fi
+    else
+        # Check if wg0 is already up
+        if ip link show wg0 &> /dev/null && [ "$(ip link show wg0 | grep 'state UP')" ]; then
+            echo "   ✅ VPN already active (wg0)"
+        else
+            echo "   Starting WireGuard VPN..."
+            if sudo wg-quick up wg0 2>/dev/null; then
+                echo "   ✅ VPN started successfully"
+                
+                # Enable on boot
+                if ! systemctl is-enabled wg-quick@wg0 &> /dev/null; then
+                    sudo systemctl enable wg-quick@wg0 2>/dev/null
+                    echo "   ✅ VPN enabled on boot"
+                fi
+            else
+                echo "   ⚠️  VPN already running or failed to start"
+            fi
+        fi
+        
+        # Show current IP
+        echo "   Current IP: $(curl -s --max-time 5 ifconfig.me || echo 'Unable to detect')"
+    fi
+else
+    echo "   VPN disabled (set USE_VPN=true in config.env to enable)"
+    if [ -f "/etc/wireguard/wg0.conf" ]; then
+        echo "   VPN config detected but not enabled"
+    fi
+fi
+
+echo ""
 
 # ============================================
 # 1. GENERATE NGINX CONFIG
@@ -467,6 +547,15 @@ echo ""
 echo "========================================="
 echo "🎉 Complete! Ready to launch."
 echo ""
+
+# Show VPN status if enabled
+if [ "$USE_VPN" = "true" ] && ip link show wg0 &> /dev/null; then
+    echo "🌐 VPN Status:"
+    echo "   Interface: wg0 (active)"
+    echo "   Public IP: $(curl -s --max-time 5 ifconfig.me || echo 'Unable to detect')"
+    echo ""
+fi
+
 echo "🚀 Start services:"
 echo "   ./launch.sh"
 echo ""
