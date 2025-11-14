@@ -481,7 +481,7 @@ HOST_PORT=${HOST_START_PORT}
 HOST_URL=https://${DOMAIN}/host${i}
 HOST_API_URL=http://backend_host_${i}:80
 HOST_VIDEO_CAPTURE_PATH=/var/www/html/stream/capture${i}
-HOST_VIDEO_STREAM_PATH=/stream/capture${i}
+HOST_VIDEO_STREAM_PATH=/host/stream/capture${i}
 HOST_VNC_STREAM_PATH=https://${DOMAIN}/host${i}/vnc/vnc_lite.html?path=/host${i}/websockify
 HOST_VIDEO_SOURCE=:1
 HOST_VIDEO_AUDIO=null
