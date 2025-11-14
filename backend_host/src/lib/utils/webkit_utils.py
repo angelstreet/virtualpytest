@@ -61,6 +61,7 @@ class WebKitManager:
                 '--disable-crashpad',
                 '--no-first-run',
                 '--disable-breakpad',
+                '--disable-dev-shm-usage',
                 '--disable-gpu-compositing',  # Added to reduce GPU errors
                 '--disable-features=DbusService'  # Added to skip D-Bus integrations
             ]
@@ -133,8 +134,8 @@ class WebKitManager:
         process = subprocess.Popen(
             cmd_line,  # LIST of arguments (not a string!)
             env=env,
-            stdout=open('/tmp/chrome_stdout.log', 'w'),  # Redirect to file
-            stderr=open('/tmp/chrome_stderr.log', 'w')   # Redirect to file
+            stdout=open('/dev/null', 'w'),  # Redirect to /dev/null
+            stderr=open('/dev/null', 'w')   # Redirect to /dev/null
         )
         
         print(f'[WebKitManager] Chromium launched with PID: {process.pid}')
