@@ -88,7 +88,8 @@ RUN mkdir -p /var/lib/grafana /var/log/grafana /etc/grafana \
     && chmod -R 775 /app/backend_server/config/grafana \
     && chmod -R 755 /var/log/grafana \
     && chmod -R 755 /var/log/nginx \
-    && chmod -R 755 /var/lib/nginx
+    && chmod -R 755 /var/lib/nginx \
+    && chmod 1777 /tmp
 
 # Copy supervisor configuration (with nginx) from docker folder
 COPY backend_server/docker/supervisord.conf /etc/supervisor/conf.d/virtualpytest.conf
