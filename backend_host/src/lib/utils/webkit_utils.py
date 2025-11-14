@@ -50,7 +50,8 @@ class WebKitManager:
                 '--profile-manager'
             ]
         elif browser_type in ['chromium-webkit', 'chrome-webkit']:
-            # Simplified flags matching manual
+            # Flags matching the working manual command: docker exec ... chromium
+            # Key: NO crash-dumps-dir, NO bash/su wrappers, just direct flags
             return [
                 f'--remote-debugging-port={debug_port}',
                 '--remote-debugging-address=0.0.0.0',
@@ -58,9 +59,7 @@ class WebKitManager:
                 '--disable-gpu',
                 '--disable-crash-reporter',
                 '--disable-crashpad',
-                '--crash-dumps-dir=/tmp',
                 '--no-first-run',
-                '--disable-features=CrashReporting',  # Additional disable for crash features
             ]
         else:  # safari or other
             return [
@@ -81,57 +80,66 @@ class WebKitManager:
     
     @classmethod
     def launch_webkit_with_debugging(cls, debug_port: int = 9223) -> subprocess.Popen:
-        """Launch lightweight browser with remote debugging."""
-        # IMPORTANT: keep this function as close as possible to the known-working
-        # manual command you tested inside the container.
-        #
-        # Manual script (simplified):
-        #   pkill -9 chromium
-        #   cmd = ['/usr/bin/chromium', ...flags...]
-        #   env['DISPLAY'] = ':1'
-        #   subprocess.Popen(['bash', '-c', ' '.join(cmd) + ' 2>&1 &'], ...)
-        #   sleep(3)
-        #   pgrep chromium / netstat / socket connect checks
-        #
-        # We intentionally avoid extra complexity here and just mirror that flow.
-
-        # 1) Hard kill any existing chromium (same as manual script)
+        """Launch lightweight browser with remote debugging.
+        
+        Uses DIRECT execution approach (same as playwright_utils.py) - no bash/su wrappers.
+        This matches the working manual command: docker exec ... chromium --flags
+        """
+        # 1) Kill any existing chromium processes
         try:
-            subprocess.run(['pkill', '-9', 'chromium'], capture_output=True)
+            subprocess.run(['pkill', '-9', 'chromium'], capture_output=True, timeout=5)
             time.sleep(1)
         except Exception as e:
             print(f'[WebKitManager] Warning: pkill chromium failed: {e}')
 
-        # 2) Find executable and flags (still use helper for portability)
+        # 2) Kill any process using the debug port
+        if cls.is_port_in_use(debug_port):
+            print(f'[WebKitManager] Port {debug_port} is in use. Killing processes...')
+            try:
+                result = subprocess.run(['lsof', '-ti', f':{debug_port}'], 
+                                      capture_output=True, text=True, timeout=5)
+                if result.returncode == 0 and result.stdout.strip():
+                    pids = result.stdout.strip().split('\n')
+                    for pid in pids:
+                        if pid.strip():
+                            subprocess.run(['kill', '-9', pid.strip()], timeout=3)
+                            print(f'[WebKitManager] Killed process {pid.strip()} using port {debug_port}')
+            except Exception as e:
+                print(f'[WebKitManager] Error killing processes on port {debug_port}: {e}')
+            time.sleep(1)
+
+        # 3) Find executable and get flags
         executable_path, browser_type = cls.find_webkit_executable()
         print(f'[WebKitManager] Launching {browser_type} browser: {executable_path}')
 
         browser_flags = cls.get_webkit_flags(debug_port, browser_type)
 
-        # 3) Build chromium command EXACTLY like the manual working su command:
-        #    su -s /bin/bash vptuser -c "DISPLAY=:1 /usr/bin/chromium ... >/tmp/chromium_su_manual.log 2>&1 &"
+        # 4) Build command as LIST (not string!) - same as playwright_utils.py
         cmd_line = [executable_path] + browser_flags
-        chromium_cmd = f"DISPLAY=:1 {' '.join(cmd_line)} >/tmp/chromium_flask.log 2>&1 &"
-        bash_cmd = f'su -s /bin/bash vptuser -c "{chromium_cmd}"'
-
+        
+        # 5) Set environment with DISPLAY
         env = os.environ.copy()
-
-        print(f'[WebKitManager] Launching via bash as vptuser: {bash_cmd}')
-        print(f'[WebKitManager] ENV DISPLAY (parent): {env.get("DISPLAY", "NOT SET")}')
-
-        # Let su/chromium output go directly to the Flask/supervisor logs so we can
-        # see any errors. Chromium itself will still log to /tmp/chromium_flask.log.
+        env['DISPLAY'] = ':1'
+        
+        # Log command for debugging
+        print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
+        print(f'[WebKitManager] Environment DISPLAY: {env.get("DISPLAY")}')
+        
+        # 6) Launch directly with subprocess.Popen (NO BASH, NO SU!)
+        # This is the key fix - direct execution like playwright_utils.py
         process = subprocess.Popen(
-            ['bash', '-c', bash_cmd],
+            cmd_line,  # LIST of arguments (not a string!)
             env=env,
+            stderr=subprocess.PIPE,
+            stdout=subprocess.PIPE
         )
+        
+        print(f'[WebKitManager] Chromium launched with PID: {process.pid}')
 
-        print(f'[WebKitManager] su/bash PID (not chromium PID): {process.pid}')
+        # 7) Wait for Chrome to be ready
+        cls._wait_for_webkit_ready(debug_port, max_wait=30)
 
-        # 4) Wait a bit like the manual script before checking anything
-        time.sleep(3)
-
-        # 5) Optional diagnostics: mirror manual checks (chromium count, port, python connect)
+        # 8) Optional diagnostics
         try:
             result = subprocess.run(['pgrep', 'chromium'], capture_output=True, text=True)
             if result.stdout.strip():
