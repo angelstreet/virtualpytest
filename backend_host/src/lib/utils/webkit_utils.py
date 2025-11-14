@@ -60,6 +60,7 @@ class WebKitManager:
                 '--disable-crash-reporter',
                 '--disable-crashpad',
                 '--no-first-run',
+                '--disable-breakpad',
                 '--disable-gpu-compositing',  # Added to reduce GPU errors
                 '--disable-features=DbusService'  # Added to skip D-Bus integrations
             ]
