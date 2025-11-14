@@ -69,7 +69,7 @@ const Coverage: React.FC = () => {
 
   // Sort category data
   const getSortedCategories = () => {
-    if (!coverageSummary) return [];
+    if (!coverageSummary || !coverageSummary.by_category) return [];
     const entries = Object.entries(coverageSummary.by_category);
     return entries.sort((a, b) => {
       const [catA, dataA] = a;
@@ -131,7 +131,7 @@ const Coverage: React.FC = () => {
                 <Box display="flex" alignItems="center" gap={1}>
                   <Typography variant="body2">Categories</Typography>
                   <Typography variant="body2" fontWeight="bold">
-                    {coverageSummary ? Object.keys(coverageSummary.by_category).length : 0}
+                    {coverageSummary?.by_category ? Object.keys(coverageSummary.by_category).length : 0}
                   </Typography>
                 </Box>
                 <Box display="flex" alignItems="center" gap={1}>

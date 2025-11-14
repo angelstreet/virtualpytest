@@ -135,7 +135,12 @@ export const useCoverage = (): UseCoverageReturn => {
       const data = await response.json();
       
       if (data.success) {
-        setCoverageSummary(data.summary || null);
+        // Ensure by_category exists and is an object
+        const summary = data.summary || null;
+        if (summary && !summary.by_category) {
+          summary.by_category = {};
+        }
+        setCoverageSummary(summary);
       } else {
         throw new Error(data.error || 'Failed to load coverage summary');
       }
