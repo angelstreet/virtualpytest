@@ -1,8 +1,6 @@
 {
   "routes": [
     { "src": "/assets/(.*)", "dest": "/assets/$1" },
-    { "src": "/grafana$", "dest": "https://virtualpytest.onrender.com/grafana" },
-    { "src": "/grafana/(.*)", "dest": "https://virtualpytest.onrender.com/grafana/$1" },
     { "src": "/server/(.*)", "dest": "/server/$1" },
     { "src": "/host/(.*)", "dest": "/host/$1" },
     { "src": "/websockify/(.*)", "dest": "/websockify/$1" },
