@@ -548,7 +548,7 @@ const RecHostStreamModalContent: React.FC<{
     }
     
     if (!currentSegmentUrl) {
-      showError('No segment available - video may still be loading');
+      showError('Failed to take screenshot (video segment missing)');
       return;
     }
 
