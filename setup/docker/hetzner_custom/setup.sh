@@ -290,6 +290,8 @@ for i in $(seq 1 $HOST_MAX); do
       - /dev:/dev
       - ../../../.env:/app/.env:ro
       - ../../../backend_host_${i}/.env:/app/backend_host/src/.env:ro
+    tmpfs:
+      - /var/www/html/stream/capture${i}/hot:size=200M,mode=777
     environment:
       - XDG_CONFIG_HOME=/tmp/.chromium
       - XDG_CACHE_HOME=/tmp/.chromium
