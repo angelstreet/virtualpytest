@@ -58,14 +58,19 @@ services:
       context: ../../
       dockerfile: backend_host/Dockerfile
     container_name: virtualpytest-backend-host
+    hostname: backend-host-standalone
     ports:
       - "6109:80"  # External port 6109 maps to internal port 80
     volumes:
-      - ../../shared:/app/shared:ro
-      - ../../backend_host:/app/backend_host:ro
       - /dev:/dev  # Hardware access for device control
       - ../../.env:/app/.env:ro  # Shared environment variables (project root)
+      - ../../backend_host/.env:/app/backend_host/src/.env:ro  # Host-specific .env
+    tmpfs:
+      - /var/www/html/stream/capture1/hot:size=200M,mode=777  # RAM-based hot storage
     environment:
+      - XDG_CONFIG_HOME=/tmp/.chromium
+      - XDG_CACHE_HOME=/tmp/.chromium
+      - XDG_RUNTIME_DIR=/tmp/.chromium
       - HOST_PORT=6109
       - HOST_NAME=standalone-host-1
       - HOST_URL=http://localhost:6109
@@ -83,7 +88,13 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      backend_server:
+        condition: service_started
+    command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true  # Required for hardware access
+    security_opt:
+      - seccomp=unconfined
+      - apparmor=unconfined
     restart: unless-stopped
 
   # Backend Server - API + Grafana
