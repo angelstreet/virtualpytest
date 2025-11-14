@@ -247,17 +247,12 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
     # Check if this is a VNC device
     device = get_device_by_id(host_info, device_id)
     if device and device.get('device_model') == 'host_vnc':
-        # For VNC devices, derive HLS stream path from video_capture_path (same as screenshots)
-        capture_path = device.get('video_capture_path')
-        if not capture_path:
-            raise ValueError(f"VNC device {device_id} has no video_capture_path configured")
+        # For VNC devices, use video_stream_path which now points to HLS segments (not VNC viewer)
+        stream_path = device.get('video_stream_path')
+        if not stream_path:
+            raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
         
-        # Convert capture path to URL path format (e.g., /var/www/html/stream/capture3 -> /stream/capture3)
-        stream_path = capture_path.replace('/var/www/html', '')
-        if not stream_path.startswith('/'):
-            stream_path = f'/{stream_path}'
-        
-        # Build HLS manifest URL
+        # Build HLS manifest URL (same pattern as regular devices)
         host_url = host_info.get('host_url', '')
         
         # Check if this is a local IP access (direct to pi)
