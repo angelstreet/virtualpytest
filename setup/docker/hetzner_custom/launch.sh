@@ -32,7 +32,11 @@ if [ ! -f ".env" ]; then
 fi
 
 # Launch
-echo "🐳 Starting Docker containers..."
+echo "🐳 Building shared backend_host image (used by all hosts)..."
+docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml build backend_host_base
+
+echo ""
+echo "🚀 Starting Docker containers..."
 docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml up -d
 
 echo ""

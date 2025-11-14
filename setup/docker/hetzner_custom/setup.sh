@@ -238,6 +238,7 @@ COMPOSE_FILE="docker-compose.yml"
 
 cat > "$COMPOSE_FILE" <<EOF
 # Auto-generated for ${HOST_MAX} hosts
+# OPTIMIZED: Single backend_host image shared across all hosts
 services:
   backend_server:
     build:
@@ -272,16 +273,23 @@ services:
     networks:
       - hetzner_network
 
+  # Build backend_host image ONCE (shared by all hosts)
+  backend_host_base:
+    build:
+      context: ../../../
+      dockerfile: backend_host/Dockerfile
+    image: virtualpytest-backend-host:latest
+    # This service never runs - it's only used to build the image
+    profiles: ["build-only"]
+
 EOF
 
-# Generate host services
+# Generate host services (all use the same pre-built image)
 for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
     cat >> "$COMPOSE_FILE" <<EOF
   backend_host_${i}:
-    build:
-      context: ../../../
-      dockerfile: backend_host/Dockerfile
+    image: virtualpytest-backend-host:latest
     container_name: virtualpytest-backend-host-${i}
     hostname: backend-host-${i}
     ports:
