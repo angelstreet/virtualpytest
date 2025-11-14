@@ -261,10 +261,14 @@ export function HLSVideoPlayer({
         setStreamLoaded(false);
         setStreamError('Stream playback error. Retrying...');
         
-        // Trigger retry mechanism
-        setTimeout(() => {
-          setRetryCount((prev) => prev + 1);
-        }, retryDelay);
+        // Trigger retry mechanism only if stream is still active
+        if (isStreamActive) {
+          setTimeout(() => {
+            setRetryCount((prev) => prev + 1);
+          }, retryDelay);
+        } else {
+          console.log('[@component:HLSVideoPlayer] Skipping retry - stream is paused (isStreamActive=false)');
+        }
       };
 
       const handleCanPlay = () => {
@@ -292,7 +296,7 @@ export function HLSVideoPlayer({
       console.error('[@component:HLSVideoPlayer] Native playback setup failed:', error);
       return false;
     }
-  }, [streamUrl, attemptPlay, cleanupNativePlayback, supportsNativeHLS]);
+  }, [streamUrl, attemptPlay, cleanupNativePlayback, supportsNativeHLS, isStreamActive, retryDelay]);
 
   const initializeStream = useCallback(async () => {
     // Skip if stream is intentionally paused (e.g., modal closed, background player paused)
@@ -581,6 +585,12 @@ export function HLSVideoPlayer({
   }, [onRestartRequest, handleManualRestart]);
 
   const handleStreamError = useCallback(() => {
+    // Don't retry if stream is paused
+    if (!isStreamActive) {
+      console.log('[@component:HLSVideoPlayer] Skipping retry - stream is paused (isStreamActive=false)');
+      return;
+    }
+
     // Don't retry if FFmpeg is stuck - requires external intervention
     if (ffmpegStuck) {
       console.warn('[@component:HLSVideoPlayer] FFmpeg stuck, not retrying - requires stream restart');
@@ -606,11 +616,11 @@ export function HLSVideoPlayer({
       });
       initializeStream();
     }, retryDelay);
-  }, [retryCount, maxRetries, retryDelay, initializeStream, tryNativePlayback, ffmpegStuck]);
+  }, [retryCount, maxRetries, retryDelay, initializeStream, tryNativePlayback, ffmpegStuck, isStreamActive]);
 
   useEffect(() => {
-    // Don't retry if FFmpeg is stuck
-    if (streamError && retryCount < maxRetries && !ffmpegStuck) {
+    // Don't retry if FFmpeg is stuck or stream is paused
+    if (streamError && retryCount < maxRetries && !ffmpegStuck && isStreamActive) {
       console.log(
         `[@component:HLSVideoPlayer] Stream error detected, current retry count: ${retryCount}/${maxRetries}`,
       );
@@ -622,8 +632,10 @@ export function HLSVideoPlayer({
       console.warn(
         `[@component:HLSVideoPlayer] ${ffmpegStuck ? 'FFmpeg stuck' : `Max retries (${maxRetries}) reached`}, stopping retry attempts`,
       );
+    } else if (streamError && !isStreamActive) {
+      console.log('[@component:HLSVideoPlayer] Stream error exists but stream is paused - not retrying');
     }
-  }, [streamError, retryCount, maxRetries, streamLoaded, ffmpegStuck, handleStreamError]);
+  }, [streamError, retryCount, maxRetries, streamLoaded, ffmpegStuck, isStreamActive, handleStreamError]);
 
   useEffect(() => {
     if (useNativePlayer && streamUrl && isStreamActive) {
