@@ -126,15 +126,20 @@ class WebKitManager:
         print(f'[WebKitManager] Environment DISPLAY: {env.get("DISPLAY")}')
         
         # 6) Launch directly with subprocess.Popen (NO BASH, NO SU!)
-        # This is the key fix - direct execution like playwright_utils.py
+        # CRITICAL: Use file handles instead of PIPE to avoid deadlock
+        # (Chromium writes lots of DBus errors in Docker, filling pipe buffer)
+        stderr_log = open('/tmp/chromium_stderr.log', 'w')
+        stdout_log = open('/tmp/chromium_stdout.log', 'w')
+        
         process = subprocess.Popen(
             cmd_line,  # LIST of arguments (not a string!)
             env=env,
-            stderr=subprocess.PIPE,
-            stdout=subprocess.PIPE
+            stderr=stderr_log,
+            stdout=stdout_log
         )
         
         print(f'[WebKitManager] Chromium launched with PID: {process.pid}')
+        print(f'[WebKitManager] Logs: /tmp/chromium_stderr.log and /tmp/chromium_stdout.log')
 
         # 7) Wait for Chrome to be ready
         cls._wait_for_webkit_ready(debug_port, max_wait=30)
