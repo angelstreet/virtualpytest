@@ -547,7 +547,8 @@ const RecHostStreamModalContent: React.FC<{
       restartMode,
       currentSegmentUrl,
       hasDevice: !!device,
-      hasHost: !!host
+      hasHost: !!host,
+      deviceModel: device?.device_model
     });
     
     if (!isLiveMode || restartMode) {
@@ -556,6 +557,43 @@ const RecHostStreamModalContent: React.FC<{
       return;
     }
     
+    // VNC/Desktop devices: Use direct screenshot API (no HLS segments)
+    const isVncDevice = device?.device_model === 'host_vnc';
+    if (isVncDevice) {
+      console.log('[@component:RecHostStreamModal] 🖥️ VNC device detected - using direct screenshot API');
+      
+      try {
+        const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_name: host.host_name,
+            device_id: device.device_id
+          })
+        });
+        
+        if (!response.ok) {
+          console.error('[@component:RecHostStreamModal] ❌ Screenshot API failed:', response.status);
+          showError('Failed to take screenshot');
+          return;
+        }
+        
+        const result = await response.json();
+        if (result.success && result.screenshot_url) {
+          console.log(`[@component:RecHostStreamModal] ✅ Opening screenshot: ${result.screenshot_url}`);
+          window.open(result.screenshot_url, '_blank');
+        } else {
+          console.error('[@component:RecHostStreamModal] ❌ Screenshot API returned error:', result.error);
+          showError('Failed to take screenshot');
+        }
+      } catch (error) {
+        console.error('[@component:RecHostStreamModal] ❌ Screenshot request failed:', error);
+        showError('Failed to take screenshot');
+      }
+      return;
+    }
+    
+    // HLS devices: Use segment-based screenshot
     if (!currentSegmentUrl) {
       console.warn('[@component:RecHostStreamModal] ❌ No currentSegmentUrl - video not playing or segment not tracked');
       showError('Failed to take screenshot (video segment missing)');
@@ -575,7 +613,60 @@ const RecHostStreamModalContent: React.FC<{
 
   // Handle AI Image Query - calculate capture URL from current segment (live mode only, not restart)
   const handleAIImageQuery = useCallback(async () => {
-    if (!isLiveMode || restartMode || !currentSegmentUrl) return;
+    console.log('[@component:RecHostStreamModal] 🤖 AI Image Query clicked!', {
+      isLiveMode,
+      restartMode,
+      currentSegmentUrl,
+      deviceModel: device?.device_model
+    });
+    
+    if (!isLiveMode || restartMode) {
+      console.warn('[@component:RecHostStreamModal] ❌ Not in live mode or in restart mode');
+      return;
+    }
+    
+    // VNC/Desktop devices: Use direct screenshot API (no HLS segments)
+    const isVncDevice = device?.device_model === 'host_vnc';
+    if (isVncDevice) {
+      console.log('[@component:RecHostStreamModal] 🖥️ VNC device detected - using direct screenshot API for AI query');
+      
+      try {
+        const response = await fetch(buildServerUrl('/server/av/takeScreenshot'), {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            host_name: host.host_name,
+            device_id: device.device_id
+          })
+        });
+        
+        if (!response.ok) {
+          console.error('[@component:RecHostStreamModal] ❌ Screenshot API failed for AI query:', response.status);
+          showError('Failed to capture image for AI query');
+          return;
+        }
+        
+        const result = await response.json();
+        if (result.success && result.screenshot_url) {
+          console.log(`[@component:RecHostStreamModal] ✅ AI Image Query capture URL: ${result.screenshot_url}`);
+          setCapturedImageUrl(result.screenshot_url);
+          setIsImageQueryVisible(true);
+        } else {
+          console.error('[@component:RecHostStreamModal] ❌ Screenshot API returned error for AI query:', result.error);
+          showError('Failed to capture image for AI query');
+        }
+      } catch (error) {
+        console.error('[@component:RecHostStreamModal] ❌ Screenshot request failed for AI query:', error);
+        showError('Failed to capture image for AI query');
+      }
+      return;
+    }
+    
+    // HLS devices: Use segment-based screenshot
+    if (!currentSegmentUrl) {
+      console.warn('[@component:RecHostStreamModal] ❌ No currentSegmentUrl for AI query');
+      return;
+    }
     
     const captureUrl = await getCaptureUrlFromStream(currentSegmentUrl, device, host);
     if (captureUrl) {
@@ -585,7 +676,7 @@ const RecHostStreamModalContent: React.FC<{
     } else {
       showError('Could not determine current frame');
     }
-  }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError, isLiveMode, restartMode]);
+  }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError, isLiveMode, restartMode, setCapturedImageUrl, setIsImageQueryVisible]);
 
   // Check if device is mobile model (consistent with RecHostPreview)
   const isMobileModel = useMemo(() => {
