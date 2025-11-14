@@ -295,6 +295,12 @@ export function HLSVideoPlayer({
   }, [streamUrl, attemptPlay, cleanupNativePlayback, supportsNativeHLS]);
 
   const initializeStream = useCallback(async () => {
+    // Skip if stream is intentionally paused (e.g., modal closed, background player paused)
+    if (!isStreamActive) {
+      console.log('[@component:HLSVideoPlayer] Skipping init - stream is paused (isStreamActive=false)');
+      return;
+    }
+
     // Don't initialize if FFmpeg is stuck - requires external intervention
     if (ffmpegStuck) {
       console.warn('[@component:HLSVideoPlayer] FFmpeg is stuck, refusing to initialize stream');
