@@ -175,9 +175,6 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
               height: targetHeight 
             });
 
-            // Use vnc_viewer_url for live VNC iframe, fallback to streamUrl
-            const vncViewerUrl = (device as any)?.vnc_viewer_url || streamUrl;
-
             return (
               <Box
                 sx={{
@@ -189,7 +186,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
                 }}
               >
                 <iframe
-                  src={vncViewerUrl}
+                  src={streamUrl}
                   style={{
                     border: 'none',
                     backgroundColor: '#000',

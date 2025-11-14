@@ -247,22 +247,18 @@ def buildStreamUrl(host_info: dict, device_id: str) -> str:
     # Check if this is a VNC device
     device = get_device_by_id(host_info, device_id)
     if device and device.get('device_model') == 'host_vnc':
-        # For VNC devices, use video_stream_path which now points to HLS segments (not VNC viewer)
-        stream_path = device.get('video_stream_path')
-        if not stream_path:
+        # For VNC devices, return the video_stream_path directly
+        vnc_stream_url = device.get('video_stream_path')
+        if not vnc_stream_url:
             raise ValueError(f"VNC device {device_id} has no video_stream_path configured")
         
-        # Build HLS manifest URL (same pattern as regular devices)
-        host_url = host_info.get('host_url', '')
+        # Replace localhost with actual host IP for network accessibility
+        if 'localhost' in vnc_stream_url and host_info:
+            host_ip = host_info.get('host_ip') or host_info.get('host_name')
+            if host_ip:
+                vnc_stream_url = vnc_stream_url.replace('localhost', host_ip)
         
-        # Check if this is a local IP access (direct to pi)
-        if '192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url:
-            # Use relative URL for local access
-            return f"/host{stream_path}/segments/output.m3u8"
-        else:
-            # Use absolute URL with nginx proxy for remote access
-            nginx_host_url = _get_nginx_host_url(host_info)
-            return f"{nginx_host_url}/host{stream_path}/segments/output.m3u8"
+        return vnc_stream_url
     else:
         # For regular devices, return HLS stream URL
         # Get device-specific stream path

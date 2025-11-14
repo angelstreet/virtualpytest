@@ -92,17 +92,13 @@ def create_host_from_environment(device_ids: List[str] = None) -> Host:
         # Get additional VNC environment variables
         web_browser_path = os.getenv('HOST_WEB_BROWSER_PATH', '/usr/bin/chromium')
         
-        # Get HLS stream path for archive mode
-        video_stream_path = os.getenv('HOST_VIDEO_STREAM_PATH', '/host/stream/capture3')
-        
         # Create host VNC device (special device representing the host itself)
         host_device_config = {
             'device_id': 'host',
             'device_name': f'{host_name}_Host',
             'device_model': 'host_vnc',  # Keep the model as host_vnc for controller configuration
-            'video_stream_path': video_stream_path,  # HLS stream path for archive mode (like screenshot path)
+            'video_stream_path': final_vnc_stream_path,  # VNC streaming/viewing URL
             'video_capture_path': video_capture_path,  # FFmpeg capture system path
-            'vnc_viewer_url': final_vnc_stream_path,  # VNC viewer URL for live mode iframe
             'vnc_password': vnc_password,  # VNC password
             'web_browser_path': web_browser_path,  # Browser path for VNC viewer
             'host_ip': host_ip,  # Add host IP for web controller

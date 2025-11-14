@@ -291,7 +291,7 @@ export const RecHostPreview: React.FC<RecHostPreviewProps> = ({
                 {/* Only render VNC iframe when stream is active */}
                 {isStreamActive && (
                   <iframe
-                    src={(device as any)?.vnc_viewer_url || streamUrl}
+                    src={streamUrl}
                     style={{
                       border: 'none',
                       backgroundColor: '#000',
