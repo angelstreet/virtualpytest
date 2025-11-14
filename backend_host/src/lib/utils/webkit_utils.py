@@ -68,7 +68,6 @@ class WebKitManager:
                 '--disable-renderer-backgrounding',  # Prevents early termination
                 '--single-process',  # Run in single process (reduces crashes in Docker)
                 '--no-zygote',  # Disable zygote process for stability
-                '--headless=new',  # Use new headless mode (Chromium 109+)
                 '--disable-extensions'  # Reduce startup time
             ]
         else:  # safari or other
