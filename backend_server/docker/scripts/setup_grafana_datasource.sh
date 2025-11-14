@@ -157,8 +157,13 @@ sed -i "s|^\[auth.anonymous\]|[auth.anonymous]\nenabled = true|g" "$GRAFANA_INI"
 sed -i "/^\[auth.anonymous\]/a org_name = Main Org." "$GRAFANA_INI"
 sed -i "/^\[auth.anonymous\]/a org_role = Viewer" "$GRAFANA_INI"
 
+# Disable Grafana Live (WebSocket) to prevent 404 errors in logs
+sed -i "s|^;max_connections = 100|max_connections = 0|g" "$GRAFANA_INI"
+sed -i "s|^max_connections = 100|max_connections = 0|g" "$GRAFANA_INI"
+
 echo "✅ Grafana configuration updated dynamically"
 echo "   CSP enabled with frame-ancestors for iframe embedding"
 echo "   Anonymous access enabled for embedded dashboards"
+echo "   Grafana Live disabled (no real-time updates)"
 
 
