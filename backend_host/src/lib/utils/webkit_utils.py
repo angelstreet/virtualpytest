@@ -151,18 +151,6 @@ class WebKitManager:
         except Exception as e:
             print(f'[WebKitManager] netstat check failed: {e}')
 
-        # Python-level socket check (like manual script)
-        try:
-            s = socket.socket()
-            s.settimeout(1)
-            s.connect(('127.0.0.1', debug_port))
-            s.close()
-            print(f'[WebKitManager] ✓ Python connection to {debug_port} SUCCESS')
-        except Exception as e:
-            print(f'[WebKitManager] ✗ Python connection to {debug_port} FAILED: {e}')
-
-        # We deliberately do NOT add extra waiting logic here; the caller will
-        # attempt to connect over CDP and handle failures.
         return process
     
     @staticmethod
