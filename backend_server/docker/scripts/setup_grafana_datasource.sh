@@ -97,11 +97,11 @@ if [ -n "$GF_SERVER_DOMAIN" ]; then
     DOMAIN="$GF_SERVER_DOMAIN"
     echo "   Domain: $DOMAIN (from GF_SERVER_DOMAIN)"
 else
-    # Default to production custom domain
-    DOMAIN="www.virtualpytest.com"
+    # Default to api subdomain
+    DOMAIN="api.virtualpytest.com"
     echo "⚠️  WARNING: GF_SERVER_DOMAIN environment variable is not set"
     echo "   Using default domain: $DOMAIN"
-    echo "   Recommendation: Set GF_SERVER_DOMAIN=www.virtualpytest.com in environment"
+    echo "   Recommendation: Set GF_SERVER_DOMAIN in environment"
 fi
 
 # Set admin credentials from environment
