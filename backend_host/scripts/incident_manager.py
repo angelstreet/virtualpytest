@@ -668,14 +668,19 @@ class IncidentManager:
                     file_mappings = [{'local_path': filename, 'remote_path': r2_path}]
                     upload_result = uploader.upload_files(file_mappings)
                     
-                    # Convert to single file result
+                    # Convert to single file result - PRESERVE ERROR MESSAGE
                     if upload_result['uploaded_files']:
                         upload_result = {
                             'success': True,
                             'url': upload_result['uploaded_files'][0]['url']
                         }
                     else:
-                        upload_result = {'success': False}
+                        # Extract error from failed_files
+                        error_msg = 'Unknown error'
+                        if upload_result.get('failed_files'):
+                            error_msg = upload_result['failed_files'][0].get('error', 'Upload failed')
+                        upload_result = {'success': False, 'error': error_msg}
+                    
                     if upload_result.get('success'):
                         r2_results['original_urls'].append(upload_result['url'])
                         r2_results['original_r2_paths'].append(r2_path)
@@ -698,14 +703,18 @@ class IncidentManager:
                     file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
                     upload_result = uploader.upload_files(file_mappings)
                     
-                    # Convert to single file result
+                    # Convert to single file result - PRESERVE ERROR MESSAGE
                     if upload_result['uploaded_files']:
                         upload_result = {
                             'success': True,
                             'url': upload_result['uploaded_files'][0]['url']
                         }
                     else:
-                        upload_result = {'success': False}
+                        # Extract error from failed_files
+                        error_msg = 'Unknown error'
+                        if upload_result.get('failed_files'):
+                            error_msg = upload_result['failed_files'][0].get('error', 'Upload failed')
+                        upload_result = {'success': False, 'error': error_msg}
                     
                     if upload_result.get('success'):
                         r2_results['thumbnail_urls'].append(upload_result['url'])
@@ -808,7 +817,7 @@ class IncidentManager:
             file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
             upload_result = uploader.upload_files(file_mappings)
             
-            # Convert to single file result
+            # Convert to single file result - PRESERVE ERROR MESSAGE
             if upload_result['uploaded_files']:
                 thumbnail_url = upload_result['uploaded_files'][0]['url']
                 return {
@@ -818,7 +827,11 @@ class IncidentManager:
                     'stage': stage
                 }
             else:
-                logger.error(f"[{device_id}] Failed to upload {incident_type} {stage} thumbnail")
+                # Extract error from failed_files
+                error_msg = 'Unknown error'
+                if upload_result.get('failed_files'):
+                    error_msg = upload_result['failed_files'][0].get('error', 'Upload failed')
+                logger.error(f"[{device_id}] Failed to upload {incident_type} {stage} thumbnail: {error_msg}")
                 return None
                 
         except Exception as e:
@@ -878,12 +891,17 @@ class IncidentManager:
                 file_mappings = [{'local_path': thumbnail_path, 'remote_path': r2_path}]
                 upload_result = uploader.upload_files(file_mappings)
                 
+                # Convert to single file result - PRESERVE ERROR MESSAGE
                 if upload_result['uploaded_files']:
                     r2_results[url_key] = upload_result['uploaded_files'][0]['url']
                     uploaded_count += 1
                     logger.debug(f"[{capture_folder}] Uploaded {path_key}: {r2_path}")
                 else:
-                    logger.warning(f"[{capture_folder}] Failed to upload {path_key}")
+                    # Extract error from failed_files
+                    error_msg = 'Unknown error'
+                    if upload_result.get('failed_files'):
+                        error_msg = upload_result['failed_files'][0].get('error', 'Upload failed')
+                    logger.warning(f"[{capture_folder}] Failed to upload {path_key}: {error_msg}")
             
             if uploaded_count > 0:
                 logger.info(f"[{capture_folder}] ✅ Uploaded {uploaded_count}/4 zapping transition images to R2")
