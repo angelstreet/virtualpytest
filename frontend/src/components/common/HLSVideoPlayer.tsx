@@ -513,13 +513,44 @@ export function HLSVideoPlayer({
 
         if (data.fatal) {
           console.error('[@component:HLSVideoPlayer] Fatal HLS error, trying recovery');
+
+          // If stream is paused, never attempt fatal recovery (e.g. background preview while modal is open)
+          if (!isStreamActive) {
+            console.log('[@component:HLSVideoPlayer] Skipping fatal recovery - stream is paused (isStreamActive=false)');
+            return;
+          }
+
+          // Special case: manifest 404 -> treat as terminal and stop retrying
+          if (
+            data.type === 'networkError' &&
+            data.details === 'manifestLoadError' &&
+            data.response?.code === 404
+          ) {
+            console.warn('[@component:HLSVideoPlayer] Manifest 404 - stopping retries and cleaning up');
+            setStreamError('Stream manifest not found (404). Stream is unavailable.');
+            // Clean up HLS instance to stop further requests
+            cleanupStream();
+            return;
+          }
+
           if (supportsNativeHLS) {
             setUseNativePlayer(true);
-            setTimeout(() => tryNativePlayback(), 500);
+            setTimeout(() => {
+              // Only try native playback if stream is still active
+              if (isStreamActive) {
+                tryNativePlayback();
+              } else {
+                console.log('[@component:HLSVideoPlayer] Skipping native retry after fatal error - stream paused');
+              }
+            }, 500);
           } else {
             console.log('[@component:HLSVideoPlayer] Restarting HLS after fatal error (non-native browser)');
             cleanupStream();
             setTimeout(() => {
+              if (!isStreamActive) {
+                console.log('[@component:HLSVideoPlayer] Skipping HLS restart after fatal error - stream paused');
+                return;
+              }
               setRetryCount(0);
               initializeStream();
             }, retryDelay);
