@@ -62,7 +62,7 @@ export function HLSVideoPlayer({
   const [isVideoReady, setIsVideoReady] = useState(false);
   const [segmentFailureCount, setSegmentFailureCount] = useState(0);
   const [ffmpegStuck, setFfmpegStuck] = useState(false);
-  const maxRetries = 10;
+  const maxRetries = 5;
   const maxSegmentFailures = 10; // Stop after 10 consecutive segment failures
   const retryDelay = 6000;
   const lastInitTime = useRef<number>(0);
