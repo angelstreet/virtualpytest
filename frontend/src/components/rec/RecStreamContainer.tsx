@@ -4,6 +4,7 @@ import React from 'react';
 import { Host, Device } from '../../types/common/Host_Types';
 import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
+import { MonitoringOverlay } from '../monitoring/MonitoringOverlay';
 import { RestartPlayer } from './RestartPlayer';
 
 interface ErrorTrendData {
@@ -194,6 +195,32 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
                   title="VNC Desktop Stream"
                   allow="fullscreen"
                 />
+                
+                {/* Monitoring overlay for VNC - same as HLS */}
+                {monitoringMode && (
+                  <Box
+                    sx={{
+                      position: 'absolute',
+                      top: 0,
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      pointerEvents: 'none',
+                      zIndex: 100,
+                    }}
+                  >
+                    <MonitoringOverlay
+                      monitoringAnalysis={monitoringAnalysis || undefined}
+                      subtitleAnalysis={subtitleAnalysis}
+                      languageMenuAnalysis={languageMenuAnalysis}
+                      consecutiveErrorCounts={errorTrendData || undefined}
+                      showSubtitles={!!subtitleAnalysis}
+                      showLanguageMenu={!!languageMenuAnalysis}
+                      analysisTimestamp={analysisTimestamp || undefined}
+                      isAIAnalyzing={isAIAnalyzing}
+                    />
+                  </Box>
+                )}
               </Box>
             );
           })()
