@@ -5,6 +5,7 @@ import { Host, Device } from '../../types/common/Host_Types';
 import { MonitoringAnalysis, SubtitleAnalysis, LanguageMenuAnalysis } from '../../types/pages/Monitoring_Types';
 import { EnhancedHLSPlayer } from '../video/EnhancedHLSPlayer';
 import { MonitoringOverlay } from '../monitoring/MonitoringOverlay';
+import { buildStreamUrl } from '../../utils/buildUrlUtils';
 import { RestartPlayer } from './RestartPlayer';
 
 interface ErrorTrendData {
@@ -103,6 +104,12 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
   analysisTimestamp,
   isAIAnalyzing,
 }) => {
+  // VNC archive mode: override streamUrl to use HLS (same as screenshot logic)
+  const isVncDevice = device?.device_model === 'host_vnc';
+  const effectiveStreamUrl = (isVncDevice && !isLiveMode) 
+    ? buildStreamUrl(host, device?.device_id || 'device1') 
+    : streamUrl;
+
   return (
     <Box
       sx={{
@@ -155,7 +162,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
       {/* Content based on mode */}
       {restartMode && isControlActive ? (
         <RestartPlayer host={host} device={device!} includeAudioAnalysis={true} />
-      ) : streamUrl ? (
+      ) : effectiveStreamUrl ? (
         // VNC device in LIVE mode: use iframe for live desktop stream
         // VNC device in ARCHIVE mode: use HLS player for recorded video
         // Non-VNC devices: always use HLS player
@@ -186,7 +193,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
                 }}
               >
                 <iframe
-                  src={streamUrl}
+                  src={effectiveStreamUrl}
                   style={{
                     border: 'none',
                     backgroundColor: '#000',
@@ -231,7 +238,7 @@ export const RecStreamContainer: React.FC<RecStreamContainerProps> = ({
             deviceId={device?.device_id || 'device1'}
             hostName={host.host_name}
             host={host}
-            streamUrl={streamUrl}
+            streamUrl={effectiveStreamUrl}
             width="100%"
             height={isMobileModel ? 600 : 400}
             muted={isMuted}
