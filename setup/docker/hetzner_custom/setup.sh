@@ -309,6 +309,18 @@ for i in $(seq 1 $HOST_MAX); do
         proxy_buffering off;
     }
 
+    # Host ${i} - Normalize legacy /host path (e.g. /host${i}/host/stream → /host/stream)
+    location /host${i}/host/ {
+        rewrite ^/host${i}/host/(.*)$ /host/\$1 break;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        proxy_buffering off;
+    }
+
     # Host ${i} WebSocket (specific match)
     location /host${i}/websockify {
         rewrite ^/host${i}/websockify\$ /websockify break;
