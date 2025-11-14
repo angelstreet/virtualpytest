@@ -180,6 +180,55 @@ EOF
 for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
     cat >> "$NGINX_FILE" <<EOF
+    # Host ${i} - HLS Video Streams (specific resource types, MUST be first)
+    location ~ ^/host${i}/stream/([^/]+)/(captures|thumbnails|segments|metadata|audio|transcript)/(.+)\$ {
+        rewrite ^/host${i}/stream/(.*)$ /host/stream/\$1 break;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range" always;
+        add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
+        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        proxy_buffering off;
+    }
+
+    # Host ${i} - General stream location
+    location /host${i}/stream/ {
+        rewrite ^/host${i}/stream/(.*)$ /host/stream/\$1 break;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range" always;
+        add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
+        proxy_buffering off;
+    }
+
+    # Host ${i} - Captures location
+    location /host${i}/captures/ {
+        rewrite ^/host${i}/captures/(.*)$ /host/captures/\$1 break;
+        proxy_pass http://127.0.0.1:${PORT};
+        proxy_http_version 1.1;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+        add_header Access-Control-Allow-Origin "*" always;
+        add_header Access-Control-Allow-Methods "GET, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "DNT,User-Agent,X-Requested-With,If-Modified-Since,Cache-Control,Content-Type,Range" always;
+        add_header Access-Control-Expose-Headers "Content-Length,Content-Range" always;
+        proxy_buffering off;
+    }
+
     # Host ${i} WebSocket (specific match)
     location /host${i}/websockify {
         rewrite ^/host${i}/websockify\$ /websockify break;
