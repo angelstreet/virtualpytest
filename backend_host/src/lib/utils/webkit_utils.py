@@ -119,11 +119,11 @@ class WebKitManager:
         print(f'[WebKitManager] Launching via bash as vptuser: {bash_cmd}')
         print(f'[WebKitManager] ENV DISPLAY (parent): {env.get("DISPLAY", "NOT SET")}')
 
+        # Let su/chromium output go directly to the Flask/supervisor logs so we can
+        # see any errors. Chromium itself will still log to /tmp/chromium_flask.log.
         process = subprocess.Popen(
             ['bash', '-c', bash_cmd],
             env=env,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT
         )
 
         print(f'[WebKitManager] su/bash PID (not chromium PID): {process.pid}')
