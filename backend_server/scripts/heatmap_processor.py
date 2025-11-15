@@ -301,10 +301,24 @@ class HeatmapProcessor:
                             host_device_exists = any(d.get('device_id') == 'host' for d in devices)
                             
                             if not host_device_exists:
-                                # Create host device entry matching how host registers itself
-                                from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id
+                                # Extract capture folder from the JSON data itself (not from env vars)
+                                # The json_data should contain paths like /var/www/html/stream/capture3/...
+                                capture_folder = None
                                 try:
-                                    capture_folder = get_capture_folder_from_device_id('host')
+                                    # Look for capture folder in various fields in json_data
+                                    for field in ['frame_path', 'thumbnail_path', 'last_3_filenames']:
+                                        if field in json_data and json_data[field]:
+                                            path = json_data[field] if isinstance(json_data[field], str) else json_data[field][0]
+                                            # Extract capture folder from path like /var/www/html/stream/capture3/...
+                                            match = re.search(r'/stream/(capture\d+)/', path)
+                                            if match:
+                                                capture_folder = match.group(1)
+                                                logger.info(f"✅ Extracted capture folder '{capture_folder}' from {field}: {path}")
+                                                break
+                                    
+                                    if not capture_folder:
+                                        raise ValueError(f"Could not extract capture folder from json_data fields")
+                                    
                                     host_device = {
                                         'device_id': 'host',
                                         'device_name': f"{host_name}_Host",
@@ -315,9 +329,12 @@ class HeatmapProcessor:
                                     # Temporarily add to host_data for URL building
                                     host_data = host_data.copy()
                                     host_data['devices'] = devices + [host_device]
-                                    logger.info(f"✅ Created synthetic host device entry for {host_name}")
+                                    logger.info(f"✅ Created synthetic host device entry for {host_name} with capture_folder={capture_folder}")
                                 except Exception as e:
-                                    logger.warning(f"⚠️ Could not create host device entry: {e}")
+                                    logger.error(f"❌ Could not create host device entry: {e}")
+                                    logger.error(f"   json_data keys: {list(json_data.keys())}")
+                                    # Can't proceed without proper device config
+                                    return None
                         
                         # Build URLs based on filename
                         capture_filename = f"capture_{sequence}.jpg"
