@@ -2066,7 +2066,7 @@ def main():
     # ✅ STARTUP CLEANUP: Clear any stale zapping markers from previous crashed instances
     cleanup_stale_zapping_markers()
     
-    host_name = os.getenv('USER', 'unknown')
+    host_name = os.getenv('HOST_NAME', 'unknown')
     
     # Get base directories and resolve hot/cold paths automatically
     base_dirs = get_capture_base_directories()
