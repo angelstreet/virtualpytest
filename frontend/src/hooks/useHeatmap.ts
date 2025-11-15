@@ -83,14 +83,14 @@ export const useHeatmap = () => {
   /**
    * Generate 24-hour timeline with predictable file names
    */
-  const generateTimeline = (): TimelineItem[] => {
-    if (!selectedServer || !serverName) return [];
+  const generateTimeline = (serverPath: string): TimelineItem[] => {
+    if (!selectedServer || !serverPath) return [];
     
     const now = new Date();
     const items: TimelineItem[] = [];
     
     // Use server name directly (no URL conversion)
-    console.log(`[@useHeatmap] Generating timeline for server: ${serverName}`);
+    console.log(`[@useHeatmap] Generating timeline for server: ${serverPath}`);
     
     // Generate 1440 minutes (24 hours)
     for (let i = 0; i < 1440; i++) {
@@ -101,10 +101,10 @@ export const useHeatmap = () => {
         timeKey,
         displayTime: time,
         isToday: time.toDateString() === now.toDateString(),
-        mosaicUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}.jpg`,
-        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}_ok.jpg`,
-        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}_ko.jpg`,
-        analysisUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}.json`
+        mosaicUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.jpg`,
+        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ok.jpg`,
+        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ko.jpg`,
+        analysisUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.json`
       });
     }
     
@@ -206,8 +206,8 @@ export const useHeatmap = () => {
       const name = await fetchServerName();
       setServerName(name);
       
-      // Generate timeline with server name
-      const newTimeline = generateTimeline();
+      // Generate timeline with server name (pass directly, don't read state)
+      const newTimeline = generateTimeline(name);
       setTimeline(newTimeline);
       
       // Load analysis for initial item
@@ -224,7 +224,8 @@ export const useHeatmap = () => {
    */
   useEffect(() => {
     const interval = setInterval(() => {
-      const newTimeline = generateTimeline();
+      // Use current serverName state for refresh
+      const newTimeline = generateTimeline(serverName);
       setTimeline(newTimeline);
       
       // If we're at the latest position, stay there with new data
@@ -234,7 +235,7 @@ export const useHeatmap = () => {
     }, 60000); // Refresh every minute
     
     return () => clearInterval(interval);
-  }, [currentIndex, selectedServer]);
+  }, [currentIndex, selectedServer, serverName]);
   
   /**
    * Load analysis when timeline position changes (but NOT when timeline regenerates)
