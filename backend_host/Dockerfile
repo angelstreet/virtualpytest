@@ -34,6 +34,8 @@ RUN apt-get update && apt-get install -y \
     libgomp1 \
     chromium \
     chromium-driver \
+    nano \
+    vim \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

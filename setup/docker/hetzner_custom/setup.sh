@@ -66,33 +66,45 @@ fi
 # ============================================
 echo "🧹 Checking for existing containers..."
 
-# Check if docker-compose.yml exists
-if [ -f "docker-compose.yml" ]; then
-    # Try to find .env file
-    if [ -f "$PROJECT_ROOT/.env" ]; then
-        RUNNING=$(docker-compose --env-file "$PROJECT_ROOT/.env" -f docker-compose.yml ps -q 2>/dev/null | wc -l)
-        if [ "$RUNNING" -gt 0 ]; then
-            echo "   Found running containers, stopping..."
-            docker-compose --env-file "$PROJECT_ROOT/.env" -f docker-compose.yml down
-            echo "   ✅ Containers stopped and removed"
+# Check if Docker is running
+if ! docker info >/dev/null 2>&1; then
+    echo "   ℹ️  Docker not running (will start with launch.sh)"
+else
+    # Disable auto-restart on all existing containers
+    EXISTING_CONTAINERS=$(docker ps -aq 2>/dev/null)
+    if [ -n "$EXISTING_CONTAINERS" ]; then
+        echo "   Disabling auto-restart on all existing containers..."
+        docker update --restart=no $(docker ps -aq) 2>/dev/null || true
+    fi
+    
+    # Check if docker-compose.yml exists
+    if [ -f "docker-compose.yml" ]; then
+        # Try to find .env file
+        if [ -f "$PROJECT_ROOT/.env" ]; then
+            RUNNING=$(docker-compose --env-file "$PROJECT_ROOT/.env" -f docker-compose.yml ps -q 2>/dev/null | wc -l)
+            if [ "$RUNNING" -gt 0 ]; then
+                echo "   Found running containers, stopping..."
+                docker-compose --env-file "$PROJECT_ROOT/.env" -f docker-compose.yml down
+                echo "   ✅ Containers stopped and removed"
+            else
+                echo "   No running containers found"
+            fi
         else
-            echo "   No running containers found"
+            echo "   ⚠️  Warning: .env file not found at $PROJECT_ROOT/.env"
+            echo "   Trying to stop containers without env file..."
+            docker-compose -f docker-compose.yml down 2>/dev/null || true
         fi
     else
-        echo "   ⚠️  Warning: .env file not found at $PROJECT_ROOT/.env"
-        echo "   Trying to stop containers without env file..."
-        docker-compose -f docker-compose.yml down 2>/dev/null || true
+        echo "   No docker-compose.yml found (first run)"
     fi
-else
-    echo "   No docker-compose.yml found (first run)"
-fi
-
-# Also check for any orphaned virtualpytest containers
-ORPHANED=$(docker ps -a --filter "name=virtualpytest" -q 2>/dev/null | wc -l)
-if [ "$ORPHANED" -gt 0 ]; then
-    echo "   Found ${ORPHANED} orphaned containers, removing..."
-    docker rm -f $(docker ps -a --filter "name=virtualpytest" -q) 2>/dev/null || true
-    echo "   ✅ Orphaned containers removed"
+    
+    # Also check for any orphaned virtualpytest containers
+    ORPHANED=$(docker ps -a --filter "name=virtualpytest" -q 2>/dev/null | wc -l)
+    if [ "$ORPHANED" -gt 0 ]; then
+        echo "   Found ${ORPHANED} orphaned containers, removing..."
+        docker rm -f $(docker ps -a --filter "name=virtualpytest" -q) 2>/dev/null || true
+        echo "   ✅ Orphaned containers removed"
+    fi
 fi
 
 echo ""
@@ -113,6 +125,70 @@ if ! command -v wg &> /dev/null; then
 else
     echo "   ✅ WireGuard already installed"
 fi
+
+echo ""
+
+# ============================================
+# 0.3. SWAP SETUP (Prevent OOM crashes)
+# ============================================
+echo "💾 Swap Configuration:"
+
+SWAP_SIZE=$(swapon --show --noheadings --bytes | awk '{print $3}' | head -1)
+
+if [ -z "$SWAP_SIZE" ] || [ "$SWAP_SIZE" = "0" ]; then
+    echo "   ⚠️  No swap detected - creating 4GB swap file..."
+    
+    # Create swap file
+    if sudo fallocate -l 4G /swapfile 2>/dev/null; then
+        echo "   ✅ Swap file allocated"
+    else
+        echo "   Using dd (slower method)..."
+        sudo dd if=/dev/zero of=/swapfile bs=1M count=4096 status=progress
+    fi
+    
+    # Set permissions
+    sudo chmod 600 /swapfile
+    
+    # Format as swap
+    sudo mkswap /swapfile
+    
+    # Enable swap
+    sudo swapon /swapfile
+    
+    # Make permanent
+    if ! grep -q "/swapfile" /etc/fstab; then
+        echo '/swapfile none swap sw 0 0' | sudo tee -a /etc/fstab
+        echo "   ✅ Swap added to /etc/fstab (permanent)"
+    fi
+    
+    # Optimize swap settings
+    sudo sysctl vm.swappiness=10
+    sudo sysctl vm.vfs_cache_pressure=50
+    
+    if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
+        echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+        echo 'vm.vfs_cache_pressure=50' | sudo tee -a /etc/sysctl.conf
+        echo "   ✅ Swap settings saved to /etc/sysctl.conf"
+    fi
+    
+    echo "   ✅ 4GB swap created and enabled"
+else
+    SWAP_SIZE_GB=$((SWAP_SIZE / 1024 / 1024 / 1024))
+    echo "   ✅ Swap already configured: ${SWAP_SIZE_GB}GB"
+    
+    # Ensure optimal settings
+    CURRENT_SWAPPINESS=$(cat /proc/sys/vm/swappiness)
+    if [ "$CURRENT_SWAPPINESS" -gt 10 ]; then
+        sudo sysctl vm.swappiness=10
+        if ! grep -q "vm.swappiness" /etc/sysctl.conf; then
+            echo 'vm.swappiness=10' | sudo tee -a /etc/sysctl.conf
+        fi
+        echo "   ✅ Swappiness optimized: 10 (was $CURRENT_SWAPPINESS)"
+    fi
+fi
+
+# Show current swap status
+swapon --show 2>/dev/null || true
 
 echo ""
 
@@ -411,7 +487,7 @@ services:
       - GF_SERVER_DOMAIN=${DOMAIN}
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-    restart: unless-stopped
+    restart: "no"
     networks:
       - hetzner_network
 
@@ -457,7 +533,7 @@ for i in $(seq 1 $HOST_MAX); do
     security_opt:
       - seccomp=unconfined
       - apparmor=unconfined
-    restart: unless-stopped
+    restart: "no"
     networks:
       - hetzner_network
 

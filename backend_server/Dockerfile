@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     libxrender-dev \
     libgomp1 \
     xvfb \
+    nano \
+    vim \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Grafana
