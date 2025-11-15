@@ -303,20 +303,50 @@ class HeatmapProcessor:
                             if not host_device_exists:
                                 # Extract capture folder from the JSON data itself (not from env vars)
                                 # The json_data should contain paths like /var/www/html/stream/capture3/...
+                                logger.info(f"🔍 [{host_name}/host] Extracting capture folder from json_data...")
+                                logger.info(f"   json_data keys: {list(json_data.keys())}")
+                                
                                 capture_folder = None
                                 try:
                                     # Look for capture folder in various fields in json_data
-                                    for field in ['frame_path', 'thumbnail_path', 'last_3_filenames']:
-                                        if field in json_data and json_data[field]:
-                                            path = json_data[field] if isinstance(json_data[field], str) else json_data[field][0]
-                                            # Extract capture folder from path like /var/www/html/stream/capture3/...
-                                            match = re.search(r'/stream/(capture\d+)/', path)
-                                            if match:
-                                                capture_folder = match.group(1)
-                                                logger.info(f"✅ Extracted capture folder '{capture_folder}' from {field}: {path}")
-                                                break
+                                    search_fields = ['frame_path', 'thumbnail_path', 'last_3_filenames', 'last_3_thumbnails']
+                                    
+                                    for field in search_fields:
+                                        logger.info(f"   Checking field '{field}'...")
+                                        
+                                        if field not in json_data:
+                                            logger.info(f"      ⚠️ Field '{field}' not found in json_data")
+                                            continue
+                                            
+                                        field_value = json_data[field]
+                                        if not field_value:
+                                            logger.info(f"      ⚠️ Field '{field}' is empty: {field_value}")
+                                            continue
+                                        
+                                        # Get path string (handle both string and list types)
+                                        if isinstance(field_value, str):
+                                            path = field_value
+                                        elif isinstance(field_value, list) and len(field_value) > 0:
+                                            path = field_value[0]
+                                        else:
+                                            logger.info(f"      ⚠️ Field '{field}' has unexpected type: {type(field_value)}")
+                                            continue
+                                        
+                                        logger.info(f"      Path to parse: {path}")
+                                        
+                                        # Extract capture folder from path like /var/www/html/stream/capture3/...
+                                        match = re.search(r'/stream/(capture\d+)/', path)
+                                        if match:
+                                            capture_folder = match.group(1)
+                                            logger.info(f"      ✅ MATCH! Extracted capture folder: '{capture_folder}'")
+                                            break
+                                        else:
+                                            logger.info(f"      ❌ No regex match for pattern '/stream/(capture\\d+)/' in: {path}")
                                     
                                     if not capture_folder:
+                                        logger.error(f"❌ Could not extract capture folder from any field")
+                                        logger.error(f"   Searched fields: {search_fields}")
+                                        logger.error(f"   Available json_data: {json.dumps(json_data, indent=2)[:1000]}")  # First 1000 chars
                                         raise ValueError(f"Could not extract capture folder from json_data fields")
                                     
                                     host_device = {
@@ -326,21 +356,40 @@ class HeatmapProcessor:
                                         'video_stream_path': f'/stream/{capture_folder}/segments/output.m3u8',
                                         'video_capture_path': f'/var/www/html/stream/{capture_folder}'
                                     }
+                                    
+                                    logger.info(f"✅ Created host_device config:")
+                                    logger.info(f"   device_id: {host_device['device_id']}")
+                                    logger.info(f"   device_name: {host_device['device_name']}")
+                                    logger.info(f"   device_model: {host_device['device_model']}")
+                                    logger.info(f"   video_stream_path: {host_device['video_stream_path']}")
+                                    logger.info(f"   video_capture_path: {host_device['video_capture_path']}")
+                                    
                                     # Temporarily add to host_data for URL building
                                     host_data = host_data.copy()
                                     host_data['devices'] = devices + [host_device]
-                                    logger.info(f"✅ Created synthetic host device entry for {host_name} with capture_folder={capture_folder}")
+                                    logger.info(f"✅ Added host device to host_data for {host_name}")
                                 except Exception as e:
                                     logger.error(f"❌ Could not create host device entry: {e}")
-                                    logger.error(f"   json_data keys: {list(json_data.keys())}")
+                                    logger.error(f"   Exception type: {type(e).__name__}")
+                                    logger.error(f"   json_data keys available: {list(json_data.keys())}")
                                     # Can't proceed without proper device config
                                     return None
                         
                         # Build URLs based on filename
                         capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
+                        
+                        logger.info(f"🔗 [{host_name}/{device_id}] Building URLs...")
+                        logger.info(f"   capture_filename: {capture_filename}")
+                        logger.info(f"   json_filename: {json_filename}")
+                        logger.info(f"   device_id for URL building: {device_id}")
+                        
                         image_url = buildCaptureUrl(host_data, capture_filename, device_id)
                         json_url = buildMetadataUrl(host_data, json_filename, device_id)
+                        
+                        logger.info(f"✅ [{host_name}/{device_id}] Built URLs:")
+                        logger.info(f"   image_url: {image_url}")
+                        logger.info(f"   json_url: {json_url}")
                         
                         # Analysis data is already in json_data
                         analysis_data = json_data if json_data.get('analyzed') else None
