@@ -41,7 +41,7 @@ try:
     if os.path.exists(project_env_path):
         load_dotenv(project_env_path)
         print(f"[@heatmap_processor] Loaded environment from {project_env_path}")
-        print(f"[@heatmap_processor] SERVER_URL={os.getenv('SERVER_URL')}")
+        print(f"[@heatmap_processor] SERVER_NAME={os.getenv('SERVER_NAME', 'default')}")
     else:
         print(f"[@heatmap_processor] Warning: .env not found at {project_env_path}")
 except ImportError:
@@ -92,19 +92,13 @@ class HeatmapProcessor:
         logger.info(f"🏷️ HeatmapProcessor server path: {self.server_path}")
     
     def _get_server_path(self) -> str:
-        """Get server path for R2 storage organization - uses backend SERVER_URL"""
-        import re
+        """Get server path for R2 storage organization using SERVER_NAME"""
+        # Use SERVER_NAME to organize heatmaps by deployment instance
+        # Examples: "hetzner-prod", "local-dev", "render-staging"
+        server_name = os.getenv('SERVER_NAME', 'default')
         
-        # Use backend's own SERVER_URL (not frontend's VITE_SERVER_URL)
-        # This is the actual server URL where this backend is running
-        server_url = os.getenv('SERVER_URL', 'http://localhost:5109')
-        
-        # Remove protocol and replace all special chars (. : /) with - for folder structure
-        without_protocol = re.sub(r'^https?://', '', server_url)
-        server_path = re.sub(r'[.:/]', '-', without_protocol)
-        
-        logger.info(f"📍 Using SERVER_URL: {server_url} → R2 path: heatmaps/{server_path}/")
-        return server_path
+        logger.info(f"📍 Using SERVER_NAME: {server_name} → R2 path: heatmaps/{server_name}/")
+        return server_name
         
     def start(self):
         """Start continuous processing every minute"""
