@@ -264,6 +264,8 @@ class HeatmapProcessor:
             # Call host directly (not via central server proxy) since we're running as standalone script
             api_url = buildHostUrl(host_data, 'host/monitoring/latest-json')
             
+            logger.info(f"🔗 [{host_name}/{device_id}/{device_name}] Calling: {api_url}")
+            
             response = self.session.post(
                 api_url,
                 json={
@@ -272,9 +274,13 @@ class HeatmapProcessor:
                 timeout=10,
                 verify=False  # For self-signed certificates
             )
+            
+            logger.info(f"📥 [{host_name}/{device_id}/{device_name}] Response: HTTP {response.status_code}")
                     
             if response.status_code == 200:
                 result = response.json()
+                logger.info(f"📦 [{host_name}/{device_id}/{device_name}] Response body: {result}")
+                
                 if result.get('success') and result.get('latest_json_url'):
                     raw_json_url = result['latest_json_url']
                     
@@ -322,11 +328,20 @@ class HeatmapProcessor:
                     else:
                         logger.warning(f"⚠️ Could not extract sequence from {raw_json_url}")
                 else:
-                    logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {result.get('error', 'Unknown error')}")
+                    error_msg = result.get('error', 'Unknown error')
+                    logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {error_msg}")
+                    logger.warning(f"   Full response: {result}")
             else:
                 logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {response.status_code}")
+                try:
+                    error_body = response.text[:500]  # First 500 chars
+                    logger.error(f"   Error body: {error_body}")
+                except:
+                    pass
         except Exception as e:
             logger.error(f"❌ Error fetching capture for {host_name}/{device_id}/{device_name}: {e}")
+            logger.error(f"   Exception type: {type(e).__name__}")
+            logger.error(f"   Exception details: {str(e)}")
         
         return None
     
