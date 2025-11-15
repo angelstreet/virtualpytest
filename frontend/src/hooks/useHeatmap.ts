@@ -56,19 +56,27 @@ export const useHeatmap = () => {
   const [corsBlocked, setCorsBlocked] = useState(false);
   const [retryAttempts, setRetryAttempts] = useState(0);
   const [lastSuccessfulIndex, setLastSuccessfulIndex] = useState<number | null>(null);
+  const [serverName, setServerName] = useState<string>('default'); // Server name from backend
   
   // Get R2 base URL from environment
   const R2_BASE_URL = (import.meta as any).env?.VITE_CLOUDFLARE_R2_PUBLIC_URL || '';
   
-  // Get server path for R2 URLs using selectedServer (matches backend logic)
-  const getServerPath = (serverUrl: string): string => {
-    if (!serverUrl) return 'server-unknown';
-    
-    // Remove protocol and replace all special chars (. : /) with - (same as backend)
-    const withoutProtocol = serverUrl.replace(/^https?:\/\//, '');
-    const serverPath = withoutProtocol.replace(/[.:/]/g, '-');
-    console.log(`[@useHeatmap] Using selectedServer: ${serverUrl} → ${serverPath}`);
-    return serverPath;
+  /**
+   * Fetch server name from backend
+   */
+  const fetchServerName = async (): Promise<string> => {
+    try {
+      const response = await fetch(`${selectedServer}/server/system/getAllHosts?include_system_stats=false`);
+      if (response.ok) {
+        const data = await response.json();
+        const name = data?.server_info?.server_name || 'default';
+        console.log(`[@useHeatmap] Fetched SERVER_NAME from backend: ${name}`);
+        return name;
+      }
+    } catch (error) {
+      console.warn(`[@useHeatmap] Failed to fetch server name, using 'default':`, error);
+    }
+    return 'default';
   };
   
   
@@ -76,11 +84,13 @@ export const useHeatmap = () => {
    * Generate 24-hour timeline with predictable file names
    */
   const generateTimeline = (): TimelineItem[] => {
-    if (!selectedServer) return [];
+    if (!selectedServer || !serverName) return [];
     
     const now = new Date();
     const items: TimelineItem[] = [];
-    const serverPath = getServerPath(selectedServer);
+    
+    // Use server name directly (no URL conversion)
+    console.log(`[@useHeatmap] Generating timeline for server: ${serverName}`);
     
     // Generate 1440 minutes (24 hours)
     for (let i = 0; i < 1440; i++) {
@@ -91,10 +101,10 @@ export const useHeatmap = () => {
         timeKey,
         displayTime: time,
         isToday: time.toDateString() === now.toDateString(),
-        mosaicUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.jpg`,
-        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ok.jpg`,
-        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}_ko.jpg`,
-        analysisUrl: `${R2_BASE_URL}/heatmaps/${serverPath}/${timeKey}.json`
+        mosaicUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}.jpg`,
+        mosaicOkUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}_ok.jpg`,
+        mosaicKoUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}_ko.jpg`,
+        analysisUrl: `${R2_BASE_URL}/heatmaps/${serverName}/${timeKey}.json`
       });
     }
     
@@ -191,13 +201,22 @@ export const useHeatmap = () => {
    * Initialize timeline on mount and when server changes
    */
   useEffect(() => {
-    const newTimeline = generateTimeline();
-    setTimeline(newTimeline);
+    const initTimeline = async () => {
+      // Fetch server name first
+      const name = await fetchServerName();
+      setServerName(name);
+      
+      // Generate timeline with server name
+      const newTimeline = generateTimeline();
+      setTimeline(newTimeline);
+      
+      // Load analysis for initial item
+      if (newTimeline[currentIndex]) {
+        loadAnalysisData(newTimeline[currentIndex]);
+      }
+    };
     
-    // Load analysis for initial item
-    if (newTimeline[currentIndex]) {
-      loadAnalysisData(newTimeline[currentIndex]);
-    }
+    initTimeline();
   }, [selectedServer]);
   
   /**
