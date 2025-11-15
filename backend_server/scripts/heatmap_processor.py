@@ -322,19 +322,26 @@ class HeatmapProcessor:
                                     logger.info(f"✅ [{host_name}/{device_id}] Extracted '{capture_folder}' from {field}")
                                     break
                         
-                        if not capture_folder:
-                            logger.error(f"❌ [{host_name}/{device_id}] Could not extract capture folder from json_data")
-                            return None
-                        
-                        # Build URLs directly from extracted capture folder (same for all devices!)
-                        from shared.src.lib.utils.build_url_utils import buildHostUrl
+                        # Build URLs - try extracted folder first, fall back to device config
+                        from shared.src.lib.utils.build_url_utils import buildHostUrl, buildCaptureUrl, buildMetadataUrl
                         
                         capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
                         
-                        # Use buildHostUrl with the actual path (it handles host path prefix automatically)
-                        image_url = buildHostUrl(host_data, f'stream/{capture_folder}/captures/{capture_filename}')
-                        json_url = buildHostUrl(host_data, f'stream/{capture_folder}/metadata/{json_filename}')
+                        if capture_folder:
+                            # Use extracted capture folder
+                            # Build URL with 'host/' prefix to match API call pattern
+                            image_url = buildHostUrl(host_data, f'host/stream/{capture_folder}/captures/{capture_filename}')
+                            json_url = buildHostUrl(host_data, f'host/stream/{capture_folder}/metadata/{json_filename}')
+                        else:
+                            # Fallback: use device config (works for devices with proper config)
+                            logger.warning(f"⚠️ [{host_name}/{device_id}] No paths in json_data, using device config fallback")
+                            try:
+                                image_url = buildCaptureUrl(host_data, capture_filename, device_id)
+                                json_url = buildMetadataUrl(host_data, json_filename, device_id)
+                            except Exception as e:
+                                logger.error(f"❌ [{host_name}/{device_id}] Fallback also failed: {e}")
+                                return None
                         
                         logger.info(f"✅ [{host_name}/{device_id}] Built URLs from {capture_folder}:")
                         logger.info(f"   image_url: {image_url}")
