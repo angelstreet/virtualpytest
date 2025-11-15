@@ -292,102 +292,51 @@ class HeatmapProcessor:
                     sequence = sequence_match.group(1) if sequence_match else ''
                     
                     if sequence:
-                        from shared.src.lib.utils.build_url_utils import buildCaptureUrl, buildMetadataUrl
+                        # Extract capture folder from json_data paths (works for all devices including host!)
+                        capture_folder = None
+                        search_fields = ['frame_path', 'thumbnail_path', 'last_3_filenames', 'last_3_thumbnails', 
+                                       'freeze_comparisons']  # freeze_comparisons contains paths too
                         
-                        # Special handling for device_id='host' - need to add host device to host_data
-                        if device_id == 'host':
-                            # Create a synthetic device entry for the host if not already in devices array
-                            devices = host_data.get('devices', [])
-                            host_device_exists = any(d.get('device_id') == 'host' for d in devices)
+                        for field in search_fields:
+                            if field not in json_data or not json_data[field]:
+                                continue
                             
-                            if not host_device_exists:
-                                # Extract capture folder from the JSON data itself (not from env vars)
-                                # The json_data should contain paths like /var/www/html/stream/capture3/...
-                                logger.info(f"🔍 [{host_name}/host] Extracting capture folder from json_data...")
-                                logger.info(f"   json_data keys: {list(json_data.keys())}")
-                                
-                                capture_folder = None
-                                try:
-                                    # Look for capture folder in various fields in json_data
-                                    search_fields = ['frame_path', 'thumbnail_path', 'last_3_filenames', 'last_3_thumbnails']
-                                    
-                                    for field in search_fields:
-                                        logger.info(f"   Checking field '{field}'...")
-                                        
-                                        if field not in json_data:
-                                            logger.info(f"      ⚠️ Field '{field}' not found in json_data")
-                                            continue
-                                            
-                                        field_value = json_data[field]
-                                        if not field_value:
-                                            logger.info(f"      ⚠️ Field '{field}' is empty: {field_value}")
-                                            continue
-                                        
-                                        # Get path string (handle both string and list types)
-                                        if isinstance(field_value, str):
-                                            path = field_value
-                                        elif isinstance(field_value, list) and len(field_value) > 0:
-                                            path = field_value[0]
-                                        else:
-                                            logger.info(f"      ⚠️ Field '{field}' has unexpected type: {type(field_value)}")
-                                            continue
-                                        
-                                        logger.info(f"      Path to parse: {path}")
-                                        
-                                        # Extract capture folder from path like /var/www/html/stream/capture3/...
-                                        match = re.search(r'/stream/(capture\d+)/', path)
-                                        if match:
-                                            capture_folder = match.group(1)
-                                            logger.info(f"      ✅ MATCH! Extracted capture folder: '{capture_folder}'")
-                                            break
-                                        else:
-                                            logger.info(f"      ❌ No regex match for pattern '/stream/(capture\\d+)/' in: {path}")
-                                    
-                                    if not capture_folder:
-                                        logger.error(f"❌ Could not extract capture folder from any field")
-                                        logger.error(f"   Searched fields: {search_fields}")
-                                        logger.error(f"   Available json_data: {json.dumps(json_data, indent=2)[:1000]}")  # First 1000 chars
-                                        raise ValueError(f"Could not extract capture folder from json_data fields")
-                                    
-                                    host_device = {
-                                        'device_id': 'host',
-                                        'device_name': f"{host_name}_Host",
-                                        'device_model': 'host_vnc',  # Required for URL building
-                                        'video_stream_path': f'/stream/{capture_folder}/segments/output.m3u8',
-                                        'video_capture_path': f'/var/www/html/stream/{capture_folder}'
-                                    }
-                                    
-                                    logger.info(f"✅ Created host_device config:")
-                                    logger.info(f"   device_id: {host_device['device_id']}")
-                                    logger.info(f"   device_name: {host_device['device_name']}")
-                                    logger.info(f"   device_model: {host_device['device_model']}")
-                                    logger.info(f"   video_stream_path: {host_device['video_stream_path']}")
-                                    logger.info(f"   video_capture_path: {host_device['video_capture_path']}")
-                                    
-                                    # Temporarily add to host_data for URL building
-                                    host_data = host_data.copy()
-                                    host_data['devices'] = devices + [host_device]
-                                    logger.info(f"✅ Added host device to host_data for {host_name}")
-                                except Exception as e:
-                                    logger.error(f"❌ Could not create host device entry: {e}")
-                                    logger.error(f"   Exception type: {type(e).__name__}")
-                                    logger.error(f"   json_data keys available: {list(json_data.keys())}")
-                                    # Can't proceed without proper device config
-                                    return None
+                            # Get a path string from the field
+                            field_value = json_data[field]
+                            path = None
+                            
+                            if isinstance(field_value, str):
+                                path = field_value
+                            elif isinstance(field_value, list) and len(field_value) > 0:
+                                # For freeze_comparisons, extract from dict
+                                if isinstance(field_value[0], dict):
+                                    path = field_value[0].get('current_capture_path') or field_value[0].get('previous_capture_path')
+                                else:
+                                    path = field_value[0]
+                            
+                            if path:
+                                # Extract capture folder from path like /var/www/html/stream/capture3/...
+                                match = re.search(r'/stream/(capture\d+)/', path)
+                                if match:
+                                    capture_folder = match.group(1)
+                                    logger.info(f"✅ [{host_name}/{device_id}] Extracted '{capture_folder}' from {field}")
+                                    break
                         
-                        # Build URLs based on filename
+                        if not capture_folder:
+                            logger.error(f"❌ [{host_name}/{device_id}] Could not extract capture folder from json_data")
+                            return None
+                        
+                        # Build URLs directly from extracted capture folder (same for all devices!)
+                        from shared.src.lib.utils.build_url_utils import buildHostUrl
+                        base_url = buildHostUrl(host_data, '')  # Get base host URL
+                        
                         capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
                         
-                        logger.info(f"🔗 [{host_name}/{device_id}] Building URLs...")
-                        logger.info(f"   capture_filename: {capture_filename}")
-                        logger.info(f"   json_filename: {json_filename}")
-                        logger.info(f"   device_id for URL building: {device_id}")
+                        image_url = f"{base_url}stream/{capture_folder}/captures/{capture_filename}"
+                        json_url = f"{base_url}stream/{capture_folder}/metadata/{json_filename}"
                         
-                        image_url = buildCaptureUrl(host_data, capture_filename, device_id)
-                        json_url = buildMetadataUrl(host_data, json_filename, device_id)
-                        
-                        logger.info(f"✅ [{host_name}/{device_id}] Built URLs:")
+                        logger.info(f"✅ [{host_name}/{device_id}] Built URLs from {capture_folder}:")
                         logger.info(f"   image_url: {image_url}")
                         logger.info(f"   json_url: {json_url}")
                         
