@@ -328,13 +328,13 @@ class HeatmapProcessor:
                         
                         # Build URLs directly from extracted capture folder (same for all devices!)
                         from shared.src.lib.utils.build_url_utils import buildHostUrl
-                        base_url = buildHostUrl(host_data, '')  # Get base host URL
                         
                         capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
                         
-                        image_url = f"{base_url}stream/{capture_folder}/captures/{capture_filename}"
-                        json_url = f"{base_url}stream/{capture_folder}/metadata/{json_filename}"
+                        # Use buildHostUrl with the actual path (it handles host path prefix automatically)
+                        image_url = buildHostUrl(host_data, f'stream/{capture_folder}/captures/{capture_filename}')
+                        json_url = buildHostUrl(host_data, f'stream/{capture_folder}/metadata/{json_filename}')
                         
                         logger.info(f"✅ [{host_name}/{device_id}] Built URLs from {capture_folder}:")
                         logger.info(f"   image_url: {image_url}")
