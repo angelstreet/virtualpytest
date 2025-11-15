@@ -407,9 +407,9 @@ class HeatmapProcessor:
                             'sequence': sequence
                         }
                     else:
-                    error_msg = result.get('error', 'Unknown error')
-                    logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {error_msg}")
-                    logger.warning(f"   Full response: {result}")
+                        error_msg = result.get('error', 'Unknown error')
+                        logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {error_msg}")
+                        logger.warning(f"   Full response: {result}")
             else:
                 logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {response.status_code}")
                 try:
