@@ -75,7 +75,7 @@ def populate_unified_cache(root_tree_id: str, team_id: str, all_trees_data: List
     CRITICAL: Always stores under the ROOT tree_id, not the entry tree_id
     """
     try:
-        from  backend_host.src.lib.utils.navigation_graph import create_unified_networkx_graph
+        from shared.src.lib.utils.navigation_graph import create_unified_networkx_graph
         
         if not all_trees_data:
             return None

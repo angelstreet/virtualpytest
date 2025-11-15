@@ -36,6 +36,9 @@ RUN apt-get update && apt-get install -y \
     chromium-driver \
     nano \
     vim \
+    dnsutils \
+    iputils-ping \
+    traceroute \
     && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app

@@ -28,7 +28,7 @@ from shared.src.lib.executors.script_decorators import script, get_args, get_con
 def _get_validation_plan(context):
     """Get list of transitions to validate - optimized to use cache"""
     from backend_host.src.services.navigation.navigation_pathfinding import find_optimal_edge_validation_sequence
-    from backend_host.src.lib.utils.navigation_cache import get_cached_unified_graph
+    from shared.src.lib.utils.navigation_cache import get_cached_unified_graph
     from shared.src.lib.database.userinterface_db import get_userinterface_by_name
     from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
     

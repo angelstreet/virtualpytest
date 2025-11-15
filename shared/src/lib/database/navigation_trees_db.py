@@ -82,7 +82,7 @@ def invalidate_navigation_cache_for_tree(tree_id: str, team_id: str):
         print(f"[@cache_invalidation] 🔄 Clearing LOCAL cache for tree: {tree_id} (will rebuild on next take-control)")
         
         # Clear local cache directly (works when running in backend_host)
-        from backend_host.src.lib.utils.navigation_cache import clear_unified_cache
+        from shared.src.lib.utils.navigation_cache import clear_unified_cache
         clear_unified_cache(tree_id, team_id)
         
         print(f"[@cache_invalidation] ✅ Cache cleared for tree: {tree_id}")
@@ -595,7 +595,7 @@ def get_complete_tree_hierarchy(root_tree_id: str, team_id: str) -> Dict[str, An
         Dictionary with complete hierarchy data ready for unified pathfinding
     """
     try:
-        from  backend_host.src.lib.utils.navigation_exceptions import DatabaseError
+        from shared.src.lib.utils.navigation_exceptions import DatabaseError
         
         # Get root tree
         root_tree = get_full_tree(root_tree_id, team_id)
