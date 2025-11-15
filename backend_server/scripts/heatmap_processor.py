@@ -254,22 +254,23 @@ class HeatmapProcessor:
     def _fetch_device_capture(self, device: Dict) -> Optional[Dict]:
         """Fetch current capture for a single device (for parallel execution)"""
         try:
-            from shared.src.lib.utils.build_url_utils import buildServerUrl
+            from shared.src.lib.utils.build_url_utils import buildHostUrl
             
             host_name = device['host_name']
             device_id = device['device_id']
             device_name = device.get('device_name', 'Unknown')
+            host_data = device['host_data']
             
-            # Use same endpoint as useMonitoring
-            api_url = buildServerUrl('server/monitoring/latest-json')
+            # Call host directly (not via central server proxy) since we're running as standalone script
+            api_url = buildHostUrl(host_data, 'host/monitoring/latest-json')
             
             response = self.session.post(
                 api_url,
                 json={
-                    'host_name': host_name,
                     'device_id': device_id
                 },
-                timeout=10
+                timeout=10,
+                verify=False  # For self-signed certificates
             )
                     
             if response.status_code == 200:
