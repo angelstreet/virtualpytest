@@ -583,7 +583,13 @@ class ScriptExecutor:
         venv_activate = os.path.join(project_root, 'venv', 'bin', 'activate')
         
         # Build command with parameters - PROPER SHELL QUOTING
-        base_command = f"source {venv_activate} && python {script_path}"
+        # Auto-detect: Use venv if exists (Raspberry Pi), otherwise use system Python (Docker)
+        if os.path.exists(venv_activate):
+            base_command = f"source {venv_activate} && python {script_path}"
+            print(f"[@script_executor] Using venv: {venv_activate}")
+        else:
+            base_command = f"python {script_path}"
+            print(f"[@script_executor] No venv found, using system Python (Docker mode)")
         
         if parameters and parameters.strip():
             # Split parameters and properly quote each one to handle special characters
