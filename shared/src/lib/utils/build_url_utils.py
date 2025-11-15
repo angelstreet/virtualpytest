@@ -102,8 +102,9 @@ def buildCaptureUrl(host_info: dict, filename: str, device_id: str) -> str:
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    # For static files (images), use nginx (port 80) not Flask server port
-    host_url = _get_nginx_host_url(host_info)
+    # For static files (images), prefer host_api_url for server-to-server (Docker internal)
+    # Fallback to nginx URL for browser/frontend access
+    host_url = host_info.get('host_api_url') or _get_nginx_host_url(host_info)
     
     return f"{host_url}/host{capture_path}/{filename}"
 
@@ -126,8 +127,9 @@ def buildThumbnailUrl(host_info: dict, filename: str, device_id: str) -> str:
     # Get device-specific stream path (not capture path)
     stream_path = _get_device_stream_path(host_info, device_id)
     
-    # For static files (images), use nginx (port 80) not Flask server port
-    host_url = _get_nginx_host_url(host_info)
+    # For static files, prefer host_api_url for server-to-server (Docker internal)
+    # Fallback to nginx URL for browser/frontend access
+    host_url = host_info.get('host_api_url') or _get_nginx_host_url(host_info)
     
     # Hot/cold architecture: thumbnails are in separate folder
     return f"{host_url}/host{stream_path}/thumbnails/{filename}"
@@ -151,8 +153,9 @@ def buildMetadataUrl(host_info: dict, filename: str, device_id: str) -> str:
     # Get device-specific stream path
     stream_path = _get_device_stream_path(host_info, device_id)
     
-    # For static files, use nginx (port 80) not Flask server port
-    host_url = _get_nginx_host_url(host_info)
+    # For static files, prefer host_api_url for server-to-server (Docker internal)
+    # Fallback to nginx URL for browser/frontend access
+    host_url = host_info.get('host_api_url') or _get_nginx_host_url(host_info)
     
     # Hot/cold architecture: metadata in separate folder
     return f"{host_url}/host{stream_path}/metadata/{filename}"
@@ -176,8 +179,9 @@ def buildCroppedImageUrl(host_info: dict, filename: str, device_id: str) -> str:
     # Get device-specific capture path
     capture_path = _get_device_capture_path(host_info, device_id)
     
-    # For static files (images), use nginx (port 80) not Flask server port
-    host_url = _get_nginx_host_url(host_info)
+    # For static files, prefer host_api_url for server-to-server (Docker internal)
+    # Fallback to nginx URL for browser/frontend access
+    host_url = host_info.get('host_api_url') or _get_nginx_host_url(host_info)
     
     return f"{host_url}/host{capture_path}/cropped/{filename}"
 
