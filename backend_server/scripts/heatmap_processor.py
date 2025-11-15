@@ -293,6 +293,31 @@ class HeatmapProcessor:
                     
                     if sequence:
                         from shared.src.lib.utils.build_url_utils import buildCaptureUrl, buildMetadataUrl
+                        
+                        # Special handling for device_id='host' - need to add host device to host_data
+                        if device_id == 'host':
+                            # Create a synthetic device entry for the host if not already in devices array
+                            devices = host_data.get('devices', [])
+                            host_device_exists = any(d.get('device_id') == 'host' for d in devices)
+                            
+                            if not host_device_exists:
+                                # Create host device entry using host capabilities
+                                from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id
+                                try:
+                                    capture_folder = get_capture_folder_from_device_id('host')
+                                    host_device = {
+                                        'device_id': 'host',
+                                        'device_name': f"{host_name}_Host",
+                                        'video_stream_path': f'/stream/{capture_folder}/segments/output.m3u8',
+                                        'video_capture_path': f'/var/www/html/stream/{capture_folder}'
+                                    }
+                                    # Temporarily add to host_data for URL building
+                                    host_data = host_data.copy()
+                                    host_data['devices'] = devices + [host_device]
+                                    logger.info(f"✅ Created synthetic host device entry for {host_name}")
+                                except Exception as e:
+                                    logger.warning(f"⚠️ Could not create host device entry: {e}")
+                        
                         # Build URLs based on filename
                         capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
