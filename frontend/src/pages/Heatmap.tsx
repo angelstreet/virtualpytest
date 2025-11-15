@@ -151,7 +151,7 @@ const HeatmapContent: React.FC = () => {
           {error}
         </MuiAlert>
       )}
-      
+
       {/* Stale Data Warning */}
       {hasDataError && analysisData && (
         <MuiAlert severity="warning" sx={{ mb: 1 }}>
