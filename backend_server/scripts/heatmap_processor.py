@@ -281,39 +281,28 @@ class HeatmapProcessor:
                 result = response.json()
                 logger.info(f"📦 [{host_name}/{device_id}/{device_name}] Response body: {result}")
                 
-                if result.get('success') and result.get('latest_json_url'):
-                    raw_json_url = result['latest_json_url']
+                if result.get('success') and 'json_data' in result and 'filename' in result:
+                    # Host returns json_data directly - no need for separate request
+                    json_data = result['json_data']
+                    filename = result['filename']
                     
-                    # Extract sequence using same regex as useMonitoring
+                    # Extract sequence from filename
                     import re
-                    sequence_match = re.search(r'capture_(\d+)', raw_json_url)
+                    sequence_match = re.search(r'capture_(\d+)', filename)
                     sequence = sequence_match.group(1) if sequence_match else ''
                     
                     if sequence:
                         from shared.src.lib.utils.build_url_utils import buildCaptureUrl, buildMetadataUrl
-                        # Use capture images (no more thumbnails - FFmpeg no longer generates them)
-                        # Heatmap downscales to 400x300 anyway, so using captures is better quality
+                        # Build URLs based on filename
                         capture_filename = f"capture_{sequence}.jpg"
                         json_filename = f"capture_{sequence}.json"
-                        image_url = buildCaptureUrl(device['host_data'], capture_filename, device_id)
-                        json_url = buildMetadataUrl(device['host_data'], json_filename, device_id)
+                        image_url = buildCaptureUrl(host_data, capture_filename, device_id)
+                        json_url = buildMetadataUrl(host_data, json_filename, device_id)
                         
-                        # Load JSON analysis data
-                        json_response = self.session.get(json_url, timeout=5)
-                        if json_response.status_code == 200:
-                            raw_json_data = json_response.json()
-                            
-                            logger.debug(f"🔍 RAW JSON for {host_name}/{device_id}/{device_name}: {raw_json_data}")
-                            
-                            has_real_data = any(key in raw_json_data for key in ['blackscreen', 'freeze', 'audio'])
-                            if has_real_data:
-                                analysis_data = raw_json_data
-                                logger.info(f"✅ Using raw analysis for {host_name}/{device_id}/{device_name}: blackscreen={raw_json_data.get('blackscreen')}, freeze={raw_json_data.get('freeze')}, audio={raw_json_data.get('audio')}")
-                            else:
-                                analysis_data = None
-                                logger.warning(f"⚠️ JSON exists but no analysis data for {host_name}/{device_id}/{device_name}: {raw_json_data}")
-                        else:
-                            analysis_data = None
+                        # Analysis data is already in json_data
+                        analysis_data = json_data if json_data.get('analyzed') else None
+                        
+                        logger.info(f"✅ Got json_data for {host_name}/{device_id}/{device_name}: sequence={sequence}")
                         
                         return {
                             'host_name': host_name,
@@ -325,8 +314,6 @@ class HeatmapProcessor:
                             'timestamp': result.get('timestamp', ''),
                             'sequence': sequence
                         }
-                    else:
-                        logger.warning(f"⚠️ Could not extract sequence from {raw_json_url}")
                 else:
                     error_msg = result.get('error', 'Unknown error')
                     logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {error_msg}")
