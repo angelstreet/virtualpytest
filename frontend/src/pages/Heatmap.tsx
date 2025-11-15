@@ -151,6 +151,13 @@ const HeatmapContent: React.FC = () => {
           {error}
         </MuiAlert>
       )}
+      
+      {/* Stale Data Warning */}
+      {hasDataError && analysisData && (
+        <MuiAlert severity="warning" sx={{ mb: 1 }}>
+          ⚠️ Heatmap data may be outdated. The backend processor might not be generating new data.
+        </MuiAlert>
+      )}
 
       {/* Header */}
       <Box sx={{ mb: 2 }}>

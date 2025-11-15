@@ -119,9 +119,24 @@ export const useHeatmap = () => {
       if (response.ok) {
         const data = await response.json();
         console.log(`[useHeatmap] Successfully loaded analysis data for ${item.timeKey}:`, data);
+        
+        // Validate data freshness - check if timestamp is recent (within 24 hours)
+        if (data.timestamp) {
+          const dataTimestamp = new Date(data.timestamp);
+          const now = new Date();
+          const ageInHours = (now.getTime() - dataTimestamp.getTime()) / (1000 * 60 * 60);
+          
+          if (ageInHours > 24) {
+            console.warn(`[@useHeatmap] ⚠️ STALE DATA: ${item.timeKey} is ${ageInHours.toFixed(1)}h old (timestamp: ${data.timestamp})`);
+            setHasDataError(true); // Mark as error to show warning
+          } else {
+            console.log(`[@useHeatmap] ✓ Fresh data: ${item.timeKey} age: ${ageInHours.toFixed(1)}h`);
+            setHasDataError(false);
+          }
+        }
+        
         setAnalysisData(data);
-        // Success - reset error flags and track success
-        setHasDataError(false);
+        // Success - reset flags and track success
         setCorsBlocked(false);
         setRetryAttempts(0);
         setLastSuccessfulIndex(timeline.findIndex(t => t.timeKey === item.timeKey));
