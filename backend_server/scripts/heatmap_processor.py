@@ -301,13 +301,14 @@ class HeatmapProcessor:
                             host_device_exists = any(d.get('device_id') == 'host' for d in devices)
                             
                             if not host_device_exists:
-                                # Create host device entry using host capabilities
+                                # Create host device entry matching how host registers itself
                                 from shared.src.lib.utils.storage_path_utils import get_capture_folder_from_device_id
                                 try:
                                     capture_folder = get_capture_folder_from_device_id('host')
                                     host_device = {
                                         'device_id': 'host',
                                         'device_name': f"{host_name}_Host",
+                                        'device_model': 'host_vnc',  # Required for URL building
                                         'video_stream_path': f'/stream/{capture_folder}/segments/output.m3u8',
                                         'video_capture_path': f'/var/www/html/stream/{capture_folder}'
                                     }
