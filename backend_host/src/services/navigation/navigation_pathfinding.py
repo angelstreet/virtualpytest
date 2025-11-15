@@ -212,7 +212,7 @@ def find_shortest_path_unified(root_tree_id: str, target_node_id: str, team_id: 
             verifications_list = to_node_info.get('verifications', [])
             
             # DEBUG: Log verifications for Home node
-            if to_node_info.get('label') == 'Home':
+            if to_node_info.get('label') == 'home':
                 print(f"[@DEBUG:pathfinding] Home node verifications: {verifications_list}")
             
             # Count actions for summary

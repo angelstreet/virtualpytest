@@ -44,7 +44,7 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         
         # DEBUG: Log verifications for Home node
         verifications = node.get('verifications', [])
-        if label == 'Home':
+        if label == 'home':
             print(f"[@DEBUG:graph] Home node from DB has verifications: {verifications}")
         
         G.add_node(node_id, **{
