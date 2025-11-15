@@ -25,7 +25,7 @@ except ImportError:
 import time
 import json
 import logging
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List, Optional, Tuple
 from PIL import Image
 import io
@@ -68,7 +68,7 @@ def cleanup_logs_on_startup():
         if os.path.exists(log_file):
             # Truncate the file instead of deleting to avoid permission issues
             with open(log_file, 'w') as f:
-                f.write(f"=== LOG CLEANED ON HEATMAP PROCESSOR RESTART: {datetime.now().isoformat()} ===\n")
+                f.write(f"=== LOG CLEANED ON HEATMAP PROCESSOR RESTART: {datetime.now(timezone.utc).isoformat()} ===\n")
             print(f"[@heatmap_processor] ✓ Cleaned: {log_file}")
         else:
             print(f"[@heatmap_processor] ○ Not found (will be created): {log_file}")
@@ -119,7 +119,7 @@ class HeatmapProcessor:
     
     def process_current_minute(self):
         """Generate mosaic and analysis for current minute"""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         time_key = f"{now.hour:02d}{now.minute:02d}"  # "1425"
         
         logger.info(f"🔄 Processing heatmap for {time_key}")
@@ -805,7 +805,7 @@ class HeatmapProcessor:
         
         return {
             'time_key': time_key,
-            'timestamp': datetime.now().isoformat(),
+            'timestamp': datetime.now(timezone.utc).isoformat(),
             'devices': devices,
             'incidents_count': incidents_count,
             'hosts_count': len(images_data)
@@ -915,7 +915,7 @@ class HeatmapProcessor:
     
     def wait_for_next_minute(self):
         """Wait until next minute boundary"""
-        now = datetime.now()
+        now = datetime.now(timezone.utc)
         seconds_to_wait = 60 - now.second
         logger.info(f"⏳ Waiting {seconds_to_wait}s for next minute...")
         time.sleep(seconds_to_wait)

@@ -82,20 +82,24 @@ export const useHeatmap = () => {
   
   /**
    * Generate 24-hour timeline with predictable file names
+   * Uses UTC time to match backend heatmap processor
    */
   const generateTimeline = (serverPath: string): TimelineItem[] => {
     if (!selectedServer || !serverPath) return [];
     
+    // Use UTC time to match backend
     const now = new Date();
     const items: TimelineItem[] = [];
     
     // Use server name directly (no URL conversion)
-    console.log(`[@useHeatmap] Generating timeline for server: ${serverPath}`);
+    console.log(`[@useHeatmap] Generating timeline for server: ${serverPath} (UTC time)`);
     
-    // Generate 1440 minutes (24 hours)
+    // Generate 1440 minutes (24 hours) using UTC time
     for (let i = 0; i < 1440; i++) {
       const time = new Date(now.getTime() - (i * 60000)); // Go back i minutes
-      const timeKey = `${time.getHours().toString().padStart(2, '0')}${time.getMinutes().toString().padStart(2, '0')}`;
+      
+      // CRITICAL: Use UTC hours/minutes to match backend
+      const timeKey = `${time.getUTCHours().toString().padStart(2, '0')}${time.getUTCMinutes().toString().padStart(2, '0')}`;
       
       items.push({
         timeKey,
