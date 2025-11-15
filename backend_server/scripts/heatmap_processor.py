@@ -181,15 +181,9 @@ class HeatmapProcessor:
         try:
             import requests
             
-            # Load environment and use proper URL building
-            from shared.src.lib.utils.app_utils import load_environment_variables
-            from shared.src.lib.utils.build_url_utils import buildServerUrl
-            
-            # Load environment variables (same as server does)
-            load_environment_variables(mode='server')
-            
-            # Build proper server URL using the same utility the server uses
-            api_url = buildServerUrl('server/system/getAllHosts')
+            # Hardcoded: heatmap_processor ALWAYS runs in same container as Flask
+            # No need for complex environment variable logic
+            api_url = 'http://localhost:5109/server/system/getAllHosts'
             
             # Call server API to get all hosts
             logger.info(f"📡 Making API request to: {api_url}")
