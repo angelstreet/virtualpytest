@@ -292,12 +292,25 @@ class HeatmapProcessor:
                     sequence = sequence_match.group(1) if sequence_match else ''
                     
                     if sequence:
-                        from shared.src.lib.utils.build_url_utils import buildCaptureUrl, buildMetadataUrl
-                        # Build URLs based on filename
-                        capture_filename = f"capture_{sequence}.jpg"
-                        json_filename = f"capture_{sequence}.json"
-                        image_url = buildCaptureUrl(host_data, capture_filename, device_id)
-                        json_url = buildMetadataUrl(host_data, json_filename, device_id)
+                        # For host device (device_id='host'), we have analysis data but URL building fails
+                        # because host isn't in the devices array. Skip URL building for host.
+                        if device_id == 'host':
+                            logger.warning(f"⚠️ Skipping URL building for host device {host_name}/host (not in devices array)")
+                            logger.warning(f"   Analysis data received but cannot display in heatmap")
+                            return None
+                        
+                        try:
+                            from shared.src.lib.utils.build_url_utils import buildCaptureUrl, buildMetadataUrl
+                            # Build URLs based on filename
+                            capture_filename = f"capture_{sequence}.jpg"
+                            json_filename = f"capture_{sequence}.json"
+                            image_url = buildCaptureUrl(host_data, capture_filename, device_id)
+                            json_url = buildMetadataUrl(host_data, json_filename, device_id)
+                        except Exception as url_error:
+                            logger.error(f"❌ Failed to build URLs for {host_name}/{device_id}/{device_name}: {url_error}")
+                            logger.error(f"   host_data keys: {list(host_data.keys())}")
+                            logger.error(f"   device_id: {device_id}")
+                            return None
                         
                         # Analysis data is already in json_data
                         analysis_data = json_data if json_data.get('analyzed') else None
