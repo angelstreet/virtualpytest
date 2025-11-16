@@ -7,6 +7,7 @@ NOTE: This module is only for use by backend_host.
 It should NOT be imported by backend_server (would cause circular dependencies).
 """
 
+from __future__ import annotations  # Enable PEP 563 - postponed evaluation of annotations
 from typing import Dict, List, Optional, Any, TYPE_CHECKING
 
 # Lazy import to avoid circular dependency when backend_server imports shared
