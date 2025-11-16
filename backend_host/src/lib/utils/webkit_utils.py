@@ -93,15 +93,24 @@ class WebKitManager:
         
         Uses DIRECT execution approach (same as playwright_utils.py) - no bash/su wrappers.
         This matches the working manual command: docker exec ... chromium --flags
+        
+        IMPORTANT: Ensures all existing browser processes are killed before launching new one.
         """
-        # 1) Kill any existing chromium processes
-        try:
-            subprocess.run(['pkill', '-9', 'chromium'], capture_output=True, timeout=5)
-            time.sleep(1)
-        except Exception as e:
-            print(f'[WebKitManager] Warning: pkill chromium failed: {e}')
+        print(f'[WebKitManager] Cleaning up any existing browser processes before launch...')
+        
+        # 1) Kill ALL browser processes (not just chromium)
+        browsers_to_kill = ['chromium', 'chromium-browser', 'chrome', 'google-chrome', 'firefox']
+        for browser in browsers_to_kill:
+            try:
+                result = subprocess.run(['pkill', '-9', browser], capture_output=True, timeout=5)
+                if result.returncode == 0:
+                    print(f'[WebKitManager] Killed existing {browser} processes')
+            except Exception as e:
+                pass  # Ignore errors if process doesn't exist
+        
+        time.sleep(2)  # Give time for processes to fully terminate
 
-        # 2) Kill any process using the debug port
+        # 2) Kill any process using the debug port (critical for clean launch)
         if cls.is_port_in_use(debug_port):
             print(f'[WebKitManager] Port {debug_port} is in use. Killing processes...')
             try:
@@ -115,18 +124,24 @@ class WebKitManager:
                             print(f'[WebKitManager] Killed process {pid.strip()} using port {debug_port}')
             except Exception as e:
                 print(f'[WebKitManager] Error killing processes on port {debug_port}: {e}')
-            time.sleep(1)
+            time.sleep(2)
+        
+        # 3) Verify port is now free
+        if cls.is_port_in_use(debug_port):
+            raise RuntimeError(f'Port {debug_port} still in use after cleanup. Cannot launch browser.')
+        
+        print(f'[WebKitManager] ✓ All existing browsers cleaned up, port {debug_port} is free')
 
-        # 3) Find executable and get flags
+        # 4) Find executable and get flags
         executable_path, browser_type = cls.find_webkit_executable()
         print(f'[WebKitManager] Launching {browser_type} browser: {executable_path}')
 
         browser_flags = cls.get_webkit_flags(debug_port, browser_type)
 
-        # 4) Build command as LIST (not string!) - same as playwright_utils.py
+        # 5) Build command as LIST (not string!) - same as playwright_utils.py
         cmd_line = [executable_path] + browser_flags
         
-        # 5) Set environment with DISPLAY
+        # 6) Set environment with DISPLAY
         env = os.environ.copy()
         env['DISPLAY'] = ':1'
         
@@ -134,7 +149,7 @@ class WebKitManager:
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         print(f'[WebKitManager] Environment DISPLAY: {env.get("DISPLAY")}')
         
-        # 6) Launch directly with subprocess.Popen (NO BASH, NO SU!)
+        # 7) Launch directly with subprocess.Popen (NO BASH, NO SU!)
         # Use DEVNULL and start_new_session to fully detach from Flask's process group
         process = subprocess.Popen(
             cmd_line,  # LIST of arguments (not a string!)
@@ -146,10 +161,10 @@ class WebKitManager:
         
         print(f'[WebKitManager] Chromium launched with PID: {process.pid}')
 
-        # 7) Wait for Chrome to be ready
+        # 8) Wait for Chrome to be ready
         cls._wait_for_webkit_ready(debug_port, max_wait=30)
 
-        # 8) Optional diagnostics
+        # 9) Optional diagnostics
         try:
             result = subprocess.run(['pgrep', 'chromium'], capture_output=True, text=True)
             if result.stdout.strip():
