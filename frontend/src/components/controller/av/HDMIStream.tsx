@@ -461,11 +461,11 @@ export const HDMIStream = React.memo(
                   isExpanded={isExpanded}
                   onRestartRequest={hlsRestartRef as any}
                   layoutConfig={{
-                    minHeight: '100%', // Use full available height of content area
+                    minHeight: isExpanded ? '400px' : '120px', // Fixed heights for aspect-ratio to work correctly
                     aspectRatio: isMobile
                       ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
                       : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
-                    objectFit: isMobile ? 'cover' : 'contain', // Back to cover for mobile
+                    objectFit: isMobile ? 'cover' : 'contain',
                     isMobileModel: isMobile,
                   }}
                   sx={{

@@ -266,10 +266,17 @@ class ActionExecutor:
             if result.get('success'):
                 passed_count += 1
             else:
-                # First action failed - stop executing remaining main actions
-                print(f"[@lib:action_executor:execute_actions] Main action {i+1} failed, stopping main action execution")
-                main_actions_failed = True
-                break
+                # Check if action has continue_on_fail flag
+                continue_on_fail = action.get('continue_on_fail', False)
+                
+                if continue_on_fail:
+                    # Action failed but continue_on_fail is set - continue execution
+                    print(f"[@lib:action_executor:execute_actions] ⚠️  Main action {i+1} failed but continue_on_fail=True, continuing...")
+                else:
+                    # First action failed - stop executing remaining main actions
+                    print(f"[@lib:action_executor:execute_actions] Main action {i+1} failed, stopping main action execution")
+                    main_actions_failed = True
+                    break
                 
             execution_order += 1
         

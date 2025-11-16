@@ -11,6 +11,8 @@ import {
   MenuItem,
   IconButton,
   TextField,
+  Checkbox,
+  Tooltip,
 } from '@mui/material';
 import React from 'react';
 
@@ -168,6 +170,27 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           }}
         />,
       );
+      
+      // Continue on fail checkbox for web and mobile actions only
+      if (action.action_type === 'web' || action.action_type === 'remote') {
+        fields.push(
+          <Tooltip key="continue_on_fail" title="Continue execution even if this action fails (useful for optional actions like cookie popups)">
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Checkbox
+                checked={action.continue_on_fail || false}
+                onChange={(e) => {
+                  onUpdateAction(index, { continue_on_fail: e.target.checked });
+                }}
+                size="small"
+                sx={{ padding: '2px' }}
+              />
+              <Box sx={{ fontSize: '0.7rem', color: 'text.secondary', whiteSpace: 'nowrap' }}>
+                Optional
+              </Box>
+            </Box>
+          </Tooltip>,
+        );
+      }
     }
 
     // Action-specific parameter fields
