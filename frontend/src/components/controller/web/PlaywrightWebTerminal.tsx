@@ -505,6 +505,17 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       // Set visual feedback based on result
       setDumpStatus(result.success ? 'success' : 'error');
 
+      // Copy raw dump to clipboard
+      if (result.success && result.elements) {
+        try {
+          const rawDump = JSON.stringify(result, null, 2);
+          await navigator.clipboard.writeText(rawDump);
+          console.log('✅ Raw dump copied to clipboard');
+        } catch (clipboardError) {
+          console.error('Failed to copy to clipboard:', clipboardError);
+        }
+      }
+
       // Store elements for overlay
       if (result.success && result.elements) {
         // Filter elements to only include those within browser viewport
