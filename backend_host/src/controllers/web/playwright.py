@@ -515,28 +515,55 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             error_type = type(e).__name__
             error_msg = str(e)
             
+            # Check if navigation actually succeeded despite timeout
+            # (page loaded but took longer than expected)
+            page_loaded = False
+            current_url = self.current_url
+            current_title = self.page_title
+            
+            try:
+                if 'page' in locals():
+                    current_url = page.url
+                    current_title = await page.title()
+                    # If we got a valid URL and title, page loaded successfully
+                    page_loaded = current_url and current_url != 'about:blank'
+                    print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
+            except Exception as state_error:
+                print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
+            
+            # If timeout but page loaded, treat as success
+            # Verifications will check if page is actually ready
+            if error_type == 'TimeoutError' and page_loaded:
+                print(f"[PLAYWRIGHT]: ⚠️ Navigation timed out but page loaded successfully")
+                print(f"[PLAYWRIGHT]: Treating as success - verifications will check readiness")
+                
+                self.current_url = current_url
+                self.page_title = current_title
+                
+                return {
+                    'success': True,
+                    'url': current_url,
+                    'title': current_title,
+                    'execution_time': execution_time,
+                    'error': '',
+                    'warning': f'Navigation completed but exceeded timeout ({execution_time}ms > {timeout}ms)',
+                    'normalized_url': normalized_url if 'normalized_url' in locals() else url,
+                    'redirected': current_url != normalized_url if 'normalized_url' in locals() else False,
+                    'follow_redirects': follow_redirects
+                }
+            
+            # Real failure - page didn't load
             print(f"[PLAYWRIGHT]: ❌ NAVIGATION FAILED after {execution_time}ms")
             print(f"[PLAYWRIGHT]: Error Type: {error_type}")
             print(f"[PLAYWRIGHT]: Error Message: {error_msg}")
             print(f"[PLAYWRIGHT]: Target URL: {normalized_url if 'normalized_url' in locals() else url}")
             
-            # Try to get current page state for debugging
-            try:
-                if 'page' in locals():
-                    current_url = page.url
-                    current_title = await page.title()
-                    print(f"[PLAYWRIGHT]: Current page state - URL: {current_url}, Title: {current_title[:50]}...")
-                else:
-                    print(f"[PLAYWRIGHT]: Page object not available for state check")
-            except Exception as state_error:
-                print(f"[PLAYWRIGHT]: Could not get page state: {type(state_error).__name__}: {str(state_error)}")
-            
             return {
                 'success': False,
                 'error': f"{error_type}: {error_msg}",
                 'error_type': error_type,
-                'url': self.current_url,
-                'title': self.page_title,
+                'url': current_url,
+                'title': current_title,
                 'execution_time': execution_time,
                 'original_url': url,
                 'normalized_url': normalized_url if 'normalized_url' in locals() else url,
