@@ -268,7 +268,7 @@ class Device:
         Returns:
             Dictionary representation of the device with detailed capability format
         """
-        from backend_host.src.controllers.controller_config_factory import get_device_capabilities
+        from shared.src.lib.config.device_capabilities import get_device_capabilities
         
         # Get theoretical capabilities from factory (for reference)
         theoretical_capabilities = get_device_capabilities(self.device_model)

@@ -43,17 +43,17 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     }
   });
 
-  // Server data state - Initialize from cache if available and valid
+  // Server data state - Initialize from cache if available (even if stale, for immediate display)
   const [serverHostsData, setServerHostsData] = useState<ServerHostData[]>(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEYS.SERVER_HOSTS_CACHE);
       if (cached) {
         const { data, timestamp }: CachedData = JSON.parse(cached);
         const age = Date.now() - timestamp;
-        if (age < CACHE_CONFIG.VERY_SHORT_TTL) {
-          console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000)}s)`);
-          return data;
-        }
+        // Use cached data even if stale (better than showing empty combobox)
+        // Background refresh will update it if stale
+        console.log(`[@ServerManager] Using cached data (age: ${Math.round(age / 1000)}s, ${age < CACHE_CONFIG.VERY_SHORT_TTL ? 'FRESH' : 'STALE - will refresh'})`);
+        return data;
       }
     } catch (error) {
       console.warn('[@ServerManager] Failed to load cached data:', error);
@@ -61,8 +61,8 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     return [];
   });
 
-  // Check if we have cached data on initial load
-  const hasCachedData = useMemo(() => {
+  // Check if we have FRESH (not stale) cached data on initial load
+  const hasFreshCache = useMemo(() => {
     try {
       const cached = localStorage.getItem(STORAGE_KEYS.SERVER_HOSTS_CACHE);
       if (cached) {
@@ -76,7 +76,7 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     return false;
   }, []);
 
-  const [isLoading, setIsLoading] = useState(!hasCachedData);
+  const [isLoading, setIsLoading] = useState(!hasFreshCache);
   const [error, setError] = useState<string | null>(null);
   const [pendingServers, setPendingServers] = useState<Set<string>>(new Set());
   const [failedServers, setFailedServers] = useState<Set<string>>(new Set());

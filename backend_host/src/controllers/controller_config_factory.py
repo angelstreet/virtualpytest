@@ -6,104 +6,11 @@ Each device model has predefined controllers and verification capabilities.
 """
 
 from shared.src.lib.utils.storage_path_utils import get_device_base_path
-
-# Device Model → Controllers Mapping
-DEVICE_CONTROLLER_MAP = {
-    'android_mobile': {
-        'av': ['hdmi_stream'], 
-        'remote': ['android_mobile'],
-        'desktop': [],
-        'web': [],
-        'power': [],
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'android_tv': {
-        'av': ['hdmi_stream'], 
-        'remote': ['android_tv'],
-        'desktop': [],
-        'web': [],
-        'power': ['tapo'],
-        'network': [],
-        'ai': ['ai_agent']
-    },
-     'fire_tv': {
-        'av': ['hdmi_stream'], 
-        'remote': ['android_tv', 'ir_remote'],
-        'desktop': [],
-        'web': [],
-        'power': ['tapo'],
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'ios_mobile': {
-        'av': ['hdmi_stream'], 
-        'remote': ['appium'],
-        'desktop': [],
-        'web': [],
-        'power': [],
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'stb': {
-        'av': ['hdmi_stream'], 
-        'remote': ['ir_remote'],
-        'desktop': [],
-        'web': [],
-        'power': ['tapo'],  # Add tapo power controller for STB
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'apple_tv': {
-        'av': ['hdmi_stream'], 
-        'remote': ['ir_remote'],
-        'desktop': [],
-        'web': [],
-        'power': ['tapo'],  # Add tapo power controller for Apple TV
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'tizen': {
-        'av': ['camera_stream'], 
-        'remote': ['ir_remote'],
-        'desktop': [],
-        'web': [],
-        'power': [],
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'host_vnc': {
-        'av': ['vnc_stream'], 
-        'remote': [],
-        'desktop': ['bash', 'pyautogui'],  # Add bash and PyAutoGUI desktop controllers
-        'web': ['playwright'],  # Add playwright web controller
-        'power': [],  # Add tapo power controller
-        'network': [],
-        'ai': ['ai_agent']
-    },
-    'web': {
-        'av': [], 
-        'remote': [],
-        'desktop': ['bash', 'pyautogui'],  # Desktop automation for web testing
-        'web': ['playwright'],  # Web automation with Playwright
-        'power': [],
-        'network': [],
-        'ai': ['ai_agent']
-    }
-}
-
-# Controller → Verification Capabilities
-CONTROLLER_VERIFICATION_MAP = {
-    'hdmi_stream': ['image', 'text', 'video', 'audio'],
-    'camera_stream': ['image', 'text', 'video', 'audio'],
-    'vnc_stream': ['image', 'text', 'video'],
-    'playwright': ['web', 'image', 'text'],  # Web verification capabilities
-    'android_mobile': ['adb'],
-    'android_tv': [],
-    'appium': ['appium'],
-    'bash': [],
-    'ai_agent': []
-}
+from shared.src.lib.config.device_capabilities import (
+    DEVICE_CONTROLLER_MAP,
+    CONTROLLER_VERIFICATION_MAP,
+    get_device_capabilities
+)
 
 def create_controller_configs_from_device_info(device_config: dict) -> dict:
     """Create controller configurations for a device."""
@@ -326,38 +233,7 @@ def get_controller_type_for_device(device_model: str, action_type: str) -> str:
     # Unknown action type
     return None
 
-def get_device_capabilities(device_model: str) -> dict:
-    """Get detailed capabilities for a device model."""
-    if device_model not in DEVICE_CONTROLLER_MAP:
-        return {
-            'av': None,
-            'remote': None,
-            'desktop': None,
-            'web': None,
-            'power': None,
-            'ai': None,
-            'verification': []
-        }
-    
-    mapping = DEVICE_CONTROLLER_MAP[device_model]
-    
-    # Get verification types from all controllers
-    verification_types = []
-    for controller_list in mapping.values():
-        for controller_impl in controller_list:
-            verification_types.extend(CONTROLLER_VERIFICATION_MAP.get(controller_impl, []))
-    
-    capabilities = {
-        'av': mapping['av'][0] if mapping['av'] else None,
-        'remote': mapping['remote'][0] if mapping['remote'] else None,
-        'desktop': mapping['desktop'][0] if mapping['desktop'] else None,
-        'web': mapping['web'][0] if mapping['web'] else None,
-        'power': mapping['power'][0] if mapping['power'] else None,
-        'ai': mapping['ai'][0] if mapping['ai'] else None,
-        'verification': list(set(verification_types))  # Remove duplicates
-    }
-    
-    return capabilities
+# get_device_capabilities is now imported from shared.src.lib.config.device_capabilities
 
 def _get_av_params(implementation: str, device_config: dict) -> dict:
     """Get parameters for AV controllers."""
