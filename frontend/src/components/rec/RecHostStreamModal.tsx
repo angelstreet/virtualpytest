@@ -137,6 +137,19 @@ const RecHostStreamModalContent: React.FC<{
     currentVideoTime: currentVideoTime, // Current video time for archive lookup
   });
 
+  // Check if this is a desktop device (host_vnc) - needed for dimension calculation
+  const isDesktopDevice = useMemo(() => {
+    return device?.device_model === 'host_vnc';
+  }, [device?.device_model]);
+
+  // Check if device is mobile model (consistent with RecHostPreview)
+  const isMobileModel = useMemo(() => {
+    const model = device?.device_model;
+    if (!model) return false;
+    const modelLower = model.toLowerCase();
+    return modelLower.includes('mobile');
+  }, [device?.device_model]);
+
   // Stable stream container dimensions to prevent re-renders
   const streamContainerDimensions = useMemo(() => {
     // Only calculate when window is available
@@ -157,8 +170,9 @@ const RecHostStreamModalContent: React.FC<{
     const headerPadding = 16; // py: 1 = 8px top + 8px bottom = 16px total
     const actualHeaderHeight = headerMinHeight + headerPadding; // 48 + 16 = 64px
 
-    // Use fixed stream area (mobile overlay always shows with remote panel = 20%)
-    const streamAreaWidth = modalWidth * 0.80;
+    // Simple 80/20 rule: If any panel showing, stream gets 80%, otherwise 100%
+    const hasAnyPanel = showRemote || (showWeb && isDesktopDevice);
+    const streamAreaWidth = hasAnyPanel ? modalWidth * 0.80 : modalWidth;
     const streamAreaHeight = modalHeight - actualHeaderHeight;
 
     // Modal position (centered)
@@ -192,7 +206,7 @@ const RecHostStreamModalContent: React.FC<{
     });
 
     return dimensions;
-  }, []);
+  }, [isDesktopDevice, showRemote, showWeb]);
 
   // Force recalculation after mount when window is available
   const [isWindowReady, setIsWindowReady] = useState(false);
@@ -209,11 +223,6 @@ const RecHostStreamModalContent: React.FC<{
     }
     return streamContainerDimensions;
   }, [streamContainerDimensions, isWindowReady]);
-
-  // Check if this is a desktop device (host_vnc)
-  const isDesktopDevice = useMemo(() => {
-    return device?.device_model === 'host_vnc';
-  }, [device?.device_model]);
 
   // Check if device has power control capability
   const hasPowerControl = useMemo(() => {
@@ -677,14 +686,6 @@ const RecHostStreamModalContent: React.FC<{
       showError('Could not determine current frame');
     }
   }, [currentSegmentUrl, device, host, getCaptureUrlFromStream, showError, isLiveMode, restartMode, setCapturedImageUrl, setIsImageQueryVisible]);
-
-  // Check if device is mobile model (consistent with RecHostPreview)
-  const isMobileModel = useMemo(() => {
-    const model = device?.device_model;
-    if (!model) return false;
-    const modelLower = model.toLowerCase();
-    return modelLower.includes('mobile');
-  }, [device?.device_model]);
 
   // Stable onReleaseControl callback to prevent re-renders
   const handleReleaseControl = useCallback(() => {
