@@ -355,7 +355,13 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     pages = context.pages
                     page = pages[0] if pages and len(pages) > 0 else await context.new_page()
                     self.current_url = page.url
-                    self.page_title = await page.title() if page.url != 'about:blank' else ''
+                    
+                    # Get page title with timeout (heavy pages like YouTube might be slow)
+                    try:
+                        self.page_title = await asyncio.wait_for(page.title(), timeout=2.0) if page.url != 'about:blank' else ''
+                    except asyncio.TimeoutError:
+                        print(f"[PLAYWRIGHT]: Page title timeout (page busy), using empty title")
+                        self.page_title = ''
                     
                     execution_time = int((time.time() - start_time) * 1000)
                     print(f"[PLAYWRIGHT]: Reused existing connection (verified via context/pages)")
