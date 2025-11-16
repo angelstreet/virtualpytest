@@ -3,21 +3,26 @@ export const calculateVncScaling = (targetSize: { width: number; height: number 
   const scaleX = targetSize.width / vncResolution.width;
   const scaleY = targetSize.height / vncResolution.height;
   
+  // Use minimum scale to maintain aspect ratio and fit within container
+  const scale = Math.min(scaleX, scaleY);
+  
   const result = {
-    transform: `scale(${scaleX}, ${scaleY})`, // Use both scaleX and scaleY to fill container
+    transform: `scale(${scale})`,
     transformOrigin: 'top left',
-    width: `${vncResolution.width}px`, // iframe needs to be VNC resolution size
-    height: `${vncResolution.height}px` // iframe needs to be VNC resolution size
+    width: `${vncResolution.width}px`,
+    height: `${vncResolution.height}px`
   };
   
-  // console.log(`[@utils:vncUtils] VNC scaling calculation:`, {
-  //   targetSize,
-  //   vncResolution,
-  //   scales: { scaleX: scaleX.toFixed(3), scaleY: scaleY.toFixed(3) },
-  //   targetDimensions: `${targetSize.width}x${targetSize.height}`,
-  //   iframeDimensions: `${result.width} x ${result.height}`,
-  //   transform: result.transform
-  // });
+  console.log(`[@utils:vncUtils] VNC scaling calculation:`, {
+    targetSize,
+    vncResolution,
+    scaleX: scaleX.toFixed(3),
+    scaleY: scaleY.toFixed(3),
+    selectedScale: scale.toFixed(3),
+    scaledDimensions: `${Math.round(vncResolution.width * scale)}x${Math.round(vncResolution.height * scale)}`,
+    targetDimensions: `${targetSize.width}x${targetSize.height}`,
+    transform: result.transform
+  });
   
   return result;
 };
