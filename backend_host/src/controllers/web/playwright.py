@@ -481,16 +481,12 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         start_time = time.time()
         try:
             normalized_url = self.utils.normalize_url(url)
-            print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url})")
+            print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url}) with timeout {timeout}ms")
 
             page = await self._get_persistent_page(target_url=normalized_url)
             
+            # Wait for basic page load only - verifications will check readiness
             await page.goto(normalized_url, timeout=timeout, wait_until='load')
-            
-            try:
-                await page.wait_for_load_state('networkidle', timeout=20000)
-            except Exception as e:
-                print(f"[PLAYWRIGHT]: Networkidle timeout ignored: {str(e)}")
             
             self.current_url = page.url
             self.page_title = await page.title()
@@ -1439,7 +1435,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         # ============== From here on, we are on the controller loop ==============
         if command == 'navigate_to_url':
             url = params.get('url')
-            timeout = params.get('timeout', 30000)
+            # Use wait_time (standard action param) OR timeout (legacy) with default fallback
+            timeout = params.get('wait_time') or params.get('timeout', 30000)
             follow_redirects = params.get('follow_redirects', True)
             
             if not url:
