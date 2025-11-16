@@ -288,6 +288,11 @@ export const useNode = (props?: UseNodeProps) => {
           url.searchParams.append('host_name', props.selectedHost.host_name);
         }
 
+        // Add device_id parameter from context (required for proper device routing)
+        if (currentDeviceId) {
+          url.searchParams.append('device_id', currentDeviceId);
+        }
+
         // Only add current_node_id if we have a valid starting node
         if (startingNodeId) {
           url.searchParams.append('current_node_id', startingNodeId);
