@@ -69,12 +69,7 @@ class WebKitManager:
                 '--disable-features=DbusService,IsolateOrigins,site-per-process',  # Reduce memory usage
                 '--disable-background-timer-throttling',
                 '--disable-renderer-backgrounding',
-                '--disable-site-isolation-trials',    # Reduce memory overhead
-                '--single-process',
-                '--no-zygote',
                 '--disable-extensions',
-                '--js-flags=--max-old-space-size=256',  # Limit JavaScript heap (256MB)
-                '--max-old-space-size=256',           # Additional memory limit
                 '--start-maximized',                  # <<< use full width/height of VNC desktop
                 '--window-position=0,0',
             ]
