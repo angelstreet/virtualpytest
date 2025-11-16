@@ -487,7 +487,7 @@ services:
       - GF_SERVER_DOMAIN=${DOMAIN}
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
-    restart: "no"
+    restart: unless-stopped
     networks:
       - hetzner_network
 
@@ -497,8 +497,10 @@ services:
       context: ../../../
       dockerfile: backend_host/Dockerfile
     image: virtualpytest-backend-host:latest
-    # This service never runs - it's only used to build the image
-    profiles: ["build-only"]
+    container_name: virtualpytest-backend-host-build
+    # This service builds the image but never runs
+    command: "true"
+    restart: "no"
 
 EOF
 
@@ -533,7 +535,7 @@ for i in $(seq 1 $HOST_MAX); do
     security_opt:
       - seccomp=unconfined
       - apparmor=unconfined
-    restart: "no"
+    restart: unless-stopped
     networks:
       - hetzner_network
 
