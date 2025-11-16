@@ -52,6 +52,7 @@ def generate_verification_failure_report(
         
         # Reference image URL is already R2 URL - use as is
         reference_image_url = details.get('reference_image_url')
+        print(f"[@verification_report_generator] Reference image URL from details: {reference_image_url}")
         
         # Overlay image - convert local path to HTTP URL
         result_overlay_path = details.get('result_overlay_path')

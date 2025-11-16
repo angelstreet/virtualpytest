@@ -137,7 +137,8 @@ class ImageVerificationController:
         reference_name = os.path.basename(image_path)
         if not reference_name.endswith(('.jpg', '.jpeg', '.png')):
             reference_name = f"{reference_name}.jpg"
-        reference_r2_url = f"https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/reference-images/{userinterface_name}/{reference_name}"
+        r2_base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
+        reference_r2_url = f"{r2_base_url}/reference-images/{userinterface_name}/{reference_name}"
         
         additional_data = {
             "reference_image_path": filtered_reference_path,  # Local path for processing
@@ -362,7 +363,8 @@ class ImageVerificationController:
         reference_name = os.path.basename(image_path)
         if not reference_name.endswith(('.jpg', '.jpeg', '.png')):
             reference_name = f"{reference_name}.jpg"
-        reference_r2_url = f"https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev/reference-images/{userinterface_name}/{reference_name}"
+        r2_base_url = os.environ.get('CLOUDFLARE_R2_PUBLIC_URL', 'https://pub-604f1a4ce32747778c6d5ac5e3100217.r2.dev')
+        reference_r2_url = f"{r2_base_url}/reference-images/{userinterface_name}/{reference_name}"
         
         # Expand image_list for full timeout window
         images_to_check = image_list.copy() if image_list else []
