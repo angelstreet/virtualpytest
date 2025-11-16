@@ -52,6 +52,9 @@ class WebKitManager:
         elif browser_type in ['chromium-webkit', 'chrome-webkit']:
             # Flags matching the working manual command: docker exec ... chromium
             # Key: NO crash-dumps-dir, NO bash/su wrappers, just direct flags
+            # Window flags are chosen so the browser uses the FULL VNC desktop area:
+            # - start-maximized: request full-screen window
+            # - window-position=0,0: anchor in top-left corner of the virtual display
             return [
                 f'--remote-debugging-port={debug_port}',
                 '--remote-debugging-address=0.0.0.0',
@@ -62,13 +65,15 @@ class WebKitManager:
                 '--no-first-run',
                 '--disable-breakpad',
                 '--disable-dev-shm-usage',
-                '--disable-gpu-compositing',  # Added to reduce GPU errors
-                '--disable-features=DbusService',  # Added to skip D-Bus integrations
-                '--disable-background-timer-throttling',  # Helps in low-resource containers
-                '--disable-renderer-backgrounding',  # Prevents early termination
-                '--single-process',  # Run in single process (reduces crashes in Docker)
-                '--no-zygote',  # Disable zygote process for stability
-                '--disable-extensions'  # Reduce startup time
+                '--disable-gpu-compositing',          # Reduce GPU errors
+                '--disable-features=DbusService',     # Skip D-Bus integrations
+                '--disable-background-timer-throttling',
+                '--disable-renderer-backgrounding',
+                '--single-process',
+                '--no-zygote',
+                '--disable-extensions',
+                '--start-maximized',                  # <<< use full width/height of VNC desktop
+                '--window-position=0,0',
             ]
         else:  # safari or other
             return [
