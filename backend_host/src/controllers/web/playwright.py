@@ -727,7 +727,15 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             # DEBUG: Log first 20 elements for verification
             print(f"[PLAYWRIGHT]: === DUMPED ELEMENTS (first 20 of {len(elements)}) ===")
             for i, el in enumerate(elements[:20]):
-                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{el.get('textContent', '')}' - aria: '{el.get('attributes', {}).get('aria-label', '')}' - selector: '{el.get('selector', '')}'")
+                # Clean up text: remove extra whitespace/newlines and limit to 50 chars
+                raw_text = el.get('textContent', '').strip()
+                clean_text = ' '.join(raw_text.split())  # Remove all extra whitespace
+                display_text = clean_text[:50] + '...' if len(clean_text) > 50 else clean_text
+                
+                aria = el.get('attributes', {}).get('aria-label', '').strip()
+                selector = el.get('selector', '')
+                
+                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{display_text}' - aria: '{aria}' - selector: '{selector}'")
             if len(elements) > 20:
                 print(f"[PLAYWRIGHT]:   ... and {len(elements) - 20} more elements")
             print(f"[PLAYWRIGHT]: === END DUMPED ELEMENTS ===")
@@ -765,7 +773,12 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 # Log available elements for debugging (like Android mobile does)
                 print(f"[PLAYWRIGHT]: Available elements:")
                 for i, el in enumerate(elements[:10]):  # Show first 10
-                    print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{el.get('textContent', '')}' - aria: '{el.get('attributes', {}).get('aria-label', '')}'")
+                    # Clean up text: remove extra whitespace/newlines and limit to 40 chars
+                    raw_text = el.get('textContent', '').strip()
+                    clean_text = ' '.join(raw_text.split())
+                    display_text = clean_text[:40] + '...' if len(clean_text) > 40 else clean_text
+                    aria = el.get('attributes', {}).get('aria-label', '').strip()
+                    print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{display_text}' - aria: '{aria}'")
                 
                 return {
                     'success': False,
