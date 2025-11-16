@@ -90,10 +90,25 @@ def take_control():
                     if result.get('success'):
                         print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
                         
-                        # Populate navigation cache for the controlled device (if tree_id provided)
+                        # Populate navigation cache for the controlled device
+                        # Accept EITHER tree_id OR userinterface_id (resolve tree_id if needed)
                         # SYNCHRONOUS - blocks until cache is ready to prevent "cache not ready" errors
                         tree_id = data.get('tree_id')
+                        userinterface_id = data.get('userinterface_id')
                         team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
+                        
+                        # Resolve tree_id from userinterface_id if provided
+                        if userinterface_id and team_id and not tree_id:
+                            print(f"🔍 [CONTROL] Resolving tree_id from userinterface_id: {userinterface_id}")
+                            from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
+                            
+                            tree = get_root_tree_for_interface(userinterface_id, team_id)
+                            if tree:
+                                tree_id = tree['id']
+                                print(f"✅ [CONTROL] Resolved tree_id: {tree_id}")
+                            else:
+                                print(f"⚠️ [CONTROL] No tree found for userinterface_id: {userinterface_id}")
+                        
                         if tree_id and team_id:
                             print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
                             

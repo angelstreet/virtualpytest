@@ -307,7 +307,8 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
       host: Host,
       device_id?: string,
       sessionId?: string,
-      tree_id?: string,
+      tree_id_or_userinterface_id?: string,
+      id_type?: 'tree_id' | 'userinterface_id'  // NEW: specify which ID type
     ): Promise<{
       success: boolean;
       error?: string;
@@ -320,7 +321,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         | 'generic_error';
       details?: any;
     }> => {
-      try {
+      try:
         const effectiveSessionId = sessionId || browserSessionId;
         const effectiveDeviceId = device_id || 'device1';
 
@@ -328,11 +329,12 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           `[@context:HostManagerProvider] Taking control of device: ${host.host_name}, device_id: ${effectiveDeviceId}`,
         );
         console.log(`[@context:HostManagerProvider] Using user ID for lock: ${userId}`);
-        if (tree_id) {
-          console.log(`[@context:HostManagerProvider] Including tree_id for cache population: ${tree_id}`);
+        if (tree_id_or_userinterface_id) {
+          const idTypeLabel = id_type || 'tree_id';
+          console.log(`[@context:HostManagerProvider] Including ${idTypeLabel} for cache population: ${tree_id_or_userinterface_id}`);
         }
 
-        // Build request body with optional tree_id for cache population
+        // Build request body with optional tree_id OR userinterface_id for cache population
         const requestBody: any = {
           host_name: host.host_name,
           device_id: effectiveDeviceId,
@@ -340,9 +342,14 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
           user_id: userId,
         };
 
-        // Add tree_id if provided (for navigation cache population)
-        if (tree_id) {
-          requestBody.tree_id = tree_id;
+        // Add tree_id OR userinterface_id if provided (server resolves tree_id from userinterface_id)
+        if (tree_id_or_userinterface_id) {
+          if (id_type === 'userinterface_id') {
+            requestBody.userinterface_id = tree_id_or_userinterface_id;
+          } else {
+            // Default to tree_id for backward compatibility
+            requestBody.tree_id = tree_id_or_userinterface_id;
+          }
           // team_id is automatically added by buildServerUrl
         }
 
