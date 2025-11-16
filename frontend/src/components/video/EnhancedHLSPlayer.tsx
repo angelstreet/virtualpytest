@@ -9,6 +9,7 @@ import { useArchivePlayer } from './hooks/useArchivePlayer';
 import { useTranscriptPlayer } from './hooks/useTranscriptPlayer';
 import { TimelineOverlay } from './overlays/TimelineOverlay';
 import { TranscriptOverlay } from './overlays/TranscriptOverlay';
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 
 export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
   deviceId,
@@ -472,6 +473,25 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
     };
   }, [transcript.dubbedAudioUrl]);
 
+  // Generate layoutConfig based on device model - consistent with RecHostPreview
+  const layoutConfig = useMemo(() => {
+    if (!host) return undefined;
+    
+    // Find device to get model
+    const device = host.devices?.find((d) => d.device_id === deviceId);
+    const deviceModel = device?.device_model || 'unknown';
+    const isMobile = deviceModel?.includes('mobile') || deviceModel === 'android_mobile';
+    
+    return {
+      minHeight: '400px', // Fixed height for aspect-ratio to work correctly
+      aspectRatio: isMobile
+        ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
+        : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+      objectFit: (isMobile ? 'cover' : 'contain') as 'cover' | 'contain',
+      isMobileModel: isMobile,
+    };
+  }, [host, deviceId]);
+
   return (
     <Box className={className} sx={{ width, position: 'relative' }}>
       <style>
@@ -497,6 +517,7 @@ export const EnhancedHLSPlayer: React.FC<EnhancedHLSPlayerProps> = ({
             muted={muted}
             isArchiveMode={!isLiveMode}
             shouldPause={shouldPause}
+            layoutConfig={layoutConfig}
             sx={{ width: '100%', height: '100%' }}
             onPlayerReady={onPlayerReady}
             onCurrentSegmentChange={onCurrentSegmentChange}
