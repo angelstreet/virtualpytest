@@ -433,11 +433,27 @@ class ActionExecutor:
         else:
             iterator_count = self._parse_iterator_count(action.get('iterator', 1))
         
-        # Consolidated action execution log
-        action_desc = f"{action_category} {action_number}: {action.get('command')}"
+        # Consolidated action execution log with clear visibility
+        command = action.get('command', 'unknown')
+        params_summary = action.get('params', {})
+        
+        # Build readable action description
+        action_desc = f"{action_category.upper()} ACTION {action_number}: {command}"
+        
+        # Add key params to description for context
+        if 'url' in params_summary:
+            action_desc += f"(url={params_summary.get('url')})"
+        elif 'element_id' in params_summary:
+            action_desc += f"(element_id={params_summary.get('element_id')})"
+        elif 'selector' in params_summary:
+            action_desc += f"(selector={params_summary.get('selector')})"
+        
         if iterator_count > 1:
-            action_desc += f" ({iterator_count}x)"
-        print(f"[@lib:action_executor:_execute_single_action] {action_desc}")
+            action_desc += f" [×{iterator_count}]"
+        
+        print(f"")  # Blank line for visibility
+        print(f"[@lib:action_executor] ▶️  {action_desc}")
+        print(f"[@lib:action_executor] " + "─" * 60)
         
         # Track results for all iterations
         all_iterations_successful = True
@@ -700,21 +716,32 @@ class ActionExecutor:
                 
                 total_execution_time += iteration_execution_time
                 
-                # Log detailed results including error information
+                # Log detailed results including error information with clear visibility
                 if iterator_count > 1:
                     if iteration_success:
-                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms")
+                        print(f"[@lib:action_executor] ✅ {command} iteration {iteration + 1}/{iterator_count}: SUCCESS ({iteration_execution_time}ms)")
                     else:
                         error_msg = response_data.get('error', 'Unknown error')
-                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} iteration {iteration + 1}/{iterator_count} result: success={iteration_success}, time={iteration_execution_time}ms, error: {error_msg}")
-                        print(f"[@lib:action_executor:_execute_single_action] Full response data: {response_data}")
+                        warning = response_data.get('warning', '')
+                        print(f"[@lib:action_executor] ❌ {command} iteration {iteration + 1}/{iterator_count}: FAILED ({iteration_execution_time}ms)")
+                        print(f"[@lib:action_executor]    Error: {error_msg}")
+                        if warning:
+                            print(f"[@lib:action_executor]    Warning: {warning}")
+                        print(f"[@lib:action_executor]    Full response: {response_data}")
                 else:
                     if iteration_success:
-                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={iteration_success}, time={iteration_execution_time}ms")
+                        print(f"[@lib:action_executor] ✅ {command}: SUCCESS ({iteration_execution_time}ms)")
                     else:
                         error_msg = response_data.get('error', 'Unknown error')
-                        print(f"[@lib:action_executor:_execute_single_action] Action {action_number} result: success={iteration_success}, time={iteration_execution_time}ms, error: {error_msg}")
-                        print(f"[@lib:action_executor:_execute_single_action] Full response data: {response_data}")
+                        warning = response_data.get('warning', '')
+                        print(f"[@lib:action_executor] ❌ {command}: FAILED ({iteration_execution_time}ms)")
+                        print(f"[@lib:action_executor]    Error: {error_msg}")
+                        if warning:
+                            print(f"[@lib:action_executor]    Warning: {warning}")
+                        # Check if it's a timeout error
+                        if 'TimeoutError' in error_msg or 'Timeout' in error_msg or 'timeout' in error_msg.lower():
+                            print(f"[@lib:action_executor]    ⏱️  TIMEOUT: Action took longer than expected")
+                        print(f"[@lib:action_executor]    Full response: {response_data}")
                 
                 # Track iteration results
                 # Provide default message if controller doesn't return one
