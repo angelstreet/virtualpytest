@@ -146,18 +146,6 @@ def create_empty_navigation_config(interface_name):
         tree_id = tree_result['tree']['id']
         print(f"[@route:create_empty_navigation_config] Created navigation tree: {tree_id}")
         
-        # Update user interface with root_tree_id
-        from shared.src.lib.database.userinterface_db import update_userinterface
-        update_result = update_userinterface(
-            userinterface_data.get('id'),
-            {'root_tree_id': tree_id},
-            team_id
-        )
-        if update_result:
-            print(f"[@route:create_empty_navigation_config] ✅ Updated userinterface with root_tree_id: {tree_id}")
-        else:
-            print(f"[@route:create_empty_navigation_config] ⚠️ WARNING: Failed to update userinterface with root_tree_id")
-        
         # Node and edge save functions are imported at the top
         
         # Create entry node
