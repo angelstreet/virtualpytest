@@ -558,6 +558,56 @@ EOF
 echo "   ✅ Created: $COMPOSE_FILE"
 
 # ============================================
+# 2.5. GENERATE DOCKER-COMPOSE.DEV.YML
+# ============================================
+echo "🔧 [2.5/4] Generating docker-compose.dev.yml..."
+DEV_COMPOSE_FILE="docker-compose.dev.yml"
+
+cat > "$DEV_COMPOSE_FILE" <<EOF
+# Development Override - Mount source code for rapid iteration
+# Usage: docker-compose -f docker-compose.yml -f docker-compose.dev.yml up -d
+#
+# This file mounts source code from host → container
+# Edit code locally → Changes reflect immediately → Just restart container
+#
+# Auto-generated for ${HOST_MAX} hosts
+
+version: '3.8'
+
+services:
+  backend_server:
+    volumes:
+      # Mount source code (read-write for development)
+      - ../../../shared:/app/shared:rw
+      - ../../../backend_server/src:/app/backend_server/src:rw
+      - ../../../backend_server/scripts:/app/backend_server/scripts:rw
+    environment:
+      - DEBUG=true
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+
+EOF
+
+# Generate host dev overrides
+for i in $(seq 1 $HOST_MAX); do
+    cat >> "$DEV_COMPOSE_FILE" <<EOF
+  backend_host_${i}:
+    volumes:
+      # Mount source code (read-write for development)
+      - ../../../shared:/app/shared:rw
+      - ../../../backend_host/src:/app/backend_host/src:rw
+      - ../../../backend_host/scripts:/app/backend_host/scripts:rw
+    environment:
+      - DEBUG=true
+      - PYTHONDONTWRITEBYTECODE=1
+      - PYTHONUNBUFFERED=1
+
+EOF
+done
+
+echo "   ✅ Created: $DEV_COMPOSE_FILE"
+
+# ============================================
 # 3. GENERATE HOST .ENV FILES
 # ============================================
 echo "🔧 [3/4] Generating host .env files..."
