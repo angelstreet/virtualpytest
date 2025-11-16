@@ -1420,17 +1420,22 @@ class NavigationExecutor:
         Uses data from unified graph - no database queries needed.
         """
         try:
+            print(f"[@navigation_executor:KPI:DEBUG] _queue_kpi_measurement called")
+            
             # ✅ Get all data from step (already from unified graph)
             target_node_id = step.get('to_node_id')
             target_tree_id = step.get('to_tree_id')
             edge_id = step.get('edge_id')
             action_set_id = step.get('action_set_id')
             
+            print(f"[@navigation_executor:KPI:DEBUG] Step data: node={target_node_id}, tree={target_tree_id}, edge={edge_id}, action_set={action_set_id}")
+            
             # Get edge's tree_id
             original_edge_data = step.get('original_edge_data', {})
             edge_tree_id = original_edge_data.get('tree_id', target_tree_id)
             
             if not target_node_id or not target_tree_id or not edge_id or not action_set_id:
+                print(f"[@navigation_executor:KPI:DEBUG] ❌ Missing required fields - EARLY RETURN #1")
                 return
             
             # Strip _reverse suffix for display (edge_id from graph might have it)
@@ -1440,12 +1445,14 @@ class NavigationExecutor:
             # Pathfinding already included all edge data in the step
             action_sets = original_edge_data.get('action_sets', [])
             if not action_sets:
+                print(f"[@navigation_executor:KPI:DEBUG] ❌ No action_sets in step data for edge '{display_edge_id}' - EARLY RETURN #2")
                 print(f"[@navigation_executor] No action_sets in step data for edge '{display_edge_id}' - skipping KPI")
                 return
             
             # Find the specific action_set that was executed
             action_set = next((a for a in action_sets if a.get('id') == action_set_id), None)
             if not action_set:
+                print(f"[@navigation_executor:KPI:DEBUG] ❌ Action set '{action_set_id}' not found in step - EARLY RETURN #3")
                 print(f"[@navigation_executor] Action set '{action_set_id}' not found in step - skipping KPI")
                 return
             
@@ -1471,13 +1478,17 @@ class NavigationExecutor:
             # ✅ Get KPI references directly from action_set or target node verifications
             use_verifications_for_kpi = action_set.get('use_verifications_for_kpi', False)
             
+            print(f"[@navigation_executor:KPI:DEBUG] use_verifications_for_kpi={use_verifications_for_kpi}")
+            
             if use_verifications_for_kpi:
                 # Get target node verifications from unified graph
                 if not self.unified_graph:
+                    print(f"[@navigation_executor:KPI:DEBUG] ❌ No unified graph loaded - EARLY RETURN #4")
                     print(f"[@navigation_executor] No unified graph loaded - cannot get node verifications for KPI")
                     return
                 
                 if target_node_id not in self.unified_graph.nodes:
+                    print(f"[@navigation_executor:KPI:DEBUG] ❌ Target node {target_node_id} not in graph - EARLY RETURN #5")
                     print(f"[@navigation_executor] Target node {target_node_id} not in graph - cannot get verifications for KPI")
                     return
                 
@@ -1487,14 +1498,18 @@ class NavigationExecutor:
                 # Use action_set's kpi_references (default behavior)
                 kpi_references = action_set.get('kpi_references', [])
             
+            print(f"[@navigation_executor:KPI:DEBUG] Found {len(kpi_references)} KPI references")
+            
             # Early exit if no KPI configured
             if not kpi_references:
+                print(f"[@navigation_executor:KPI:DEBUG] ❌ No KPI references - EARLY RETURN #6")
                 print(f"[@navigation_executor] No KPI configured for action_set '{action_set_label}' - skipping measurement")
                 return
             
             # Get capture directory from device (MANDATORY)
             capture_dir = self.device.get_capture_dir('captures')
             if not capture_dir:
+                print(f"[@navigation_executor:KPI:DEBUG] ❌ No capture_dir - EARLY RETURN #7")
                 print(f"⚠️ [NavigationExecutor] No capture_dir for device {self.device_id} - KPI skipped")
                 return
             
@@ -1518,7 +1533,10 @@ class NavigationExecutor:
                 action_set_id=step.get('action_set_id')
             )
             
+            print(f"[@navigation_executor:KPI:DEBUG] execution_result_id={execution_result_id}")
+            
             if not execution_result_id:
+                print(f"[@navigation_executor:KPI:DEBUG] ❌ Failed to create execution_result - EARLY RETURN #8")
                 print(f"❌ [NavigationExecutor] Failed to create execution_result - KPI skipped")
                 return
             
