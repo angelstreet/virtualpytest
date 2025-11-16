@@ -1651,10 +1651,21 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             page = await self._get_persistent_page()
             print(f"[PLAYWRIGHT]: Got persistent page (url={page.url}), preparing to evaluate JS")
             
-            # Check if page is still responsive
+            # Check if page is still responsive (with timeout!)
+            import asyncio as _asyncio
             try:
-                await page.evaluate("() => true")
+                await _asyncio.wait_for(page.evaluate("() => true"), timeout=3.0)
                 print(f"[PLAYWRIGHT]: Page is responsive, proceeding with element dump")
+            except _asyncio.TimeoutError:
+                error_msg = f"Page connectivity check timed out after 3s - page may be unresponsive or overloaded"
+                print(f"[PLAYWRIGHT]: {error_msg}")
+                return {
+                    'success': False,
+                    'error': error_msg,
+                    'elements': [],
+                    'summary': {},
+                    'execution_time': int((time.time() - start_time) * 1000)
+                }
             except Exception as check_error:
                 error_msg = f"Page connectivity check failed: {type(check_error).__name__}: {str(check_error)}"
                 print(f"[PLAYWRIGHT]: {error_msg}")
@@ -1663,7 +1674,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     'error': error_msg,
                     'elements': [],
                     'summary': {},
-                    'execution_time': 0
+                    'execution_time': int((time.time() - start_time) * 1000)
                 }
             
             # JavaScript code to extract visible elements
