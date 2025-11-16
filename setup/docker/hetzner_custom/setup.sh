@@ -474,7 +474,7 @@ services:
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - SERVER_URL=\${SERVER_URL:-http://localhost:${SERVER_PORT}}
-      - DEBUG=\${DEBUG:-false}
+      - DEBUG=\${DEBUG:-0}
       - CORS_ORIGINS=\${CORS_ORIGINS:-http://localhost:3000}
       - SUPABASE_DB_URI=\${SUPABASE_DB_URI}
       - NEXT_PUBLIC_SUPABASE_URL=\${NEXT_PUBLIC_SUPABASE_URL}
@@ -582,7 +582,7 @@ services:
       - ../../../backend_server/src:/app/backend_server/src:rw
       - ../../../backend_server/scripts:/app/backend_server/scripts:rw
     environment:
-      - DEBUG=true
+      - DEBUG=1
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
 
@@ -598,7 +598,7 @@ for i in $(seq 1 $HOST_MAX); do
       - ../../../backend_host/src:/app/backend_host/src:rw
       - ../../../backend_host/scripts:/app/backend_host/scripts:rw
     environment:
-      - DEBUG=true
+      - DEBUG=1
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
 
@@ -630,7 +630,7 @@ HOST_VNC_STREAM_PATH=https://${DOMAIN}/host${i}/vnc/vnc_lite.html?path=/host${i}
 HOST_VIDEO_SOURCE=:1
 HOST_VIDEO_AUDIO=null
 HOST_VIDEO_FPS=2
-DEBUG=false
+DEBUG=0
 PYTHONUNBUFFERED=1
 
 # R2 Storage - Copy from main .env if exists
