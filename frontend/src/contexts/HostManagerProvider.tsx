@@ -321,7 +321,7 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         | 'generic_error';
       details?: any;
     }> => {
-      try:
+      try {
         const effectiveSessionId = sessionId || browserSessionId;
         const effectiveDeviceId = device_id || 'device1';
 
