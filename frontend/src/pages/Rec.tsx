@@ -404,63 +404,59 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   return (
     <Box sx={{ p: 3 }}>
       {/* Header with integrated filters */}
-      <Box
-        sx={{
-          display: 'flex',
-          justifyContent: 'space-between',
-          alignItems: 'flex-start',
-          mb: 3,
-          flexWrap: 'wrap',
-          gap: 2,
-        }}
-      >
-        {/* Left side - Title and description */}
-        <Box sx={{ flex: 1, minWidth: 250 }}>
-          <Typography variant="h5" component="h1" gutterBottom>
-            Remote Eye Controller
-          </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {isEditMode ? (
-              (() => {
-                // Calculate how many of the currently filtered devices are selected
-                const filteredDeviceKeys = new Set(filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`));
-                const selectedFilteredCount = Array.from(selectedDevices).filter(deviceKey => filteredDeviceKeys.has(deviceKey)).length;
-                
-                return (
-                  <>
-                    Flag Edit Mode • {selectedFilteredCount} of {filteredDevices.length} selected
-                    {selectedDevices.size > selectedFilteredCount && (
-                      <span style={{ color: '#ff9800', fontWeight: 500 }}>
-                        {' '}
-                        ({selectedDevices.size - selectedFilteredCount} hidden by filters)
-                      </span>
-                    )}
-                    {hasUnsavedChanges && (
-                      <span style={{ color: '#ff9800', fontWeight: 500 }}>
-                        {' '}
-                        • {pendingChanges.size} unsaved changes
-                      </span>
-                    )}
-                  </>
-                );
-              })()
-            ) : (
-              <>
-                View and control connected devices
-                {hasActiveFilters && (
-                  <span>
-                    {' '}
-                    • Showing {filteredDevices.length} of {avDevices.length} devices
-                  </span>
-                )}
-              </>
-            )}
-          </Typography>
-        </Box>
+      <Box sx={{ mb: 3 }}>
+        {/* Title and description row */}
+        <Box
+          sx={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            mb: 2,
+          }}
+        >
+          <Box>
+            <Typography variant="h5" component="h1" gutterBottom sx={{ mb: 0.5 }}>
+              Remote Eye Controller
+            </Typography>
+            <Typography variant="body2" color="text.secondary">
+              {isEditMode ? (
+                (() => {
+                  // Calculate how many of the currently filtered devices are selected
+                  const filteredDeviceKeys = new Set(filteredDevices.map(({ host, device }) => `${host.host_name}-${device.device_id}`));
+                  const selectedFilteredCount = Array.from(selectedDevices).filter(deviceKey => filteredDeviceKeys.has(deviceKey)).length;
+                  
+                  return (
+                    <>
+                      Flag Edit Mode • {selectedFilteredCount} of {filteredDevices.length} selected
+                      {selectedDevices.size > selectedFilteredCount && (
+                        <span style={{ color: '#ff9800', fontWeight: 500 }}>
+                          {' '}
+                          ({selectedDevices.size - selectedFilteredCount} hidden by filters)
+                        </span>
+                      )}
+                      {hasUnsavedChanges && (
+                        <span style={{ color: '#ff9800', fontWeight: 500 }}>
+                          {' '}
+                          • {pendingChanges.size} unsaved changes
+                        </span>
+                      )}
+                    </>
+                  );
+                })()
+              ) : (
+                <>
+                  View and control connected devices
+                  {hasActiveFilters && (
+                    <span>
+                      {' '}
+                      • Showing {filteredDevices.length} of {avDevices.length} devices
+                    </span>
+                  )}
+                </>
+              )}
+            </Typography>
+          </Box>
 
-        {/* Right side - Restart button and compact filters */}
-        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center' }}>
-          {/* Edit Mode Toggle */}
           <Button
             variant="text"
             size="small"
@@ -475,8 +471,10 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
           >
             {isEditMode ? 'Cancel' : 'Edit'}
           </Button>
+        </Box>
 
-
+        {/* Controls row - always at the same position */}
+        <Stack direction="row" spacing={1.5} sx={{ alignItems: 'center', flexWrap: 'wrap' }}>
           {/* Restart Streams Button */}
           {!isEditMode && (
             <Button
