@@ -38,16 +38,16 @@ class WebKitManager:
         raise ValueError('No suitable lightweight browser found. Install chromium-browser, google-chrome, or firefox')
     
     @staticmethod
-    def get_webkit_flags(debug_port: int = 9223, browser_type: str = 'chromium-webkit') -> list:
+    def get_webkit_flags(debug_port: int = 9223, browser_type: str = 'chromium-webkit', user_data_dir: str = "./backend_host/config/webkit_user_data") -> list:
         """Get browser launch flags for remote debugging based on browser type."""
         if browser_type == 'firefox':
             # Firefox remote debugging flags
             return [
                 f'--remote-debugging-port={debug_port}',
+                f'--profile={user_data_dir}',  # Firefox uses --profile instead of --user-data-dir
                 '--headless=false',  # Keep visible
                 '--new-instance',
                 '--no-remote',
-                '--profile-manager'
             ]
         elif browser_type in ['chromium-webkit', 'chrome-webkit']:
             # Flags matching the working manual command: docker exec ... chromium
@@ -57,6 +57,7 @@ class WebKitManager:
             # - window-position=0,0: anchor in top-left corner of the virtual display
             return [
                 f'--remote-debugging-port={debug_port}',
+                f'--user-data-dir={user_data_dir}',  # Persist cache, cookies, passwords
                 '--remote-debugging-address=0.0.0.0',
                 '--no-sandbox',
                 '--disable-gpu',
@@ -91,13 +92,17 @@ class WebKitManager:
                 return True
     
     @classmethod
-    def launch_webkit_with_debugging(cls, debug_port: int = 9223) -> subprocess.Popen:
+    def launch_webkit_with_debugging(cls, debug_port: int = 9223, user_data_dir: str = "./backend_host/config/webkit_user_data") -> subprocess.Popen:
         """Launch lightweight browser with remote debugging.
         
         Uses DIRECT execution approach (same as playwright_utils.py) - no bash/su wrappers.
         This matches the working manual command: docker exec ... chromium --flags
         
         IMPORTANT: Ensures all existing browser processes are killed before launching new one.
+        
+        Args:
+            debug_port: Port for remote debugging
+            user_data_dir: Browser user data directory for persistent cache/cookies/passwords
         """
         print(f'[WebKitManager] Cleaning up any existing browser processes before launch...')
         
@@ -142,16 +147,35 @@ class WebKitManager:
         
         print(f'[WebKitManager] ✓ All existing browsers cleaned up, port {debug_port} is free')
 
-        # 4) Find executable and get flags
+        # 4) Prepare user data directory and clean crash files (keep cache/cookies/passwords)
+        os.makedirs(user_data_dir, exist_ok=True)
+        
+        # Clean up crash detection files only (keep session data for passwords/cookies)
+        crash_files = ['Crash Reports', 'chrome_debug.log', 'Singleton*']
+        for crash_file in crash_files:
+            crash_path = os.path.join(user_data_dir, crash_file)
+            if os.path.exists(crash_path):
+                try:
+                    if os.path.isfile(crash_path):
+                        os.remove(crash_path)
+                    elif os.path.isdir(crash_path):
+                        import shutil
+                        shutil.rmtree(crash_path)
+                except Exception as e:
+                    pass  # Ignore cleanup errors
+        
+        print(f'[WebKitManager] Using persistent profile: {user_data_dir}')
+
+        # 5) Find executable and get flags
         executable_path, browser_type = cls.find_webkit_executable()
         print(f'[WebKitManager] Launching {browser_type} browser: {executable_path}')
 
-        browser_flags = cls.get_webkit_flags(debug_port, browser_type)
+        browser_flags = cls.get_webkit_flags(debug_port, browser_type, user_data_dir)
 
-        # 5) Build command as LIST (not string!) - same as playwright_utils.py
+        # 6) Build command as LIST (not string!) - same as playwright_utils.py
         cmd_line = [executable_path] + browser_flags
         
-        # 6) Set environment with DISPLAY
+        # 7) Set environment with DISPLAY
         env = os.environ.copy()
         env['DISPLAY'] = ':1'
         
@@ -159,7 +183,7 @@ class WebKitManager:
         print(f'[WebKitManager] Command: {" ".join(cmd_line)}')
         print(f'[WebKitManager] Environment DISPLAY: {env.get("DISPLAY")}')
         
-        # 7) Launch directly with subprocess.Popen (NO BASH, NO SU!)
+        # 8) Launch directly with subprocess.Popen (NO BASH, NO SU!)
         # Use DEVNULL and start_new_session to fully detach from Flask's process group
         process = subprocess.Popen(
             cmd_line,  # LIST of arguments (not a string!)
@@ -171,10 +195,10 @@ class WebKitManager:
         
         print(f'[WebKitManager] Chromium launched with PID: {process.pid}')
 
-        # 8) Wait for Chrome to be ready
+        # 9) Wait for Chrome to be ready
         cls._wait_for_webkit_ready(debug_port, max_wait=30)
 
-        # 9) Optional diagnostics
+        # 10) Optional diagnostics
         try:
             result = subprocess.run(['pgrep', 'chromium'], capture_output=True, text=True)
             if result.stdout.strip():
@@ -258,16 +282,22 @@ class WebKitConnection:
 class WebKitUtils:
     """Lightweight WebKit utility class - minimal resource usage alternative to Chrome."""
     
-    def __init__(self, debug_port: int = 9223):
-        """Initialize WebKit utils with minimal configuration."""
+    def __init__(self, debug_port: int = 9223, user_data_dir: str = "./backend_host/config/webkit_user_data"):
+        """Initialize WebKit utils with minimal configuration.
+        
+        Args:
+            debug_port: Port for remote debugging
+            user_data_dir: Browser user data directory for persistent cache/cookies/passwords
+        """
         self.debug_port = debug_port
+        self.user_data_dir = user_data_dir
         self.webkit_manager = WebKitManager()
         self.connection = WebKitConnection()
-        print(f'[WebKitUtils] Initialized lightweight WebKit browser on port {debug_port}')
+        print(f'[WebKitUtils] Initialized lightweight WebKit browser on port {debug_port} with persistent data: {user_data_dir}')
     
     def launch_webkit(self) -> subprocess.Popen:
-        """Launch lightweight browser with remote debugging."""
-        return self.webkit_manager.launch_webkit_with_debugging(self.debug_port)
+        """Launch lightweight browser with remote debugging and persistent data."""
+        return self.webkit_manager.launch_webkit_with_debugging(self.debug_port, self.user_data_dir)
     
     def launch_chrome(self) -> subprocess.Popen:
         """Compatibility method - launches lightweight browser (same as launch_webkit)."""
@@ -359,11 +389,11 @@ class WebKitUtils:
 
 
 # Convenience functions
-def create_webkit_utils(debug_port: int = 9223) -> WebKitUtils:
+def create_webkit_utils(debug_port: int = 9223, user_data_dir: str = "./backend_host/config/webkit_user_data") -> WebKitUtils:
     """Create a lightweight WebKit utils instance."""
-    return WebKitUtils(debug_port=debug_port)
+    return WebKitUtils(debug_port=debug_port, user_data_dir=user_data_dir)
 
 
-def launch_webkit_for_debugging(debug_port: int = 9223) -> subprocess.Popen:
-    """Quick function to launch WebKit with remote debugging."""
-    return WebKitManager.launch_webkit_with_debugging(debug_port)
+def launch_webkit_for_debugging(debug_port: int = 9223, user_data_dir: str = "./backend_host/config/webkit_user_data") -> subprocess.Popen:
+    """Quick function to launch WebKit with remote debugging and persistent data."""
+    return WebKitManager.launch_webkit_with_debugging(debug_port, user_data_dir)
