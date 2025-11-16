@@ -809,7 +809,9 @@ export function HLSVideoPlayer({
           left: 0,
           width: '100%',
           height: '100%',
-          objectFit: layoutConfig?.objectFit || 'contain', // Use config value, fallback to contain
+          objectFit: layoutConfig?.objectFit || 'contain',
+          aspectRatio: layoutConfig?.aspectRatio,
+          minHeight: layoutConfig?.minHeight,
           backgroundColor: '#000000',
           // Hide video during quality switch to prevent corrupted frames from showing
           display: streamLoaded && !shouldPause ? 'block' : 'none',
