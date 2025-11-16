@@ -9,6 +9,7 @@ import { useMonitoring } from '../../hooks/monitoring/useMonitoring';
 import { Host, Device } from '../../types/common/Host_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { buildServerUrl, pollForFreshStream, getCaptureUrlFromStream } from '../../utils/buildUrlUtils';
+import { DEFAULT_DEVICE_RESOLUTION } from '../../config/deviceResolutions';
 import { calculateVncScaling } from '../../utils/vncUtils';
 import { AIExecutionPanel } from '../ai';
 import { PromptDisambiguation } from '../ai/PromptDisambiguation';
@@ -173,7 +174,16 @@ const RecHostStreamModalContent: React.FC<{
     // Simple 80/20 rule: If any panel showing, stream gets 80%, otherwise 100%
     const hasAnyPanel = showRemote || (showWeb && isDesktopDevice);
     const streamAreaWidth = hasAnyPanel ? modalWidth * 0.80 : modalWidth;
-    const streamAreaHeight = modalHeight - actualHeaderHeight;
+
+    // Max height available for the stream inside the modal (respect header)
+    const maxStreamAreaHeight = modalHeight - actualHeaderHeight;
+
+    // Ideal height to keep the HDMI/HLS stream at the target aspect ratio (16:9)
+    const targetAspectRatio = DEFAULT_DEVICE_RESOLUTION.height / DEFAULT_DEVICE_RESOLUTION.width;
+    const idealStreamHeightFromAspect = streamAreaWidth * targetAspectRatio;
+
+    // Final height: as tall as possible while fitting inside the modal, preserving aspect ratio
+    const streamAreaHeight = Math.min(maxStreamAreaHeight, idealStreamHeightFromAspect);
 
     // Modal position (centered)
     const modalX = (windowWidth - modalWidth) / 2;
