@@ -2,10 +2,16 @@
 Device Model
 
 Represents a single device with its controllers organized by type.
+
+NOTE: This module is only for use by backend_host.
+It should NOT be imported by backend_server (would cause circular dependencies).
 """
 
-from typing import Dict, List, Optional, Any
-from backend_host.src.controllers.base_controller import BaseController
+from typing import Dict, List, Optional, Any, TYPE_CHECKING
+
+# Lazy import to avoid circular dependency when backend_server imports shared
+if TYPE_CHECKING:
+    from backend_host.src.controllers.base_controller import BaseController
 
 
 class Device:

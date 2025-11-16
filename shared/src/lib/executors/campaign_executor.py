@@ -33,7 +33,8 @@ from shared.src.lib.database.campaign_executions_db import (
     update_campaign_execution_result
 )
 from shared.src.lib.utils.app_utils import load_environment_variables
-from backend_host.src.lib.utils.host_utils import get_host_instance
+# REMOVED top-level import: from backend_host.src.lib.utils.host_utils import get_host_instance
+# Now lazy-loaded where needed
 from .script_executor import DEFAULT_TEAM_ID
 
 
@@ -233,6 +234,7 @@ class CampaignExecutor:
             
             # Create host instance and get team_id
             print(f"🏗️ [Campaign] Creating host instance...")
+            from backend_host.src.lib.utils.host_utils import get_host_instance  # Lazy import
             context.host = get_host_instance()
             device_count = context.host.get_device_count()
             print(f"✅ [Campaign] Host created with {device_count} devices")
