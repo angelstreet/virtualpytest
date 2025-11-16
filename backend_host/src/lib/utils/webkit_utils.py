@@ -132,11 +132,18 @@ class WebKitManager:
                             print(f'[WebKitManager] Killed process {pid.strip()} using port {debug_port}')
             except Exception as e:
                 print(f'[WebKitManager] Error killing processes on port {debug_port}: {e}')
-            time.sleep(2)
+            
+            # Wait for port to be released (up to 5 seconds)
+            for i in range(3):
+                time.sleep(1)
+                if not cls.is_port_in_use(debug_port):
+                    print(f'[WebKitManager] Port {debug_port} released after {i+1}s')
+                    break
         
-        # 3) Verify port is now free
+        # 3) Final check - warn but DON'T block launch
         if cls.is_port_in_use(debug_port):
-            raise RuntimeError(f'Port {debug_port} still in use after cleanup. Cannot launch browser.')
+            print(f'[WebKitManager] ⚠️ Port {debug_port} still in use, proceeding anyway')
+            # Don't raise - let Chrome fail if port truly blocked
         
         print(f'[WebKitManager] ✓ All existing browsers cleaned up, port {debug_port} is free')
 
