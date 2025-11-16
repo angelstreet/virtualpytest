@@ -19,7 +19,7 @@ def get_all_userinterfaces(team_id: str) -> List[Dict]:
     supabase = get_supabase()
     try:
         result = supabase.table('userinterfaces').select(
-            'id', 'name', 'models', 'min_version', 'max_version', 'team_id', 'created_at', 'updated_at'
+            'id', 'name', 'models', 'min_version', 'max_version', 'root_tree_id', 'team_id', 'created_at', 'updated_at'
         ).eq('team_id', team_id).order('created_at', desc=False).execute()
         
         userinterfaces = []
@@ -30,6 +30,7 @@ def get_all_userinterfaces(team_id: str) -> List[Dict]:
                 'models': ui.get('models', []),
                 'min_version': ui.get('min_version', ''),
                 'max_version': ui.get('max_version', ''),
+                'root_tree_id': ui.get('root_tree_id'),
                 'team_id': ui['team_id'],
                 'created_at': ui['created_at'],
                 'updated_at': ui['updated_at']
@@ -45,7 +46,7 @@ def get_userinterface(interface_id: str, team_id: str) -> Optional[Dict]:
     supabase = get_supabase()
     try:
         result = supabase.table('userinterfaces').select(
-            'id', 'name', 'models', 'min_version', 'max_version', 'team_id', 'created_at', 'updated_at'
+            'id', 'name', 'models', 'min_version', 'max_version', 'root_tree_id', 'team_id', 'created_at', 'updated_at'
         ).eq('id', interface_id).eq('team_id', team_id).single().execute()
         
         if result.data:
@@ -56,6 +57,7 @@ def get_userinterface(interface_id: str, team_id: str) -> Optional[Dict]:
                 'models': ui.get('models', []),
                 'min_version': ui.get('min_version', ''),
                 'max_version': ui.get('max_version', ''),
+                'root_tree_id': ui.get('root_tree_id'),
                 'team_id': ui['team_id'],
                 'created_at': ui['created_at'],
                 'updated_at': ui['updated_at']
@@ -70,7 +72,7 @@ def get_userinterface_by_name(interface_name: str, team_id: str) -> Optional[Dic
     supabase = get_supabase()
     try:
         result = supabase.table('userinterfaces').select(
-            'id', 'name', 'models'
+            'id', 'name', 'models', 'root_tree_id'
         ).eq('name', interface_name).eq('team_id', team_id).single().execute()
         
         if result.data:
@@ -79,6 +81,7 @@ def get_userinterface_by_name(interface_name: str, team_id: str) -> Optional[Dic
                 'id': ui['id'],
                 'name': ui['name'],
                 'models': ui.get('models', []),
+                'root_tree_id': ui.get('root_tree_id'),
             }
         return None
     except Exception as e:
@@ -134,6 +137,8 @@ def update_userinterface(interface_id: str, interface_data: Dict, team_id: str) 
             update_data['max_version'] = interface_data.get('max_version', '')
         if 'models' in interface_data:
             update_data['models'] = interface_data['models']
+        if 'root_tree_id' in interface_data:
+            update_data['root_tree_id'] = interface_data['root_tree_id']
         
         result = supabase.table('userinterfaces').update(update_data).eq('id', interface_id).eq('team_id', team_id).execute()
         
@@ -145,6 +150,7 @@ def update_userinterface(interface_id: str, interface_data: Dict, team_id: str) 
                 'models': ui.get('models', []),
                 'min_version': ui.get('min_version', ''),
                 'max_version': ui.get('max_version', ''),
+                'root_tree_id': ui.get('root_tree_id'),
                 'team_id': ui['team_id'],
                 'created_at': ui['created_at'],
                 'updated_at': ui['updated_at']
