@@ -849,15 +849,25 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
     """
     supabase = get_supabase()
     
-    # RPC functions return data directly (not an array)
+    # RPC functions that return JSON are wrapped in a list by Supabase
     result = supabase.rpc(
         'get_full_tree_from_mv',
         {'p_tree_id': tree_id, 'p_team_id': team_id}
     ).execute()
     
-    print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
-    
-    # Return the data directly - fail fast if structure is wrong
-    return result.data
+    # Extract first element from list (RPC returns array)
+    if result.data and len(result.data) > 0:
+        tree_data = result.data[0]
+        print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+        
+        return {
+            'success': tree_data.get('success', True),
+            'tree': tree_data.get('tree'),
+            'nodes': tree_data.get('nodes', []),
+            'edges': tree_data.get('edges', [])
+        }
+    else:
+        print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
+        return {'success': False, 'error': 'Tree not found'}
 
  
