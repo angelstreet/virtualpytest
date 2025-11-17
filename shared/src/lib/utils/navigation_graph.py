@@ -266,6 +266,49 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
     print(f"[@navigation:graph:create_networkx_graph] Successfully created graph with {len(G.nodes)} nodes and {len(G.edges)} edges")
     print(f"[@navigation:graph:create_networkx_graph] Edge processing summary: {edges_added} added, {edges_skipped} skipped")
     
+    # ✅ PRE-COMPUTE SIBLING RELATIONSHIPS for conditional edges
+    print(f"[@navigation:graph:create_networkx_graph] ===== COMPUTING SIBLING RELATIONSHIPS =====")
+    sibling_count = 0
+    
+    for source_id, target_id, edge_data in G.edges(data=True):
+        # Only process conditional edges (they need sibling lookup)
+        if not edge_data.get('is_conditional'):
+            continue
+        
+        # Get this edge's action_set_id
+        action_sets = edge_data.get('action_sets', [])
+        if not action_sets:
+            continue
+        
+        action_set_id = action_sets[0].get('id')
+        if not action_set_id:
+            continue
+        
+        # Find all sibling edges (same source, same action_set_id, different target)
+        sibling_node_ids = []
+        for _, other_target, other_edge_data in G.edges(source_id, data=True):
+            # Skip self
+            if other_target == target_id:
+                continue
+            
+            # Check if shares same action_set_id
+            other_action_sets = other_edge_data.get('action_sets', [])
+            if other_action_sets:
+                other_action_set_id = other_action_sets[0].get('id')
+                if other_action_set_id == action_set_id:
+                    sibling_node_ids.append(other_target)
+        
+        # Store sibling list on the edge
+        if sibling_node_ids:
+            edge_data['sibling_node_ids'] = sibling_node_ids
+            sibling_count += 1
+            source_label = G.nodes[source_id].get('label', source_id)
+            target_label = G.nodes[target_id].get('label', target_id)
+            sibling_labels = [G.nodes[sid].get('label', sid) for sid in sibling_node_ids]
+            print(f"[@navigation:graph:create_networkx_graph] Edge {source_label} → {target_label} has {len(sibling_node_ids)} sibling(s): {sibling_labels}")
+    
+    print(f"[@navigation:graph:create_networkx_graph] Pre-computed siblings for {sibling_count} conditional edges")
+    
     # Log all possible transitions summary
     print(f"[@navigation:graph:create_networkx_graph] ===== ALL POSSIBLE TRANSITIONS SUMMARY =====")
     for i, (from_node, to_node, edge_data) in enumerate(G.edges(data=True), 1):
