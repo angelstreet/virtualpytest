@@ -576,17 +576,56 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 'follow_redirects': follow_redirects
             }
         
+    def _is_css_selector(self, text: str) -> bool:
+        """Detect if text is a CSS selector that Playwright can use directly.
+        
+        Args:
+            text: Input string to check
+            
+        Returns:
+            True if it's a CSS selector, False if it's plain text
+        """
+        if not text or not text.strip():
+            return False
+        
+        text = text.strip()
+        
+        # CSS ID selector: #my-id
+        if text.startswith('#'):
+            return True
+        
+        # CSS class selector: .my-class
+        if text.startswith('.'):
+            return True
+        
+        # Attribute selector: [aria-label="..."] or [id="..."]
+        if text.startswith('[') and ']' in text:
+            return True
+        
+        # Complex CSS with > or + or ~ combinators: div > span, button + input
+        if any(combinator in text for combinator in [' > ', ' + ', ' ~ ']):
+            return True
+        
+        # CSS pseudo-selectors: :nth-child, :first-child, :hover, etc.
+        if ':' in text and not text.startswith('http'):
+            return True
+        
+        # Tag with attribute: button[type="submit"]
+        if '[' in text and ']' in text:
+            return True
+        
+        return False
+    
     @ensure_controller_loop
     async def click_element(self, element_id: str) -> Dict[str, Any]:
-        """Click an element using dump-first approach (like Android mobile).
+        """Click an element - uses direct click for CSS selectors, dump-first for text search.
         Supports pipe-separated fallback: "Settings|Preferences|Options"
         
         Args:
-            element_id: Element text, CSS selector, or aria-label to search for (unified with Android parameter name)
+            element_id: CSS selector (#id, .class, [attr]) OR plain text to search for
                         Can use pipe "|" to specify multiple options (tries each until one succeeds)
         """
         try:
-            print(f"[PLAYWRIGHT]: Clicking element using dump-first approach: {element_id}")
             start_time = time.time()
             
             # Parse pipe-separated terms for fallback support
@@ -600,6 +639,35 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             for i, term in enumerate(terms):
                 if len(terms) > 1:
                     print(f"[PLAYWRIGHT]: Attempt {i+1}/{len(terms)}: Searching for '{term}'")
+                
+                # OPTIMIZATION: Detect CSS selectors and use direct click (skip dump)
+                if self._is_css_selector(term):
+                    print(f"[PLAYWRIGHT]: Detected CSS selector, using direct click (skip dump): {term}")
+                    
+                    try:
+                        page = await self._get_persistent_page()
+                        
+                        # Try direct click with Playwright's native selector
+                        await page.click(term, timeout=5000)
+                        
+                        execution_time = int((time.time() - start_time) * 1000)
+                        print(f"[PLAYWRIGHT]: Direct CSS click successful: {term}")
+                        return {
+                            'success': True,
+                            'error': '',
+                            'execution_time': execution_time,
+                            'method': 'direct_css_click',
+                            'selector': term
+                        }
+                    except Exception as css_error:
+                        last_error = f"CSS selector click failed: {css_error}"
+                        print(f"[PLAYWRIGHT]: {last_error}")
+                        if len(terms) > 1:
+                            print(f"[PLAYWRIGHT]: CSS selector '{term}' failed, trying next...")
+                        continue
+                
+                # Plain text search - use dump-first approach (Android mobile style)
+                print(f"[PLAYWRIGHT]: Plain text detected, using dump-first approach: {term}")
                 
                 # Step 1: Find element using dump-first (same as Android mobile)
                 find_result = await self.find_element(term)
