@@ -260,9 +260,14 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           <Box
             sx={{
               p: 1,
-              bgcolor: nodeEdit.verification.testResults.every((r: any) => r.success)
-                ? 'success.light'
-                : 'error.light',
+              bgcolor: (() => {
+                const passCondition = nodeForm?.verification_pass_condition || 'all';
+                const batchPassed =
+                  passCondition === 'all'
+                    ? nodeEdit.verification.testResults.every((r: any) => r.success)
+                    : nodeEdit.verification.testResults.some((r: any) => r.success);
+                return batchPassed ? 'success.light' : 'error.light';
+              })(),
               borderRadius: 1,
               maxHeight: 200,
               overflow: 'auto',
@@ -272,11 +277,18 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           >
             <Typography variant="subtitle2" sx={{ mb: 0.5 }}>
               Verification Results:
-              {nodeEdit.verification.testResults.every((r: any) => r.success) && (
-                <span style={{ marginLeft: '8px', color: 'green' }}>
-                  ✅
-                </span>
-              )}
+              {(() => {
+                const passCondition = nodeForm?.verification_pass_condition || 'all';
+                const batchPassed =
+                  passCondition === 'all'
+                    ? nodeEdit.verification.testResults.every((r: any) => r.success)
+                    : nodeEdit.verification.testResults.some((r: any) => r.success);
+                return batchPassed && (
+                  <span style={{ marginLeft: '8px', color: 'green' }}>
+                    ✅
+                  </span>
+                );
+              })()}
             </Typography>
             {nodeEdit.verification.testResults.map((result: any, index: number) => 
               renderVerificationResult(result, index)

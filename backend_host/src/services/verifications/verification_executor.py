@@ -306,20 +306,102 @@ class VerificationExecutor:
             overall_success = passed_count == len(valid_verifications)
             print(f"[@lib:verification_executor:execute_verifications] 'all must pass' mode: {passed_count}/{len(valid_verifications)} passed → {'✅ PASS' if overall_success else '❌ FAIL'}")
         
+        # Generate debug report ONLY if BATCH failed (not for individual failures)
+        # This prevents unnecessary reports when "any can pass" mode allows batch to succeed
+        debug_report_path = None
+        debug_report_url = None
+        if not overall_success:
+            # Find first failed verification that has report config stored
+            for result in results:
+                if not result.get('success', False) and '_report_config' in result:
+                    print(f"[@lib:verification_executor] " + "=" * 80)
+                    print(f"[@lib:verification_executor] 🔍 BATCH FAILED - GENERATING DEBUG REPORT FOR FIRST FAILURE")
+                    print(f"[@lib:verification_executor] " + "=" * 80)
+                    try:
+                        from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
+                        from shared.src.lib.utils.storage_path_utils import get_capture_folder
+                        from backend_host.src.lib.utils.host_utils import get_host_instance
+                        
+                        verification_config = result['_report_config']
+                        details = result.get('details', {})
+                        
+                        # Get device folder from AV controller
+                        device_folder = get_capture_folder(self.av_controller.video_capture_path)
+                        print(f"[@lib:verification_executor] Device folder from AV controller: {device_folder}")
+                        
+                        # Get host info for URL building
+                        host = get_host_instance()
+                        host_info = {
+                            'host_name': host.host_name,
+                            'host_url': host.host_url
+                        }
+                        print(f"[@lib:verification_executor] Host info for report: {host_info}")
+                        
+                        # Get source_image_path from result details
+                        source_path = None
+                        print(f"[@lib:verification_executor] Details dict has {len(details)} keys: {list(details.keys())}")
+                        
+                        if 'source_image_path' in details:
+                            source_path = details['source_image_path']
+                            print(f"[@lib:verification_executor] ✅ Found source_image_path in details: {source_path}")
+                        elif 'source_image_path' in verification_config:
+                            source_path = verification_config['source_image_path']
+                            print(f"[@lib:verification_executor] ✅ Found source_image_path in config: {source_path}")
+                        else:
+                            print(f"[@lib:verification_executor] ❌ source_image_path not found!")
+                        
+                        if source_path and device_folder:
+                            # Add source_image_path to verification_config for report generator
+                            verification_config_with_path = {**verification_config, 'source_image_path': source_path}
+                            
+                            # Generate report
+                            report_path = generate_verification_failure_report(
+                                verification_config=verification_config_with_path,
+                                verification_result=result,
+                                device_folder=device_folder,
+                                host_info=host_info
+                            )
+                            if report_path:
+                                debug_report_path = report_path
+                                print(f"[@lib:verification_executor] " + "-" * 80)
+                                print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (local): {report_path}")
+                                
+                                # Convert local path to URL for frontend
+                                from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                                debug_report_url = buildHostImageUrl(host_info, report_path)
+                                
+                                print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (URL): {debug_report_url}")
+                                print(f"[@lib:verification_executor] " + "-" * 80)
+                                
+                                # Store in result for later use
+                                result['debug_report_path'] = report_path
+                                result['debug_report_url'] = debug_report_url
+                            else:
+                                print(f"[@lib:verification_executor] ⚠️ Report generation returned None")
+                        else:
+                            if not source_path:
+                                print(f"[@lib:verification_executor] ⚠️ Source path not found - cannot generate report")
+                            if not device_folder:
+                                print(f"[@lib:verification_executor] ⚠️ Device folder is None - cannot generate report")
+                        
+                        print(f"[@lib:verification_executor] " + "=" * 80)
+                    except Exception as report_error:
+                        print(f"[@lib:verification_executor] ❌ Failed to generate debug report: {report_error}")
+                        import traceback
+                        traceback.print_exc()
+                        print(f"[@lib:verification_executor] " + "=" * 80)
+                    
+                    # Only generate report for first failure
+                    break
+        
         # Extract detailed error information from failed verifications
         error_info = None
-        debug_report_path = None  # ✅ Track first debug report path (local path)
-        debug_report_url = None  # ✅ Track first debug report URL (HTTP URL)
         if not overall_success and results:
             # Get the first failed verification's message as the primary error
             for result in results:
                 if not result.get('success', False):
                     error_info = result.get('message', 'Verification failed')
-                    # ✅ Capture debug report path and URL from first failed verification
-                    if result.get('debug_report_path'):
-                        debug_report_path = result.get('debug_report_path')
-                    if result.get('debug_report_url'):
-                        debug_report_url = result.get('debug_report_url')
+                    # Debug report paths already set above (lines 311-395)
                     break
         
         # Collect all verification evidence for KPI report
@@ -676,87 +758,12 @@ class VerificationExecutor:
             if hasattr(controller, '_current_context'):
                 delattr(controller, '_current_context')
             
-            # Generate debug report for failures (only for image/text verifications with images)
+            # Store failure details for potential debug report generation later (after batch evaluation)
+            # Debug reports will only be generated if the BATCH fails
             if not flattened_result.get('success') and verification_type in ['image', 'text']:
-                print(f"[@lib:verification_executor] " + "=" * 80)
-                print(f"[@lib:verification_executor] 🔍 VERIFICATION FAILURE - GENERATING DEBUG REPORT")
-                print(f"[@lib:verification_executor] " + "=" * 80)
-                try:
-                    from shared.src.lib.utils.verification_report_generator import generate_verification_failure_report
-                    from shared.src.lib.utils.storage_path_utils import get_capture_folder
-                    from backend_host.src.lib.utils.host_utils import get_host_instance
-                    
-                    # ✅ Get device folder from AV controller (same as image.py does)
-                    device_folder = get_capture_folder(self.av_controller.video_capture_path)
-                    print(f"[@lib:verification_executor] Device folder from AV controller: {device_folder}")
-                    
-                    # ✅ Get host info for URL building
-                    host = get_host_instance()
-                    host_info = {
-                        'host_name': host.host_name,
-                        'host_url': host.host_url  # Already set during registration with proper env var
-                    }
-                    print(f"[@lib:verification_executor] Host info for report: {host_info}")
-                    
-                    # ✅ Get source_image_path from RESULT (controller sets it), not from config (input)
-                    # Controllers auto-capture screenshots if not provided, so path is in result.details
-                    source_path = None
-                    details = flattened_result.get('details', {})
-                    
-                    # DEBUG: Show what's in details
-                    print(f"[@lib:verification_executor] Details dict has {len(details)} keys: {list(details.keys())}")
-                    
-                    # Try multiple locations where source path might be
-                    if 'source_image_path' in details:
-                        source_path = details['source_image_path']
-                        print(f"[@lib:verification_executor] ✅ Found source_image_path in details: {source_path}")
-                    elif 'source_image_path' in verification_config:
-                        source_path = verification_config['source_image_path']
-                        print(f"[@lib:verification_executor] ✅ Found source_image_path in config: {source_path}")
-                    else:
-                        print(f"[@lib:verification_executor] ❌ source_image_path not found!")
-                        print(f"[@lib:verification_executor] Details content: {details}")
-                    
-                    if source_path and device_folder:
-                        # ✅ Add source_image_path to verification_config for report generator
-                        verification_config_with_path = {**verification_config, 'source_image_path': source_path}
-                        
-                        # CRITICAL: Pass flattened_result (has correct field mapping) not verification_result (raw)
-                        report_path = generate_verification_failure_report(
-                            verification_config=verification_config_with_path,
-                            verification_result=flattened_result,  # ✅ Use flattened_result with correct field mapping
-                            device_folder=device_folder,
-                            host_info=host_info  # ✅ Pass host_info for URL building
-                        )
-                        if report_path:
-                            print(f"[@lib:verification_executor] " + "-" * 80)
-                            print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (local): {report_path}")
-                            
-                            # ✅ Convert local path to URL for frontend
-                            from shared.src.lib.utils.build_url_utils import buildHostImageUrl
-                            report_url = buildHostImageUrl(host_info, report_path)
-                            
-                            print(f"[@lib:verification_executor] 🔍 DEBUG REPORT (URL): {report_url}")
-                            print(f"[@lib:verification_executor] " + "-" * 80)
-                            
-                            # ✅ ADD REPORT URL TO RESULT for frontend to display as link
-                            flattened_result['debug_report_url'] = report_url
-                            flattened_result['debug_report_path'] = report_path  # Keep local path for backend reference
-                        else:
-                            print(f"[@lib:verification_executor] ⚠️ Report generation returned None")
-                    else:
-                        if not source_path:
-                            print(f"[@lib:verification_executor] ⚠️ Source path not found - cannot generate report")
-                        if not device_folder:
-                            print(f"[@lib:verification_executor] ⚠️ Device folder is None - cannot generate report")
-                        
-                    print(f"[@lib:verification_executor] " + "=" * 80)
-                except Exception as report_error:
-                    # Don't let report generation break verification execution
-                    print(f"[@lib:verification_executor] ❌ Failed to generate debug report: {report_error}")
-                    import traceback
-                    traceback.print_exc()
-                    print(f"[@lib:verification_executor] " + "=" * 80)
+                # Store config and result for potential report generation
+                flattened_result['_report_config'] = verification_config
+                flattened_result['_report_details'] = flattened_result.get('details', {})
             
             return flattened_result
             
