@@ -407,7 +407,7 @@ def update_node_api(tree_id, node_id):
                 userinterface_id = tree_metadata.get('tree', {}).get('userinterface_id')
                 
                 if userinterface_id:
-                    from shared.src.lib.database.userinterfaces_db import get_userinterface
+                    from shared.src.lib.database.userinterface_db import get_userinterface
                     ui_result = get_userinterface(userinterface_id, team_id)
                     
                     if ui_result and ui_result.get('success'):

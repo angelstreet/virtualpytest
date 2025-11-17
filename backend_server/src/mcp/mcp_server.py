@@ -650,12 +650,16 @@ Example:
 
 **CRITICAL - PARAMETER NAMES:**
 For waitForElementToAppear, use 'search_term' (NOT 'text'):
-- ✅ CORRECT: {"search_term": "Home", "timeout": 10}
-- ❌ WRONG: {"text": "Home", "timeout": 10}
+- CORRECT: {"search_term": "Home", "timeout": 10}
+- WRONG: {"text": "Home", "timeout": 10}
 
-The backend expects 'search_term' because it supports flexible matching:
-- Text content, accessibility labels, class names
-- Pipe-separated fallbacks: "Settings|Preferences|Options"
+search_term selector priority (MUST be unique on page):
+1. #id (always unique)
+2. //xpath (e.g., //button[@name='login'])
+3. [attr] or .class (verify uniqueness first)
+4. plain text (fallback, slower)
+
+Use 2-3 verifications per node if required for uniqueness
 """,
                 "inputSchema": {
                     "type": "object",

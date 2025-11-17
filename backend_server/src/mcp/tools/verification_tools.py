@@ -68,6 +68,11 @@ class VerificationTools:
         
         response_text = f"📋 Available verifications for {device_model} ({device_id}):\n\n"
         
+        if device_model in ['host_vnc', 'web']:
+            response_text += "For waitForElementToAppear search_term, use selector priority:\n"
+            response_text += "1. #id > 2. //xpath > 3. [attr] or .class > 4. plain text (fallback)\n"
+            response_text += "Use 2-3 verifications per node if required for uniqueness.\n\n"
+        
         for category, verifications in device_verification_types.items():
             if not verifications:
                 continue
