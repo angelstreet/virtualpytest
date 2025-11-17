@@ -1057,6 +1057,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 label: nodeForm.label,
                 description: nodeForm.description,
                 verifications: nodeForm.verifications || [],
+                verification_pass_condition: nodeForm.verification_pass_condition || 'all', // ✅ FIX: Include verification pass condition from form
+                priority: nodeForm.priority || 'p3', // ✅ Also include priority to be consistent
               },
             };
             setNodes([...nodes, updatedNodeData]);
@@ -1070,6 +1072,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 label: nodeForm.label,
                 description: nodeForm.description,
                 verifications: nodeForm.verifications || [],
+                verification_pass_condition: nodeForm.verification_pass_condition || 'all', // ✅ FIX: Include verification pass condition from form
+                priority: nodeForm.priority || 'p3', // ✅ Also include priority to be consistent
               },
             };
              const updatedNodes = nodes.map((node) =>
