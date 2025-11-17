@@ -30,6 +30,7 @@ export interface ImageVerificationParams {
   area?: ReferenceArea; // Optional: area to search within
   image_filter?: 'none' | 'greyscale' | 'binary'; // Optional: filter to apply, default 'none'
   reference_name?: string; // Optional: reference name for UI display (same as image_path usually)
+  area_modified?: boolean; // Optional: flag indicating area has been modified
 }
 
 // Text verification parameters
@@ -42,6 +43,8 @@ export interface TextVerificationParams {
   area?: ReferenceArea; // Optional: area to search within
   image_filter?: 'none' | 'greyscale' | 'binary'; // Optional: filter to apply
   reference_name?: string; // Optional: reference name for UI display
+  text_modified?: boolean; // Optional: flag indicating text has been modified
+  area_modified?: boolean; // Optional: flag indicating area has been modified
 }
 
 // ADB verification parameters
@@ -96,6 +99,9 @@ export interface VideoVerificationParams {
 
   // For video change detection
   threshold?: number; // Optional: change threshold percentage
+  
+  // UI-specific flags
+  area_modified?: boolean; // Optional: flag indicating area has been modified
 }
 
 // Union type for all verification parameters

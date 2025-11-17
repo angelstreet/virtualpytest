@@ -122,10 +122,16 @@ export const useNodeEdit = ({
         
         for (const verif of verification.verifications) {
           // Check if this is a text/image verification with modified text or area
-          const hasTextModified = verif.verification_type === 'text' && verif.params?.text_modified;
-          const hasAreaModified = verif.params?.area_modified;
+          const hasTextModified = verif.verification_type === 'text' && 
+            'text_modified' in verif.params && verif.params.text_modified;
+          const hasAreaModified = 
+            (verif.verification_type === 'image' || 
+             verif.verification_type === 'text' || 
+             verif.verification_type === 'video') &&
+            'area_modified' in verif.params && verif.params.area_modified;
           
-          if ((hasTextModified || hasAreaModified) && verif.params?.reference_name) {
+          if ((hasTextModified || hasAreaModified) && 
+              'reference_name' in verif.params && verif.params.reference_name) {
             console.log('[useNodeEdit] 📝 Updating reference:', verif.params.reference_name, {
               text_modified: hasTextModified,
               area_modified: hasAreaModified
@@ -141,11 +147,11 @@ export const useNodeEdit = ({
               const updateData: any = {
                 reference_name: originalReferenceName, // Use original DB name
                 userinterface_name: referenceKey,
-                area: verif.params.area || {},
+                area: ('area' in verif.params ? verif.params.area : undefined) || {},
               };
               
               // Add text for text verifications
-              if (verif.verification_type === 'text' && verif.params?.text) {
+              if (verif.verification_type === 'text' && 'text' in verif.params && verif.params.text) {
                 updateData.text = verif.params.text;
               }
               
