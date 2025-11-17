@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 import traceback
 
-from services.ai_exploration.screen_analyzer import ScreenAnalyzer
-from services.ai_exploration.navigation_strategy import NavigationStrategy
-from services.ai_exploration.node_generator import NodeGenerator
+from backend_host.src.services.ai_exploration.screen_analyzer import ScreenAnalyzer
+from backend_host.src.services.ai_exploration.navigation_strategy import NavigationStrategy
+from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_edge,
