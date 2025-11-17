@@ -76,12 +76,18 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
         
         # Get full tree data with nodes and edges (same as navigation page)
         tree_data = get_full_tree(root_tree_id, team_id)
+        print(f"[@TreeManager:DEBUG] get_full_tree returned type: {type(tree_data)}")
+        print(f"[@TreeManager:DEBUG] get_full_tree keys: {tree_data.keys() if isinstance(tree_data, dict) else 'NOT A DICT'}")
+        print(f"[@TreeManager:DEBUG] get_full_tree success: {tree_data.get('success') if isinstance(tree_data, dict) else 'N/A'}")
         
         if not tree_data['success']:
+            print(f"[@TreeManager:DEBUG] tree_data['success'] is False, returning error")
             return {'success': False, 'error': f"Failed to load tree data: {tree_data.get('error', 'Unknown error')}"}
         
+        print(f"[@TreeManager:DEBUG] Extracting nodes and edges from tree_data")
         nodes = tree_data['nodes']
         edges = tree_data['edges']
+        print(f"[@TreeManager:DEBUG] Extracted {len(nodes)} nodes and {len(edges)} edges")
         
         # Create root tree result for hierarchy processing
         root_tree_result = {
@@ -103,7 +109,9 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
         print(f"✅ [TreeManager] Root tree loaded: {root_tree_id}")
         
         # 4. Discover complete tree hierarchy
+        print(f"[@TreeManager:DEBUG] Starting discover_complete_hierarchy")
         hierarchy_data = discover_complete_hierarchy(root_tree_id, team_id)
+        print(f"[@TreeManager:DEBUG] discover_complete_hierarchy returned: {len(hierarchy_data) if hierarchy_data else 'None'} items")
         if not hierarchy_data:
             # If no nested trees, create single-tree hierarchy
             hierarchy_data = [format_tree_for_hierarchy(root_tree_result, is_root=True)]
@@ -112,14 +120,18 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
             print(f"📋 [TreeManager] Found {len(hierarchy_data)} trees in hierarchy")
         
         # 5. Build unified tree data structure
+        print(f"[@TreeManager:DEBUG] Starting build_unified_tree_data")
         all_trees_data = build_unified_tree_data(hierarchy_data, team_id)
+        print(f"[@TreeManager:DEBUG] build_unified_tree_data returned: {len(all_trees_data) if all_trees_data else 'None'} items")
         if not all_trees_data:
             raise NavigationTreeError("Failed to build unified tree data structure")
         
         # 6. Populate unified cache (MANDATORY)
         print(f"🔄 [TreeManager] Populating unified cache...")
+        print(f"[@TreeManager:DEBUG] Calling populate_unified_cache")
         from shared.src.lib.utils.navigation_cache import populate_unified_cache
         unified_graph = populate_unified_cache(root_tree_id, team_id, all_trees_data)
+        print(f"[@TreeManager:DEBUG] populate_unified_cache returned: {unified_graph is not None}")
         if not unified_graph:
             raise UnifiedCacheError("Failed to populate unified cache - navigation will not work")
         
@@ -130,7 +142,7 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
             unified_graph_storage['graph'] = unified_graph
         
         # 7. Return result compatible with script executor expectations
-        return {
+        result = {
             'success': True,
             'tree_id': root_tree_id,
             'tree': {
@@ -151,14 +163,24 @@ def load_navigation_tree(userinterface_name: str, team_id: str, unified_graph_st
             'unified_graph_edges': len(unified_graph.edges),
             'cross_tree_capabilities': len(hierarchy_data) > 1
         }
+        print(f"[@TreeManager:DEBUG] ✅ Returning success result with {len(nodes)} nodes and {len(edges)} edges")
+        return result
         
     except Exception as e:
         # Re-raise navigation-specific errors
+        print(f"[@TreeManager:DEBUG] ❌ Exception caught in load_navigation_tree")
+        print(f"[@TreeManager:DEBUG] Exception type: {type(e).__name__}")
+        print(f"[@TreeManager:DEBUG] Exception message: {str(e)}")
+        import traceback
+        print(f"[@TreeManager:DEBUG] Traceback:\n{traceback.format_exc()}")
+        
         from shared.src.lib.utils.navigation_exceptions import NavigationTreeError, UnifiedCacheError
         if isinstance(e, (NavigationTreeError, UnifiedCacheError)):
+            print(f"[@TreeManager:DEBUG] Re-raising navigation-specific error")
             raise e
         else:
             # FAIL EARLY - no fallback
+            print(f"[@TreeManager:DEBUG] Returning error dict")
             return {'success': False, 'error': f"Navigation tree loading failed: {str(e)}"}
 
 
