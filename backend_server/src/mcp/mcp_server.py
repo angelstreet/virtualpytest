@@ -659,7 +659,8 @@ search_term selector priority (MUST be unique on page):
 3. [attr] or .class (verify uniqueness first)
 4. plain text (fallback, slower)
 
-Use 2-3 verifications per node if required for uniqueness
+1 unique selector is enough. Only use multiple verifications if single selector is not unique.
+Prefer stable structural elements (form fields, buttons) over dynamic content (product names, prices)
 """,
                 "inputSchema": {
                     "type": "object",

@@ -71,7 +71,8 @@ class VerificationTools:
         if device_model in ['host_vnc', 'web']:
             response_text += "For waitForElementToAppear search_term, use selector priority:\n"
             response_text += "1. #id > 2. //xpath > 3. [attr] or .class > 4. plain text (fallback)\n"
-            response_text += "Use 2-3 verifications per node if required for uniqueness.\n\n"
+            response_text += "1 unique selector is enough. Only use multiple verifications if single selector is not unique.\n"
+            response_text += "Prefer stable structural elements (form fields, buttons) over dynamic content.\n\n"
         
         for category, verifications in device_verification_types.items():
             if not verifications:
