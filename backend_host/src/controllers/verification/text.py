@@ -54,9 +54,10 @@ class TextVerificationController:
                            verification_index: int = 0, image_filter: str = 'none') -> Tuple[bool, str, dict]:
         """
         Wait for specific text to appear either in provided image list or by capturing new frames.
+        Supports pipe-separated terms for fallback (e.g., "Settings|Einstellungen|Paramètres").
         
         Args:
-            text: Text pattern to look for 
+            text: Text pattern to look for (can use pipe-separated terms: "text1|text2|text3")
             timeout: Maximum time to wait in seconds  
             area: Optional area to search (x, y, width, height)
             image_list: Optional list of source image paths to search
@@ -77,12 +78,20 @@ class TextVerificationController:
             print(f"[@controller:TextVerification] WARNING: Timeout {timeout}s exceeds maximum (30s), capping at 30s")
             timeout = 30
         
-        print(f"[@controller:TextVerification] Looking for text pattern: '{text}'")
+        # Check if we have pipe-separated terms
+        if '|' in text:
+            terms = [term.strip() for term in text.split('|') if term.strip()]
+            print(f"[@controller:TextVerification] Using fallback strategy with {len(terms)} terms: {terms}")
+        else:
+            terms = [text.strip()]
+            print(f"[@controller:TextVerification] Looking for text pattern: '{text}'")
+        
         if image_filter and image_filter != 'none':
             print(f"[@controller:TextVerification] Using image filter: {image_filter}")
         
         additional_data = {
-            "searchedText": text,  # Frontend-expected property name
+            "searchedText": text,  # Frontend-expected property name (original search term)
+            "attempted_terms": terms,
             "image_filter": image_filter
         }
         
