@@ -849,11 +849,11 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
     """
     supabase = get_supabase()
     
-    # Use .single() to tell PostgREST we expect ONE row, not an array
+    # RPC functions return data directly (not an array)
     result = supabase.rpc(
         'get_full_tree_from_mv',
         {'p_tree_id': tree_id, 'p_team_id': team_id}
-    ).single().execute()
+    ).execute()
     
     print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
     
