@@ -68,6 +68,12 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
         const params = verification.params || {};
         const referenceName = (params as any).reference_name || (params as any).image_path;
         
+        // CRITICAL: Skip auto-resolve if area was manually modified by user
+        if ((params as any).area_modified) {
+          console.log(`[VerificationsList] Skipping auto-resolve for ${referenceName} - area was manually modified`);
+          return verification;
+        }
+        
         // If verification has a reference name but potentially wrong area, auto-resolve it
         if (referenceName && modelReferences[referenceName]) {
           const selectedRef = modelReferences[referenceName];
