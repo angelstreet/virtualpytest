@@ -593,12 +593,16 @@ def populate_navigation_cache_for_control(tree_id: str, team_id: str, host_name:
             print(f"[@control:cache] Loaded single tree")
         
         # STEP 2: Populate cache on HOST (overwrites any existing cache)
-        print(f"[@control:cache] 🔨 Building cache on HOST for tree {tree_id}")
+        # CRITICAL: Use force_repopulate=True to rebuild stale cache (nodes/edges may have been added since last build)
+        print(f"[@control:cache] 🔨 Building cache on HOST for tree {tree_id} (force_repopulate=True)")
         populate_result, status_code = proxy_to_host_direct(
             host_info,
             f'/host/navigation/cache/populate/{tree_id}?team_id={team_id}',
             'POST',
-            data={'all_trees_data': all_trees_data}
+            data={
+                'all_trees_data': all_trees_data,
+                'force_repopulate': True  # Always rebuild on takeControl to ensure fresh data
+            }
         )
         
         if populate_result and populate_result.get('success'):
