@@ -32,7 +32,7 @@ def count_recent_files(
     max_age_seconds: int = 60,
     exclude_pattern: Optional[str] = None
 ) -> int:
-    """
+    r"""
     Count files matching pattern modified within max_age_seconds.
     Fast O(n) scan with early filtering - no sorting or subprocess overhead.
     
@@ -84,7 +84,7 @@ def get_last_file_mtime(
     max_age_seconds: int = 60,
     exclude_pattern: Optional[str] = None
 ) -> Optional[float]:
-    """
+    r"""
     Get the most recent modification time of files matching pattern.
     Fast O(n) scan with early filtering - no sorting or subprocess overhead.
     
@@ -139,7 +139,7 @@ def get_files_by_pattern(
     min_mtime: Optional[float] = None,
     max_mtime: Optional[float] = None
 ) -> List[str]:
-    """
+    r"""
     Get all files matching pattern using fast os.scandir (no subprocess overhead).
     Replacement for subprocess find commands - 2-5x faster, no timeout risk.
     
