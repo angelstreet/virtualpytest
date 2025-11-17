@@ -44,7 +44,8 @@ class ScriptExecutionContext:
         self.host = None
         self.team_id = None
         self.selected_device = None
-        self.userinterface_name = None  # MANDATORY for reference resolution
+        self.userinterface_name = None  # Legacy name (backward compatibility)
+        self.userinterface = None        # NEW: Canonical access (framework parameter)
         
         # Navigation objects
         self.tree_data = None
@@ -764,14 +765,17 @@ class ScriptExecutor:
         """Setup execution context with infrastructure components - NO DEVICE LOCKING"""
         context = ScriptExecutionContext(self.script_name)
         
-        # Store userinterface_name if script declares it
-        context.userinterface_name = getattr(args, 'userinterface_name', None)
+        # Store userinterface if script declares it (framework parameter)
+        # Accept both 'userinterface' (new) and 'userinterface_name' (legacy) for compatibility
+        userinterface_value = getattr(args, 'userinterface', None) or getattr(args, 'userinterface_name', None)
+        context.userinterface_name = userinterface_value  # Keep for backward compatibility
+        context.userinterface = userinterface_value        # NEW: Canonical access
         
         # Start capturing stdout for log upload
         context.start_stdout_capture()
         
-        if context.userinterface_name:
-            print(f"🎯 [{self.script_name}] Starting execution for: {context.userinterface_name}")
+        if context.userinterface:
+            print(f"🎯 [{self.script_name}] Starting execution for: {context.userinterface}")
         else:
             print(f"🎯 [{self.script_name}] Starting execution (no UI required)")
         
