@@ -396,6 +396,55 @@ def update_node_api(tree_id, node_id):
                 'message': 'No node data provided'
             }), 400
         
+        # ✅ VALIDATION: Check verifications if provided
+        verifications = node_data.get('verifications', [])
+        if verifications:
+            # Get userinterface to determine device_model
+            from shared.src.lib.database.navigation_trees_db import get_tree_metadata
+            tree_metadata = get_tree_metadata(tree_id, team_id)
+            
+            if tree_metadata and tree_metadata.get('success'):
+                userinterface_id = tree_metadata.get('tree', {}).get('userinterface_id')
+                
+                if userinterface_id:
+                    from shared.src.lib.database.userinterfaces_db import get_userinterface
+                    ui_result = get_userinterface(userinterface_id, team_id)
+                    
+                    if ui_result and ui_result.get('success'):
+                        device_model = ui_result.get('userinterface', {}).get('device_model', 'unknown')
+                        
+                        # Import validator
+                        from backend_server.src.mcp.utils.api_client import MCPAPIClient
+                        from backend_server.src.mcp.utils.verification_validator import VerificationValidator
+                        from shared.src.lib.config.constants import APP_CONFIG
+                        
+                        api_client = MCPAPIClient(
+                            APP_CONFIG.get('BACKEND_SERVER_URL', 'http://localhost:5000')
+                        )
+                        validator = VerificationValidator(api_client)
+                        
+                        is_valid, errors, warnings = validator.validate_verifications(
+                            verifications,
+                            device_model
+                        )
+                        
+                        if not is_valid:
+                            error_msg = "❌ Invalid verification command(s):\n\n"
+                            error_msg += "\n".join(errors)
+                            error_msg += "\n\n" + validator.get_valid_commands_for_display(device_model)
+                            
+                            return jsonify({
+                                'success': False,
+                                'message': error_msg,
+                                'errors': errors
+                            }), 400
+                        
+                        # Log warnings but allow save
+                        if warnings:
+                            print(f"[@route:navigation_trees:update_node] ⚠️ Verification warnings:")
+                            for warning in warnings:
+                                print(f"  {warning}")
+        
         node_data['node_id'] = node_id
         result = save_node(tree_id, node_data, team_id)
         

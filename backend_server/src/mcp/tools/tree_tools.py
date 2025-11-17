@@ -13,6 +13,7 @@ import logging
 from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter, ErrorCategory
+from ..utils.verification_validator import VerificationValidator
 
 
 class TreeTools:
@@ -22,6 +23,7 @@ class TreeTools:
         self.api_client = api_client
         self.formatter = MCPFormatter()
         self.logger = logging.getLogger(__name__)
+        self.verification_validator = VerificationValidator(api_client)
     
     def create_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -98,6 +100,13 @@ class TreeTools:
         
         Returns:
             Updated node object
+            
+        ⚠️ VERIFICATION VALIDATION:
+        If updates contain 'data' with 'verifications', they will be validated
+        against available device controllers before saving.
+        
+        To see valid verification commands, call:
+            list_verifications(device_id='device_id', host_name='host_name')
         """
         try:
             tree_id = params['tree_id']
@@ -118,6 +127,51 @@ class TreeTools:
                     f"Failed to fetch existing node: {existing_result.get('error')}",
                     ErrorCategory.BACKEND
                 )
+            
+            # STEP 1.5: VALIDATE VERIFICATIONS if provided
+            verifications_to_validate = updates.get('data', {}).get('verifications')
+            if verifications_to_validate:
+                # Get userinterface to determine device_model
+                userinterface_result = self.api_client.get(
+                    f'/server/navigationTrees/{tree_id}',
+                    params={'team_id': team_id}
+                )
+                
+                if userinterface_result.get('success'):
+                    tree_data = userinterface_result.get('tree', {})
+                    userinterface_id = tree_data.get('userinterface_id')
+                    
+                    if userinterface_id:
+                        ui_result = self.api_client.get(
+                            f'/server/userinterfaces/{userinterface_id}',
+                            params={'team_id': team_id}
+                        )
+                        
+                        if ui_result.get('success'):
+                            device_model = ui_result.get('userinterface', {}).get('device_model', 'unknown')
+                            
+                            # Validate verifications
+                            is_valid, errors, warnings = self.verification_validator.validate_verifications(
+                                verifications_to_validate,
+                                device_model
+                            )
+                            
+                            if not is_valid:
+                                # Build error message with helpful info
+                                error_msg = "❌ Invalid verification command(s):\n\n"
+                                error_msg += "\n".join(errors)
+                                error_msg += "\n\n" + self.verification_validator.get_valid_commands_for_display(device_model)
+                                
+                                return self.formatter.format_error(
+                                    error_msg,
+                                    ErrorCategory.VALIDATION
+                                )
+                            
+                            # Show warnings if any
+                            if warnings:
+                                self.logger.warning(f"Verification warnings for node {node_id}:")
+                                for warning in warnings:
+                                    self.logger.warning(f"  {warning}")
             
             existing_node = existing_result.get('node', {})
             
