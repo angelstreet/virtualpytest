@@ -9,6 +9,7 @@ import { Host } from '../../types/common/Host_Types';
 import { UINavigationEdge, EdgeForm } from '../../types/pages/Navigation_Types';
 import { MetricData } from '../../types/navigation/Metrics_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
+import { findSiblingWithActions } from '../../utils/conditionalEdgeUtils';
 
 interface EdgeSelectionPanelProps {
   selectedEdge: UINavigationEdge;
@@ -136,10 +137,32 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     // Get validation colors for confidence-based styling
     const { getEdgeColors } = useValidationColors([]);
 
-    // Get actions, retry actions, and failure actions directly from actionSet prop
-    const actions = actionSet?.actions || [];
-    const retryActions = actionSet?.retry_actions || [];
-    const failureActions = actionSet?.failure_actions || [];
+    // Get actions from actionSet, or from sibling if conditional edge with empty actions
+    const { actions, retryActions, failureActions } = useMemo(() => {
+      const baseActions = actionSet?.actions || [];
+      const baseRetry = actionSet?.retry_actions || [];
+      const baseFailure = actionSet?.failure_actions || [];
+      
+      // If we have actions, use them
+      if (baseActions.length > 0) {
+        return { actions: baseActions, retryActions: baseRetry, failureActions: baseFailure };
+      }
+      
+      // Empty actions + conditional = look up sibling
+      if (isCurrentActionSetShared && actionSet?.id) {
+        const sibling = findSiblingWithActions(selectedEdge.id, selectedEdge.source, actionSet.id, getEdges());
+        if (sibling?.data?.action_sets?.[0]) {
+          const siblingForward = sibling.data.action_sets[0];
+          return {
+            actions: siblingForward.actions || [],
+            retryActions: siblingForward.retry_actions || [],
+            failureActions: siblingForward.failure_actions || []
+          };
+        }
+      }
+      
+      return { actions: baseActions, retryActions: baseRetry, failureActions: baseFailure };
+    }, [actionSet, isCurrentActionSetShared, selectedEdge.id, selectedEdge.source, getEdges]);
     
     const hasActions = actions.length > 0;
     const hasRetryActions = retryActions.length > 0;
