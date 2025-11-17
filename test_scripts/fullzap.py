@@ -72,8 +72,9 @@ def main():
     
     return success
 
-# Script arguments (framework params like host/device/userinterface are automatic)
+# Script arguments (framework params have defaults, script params are specific)
 main._script_args = [
+    '--userinterface:str:horizon_android_mobile',  # Framework param with default
     '--max-iteration:int:3', 
     '--action:str:live_chup', 
     '--goto-live:bool:true', 

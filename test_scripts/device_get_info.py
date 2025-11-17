@@ -30,9 +30,10 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 # MUST be defined near top of file (within first 300 lines) for script analyzer
-# Script arguments (framework params like host/device/userinterface are automatic)
+# Script arguments (framework params have defaults, script params are specific)
 _script_args = [
-    '--node:str:info'                     # Target node - defaults to 'info'
+    '--userinterface:str:iad_gui',  # Framework param with default
+    '--node:str:info'               # Script-specific param
 ]
 
 

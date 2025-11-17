@@ -38,10 +38,11 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
-# Script arguments (framework params like host/device/userinterface are automatic)
+# Script arguments (framework params have defaults, script params are specific)
 _script_args = [
-    '--edge:str:',                                       # Action set label
-    '--iterations:int:3'                                 # Number of iterations
+    '--userinterface:str:horizon_android_mobile',  # Framework param with default
+    '--edge:str:',                                 # Script-specific param
+    '--iterations:int:3'                           # Script-specific param
 ]
 
 

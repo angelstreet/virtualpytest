@@ -106,8 +106,10 @@ def main():
     
     return success
 
-# Script arguments (framework params like host/device/userinterface are automatic)
-main._script_args = []
+# Script arguments (framework params have defaults, script params are specific)
+main._script_args = [
+    '--userinterface:str:horizon_android_mobile'  # Framework param with default
+]
 
 if __name__ == "__main__":
     main() 

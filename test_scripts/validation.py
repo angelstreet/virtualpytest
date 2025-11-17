@@ -231,10 +231,11 @@ def main():
     return result
 
 
-# Script arguments (framework params like host/device/userinterface are automatic)
+# Script arguments (framework params have defaults, script params are specific)
 main._script_args = [
-    '--max-iteration:int:0',                             # Max iterations
-    '--edges:str:'                                       # Comma-separated list of edge IDs
+    '--userinterface:str:horizon_android_mobile',  # Framework param with default
+    '--max-iteration:int:0',                       # Script-specific param
+    '--edges:str:'                                 # Script-specific param
 ]
 
 if __name__ == "__main__":
