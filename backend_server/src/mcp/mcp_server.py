@@ -359,17 +359,14 @@ Executes direct device commands including:
 
 Returns execution_id for async operations - polls automatically until completion.
 
-ELEMENT SELECTION:
+ELEMENT SELECTION (selector MUST be unique on page):
 
-1. Preferred: CSS selector
-   click_element(element_id="#login-button")
-   Faster, no UI dump needed.
+1. #id (always unique)
+2. //xpath (e.g., //button[@name='login'])
+3. [attr] or .class (verify uniqueness first)
+4. plain text (fallback, slower)
 
-2. Fallback: Plain text
-   click_element(element_id="Log In")
-   Slower, dumps UI first.
-
-Use dump_ui_elements() to find IDs before creating actions.
+Use dump_ui_elements() to verify selector appears only once on page.
 
 ⏱️ CRITICAL - ACTION WAIT TIMES:
 Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
@@ -1111,17 +1108,14 @@ Example:
 
 Defines navigation path with forward and backward actions.
 
-ELEMENT SELECTION:
+ELEMENT SELECTION (selector MUST be unique on page):
 
-1. Preferred: CSS selector
-   click_element(element_id="#login-button")
-   Faster, no UI dump needed.
+1. #id (always unique)
+2. //xpath (e.g., //button[@name='login'])
+3. [attr] or .class (verify uniqueness first)
+4. plain text (fallback, slower)
 
-2. Fallback: Plain text
-   click_element(element_id="Log In")
-   Slower, dumps UI first.
-
-Use dump_ui_elements() to find IDs before creating edges.
+Use dump_ui_elements() to verify selector appears only once on page.
 
 ⚠️ CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
 - Use the 'node_id' field from list_navigation_nodes() or create_node() response.

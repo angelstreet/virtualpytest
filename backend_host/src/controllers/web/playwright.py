@@ -577,18 +577,22 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             }
         
     def _is_css_selector(self, text: str) -> bool:
-        """Detect if text is a CSS selector that Playwright can use directly.
+        """Detect if text is a CSS selector or XPath that Playwright can use directly.
         
         Args:
             text: Input string to check
             
         Returns:
-            True if it's a CSS selector, False if it's plain text
+            True if it's a CSS selector or XPath, False if it's plain text
         """
         if not text or not text.strip():
             return False
         
         text = text.strip()
+        
+        # XPath selector: //div or (//div)
+        if text.startswith('//') or text.startswith('(//'):
+            return True
         
         # CSS ID selector: #my-id
         if text.startswith('#'):
