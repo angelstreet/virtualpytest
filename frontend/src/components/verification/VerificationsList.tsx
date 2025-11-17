@@ -434,6 +434,20 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
       [verifications, updateVerification],
     );
 
+    const handleTextChange = useCallback(
+      (index: number, text: string) => {
+        updateVerification(index, {
+          params: {
+            ...verifications[index].params,
+            text: text,
+            text_modified: true, // Mark that text has been manually edited
+          },
+        });
+        console.log('[@component:VerificationsList] Updated search text:', text);
+      },
+      [verifications, updateVerification],
+    );
+
     const handleImageClick = useCallback(
       (
         sourceUrl: string,
@@ -519,6 +533,7 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
               onMoveDown={moveVerificationDown}
               canMoveUp={index > 0}
               canMoveDown={index < verifications.length - 1}
+              onTextChange={handleTextChange}
             />
           ))}
         </Box>

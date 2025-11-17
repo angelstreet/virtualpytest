@@ -3,7 +3,7 @@ import {
   KeyboardArrowUp as KeyboardArrowUpIcon,
   KeyboardArrowDown as KeyboardArrowDownIcon,
 } from '@mui/icons-material';
-import { Box, FormControl, InputLabel, Select, MenuItem, IconButton } from '@mui/material';
+import { Box, FormControl, InputLabel, Select, MenuItem, IconButton, TextField, InputAdornment } from '@mui/material';
 import React from 'react';
 
 import {
@@ -52,6 +52,7 @@ interface VerificationItemProps {
   getCacheBustedUrl: (url: string) => string;
   canMoveUp: boolean;
   canMoveDown: boolean;
+  onTextChange?: (index: number, text: string) => void;
 }
 
 export const VerificationItem: React.FC<VerificationItemProps> = ({
@@ -75,6 +76,7 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
   getCacheBustedUrl,
   canMoveUp,
   canMoveDown,
+  onTextChange,
 }) => {
   return (
     <Box
@@ -183,10 +185,11 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
         </IconButton>
       </Box>
 
-      {/* Line 2: Reference dropdowns - conditional based on verification type */}
+      {/* Line 2: Text Reference + Search Text - side by side */}
       {verification.command && verification.verification_type === 'text' && (
-        <Box sx={{ mb: 0.5 }}>
-          <FormControl size="small" sx={{ width: 250 }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 0.5 }}>
+          {/* LEFT: Text Reference Dropdown (40%) */}
+          <FormControl size="small" sx={{ flex: '0 0 40%' }}>
             <InputLabel>Text Reference</InputLabel>
             <Select
               value={verification.params?.reference_name || ''}
@@ -217,6 +220,31 @@ export const VerificationItem: React.FC<VerificationItemProps> = ({
               )}
             </Select>
           </FormControl>
+
+          {/* RIGHT: Search Text Field (60%) - Editable */}
+          <TextField
+            size="small"
+            label="Search Text"
+            value={verification.params?.text || ''}
+            onChange={(e) => {
+              if (onTextChange) {
+                onTextChange(index, e.target.value);
+              }
+            }}
+            sx={{ 
+              flex: '0 0 60%',
+              '& .MuiInputBase-input': {
+                fontSize: '0.8rem',
+              },
+            }}
+            InputProps={{
+              endAdornment: (
+                <InputAdornment position="end">
+                  <span style={{ fontSize: '0.9rem' }}>🔍</span>
+                </InputAdornment>
+              ),
+            }}
+          />
         </Box>
       )}
 

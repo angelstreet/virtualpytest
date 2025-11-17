@@ -115,6 +115,47 @@ export const useNodeEdit = ({
     }
     
     try {
+      // 0. Update text references if modified (reuse existing saveText endpoint)
+      if (referenceKey && verification.verifications.length > 0) {
+        console.log('[useNodeEdit] Checking for modified text references...');
+        const { buildServerUrl } = await import('../../utils/buildUrlUtils');
+        
+        for (const verif of verification.verifications) {
+          // Check if this is a text verification with modified text
+          if (verif.verification_type === 'text' && verif.params?.text_modified && verif.params?.reference_name) {
+            console.log('[useNodeEdit] 📝 Updating text reference:', verif.params.reference_name);
+            
+            // Get the reference details to find original name
+            const refKey = verif.params.reference_name;
+            const reference = modelReferences[refKey];
+            const originalReferenceName = reference?.name || refKey;
+            
+            try {
+              // Use existing saveText endpoint which handles upsert
+              const updateResponse = await fetch(buildServerUrl('/host/verification/text/saveText'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  text: verif.params.text,
+                  reference_name: originalReferenceName, // Use original DB name
+                  userinterface_name: referenceKey,
+                  area: verif.params.area || {},
+                })
+              });
+              
+              if (!updateResponse.ok) {
+                console.error('[useNodeEdit] Failed to update text reference:', updateResponse.statusText);
+              } else {
+                const updateResult = await updateResponse.json();
+                console.log('[useNodeEdit] ✅ Text reference updated via saveText:', updateResult);
+              }
+            } catch (err) {
+              console.error('[useNodeEdit] Error updating text reference:', err);
+            }
+          }
+        }
+      }
+      
       // 1. Save to database via context
       await saveNodeWithStateUpdate(nodeForm);
       setSaveSuccess(true);
@@ -150,7 +191,7 @@ export const useNodeEdit = ({
       console.error('[useNodeEdit] Failed to save node or update cache:', error);
       throw error;
     }
-  }, [nodeForm, saveNodeWithStateUpdate, treeId, invalidateTree]);
+  }, [nodeForm, saveNodeWithStateUpdate, treeId, invalidateTree, referenceKey, verification.verifications, modelReferences]);
 
   // Validate form
   const isFormValid = useCallback(
