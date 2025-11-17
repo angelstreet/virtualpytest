@@ -316,26 +316,50 @@ def _run_speedtest_async():
         print(f"⚠️ [SPEEDTEST] Background test error: {e}")
 
 def measure_network_speed():
-    """Run speedtest with fallback strategies"""
+    """Run speedtest using curl-based server discovery (works with rate-limited APIs)"""
     try:
         import speedtest
         print("🌐 [SPEEDTEST] Running network speed test...")
         
-        # Initialize with timeout and secure mode disabled (helps with some ISPs)
+        # Fetch servers using curl (bypasses rate-limited library API)
+        print("🔍 [SPEEDTEST] Fetching server list via API...")
+        result = subprocess.run(
+            ['curl', '-s', '-m', '10', 'https://www.speedtest.net/api/js/servers?engine=js&limit=5'],
+            capture_output=True,
+            text=True,
+            timeout=15
+        )
+        
+        if result.returncode != 0 or not result.stdout:
+            print(f"❌ [SPEEDTEST] Failed to fetch server list")
+            return {'download_mbps': None, 'upload_mbps': None}
+        
+        # Parse JSON response
+        servers_data = json.loads(result.stdout)
+        if not servers_data or len(servers_data) == 0:
+            print(f"❌ [SPEEDTEST] No servers available")
+            return {'download_mbps': None, 'upload_mbps': None}
+        
+        # Use first available server (already sorted by distance)
+        best_server = servers_data[0]
+        print(f"✅ [SPEEDTEST] Using server: {best_server['sponsor']} ({best_server['name']}, {best_server['country']})")
+        
+        # Initialize speedtest and manually set the server
         st = speedtest.Speedtest(secure=True)
+        st.best = {
+            'url': best_server['url'],
+            'lat': best_server['lat'],
+            'lon': best_server['lon'],
+            'name': best_server['name'],
+            'country': best_server['country'],
+            'cc': best_server['cc'],
+            'sponsor': best_server['sponsor'],
+            'id': best_server['id'],
+            'host': best_server['host'],
+            'd': best_server['distance']
+        }
         
-        # Try to get best server with timeout
-        try:
-            st.get_best_server()
-        except Exception as server_error:
-            print(f"⚠️ [SPEEDTEST] Best server failed ({server_error}), trying manual server selection...")
-            # Fallback: Try to get any available server
-            servers = st.get_servers()
-            if servers:
-                # Use first available server
-                st.get_servers(list(servers.keys())[:1])
-        
-        # Run tests with shorter timeout
+        # Run speed tests
         download = round(st.download(threads=None) / 1_000_000, 2)
         upload = round(st.upload(threads=None) / 1_000_000, 2)
         
@@ -344,17 +368,21 @@ def measure_network_speed():
             'download_mbps': download,
             'upload_mbps': upload
         }
+    except subprocess.TimeoutExpired:
+        print(f"⚠️ [SPEEDTEST] Timeout fetching server list")
+        return {'download_mbps': None, 'upload_mbps': None}
+    except json.JSONDecodeError as e:
+        print(f"❌ [SPEEDTEST] Invalid server list response: {e}")
+        return {'download_mbps': None, 'upload_mbps': None}
     except Exception as e:
         error_msg = str(e)
-        # Check if it's a known blocking issue
         if '403' in error_msg or 'Forbidden' in error_msg:
-            print(f"⚠️ [SPEEDTEST] Blocked by network/ISP (403 Forbidden) - skipping test")
+            print(f"⚠️ [SPEEDTEST] Blocked by network/ISP (403 Forbidden)")
         elif 'timeout' in error_msg.lower():
-            print(f"⚠️ [SPEEDTEST] Timeout - network too slow or unavailable")
+            print(f"⚠️ [SPEEDTEST] Timeout during speed test")
         else:
             print(f"❌ [SPEEDTEST] Failed: {e}")
         
-        # Return None on failure to avoid polluting metrics with false zeros
         return {'download_mbps': None, 'upload_mbps': None}
 
 def get_capture_folder_size(capture_folder: str) -> str:
