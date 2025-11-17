@@ -81,15 +81,15 @@ def generate_verification_failure_report(
         html.append('<h2>Images</h2>')
         if source_image_url:
             html.append(f'<div><p><b>Source Screenshot</b></p>')
-            html.append(f'<img src="{source_image_url}" alt="Source"></div>')
+            html.append(f'<a href="{source_image_url}" target="_blank"><img src="{source_image_url}" alt="Source"></a></div>')
         
         if reference_image_url:
             html.append(f'<div><p><b>Reference Image</b></p>')
-            html.append(f'<img src="{reference_image_url}" alt="Reference"></div>')
+            html.append(f'<a href="{reference_image_url}" target="_blank"><img src="{reference_image_url}" alt="Reference"></a></div>')
         
         if result_overlay_url:
             html.append(f'<div><p><b>Result Overlay</b></p>')
-            html.append(f'<img src="{result_overlay_url}" alt="Overlay"></div>')
+            html.append(f'<a href="{result_overlay_url}" target="_blank"><img src="{result_overlay_url}" alt="Overlay"></a></div>')
         
         # Processing details
         html.append('<h2>Processing Details</h2>')
