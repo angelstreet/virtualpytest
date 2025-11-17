@@ -344,6 +344,10 @@ def measure_network_speed():
         best_server = servers_data[0]
         print(f"✅ [SPEEDTEST] Using server: {best_server['sponsor']} ({best_server['name']}, {best_server['country']})")
         
+        # Debug: Show server data format
+        print(f"🔍 [SPEEDTEST] Server data keys: {list(best_server.keys())}")
+        print(f"🔍 [SPEEDTEST] Server distance: {best_server['distance']} (type: {type(best_server['distance'])})")
+        
         # Initialize speedtest and set server using proper API
         st = speedtest.Speedtest(secure=True)
         
@@ -351,6 +355,7 @@ def measure_network_speed():
         servers_dict = {
             str(best_server['distance']): [best_server]
         }
+        print(f"🔍 [SPEEDTEST] Passing to get_best_server: {type(servers_dict)} with keys: {list(servers_dict.keys())}")
         st.get_best_server(servers_dict)
         
         # Run speed tests
