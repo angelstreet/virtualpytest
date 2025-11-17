@@ -261,14 +261,27 @@ class ImageHelpers:
             print(f"[@fuzzy] Searching entire fuzzy area...")
             search_region = source_img[fy:fy+fh, fx:fx+fw]
             
+            # Log source image and search region dimensions
+            src_h, src_w = source_img.shape[:2]
+            print(f"[@fuzzy] Source image size: {src_w}x{src_h}")
+            print(f"[@fuzzy] Search region extracted: ({fx},{fy}) to ({fx+fw},{fy+fh}) = {search_region.shape[1]}x{search_region.shape[0]}")
+            print(f"[@fuzzy] Template size to find: {ref_w}x{ref_h}")
+            
             if search_region.shape[0] < ref_h or search_region.shape[1] < ref_w:
                 print(f"[@fuzzy] ✗ Search region {search_region.shape} too small for template {ref_h}x{ref_w}")
                 return False, exact_confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
+            
+            # Calculate how many positions will be checked
+            positions_y = search_region.shape[0] - ref_h + 1
+            positions_x = search_region.shape[1] - ref_w + 1
+            total_positions = positions_x * positions_y
+            print(f"[@fuzzy] Will check {total_positions} positions ({positions_x}x{positions_y} grid)")
             
             if use_pixel_matching:
                 # Use sliding window with pixel matching for small images
                 max_val = 0.0
                 max_loc = (0, 0)
+                positions_checked = 0
                 for y in range(search_region.shape[0] - ref_h + 1):
                     for x in range(search_region.shape[1] - ref_w + 1):
                         region = search_region[y:y+ref_h, x:x+ref_w]
@@ -276,23 +289,31 @@ class ImageHelpers:
                         if score > max_val:
                             max_val = score
                             max_loc = (x, y)
+                        positions_checked += 1
+                print(f"[@fuzzy] PIXEL matching: checked {positions_checked} positions")
             else:
                 # OpenCV automatically searches ENTIRE region - this is the standard approach!
                 result = cv2.matchTemplate(search_region, reference_img, cv2.TM_CCOEFF_NORMED)
                 min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
+                print(f"[@fuzzy] TEMPLATE matching: OpenCV checked all {total_positions} positions")
+                print(f"[@fuzzy] Match score range: min={min_val:.3f}, max={max_val:.3f}")
             
             # Convert match location back to full image coordinates
             match_x = fx + max_loc[0]
             match_y = fy + max_loc[1]
             best_location = {'x': match_x, 'y': match_y, 'width': ref_w, 'height': ref_h}
             
-            print(f"[@fuzzy] Best match in fuzzy area: confidence={max_val:.3f}, location=({match_x},{match_y})")
+            print(f"[@fuzzy] Best match found at:")
+            print(f"[@fuzzy]   - Relative to search region: ({max_loc[0]},{max_loc[1]})")
+            print(f"[@fuzzy]   - Absolute in source image: ({match_x},{match_y})")
+            print(f"[@fuzzy]   - Confidence: {max_val:.3f}")
+            print(f"[@fuzzy]   - Distance from exact position: dx={match_x-ex}px, dy={match_y-ey}px")
             
             found = max_val >= threshold
             if found:
-                print(f"[@fuzzy] ✓ Match found in fuzzy area: {max_val:.3f}")
+                print(f"[@fuzzy] ✓ Match found in fuzzy area: {max_val:.3f} >= {threshold:.3f}")
             else:
-                print(f"[@fuzzy] ✗ No match found. Best confidence: {max_val:.3f} (required: {threshold:.3f})")
+                print(f"[@fuzzy] ✗ No match found. Best confidence: {max_val:.3f} < {threshold:.3f} (required)")
             
             return found, max_val, best_location
             
