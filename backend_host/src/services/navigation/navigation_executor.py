@@ -742,16 +742,14 @@ class NavigationExecutor:
                 if step_verifications:
                     print(f"[@navigation_executor:execute_navigation] Executing {len(step_verifications)} verifications for step")
                     
-                    # Use orchestrator for unified logging
-                    from backend_host.src.orchestrator import ExecutionOrchestrator
-                    verification_result = await ExecutionOrchestrator.execute_verifications(
-                        device=self.device,
-                        verifications=step_verifications,
+                    # ✅ SIMPLIFIED: Use verify_node() which automatically handles verification_pass_condition from node
+                    # No need to manually extract and pass it - the verification executor knows the node's settings
+                    to_node_id = step.get('to_node_id')
+                    verification_result = await self.device.verification_executor.verify_node(
+                        node_id=to_node_id,
                         userinterface_name=userinterface_name,
                         team_id=team_id,
-                        tree_id=tree_id,
-                        node_id=step.get('to_node_id'),
-                        context=context
+                        tree_id=tree_id
                     )
                     print(f"[@navigation_executor:execute_navigation] Verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
                     
@@ -785,16 +783,15 @@ class NavigationExecutor:
                         
                         # Re-execute verifications after retry actions
                         if retry_result.get('success', False):
-                            print(f"[@navigation_executor:execute_navigation] Retry actions succeeded - re-executing verifications")
-                            from backend_host.src.orchestrator import ExecutionOrchestrator
-                            verification_result = await ExecutionOrchestrator.execute_verifications(
-                                device=self.device,
-                                verifications=step_verifications,
+                            print(f"[@navigation_executor:execute_navigation] Retry actions succeeded - re-verifying node")
+                            
+                            # ✅ SIMPLIFIED: Use verify_node() which automatically handles verification_pass_condition
+                            to_node_id = step.get('to_node_id')
+                            verification_result = await self.device.verification_executor.verify_node(
+                                node_id=to_node_id,
                                 userinterface_name=userinterface_name,
                                 team_id=team_id,
-                                tree_id=tree_id,
-                                node_id=step.get('to_node_id'),
-                                context=context
+                                tree_id=tree_id
                             )
                             print(f"[@navigation_executor:execute_navigation] Post-retry verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
                             
