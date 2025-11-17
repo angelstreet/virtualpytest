@@ -436,21 +436,17 @@ const RunTests: React.FC = () => {
     // Use provided device info or fall back to selected values
     const targetHost = deviceHost || selectedHost;
     const targetDevice = deviceId || selectedDevice;
-    const targetUserinterface = deviceUserinterface !== undefined ? deviceUserinterface : (parameterValues['userinterface_name'] || '');
+    // ✅ NEW: Get userinterface from selectedUserinterface state (not from script parameters)
+    const targetUserinterface = deviceUserinterface || selectedUserinterface || '';
 
-    // Add parameters from script analysis (includes userinterface_name if script declares it)
+    // Add parameters from script analysis
+    // ✅ SKIP framework params: host, device, userinterface (added at the end)
     if (scriptAnalysis) {
       scriptAnalysis.parameters.forEach((param) => {
-        // For userinterface_name, use the device-specific value
-        let value: string;
-        if (param.name === 'userinterface_name') {
-          value = targetUserinterface;
-        } else {
-          value = parameterValues[param.name]?.trim() || '';
-        }
+        const value = parameterValues[param.name]?.trim() || '';
         
-        // Skip host and device - they're added at the end as --host and --device
-        if (param.name === 'host' || param.name === 'device') {
+        // Skip framework parameters - they're added at the end
+        if (param.name === 'host' || param.name === 'device' || param.name === 'userinterface') {
           return;
         }
         
@@ -464,12 +460,15 @@ const RunTests: React.FC = () => {
       });
     }
 
-    // Always add --host and --device parameters at the end
+    // ✅ Always add framework parameters at the end: --host, --device, --userinterface
     if (targetHost) {
       paramStrings.push(`--host ${quoteIfNeeded(targetHost)}`);
     }
     if (targetDevice) {
       paramStrings.push(`--device ${quoteIfNeeded(targetDevice)}`);
+    }
+    if (targetUserinterface) {
+      paramStrings.push(`--userinterface ${quoteIfNeeded(targetUserinterface)}`);
     }
 
     return paramStrings.join(' ');
@@ -1042,16 +1041,13 @@ const RunTests: React.FC = () => {
 
   // Framework parameters with dedicated selectors at the top (host, device, userinterface)
   // All other parameters show inline in Section 3
-  // ✅ userinterface_name should NEVER be a script parameter - it's always from the UI dropdown
-  const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface_name'];
+  // ✅ Scripts should NEVER declare these - they're framework-level infrastructure
+  const FRAMEWORK_PARAMS = ['host', 'device', 'userinterface'];
   
   const displayParameters = scriptAnalysis?.parameters.filter((param) => 
-    // Show all parameters EXCEPT host/device/userinterface (which have dedicated UI elements)
+    // Show all parameters EXCEPT framework params (which have dedicated UI elements)
     !FRAMEWORK_PARAMS.includes(param.name)
   ) || [];
-  
-  // Check if script declares userinterface_name parameter (it shouldn't, but check for warning)
-  const scriptDeclaresUserinterface = scriptAnalysis?.parameters.some(p => p.name === 'userinterface_name');
 
 
   return (
@@ -1250,7 +1246,7 @@ const RunTests: React.FC = () => {
                   {/* Multi-device section (keep as is) */}
                   {hasMoreDevicesAvailable() && (
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', mb: 1 }}>
-                      {selectedHost && selectedDevice && (!scriptDeclaresUserinterface || parameterValues['userinterface_name']) && (
+                      {selectedHost && selectedDevice && (
                         <Button
                           variant="outlined"
                           startIcon={<AddIcon />}
@@ -1274,7 +1270,6 @@ const RunTests: React.FC = () => {
                           disabled={
                             !selectedHost || 
                             !selectedDevice || 
-                            (scriptDeclaresUserinterface && !parameterValues['userinterface_name']) ||
                             isDeviceExecuting(selectedHost, selectedDevice)
                           }
                           size="small"

@@ -38,8 +38,8 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
+# Script arguments (framework params like host/device/userinterface are automatic)
 _script_args = [
-    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--edge:str:',                                       # Action set label
     '--iterations:int:3'                                 # Number of iterations
 ]
@@ -55,21 +55,21 @@ def _get_available_edges(context):
     args = context.args
     
     # Get tree_id
-    userinterface = get_userinterface_by_name(args.userinterface_name, context.team_id)
+    userinterface = get_userinterface_by_name(context.userinterface, context.team_id)
     if not userinterface:
-        print(f"❌ User interface '{args.userinterface_name}' not found")
+        print(f"❌ User interface '{context.userinterface}' not found")
         return []
     
     root_tree = get_root_tree_for_interface(userinterface['id'], context.team_id)
     if not root_tree:
-        print(f"❌ No root tree found for interface '{args.userinterface_name}'")
+        print(f"❌ No root tree found for interface '{context.userinterface}'")
         return []
     
     context.tree_id = root_tree['id']
     
     # Load navigation tree to populate cache
     nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
+        context.userinterface, 
         context.team_id
     )
     if not nav_result['success']:
@@ -345,12 +345,12 @@ def main():
     # Consider success if we have at least the expected count (not exact match to be more forgiving)
     context.overall_success = successful_kpis >= args.iterations and len(filtered_kpi_results) >= args.iterations
     
-    # Always capture summary for report (use filtered results)
+    # Always capture summary for report (use filtered results)    
     summary_text = capture_kpi_summary(
         context, 
-        args.userinterface_name, 
+        context.userinterface, 
         args.edge,
-        from_label, 
+        from_label,
         to_label, 
         args.iterations, 
         filtered_kpi_results

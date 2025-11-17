@@ -64,7 +64,7 @@ def main():
     
     # Load navigation tree
     nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
+        args.userinterface, 
         context.team_id
     )
     if not nav_result['success']:
@@ -78,7 +78,7 @@ def main():
     import asyncio
     result = asyncio.run(device.navigation_executor.execute_navigation(
         tree_id=context.tree_id,
-        userinterface_name=context.userinterface_name,  # MANDATORY parameter
+        userinterface_name=context.userinterface,  # MANDATORY parameter
         target_node_label=target_node,
         team_id=context.team_id,
         context=context
@@ -95,14 +95,13 @@ def main():
     already_at_destination = (len(context.step_results) == 0 and success)
     
     # Always capture summary for report (regardless of success/failure)
-    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
+    summary_text = capture_navigation_summary(context, args.userinterface, target_node, already_at_destination)
     context.execution_summary = summary_text
     
     return success
 
-# Script arguments
+# Script arguments (framework params like host/device/userinterface are automatic)
 main._script_args = [
-    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--node:str:home'                                    # Target node
 ]
 

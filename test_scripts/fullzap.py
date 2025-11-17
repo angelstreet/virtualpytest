@@ -36,7 +36,7 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
     args = get_args()
     
     # ZapExecutor handles complete zap workflow
-    zap_executor = ZapExecutor(device, args.userinterface_name)
+    zap_executor = ZapExecutor(device, context.userinterface)
     return zap_executor.execute_zap_iterations(action, max_iteration, goto_live, audio_analysis)
 
 @script("fullzap", "Execute zap iterations with analysis")
@@ -47,7 +47,7 @@ def main():
     
     # Load navigation tree (required for ZapExecutor navigation)
     nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
+        context.userinterface, 
         context.team_id
     )
     if not nav_result['success']:
@@ -68,13 +68,12 @@ def main():
     
     context = get_context()
     print_zap_summary_table(context)  # This was removed - restored!
-    print_fullzap_summary(context, args.userinterface_name)
+    print_fullzap_summary(context, context.userinterface)
     
     return success
 
-# Define script-specific arguments
+# Script arguments (framework params like host/device/userinterface are automatic)
 main._script_args = [
-    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--max-iteration:int:3', 
     '--action:str:live_chup', 
     '--goto-live:bool:true', 

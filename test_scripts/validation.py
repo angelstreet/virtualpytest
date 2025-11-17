@@ -5,7 +5,7 @@ Validation Script for VirtualPyTest
 This script validates all transitions in a navigation tree using navigate_to().
 
 Usage:
-    python scripts/validation.py <userinterface_name> [--max-iteration <number>]
+    python scripts/validation.py <userinterface> [--max-iteration <number>]
     
 Example:
     python scripts/validation.py horizon_android_mobile
@@ -38,14 +38,14 @@ def _get_validation_plan(context):
         args = context.args
         
         # OPTIMIZATION: Get tree_id without loading full tree (lightweight DB query)
-        userinterface = get_userinterface_by_name(args.userinterface_name, context.team_id)
+        userinterface = get_userinterface_by_name(args.userinterface, context.team_id)
         if not userinterface:
-            print(f"❌ [_get_validation_plan] User interface '{args.userinterface_name}' not found")
+            print(f"❌ [_get_validation_plan] User interface '{args.userinterface}' not found")
             return []
         
         root_tree = get_root_tree_for_interface(userinterface['id'], context.team_id)
         if not root_tree:
-            print(f"❌ [_get_validation_plan] No root tree found for interface '{args.userinterface_name}'")
+            print(f"❌ [_get_validation_plan] No root tree found for interface '{args.userinterface}'")
             return []
         
         context.tree_id = root_tree['id']
@@ -60,7 +60,7 @@ def _get_validation_plan(context):
             # Cache miss - load tree and populate cache
             print(f"📥 [_get_validation_plan] Cache miss - loading tree from database (SLOW PATH)")
             nav_result = device.navigation_executor.load_navigation_tree(
-                args.userinterface_name, 
+                args.userinterface, 
                 context.team_id
             )
             if not nav_result['success']:
@@ -186,7 +186,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
         import asyncio
         result = asyncio.run(device.navigation_executor.execute_navigation(
             tree_id=context.tree_id,
-            userinterface_name=context.userinterface_name,  # MANDATORY parameter
+            userinterface_name=context.userinterface,  # MANDATORY parameter
             navigation_path=[step],  # ✅ Pass pre-computed path - no pathfinding!
             team_id=context.team_id,
             context=context
@@ -225,15 +225,14 @@ def main():
     result = validate_with_recovery(args.max_iteration, args.edges)
     
     # Always capture summary for report (regardless of success/failure)
-    summary_text = capture_validation_summary(context, args.userinterface_name, args.max_iteration)
+    summary_text = capture_validation_summary(context, args.userinterface, args.max_iteration)
     context.execution_summary = summary_text
     
     return result
 
 
-# Script arguments (framework params are automatic)
+# Script arguments (framework params like host/device/userinterface are automatic)
 main._script_args = [
-    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--max-iteration:int:0',                             # Max iterations
     '--edges:str:'                                       # Comma-separated list of edge IDs
 ]

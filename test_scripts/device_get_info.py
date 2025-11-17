@@ -30,8 +30,8 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 # MUST be defined near top of file (within first 300 lines) for script analyzer
+# Script arguments (framework params like host/device/userinterface are automatic)
 _script_args = [
-    '--userinterface:str:iad_gui',  # UI navigation required
     '--node:str:info'                     # Target node - defaults to 'info'
 ]
 
@@ -101,7 +101,7 @@ def main():
     
     # Load navigation tree
     nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
+        context.userinterface, 
         context.team_id
     )
     if not nav_result['success']:
@@ -125,7 +125,7 @@ def main():
     if not success:
         context.error_message = result.get('error', 'Navigation failed')
         context.overall_success = False
-        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node)
+        summary_text = capture_navigation_summary(context, context.userinterface, target_node)
         context.execution_summary = summary_text
         return False
     
@@ -177,7 +177,7 @@ def main():
         error_msg = action_result.get('error', 'getMenuInfo action failed')
         print(f"⚠️  [get_info] Warning: {error_msg}")
         context.overall_success = True
-        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
+        summary_text = capture_navigation_summary(context, context.userinterface, target_node, already_at_destination)
         context.execution_summary = summary_text
         return True
     
@@ -195,7 +195,7 @@ def main():
     if not parsed_data:
         print(f"⚠️  [get_info] Warning: No parsed_data in output")
         context.overall_success = True
-        summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
+        summary_text = capture_navigation_summary(context, context.userinterface, target_node, already_at_destination)
         context.execution_summary = summary_text
         return True
     
@@ -213,7 +213,7 @@ def main():
         "device_name": device.device_name,
         "device_model": device.device_model,
         "host_name": context.host.host_name,
-        "userinterface_name": args.userinterface_name,
+        "userinterface_name": context.userinterface,
         "element_count": element_count,
     }
     
@@ -225,7 +225,7 @@ def main():
     context.overall_success = True
     
     # Capture summary with metadata for display
-    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination, context.metadata)
+    summary_text = capture_navigation_summary(context, context.userinterface, target_node, already_at_destination, context.metadata)
     context.execution_summary = summary_text
     
     return True

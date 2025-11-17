@@ -70,7 +70,7 @@ def main():
     
     # Load navigation tree
     nav_result = device.navigation_executor.load_navigation_tree(
-        args.userinterface_name, 
+        context.userinterface, 
         context.team_id
     )
     if not nav_result['success']:
@@ -101,15 +101,13 @@ def main():
     already_at_destination = (len(context.step_results) == 0 and success)
     
     # Always capture summary for report (regardless of success/failure)
-    summary_text = capture_navigation_summary(context, args.userinterface_name, target_node, already_at_destination)
+    summary_text = capture_navigation_summary(context, context.userinterface, target_node, already_at_destination)
     context.execution_summary = summary_text
     
     return success
 
-# Define script-specific arguments (none needed for this script)
-main._script_args = [
-    '--userinterface:str:horizon_android_mobile'  # UI navigation required
-]
+# Script arguments (framework params like host/device/userinterface are automatic)
+main._script_args = []
 
 if __name__ == "__main__":
     main() 
