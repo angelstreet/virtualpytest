@@ -165,7 +165,7 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
         // Use the validation script with the existing useScript infrastructure
         const userinterface_name = treeName || currentTreeName || treeId;
-        let parameters = `--userinterface_name ${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
+        let parameters = `--userinterface ${userinterface_name} --host ${selectedHost.host_name} --device ${selectedDeviceId}`;
         
         // Add selected edges if provided (format: "from-to,from-to,...")
         // Only send --edges parameter if we have selected edges, otherwise validate all

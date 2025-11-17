@@ -102,7 +102,7 @@ def main():
 
 # Script arguments
 main._script_args = [
-    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--node:str:home'                                    # Target node
 ]
 

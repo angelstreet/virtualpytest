@@ -233,7 +233,7 @@ def main():
 
 # Script arguments (framework params are automatic)
 main._script_args = [
-    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--max-iteration:int:0',                             # Max iterations
     '--edges:str:'                                       # Comma-separated list of edge IDs
 ]

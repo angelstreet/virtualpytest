@@ -31,7 +31,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 # Script arguments
 # MUST be defined near top of file (within first 300 lines) for script analyzer
 _script_args = [
-    '--userinterface_name:str:iad_gui',  # UI navigation required
+    '--userinterface:str:iad_gui',  # UI navigation required
     '--node:str:info'                     # Target node - defaults to 'info'
 ]
 

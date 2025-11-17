@@ -39,7 +39,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments - defined early for backend parameter detection (must be within first 300 lines)
 _script_args = [
-    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--edge:str:',                                       # Action set label
     '--iterations:int:3'                                 # Number of iterations
 ]

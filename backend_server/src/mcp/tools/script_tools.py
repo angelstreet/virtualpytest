@@ -98,7 +98,7 @@ class ScriptTools:
         
         # Add userinterface_name if provided (SAME as RunTests.tsx line 440-441)
         if userinterface_name:
-            param_parts.append(f'--userinterface_name {userinterface_name}')
+            param_parts.append(f'--userinterface {userinterface_name}')
         
         # Always add --host and --device at the end (SAME as RunTests.tsx lines 461-467)
         param_parts.append(f'--host {host_name}')

@@ -108,7 +108,7 @@ def main():
 
 # Define script-specific arguments (none needed for this script)
 main._script_args = [
-    '--userinterface_name:str:horizon_android_mobile'  # UI navigation required
+    '--userinterface:str:horizon_android_mobile'  # UI navigation required
 ]
 
 if __name__ == "__main__":

@@ -74,7 +74,7 @@ def main():
 
 # Define script-specific arguments
 main._script_args = [
-    '--userinterface_name:str:horizon_android_mobile',  # UI navigation required
+    '--userinterface:str:horizon_android_mobile',  # UI navigation required
     '--max-iteration:int:3', 
     '--action:str:live_chup', 
     '--goto-live:bool:true', 
