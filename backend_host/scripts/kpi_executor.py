@@ -131,7 +131,9 @@ class KPIExecutorService:
                 # Process measurement
                 try:
                     logger.info(f"🎬 KPI processing started: {request.execution_result_id[:8]}")
-                    self._process_measurement(request)
+                    # Run async method in event loop
+                    import asyncio
+                    asyncio.run(self._process_measurement(request))
                     logger.info(f"🏁 KPI processing finished")
                     
                     # Delete processed request file
@@ -156,7 +158,7 @@ class KPIExecutorService:
         
         logger.info("🛑 KPI worker loop exited")
     
-    def _process_measurement(self, request: KPIMeasurementRequest):
+    async def _process_measurement(self, request: KPIMeasurementRequest):
         """Process single KPI measurement request"""
         logger.info(f"🔍 Processing KPI measurement")
         logger.info(f"   • Execution result: {request.execution_result_id[:8]}")
@@ -187,7 +189,7 @@ class KPIExecutorService:
         
         try:
             # Scan captures from /tmp/ working directory
-            match_result = self._scan_until_match(request, working_dir)
+            match_result = await self._scan_until_match(request, working_dir)
             
             logger.info(f"🔍 Scan completed, processing result: success={match_result.get('success')}")
             
@@ -391,7 +393,7 @@ class KPIExecutorService:
         except Exception as e:
             logger.warning(f"Could not cleanup working directory {working_dir}: {e}")
     
-    def _scan_until_match(self, request: KPIMeasurementRequest, capture_dir: str) -> dict:
+    async def _scan_until_match(self, request: KPIMeasurementRequest, capture_dir: str) -> dict:
         """
         Scan captures using optimized quick check + backward scan algorithm.
         
@@ -500,10 +502,10 @@ class KPIExecutorService:
         logger.info(f"   • Total verifications configured: {len(verifications)}")
         
         # Helper to test a capture
-        def test_capture(capture, label):
+        async def test_capture(capture, label):
             logger.info(f"🔍 Quick check - {label}: {os.path.basename(capture['path'])}")
             try:
-                result = verif_executor.execute_verifications(
+                result = await verif_executor.execute_verifications(
                     verifications=verifications,
                     userinterface_name=request.userinterface_name,  # MANDATORY parameter
                     image_source_url=capture['path'],
@@ -529,7 +531,7 @@ class KPIExecutorService:
         early_idx = min(range(total_captures), key=lambda i: abs(all_captures[i]['timestamp'] - target_ts))
         captures_scanned += 1
         
-        if test_capture(all_captures[early_idx], f"early check (start+200ms, idx {early_idx}/{total_captures})"):
+        if await test_capture(all_captures[early_idx], f"early check (start+200ms, idx {early_idx}/{total_captures})"):
             return {
                 'success': True,
                 'timestamp': all_captures[early_idx]['timestamp'],
@@ -563,7 +565,7 @@ class KPIExecutorService:
             logger.info(f"🔍 Backward scan {i+1}/{total_captures}: {os.path.basename(capture['path'])}")
             
             try:
-                result = verif_executor.execute_verifications(
+                result = await verif_executor.execute_verifications(
                     verifications=verifications,
                     userinterface_name=request.userinterface_name,  # MANDATORY parameter
                     image_source_url=capture['path'],
@@ -586,7 +588,7 @@ class KPIExecutorService:
                         gap_capture = all_captures[gap_idx]
                         captures_scanned += 1
                         
-                        gap_result = verif_executor.execute_verifications(
+                        gap_result = await verif_executor.execute_verifications(
                             verifications=verifications,
                             userinterface_name=request.userinterface_name,
                             image_source_url=gap_capture['path'],
@@ -630,7 +632,7 @@ class KPIExecutorService:
                 first_capture = all_captures[0]
                 captures_scanned += 1
                 
-                first_result = verif_executor.execute_verifications(
+                first_result = await verif_executor.execute_verifications(
                     verifications=verifications,
                     userinterface_name=request.userinterface_name,
                     image_source_url=first_capture['path'],
