@@ -344,19 +344,18 @@ def measure_network_speed():
         best_server = servers_data[0]
         print(f"✅ [SPEEDTEST] Using server: {best_server['sponsor']} ({best_server['name']}, {best_server['country']})")
         
-        # Debug: Show server data format
-        print(f"🔍 [SPEEDTEST] Server data keys: {list(best_server.keys())}")
-        print(f"🔍 [SPEEDTEST] Server distance: {best_server['distance']} (type: {type(best_server['distance'])})")
-        
-        # Initialize speedtest and set server using proper API
+        # Initialize speedtest
         st = speedtest.Speedtest(secure=True)
         
-        # Format server data for get_best_server (expects dict with distance as key)
-        servers_dict = {
-            str(best_server['distance']): [best_server]
+        # Set servers in the format speedtest library expects
+        # The library expects: {distance: [server_list]}
+        distance = best_server['distance']
+        st.servers = {
+            distance: [best_server]
         }
-        print(f"🔍 [SPEEDTEST] Passing to get_best_server: {type(servers_dict)} with keys: {list(servers_dict.keys())}")
-        st.get_best_server(servers_dict)
+        
+        # Now get_best_server will pick from our pre-loaded servers
+        st.get_best_server()
         
         # Run speed tests
         download = round(st.download(threads=None) / 1_000_000, 2)
