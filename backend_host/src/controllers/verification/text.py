@@ -135,28 +135,41 @@ class TextVerificationController:
                     closest_text = extracted_text.strip()
                     best_source_path = source_path
                 
-                if self._text_matches(extracted_text, text):
-                    print(f"[@controller:TextVerification] Text found in {source_path}: '{extracted_text.strip()}'")
-                    text_found = True
+                # Try each term until one matches
+                found_match = False
+                for i, term in enumerate(terms):
+                    if len(terms) > 1:
+                        print(f"[@controller:TextVerification] Attempt {i+1}/{len(terms)}: Checking for '{term}'")
                     
-                    # ALWAYS save cropped source image for debug report (same as image verification)
-                    if area:
-                        cropped_source_path = self._save_cropped_source_image(source_path, area, verification_index)
-                        if cropped_source_path:
-                            additional_data["source_image_path"] = cropped_source_path
-                    else:
-                        # No area - use original source image
-                        additional_data["source_image_path"] = source_path
-                    
-                    # KPI optimization: If match found in later image
-                    if idx > 0:
-                        match_timestamp = os.path.getmtime(source_path)
-                        additional_data["kpi_match_timestamp"] = match_timestamp
-                        additional_data["kpi_match_index"] = idx
-                        print(f"[@controller:TextVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
-                    
-                    additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
-                    return True, f"Text pattern '{text}' found: '{extracted_text.strip()}'", additional_data
+                    if self._text_matches(extracted_text, term):
+                        print(f"[@controller:TextVerification] SUCCESS: Text found using term '{term}' in {source_path}: '{extracted_text.strip()}'")
+                        found_match = True
+                        successful_term = term
+                        
+                        # ALWAYS save cropped source image for debug report (same as image verification)
+                        if area:
+                            cropped_source_path = self._save_cropped_source_image(source_path, area, verification_index)
+                            if cropped_source_path:
+                                additional_data["source_image_path"] = cropped_source_path
+                        else:
+                            # No area - use original source image
+                            additional_data["source_image_path"] = source_path
+                        
+                        # KPI optimization: If match found in later image
+                        if idx > 0:
+                            match_timestamp = os.path.getmtime(source_path)
+                            additional_data["kpi_match_timestamp"] = match_timestamp
+                            additional_data["kpi_match_index"] = idx
+                            print(f"[@controller:TextVerification] KPI: Match at index {idx}, timestamp {match_timestamp}")
+                        
+                        additional_data["extractedText"] = extracted_text.strip()  # Frontend-expected property name
+                        additional_data["successful_term"] = successful_term
+                        additional_data["fallback_strategy"] = len(terms) > 1
+                        return True, f"Text pattern '{text}' found using term '{successful_term}': '{extracted_text.strip()}'", additional_data
+                
+                # If we found a match in this image, no need to check more images
+                if found_match:
+                    break
             
             # ALWAYS save the best source for comparison (same as image verification)
             if best_source_path:

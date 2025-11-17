@@ -197,8 +197,8 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
       height: currentDrag.height * bounds.scaleY,
     };
 
-    // Round coordinates to 2 decimal places for clean data
-    const roundedDraggedArea = roundAreaCoordinates(draggedArea, 2);
+    // Round coordinates to integers (no decimals) for clean data
+    const roundedDraggedArea = roundAreaCoordinates(draggedArea, 0);
 
     // If fuzzy mode, save to fuzzy area fields; otherwise save to exact area fields
     let updatedArea: DragArea;
@@ -211,7 +211,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
         fwidth: roundedDraggedArea.width,
         fheight: roundedDraggedArea.height,
       };
-      console.log('[@DragSelectionOverlay] Saved fuzzy area (rounded to 2 decimals):', {
+      console.log('[@DragSelectionOverlay] Saved fuzzy area (rounded to integers):', {
         fx: roundedDraggedArea.x,
         fy: roundedDraggedArea.y,
         fwidth: roundedDraggedArea.width,
@@ -228,7 +228,7 @@ export const DragSelectionOverlay: React.FC<DragSelectionOverlayProps> = ({
           fheight: selectedArea.fheight,
         }),
       };
-      console.log('[@DragSelectionOverlay] Saved exact area (rounded to 2 decimals):', roundedDraggedArea);
+      console.log('[@DragSelectionOverlay] Saved exact area (rounded to integers):', roundedDraggedArea);
     }
 
     onAreaSelected(updatedArea);
