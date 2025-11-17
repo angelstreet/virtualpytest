@@ -133,7 +133,8 @@ def take_control():
                             'host_name': host_name,
                             'device_id': device_id,
                             'host_result': result,
-                            'cache_ready': True
+                            'cache_ready': True,
+                            'warning': result.get('warning')  # Pass through warning from host (e.g., ADB connection failed)
                         })
                     else:
                         # Host rejected control - unlock and return error

@@ -7,6 +7,7 @@ import { Host, Device } from '../types/common/Host_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import { clearUserInterfaceCaches } from '../hooks/pages/useUserInterface';
 import { hasCompatibleDevice } from '../utils/userinterface/deviceCompatibilityUtils';
+import { useToast } from '../hooks/useToast';
 
 import { HostManagerContext } from './HostManagerContext';
 import { HostDataContext } from './HostDataContext';
@@ -33,6 +34,9 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
 
   // Get server selection and server data from ServerManager (now centralized)
   const { selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading: serverLoading, error: serverError, refreshServerData } = useServerManager();
+  
+  // Toast notifications
+  const { showWarning } = useToast();
 
   // Extract hosts from server data, filtering by selected server only
   // This ensures we only show hosts from the currently selected server
@@ -364,6 +368,11 @@ export const HostManagerProvider: React.FC<HostManagerProviderProps> = ({
         const result = await response.json();
 
         if (response.ok && result.success) {
+          // Show warning toast if controller failed (e.g., ADB connection failed)
+          if (result.warning) {
+            showWarning(result.warning, { duration: 6000 });
+          }
+          
           // Clear user interface caches to fetch fresh data on take-control
           // This ensures multi-user scenarios get latest data when taking control
           clearUserInterfaceCaches();

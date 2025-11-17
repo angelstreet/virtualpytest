@@ -45,6 +45,7 @@ def take_control():
         
         # Check remote controller
         remote_available = False
+        remote_error = None
         try:
             remote_controller = get_controller(device_id, 'remote')
             
@@ -62,6 +63,18 @@ def take_control():
                         print(f"[@route:take_control] Connecting remote controller to device...")
                         connection_success = remote_controller.connect()
                         remote_available = connection_success
+                        if not connection_success:
+                            # Get device IP/port for error message
+                            device_info = get_device_by_id(device_id)
+                            if device_info:
+                                device_ip = getattr(device_info, 'device_ip', None)
+                                device_port = getattr(device_info, 'device_port', None)
+                                if device_ip and device_port:
+                                    remote_error = f"Failed to connect to Android device {device_ip}:{device_port}"
+                                else:
+                                    remote_error = "Failed to connect to remote controller"
+                            else:
+                                remote_error = "Failed to connect to remote controller"
                     else:
                         print(f"[@route:take_control] Remote controller already connected")
                         remote_available = True
@@ -75,6 +88,7 @@ def take_control():
                     
         except Exception as e:
             print(f"[@route:take_control] ⚠️ WARNING: Remote controller error: {e}")
+            remote_error = str(e)
         
         # Build list of available controllers
         available_controllers = []
@@ -88,10 +102,18 @@ def take_control():
             print(f"[@route:take_control] ⚠️ WARNING: No controllers available for device {device_id}, but allowing control for localhost testing")
         
         print(f"[@route:take_control] SUCCESS: Take control succeeded for device: {device_id} with controllers: {available_controllers}")
-        return jsonify({
+        
+        response = {
             'success': True,
             'available_controllers': available_controllers
-        })
+        }
+        
+        # Add warning if remote controller (ADB) failed
+        if not remote_available and remote_error:
+            response['warning'] = remote_error
+            print(f"[@route:take_control] Including warning for frontend toast: {remote_error}")
+        
+        return jsonify(response)
             
     except Exception as e:
         print(f"[@route:take_control] FAILED: Take control failed with error: {str(e)}")
