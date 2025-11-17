@@ -106,7 +106,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
               size="small"
               type="number"
               label="X"
-              value={Math.round((verification.params?.area?.x || 0) * 10) / 10}
+              value={Math.round(verification.params?.area?.x || 0)}
               autoComplete="off"
               onChange={(e) =>
                 onUpdateVerification(index, {
@@ -114,7 +114,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                     ...verification.params,
                     area: {
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      x: parseFloat(e.target.value) || 0,
+                      x: Math.round(parseFloat(e.target.value) || 0),
                     },
                     area_modified: true, // Mark area as modified for reference update
                   },
@@ -127,13 +127,13 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                   fontSize: '0.8rem',
                 },
               }}
-              inputProps={{ min: 0, step: 0.1 }}
+              inputProps={{ min: 0, step: 1 }}
             />
             <TextField
               size="small"
               type="number"
               label="Y"
-              value={Math.round((verification.params?.area?.y || 0) * 10) / 10}
+              value={Math.round(verification.params?.area?.y || 0)}
               autoComplete="off"
               onChange={(e) =>
                 onUpdateVerification(index, {
@@ -141,7 +141,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                     ...verification.params,
                     area: {
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      y: parseFloat(e.target.value) || 0,
+                      y: Math.round(parseFloat(e.target.value) || 0),
                     },
                     area_modified: true, // Mark area as modified for reference update
                   },
@@ -154,13 +154,13 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                   fontSize: '0.8rem',
                 },
               }}
-              inputProps={{ min: 0, step: 0.1 }}
+              inputProps={{ min: 0, step: 1 }}
             />
             <TextField
               size="small"
               type="number"
               label="Width"
-              value={Math.round((verification.params?.area?.width || 100) * 10) / 10}
+              value={Math.round(verification.params?.area?.width || 100)}
               autoComplete="off"
               onChange={(e) =>
                 onUpdateVerification(index, {
@@ -168,7 +168,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                     ...verification.params,
                     area: {
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      width: parseFloat(e.target.value) || 100,
+                      width: Math.round(parseFloat(e.target.value) || 100),
                     },
                     area_modified: true, // Mark area as modified for reference update
                   },
@@ -181,13 +181,13 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                   fontSize: '0.8rem',
                 },
               }}
-              inputProps={{ min: 1, step: 0.1 }}
+              inputProps={{ min: 1, step: 1 }}
             />
             <TextField
               size="small"
               type="number"
               label="Height"
-              value={Math.round((verification.params?.area?.height || 100) * 10) / 10}
+              value={Math.round(verification.params?.area?.height || 100)}
               autoComplete="off"
               onChange={(e) =>
                 onUpdateVerification(index, {
@@ -195,7 +195,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                     ...verification.params,
                     area: {
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
-                      height: parseFloat(e.target.value) || 100,
+                      height: Math.round(parseFloat(e.target.value) || 100),
                     },
                     area_modified: true, // Mark area as modified for reference update
                   },
@@ -208,7 +208,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                   fontSize: '0.8rem',
                 },
               }}
-              inputProps={{ min: 1, step: 0.1 }}
+              inputProps={{ min: 1, step: 1 }}
             />
           </>
         )}
