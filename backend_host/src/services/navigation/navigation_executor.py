@@ -1710,13 +1710,19 @@ class NavigationExecutor:
             print(f"[@navigation_executor:_try_conditional_edge_siblings] No action_set_id in step - cannot find siblings")
             return {'success': False, 'error': 'No action_set_id'}
         
+        print(f"[@navigation_executor:_try_conditional_edge_siblings] Looking for siblings with action_set_id: {current_action_set_id}")
+        print(f"[@navigation_executor:_try_conditional_edge_siblings] Failed target was: {expected_target_node_id}")
+        
         # Find all edges from source with same action_set_id
         # Use is_conditional flag if available, otherwise fallback to action_set_id comparison
         for edge in self.unified_graph.edges(from_node_id, data=True):
             _, target, edge_data = edge
             
+            print(f"[@navigation_executor:_try_conditional_edge_siblings] Examining edge to: {target}")
+            
             # Skip if this is the target we already tried
             if target == expected_target_node_id:
+                print(f"[@navigation_executor:_try_conditional_edge_siblings]   → Skipping (already tried)")
                 continue
             
             # Check if this is a conditional edge (sibling) - use flag first
@@ -1728,7 +1734,9 @@ class NavigationExecutor:
                 action_sets = edge_data.get('action_sets', [])
                 if action_sets and len(action_sets) > 0:
                     forward_action_set = action_sets[0]
-                    if forward_action_set.get('id') == current_action_set_id:
+                    edge_action_set_id = forward_action_set.get('id')
+                    print(f"[@navigation_executor:_try_conditional_edge_siblings]   → is_conditional=True, action_set_id={edge_action_set_id}")
+                    if edge_action_set_id == current_action_set_id:
                         is_sibling = True
             
             # Method 2: Fallback to manual action_set_id comparison
@@ -1738,7 +1746,9 @@ class NavigationExecutor:
                 # Backward action sets (index 1) are independent and should NOT be treated as siblings
                 if action_sets and len(action_sets) > 0:
                     forward_action_set = action_sets[0]
-                    if forward_action_set.get('id') == current_action_set_id:
+                    edge_action_set_id = forward_action_set.get('id')
+                    print(f"[@navigation_executor:_try_conditional_edge_siblings]   → Forward action_set_id={edge_action_set_id}")
+                    if edge_action_set_id == current_action_set_id:
                         is_sibling = True
             
             if is_sibling:
@@ -1747,7 +1757,9 @@ class NavigationExecutor:
                     'target_label': edge_data.get('label', target),
                     'edge_data': edge_data
                 })
-                print(f"[@navigation_executor:_try_conditional_edge_siblings] Found sibling: {edge_data.get('label', target)} (action_set_id: {current_action_set_id}, is_conditional: {edge_data.get('is_conditional', False)})")
+                print(f"[@navigation_executor:_try_conditional_edge_siblings] ✅ Found sibling: {edge_data.get('label', target)} (action_set_id: {current_action_set_id}, is_conditional: {edge_data.get('is_conditional', False)})")
+            else:
+                print(f"[@navigation_executor:_try_conditional_edge_siblings]   → Not a sibling (different action_set_id)")
         
         if not sibling_edges:
             print(f"[@navigation_executor:_try_conditional_edge_siblings] ⚠️ No sibling edges found")
