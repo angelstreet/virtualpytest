@@ -253,7 +253,11 @@ def get_network_speed_cached(skip_if_no_cache=False):
         
         # Skip speedtest if requested (for startup optimization)
         if skip_if_no_cache:
-            print("🌐 [SPEEDTEST] Skipping initial speedtest (will run after startup)")
+            print("🌐 [SPEEDTEST] Skipping initial speedtest (will run in background)")
+            # Start async speedtest in background thread
+            import threading
+            thread = threading.Thread(target=_run_speedtest_async, daemon=True)
+            thread.start()
             return {}
         
         # Cache expired, missing, or corrupted - run test
@@ -285,6 +289,31 @@ def get_network_speed_cached(skip_if_no_cache=False):
     except Exception as e:
         print(f"⚠️ [SPEEDTEST] Error: {e}")
         return {}  # Fail gracefully
+
+def _run_speedtest_async():
+    """Run speedtest in background and save to cache"""
+    try:
+        result = measure_network_speed()
+        
+        # Skip saving if speedtest failed
+        if not result or result.get('download_mbps') is None or result.get('download_mbps') == 0:
+            print("⚠️ [SPEEDTEST] Background test failed - skipping cache")
+            return
+        
+        # Save to shared cache with file locking
+        with open(SPEEDTEST_CACHE, 'w') as f:
+            fcntl.flock(f.fileno(), fcntl.LOCK_EX)  # Exclusive lock for writing
+            try:
+                json.dump({
+                    'timestamp': time.time(),
+                    'download_mbps': result['download_mbps'],
+                    'upload_mbps': result['upload_mbps']
+                }, f)
+                print("✅ [SPEEDTEST] Background test completed and cached")
+            finally:
+                fcntl.flock(f.fileno(), fcntl.LOCK_UN)  # Unlock
+    except Exception as e:
+        print(f"⚠️ [SPEEDTEST] Background test error: {e}")
 
 def measure_network_speed():
     """Run speedtest with fallback strategies"""

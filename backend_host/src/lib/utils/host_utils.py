@@ -407,8 +407,8 @@ def send_ping_to_server():
     try:
         host = get_host()
         
-        # Store host's own system metrics (same routine as server)
-        host_system_stats = get_host_system_stats()
+        # Store host's own system metrics (speedtest will run async if no cache)
+        host_system_stats = get_host_system_stats(skip_speedtest=True)
         
         # Debug: Show host's own system stats including service uptime and load averages
         disk_write = host_system_stats.get('disk_write_mb_per_sec', 'N/A')
