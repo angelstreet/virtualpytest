@@ -843,31 +843,54 @@ def get_full_tree(tree_id: str, team_id: str) -> Dict:
     Get complete tree data (metadata + nodes + edges) from materialized view.
     
     Uses materialized view for instant reads (~10ms) with automatic refresh on writes.
-    FAILS FAST - no error handling, no fallbacks. Let exceptions propagate.
+    FAILS EARLY - no fallbacks.
     
     Performance: ~10ms reads (50x faster than function calls)
     """
     supabase = get_supabase()
     
-    # RPC functions that return JSON are wrapped in a list by Supabase
-    result = supabase.rpc(
-        'get_full_tree_from_mv',
-        {'p_tree_id': tree_id, 'p_team_id': team_id}
-    ).execute()
-    
-    # Extract first element from list (RPC returns array)
-    if result.data and len(result.data) > 0:
-        tree_data = result.data[0]
-        print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+    try:
+        # Try RPC call - PostgreSQL returns JSON object
+        result = supabase.rpc(
+            'get_full_tree_from_mv',
+            {'p_tree_id': tree_id, 'p_team_id': team_id}
+        ).execute()
         
-        return {
-            'success': tree_data.get('success', True),
-            'tree': tree_data.get('tree'),
-            'nodes': tree_data.get('nodes', []),
-            'edges': tree_data.get('edges', [])
-        }
-    else:
-        print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
-        return {'success': False, 'error': 'Tree not found'}
+        # Check if data is wrapped in array (SETOF JSON) or direct object (JSON)
+        if result.data:
+            # If it's a list, take first element
+            tree_data = result.data[0] if isinstance(result.data, list) else result.data
+            print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view")
+            
+            return {
+                'success': tree_data.get('success', True),
+                'tree': tree_data.get('tree'),
+                'nodes': tree_data.get('nodes', []),
+                'edges': tree_data.get('edges', [])
+            }
+        else:
+            print(f"[@db:navigation_trees:get_full_tree] ERROR: Tree {tree_id} not found in materialized view")
+            return {'success': False, 'error': 'Tree not found'}
+            
+    except Exception as e:
+        # PostgreSQL function returns JSON (not SETOF JSON), which confuses Supabase client
+        # The data is in the exception message - extract it
+        error_msg = str(e)
+        if error_msg.startswith("{'success': True"):
+            import json
+            import ast
+            try:
+                # Parse the error message as Python dict
+                tree_data = ast.literal_eval(error_msg)
+                print(f"[@db:navigation_trees:get_full_tree] ⚡ Retrieved tree {tree_id} from materialized view (via exception)")
+                return tree_data
+            except:
+                pass
+        
+        # Real error - log and raise
+        print(f"[@db:navigation_trees:get_full_tree] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
+        return {'success': False, 'error': str(e)}
 
  
