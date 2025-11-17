@@ -210,7 +210,7 @@ class VerificationExecutor:
                             context = None,
                             tree_id: Optional[str] = None,
                             node_id: Optional[str] = None,
-                            verification_pass_condition: str = 'all'  # NEW: 'all' or 'any'
+                            verification_pass_condition: str = None  # Auto-detect if not provided
                            ) -> Dict[str, Any]:
         """
         Execute batch of verifications (PURE - no log capture)
@@ -223,11 +223,20 @@ class VerificationExecutor:
             context: Optional execution context
             tree_id: Navigation tree ID for database recording
             node_id: Navigation node ID for database recording
-            verification_pass_condition: Condition for passing ('all' = all must pass, 'any' = any can pass)
+            verification_pass_condition: Condition for passing ('all' or 'any'). If None, auto-detects from verifications data.
             
         Returns:
             Dict with success status, results, and execution statistics
         """
+        # Auto-detect verification_pass_condition from verifications if not explicitly provided
+        if verification_pass_condition is None:
+            if verifications and isinstance(verifications[0], dict) and 'verification_pass_condition' in verifications[0]:
+                verification_pass_condition = verifications[0]['verification_pass_condition']
+                print(f"[@lib:verification_executor:execute_verifications] Auto-detected pass_condition from verification data: '{verification_pass_condition}'")
+            else:
+                verification_pass_condition = 'all'  # Default
+                print(f"[@lib:verification_executor:execute_verifications] Using default pass_condition: 'all' (not found in verification data)")
+        
         # Reduced logging for cleaner output during KPI scans
         
         # Clear screenshots from previous verification batch (VerificationExecutor is a singleton per device)
@@ -441,7 +450,13 @@ class VerificationExecutor:
                 return {'success': False, 'has_verifications': False, 'message': 'No verifications defined - cannot verify position', 'results': []}
             
             # Extract verification_pass_condition from node (defaults to 'all')
-            verification_pass_condition = node_data.get('verification_pass_condition', 'all')
+            # Priority: 1) first verification's pass_condition, 2) node's pass_condition, 3) default 'all'
+            if verifications and isinstance(verifications[0], dict) and 'verification_pass_condition' in verifications[0]:
+                verification_pass_condition = verifications[0]['verification_pass_condition']
+                print(f"[@lib:verification_executor:verify_node] Using pass_condition from verification data: '{verification_pass_condition}'")
+            else:
+                verification_pass_condition = node_data.get('verification_pass_condition', 'all')
+                print(f"[@lib:verification_executor:verify_node] Using pass_condition from node data: '{verification_pass_condition}' (not embedded in verifications)")
             
             print(f"[@lib:verification_executor:verify_node] Executing {len(verifications)} verifications for node {node_id} with condition '{verification_pass_condition}'")
             
