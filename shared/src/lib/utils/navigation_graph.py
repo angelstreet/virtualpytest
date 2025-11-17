@@ -187,13 +187,47 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
         # Create forward edge if it has actions OR if it's a conditional edge
         # Conditional edges need graph representation for pathfinding (multiple destinations, same action)
         if has_forward_actions or is_conditional_edge:
+            # ✅ CONDITIONAL EDGE: Populate actions from sibling if this edge has none
+            actual_action_sets = action_sets if action_sets else []
+            if is_conditional_edge and not has_forward_actions:
+                print(f"[@navigation:graph:create_networkx_graph] Conditional edge detected - looking up sibling actions")
+                
+                # Find sibling edge with same action_set_id that HAS actions
+                for other_edge in edges:
+                    other_source = other_edge.get('source_node_id')
+                    other_target = other_edge.get('target_node_id')
+                    
+                    if other_source == source_id and other_target != target_id:
+                        other_action_sets = other_edge.get('action_sets', [])
+                        if other_action_sets and len(other_action_sets) > 0:
+                            other_default_id = other_edge.get('default_action_set_id')
+                            if other_default_id == default_action_set_id:
+                                # Found sibling with actions - use them
+                                forward_set = other_action_sets[0]
+                                if forward_set.get('actions'):
+                                    actual_action_sets = [forward_set]
+                                    actions_list = forward_set.get('actions', [])
+                                    retry_actions_list = forward_set.get('retry_actions', [])
+                                    failure_actions_list = forward_set.get('failure_actions', [])
+                                    
+                                    # Get sibling label for logging
+                                    other_target_data = G.nodes.get(other_target, {})
+                                    other_target_label = other_target_data.get('label', other_target)
+                                    print(f"[@navigation:graph:create_networkx_graph] ✅ Using actions from sibling: {source_label} → {other_target_label}")
+                                    print(f"[@navigation:graph:create_networkx_graph] Sibling has {len(actions_list)} main actions")
+                                    break
+                
+                if not actual_action_sets:
+                    print(f"[@navigation:graph:create_networkx_graph] ⚠️ No sibling actions found - conditional edge may be incomplete")
+            
             if is_conditional_edge and not has_forward_actions:
                 print(f"[@navigation:graph:create_networkx_graph] Creating FORWARD edge (conditional): {source_label} → {target_label} [action_set_id: {default_action_set_id}]")
             else:
                 print(f"[@navigation:graph:create_networkx_graph] Creating FORWARD edge: {source_label} → {target_label}")
+            
             G.add_edge(source_id, target_id, **{
                 'edge_id': edge.get('edge_id'),
-                'action_sets': [action_sets[0]] if action_sets else [],  # Only include forward action set
+                'action_sets': actual_action_sets,  # Use populated action_sets (from sibling if conditional)
                 'default_action_set_id': default_action_set_id,
                 'edge_type': edge.get('edge_type', 'navigation'),
                 'final_wait_time': edge.get('final_wait_time', 2000),

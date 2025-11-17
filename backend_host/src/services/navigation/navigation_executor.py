@@ -1711,21 +1711,43 @@ class NavigationExecutor:
             return {'success': False, 'error': 'No action_set_id'}
         
         # Find all edges from source with same action_set_id
+        # Use is_conditional flag if available, otherwise fallback to action_set_id comparison
         for edge in self.unified_graph.edges(from_node_id, data=True):
             _, target, edge_data = edge
-            action_sets = edge_data.get('action_sets', [])
             
-            # CRITICAL: Only check FORWARD action set (index 0) for siblings
-            # Backward action sets (index 1) are independent and should NOT be treated as siblings
-            if action_sets and len(action_sets) > 0:
-                forward_action_set = action_sets[0]
-                if forward_action_set.get('id') == current_action_set_id and target != expected_target_node_id:
-                    sibling_edges.append({
-                        'target_node_id': target,
-                        'target_label': edge_data.get('label', target),
-                        'edge_data': edge_data
-                    })
-                    print(f"[@navigation_executor:_try_conditional_edge_siblings] Found sibling: {edge_data.get('label', target)} (forward action_set_id: {forward_action_set.get('id')})")
+            # Skip if this is the target we already tried
+            if target == expected_target_node_id:
+                continue
+            
+            # Check if this is a conditional edge (sibling) - use flag first
+            is_sibling = False
+            
+            # Method 1: Check is_conditional flag (set during graph creation)
+            if edge_data.get('is_conditional'):
+                # Verify it shares the same action_set_id
+                action_sets = edge_data.get('action_sets', [])
+                if action_sets and len(action_sets) > 0:
+                    forward_action_set = action_sets[0]
+                    if forward_action_set.get('id') == current_action_set_id:
+                        is_sibling = True
+            
+            # Method 2: Fallback to manual action_set_id comparison
+            if not is_sibling:
+                action_sets = edge_data.get('action_sets', [])
+                # CRITICAL: Only check FORWARD action set (index 0) for siblings
+                # Backward action sets (index 1) are independent and should NOT be treated as siblings
+                if action_sets and len(action_sets) > 0:
+                    forward_action_set = action_sets[0]
+                    if forward_action_set.get('id') == current_action_set_id:
+                        is_sibling = True
+            
+            if is_sibling:
+                sibling_edges.append({
+                    'target_node_id': target,
+                    'target_label': edge_data.get('label', target),
+                    'edge_data': edge_data
+                })
+                print(f"[@navigation_executor:_try_conditional_edge_siblings] Found sibling: {edge_data.get('label', target)} (action_set_id: {current_action_set_id}, is_conditional: {edge_data.get('is_conditional', False)})")
         
         if not sibling_edges:
             print(f"[@navigation_executor:_try_conditional_edge_siblings] ⚠️ No sibling edges found")
