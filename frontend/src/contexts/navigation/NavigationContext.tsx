@@ -1205,9 +1205,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           setIsNodeDialogOpen(false);
           setNodeForm({ label: '', type: 'screen', description: '', verifications: [] }); // Reset to initial empty form
           setSuccess('Node saved successfully');
+          
+          // Auto-clear success message after 3 seconds
+          setTimeout(() => setSuccess(null), 3000);
          } catch (error) {
            console.error('Error saving node:', error);
            setError('Failed to save node changes');
+           
+           // Auto-clear error message after 5 seconds
+           setTimeout(() => setError(null), 5000);
            throw error;
          } finally {
            setIsLoading(false);
@@ -1450,9 +1456,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
 
            setIsEdgeDialogOpen(false);
            setSuccess('Edge saved successfully');
+           
+           // Auto-clear success message after 3 seconds
+           setTimeout(() => setSuccess(null), 3000);
          } catch (error) {
            console.error('Error saving edge:', error);
            setError('Failed to save edge changes');
+           
+           // Auto-clear error message after 5 seconds
+           setTimeout(() => setError(null), 5000);
            throw error;
          } finally {
            setIsLoading(false);
@@ -1625,9 +1637,15 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           }
            
           setSuccess('Tree saved successfully');
+          
+          // Auto-clear success message after 3 seconds
+          setTimeout(() => setSuccess(null), 3000);
          } catch (error) {
            console.error('Error saving tree:', error);
            setError('Failed to save tree');
+           
+           // Auto-clear error message after 5 seconds
+           setTimeout(() => setError(null), 5000);
            throw error;
          } finally {
            setIsLoading(false);
@@ -1785,6 +1803,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
          } catch (error) {
            console.error('[@NavigationContext] Error deleting edge direction:', error);
            setError(`Failed to delete edge direction: ${error instanceof Error ? error.message : 'Unknown error'}`);
+           
+           // Auto-clear error message after 5 seconds
+           setTimeout(() => setError(null), 5000);
            throw error;
          } finally {
            setIsLoading(false);
@@ -1816,10 +1837,16 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
            }
 
            setSuccess('Actions executed successfully');
+           
+           // Auto-clear success message after 3 seconds
+           setTimeout(() => setSuccess(null), 3000);
            return response;
          } catch (error) {
            console.error('Error executing actions:', error);
            setError('Failed to execute actions');
+           
+           // Auto-clear error message after 5 seconds
+           setTimeout(() => setError(null), 5000);
            throw error;
          } finally {
            setIsLoading(false);
