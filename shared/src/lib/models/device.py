@@ -339,7 +339,6 @@ class Device:
         # For other controller types, use theoretical capabilities as they're less critical
         actual_capabilities['desktop'] = theoretical_capabilities['desktop']
         actual_capabilities['web'] = theoretical_capabilities['web']
-        actual_capabilities['ai'] = theoretical_capabilities['ai']
         
         
         # Collect available verification types and action types from controllers

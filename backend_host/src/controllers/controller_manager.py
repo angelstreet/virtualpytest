@@ -368,17 +368,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
             device.add_controller(controller_type, controller)
             web_controller = controller  # Keep reference for web verification
     
-    # Step 4: Create AI controllers (no dependencies)
-    for controller_config in ai_controllers:
-        controller_type = controller_config['type']
-        implementation = controller_config['implementation']
-        controller_params = controller_config['params']
-        
-        controller = _create_controller_instance(controller_type, implementation, controller_params)
-        if controller:
-            device.add_controller(controller_type, controller)
-    
-    # Step 5: Create verification controllers (depend on AV/web controllers and device model)
+    # Step 4: Create verification controllers (depend on AV/web controllers and device model)
     for controller_config in verification_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
@@ -412,7 +402,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         else:
             print(f"[@controller_manager:_create_device_with_controllers] ✗ Failed to create {implementation} verification controller")
     
-    # Step 6: Create power controllers (no dependencies)
+    # Step 5: Create power controllers (no dependencies)
     for controller_config in power_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
@@ -422,7 +412,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         if controller:
             device.add_controller(controller_type, controller)
     
-    # Step 7: Create desktop controllers (no dependencies)
+    # Step 6: Create desktop controllers (no dependencies)
     for controller_config in desktop_controllers:
         controller_type = controller_config['type']
         implementation = controller_config['implementation']
@@ -432,7 +422,7 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
         if controller:
             device.add_controller(controller_type, controller)
     
-    # Step 8: Create service executors (ActionExecutor, NavigationExecutor, VerificationExecutor, ExplorationExecutor)
+    # Step 7: Create service executors (ActionExecutor, NavigationExecutor, VerificationExecutor, ExplorationExecutor)
     try:
         from  backend_host.src.services.actions.action_executor import ActionExecutor
         from  backend_host.src.services.navigation.navigation_executor import NavigationExecutor
