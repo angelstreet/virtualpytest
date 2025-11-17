@@ -57,7 +57,8 @@ def create_networkx_graph(nodes: List[Dict], edges: List[Dict]) -> nx.DiGraph:
             'has_children': node_data.get('has_children', False),
             'child_tree_id': node_data.get('child_tree_id'),
             'metadata': node_data,
-            'verifications': verifications  # Embedded verifications
+            'verifications': verifications,  # Embedded verifications
+            'verification_pass_condition': node.get('verification_pass_condition') or node_data.get('verification_pass_condition', 'all')  # ✅ FIX: Add as top-level attribute
         })
     
     print(f"[@navigation:graph:create_networkx_graph] Added {len(G.nodes)} nodes to graph")
