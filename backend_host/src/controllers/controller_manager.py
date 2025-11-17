@@ -322,7 +322,6 @@ def _create_device_with_controllers(device_config: Dict[str, Any], host: 'Host')
     # Separate controllers by type to handle dependencies
     av_controllers = [c for c in controller_list if c['type'] == 'av']
     remote_controllers = [c for c in controller_list if c['type'] == 'remote']
-    ai_controllers = [c for c in controller_list if c['type'] == 'ai']
     verification_controllers = [c for c in controller_list if c['type'] == 'verification']
     power_controllers = [c for c in controller_list if c['type'] == 'power']
     desktop_controllers = [c for c in controller_list if c['type'] == 'desktop']

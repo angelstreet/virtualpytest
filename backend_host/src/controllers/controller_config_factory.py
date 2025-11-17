@@ -74,15 +74,6 @@ def create_controller_configs_from_device_info(device_config: dict) -> dict:
         }
         created_controllers.append(f"web:{web_impl}")
     
-    # Create AI controllers
-    for ai_impl in device_mapping['ai']:
-        configs['ai'] = {
-            'type': 'ai',
-            'implementation': ai_impl,
-            'params': {'device_id': device_config.get('device_id')}  # Add device_id to params
-        }
-        created_controllers.append(f"ai:{ai_impl}")
-    
     # Create Power controllers - only if required environment variables are present
     for power_impl in device_mapping['power']:
         # Check if required power configuration is present in environment

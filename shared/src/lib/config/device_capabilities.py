@@ -13,8 +13,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': [],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'android_tv': {
         'av': ['hdmi_stream'], 
@@ -22,8 +21,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': ['tapo'],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
      'fire_tv': {
         'av': ['hdmi_stream'], 
@@ -31,8 +29,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': ['tapo'],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'ios_mobile': {
         'av': ['hdmi_stream'], 
@@ -40,8 +37,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': [],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'stb': {
         'av': ['hdmi_stream'], 
@@ -49,8 +45,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': ['tapo'],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'apple_tv': {
         'av': ['hdmi_stream'], 
@@ -58,8 +53,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': ['tapo'],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'tizen': {
         'av': ['camera_stream'], 
@@ -67,8 +61,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': [],
         'web': [],
         'power': [],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'host_vnc': {
         'av': ['vnc_stream'], 
@@ -76,8 +69,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': ['bash', 'pyautogui'],
         'web': ['playwright'],
         'power': [],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     },
     'web': {
         'av': [], 
@@ -85,8 +77,7 @@ DEVICE_CONTROLLER_MAP = {
         'desktop': ['bash', 'pyautogui'],
         'web': ['playwright'],
         'power': [],
-        'network': [],
-        'ai': ['ai_agent']
+        'network': []
     }
 }
 
@@ -99,8 +90,7 @@ CONTROLLER_VERIFICATION_MAP = {
     'android_mobile': ['adb'],
     'android_tv': [],
     'appium': ['appium'],
-    'bash': [],
-    'ai_agent': []
+    'bash': []
 }
 
 def get_device_capabilities(device_model: str) -> dict:
@@ -120,7 +110,6 @@ def get_device_capabilities(device_model: str) -> dict:
             'desktop': None,
             'web': None,
             'power': None,
-            'ai': None,
             'verification': []
         }
     
@@ -138,7 +127,6 @@ def get_device_capabilities(device_model: str) -> dict:
         'desktop': mapping['desktop'][0] if mapping['desktop'] else None,
         'web': mapping['web'][0] if mapping['web'] else None,
         'power': mapping['power'][0] if mapping['power'] else None,
-        'ai': mapping['ai'][0] if mapping['ai'] else None,
         'verification': list(set(verification_types))  # Remove duplicates
     }
     
