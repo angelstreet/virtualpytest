@@ -69,46 +69,19 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
         />
       )}
 
-      {verification.command &&
-        (verification.verification_type === 'image' ||
-          verification.verification_type === 'text') && (
-          <TextField
-            size="small"
-            type="number"
-            label="Threshold"
-            value={verification.params?.threshold || 0.8}
-            autoComplete="off"
-            onChange={(e) =>
-              onUpdateVerification(index, {
-                params: {
-                  ...verification.params,
-                  threshold: parseFloat(e.target.value) || 0.8,
-                },
-              })
-            }
-            sx={{
-              width: 80,
-              '& .MuiInputBase-input': {
-                padding: '4px 8px',
-                fontSize: '0.8rem',
-              },
-            }}
-            inputProps={{ min: 0.1, max: 1.0, step: 0.05 }}
-          />
-        )}
-
-      {verification.command && verification.verification_type === 'text' && (
+      {/* Threshold - ONLY for image verification (image similarity threshold) */}
+      {verification.command && verification.verification_type === 'image' && (
         <TextField
           size="small"
           type="number"
-          label="Confidence"
-          value={verification.params?.confidence || 0.8}
+          label="Threshold"
+          value={verification.params?.threshold || 0.8}
           autoComplete="off"
           onChange={(e) =>
             onUpdateVerification(index, {
               params: {
                 ...verification.params,
-                confidence: parseFloat(e.target.value) || 0.8,
+                threshold: parseFloat(e.target.value) || 0.8,
               },
             })
           }
@@ -122,6 +95,8 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
           inputProps={{ min: 0.1, max: 1.0, step: 0.05 }}
         />
       )}
+
+      {/* Confidence - NOT USED for text verification, removed */}
 
       {verification.command &&
         (verification.verification_type === 'image' ||
