@@ -73,6 +73,8 @@ class WebKitManager:
                 '--disable-extensions',
                 '--start-maximized',                  # <<< use full width/height of VNC desktop
                 '--window-position=0,0',
+                '--disable-session-crashed-bubble',
+                '--disable-infobars',
             ]
         else:  # safari or other
             return [
