@@ -121,9 +121,15 @@ export const useNodeEdit = ({
         const { buildServerUrl } = await import('../../utils/buildUrlUtils');
         
         for (const verif of verification.verifications) {
-          // Check if this is a text verification with modified text
-          if (verif.verification_type === 'text' && verif.params?.text_modified && verif.params?.reference_name) {
-            console.log('[useNodeEdit] 📝 Updating text reference:', verif.params.reference_name);
+          // Check if this is a text/image verification with modified text or area
+          const hasTextModified = verif.verification_type === 'text' && verif.params?.text_modified;
+          const hasAreaModified = verif.params?.area_modified;
+          
+          if ((hasTextModified || hasAreaModified) && verif.params?.reference_name) {
+            console.log('[useNodeEdit] 📝 Updating reference:', verif.params.reference_name, {
+              text_modified: hasTextModified,
+              area_modified: hasAreaModified
+            });
             
             // Get the reference details to find original name
             const refKey = verif.params.reference_name;
@@ -131,26 +137,33 @@ export const useNodeEdit = ({
             const originalReferenceName = reference?.name || refKey;
             
             try {
+              // Prepare update data
+              const updateData: any = {
+                reference_name: originalReferenceName, // Use original DB name
+                userinterface_name: referenceKey,
+                area: verif.params.area || {},
+              };
+              
+              // Add text for text verifications
+              if (verif.verification_type === 'text' && verif.params?.text) {
+                updateData.text = verif.params.text;
+              }
+              
               // Use existing saveText endpoint which handles upsert
               const updateResponse = await fetch(buildServerUrl('/host/verification/text/saveText'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                  text: verif.params.text,
-                  reference_name: originalReferenceName, // Use original DB name
-                  userinterface_name: referenceKey,
-                  area: verif.params.area || {},
-                })
+                body: JSON.stringify(updateData)
               });
               
               if (!updateResponse.ok) {
-                console.error('[useNodeEdit] Failed to update text reference:', updateResponse.statusText);
+                console.error('[useNodeEdit] Failed to update reference:', updateResponse.statusText);
               } else {
                 const updateResult = await updateResponse.json();
-                console.log('[useNodeEdit] ✅ Text reference updated via saveText:', updateResult);
+                console.log('[useNodeEdit] ✅ Reference updated via saveText:', updateResult);
               }
             } catch (err) {
-              console.error('[useNodeEdit] Error updating text reference:', err);
+              console.error('[useNodeEdit] Error updating reference:', err);
             }
           }
         }

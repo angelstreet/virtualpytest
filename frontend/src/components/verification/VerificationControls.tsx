@@ -116,6 +116,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
                       x: parseFloat(e.target.value) || 0,
                     },
+                    area_modified: true, // Mark area as modified for reference update
                   },
                 })
               }
@@ -142,6 +143,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
                       y: parseFloat(e.target.value) || 0,
                     },
+                    area_modified: true, // Mark area as modified for reference update
                   },
                 })
               }
@@ -168,6 +170,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
                       width: parseFloat(e.target.value) || 100,
                     },
+                    area_modified: true, // Mark area as modified for reference update
                   },
                 })
               }
@@ -194,6 +197,7 @@ export const VerificationControls: React.FC<VerificationControlsProps> = ({
                       ...(verification.params?.area || { x: 0, y: 0, width: 100, height: 100 }),
                       height: parseFloat(e.target.value) || 100,
                     },
+                    area_modified: true, // Mark area as modified for reference update
                   },
                 })
               }
