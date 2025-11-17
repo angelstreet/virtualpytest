@@ -83,9 +83,21 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
     }, [getNodes, selectedEdge.source, selectedEdge.target, actionSet]);
 
     // Check if this specific actionSet is shared with other edges (conditional edge)
-    // USE SAME LOGIC AS EDGE COMPONENT for consistency
+    // IMPORTANT: Only FORWARD action sets (index 0) can be conditional - REVERSE action sets (index 1) are always independent
     const isCurrentActionSetShared = useMemo(() => {
       if (!actionSet?.id) return false;
+      
+      // Check if this is a reverse action set (index 1) - reverse action sets are NEVER conditional
+      const edgeActionSets = selectedEdge.data?.action_sets || [];
+      if (edgeActionSets.length >= 2) {
+        const reverseActionSet = edgeActionSets[1];
+        if (reverseActionSet?.id === actionSet.id) {
+          // This is a reverse action set - NEVER conditional
+          return false;
+        }
+      }
+      
+      // From here, we know it's a forward action set (index 0) - check if conditional
       
       // First check if edge has conditional flag (same as edge component line 25)
       if (selectedEdge.data?.is_conditional || selectedEdge.data?.is_conditional_primary) {
@@ -108,7 +120,7 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
       
       // If more than 1 edge from same source has this action_set_id as DEFAULT, it's conditional
       return shareCount > 1;
-    }, [actionSet?.id, selectedEdge.source, selectedEdge.data?.is_conditional, selectedEdge.data?.is_conditional_primary, getEdges]);
+    }, [actionSet?.id, selectedEdge.source, selectedEdge.data?.is_conditional, selectedEdge.data?.is_conditional_primary, selectedEdge.data?.action_sets, getEdges]);
     
     // Check if this is the primary conditional edge (fully editable without warning)
     const isConditionalPrimary = selectedEdge.data?.is_conditional_primary || false;
