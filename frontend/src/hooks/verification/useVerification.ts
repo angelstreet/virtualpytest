@@ -225,11 +225,11 @@ export const useVerification = ({
         // Device info no longer needed - using single source of truth
         
         // Add userinterface_name to each verification for proper reference resolution
-        // Also embed verification_pass_condition if available (from node) so backend can auto-detect
+        // Also embed verification_pass_condition in FIRST verification so backend can auto-detect
         const verificationsWithUserInterface = validVerifications.map((v, index) => ({
           ...v,
           userinterface_name: userinterfaceName,  // Add userinterface_name for R2 reference download
-          // Embed verification_pass_condition in first verification (backend reads from verifications[0])
+          // Embed verification_pass_condition in first verification ONLY (backend auto-detects from verifications[0])
           ...(index === 0 && verificationPassCondition ? { verification_pass_condition: verificationPassCondition } : {})
         }));
 
@@ -238,8 +238,6 @@ export const useVerification = ({
           node_id: nodeId ,        // Use actual node_id or fallback
           tree_id: treeId,          // Use actual tree_id or fallback
           image_source_url: image_source_url,
-          // ✅ Also pass as top-level parameter for backward compatibility
-          verification_pass_condition: verificationPassCondition || 'all'
         };
 
         console.log('[useVerification] Batch payload:', batchPayload);

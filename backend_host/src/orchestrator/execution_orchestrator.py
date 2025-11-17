@@ -111,11 +111,11 @@ class ExecutionOrchestrator:
         team_id: str = None,
         context=None,
         tree_id: Optional[str] = None,
-        node_id: Optional[str] = None,
-        verification_pass_condition: str = 'all'
+        node_id: Optional[str] = None
     ) -> Dict[str, Any]:
         """
-        Execute verifications with logging
+        Execute verifications with logging.
+        Pass condition ('all' vs 'any') is auto-detected from verifications[0]['verification_pass_condition'].
         
         Args:
             device: Device instance
@@ -126,7 +126,6 @@ class ExecutionOrchestrator:
             context: Optional execution context
             tree_id: Optional tree ID for navigation context
             node_id: Optional node ID for navigation context
-            verification_pass_condition: 'all' or 'any'
             
         Returns:
             Dict with success status, logs, and verification results
@@ -141,8 +140,8 @@ class ExecutionOrchestrator:
                 team_id=team_id,
                 context=context,
                 tree_id=tree_id,
-                node_id=node_id,
-                verification_pass_condition=verification_pass_condition
+                node_id=node_id
+                # verification_pass_condition auto-detected from verifications[0]
             )
         
         return await LoggingManager.execute_with_logging(execute)
