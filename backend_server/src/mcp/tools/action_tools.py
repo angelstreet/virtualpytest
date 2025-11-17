@@ -67,53 +67,35 @@ class ActionTools:
         if not device_action_types:
             return {"content": [{"type": "text", "text": f"No actions available for {device_model} device"}], "isError": False}
         
-        # Define preferred commands (ID-based selection)
-        preferred_commands = {
-            'click_element_by_id',
-            'click_element_by_selector',
-            'click_element_by_xpath',
-            'type_text_by_id',
-            'type_text_by_selector'
-        }
+        response_text = f"Available actions for {device_model} ({device_id}):\n\n"
         
-        response_text = f"📋 Available actions for {device_model} ({device_id}):\n\n"
-        response_text += "⭐ = PREFERRED (ID/Selector-based - faster & more reliable)\n\n"
+        if device_model in ['host_vnc', 'web']:
+            response_text += "Web commands (accept CSS selectors OR plain text):\n"
+            response_text += "- click_element\n"
+            response_text += "- input_text\n\n"
+            response_text += "Priority: Use CSS selectors (#id, .class, [attr]) when possible - faster than plain text.\n"
+            response_text += "Call dump_ui_elements() to find element IDs.\n\n"
         
         for category, actions in device_action_types.items():
             if not actions:
                 continue
             response_text += f"**{category.upper()}** ({len(actions)} actions):\n"
             for action in actions[:10]:  # Limit to first 10 per category
-                action_id = action.get('id', action.get('command', 'unknown'))
                 label = action.get('label', action.get('command', 'unknown'))
                 command = action.get('command', 'unknown')
                 params_dict = action.get('params', {})
                 description = action.get('description', '')
                 
-                # Add star for preferred commands
-                star = "⭐ " if command in preferred_commands else "   "
-                response_text += f"{star}• {label} (command: {command})\n"
+                response_text += f"  {label} (command: {command})\n"
                 
                 if params_dict:
-                    response_text += f"      params: {params_dict}\n"
+                    response_text += f"    params: {params_dict}\n"
                 if description:
-                    response_text += f"      {description}\n"
-                
-                # Add helpful tip for ID-based commands
-                if command in preferred_commands:
-                    response_text += f"      💡 TIP: Use dump_ui_elements() to find element IDs\n"
+                    response_text += f"    {description}\n"
             
             if len(actions) > 10:
                 response_text += f"  ... and {len(actions) - 10} more\n"
             response_text += "\n"
-        
-        # Add best practices footer
-        response_text += "\n═══════════════════════════════════════════════════\n"
-        response_text += "⭐ BEST PRACTICES:\n"
-        response_text += "1. ALWAYS prefer ID/Selector-based commands (⭐) over text-based\n"
-        response_text += "2. Use dump_ui_elements() to find element IDs before creating actions\n"
-        response_text += "3. Only use text-based selection when IDs are unavailable\n"
-        response_text += "═══════════════════════════════════════════════════\n"
         
         return {
             "content": [{"type": "text", "text": response_text}],

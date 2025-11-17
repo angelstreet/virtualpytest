@@ -359,25 +359,17 @@ Executes direct device commands including:
 
 Returns execution_id for async operations - polls automatically until completion.
 
-⭐ BEST PRACTICES - ELEMENT SELECTION (READ THIS FIRST!):
-═══════════════════════════════════════════════════════════
-1. ALWAYS prefer element IDs over text-based selection:
-   ✅ EXCELLENT: click_element_by_id(element_id="customer_login_link")
-   ❌ AVOID: click_element(text="Log In")  # May click wrong element!
+ELEMENT SELECTION:
 
-2. Use dump_ui_elements() or browser tools to inspect and find element IDs FIRST
+1. Preferred: CSS selector
+   click_element(element_id="#login-button")
+   Faster, no UI dump needed.
 
-3. Only use text-based selection when IDs are absolutely unavailable
+2. Fallback: Plain text
+   click_element(element_id="Log In")
+   Slower, dumps UI first.
 
-WHY IDs are better:
-• Faster: Direct selection vs searching entire screen
-• More reliable: Won't click duplicate text (e.g., "Log In" in header vs button)
-• Less brittle: Survives text changes (translations, wording updates)
-
-Example workflow:
-  1. dump_ui_elements() → Find element_id="customer_login_link"
-  2. Use: click_element_by_id(element_id="customer_login_link")
-  3. NOT: click_element(text="Log In")
+Use dump_ui_elements() to find IDs before creating actions.
 
 ⏱️ CRITICAL - ACTION WAIT TIMES:
 Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
@@ -1119,20 +1111,17 @@ Example:
 
 Defines navigation path with forward and backward actions.
 
-⭐ BEST PRACTICES - ELEMENT SELECTION (READ THIS FIRST!):
-═══════════════════════════════════════════════════════════
-1. ALWAYS prefer element IDs over text-based selection in actions:
-   ✅ EXCELLENT: click_element_by_id(element_id="customer_login_link")
-   ❌ AVOID: click_element(text="Log In")  # May click wrong element!
+ELEMENT SELECTION:
 
-2. Use dump_ui_elements() or browser tools to inspect and find element IDs BEFORE creating edges
+1. Preferred: CSS selector
+   click_element(element_id="#login-button")
+   Faster, no UI dump needed.
 
-3. Only use text-based selection when IDs are absolutely unavailable
+2. Fallback: Plain text
+   click_element(element_id="Log In")
+   Slower, dumps UI first.
 
-WHY IDs are better for navigation:
-• Faster: Direct selection vs searching entire screen
-• More reliable: Won't click duplicate text (e.g., "Log In" in header vs button)
-• Less brittle: Survives text changes (translations, wording updates)
+Use dump_ui_elements() to find IDs before creating edges.
 
 ⚠️ CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
 - Use the 'node_id' field from list_navigation_nodes() or create_node() response.
