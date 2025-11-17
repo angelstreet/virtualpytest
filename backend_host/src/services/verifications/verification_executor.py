@@ -354,7 +354,6 @@ class VerificationExecutor:
                             # ✅ UPLOAD verification images to R2 BEFORE generating report (reuse KPI upload utility)
                             try:
                                 from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
-                                import time
                                 
                                 # Collect images to upload
                                 failure_images = {}
