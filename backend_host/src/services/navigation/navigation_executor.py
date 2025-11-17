@@ -987,7 +987,7 @@ class NavigationExecutor:
                                     target_node_id=target_node_id,
                                     tree_id=tree_id,
                                     team_id=team_id,
-                                    visited_nodes=set([from_node_id, actual_node])  # Prevent loops - track both source and actual landing
+                                    visited_nodes=set([from_node_id])  # Only prevent going back to the original source
                                 )
                                 
                                 if recovery_path:
