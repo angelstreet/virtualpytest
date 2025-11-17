@@ -359,6 +359,26 @@ Executes direct device commands including:
 
 Returns execution_id for async operations - polls automatically until completion.
 
+⭐ BEST PRACTICES - ELEMENT SELECTION (READ THIS FIRST!):
+═══════════════════════════════════════════════════════════
+1. ALWAYS prefer element IDs over text-based selection:
+   ✅ EXCELLENT: click_element_by_id(element_id="customer_login_link")
+   ❌ AVOID: click_element(text="Log In")  # May click wrong element!
+
+2. Use dump_ui_elements() or browser tools to inspect and find element IDs FIRST
+
+3. Only use text-based selection when IDs are absolutely unavailable
+
+WHY IDs are better:
+• Faster: Direct selection vs searching entire screen
+• More reliable: Won't click duplicate text (e.g., "Log In" in header vs button)
+• Less brittle: Survives text changes (translations, wording updates)
+
+Example workflow:
+  1. dump_ui_elements() → Find element_id="customer_login_link"
+  2. Use: click_element_by_id(element_id="customer_login_link")
+  3. NOT: click_element(text="Log In")
+
 ⏱️ CRITICAL - ACTION WAIT TIMES:
 Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
 
@@ -376,7 +396,7 @@ Standard Wait Times (milliseconds) - INSIDE params:
 
 Device Model Specific:
 - android_mobile/android_tv: Use ADB/Remote commands
-  Examples: launch_app, swipe_up, swipe_down, click_element, click_element_by_id, type_text, press_key
+  Examples: launch_app, swipe_up, swipe_down, click_element_by_id (⭐ PREFERRED), click_element, type_text, press_key
 - web/desktop: Use web automation commands
   Examples: web_click, web_type, web_navigate
 
@@ -396,7 +416,15 @@ Common Examples:
     "actions": [{"command": "swipe_up", "params": {"wait_time": 1000}}]
   })
 
-👆 Click Element:
+👆 Click Element (⭐ PREFERRED - Use ID):
+  execute_device_action({
+    "actions": [{
+      "command": "click_element_by_id",
+      "params": {"element_id": "customer_login_link", "wait_time": 2000}
+    }]
+  })
+
+👆 Click Element (fallback - text when no ID available):
   execute_device_action({
     "actions": [{
       "command": "click_element",
@@ -1091,6 +1119,21 @@ Example:
 
 Defines navigation path with forward and backward actions.
 
+⭐ BEST PRACTICES - ELEMENT SELECTION (READ THIS FIRST!):
+═══════════════════════════════════════════════════════════
+1. ALWAYS prefer element IDs over text-based selection in actions:
+   ✅ EXCELLENT: click_element_by_id(element_id="customer_login_link")
+   ❌ AVOID: click_element(text="Log In")  # May click wrong element!
+
+2. Use dump_ui_elements() or browser tools to inspect and find element IDs BEFORE creating edges
+
+3. Only use text-based selection when IDs are absolutely unavailable
+
+WHY IDs are better for navigation:
+• Faster: Direct selection vs searching entire screen
+• More reliable: Won't click duplicate text (e.g., "Log In" in header vs button)
+• Less brittle: Survives text changes (translations, wording updates)
+
 ⚠️ CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
 - Use the 'node_id' field from list_navigation_nodes() or create_node() response.
 - Examples: source_node_id='home' ✅ | source_node_id='ce97c317-...' ❌ (this is a database UUID and will error).
@@ -1103,36 +1146,39 @@ Defines navigation path with forward and backward actions.
 - These create vertical connections between nodes.
 
 Best Practice Workflow (From Scratch):
-1. (Optional) List existing nodes to get string node_ids:
+1. Inspect UI to find element IDs:
+   dump_ui_elements() # Returns: {"element_id": "customer_login_link", "text": "Log In", ...}
+
+2. (Optional) List existing nodes to get string node_ids:
    list_navigation_nodes(userinterface_name='your_ui')  # Returns: • home (node_id: 'home', ...) → Use 'home'
 
-2. Create nodes if needed (returns string node_id):
+3. Create nodes if needed (returns string node_id):
    result1 = create_node(tree_id='your_tree_id', label='home')  # Returns: ✅ Node created: home (node_id: 'home')
    home_id = 'home'  # Extract the string 'home'
 
-   result2 = create_node(tree_id='your_tree_id', label='settings')  # Returns: ✅ Node created: settings (node_id: 'settings')
-   settings_id = 'settings'  # Extract the string 'settings'
+   result2 = create_node(tree_id='your_tree_id', label='login')  # Returns: ✅ Node created: login (node_id: 'login')
+   login_id = 'login'  # Extract the string 'login'
 
-3. Create the edge - FORMAT DEPENDS ON DEVICE TYPE:
+4. Create the edge - FORMAT DEPENDS ON DEVICE TYPE:
 
-   📱 MOBILE/ADB (Android):
+   📱 MOBILE/ADB (Android) - ⭐ USE ELEMENT IDs:
    create_edge(
      tree_id='your_tree_id',
      source_node_id='home',
-     target_node_id='settings',
+     target_node_id='login',
      source_label='home',
-     target_label='settings',
+     target_label='login',
      action_sets=[
-       {"id": "home_to_settings", "label": "home → settings",
-        "actions": [{"command": "click_element", "params": {"element_id": "Settings Tab"}}],
+       {"id": "home_to_login", "label": "home → login",
+        "actions": [{"command": "click_element_by_id", "params": {"element_id": "customer_login_link"}}],
         "retry_actions": [], "failure_actions": []},
-       {"id": "settings_to_home", "label": "settings → home",
-        "actions": [{"command": "click_element", "params": {"element_id": "Home Tab"}}],
+       {"id": "login_to_home", "label": "login → home",
+        "actions": [{"command": "press_key", "params": {"key": "BACK"}}],
         "retry_actions": [], "failure_actions": []}
      ]
    )
 
-   🌐 WEB (Playwright):
+   🌐 WEB (Playwright) - ⭐ USE ELEMENT IDs or SELECTORS:
    create_edge(
      tree_id='your_tree_id',
      source_node_id='home',
@@ -1141,10 +1187,10 @@ Best Practice Workflow (From Scratch):
      target_label='admin',
      action_sets=[
        {"id": "home_to_admin", "label": "home → admin",
-        "actions": [{"command": "click_element", "action_type": "web", "params": {"element_id": "Admin", "wait_time": 1000}}],
+        "actions": [{"command": "click_element_by_id", "action_type": "web", "params": {"element_id": "admin_nav_link", "wait_time": 1000}}],
         "retry_actions": [], "failure_actions": []},
        {"id": "admin_to_home", "label": "admin → home",
-        "actions": [{"command": "click_element", "action_type": "web", "params": {"element_id": "Home", "wait_time": 1000}}],
+        "actions": [{"command": "click_element_by_id", "action_type": "web", "params": {"element_id": "home_nav_link", "wait_time": 1000}}],
         "retry_actions": [], "failure_actions": []}
      ]
    )
