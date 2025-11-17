@@ -77,8 +77,8 @@ def get_compatible_interfaces():
         if cache_key in _compatible_cache:
             cached = _compatible_cache[cache_key]
             age = time.time() - cached['timestamp']
-            # Use MEDIUM_TTL (5 minutes) for compatible interfaces
-            if age < CACHE_CONFIG['MEDIUM_TTL']:
+            # Use UI_TTL (60 seconds) for compatible interfaces
+            if age < CACHE_CONFIG['UI_TTL']:
                 print(f"[@cache] HIT: Compatible interfaces for {device_model} (age: {age/60:.1f}m)")
                 return jsonify(cached['data'])
             else:
@@ -113,7 +113,7 @@ def get_compatible_interfaces():
                 'data': response_data,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: Compatible interfaces for {device_model} (5m TTL)")
+            print(f"[@cache] SET: Compatible interfaces for {device_model} ({CACHE_CONFIG['UI_TTL']}s TTL)")
         
         return jsonify(response_data)
     except Exception as e:

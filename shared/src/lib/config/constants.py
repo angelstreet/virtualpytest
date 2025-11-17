@@ -48,6 +48,10 @@ CACHE_CONFIG = {
     # Used for: Host restart status
     'VERY_SHORT_TTL': 30,
     
+    # UI cache - for user interface queries (1 minute)
+    # Used for: Compatible interfaces lookup
+    'UI_TTL': 60,
+    
     # Short cache - for dynamic data (2 minutes)
     # Used for: Server hosts data, Script lists
     'SHORT_TTL': 2 * 60,
