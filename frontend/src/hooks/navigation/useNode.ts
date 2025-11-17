@@ -407,7 +407,16 @@ export const useNode = (props?: UseNodeProps) => {
 
         // Handle verification results
         if (response.verification_results && response.verification_results.length > 0) {
-          const verificationSuccess = response.verification_results.every((vr: any) => vr.success);
+          // ✅ FIX: Respect node's verification_pass_condition setting
+          const passCondition = selectedNode.data.verification_pass_condition || 'all';
+          const verificationSuccess = passCondition === 'any'
+            ? response.verification_results.some((vr: any) => vr.success)  // At least one must pass
+            : response.verification_results.every((vr: any) => vr.success); // All must pass
+          
+          console.log(`[@useNode:executeNavigation] Verification pass condition: ${passCondition}`);
+          console.log(`[@useNode:executeNavigation] Verification results: ${response.verification_results.filter((vr: any) => vr.success).length}/${response.verification_results.length} passed`);
+          console.log(`[@useNode:executeNavigation] Overall result: ${verificationSuccess ? '✅ PASS' : '❌ FAIL'}`);
+          
           if (verificationSuccess) {
             setNodeVerificationSuccess(selectedNode.id);
           } else {

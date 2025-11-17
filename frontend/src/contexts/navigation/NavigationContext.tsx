@@ -1121,6 +1121,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 parent: updatedNodeData.data.parent || [],
                 menu_type: updatedNodeData.data.menu_type || '',
                 priority: updatedNodeData.data.priority || 'p3',
+                verification_pass_condition: updatedNodeData.data.verification_pass_condition || 'all',  // ✅ FIX: Store in data object
                 is_root: updatedNodeData.data.is_root || false,
                 isParentReference: updatedNodeData.data.isParentReference || false,
                 originalTreeId: updatedNodeData.data.originalTreeId || '',
@@ -1561,6 +1562,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 parent: node.data.parent,
                 menu_type: node.data.menu_type,
                 priority: node.data.priority,
+                verification_pass_condition: node.data.verification_pass_condition || 'all', // ✅ FIX: Store in data object
                 is_root: node.data.is_root,
                 // CRITICAL: Preserve parent reference metadata (for blue primary sibling indicator in nested trees)
                 isParentReference: node.data.isParentReference,

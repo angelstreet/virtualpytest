@@ -38,7 +38,7 @@ export const useNestedNavigation = ({
         verifications: dbNode.verifications,
         has_subtree: dbNode.has_subtree,
         subtree_count: dbNode.subtree_count,
-        ...dbNode.data
+        ...dbNode.data, // ✅ Spread data object which contains verification_pass_condition
       }
     }));
 

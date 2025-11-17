@@ -42,7 +42,7 @@ export const useNavigationEditor = () => {
             type: node.node_type || 'screen',
             description: node.description,
             verifications: node.verifications, // Directly embedded
-            ...node.data // Additional data
+            ...node.data // ✅ Spread data object which contains verification_pass_condition and other fields
           }
         }));
 
