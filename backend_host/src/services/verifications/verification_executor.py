@@ -351,10 +351,44 @@ class VerificationExecutor:
                             print(f"[@lib:verification_executor] ❌ source_image_path not found!")
                         
                         if source_path and device_folder:
+                            # ✅ UPLOAD verification images to R2 BEFORE generating report (reuse KPI upload utility)
+                            try:
+                                from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
+                                import time
+                                
+                                # Collect images to upload
+                                failure_images = {}
+                                if source_path and os.path.exists(source_path):
+                                    failure_images['source'] = source_path
+                                
+                                overlay_path = details.get('result_overlay_path')
+                                if overlay_path and os.path.exists(overlay_path):
+                                    failure_images['overlay'] = overlay_path
+                                
+                                # Upload to R2 (reuse KPI upload function)
+                                if failure_images:
+                                    timestamp = time.strftime('%Y%m%d%H%M%S')
+                                    # Use device_folder as execution_result_id prefix for path consistency
+                                    r2_urls = upload_kpi_thumbnails(failure_images, f"verif_fail_{device_folder}", timestamp)
+                                    
+                                    # Update details with R2 URLs
+                                    if r2_urls.get('source'):
+                                        details['source_image_url'] = r2_urls['source']
+                                        print(f"[@lib:verification_executor] ✅ Source uploaded: {r2_urls['source'][:80]}...")
+                                    if r2_urls.get('overlay'):
+                                        details['result_overlay_url'] = r2_urls['overlay']
+                                        print(f"[@lib:verification_executor] ✅ Overlay uploaded: {r2_urls['overlay'][:80]}...")
+                                    
+                                    print(f"[@lib:verification_executor] ✅ Uploaded {len(r2_urls)}/{len(failure_images)} images to R2")
+                            except Exception as upload_error:
+                                print(f"[@lib:verification_executor] ⚠️ R2 upload failed: {upload_error}, using local paths")
+                                import traceback
+                                traceback.print_exc()
+                            
                             # Add source_image_path to verification_config for report generator
                             verification_config_with_path = {**verification_config, 'source_image_path': source_path}
                             
-                            # Generate report
+                            # Generate report (with R2 URLs in details if upload succeeded)
                             report_path = generate_verification_failure_report(
                                 verification_config=verification_config_with_path,
                                 verification_result=result,

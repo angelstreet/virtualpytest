@@ -46,17 +46,29 @@ def generate_verification_failure_report(
         verification_type = verification_config.get('verification_type', 'unknown')
         command = verification_config.get('command', 'unknown')
         
-        # Get image paths and convert to HTTP URLs
-        source_image_path = verification_config.get('source_image_path') or details.get('source_image_path')
-        source_image_url = buildHostImageUrl(host_info, source_image_path) if source_image_path else None
+        # Get image URLs - prefer R2 URLs from details, fallback to local paths converted to HTTP URLs
+        # Source image: Check R2 URL first, then convert local path
+        source_image_url = details.get('source_image_url')
+        if not source_image_url:
+            source_image_path = verification_config.get('source_image_path') or details.get('source_image_path')
+            source_image_url = buildHostImageUrl(host_info, source_image_path) if source_image_path else None
+            print(f"[@verification_report_generator] Source: Using host-served URL (R2 not available)")
+        else:
+            print(f"[@verification_report_generator] Source: Using R2 URL: {source_image_url[:80]}...")
         
         # Reference image URL is already R2 URL - use as is
         reference_image_url = details.get('reference_image_url')
         print(f"[@verification_report_generator] Reference image URL from details: {reference_image_url}")
         
-        # Overlay image - convert local path to HTTP URL
-        result_overlay_path = details.get('result_overlay_path')
-        result_overlay_url = buildHostImageUrl(host_info, result_overlay_path) if result_overlay_path else None
+        # Overlay image: Check R2 URL first, then convert local path
+        result_overlay_url = details.get('result_overlay_url')
+        if not result_overlay_url:
+            result_overlay_path = details.get('result_overlay_path')
+            result_overlay_url = buildHostImageUrl(host_info, result_overlay_path) if result_overlay_path else None
+            if result_overlay_url:
+                print(f"[@verification_report_generator] Overlay: Using host-served URL (R2 not available)")
+        else:
+            print(f"[@verification_report_generator] Overlay: Using R2 URL: {result_overlay_url[:80]}...")
         
         # Build simple HTML (same pattern as KPI failure report)
         html = ['<!DOCTYPE html><html><head><meta charset="UTF-8">']
