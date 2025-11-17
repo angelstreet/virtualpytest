@@ -46,6 +46,7 @@ export const useNodeEdit = ({
   const verification = useVerification({
     captureSourcePath: undefined,
     userinterfaceName: referenceKey,  // Pass userinterface name for reference resolution
+    verificationPassCondition: nodeForm?.verification_pass_condition || 'all',  // Pass from nodeForm
   });
 
   // Local state for dialog-specific concerns
