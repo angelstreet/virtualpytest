@@ -564,6 +564,55 @@ def create_edge_api(tree_id):
                 'message': 'No edge data provided'
             }), 400
         
+        # ✅ VALIDATION: Check action commands if provided
+        action_sets = edge_data.get('action_sets', [])
+        if action_sets:
+            # Get userinterface to determine device_model
+            from shared.src.lib.database.navigation_trees_db import get_tree_metadata
+            tree_metadata = get_tree_metadata(tree_id, team_id)
+            
+            if tree_metadata and tree_metadata.get('success'):
+                userinterface_id = tree_metadata.get('tree', {}).get('userinterface_id')
+                
+                if userinterface_id:
+                    from shared.src.lib.database.userinterface_db import get_userinterface
+                    ui_result = get_userinterface(userinterface_id, team_id)
+                    
+                    if ui_result and ui_result.get('success'):
+                        device_model = ui_result.get('userinterface', {}).get('device_model', 'unknown')
+                        
+                        # Import validator
+                        from backend_server.src.mcp.utils.api_client import MCPAPIClient
+                        from backend_server.src.mcp.utils.action_validator import ActionValidator
+                        from shared.src.lib.config.constants import APP_CONFIG
+                        
+                        api_client = MCPAPIClient(
+                            APP_CONFIG.get('BACKEND_SERVER_URL', 'http://localhost:5000')
+                        )
+                        validator = ActionValidator(api_client)
+                        
+                        is_valid, errors, warnings = validator.validate_action_sets(
+                            action_sets,
+                            device_model
+                        )
+                        
+                        if not is_valid:
+                            error_msg = "❌ Invalid action command(s):\n\n"
+                            error_msg += "\n".join(errors)
+                            error_msg += "\n\n" + validator.get_valid_commands_for_display(device_model)
+                            
+                            return jsonify({
+                                'success': False,
+                                'message': error_msg,
+                                'errors': errors
+                            }), 400
+                        
+                        # Log warnings but allow save
+                        if warnings:
+                            print(f"[@route:navigation_trees:create_edge] ⚠️ Action warnings:")
+                            for warning in warnings:
+                                print(f"  {warning}")
+        
         result = save_edge(tree_id, edge_data, team_id)
         
         if result['success']:
@@ -596,6 +645,55 @@ def update_edge_api(tree_id, edge_id):
                 'success': False,
                 'message': 'No edge data provided'
             }), 400
+        
+        # ✅ VALIDATION: Check action commands if provided
+        action_sets = edge_data.get('action_sets', [])
+        if action_sets:
+            # Get userinterface to determine device_model
+            from shared.src.lib.database.navigation_trees_db import get_tree_metadata
+            tree_metadata = get_tree_metadata(tree_id, team_id)
+            
+            if tree_metadata and tree_metadata.get('success'):
+                userinterface_id = tree_metadata.get('tree', {}).get('userinterface_id')
+                
+                if userinterface_id:
+                    from shared.src.lib.database.userinterface_db import get_userinterface
+                    ui_result = get_userinterface(userinterface_id, team_id)
+                    
+                    if ui_result and ui_result.get('success'):
+                        device_model = ui_result.get('userinterface', {}).get('device_model', 'unknown')
+                        
+                        # Import validator
+                        from backend_server.src.mcp.utils.api_client import MCPAPIClient
+                        from backend_server.src.mcp.utils.action_validator import ActionValidator
+                        from shared.src.lib.config.constants import APP_CONFIG
+                        
+                        api_client = MCPAPIClient(
+                            APP_CONFIG.get('BACKEND_SERVER_URL', 'http://localhost:5000')
+                        )
+                        validator = ActionValidator(api_client)
+                        
+                        is_valid, errors, warnings = validator.validate_action_sets(
+                            action_sets,
+                            device_model
+                        )
+                        
+                        if not is_valid:
+                            error_msg = "❌ Invalid action command(s):\n\n"
+                            error_msg += "\n".join(errors)
+                            error_msg += "\n\n" + validator.get_valid_commands_for_display(device_model)
+                            
+                            return jsonify({
+                                'success': False,
+                                'message': error_msg,
+                                'errors': errors
+                            }), 400
+                        
+                        # Log warnings but allow save
+                        if warnings:
+                            print(f"[@route:navigation_trees:update_edge] ⚠️ Action warnings:")
+                            for warning in warnings:
+                                print(f"  {warning}")
         
         edge_data['edge_id'] = edge_id
         result = save_edge(tree_id, edge_data, team_id)

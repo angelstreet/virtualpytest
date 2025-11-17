@@ -14,6 +14,7 @@ from typing import Dict, Any
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter, ErrorCategory
 from ..utils.verification_validator import VerificationValidator
+from ..utils.action_validator import ActionValidator
 
 
 class TreeTools:
@@ -24,6 +25,7 @@ class TreeTools:
         self.formatter = MCPFormatter()
         self.logger = logging.getLogger(__name__)
         self.verification_validator = VerificationValidator(api_client)
+        self.action_validator = ActionValidator(api_client)
     
     def create_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -507,6 +509,50 @@ class TreeTools:
             # Build edge payload - backend expects: edge_id, source_node_id, target_node_id, action_sets, default_action_set_id
             action_sets = params.get('action_sets', [])
             
+            # ✅ VALIDATION: Validate action commands if action_sets provided
+            if action_sets:
+                # Get userinterface to determine device_model
+                userinterface_result = self.api_client.get(
+                    f'/server/navigationTrees/{tree_id}',
+                    params={'team_id': team_id}
+                )
+                
+                if userinterface_result.get('success'):
+                    tree_data = userinterface_result.get('tree', {})
+                    userinterface_id = tree_data.get('userinterface_id')
+                    
+                    if userinterface_id:
+                        ui_result = self.api_client.get(
+                            f'/server/userinterfaces/{userinterface_id}',
+                            params={'team_id': team_id}
+                        )
+                        
+                        if ui_result.get('success'):
+                            device_model = ui_result.get('userinterface', {}).get('device_model', 'unknown')
+                            
+                            # Validate action commands
+                            is_valid, errors, warnings = self.action_validator.validate_action_sets(
+                                action_sets,
+                                device_model
+                            )
+                            
+                            if not is_valid:
+                                # Build error message with helpful info
+                                error_msg = "❌ Invalid action command(s):\n\n"
+                                error_msg += "\n".join(errors)
+                                error_msg += "\n\n" + self.action_validator.get_valid_commands_for_display(device_model)
+                                
+                                return self.formatter.format_error(
+                                    error_msg,
+                                    ErrorCategory.VALIDATION
+                                )
+                            
+                            # Show warnings if any
+                            if warnings:
+                                self.logger.warning(f"Action warnings for edge {source_node_id} → {target_node_id}:")
+                                for warning in warnings:
+                                    self.logger.warning(f"  {warning}")
+            
             # Clean labels for ID format (matches frontend useNavigationEditor.ts line 300-301)
             clean_source = re.sub(r'[^a-z0-9]', '_', source_label.lower())
             clean_target = re.sub(r'[^a-z0-9]', '_', target_label.lower())
@@ -640,8 +686,54 @@ class TreeTools:
             
             existing_edge = existing_result.get('edge', {})
             
-            # STEP 2: Merge updates with existing edge data
+            # STEP 2: Validate action commands if provided
             action_sets = params['action_sets']
+            
+            # ✅ VALIDATION: Validate action commands before updating
+            if action_sets:
+                # Get userinterface to determine device_model
+                userinterface_result = self.api_client.get(
+                    f'/server/navigationTrees/{tree_id}',
+                    params={'team_id': team_id}
+                )
+                
+                if userinterface_result.get('success'):
+                    tree_data = userinterface_result.get('tree', {})
+                    userinterface_id = tree_data.get('userinterface_id')
+                    
+                    if userinterface_id:
+                        ui_result = self.api_client.get(
+                            f'/server/userinterfaces/{userinterface_id}',
+                            params={'team_id': team_id}
+                        )
+                        
+                        if ui_result.get('success'):
+                            device_model = ui_result.get('userinterface', {}).get('device_model', 'unknown')
+                            
+                            # Validate action commands
+                            is_valid, errors, warnings = self.action_validator.validate_action_sets(
+                                action_sets,
+                                device_model
+                            )
+                            
+                            if not is_valid:
+                                # Build error message with helpful info
+                                error_msg = "❌ Invalid action command(s):\n\n"
+                                error_msg += "\n".join(errors)
+                                error_msg += "\n\n" + self.action_validator.get_valid_commands_for_display(device_model)
+                                
+                                return self.formatter.format_error(
+                                    error_msg,
+                                    ErrorCategory.VALIDATION
+                                )
+                            
+                            # Show warnings if any
+                            if warnings:
+                                self.logger.warning(f"Action warnings for edge {edge_id}:")
+                                for warning in warnings:
+                                    self.logger.warning(f"  {warning}")
+            
+            # STEP 3: Merge updates with existing edge data
             default_action_set_id = action_sets[0]['id'] if action_sets else existing_edge.get('default_action_set_id', 'forward')
             
             # Generate label from action_sets if not provided (same logic as create_edge)
