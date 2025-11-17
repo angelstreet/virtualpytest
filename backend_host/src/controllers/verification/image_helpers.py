@@ -217,12 +217,20 @@ class ImageHelpers:
     def smart_fuzzy_search(self, source_img: np.ndarray, reference_img: np.ndarray, 
                           exact_area: Dict[str, Any], fuzzy_area: Dict[str, Any], 
                           threshold: float = 0.8) -> Tuple[bool, float, Optional[Dict[str, int]]]:
+        """
+        Simple fuzzy search using OpenCV's matchTemplate.
+        OpenCV automatically searches the ENTIRE fuzzy area for best match - no need for manual iterations!
+        
+        Strategy:
+        1. Try exact position first (fast path)
+        2. If no match, search entire fuzzy area in one OpenCV call
+        """
         try:
-            import sys
-            
             ref_h, ref_w = reference_img.shape[:2]
             ex, ey = int(exact_area['x']), int(exact_area['y'])
             ew, eh = int(exact_area['width']), int(exact_area['height'])
+            fx, fy = int(fuzzy_area['fx']), int(fuzzy_area['fy'])
+            fw, fh = int(fuzzy_area['fwidth']), int(fuzzy_area['fheight'])
             
             # For very small images (< 200 pixels), use pixel-based matching instead of template matching
             # Template matching is unreliable for tiny images due to normalization sensitivity
@@ -232,103 +240,66 @@ class ImageHelpers:
             if use_pixel_matching:
                 print(f"[@fuzzy] Using PIXEL matching for small image ({ref_area}px < 200px threshold)")
             
-            print(f"[@fuzzy] Starting fuzzy search - ref size: {ref_w}x{ref_h}, exact: ({ex},{ey}) {ew}x{eh}, threshold: {threshold}")
+            print(f"[@fuzzy] Starting fuzzy search - ref size: {ref_w}x{ref_h}, exact: ({ex},{ey}) {ew}x{eh}, fuzzy: ({fx},{fy}) {fw}x{fh}, threshold: {threshold}")
             
-            # Step 1: Try exact position first
+            # Step 1: Try exact position first (fast path optimization)
             exact_confidence = 0.0
             exact_region = source_img[ey:ey+eh, ex:ex+ew]
-            if exact_region.shape[:2] == (ref_h, ref_w):
+            if exact_region.shape[:2] == (eh, ew):
                 if use_pixel_matching:
                     exact_confidence = self._pixel_match_score(exact_region, reference_img)
                 else:
                     result = cv2.matchTemplate(exact_region, reference_img, cv2.TM_CCOEFF_NORMED)
                     exact_confidence = float(result[0][0])
+                
                 print(f"[@fuzzy] Exact position confidence: {exact_confidence:.3f}")
                 if exact_confidence >= threshold:
-                    print(f"[@fuzzy] ✓ Exact match passed: {exact_confidence:.3f}")
-                    sys.stdout.flush()  # Flush once at return
+                    print(f"[@fuzzy] ✓ Exact match found: {exact_confidence:.3f}")
                     return True, exact_confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
             
-            # Step 2: Smart expanding search
-            exact_cx = ex + ew / 2
-            exact_cy = ey + eh / 2
+            # Step 2: Search entire fuzzy area (OpenCV does the sliding window for us!)
+            print(f"[@fuzzy] Searching entire fuzzy area...")
+            search_region = source_img[fy:fy+fh, fx:fx+fw]
             
-            fx, fy = int(fuzzy_area['fx']), int(fuzzy_area['fy'])
-            fw, fh = int(fuzzy_area['fwidth']), int(fuzzy_area['fheight'])
+            if search_region.shape[0] < ref_h or search_region.shape[1] < ref_w:
+                print(f"[@fuzzy] ✗ Search region {search_region.shape} too small for template {ref_h}x{ref_w}")
+                return False, exact_confidence, {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h}
             
-            print(f"[@fuzzy] Fuzzy search area: ({fx},{fy}) {fw}x{fh}")
+            if use_pixel_matching:
+                # Use sliding window with pixel matching for small images
+                max_val = 0.0
+                max_loc = (0, 0)
+                for y in range(search_region.shape[0] - ref_h + 1):
+                    for x in range(search_region.shape[1] - ref_w + 1):
+                        region = search_region[y:y+ref_h, x:x+ref_w]
+                        score = self._pixel_match_score(region, reference_img)
+                        if score > max_val:
+                            max_val = score
+                            max_loc = (x, y)
+            else:
+                # OpenCV automatically searches ENTIRE region - this is the standard approach!
+                result = cv2.matchTemplate(search_region, reference_img, cv2.TM_CCOEFF_NORMED)
+                min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
             
-            max_expansion = min(
-                exact_cx - fx,
-                (fx + fw) - exact_cx,
-                exact_cy - fy,
-                (fy + fh) - exact_cy
-            )
+            # Convert match location back to full image coordinates
+            match_x = fx + max_loc[0]
+            match_y = fy + max_loc[1]
+            best_location = {'x': match_x, 'y': match_y, 'width': ref_w, 'height': ref_h}
             
-            print(f"[@fuzzy] Max expansion allowed: {max_expansion:.1f}px")
+            print(f"[@fuzzy] Best match in fuzzy area: confidence={max_val:.3f}, location=({match_x},{match_y})")
             
-            # Start with exact position confidence
-            best_confidence = exact_confidence
-            best_location = {'x': ex, 'y': ey, 'width': ref_w, 'height': ref_h} if exact_confidence > 0 else None
+            found = max_val >= threshold
+            if found:
+                print(f"[@fuzzy] ✓ Match found in fuzzy area: {max_val:.3f}")
+            else:
+                print(f"[@fuzzy] ✗ No match found. Best confidence: {max_val:.3f} (required: {threshold:.3f})")
             
-            # Balanced search steps: fine-grained for small shifts (2-10px), then wider jumps
-            # Reduces iterations while catching common UI element shifts
-            for expansion in [1, 2, 5, 10, 20]:
-                if expansion > max_expansion:
-                    print(f"[@fuzzy] Stopping at expansion={expansion}px (exceeds max={max_expansion:.1f}px)")
-                    break
-                
-                roi_x1 = max(int(exact_cx - ref_w/2 - expansion), fx)
-                roi_y1 = max(int(exact_cy - ref_h/2 - expansion), fy)
-                roi_x2 = min(int(exact_cx + ref_w/2 + expansion), fx + fw)
-                roi_y2 = min(int(exact_cy + ref_h/2 + expansion), fy + fh)
-                
-                search_region = source_img[roi_y1:roi_y2, roi_x1:roi_x2]
-                
-                if search_region.shape[0] < ref_h or search_region.shape[1] < ref_w:
-                    print(f"[@fuzzy] Expansion {expansion}px: search region too small {search_region.shape}, skipping")
-                    continue
-                
-                if use_pixel_matching:
-                    # Use sliding window with pixel matching
-                    max_val = 0.0
-                    max_loc = (0, 0)
-                    for y in range(search_region.shape[0] - ref_h + 1):
-                        for x in range(search_region.shape[1] - ref_w + 1):
-                            region = search_region[y:y+ref_h, x:x+ref_w]
-                            score = self._pixel_match_score(region, reference_img)
-                            if score > max_val:
-                                max_val = score
-                                max_loc = (x, y)
-                else:
-                    result = cv2.matchTemplate(search_region, reference_img, cv2.TM_CCOEFF_NORMED)
-                    min_val, max_val, min_loc, max_loc = cv2.minMaxLoc(result)
-                
-                print(f"[@fuzzy] Expansion {expansion}px: confidence={max_val:.3f}, location=({roi_x1 + max_loc[0]},{roi_y1 + max_loc[1]})")
-                
-                if max_val > best_confidence:
-                    best_confidence = max_val
-                    best_location = {
-                        'x': roi_x1 + max_loc[0],
-                        'y': roi_y1 + max_loc[1],
-                        'width': ref_w,
-                        'height': ref_h
-                    }
-                
-                if max_val >= threshold:
-                    print(f"[@fuzzy] ✓ Match found at +{expansion}px: {max_val:.3f} (location: {best_location})")
-                    sys.stdout.flush()  # Flush once at return
-                    return True, max_val, best_location
-            
-            print(f"[@fuzzy] ✗ No match found. Best confidence: {best_confidence:.3f} at {best_location}")
-            sys.stdout.flush()  # Flush once at return
-            return False, best_confidence, best_location
+            return found, max_val, best_location
             
         except Exception as e:
             print(f"[@fuzzy] ERROR: Fuzzy search crashed: {e}")
             import traceback
             traceback.print_exc()
-            sys.stdout.flush()  # Flush once on error
             return False, 0.0, None
 
     def _pixel_match_score(self, source_region: np.ndarray, reference_img: np.ndarray) -> float:
