@@ -90,7 +90,7 @@ class DeviceTools:
             return {"content": [{"type": "text", "text": f"❌ Error: Userinterface '{userinterface_name}' has no device models defined"}], "isError": True}
         
         # Get all hosts
-        hosts_result = self.api.get('/server/getAllHosts')
+        hosts_result = self.api.get('/server/system/getAllHosts')
         
         if not hosts_result.get('success'):
             return {"content": [{"type": "text", "text": "❌ Error: Failed to get hosts"}], "isError": True}
