@@ -20,7 +20,9 @@ from shared.src.lib.database.requirements_db import (
     get_script_requirements,
     get_requirement_coverage,
     get_coverage_summary,
-    get_uncovered_requirements
+    get_uncovered_requirements,
+    get_available_testcases_for_requirement,
+    get_requirement_coverage_counts
 )
 
 server_requirements_bp = Blueprint('server_requirements', __name__, url_prefix='/server/requirements')
@@ -381,4 +383,45 @@ def requirements_uncovered():
     except Exception as e:
         print(f"[@server_requirements:uncovered] ERROR: {e}")
         return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@server_requirements_bp.route('/<requirement_id>/available-testcases', methods=['GET'])
+def requirements_available_testcases(requirement_id):
+    """Get available testcases for linking to requirement"""
+    try:
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        userinterface_name = request.args.get('userinterface_name')
+        
+        testcases = get_available_testcases_for_requirement(
+            team_id=team_id,
+            requirement_id=requirement_id,
+            userinterface_name=userinterface_name
+        )
+        
+        return jsonify({'success': True, 'testcases': testcases, 'count': len(testcases)})
+        
+    except Exception as e:
+        print(f"[@server_requirements:available_testcases] ERROR: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@server_requirements_bp.route('/coverage-counts', methods=['GET'])
+def requirements_coverage_counts():
+    """Get coverage counts for all requirements (for list view)"""
+    try:
+        team_id = request.args.get('team_id')
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id is required'}), 400
+        
+        counts = get_requirement_coverage_counts(team_id)
+        
+        return jsonify({'success': True, 'coverage_counts': counts})
+        
+    except Exception as e:
+        print(f"[@server_requirements:coverage_counts] ERROR: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
 

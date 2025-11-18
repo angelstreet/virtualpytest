@@ -1,443 +1,394 @@
-import {
-  Warning as WarningIcon,
-  CheckCircle as CheckIcon,
-  Refresh as RefreshIcon,
-  BarChart as StatsIcon,
-} from '@mui/icons-material';
+/**
+ * Coverage Dashboard Page
+ * 
+ * Central view showing requirements-testcases mapping with:
+ * - Filter by userinterface
+ * - View requirements and their linked testcases
+ * - Click to open requirement or testcase details
+ * - Simple, clean layout
+ */
+
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
   Card,
   CardContent,
-  LinearProgress,
-  Chip,
   FormControl,
   InputLabel,
   Select,
   MenuItem,
-  Alert,
-  CircularProgress,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
-  Paper,
-  Tooltip,
+  Chip,
   IconButton,
-  TableSortLabel,
+  CircularProgress,
+  Alert,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Tooltip,
+  Button,
 } from '@mui/material';
-import React, { useState } from 'react';
-import { useCoverage } from '../hooks/pages/useCoverage';
+import {
+  ExpandMore as ExpandMoreIcon,
+  OpenInNew as OpenInNewIcon,
+  CheckCircle as CheckIcon,
+  Error as ErrorIcon,
+  Warning as WarningIcon,
+  Refresh as RefreshIcon,
+  BarChart as StatsIcon,
+} from '@mui/icons-material';
+import { useRequirements } from '../hooks/pages/useRequirements';
+import { RequirementCoverageModal } from '../components/requirements/RequirementCoverageModal';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
-type SortField = 'category' | 'total' | 'covered' | 'coverage_percentage';
-type SortOrder = 'asc' | 'desc';
+interface CoverageByUI {
+  [ui: string]: Array<{
+    requirement_id: string;
+    requirement_code: string;
+    requirement_name: string;
+    priority: string;
+    category: string;
+    testcase_count: number;
+    pass_rate: number;
+  }>;
+}
 
 const Coverage: React.FC = () => {
   const {
-    coverageSummary,
-    isLoadingSummary,
-    summaryError,
-    uncoveredRequirements,
-    isLoadingUncovered,
-    uncoveredError,
-    filters,
-    setFilters,
-    refreshAll,
-  } = useCoverage();
+    requirements,
+    isLoading,
+    refreshRequirements,
+    getRequirementCoverage,
+    unlinkTestcase,
+    coverageCounts,
+  } = useRequirements();
 
-  const [sortField, setSortField] = useState<SortField>('coverage_percentage');
-  const [sortOrder, setSortOrder] = useState<SortOrder>('asc');
+  const [selectedUI, setSelectedUI] = useState<string>('all');
+  const [coverageByUI, setCoverageByUI] = useState<CoverageByUI>({});
+  const [availableUIs, setAvailableUIs] = useState<string[]>([]);
+  const [expandedCategories, setExpandedCategories] = useState<Set<string>>(new Set());
+  
+  // Coverage modal state
+  const [coverageModalOpen, setCoverageModalOpen] = useState(false);
+  const [selectedRequirement, setSelectedRequirement] = useState<{ id: string; code: string; name: string } | null>(null);
 
-  // Get coverage color based on percentage
-  const getCoverageColor = (percentage: number) => {
-    if (percentage >= 80) return 'success';
-    if (percentage >= 50) return 'warning';
-    return 'error';
-  };
+  // Load userinterfaces
+  useEffect(() => {
+    loadUserInterfaces();
+  }, []);
 
-  // Handle sorting
-  const handleSort = (field: SortField) => {
-    if (sortField === field) {
-      setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc');
-    } else {
-      setSortField(field);
-      setSortOrder('asc');
+  // Group requirements by UI when data changes
+  useEffect(() => {
+    if (requirements.length > 0) {
+      groupRequirementsByUI();
+    }
+  }, [requirements, coverageCounts]);
+
+  const loadUserInterfaces = async () => {
+    try {
+      const url = buildServerUrl('/server/userinterface/list');
+      const response = await fetch(url);
+      const data = await response.json();
+      
+      if (data.success && data.userinterfaces) {
+        const uiNames = data.userinterfaces.map((ui: any) => ui.userinterface_name);
+        setAvailableUIs(uiNames);
+      }
+    } catch (err) {
+      console.error('Error loading userinterfaces:', err);
     }
   };
 
-  // Sort category data
-  const getSortedCategories = () => {
-    if (!coverageSummary || !coverageSummary.by_category) return [];
-    const entries = Object.entries(coverageSummary.by_category);
-    return entries.sort((a, b) => {
-      const [catA, dataA] = a;
-      const [catB, dataB] = b;
-      let comparison = 0;
-      
-      switch (sortField) {
-        case 'category':
-          comparison = catA.localeCompare(catB);
-          break;
-        case 'total':
-          comparison = dataA.total - dataB.total;
-          break;
-        case 'covered':
-          comparison = dataA.covered - dataB.covered;
-          break;
-        case 'coverage_percentage':
-          comparison = dataA.coverage_percentage - dataB.coverage_percentage;
-          break;
+  const groupRequirementsByUI = async () => {
+    // For each requirement, get its coverage and group by UI
+    const grouped: CoverageByUI = {};
+
+    for (const req of requirements) {
+      const coverage = coverageCounts[req.requirement_id];
+      if (!coverage || coverage.total_count === 0) continue;
+
+      // Get detailed coverage to find UIs
+      try {
+        const detailedCoverage = await getRequirementCoverage(req.requirement_id);
+        if (!detailedCoverage) continue;
+
+        const uiNames = Object.keys(detailedCoverage.testcases_by_ui);
+        
+        for (const uiName of uiNames) {
+          if (!grouped[uiName]) {
+            grouped[uiName] = [];
+          }
+
+          const uiTestcases = detailedCoverage.testcases_by_ui[uiName];
+          const totalRuns = uiTestcases.reduce((sum, tc) => sum + tc.execution_count, 0);
+          const totalPasses = uiTestcases.reduce((sum, tc) => sum + tc.pass_count, 0);
+          const passRate = totalRuns > 0 ? totalPasses / totalRuns : 0;
+
+          grouped[uiName].push({
+            requirement_id: req.requirement_id,
+            requirement_code: req.requirement_code,
+            requirement_name: req.requirement_name,
+            priority: req.priority,
+            category: req.category || 'uncategorized',
+            testcase_count: uiTestcases.length,
+            pass_rate: passRate,
+          });
+        }
+      } catch (err) {
+        console.error(`Error loading coverage for ${req.requirement_code}:`, err);
       }
-      
-      return sortOrder === 'asc' ? comparison : -comparison;
+    }
+
+    setCoverageByUI(grouped);
+  };
+
+  const handleOpenRequirement = (reqId: string, reqCode: string, reqName: string) => {
+    setSelectedRequirement({ id: reqId, code: reqCode, name: reqName });
+    setCoverageModalOpen(true);
+  };
+
+  const toggleCategory = (category: string) => {
+    setExpandedCategories(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(category)) {
+        newSet.delete(category);
+      } else {
+        newSet.add(category);
+      }
+      return newSet;
     });
   };
 
-  // Calculate active filter count
-  const activeFilterCount = Object.values(filters).filter(v => v !== undefined && v !== '').length;
+  const getPriorityColor = (priority: string) => {
+    switch (priority) {
+      case 'P1': return 'error';
+      case 'P2': return 'warning';
+      case 'P3': return 'info';
+      default: return 'default';
+    }
+  };
+
+  const getStatusIcon = (passRate: number) => {
+    if (passRate >= 0.8) return <CheckIcon color="success" fontSize="small" />;
+    if (passRate >= 0.5) return <WarningIcon color="warning" fontSize="small" />;
+    return <ErrorIcon color="error" fontSize="small" />;
+  };
+
+  // Filter coverage by selected UI
+  const filteredCoverage = selectedUI === 'all' 
+    ? Object.entries(coverageByUI).flatMap(([ui, reqs]) => 
+        reqs.map(req => ({ ...req, ui }))
+      )
+    : coverageByUI[selectedUI]?.map(req => ({ ...req, ui: selectedUI })) || [];
+
+  // Group by category
+  const byCategory: { [cat: string]: typeof filteredCoverage } = {};
+  filteredCoverage.forEach(req => {
+    if (!byCategory[req.category]) {
+      byCategory[req.category] = [];
+    }
+    byCategory[req.category].push(req);
+  });
+
+  // Calculate stats
+  const totalRequirements = filteredCoverage.length;
+  const totalTestcases = filteredCoverage.reduce((sum, req) => sum + req.testcase_count, 0);
+  const avgPassRate = filteredCoverage.length > 0
+    ? filteredCoverage.reduce((sum, req) => sum + req.pass_rate, 0) / filteredCoverage.length
+    : 0;
 
   return (
     <Box>
       {/* Header */}
-
-      {/* Quick Stats */}
-      <Box sx={{ mb: 1 }}>
+      <Box sx={{ mb: 2 }}>
         <Card>
-          <CardContent sx={{ py: 0.5 }}>
+          <CardContent sx={{ py: 1.5 }}>
             <Box display="flex" alignItems="center" justifyContent="space-between">
-              <Box display="flex" alignItems="center" gap={1}>
-                <StatsIcon color="primary" />
-                <Typography variant="h6" sx={{ my: 0 }}>Coverage</Typography>
-              </Box>
-              <Box display="flex" alignItems="center" gap={4}>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Total Requirements</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {coverageSummary?.total_requirements || 0}
-                  </Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Coverage</Typography>
-                  <Typography variant="body2" fontWeight="bold" color={
-                    coverageSummary && coverageSummary.coverage_percentage !== undefined 
-                      ? getCoverageColor(coverageSummary.coverage_percentage) + '.main' 
-                      : 'text.primary'
-                  }>
-                    {(coverageSummary?.coverage_percentage ?? 0).toFixed(1)}%
-                  </Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Categories</Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {coverageSummary?.by_category ? Object.keys(coverageSummary.by_category).length : 0}
-                  </Typography>
-                </Box>
-                <Box display="flex" alignItems="center" gap={1}>
-                  <Typography variant="body2">Gaps</Typography>
-                  <Typography variant="body2" fontWeight="bold" color="error.main">
-                    {uncoveredRequirements.length}
+              <Box display="flex" alignItems="center" gap={2}>
+                <StatsIcon color="primary" fontSize="large" />
+                <Box>
+                  <Typography variant="h5">Test Coverage Dashboard</Typography>
+                  <Typography variant="caption" color="textSecondary">
+                    Requirements-Testcases mapping by User Interface
                   </Typography>
                 </Box>
               </Box>
+              <Tooltip title="Refresh">
+                <IconButton onClick={() => { refreshRequirements(); groupRequirementsByUI(); }}>
+                  <RefreshIcon />
+                </IconButton>
+              </Tooltip>
             </Box>
           </CardContent>
         </Card>
       </Box>
 
-      {/* Filters */}
-      <Box sx={{ mb: 1, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Category</InputLabel>
+      {/* Stats & Filter */}
+      <Box sx={{ mb: 2, display: 'flex', gap: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <FormControl size="small" sx={{ minWidth: 250 }}>
+          <InputLabel>User Interface</InputLabel>
           <Select
-            value={filters.category || ''}
-            onChange={(e) => setFilters({ ...filters, category: e.target.value || undefined })}
-            label="Category"
+            value={selectedUI}
+            onChange={(e) => setSelectedUI(e.target.value)}
+            label="User Interface"
           >
-            <MenuItem value="">All Categories</MenuItem>
-            <MenuItem value="playback">Playback</MenuItem>
-            <MenuItem value="auth">Authentication</MenuItem>
-            <MenuItem value="navigation">Navigation</MenuItem>
-            <MenuItem value="search">Search</MenuItem>
-            <MenuItem value="ui">UI/UX</MenuItem>
+            <MenuItem value="all">All User Interfaces</MenuItem>
+            {availableUIs.map(ui => (
+              <MenuItem key={ui} value={ui}>{ui}</MenuItem>
+            ))}
           </Select>
         </FormControl>
-        <FormControl size="small" sx={{ minWidth: 200 }}>
-          <InputLabel>Priority</InputLabel>
-          <Select
-            value={filters.priority || ''}
-            onChange={(e) => setFilters({ ...filters, priority: e.target.value || undefined })}
-            label="Priority"
-          >
-            <MenuItem value="">All Priorities</MenuItem>
-            <MenuItem value="P1">P1 - Critical</MenuItem>
-            <MenuItem value="P2">P2 - High</MenuItem>
-            <MenuItem value="P3">P3 - Medium</MenuItem>
-          </Select>
-        </FormControl>
-        {activeFilterCount > 0 && (
-          <Chip 
-            label={`${activeFilterCount} filter${activeFilterCount > 1 ? 's' : ''} active`}
-            size="small"
-            onDelete={() => setFilters({})}
-            color="primary"
-          />
-        )}
-        <Box sx={{ ml: 'auto' }}>
-          <Tooltip title="Refresh data">
-            <IconButton size="small" onClick={() => refreshAll()}>
-              <RefreshIcon />
-            </IconButton>
-          </Tooltip>
+
+        <Box sx={{ display: 'flex', gap: 3, ml: 'auto' }}>
+          <Box>
+            <Typography variant="caption" color="textSecondary">Requirements</Typography>
+            <Typography variant="h6">{totalRequirements}</Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="textSecondary">Testcases</Typography>
+            <Typography variant="h6">{totalTestcases}</Typography>
+          </Box>
+          <Box>
+            <Typography variant="caption" color="textSecondary">Avg Pass Rate</Typography>
+            <Typography 
+              variant="h6" 
+              color={avgPassRate >= 0.8 ? 'success.main' : avgPassRate >= 0.5 ? 'warning.main' : 'error.main'}
+            >
+              {Math.round(avgPassRate * 100)}%
+            </Typography>
+          </Box>
         </Box>
       </Box>
 
-      {/* Error Display */}
-      {(summaryError || uncoveredError) && (
-        <Alert severity="error" sx={{ mb: 3 }}>
-          {summaryError || uncoveredError}
-        </Alert>
-      )}
-
-      {/* Loading State */}
-      {isLoadingSummary && (
-        <Box sx={{ display: 'flex', justifyContent: 'center', p: 4 }}>
+      {/* Loading */}
+      {isLoading && (
+        <Box display="flex" justifyContent="center" p={4}>
           <CircularProgress />
         </Box>
       )}
 
-      {/* Overall Coverage Summary */}
-      {!isLoadingSummary && coverageSummary && (
-        <>
-          {/* Coverage by Category */}
-          <Card sx={{ mb: 1 }}>
-            <CardContent>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-                <Typography variant="h6" sx={{ my: 0 }}>
-                  Coverage by Category
-                </Typography>
-              </Box>
-              <TableContainer>
-                <Table size="small" sx={{ 
-                  '& .MuiTableRow-root': { height: '40px' },
-                  '& .MuiTableCell-root': { 
-                    px: 1, 
-                    py: 0.5,
-                    fontSize: '0.875rem',
-                  }
-                }}>
-                  <TableHead>
-                    <TableRow>
-                      <TableCell sx={{ py: 1 }}>
-                        <TableSortLabel
-                          active={sortField === 'category'}
-                          direction={sortField === 'category' ? sortOrder : 'asc'}
-                          onClick={() => handleSort('category')}
-                        >
-                          <strong>Category</strong>
-                        </TableSortLabel>
-                      </TableCell>
-                      <TableCell align="center" sx={{ py: 1 }}>
-                        <Tooltip title="Total requirements in this category">
-                          <TableSortLabel
-                            active={sortField === 'total'}
-                            direction={sortField === 'total' ? sortOrder : 'asc'}
-                            onClick={() => handleSort('total')}
-                          >
-                            <strong>Total</strong>
-                          </TableSortLabel>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="center" sx={{ py: 1 }}>
-                        <Tooltip title="Requirements with test coverage">
-                          <TableSortLabel
-                            active={sortField === 'covered'}
-                            direction={sortField === 'covered' ? sortOrder : 'asc'}
-                            onClick={() => handleSort('covered')}
-                          >
-                            <strong>Covered</strong>
-                          </TableSortLabel>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="center" sx={{ py: 1 }}>
-                        <Tooltip title="Number of linked testcases">
-                          <strong>Testcases</strong>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="center" sx={{ py: 1 }}>
-                        <Tooltip title="Number of linked scripts">
-                          <strong>Scripts</strong>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="right" sx={{ py: 1 }}>
-                        <Tooltip title="Coverage percentage (80%+ is excellent)">
-                          <TableSortLabel
-                            active={sortField === 'coverage_percentage'}
-                            direction={sortField === 'coverage_percentage' ? sortOrder : 'asc'}
-                            onClick={() => handleSort('coverage_percentage')}
-                          >
-                            <strong>Coverage %</strong>
-                          </TableSortLabel>
-                        </Tooltip>
-                      </TableCell>
-                      <TableCell align="right" sx={{ py: 1 }}>
-                        <strong>Progress</strong>
-                      </TableCell>
-                    </TableRow>
-                  </TableHead>
-                  <TableBody>
-                    {getSortedCategories().map(([category, data]) => (
-                      <TableRow
-                        key={category}
-                        sx={{
-                          '&:hover': {
-                            backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
-                          },
-                        }}
-                      >
-                        <TableCell sx={{ py: 0.5 }}>
-                          <Chip label={category} size="small" />
-                        </TableCell>
-                        <TableCell align="center" sx={{ py: 0.5 }}>{data.total}</TableCell>
-                        <TableCell align="center" sx={{ py: 0.5 }}>{data.covered}</TableCell>
-                        <TableCell align="center" sx={{ py: 0.5 }}>{data.testcase_count}</TableCell>
-                        <TableCell align="center" sx={{ py: 0.5 }}>{data.script_count}</TableCell>
-                        <TableCell align="right" sx={{ py: 0.5 }}>
-                          <Typography
-                            variant="body2"
-                            fontWeight="medium"
-                            color={
-                              (data.coverage_percentage ?? 0) >= 80
-                                ? 'success.main'
-                                : (data.coverage_percentage ?? 0) >= 50
-                                ? 'warning.main'
-                                : 'error.main'
-                            }
-                          >
-                            {(data.coverage_percentage ?? 0).toFixed(1)}%
-                          </Typography>
-                        </TableCell>
-                        <TableCell align="right" sx={{ width: 150, py: 0.5 }}>
-                          <LinearProgress
-                            variant="determinate"
-                            value={data.coverage_percentage ?? 0}
-                            color={getCoverageColor(data.coverage_percentage ?? 0) as any}
-                            sx={{ height: 6, borderRadius: 3 }}
-                          />
-                        </TableCell>
-                      </TableRow>
+      {/* Content */}
+      {!isLoading && (
+        <Box>
+          {filteredCoverage.length === 0 ? (
+            <Alert severity="info">
+              {selectedUI === 'all'
+                ? 'No coverage data available. Link testcases to requirements to see coverage.'
+                : `No coverage data for ${selectedUI}. Try selecting a different user interface.`}
+            </Alert>
+          ) : (
+            Object.entries(byCategory).map(([category, reqs]) => (
+              <Accordion
+                key={category}
+                expanded={expandedCategories.has(category)}
+                onChange={() => toggleCategory(category)}
+                sx={{ mb: 1 }}
+              >
+                <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                  <Box display="flex" alignItems="center" gap={2} width="100%">
+                    <Typography variant="h6" sx={{ textTransform: 'capitalize' }}>
+                      {category}
+                    </Typography>
+                    <Chip 
+                      label={`${reqs.length} requirement${reqs.length !== 1 ? 's' : ''}`} 
+                      size="small" 
+                    />
+                    <Chip 
+                      label={`${reqs.reduce((sum, r) => sum + r.testcase_count, 0)} tests`} 
+                      size="small" 
+                      color="primary"
+                    />
+                  </Box>
+                </AccordionSummary>
+                <AccordionDetails>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {reqs.map((req) => (
+                      <Card key={req.requirement_id} variant="outlined">
+                        <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+                          <Box display="flex" alignItems="center" gap={2}>
+                            {getStatusIcon(req.pass_rate)}
+                            <Box flex={1}>
+                              <Box display="flex" alignItems="center" gap={1} mb={0.5}>
+                                <Typography variant="body2" fontWeight="bold">
+                                  {req.requirement_code}
+                                </Typography>
+                                <Typography variant="body2">
+                                  {req.requirement_name}
+                                </Typography>
+                              </Box>
+                              <Box display="flex" gap={1} alignItems="center">
+                                <Chip
+                                  label={req.priority}
+                                  size="small"
+                                  color={getPriorityColor(req.priority) as any}
+                                />
+                                <Typography variant="caption" color="textSecondary">
+                                  {req.testcase_count} test{req.testcase_count !== 1 ? 's' : ''}
+                                </Typography>
+                                <Typography variant="caption" color="textSecondary">
+                                  •
+                                </Typography>
+                                <Typography 
+                                  variant="caption" 
+                                  sx={{ 
+                                    color: req.pass_rate >= 0.8 ? 'success.main' : 
+                                           req.pass_rate >= 0.5 ? 'warning.main' : 'error.main'
+                                  }}
+                                >
+                                  {Math.round(req.pass_rate * 100)}% pass rate
+                                </Typography>
+                                {selectedUI === 'all' && (
+                                  <>
+                                    <Typography variant="caption" color="textSecondary">
+                                      •
+                                    </Typography>
+                                    <Chip label={req.ui} size="small" variant="outlined" />
+                                  </>
+                                )}
+                              </Box>
+                            </Box>
+                            <Tooltip title="View coverage details">
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleOpenRequirement(
+                                  req.requirement_id, 
+                                  req.requirement_code, 
+                                  req.requirement_name
+                                )}
+                              >
+                                <OpenInNewIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
+                        </CardContent>
+                      </Card>
                     ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
-            </CardContent>
-          </Card>
-        </>
+                  </Box>
+                </AccordionDetails>
+              </Accordion>
+            ))
+          )}
+        </Box>
       )}
 
-      {/* Uncovered Requirements */}
-      <Card>
-        <CardContent>
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
-            <Box display="flex" alignItems="center" gap={1}>
-              <WarningIcon color="error" />
-              <Typography variant="h6" sx={{ my: 0 }}>Uncovered Requirements</Typography>
-            </Box>
-            <Chip
-              label={`${uncoveredRequirements.length} gap${uncoveredRequirements.length !== 1 ? 's' : ''}`}
-              color="error"
-              size="small"
-            />
-          </Box>
-
-          {isLoadingUncovered && (
-            <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-              <CircularProgress size={24} />
-            </Box>
-          )}
-
-          {!isLoadingUncovered && uncoveredRequirements.length === 0 && (
-            <Alert severity="success" icon={<CheckIcon />}>
-              🎉 Excellent! All requirements have test coverage.
-            </Alert>
-          )}
-
-          {!isLoadingUncovered && uncoveredRequirements.length > 0 && (
-            <TableContainer component={Paper} variant="outlined">
-              <Table size="small" sx={{ 
-                '& .MuiTableRow-root': { height: '40px' },
-                '& .MuiTableCell-root': { 
-                  px: 1, 
-                  py: 0.5,
-                  fontSize: '0.875rem',
-                }
-              }}>
-                <TableHead>
-                  <TableRow>
-                    <TableCell sx={{ py: 1 }}><strong>Code</strong></TableCell>
-                    <TableCell sx={{ py: 1 }}><strong>Name</strong></TableCell>
-                    <TableCell sx={{ py: 1 }}><strong>Category</strong></TableCell>
-                    <TableCell sx={{ py: 1 }}>
-                      <Tooltip title="P1 = Critical, P2 = High, P3 = Medium">
-                        <strong>Priority</strong>
-                      </Tooltip>
-                    </TableCell>
-                    <TableCell sx={{ py: 1 }}><strong>App Type</strong></TableCell>
-                    <TableCell sx={{ py: 1 }}><strong>Device</strong></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {uncoveredRequirements.map((req) => (
-                    <TableRow
-                      key={req.requirement_id}
-                      sx={{
-                        '&:hover': {
-                          backgroundColor: 'rgba(0, 0, 0, 0.04) !important',
-                        },
-                      }}
-                    >
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Typography variant="body2" fontWeight="medium">
-                          {req.requirement_code}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Typography variant="body2">{req.requirement_name}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Chip label={req.category || 'none'} size="small" />
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Chip
-                          label={req.priority}
-                          size="small"
-                          color={
-                            req.priority === 'P1'
-                              ? 'error'
-                              : req.priority === 'P2'
-                              ? 'warning'
-                              : 'info'
-                          }
-                        />
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Typography variant="caption">{req.app_type}</Typography>
-                      </TableCell>
-                      <TableCell sx={{ py: 0.5 }}>
-                        <Typography variant="caption">{req.device_model}</Typography>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          )}
-        </CardContent>
-      </Card>
+      {/* Coverage Modal */}
+      {selectedRequirement && (
+        <RequirementCoverageModal
+          open={coverageModalOpen}
+          onClose={() => setCoverageModalOpen(false)}
+          requirementId={selectedRequirement.id}
+          requirementCode={selectedRequirement.code}
+          requirementName={selectedRequirement.name}
+          getCoverage={getRequirementCoverage}
+          onUnlinkTestcase={unlinkTestcase}
+          onOpenLinkDialog={() => {
+            setCoverageModalOpen(false);
+            // Could open link dialog here if needed
+          }}
+        />
+      )}
     </Box>
   );
 };
 
 export default Coverage;
-

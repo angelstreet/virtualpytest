@@ -7,6 +7,9 @@ import {
   ExpandMore as ExpandIcon,
   BarChart as StatsIcon,
   Refresh as RefreshIcon,
+  CheckCircle as CheckCircleIcon,
+  Warning as WarningIcon,
+  Error as ErrorCircleIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -39,6 +42,8 @@ import {
 } from '@mui/material';
 import React, { useState } from 'react';
 import { useRequirements, Requirement } from '../hooks/pages/useRequirements';
+import { RequirementCoverageModal } from '../components/requirements/RequirementCoverageModal';
+import { LinkTestcasePickerModal } from '../components/requirements/LinkTestcasePickerModal';
 
 const Requirements: React.FC = () => {
   const {
@@ -54,6 +59,11 @@ const Requirements: React.FC = () => {
     appTypes,
     deviceModels,
     refreshRequirements,
+    getRequirementCoverage,
+    getAvailableTestcases,
+    linkMultipleTestcases,
+    unlinkTestcase,
+    coverageCounts,
   } = useRequirements();
 
   const [searchQuery, setSearchQuery] = useState('');
@@ -61,6 +71,14 @@ const Requirements: React.FC = () => {
   const [editDialogOpen, setEditDialogOpen] = useState(false);
   const [selectedRequirement, setSelectedRequirement] = useState<Requirement | null>(null);
   const [expandedRows, setExpandedRows] = useState<Set<string>>(new Set());
+  
+  // Coverage modal state
+  const [coverageModalOpen, setCoverageModalOpen] = useState(false);
+  const [coverageRequirement, setCoverageRequirement] = useState<{ id: string; code: string; name: string } | null>(null);
+  
+  // Link testcase picker modal state
+  const [linkPickerOpen, setLinkPickerOpen] = useState(false);
+  const [linkRequirement, setLinkRequirement] = useState<{ id: string; code: string; name: string } | null>(null);
 
   // Create/Edit form state
   const [formData, setFormData] = useState({
@@ -169,6 +187,52 @@ const Requirements: React.FC = () => {
       }
       return newSet;
     });
+  };
+
+  // Open coverage modal
+  const handleOpenCoverage = (req: Requirement) => {
+    setCoverageRequirement({
+      id: req.requirement_id,
+      code: req.requirement_code,
+      name: req.requirement_name,
+    });
+    setCoverageModalOpen(true);
+  };
+
+  // Open link testcase picker from coverage modal
+  const handleOpenLinkPickerFromCoverage = () => {
+    if (coverageRequirement) {
+      setLinkRequirement(coverageRequirement);
+      setCoverageModalOpen(false);
+      setLinkPickerOpen(true);
+    }
+  };
+
+  // Open link testcase picker directly
+  const handleOpenLinkPicker = (req: Requirement) => {
+    setLinkRequirement({
+      id: req.requirement_id,
+      code: req.requirement_code,
+      name: req.requirement_name,
+    });
+    setLinkPickerOpen(true);
+  };
+
+  // Get coverage badge for a requirement
+  const getCoverageBadge = (requirementId: string) => {
+    const coverage = coverageCounts[requirementId];
+    if (!coverage) {
+      return { icon: <ErrorCircleIcon />, color: 'error' as const, text: '0 tests' };
+    }
+
+    const totalCount = coverage.total_count;
+    if (totalCount === 0) {
+      return { icon: <ErrorCircleIcon />, color: 'error' as const, text: '0 tests' };
+    }
+    if (totalCount >= 3) {
+      return { icon: <CheckCircleIcon />, color: 'success' as const, text: `${totalCount} tests` };
+    }
+    return { icon: <WarningIcon />, color: 'warning' as const, text: `${totalCount} test${totalCount !== 1 ? 's' : ''}` };
   };
 
   return (
@@ -377,6 +441,11 @@ const Requirements: React.FC = () => {
                       <strong>Device</strong>
                     </TableCell>
                     <TableCell sx={{ py: 1 }}>
+                      <Tooltip title="Test coverage status">
+                        <strong>Coverage</strong>
+                      </Tooltip>
+                    </TableCell>
+                    <TableCell sx={{ py: 1 }}>
                       <strong>Status</strong>
                     </TableCell>
                     <TableCell sx={{ py: 1 }} align="right">
@@ -387,7 +456,7 @@ const Requirements: React.FC = () => {
                 <TableBody>
                   {filteredRequirements.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={9} align="center">
+                      <TableCell colSpan={10} align="center">
                         <Typography variant="body2" color="textSecondary" sx={{ py: 4 }}>
                           {searchQuery 
                             ? `No requirements found matching "${searchQuery}"`
@@ -445,6 +514,18 @@ const Requirements: React.FC = () => {
                             <Typography variant="caption">{req.device_model}</Typography>
                           </TableCell>
                           <TableCell sx={{ py: 0.5 }}>
+                            <Tooltip title="Click to view coverage details">
+                              <Chip
+                                icon={getCoverageBadge(req.requirement_id).icon}
+                                label={getCoverageBadge(req.requirement_id).text}
+                                size="small"
+                                color={getCoverageBadge(req.requirement_id).color}
+                                onClick={() => handleOpenCoverage(req)}
+                                sx={{ cursor: 'pointer' }}
+                              />
+                            </Tooltip>
+                          </TableCell>
+                          <TableCell sx={{ py: 0.5 }}>
                             <Chip
                               label={req.status}
                               size="small"
@@ -458,8 +539,8 @@ const Requirements: React.FC = () => {
                                   <EditIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
-                              <Tooltip title="View coverage (coming soon)">
-                                <IconButton size="small" disabled sx={{ p: 0.5 }}>
+                              <Tooltip title="Link testcases">
+                                <IconButton size="small" onClick={() => handleOpenLinkPicker(req)} sx={{ p: 0.5 }}>
                                   <LinkIcon fontSize="small" />
                                 </IconButton>
                               </Tooltip>
@@ -475,7 +556,7 @@ const Requirements: React.FC = () => {
                               },
                             }}
                           >
-                            <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={9}>
+                            <TableCell style={{ paddingBottom: 0, paddingTop: 0 }} colSpan={10}>
                               <Box sx={{ py: 1, px: 2, bgcolor: 'rgba(0, 0, 0, 0.02)' }}>
                                 {req.description && (
                                   <Box sx={{ mb: 1 }}>
@@ -697,6 +778,40 @@ const Requirements: React.FC = () => {
           <Button onClick={handleEdit} variant="contained">Save</Button>
         </DialogActions>
       </Dialog>
+
+      {/* Coverage Modal */}
+      {coverageRequirement && (
+        <RequirementCoverageModal
+          open={coverageModalOpen}
+          onClose={() => setCoverageModalOpen(false)}
+          requirementId={coverageRequirement.id}
+          requirementCode={coverageRequirement.code}
+          requirementName={coverageRequirement.name}
+          getCoverage={getRequirementCoverage}
+          onUnlinkTestcase={unlinkTestcase}
+          onOpenLinkDialog={handleOpenLinkPickerFromCoverage}
+        />
+      )}
+
+      {/* Link Testcase Picker Modal */}
+      {linkRequirement && (
+        <LinkTestcasePickerModal
+          open={linkPickerOpen}
+          onClose={() => setLinkPickerOpen(false)}
+          requirementId={linkRequirement.id}
+          requirementCode={linkRequirement.code}
+          requirementName={linkRequirement.name}
+          getAvailableTestcases={getAvailableTestcases}
+          onLinkTestcases={linkMultipleTestcases}
+          onSuccess={() => {
+            refreshRequirements();
+            // Reopen coverage modal if it was open
+            if (coverageRequirement) {
+              setCoverageModalOpen(true);
+            }
+          }}
+        />
+      )}
     </Box>
   );
 };

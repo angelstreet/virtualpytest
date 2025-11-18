@@ -34,6 +34,53 @@ export interface RequirementFilters {
   app_type?: string;
   device_model?: string;
   status?: string;
+  coverage?: string; // 'all' | 'covered' | 'partial' | 'none'
+}
+
+export interface CoverageCount {
+  testcase_count: number;
+  script_count: number;
+  total_count: number;
+}
+
+export interface TestcaseWithLink {
+  testcase_id: string;
+  testcase_name: string;
+  description?: string;
+  userinterface_name?: string;
+  is_linked: boolean;
+  created_at?: string;
+}
+
+export interface RequirementCoverage {
+  requirement: Requirement;
+  testcases_by_ui: {
+    [ui: string]: Array<{
+      testcase_id: string;
+      testcase_name: string;
+      description?: string;
+      coverage_type: string;
+      execution_count: number;
+      pass_count: number;
+      pass_rate: number;
+      last_execution?: any;
+    }>;
+  };
+  scripts: Array<{
+    script_name: string;
+    coverage_type: string;
+    execution_count: number;
+    pass_count: number;
+    pass_rate: number;
+    last_execution?: any;
+  }>;
+  coverage_summary: {
+    total_testcases: number;
+    total_scripts: number;
+    total_coverage: number;
+    pass_rate: number;
+    execution_count: number;
+  };
 }
 
 export interface UseRequirementsReturn {
@@ -70,6 +117,13 @@ export interface UseRequirementsReturn {
   unlinkScript: (scriptName: string, requirementId: string) => Promise<{ success: boolean; error?: string }>;
   getTestcaseRequirements: (testcaseId: string) => Promise<Requirement[]>;
   getScriptRequirements: (scriptName: string) => Promise<Requirement[]>;
+  
+  // Coverage
+  getCoverageCounts: () => Promise<Record<string, CoverageCount>>;
+  getRequirementCoverage: (requirementId: string) => Promise<RequirementCoverage | null>;
+  getAvailableTestcases: (requirementId: string, userinterfaceName?: string) => Promise<TestcaseWithLink[]>;
+  linkMultipleTestcases: (requirementId: string, testcaseIds: string[], coverageType?: string) => Promise<{ success: boolean; error?: string }>;
+  coverageCounts: Record<string, CoverageCount>;
 }
 
 export const useRequirements = (): UseRequirementsReturn => {
@@ -79,6 +133,7 @@ export const useRequirements = (): UseRequirementsReturn => {
   const [filters, setFilters] = useState<RequirementFilters>({
     status: 'active'
   });
+  const [coverageCounts, setCoverageCounts] = useState<Record<string, CoverageCount>>({});
   
   // Static lists (can be made dynamic from backend later)
   const categories = ['playback', 'auth', 'navigation', 'search', 'ui', 'performance', 'accessibility'];
@@ -376,10 +431,108 @@ export const useRequirements = (): UseRequirementsReturn => {
     }
   }, []);
   
-  // Load requirements on mount
+  // Get coverage counts for all requirements
+  const getCoverageCounts = useCallback(async (): Promise<Record<string, CoverageCount>> => {
+    try {
+      const url = buildServerUrl('/server/requirements/coverage-counts');
+      const response = await fetch(url);
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        const counts = data.coverage_counts || {};
+        setCoverageCounts(counts);
+        return counts;
+      } else {
+        console.error('[@useRequirements] Error getting coverage counts:', data.error);
+        return {};
+      }
+    } catch (err) {
+      console.error('[@useRequirements] Error getting coverage counts:', err);
+      return {};
+    }
+  }, []);
+  
+  // Get detailed coverage for a single requirement
+  const getRequirementCoverage = useCallback(async (requirementId: string): Promise<RequirementCoverage | null> => {
+    try {
+      const url = buildServerUrl(`/server/requirements/${requirementId}/coverage`);
+      const response = await fetch(url);
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        return data.coverage as RequirementCoverage;
+      } else {
+        console.error('[@useRequirements] Error getting requirement coverage:', data.error);
+        return null;
+      }
+    } catch (err) {
+      console.error('[@useRequirements] Error getting requirement coverage:', err);
+      return null;
+    }
+  }, []);
+  
+  // Get available testcases for linking
+  const getAvailableTestcases = useCallback(async (
+    requirementId: string, 
+    userinterfaceName?: string
+  ): Promise<TestcaseWithLink[]> => {
+    try {
+      const params = new URLSearchParams();
+      if (userinterfaceName) {
+        params.append('userinterface_name', userinterfaceName);
+      }
+      
+      const url = buildServerUrl(
+        `/server/requirements/${requirementId}/available-testcases${params.toString() ? `?${params.toString()}` : ''}`
+      );
+      const response = await fetch(url);
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        return data.testcases || [];
+      } else {
+        console.error('[@useRequirements] Error getting available testcases:', data.error);
+        return [];
+      }
+    } catch (err) {
+      console.error('[@useRequirements] Error getting available testcases:', err);
+      return [];
+    }
+  }, []);
+  
+  // Link multiple testcases at once
+  const linkMultipleTestcases = useCallback(async (
+    requirementId: string,
+    testcaseIds: string[],
+    coverageType = 'full'
+  ): Promise<{ success: boolean; error?: string }> => {
+    try {
+      const results = await Promise.all(
+        testcaseIds.map(testcaseId => linkTestcase(testcaseId, requirementId, coverageType))
+      );
+      
+      const hasError = results.some(r => !r.success);
+      
+      if (hasError) {
+        return { success: false, error: 'Some testcases failed to link' };
+      }
+      
+      return { success: true };
+    } catch (err) {
+      const errorMsg = err instanceof Error ? err.message : 'Unknown error';
+      console.error('[@useRequirements] Error linking multiple testcases:', err);
+      return { success: false, error: errorMsg };
+    }
+  }, [linkTestcase]);
+  
+  // Load requirements on mount and when filters change
   useEffect(() => {
     loadRequirements();
-  }, [loadRequirements]);
+    getCoverageCounts(); // Load coverage counts too
+  }, [loadRequirements, getCoverageCounts]);
   
   return {
     requirements,
@@ -404,6 +557,11 @@ export const useRequirements = (): UseRequirementsReturn => {
     unlinkScript,
     getTestcaseRequirements,
     getScriptRequirements,
+    getCoverageCounts,
+    getRequirementCoverage,
+    getAvailableTestcases,
+    linkMultipleTestcases,
+    coverageCounts,
   };
 };
 

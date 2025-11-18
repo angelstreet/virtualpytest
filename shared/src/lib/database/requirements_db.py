@@ -449,7 +449,25 @@ def get_script_requirements(script_name: str) -> List[Dict[str, Any]]:
 # ================================================
 
 def get_requirement_coverage(team_id: str, requirement_id: str) -> Dict[str, Any]:
-    """Get detailed coverage for a requirement."""
+    """
+    Get detailed coverage for a requirement with testcases grouped by userinterface.
+    
+    Returns:
+        {
+            'requirement': {...},
+            'testcases_by_ui': {
+                'netflix_mobile': [testcase1, testcase2],
+                'youtube_tv': [testcase3]
+            },
+            'scripts': [...],
+            'coverage_summary': {
+                'total_testcases': 5,
+                'total_scripts': 2,
+                'pass_rate': 0.92,
+                'execution_count': 247
+            }
+        }
+    """
     supabase = get_supabase()
     if not supabase:
         return {}
@@ -460,9 +478,9 @@ def get_requirement_coverage(team_id: str, requirement_id: str) -> Dict[str, Any
         if not requirement:
             return {}
         
-        # Get linked testcases
+        # Get linked testcases with userinterface info
         testcases = supabase.table('testcase_requirements')\
-            .select('testcase_id, coverage_type, testcase_definitions(testcase_name, description)')\
+            .select('testcase_id, coverage_type, testcase_definitions(testcase_id, testcase_name, description, userinterface_name)')\
             .eq('requirement_id', requirement_id)\
             .execute()
         
@@ -472,11 +490,16 @@ def get_requirement_coverage(team_id: str, requirement_id: str) -> Dict[str, Any
             .eq('requirement_id', requirement_id)\
             .execute()
         
-        # Get execution stats for testcases
-        testcase_coverage = []
+        # Group testcases by UI and get execution stats
+        testcases_by_ui = {}
+        total_passes = 0
+        total_executions = 0
+        
         for tc in testcases.data:
             if tc.get('testcase_definitions'):
-                testcase_name = tc['testcase_definitions']['testcase_name']
+                tc_def = tc['testcase_definitions']
+                testcase_name = tc_def.get('testcase_name')
+                userinterface_name = tc_def.get('userinterface_name') or 'unknown'
                 
                 # Get recent executions
                 executions = supabase.table('script_results')\
@@ -487,18 +510,25 @@ def get_requirement_coverage(team_id: str, requirement_id: str) -> Dict[str, Any
                     .limit(10)\
                     .execute()
                 
-                pass_count = sum(1 for e in executions.data if e['success'])
-                total_count = len(executions.data)
+                pass_count = sum(1 for e in executions.data if e.get('success'))
+                execution_count = len(executions.data)
+                total_passes += pass_count
+                total_executions += execution_count
                 
-                testcase_coverage.append({
+                testcase_data = {
                     'testcase_id': tc['testcase_id'],
                     'testcase_name': testcase_name,
-                    'description': tc['testcase_definitions'].get('description'),
-                    'coverage_type': tc['coverage_type'],
-                    'execution_count': total_count,
+                    'description': tc_def.get('description'),
+                    'coverage_type': tc.get('coverage_type'),
+                    'execution_count': execution_count,
                     'pass_count': pass_count,
+                    'pass_rate': (pass_count / execution_count) if execution_count > 0 else 0,
                     'last_execution': executions.data[0] if executions.data else None
-                })
+                }
+                
+                if userinterface_name not in testcases_by_ui:
+                    testcases_by_ui[userinterface_name] = []
+                testcases_by_ui[userinterface_name].append(testcase_data)
         
         # Get execution stats for scripts
         script_coverage = []
@@ -511,24 +541,33 @@ def get_requirement_coverage(team_id: str, requirement_id: str) -> Dict[str, Any
                 .limit(10)\
                 .execute()
             
-            pass_count = sum(1 for e in executions.data if e['success'])
-            total_count = len(executions.data)
+            pass_count = sum(1 for e in executions.data if e.get('success'))
+            execution_count = len(executions.data)
+            total_passes += pass_count
+            total_executions += execution_count
             
             script_coverage.append({
                 'script_name': sc['script_name'],
                 'coverage_type': sc['coverage_type'],
-                'execution_count': total_count,
+                'execution_count': execution_count,
                 'pass_count': pass_count,
+                'pass_rate': (pass_count / execution_count) if execution_count > 0 else 0,
                 'last_execution': executions.data[0] if executions.data else None
             })
         
+        total_testcases = sum(len(tcs) for tcs in testcases_by_ui.values())
+        
         return {
             'requirement': requirement,
-            'testcases': testcase_coverage,
+            'testcases_by_ui': testcases_by_ui,
             'scripts': script_coverage,
-            'total_testcases': len(testcase_coverage),
-            'total_scripts': len(script_coverage),
-            'total_coverage': len(testcase_coverage) + len(script_coverage)
+            'coverage_summary': {
+                'total_testcases': total_testcases,
+                'total_scripts': len(script_coverage),
+                'total_coverage': total_testcases + len(script_coverage),
+                'pass_rate': (total_passes / total_executions) if total_executions > 0 else 0,
+                'execution_count': total_executions
+            }
         }
         
     except Exception as e:
@@ -624,4 +663,125 @@ def get_uncovered_requirements(team_id: str) -> List[Dict[str, Any]]:
     except Exception as e:
         print(f"[@requirements_db] ERROR getting uncovered requirements: {e}")
         return []
+
+
+def get_available_testcases_for_requirement(
+    team_id: str, 
+    requirement_id: str, 
+    userinterface_name: str = None
+) -> List[Dict[str, Any]]:
+    """
+    Get all testcases with their link status for a requirement.
+    Used by the link picker modal.
+    
+    Args:
+        team_id: Team ID
+        requirement_id: Requirement ID to check linkage against
+        userinterface_name: Optional filter by UI
+    
+    Returns:
+        List of testcases with 'is_linked' flag
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return []
+    
+    try:
+        # Get all testcases for the team
+        query = supabase.table('testcase_definitions')\
+            .select('testcase_id, testcase_name, description, userinterface_name, created_at')\
+            .eq('team_id', team_id)\
+            .eq('is_active', True)
+        
+        if userinterface_name:
+            query = query.eq('userinterface_name', userinterface_name)
+        
+        query = query.order('testcase_name')
+        testcases_result = query.execute()
+        
+        # Get currently linked testcases
+        linked_result = supabase.table('testcase_requirements')\
+            .select('testcase_id')\
+            .eq('requirement_id', requirement_id)\
+            .execute()
+        
+        linked_ids = {row['testcase_id'] for row in linked_result.data}
+        
+        # Mark testcases as linked or not
+        testcases = []
+        for tc in testcases_result.data:
+            tc_id = str(tc['testcase_id'])
+            testcases.append({
+                'testcase_id': tc_id,
+                'testcase_name': tc['testcase_name'],
+                'description': tc.get('description'),
+                'userinterface_name': tc.get('userinterface_name'),
+                'is_linked': tc_id in linked_ids,
+                'created_at': tc.get('created_at')
+            })
+        
+        return testcases
+        
+    except Exception as e:
+        print(f"[@requirements_db] ERROR getting available testcases: {e}")
+        return []
+
+
+def get_requirement_coverage_counts(team_id: str) -> Dict[str, Dict[str, int]]:
+    """
+    Get test coverage counts for all requirements.
+    Used for showing coverage badges in the requirements list.
+    
+    Returns:
+        {
+            'requirement_id': {
+                'testcase_count': 3,
+                'script_count': 1,
+                'total_count': 4
+            }
+        }
+    """
+    supabase = get_supabase()
+    if not supabase:
+        return {}
+    
+    try:
+        # Get all requirements for team
+        reqs_result = supabase.table('requirements')\
+            .select('requirement_id')\
+            .eq('team_id', team_id)\
+            .eq('status', 'active')\
+            .execute()
+        
+        coverage_counts = {}
+        
+        for req in reqs_result.data:
+            req_id = str(req['requirement_id'])
+            
+            # Count linked testcases
+            tc_count = supabase.table('testcase_requirements')\
+                .select('testcase_id', count='exact')\
+                .eq('requirement_id', req_id)\
+                .execute()
+            
+            # Count linked scripts
+            sc_count = supabase.table('script_requirements')\
+                .select('script_name', count='exact')\
+                .eq('requirement_id', req_id)\
+                .execute()
+            
+            testcase_count = tc_count.count or 0
+            script_count = sc_count.count or 0
+            
+            coverage_counts[req_id] = {
+                'testcase_count': testcase_count,
+                'script_count': script_count,
+                'total_count': testcase_count + script_count
+            }
+        
+        return coverage_counts
+        
+    except Exception as e:
+        print(f"[@requirements_db] ERROR getting coverage counts: {e}")
+        return {}
 
