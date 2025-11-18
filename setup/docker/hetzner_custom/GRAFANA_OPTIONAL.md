@@ -2,6 +2,14 @@
 
 Grafana is now a separate, optional container that can be enabled/disabled per server.
 
+## Important: Configuration File
+
+⚠️ **DO NOT EDIT `config.env.example`** - This is the template committed to git.
+
+✅ **EDIT `config.env`** - This is your local configuration (git-ignored).
+
+The setup script automatically copies `config.env.example` → `config.env` on first run.
+
 ## Changes Made
 
 ### 1. Configuration File (`config.env`)

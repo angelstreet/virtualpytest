@@ -12,26 +12,19 @@ echo "🚀 VirtualPyTest Hetzner - Dynamic Setup"
 echo "========================================="
 echo ""
 
-# Check if config exists
+# Check if config exists, if not copy from example
 if [ ! -f "config.env" ]; then
-    echo "❌ Error: config.env not found"
-    echo "Creating default config.env..."
-    cat > config.env <<'EOF'
-# VirtualPyTest Hetzner - Configuration
-HOST_MAX=2
-HOST_START_PORT=6109
-DOMAIN=api.virtualpytest.com
-SERVER_PORT=5109
-
-# Optional VPN Configuration (leave empty to disable)
-# Get free WireGuard config: protonvpn.com → Downloads → WireGuard
-ENABLE_VPN=false
-VPN_CONFIG_PATH=""
-VPN_INTERFACE=wg0
-EOF
-    echo "✅ Created config.env with defaults"
-    echo "   Edit config.env to change HOST_MAX or enable VPN"
-    echo ""
+    if [ -f "config.env.example" ]; then
+        echo "📋 Creating config.env from config.env.example..."
+        cp config.env.example config.env
+        echo "✅ config.env created"
+        echo "   Edit config.env to customize your deployment"
+        echo ""
+    else
+        echo "❌ Error: config.env.example not found"
+        echo "Cannot proceed without configuration template"
+        exit 1
+    fi
 fi
 
 # Load config

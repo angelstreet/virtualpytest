@@ -33,3 +33,11 @@ backend_server/scripts/backup_grafana_db.sh
 setup/db/backup/*.sql
 setup/db/backup/*.sql.gz
 .cursor/mcp_backup.json
+
+# Hetzner custom deployment config (environment-specific)
+setup/docker/hetzner_custom/config.env
+setup/docker/hetzner_custom/docker-compose.yml
+setup/docker/hetzner_custom/docker-compose.dev.yml
+setup/docker/hetzner_custom/host-nginx.conf
+backend_host_*/
+
