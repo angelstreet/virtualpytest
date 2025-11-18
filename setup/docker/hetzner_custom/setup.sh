@@ -530,7 +530,7 @@ for i in $(seq 1 $HOST_MAX); do
     depends_on:
       backend_server:
         condition: service_started
-    command: sh -c "sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
+    command: sh -c "rm -f /tmp/.X1-lock /tmp/.X11-unix/X1; sleep 10 && /app/backend_host/docker/scripts/entrypoint.sh"
     privileged: true
     security_opt:
       - seccomp=unconfined
