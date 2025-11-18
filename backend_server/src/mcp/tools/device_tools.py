@@ -77,14 +77,14 @@ class DeviceTools:
         if not userinterface_name:
             return {"content": [{"type": "text", "text": "❌ Error: userinterface_name is required"}], "isError": True}
         
-        # Get userinterface to extract models
-        ui_result = self.api.get(f'/server/userinterfaces', params={'name': userinterface_name})
+        # Get userinterface by name to extract models
+        ui_result = self.api.get(f'/server/userinterface/getUserInterfaceByName/{userinterface_name}', params={'team_id': APP_CONFIG['DEFAULT_TEAM_ID']})
         
-        if not ui_result.get('success') or not ui_result.get('userinterfaces'):
+        # Check if userinterface exists
+        if not ui_result or 'error' in ui_result:
             return {"content": [{"type": "text", "text": f"❌ Error: Userinterface '{userinterface_name}' not found"}], "isError": True}
         
-        userinterface = ui_result['userinterfaces'][0]
-        models = userinterface.get('models', [])
+        models = ui_result.get('models', [])
         
         if not models:
             return {"content": [{"type": "text", "text": f"❌ Error: Userinterface '{userinterface_name}' has no device models defined"}], "isError": True}
