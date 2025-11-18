@@ -63,9 +63,6 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
   const [allItems, setAllItems] = useState<ExecutableItem[]>([]); // Changed to unified list
   const [allFolderNames, setAllFolderNames] = useState<string[]>([]);
   const [allTags, setAllTags] = useState<Array<{ name: string; color: string }>>([]);
-  
-  // Delete state for tracking which testcase is being deleted
-  const [deletingTestCaseId, setDeletingTestCaseId] = useState<string | null>(null);
 
   // Filter state
   const [searchQuery, setSearchQuery] = useState('');
@@ -213,7 +210,7 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
     }
   };
 
-  // Handle delete click with animation and refresh
+  // Handle delete click - just call parent handler, don't update UI
   const handleDeleteClick = async (e: React.MouseEvent, item: ExecutableItem) => {
     e.stopPropagation();
     
@@ -222,35 +219,23 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       return;
     }
     
-    // Show loading state
-    setDeletingTestCaseId(item.testcase_id);
-    
     try {
       if (onDelete) {
         // Call the parent delete handler (which shows confirmation and handles deletion)
+        // Only when user confirms and deletion succeeds will this complete
         await onDelete(item.testcase_id, item.testcase_name);
         
-        // Optimistically remove from frontend immediately
-        setAllItems(prev => prev.filter(i => 
-          i.type === 'script' || i.testcase_id !== item.testcase_id
-        ));
+        // Only refresh after successful deletion
+        await loadAll();
         
         // Call success callback if provided
         if (onDeleteSuccess) {
           onDeleteSuccess();
         }
-        
-        // Refresh the list after a short delay to ensure backend is updated
-        setTimeout(() => {
-          loadAll();
-        }, 500);
       }
     } catch (error) {
       console.error('[@TestCaseSelector] Error deleting test case:', error);
-      // Reload on error to ensure UI is in sync
-      loadAll();
-    } finally {
-      setDeletingTestCaseId(null);
+      // Don't reload on error since deletion was cancelled or failed
     }
   };
 
@@ -618,7 +603,6 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                           <IconButton
                             size="small"
                             onClick={(e) => handleDeleteClick(e, item)}
-                            disabled={deletingTestCaseId === item.testcase_id}
                             sx={{
                               p: 0.5,
                               ml: 'auto',
@@ -627,21 +611,9 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
                               '&:hover': {
                                 bgcolor: isSelected ? 'rgba(255,255,255,0.2)' : 'error.light'
                               },
-                              '&.Mui-disabled': {
-                                color: isSelected ? 'rgba(255,255,255,0.5)' : 'text.disabled',
-                              }
                             }}
                           >
-                            {deletingTestCaseId === item.testcase_id ? (
-                              <CircularProgress 
-                                size={16} 
-                                sx={{ 
-                                  color: isSelected ? 'primary.contrastText' : 'error.main',
-                                }} 
-                              />
-                            ) : (
-                              <DeleteIcon fontSize="small" />
-                            )}
+                            <DeleteIcon fontSize="small" />
                           </IconButton>
                         )}
                       </Box>
