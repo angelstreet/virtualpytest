@@ -334,6 +334,7 @@ fi
 
 cat >> "$NGINX_FILE" <<EOF
 
+EOF
 
 # Generate individual hardcoded location blocks for each host (1-8 max)
 for i in $(seq 1 $HOST_MAX); do
