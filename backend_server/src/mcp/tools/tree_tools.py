@@ -27,6 +27,76 @@ class TreeTools:
         self.verification_validator = VerificationValidator(api_client)
         self.action_validator = ActionValidator(api_client)
     
+    def _normalize_action_params(self, action_sets: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """
+        Normalize action parameter names to canonical format before saving to DB.
+        
+        Conversions:
+        - click_element: text/selector → element_id
+        - hover_element: text/element_id → selector
+        - find_element: text/element_id → selector
+        - input_text: element_id → selector
+        
+        This ensures DB only stores canonical parameter names.
+        """
+        if not action_sets:
+            return action_sets
+        
+        normalized = []
+        for action_set in action_sets:
+            normalized_set = action_set.copy()
+            
+            # Normalize actions
+            if 'actions' in normalized_set:
+                normalized_set['actions'] = self._normalize_action_list(normalized_set['actions'])
+            
+            # Normalize retry_actions
+            if 'retry_actions' in normalized_set:
+                normalized_set['retry_actions'] = self._normalize_action_list(normalized_set['retry_actions'])
+            
+            # Normalize failure_actions
+            if 'failure_actions' in normalized_set:
+                normalized_set['failure_actions'] = self._normalize_action_list(normalized_set['failure_actions'])
+            
+            normalized.append(normalized_set)
+        
+        return normalized
+    
+    def _normalize_action_list(self, actions: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+        """Normalize parameter names in an action list"""
+        normalized = []
+        for action in actions:
+            normalized_action = action.copy()
+            command = action.get('command')
+            params = action.get('params', {}).copy()
+            
+            # Normalize based on command
+            if command == 'click_element':
+                # Standardize to element_id
+                if 'text' in params or 'selector' in params:
+                    element_id = params.get('element_id') or params.get('selector') or params.get('text')
+                    params = {k: v for k, v in params.items() if k not in ['text', 'selector']}
+                    params['element_id'] = element_id
+            
+            elif command in ['hover_element', 'find_element']:
+                # Standardize to selector
+                if 'text' in params or 'element_id' in params:
+                    selector = params.get('selector') or params.get('element_id') or params.get('text')
+                    params = {k: v for k, v in params.items() if k not in ['text', 'element_id']}
+                    params['selector'] = selector
+            
+            elif command == 'input_text':
+                # Standardize to selector (text param is for input content, not selector)
+                if 'element_id' in params:
+                    selector = params.get('selector') or params.get('element_id')
+                    params = {k: v for k, v in params.items() if k != 'element_id'}
+                    params['selector'] = selector
+            
+            normalized_action['params'] = params
+            normalized.append(normalized_action)
+        
+        return normalized
+    
     def create_node(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create a node in navigation tree

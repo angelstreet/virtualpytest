@@ -1554,7 +1554,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             return await self.navigate_to_url(url, timeout=timeout, follow_redirects=follow_redirects)
         
         elif command == 'click_element':
-            element_id = params.get('element_id') or params.get('selector')  # Support both for backward compatibility during transition
+            # Standardize parameter names: convert 'text', 'selector' to 'element_id'
+            element_id = params.get('element_id') or params.get('selector') or params.get('text')
             
             if not element_id:
                 return {
@@ -1566,7 +1567,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             return await self.click_element(element_id)
         
         elif command == 'find_element':
-            selector = params.get('selector')
+            # Standardize parameter names: convert 'element_id', 'text' to 'selector'
+            selector = params.get('selector') or params.get('element_id') or params.get('text')
             
             if not selector:
                 return {
@@ -1578,7 +1580,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             return await self.find_element(selector)
         
         elif command == 'hover_element':
-            selector = params.get('selector')
+            # Standardize parameter names: convert 'element_id', 'text' to 'selector'
+            selector = params.get('selector') or params.get('element_id') or params.get('text')
             
             if not selector:
                 return {
@@ -1590,7 +1593,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             return await self.hover_element(selector)
         
         elif command == 'input_text':
-            selector = params.get('selector')
+            # Standardize parameter names: convert 'element_id' to 'selector'
+            selector = params.get('selector') or params.get('element_id')
             text = params.get('text', '')
             timeout = params.get('timeout', 3000)
             
