@@ -368,6 +368,10 @@ ELEMENT SELECTION (selector MUST be unique on page):
 
 Use dump_ui_elements() to verify selector appears only once on page.
 
+IMPORTANT - INPUT FIELDS:
+Before using input_text, click the input field first to focus it.
+Example: click_element("Search") then input_text("Search", "text")
+
 ⏱️ CRITICAL - ACTION WAIT TIMES:
 Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
 
@@ -421,12 +425,12 @@ Common Examples:
     }]
   })
 
-⌨️ Type Text:
+⌨️ Type Text (click input field first to focus):
   execute_device_action({
-    "actions": [{
-      "command": "type_text",
-      "params": {"text": "Hello", "wait_time": 1000}
-    }]
+    "actions": [
+      {"command": "click_element", "params": {"text": "Search", "wait_time": 500}},
+      {"command": "input_text", "params": {"text": "Hello", "wait_time": 1000}}
+    ]
   })
 
 🔑 Press Key:
@@ -1121,6 +1125,10 @@ ELEMENT SELECTION (selector MUST be unique on page):
 4. plain text (fallback, slower)
 
 Use dump_ui_elements() to verify selector appears only once on page.
+
+IMPORTANT - INPUT FIELDS:
+Before using input_text, click the input field first to focus it.
+Example: click_element("Search") then input_text("Search", "text")
 
 ⚠️ CRITICAL - NODE IDs MUST BE STRINGS (e.g., 'home'), NOT UUIDs!
 - Use the 'node_id' field from list_navigation_nodes() or create_node() response.

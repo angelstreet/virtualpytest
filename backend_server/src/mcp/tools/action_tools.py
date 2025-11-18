@@ -76,6 +76,9 @@ class ActionTools:
             response_text += "Selector priority (MUST be unique on page):\n"
             response_text += "1. #id > 2. //xpath > 3. [attr] or .class > 4. plain text (fallback)\n"
             response_text += "Use dump_ui_elements() to verify selector uniqueness.\n\n"
+            response_text += "INPUT FIELDS - Click before typing:\n"
+            response_text += "Always click input field first to focus it, then use input_text.\n"
+            response_text += "Example: click_element('Search') then input_text('Search', 'query')\n\n"
         
         for category, actions in device_action_types.items():
             if not actions:
