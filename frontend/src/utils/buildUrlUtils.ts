@@ -43,6 +43,23 @@ export const buildServerUrl = (endpoint: string): string => {
 };
 
 /**
+ * Validate if a string is a valid server URL
+ */
+const isValidServerUrl = (url: string): boolean => {
+  if (!url || !url.trim()) return false;
+  const trimmed = url.trim();
+  // Reject common invalid patterns
+  if (trimmed === '[]' || trimmed === '{}' || trimmed === 'null' || trimmed === 'undefined') {
+    return false;
+  }
+  // Must have at least a domain or localhost
+  if (trimmed.includes('localhost') || trimmed.includes('.') || trimmed.match(/^\d+\.\d+\.\d+\.\d+/)) {
+    return true;
+  }
+  return false;
+};
+
+/**
  * Get all configured server URLs (primary + slaves)
  * Reads VITE_SERVER_URL and VITE_SLAVE_SERVER_URL
  */
@@ -50,14 +67,27 @@ export const getAllServerUrls = (): string[] => {
   const urls: string[] = [];
   
   const primaryUrl = (import.meta as any).env?.VITE_SERVER_URL;
-  if (primaryUrl) urls.push(primaryUrl);
+  if (primaryUrl && isValidServerUrl(primaryUrl)) {
+    urls.push(primaryUrl.trim());
+  }
   
   const slaveUrls = (import.meta as any).env?.VITE_SLAVE_SERVER_URL;
   if (slaveUrls) {
-    urls.push(...slaveUrls.split(',').map((url: string) => url.trim()).filter((url: string) => url));
+    const slaveUrlList = slaveUrls
+      .split(',')
+      .map((url: string) => url.trim())
+      .filter((url: string) => isValidServerUrl(url));
+    urls.push(...slaveUrlList);
   }
   
-  if (urls.length === 0) urls.push(SERVER_CONFIG.DEFAULT_URL);
+  // Only add default if it's valid and we have no other URLs
+  if (urls.length === 0) {
+    if (SERVER_CONFIG.DEFAULT_URL && isValidServerUrl(SERVER_CONFIG.DEFAULT_URL)) {
+      urls.push(SERVER_CONFIG.DEFAULT_URL);
+    } else {
+      console.error('[getAllServerUrls] No valid server URLs configured! Set VITE_SERVER_URL environment variable.');
+    }
+  }
   
   console.log('getAllServerUrls:', urls);
   return urls;
@@ -70,15 +100,22 @@ export const getAllServerUrls = (): string[] => {
  * @returns Complete URL with team_id
  */
 export const buildServerUrlForServer = (serverUrl: string, endpoint: string): string => {
+  // Validate serverUrl is not empty
+  if (!serverUrl || serverUrl.trim() === '') {
+    const error = `[buildServerUrlForServer] Invalid serverUrl: "${serverUrl}" - check VITE_SERVER_URL environment variable`;
+    console.error(error);
+    throw new Error(error);
+  }
+  
   // Ensure serverUrl has protocol (http:// or https://)
   let normalizedServerUrl = serverUrl;
-  if (serverUrl && !serverUrl.match(/^https?:\/\//)) {
+  if (!serverUrl.match(/^https?:\/\//)) {
     normalizedServerUrl = `http://${serverUrl}`;
     console.log(`[buildServerUrlForServer] Added protocol: ${serverUrl} -> ${normalizedServerUrl}`);
   }
   
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint.slice(1) : endpoint;
-  const url = `${serverUrl}/${cleanEndpoint}`;
+  const url = `${normalizedServerUrl}/${cleanEndpoint}`;
   
   // Always add team_id to all server URLs
   return `${url}${url.includes('?') ? '&' : '?'}team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`;
