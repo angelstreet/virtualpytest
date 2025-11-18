@@ -66,49 +66,19 @@ def get_userinterface(interface_id: str, team_id: str) -> Optional[Dict]:
         return None
 
 def get_userinterface_by_name(interface_name: str, team_id: str) -> Optional[Dict]:
-    """
-    Retrieve a user interface by name and team ID from Supabase.
-    
-    Returns:
-        {
-            'success': bool,
-            'userinterface': {
-                'id': str,
-                'name': str,
-                'models': list,
-                'root_tree_id': str (from root_tree.id)
-            }
-        }
-    """
+    """Retrieve a user interface by name and team ID from Supabase."""
     supabase = get_supabase()
     try:
-        # Get userinterface with root tree (filter for is_root_tree=true)
         result = supabase.table('userinterfaces').select(
-            'id, name, models, root_tree:navigation_trees!userinterface_id(id)'
+            'id', 'name', 'models'
         ).eq('name', interface_name).eq('team_id', team_id).single().execute()
         
         if result.data:
             ui = result.data
-            # root_tree comes back as a list, find the one with is_root_tree=true
-            root_trees = ui.get('root_tree', [])
-            root_tree_id = None
-            
-            if isinstance(root_trees, list) and len(root_trees) > 0:
-                # Take the first tree (should be the root tree)
-                # TODO: Filter by is_root_tree=true in the query
-                root_tree_id = root_trees[0].get('id')
-            elif isinstance(root_trees, dict):
-                # In case it's a single object
-                root_tree_id = root_trees.get('id')
-            
             return {
-                'success': True,
-                'userinterface': {
-                    'id': ui['id'],
-                    'name': ui['name'],
-                    'models': ui.get('models', []),
-                    'root_tree_id': root_tree_id
-                }
+                'id': ui['id'],
+                'name': ui['name'],
+                'models': ui.get('models', []),
             }
         return None
     except Exception as e:
