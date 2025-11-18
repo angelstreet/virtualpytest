@@ -19,7 +19,7 @@ Critical rules:
 - Use XPath for buttons: //button[@type='submit'], //button[text()='Add to Cart']
 - For input fields: ALWAYS click_element(field) THEN input_text(field, text)
 - Verify selector uniqueness with dump_ui_elements() before using
-- Test each edge immediately: execute_edge(edge_id, tree_id) after creation
+- Test EACH edge after creation: execute_edge(edge_id, tree_id) - MANDATORY
 
 Node verifications (use stable structural elements):
 - home: "Just a demo site showing off what Sauce can do." (unique subtitle)
@@ -43,6 +43,11 @@ Navigation flow to implement:
 6. Search flow: home → search_results → product_detail
 
 Process:
+0. Get compatible host and device:
+   hosts = get_compatible_hosts(userinterface_name='sauce-demo')
+   host_name = hosts['recommended_host']
+   device_id = hosts['recommended_device']
+   
 1. Navigate site logged OUT: inspect signup (#customer_register), login (#customer_login_link)
 2. Create signup account with test credentials
 3. Navigate site logged IN: find logout element location
@@ -56,19 +61,16 @@ Process:
    - home → search: click_element(".search-input"), input_text(".search-input", "jacket"), click submit
    - home → product: click_element("Grey jacket")
    - product → cart: click_element("Add to Cart"), click_element(".checkout-link")
-7. ⚠️ CRITICAL - INCREMENTAL VALIDATION (ENFORCED):
-   After EACH edge creation, the tool will remind you to test it.
-   You MUST test before creating the next edge:
+   
+7. MANDATORY - Test each edge immediately after creation:
    
    For EACH edge:
-   a. create_edge(...) 
-   b. Tool says: "Test this edge before creating more!"
-   c. execute_edge(edge_id=..., tree_id=...)  ← REQUIRED
-   d. If fails: update_edge() with correct selectors, test again
-   e. If success: Move to next edge
+   a. create_edge(...)  ← Creates edge
+   b. execute_edge(edge_id='...', tree_id='...')  ← TEST IT NOW
+   c. If fails: update_edge() with correct selectors, goto b
+   d. If success: Move to next edge
    
    DO NOT create multiple edges without testing each one.
-   This prevents cascading failures.
    
 8. After all edges validated: Create 6 requirements with acceptance criteria
 9. Create 6 test cases linked to requirements
@@ -89,16 +91,22 @@ Deliver:
 
 | Issue We Had | How This Prompt Prevents It |
 |--------------|----------------------------|
+| **No host/device setup** | ✅ Step 0: "Get compatible host/device with get_compatible_hosts()" |
 | **Dynamic "Grey jacket" in verifications** | ✅ Specifies: "Use stable elements: Add to Cart button, My Cart heading" |
 | **Missing click before input_text** | ✅ Explicit: "click_element(field) THEN input_text(field, text)" |
 | **Ambiguous text selectors** | ✅ Provides exact selectors: #customer_login_link, .search-input |
 | **Search edge missing click** | ✅ Shows full sequence: "click field, input text, click submit" |
 | **Logout node incomplete** | ✅ Requires: "Navigate logged IN: find logout element location" |
-| **No edge testing** | ✅ Mandates: "Test EACH edge: execute_edge() after creation" |
+| **No edge testing** | ✅ Step 7: "MANDATORY - execute_edge() immediately after each create_edge()" |
 | **False positive verifications** | ✅ Specifies stable verifications per node |
 | **No end-to-end validation** | ✅ Requires: "Execute TC_AUTH_01 successfully" |
 
 ### Key Additions That Make It Work:
+
+0. **Host/Device Discovery First**:
+   - `get_compatible_hosts(userinterface_name='sauce-demo')`
+   - No more blind defaults causing "Host not found" errors
+   - Ensures correct device model matched to userinterface
 
 1. **Exact Selectors Given**:
    - `#customer_login_link` (from actual site inspection)
@@ -117,8 +125,9 @@ Deliver:
    - Search example shows: click → input → click submit (3 steps)
    - ALWAYS in caps to emphasize importance
 
-5. **Edge Testing Required**:
-   - "Test EACH edge: execute_edge() after creation"
+5. **Edge Testing MANDATORY**:
+   - Step 7: "execute_edge() immediately after each create_edge()"
+   - Clear workflow: create → test → fix if needed → repeat
    - Catches errors immediately, not at the end
 
 6. **Proof of Completion**:
