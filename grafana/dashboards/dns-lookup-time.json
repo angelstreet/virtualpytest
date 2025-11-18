@@ -82,7 +82,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(MIN((metadata->>'lookup_time_ms')::decimal), 1) as \"Min Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+          "rawSql": "SELECT \n  ROUND(MIN((metadata->>'lookup_time_ms')::decimal), 1) as \"Min Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
           "refId": "A"
         }
       ],
@@ -151,7 +151,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(AVG((metadata->>'lookup_time_ms')::decimal), 1) as \"Avg Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+          "rawSql": "SELECT \n  ROUND(AVG((metadata->>'lookup_time_ms')::decimal), 1) as \"Avg Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
           "refId": "A"
         }
       ],
@@ -220,7 +220,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  ROUND(MAX((metadata->>'lookup_time_ms')::decimal), 1) as \"Max Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
+          "rawSql": "SELECT \n  ROUND(MAX((metadata->>'lookup_time_ms')::decimal), 1) as \"Max Lookup Time\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))",
           "refId": "A"
         }
       ],
@@ -307,7 +307,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT DISTINCT ON (device_name, metadata->>'domain')\n  device_name as \"Device Name\",\n  host_name as \"Host\",\n  metadata->>'domain' as \"Domain\",\n  metadata->>'lookup_time_ms' || ' ms' as \"Lookup Time\",\n  metadata->>'dns_server' as \"DNS Server\",\n  metadata->>'canonical_name' as \"CNAME\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv4_addresses')), ', ') as \"IPv4 Addresses\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv6_addresses')), ', ') as \"IPv6 Addresses\",\n  started_at as \"Last Lookup\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, metadata->>'domain', started_at DESC",
+          "rawSql": "SELECT DISTINCT ON (device_name, metadata->>'domain')\n  device_name as \"Device Name\",\n  host_name as \"Host\",\n  metadata->>'domain' as \"Domain\",\n  metadata->>'lookup_time_ms' || ' ms' as \"Lookup Time\",\n  metadata->>'dns_server' as \"DNS Server\",\n  metadata->>'canonical_name' as \"CNAME\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv4_addresses')), ', ') as \"IPv4 Addresses\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv6_addresses')), ', ') as \"IPv6 Addresses\",\n  started_at as \"Last Lookup\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY device_name, metadata->>'domain', started_at DESC",
           "refId": "A"
         }
       ],
@@ -394,7 +394,7 @@
         {
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT \n  device_name as \"Device\",\n  host_name as \"Host\",\n  metadata->>'domain' as \"Domain\",\n  metadata->>'lookup_time_ms' || ' ms' as \"Lookup Time\",\n  metadata->>'dns_server' as \"DNS Server\",\n  metadata->>'dns_server_port' as \"Port\",\n  metadata->>'canonical_name' as \"CNAME\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv4_addresses')), ', ') as \"IPv4\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv6_addresses')), ', ') as \"IPv6\",\n  started_at as \"Timestamp\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Script Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${user_interface:csv}' = '' OR userinterface_name IN ($user_interface))\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY started_at DESC\nLIMIT 100",
+          "rawSql": "SELECT \n  device_name as \"Device\",\n  host_name as \"Host\",\n  metadata->>'domain' as \"Domain\",\n  metadata->>'lookup_time_ms' || ' ms' as \"Lookup Time\",\n  metadata->>'dns_server' as \"DNS Server\",\n  metadata->>'dns_server_port' as \"Port\",\n  metadata->>'canonical_name' as \"CNAME\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv4_addresses')), ', ') as \"IPv4\",\n  array_to_string(ARRAY(SELECT jsonb_array_elements_text(metadata->'ipv6_addresses')), ', ') as \"IPv6\",\n  started_at as \"Timestamp\",\n  ROUND(execution_time_ms::decimal / 1000, 1) as \"Script Duration (s)\",\n  html_report_r2_url as \"Report\"\nFROM script_results\nWHERE script_name = 'dns_lookuptime'\n  AND success = true\n  AND $__timeFilter(started_at)\n  AND ('${host:csv}' = '' OR host_name IN ($host))\n  AND ('${device_name:csv}' = '' OR device_name IN ($device_name))\nORDER BY started_at DESC\nLIMIT 100",
           "refId": "A"
         }
       ],
@@ -412,20 +412,6 @@
   ],
   "templating": {
     "list": [
-      {
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "supabase-postgres"
-        },
-        "includeAll": true,
-        "label": "User Interface",
-        "multi": true,
-        "name": "user_interface",
-        "query": "SELECT DISTINCT userinterface_name FROM script_results WHERE script_name = 'dns_lookuptime' AND userinterface_name IS NOT NULL ORDER BY userinterface_name",
-        "refresh": 1,
-        "sort": 1,
-        "type": "query"
-      },
       {
         "datasource": {
           "type": "grafana-postgresql-datasource",
