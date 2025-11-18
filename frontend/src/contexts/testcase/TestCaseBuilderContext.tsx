@@ -795,10 +795,11 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
         
         // Load graph
         const graph = testcase.graph_json;
-        setNodes(graph.nodes.map((node: any) => ({
+        setNodes(graph.nodes.map((node: any, index: number) => ({
           id: node.id,
           type: node.type,
-          position: node.position,
+          // Fallback position if node doesn't have position data (fix for undefined position error)
+          position: node.position || { x: 100 + (index * 50), y: 100 + (index * 100) },
           data: node.data,
           // Ensure START, SUCCESS, and FAILURE blocks are not deletable
           deletable: !['start', 'success', 'failure'].includes(node.type)
