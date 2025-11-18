@@ -85,6 +85,16 @@ export const CustomThemeProvider: React.FC<CustomThemeProviderProps> = ({ childr
       }),
     },
     components: {
+      MuiTypography: {
+        styleOverrides: {
+          root: {
+            userSelect: 'text',
+            WebkitUserSelect: 'text',
+            MozUserSelect: 'text',
+            msUserSelect: 'text',
+          },
+        },
+      },
       MuiToolbar: {
         styleOverrides: {
           root: {
