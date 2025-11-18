@@ -159,6 +159,83 @@ def delete_tree(tree_id: str, team_id: str) -> Dict:
         print(f"[@db:navigation_trees:delete_tree] Error: {e}")
         return {'success': False, 'error': str(e)}
 
+def duplicate_tree(source_tree_id: str, target_userinterface_id: str, target_userinterface_name: str, team_id: str) -> Dict:
+    """Duplicate entire navigation tree (optimized with batch inserts)."""
+    try:
+        supabase = get_supabase()
+        timestamp = datetime.now(timezone.utc).isoformat()
+        
+        # Get source tree and data
+        source_tree = supabase.table('navigation_trees').select('*').eq('id', source_tree_id).eq('team_id', team_id).single().execute()
+        if not source_tree.data:
+            return {'success': False, 'error': 'Source tree not found'}
+        
+        full_tree = get_full_tree(source_tree_id, team_id)
+        if not full_tree['success']:
+            return {'success': False, 'error': f"Failed to get tree data: {full_tree.get('error')}"}
+        
+        # Create new tree
+        new_tree_id = str(uuid4())
+        supabase.table('navigation_trees').insert({
+            'id': new_tree_id,
+            'name': source_tree.data.get('name', target_userinterface_name),
+            'userinterface_id': target_userinterface_id,
+            'is_root_tree': source_tree.data.get('is_root_tree', True),
+            'tree_depth': source_tree.data.get('tree_depth', 0),
+            'viewport_x': source_tree.data.get('viewport_x', 0),
+            'viewport_y': source_tree.data.get('viewport_y', 0),
+            'viewport_zoom': source_tree.data.get('viewport_zoom', 1),
+            'team_id': team_id,
+            'created_at': timestamp,
+            'updated_at': timestamp
+        }).execute()
+        
+        # Batch insert nodes
+        if full_tree.get('nodes'):
+            nodes = [{
+                'tree_id': new_tree_id,
+                'node_id': n['node_id'],
+                'label': n.get('label', ''),
+                'node_type': n.get('node_type', 'screen'),
+                'position_x': n.get('position_x', 0),
+                'position_y': n.get('position_y', 0),
+                'data': n.get('data', {}),
+                'style': n.get('style', {}),
+                'verifications': n.get('verifications', []),
+                'team_id': team_id,
+                'created_at': timestamp,
+                'updated_at': timestamp
+            } for n in full_tree['nodes']]
+            supabase.table('navigation_nodes').insert(nodes).execute()
+        
+        # Batch insert edges
+        if full_tree.get('edges'):
+            edges = [{
+                'tree_id': new_tree_id,
+                'edge_id': e['edge_id'],
+                'source_node_id': e['source_node_id'],
+                'target_node_id': e['target_node_id'],
+                'action_sets': e.get('action_sets', []),
+                'default_action_set_id': e.get('default_action_set_id', ''),
+                'final_wait_time': e.get('final_wait_time', 2000),
+                'label': e.get('label', ''),
+                'data': e.get('data', {}),
+                'team_id': team_id,
+                'created_at': timestamp,
+                'updated_at': timestamp
+            } for e in full_tree['edges']]
+            supabase.table('navigation_edges').insert(edges).execute()
+        
+        nodes_count = len(full_tree.get('nodes', []))
+        edges_count = len(full_tree.get('edges', []))
+        print(f"[@db:navigation_trees:duplicate_tree] Duplicated tree {source_tree_id} -> {new_tree_id} ({nodes_count} nodes, {edges_count} edges)")
+        
+        return {'success': True, 'tree_id': new_tree_id, 'nodes_count': nodes_count, 'edges_count': edges_count}
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:duplicate_tree] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
 def get_root_tree_for_interface(userinterface_id: str, team_id: str) -> Optional[Dict]:
     """Get the root tree for a specific user interface."""
     try:

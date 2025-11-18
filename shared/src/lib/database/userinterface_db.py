@@ -177,4 +177,51 @@ def check_userinterface_name_exists(name: str, team_id: str, exclude_id: str = N
         return len(result.data) > 0
     except Exception as e:
         print(f"[@db:userinterface_db:check_userinterface_name] Error: {e}")
-        return False 
+        return False
+
+def duplicate_userinterface_with_tree(source_id: str, new_name: str, team_id: str, creator_id: str = None) -> Optional[Dict]:
+    """Duplicate a user interface and its entire navigation tree."""
+    try:
+        from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface, duplicate_tree
+        
+        # Get source and create new UI
+        source_ui = get_userinterface(source_id, team_id)
+        if not source_ui:
+            return None
+        
+        new_ui = create_userinterface({
+            'name': new_name,
+            'models': source_ui.get('models', []),
+            'min_version': source_ui.get('min_version', ''),
+            'max_version': source_ui.get('max_version', '')
+        }, team_id, creator_id)
+        
+        if not new_ui:
+            return None
+        
+        # Get and duplicate tree
+        source_tree = get_root_tree_for_interface(source_id, team_id)
+        if not source_tree:
+            return {**new_ui, 'duplication_stats': {'tree_duplicated': False, 'nodes_count': 0, 'edges_count': 0}}
+        
+        dup_result = duplicate_tree(source_tree['id'], new_ui['id'], new_ui['name'], team_id)
+        
+        return {
+            **new_ui,
+            'duplication_stats': {
+                'tree_duplicated': dup_result['success'],
+                'tree_id': dup_result.get('tree_id'),
+                'nodes_count': dup_result.get('nodes_count', 0),
+                'edges_count': dup_result.get('edges_count', 0),
+                'error': dup_result.get('error')
+            } if dup_result['success'] else {
+                'tree_duplicated': False,
+                'nodes_count': 0,
+                'edges_count': 0,
+                'error': dup_result.get('error')
+            }
+        }
+        
+    except Exception as e:
+        print(f"[@db:userinterface_db:duplicate_userinterface_with_tree] Error: {e}")
+        return None

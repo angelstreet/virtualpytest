@@ -18,7 +18,8 @@ from shared.src.lib.database.userinterface_db import (
     create_userinterface, 
     delete_userinterface,
     update_userinterface,
-    check_userinterface_name_exists
+    check_userinterface_name_exists,
+    duplicate_userinterface_with_tree
 )
 from shared.src.lib.database.navigation_trees_db import (
     get_root_tree_for_interface,
@@ -324,4 +325,32 @@ def delete_userinterface_route(interface_id):
         else:
             return jsonify({'error': 'User interface not found or failed to delete'}), 404
     except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@server_userinterface_bp.route('/duplicateUserInterface/<interface_id>', methods=['POST'])
+def duplicate_userinterface_route(interface_id):
+    """Duplicate a user interface with its navigation tree"""
+    error = check_supabase()
+    if error:
+        return error
+        
+    team_id = request.args.get('team_id')
+    new_name = (request.json or {}).get('name')
+    
+    if not new_name:
+        return jsonify({'error': 'Name is required'}), 400
+    
+    if check_userinterface_name_exists(new_name, team_id):
+        return jsonify({'error': 'A user interface with this name already exists'}), 400
+    
+    try:
+        result = duplicate_userinterface_with_tree(interface_id, new_name, team_id)
+        if result:
+            _invalidate_interfaces_cache(team_id)
+            stats = result.get('duplication_stats', {})
+            print(f"[@userinterface:duplicate] {interface_id} -> {result['id']} ({stats.get('nodes_count', 0)} nodes, {stats.get('edges_count', 0)} edges)")
+            return jsonify({'status': 'success', 'userinterface': result}), 201
+        return jsonify({'error': 'Failed to duplicate user interface'}), 500
+    except Exception as e:
+        print(f"[@userinterface:duplicate] ERROR: {e}")
         return jsonify({'error': str(e)}), 500 

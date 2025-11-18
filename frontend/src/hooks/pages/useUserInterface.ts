@@ -584,39 +584,45 @@ export const useUserInterface = () => {
             `[@hook:useUserInterface:duplicateUserInterface] Duplicating user interface: ${userInterface.name} -> ${newName}`,
           );
 
-          // Create payload with duplicated data
-          const payload: UserInterfaceCreatePayload = {
-            name: newName,
-            models: [...userInterface.models],
-            min_version: userInterface.min_version || '',
-            max_version: userInterface.max_version || '',
-          };
-
-          // Create the new user interface
-          const duplicatedInterface = await createUserInterface(payload);
-
-          console.log(
-            `[@hook:useUserInterface:duplicateUserInterface] Successfully duplicated user interface: ${duplicatedInterface.name}`,
+          // Call the new backend endpoint that duplicates UI + tree
+          const response = await fetch(
+            buildServerUrl(`/server/userinterface/duplicateUserInterface/${userInterface.id}`),
+            {
+              method: 'POST',
+              headers: {
+                'Content-Type': 'application/json',
+              },
+              body: JSON.stringify({ name: newName }),
+            }
           );
 
-          // Create empty navigation config for the duplicate
-          try {
-            await createEmptyNavigationConfig(duplicatedInterface);
-            console.log(
-              `[@hook:useUserInterface:duplicateUserInterface] Successfully created navigation config for duplicate: ${duplicatedInterface.name}`,
-            );
-          } catch (configError) {
-            console.error(
-              '[@hook:useUserInterface:duplicateUserInterface] Error creating navigation config:',
-              configError,
-            );
-            // Re-throw with more context
+          const result = await response.json();
+
+          if (!response.ok) {
             throw new Error(
-              'User interface duplicated successfully, but failed to create navigation config. You can still use the navigation editor.',
+              result.error ||
+                `Failed to duplicate user interface: ${response.status} ${response.statusText}`,
             );
           }
 
-          return duplicatedInterface;
+          if (result.status === 'success' && result.userinterface) {
+            const duplicatedInterface = result.userinterface;
+            const stats = duplicatedInterface.duplication_stats;
+            
+            if (stats?.tree_duplicated) {
+              console.log(
+                `[@hook:useUserInterface:duplicateUserInterface] Successfully duplicated user interface with navigation tree: ${duplicatedInterface.name} (${stats.nodes_count} nodes, ${stats.edges_count} edges)`,
+              );
+            } else {
+              console.log(
+                `[@hook:useUserInterface:duplicateUserInterface] Duplicated user interface without navigation tree: ${duplicatedInterface.name} - ${stats?.message || stats?.error || 'Unknown reason'}`,
+              );
+            }
+            
+            return duplicatedInterface;
+          } else {
+            throw new Error(result.error || 'Failed to duplicate user interface');
+          }
         } catch (error) {
           console.error(
             `[@hook:useUserInterface:duplicateUserInterface] Error duplicating user interface ${userInterface.name}:`,
@@ -625,7 +631,7 @@ export const useUserInterface = () => {
           throw error;
         }
       },
-    [createUserInterface, createEmptyNavigationConfig],
+    [],
   );
 
   /**
