@@ -7,7 +7,7 @@ import {
   Typography,
   Button,
 } from '@mui/material';
-import React from 'react';
+import React, { useRef } from 'react';
 
 // Reuse TestCaseSelector component
 import { TestCaseSelector } from '../components/testcase/TestCaseSelector';
@@ -17,6 +17,9 @@ import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 const TestCaseEditor: React.FC = () => {
+  // Ref to access TestCaseSelector's refresh method
+  const selectorRef = useRef<{ refresh: () => void }>(null);
+  
   // Confirmation dialog
   const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
@@ -45,6 +48,11 @@ const TestCaseEditor: React.FC = () => {
 
           if (!response.ok) {
             throw new Error('Failed to delete test case');
+          }
+          
+          // After successful deletion, refresh the list
+          if (selectorRef.current) {
+            selectorRef.current.refresh();
           }
         } catch (err) {
           console.error('Error deleting test case:', err);
@@ -76,6 +84,7 @@ const TestCaseEditor: React.FC = () => {
       {/* Reuse TestCaseSelector component - same as dialog */}
       <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column' }}>
         <TestCaseSelector
+          ref={selectorRef}
           onLoad={handleLoad}
           onDelete={handleDelete}
           selectedTestCaseId={null}

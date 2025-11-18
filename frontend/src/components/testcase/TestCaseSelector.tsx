@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, forwardRef, useImperativeHandle } from 'react';
 import {
   Box, TextField, Autocomplete, Chip, Typography, CircularProgress, Paper,
   List, ListItem, ListItemButton, InputAdornment, IconButton,
@@ -51,13 +51,13 @@ export interface TestCaseSelectorProps {
   testCasesOnly?: boolean; // If true, only show test cases (no scripts)
 }
 
-export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
+export const TestCaseSelector = forwardRef<{ refresh: () => void }, TestCaseSelectorProps>(({
   onLoad,
   onDelete,
   selectedTestCaseId,
   onDeleteSuccess,
   testCasesOnly = false,
-}) => {
+}, ref) => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [allItems, setAllItems] = useState<ExecutableItem[]>([]); // Changed to unified list
@@ -72,6 +72,11 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
 
   // Ref to prevent duplicate API calls in React Strict Mode
   const isLoadingRef = React.useRef(false);
+
+  // Expose refresh method to parent via ref
+  useImperativeHandle(ref, () => ({
+    refresh: loadAll,
+  }));
 
   // Load test cases AND scripts on mount
   useEffect(() => {
@@ -210,8 +215,8 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
     }
   };
 
-  // Handle delete click - just call parent handler, don't update UI
-  const handleDeleteClick = async (e: React.MouseEvent, item: ExecutableItem) => {
+  // Handle delete click - just call parent handler, don't refresh
+  const handleDeleteClick = (e: React.MouseEvent, item: ExecutableItem) => {
     e.stopPropagation();
     
     if (item.type === 'script') {
@@ -219,23 +224,10 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       return;
     }
     
-    try {
-      if (onDelete) {
-        // Call the parent delete handler (which shows confirmation and handles deletion)
-        // Only when user confirms and deletion succeeds will this complete
-        await onDelete(item.testcase_id, item.testcase_name);
-        
-        // Only refresh after successful deletion
-        await loadAll();
-        
-        // Call success callback if provided
-        if (onDeleteSuccess) {
-          onDeleteSuccess();
-        }
-      }
-    } catch (error) {
-      console.error('[@TestCaseSelector] Error deleting test case:', error);
-      // Don't reload on error since deletion was cancelled or failed
+    if (onDelete) {
+      // Call the parent delete handler (opens confirmation dialog)
+      // Parent will call refresh() via ref after successful deletion
+      onDelete(item.testcase_id, item.testcase_name);
     }
   };
 
@@ -653,4 +645,4 @@ export const TestCaseSelector: React.FC<TestCaseSelectorProps> = ({
       </Box>
     </Box>
   );
-};
+});
