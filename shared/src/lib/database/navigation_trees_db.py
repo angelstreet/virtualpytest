@@ -190,7 +190,7 @@ def duplicate_tree(source_tree_id: str, target_userinterface_id: str, target_use
             'updated_at': timestamp
         }).execute()
         
-        # Batch insert nodes
+        # Batch insert nodes (db triggers will refresh materialized view)
         if full_tree.get('nodes'):
             nodes = [{
                 'tree_id': new_tree_id,
@@ -208,7 +208,7 @@ def duplicate_tree(source_tree_id: str, target_userinterface_id: str, target_use
             } for n in full_tree['nodes']]
             supabase.table('navigation_nodes').insert(nodes).execute()
         
-        # Batch insert edges
+        # Batch insert edges (db triggers will refresh materialized view)
         if full_tree.get('edges'):
             edges = [{
                 'tree_id': new_tree_id,
@@ -225,6 +225,19 @@ def duplicate_tree(source_tree_id: str, target_userinterface_id: str, target_use
                 'updated_at': timestamp
             } for e in full_tree['edges']]
             supabase.table('navigation_edges').insert(edges).execute()
+        
+        # Verify data was inserted correctly by reading it back
+        verify_result = get_full_tree(new_tree_id, team_id)
+        if not verify_result['success']:
+            print(f"[@db:navigation_trees:duplicate_tree] Warning: Could not verify duplicated tree immediately (materialized view may be refreshing)")
+        else:
+            actual_nodes = len(verify_result.get('nodes', []))
+            actual_edges = len(verify_result.get('edges', []))
+            if actual_nodes != len(full_tree.get('nodes', [])) or actual_edges != len(full_tree.get('edges', [])):
+                print(f"[@db:navigation_trees:duplicate_tree] Warning: Verification mismatch - expected {len(full_tree.get('nodes', []))} nodes, got {actual_nodes}")
+        
+        # Invalidate cache for new tree
+        invalidate_navigation_cache_for_tree(new_tree_id, team_id)
         
         nodes_count = len(full_tree.get('nodes', []))
         edges_count = len(full_tree.get('edges', []))
