@@ -26,7 +26,8 @@ def get_supabase():
 def validate_testcase_graph(
     graph_json: Dict[str, Any],
     userinterface_name: str,
-    team_id: str
+    team_id: str,
+    available_nodes: Optional[List[str]] = None
 ) -> Dict[str, Any]:
     """
     Validate testcase graph before saving - checks that all referenced nodes, edges, and actions exist.
@@ -38,6 +39,7 @@ def validate_testcase_graph(
         graph_json: Test case graph {nodes: [...], edges: [...]}
         userinterface_name: User interface name (e.g., 'sauce-demo')
         team_id: Team ID for database queries
+        available_nodes: Pre-fetched nodes to use (skips fetch if provided)
         
     Returns:
         {
@@ -53,37 +55,44 @@ def validate_testcase_graph(
     warnings = []
     
     try:
-        # Get userinterface to find tree_id
-        ui_result = get_userinterface_by_name(userinterface_name, team_id)
-        if not ui_result:
-            return {
-                'success': False,
-                'errors': [f"User interface '{userinterface_name}' not found"]
-            }
-        
-        # Get root tree for the userinterface
-        from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
-        root_tree = get_root_tree_for_interface(ui_result['id'], team_id)
-        if not root_tree:
-            return {
-                'success': False,
-                'errors': [f"No navigation tree found for '{userinterface_name}'"]
-            }
-        
-        tree_id = root_tree['id']
-        
-        # Get available navigation nodes from tree
-        nodes_result = get_tree_nodes(tree_id, team_id)
-        if not nodes_result.get('success'):
-            errors.append(f"Failed to load navigation tree: {nodes_result.get('error')}")
-            return {'success': False, 'errors': errors}
-        
-        # Extract valid node labels
-        valid_node_labels = set()
-        for node in nodes_result.get('nodes', []):
-            label = node.get('label')
-            if label:
-                valid_node_labels.add(label)
+        # If nodes provided, use them directly
+        if available_nodes is not None:
+            print(f"[@testcase_db:validate] Using provided nodes: {available_nodes}")
+            valid_node_labels = set(available_nodes)
+        else:
+            # Fetch fresh from database
+            print(f"[@testcase_db:validate] Fetching fresh nodes from database")
+            # Get userinterface to find tree_id
+            ui_result = get_userinterface_by_name(userinterface_name, team_id)
+            if not ui_result:
+                return {
+                    'success': False,
+                    'errors': [f"User interface '{userinterface_name}' not found"]
+                }
+            
+            # Get root tree for the userinterface
+            from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
+            root_tree = get_root_tree_for_interface(ui_result['id'], team_id)
+            if not root_tree:
+                return {
+                    'success': False,
+                    'errors': [f"No navigation tree found for '{userinterface_name}'"]
+                }
+            
+            tree_id = root_tree['id']
+            
+            # Get available navigation nodes from tree
+            nodes_result = get_tree_nodes(tree_id, team_id)
+            if not nodes_result.get('success'):
+                errors.append(f"Failed to load navigation tree: {nodes_result.get('error')}")
+                return {'success': False, 'errors': errors}
+            
+            # Extract valid node labels
+            valid_node_labels = set()
+            for node in nodes_result.get('nodes', []):
+                label = node.get('label')
+                if label:
+                    valid_node_labels.add(label)
         
         print(f"[@testcase_db:validate] Valid navigation nodes: {valid_node_labels}")
         
@@ -186,7 +195,8 @@ def create_testcase(
     auto_increment_if_exists: bool = True,
     environment: str = 'dev',
     folder: str = None,
-    tags: List[str] = None
+    tags: List[str] = None,
+    available_nodes: Optional[List[str]] = None
 ) -> Optional[str]:
     """
     Create a new test case definition, or update if it exists and overwrite=True.
@@ -198,6 +208,15 @@ def create_testcase(
         description: Optional description
         userinterface_name: Navigation tree to use
         created_by: Username who created it
+        creation_method: 'visual' (drag-drop) or 'ai' (prompt)
+        ai_prompt: Original prompt if AI-generated
+        ai_analysis: AI reasoning if AI-generated
+        overwrite: If True, update existing test case with same name (DEPRECATED - use auto_increment_if_exists instead)
+        auto_increment_if_exists: If True, append _2, _3, etc. if name exists (safer than overwrite)
+        environment: Environment ('dev', 'test', 'prod') - defaults to 'dev'
+        folder: Folder name (user-selected or typed) - defaults to '(Root)'
+        tags: List of tag names (existing or new) - auto-created if not exist
+        available_nodes: Pre-fetched nodes to use for validation (skips fetch if provided)
         creation_method: 'visual' (drag-drop) or 'ai' (prompt)
         ai_prompt: Original prompt if AI-generated
         ai_analysis: AI reasoning if AI-generated
@@ -219,7 +238,12 @@ def create_testcase(
         # 🛡️ VALIDATION: Validate graph before saving (if userinterface_name provided)
         if userinterface_name and graph_json:
             print(f"[@testcase_db] 🛡️ Validating test case graph...")
-            validation_result = validate_testcase_graph(graph_json, userinterface_name, team_id)
+            validation_result = validate_testcase_graph(
+                graph_json, 
+                userinterface_name, 
+                team_id,
+                available_nodes=available_nodes  # NEW: Pass nodes from AI
+            )
             
             if not validation_result['success']:
                 errors = validation_result.get('errors', [])

@@ -22,6 +22,7 @@ def ai_generate_plan():
         device_id = data.get('device_id', 'device1')
         userinterface_name = data.get('userinterface_name', 'horizon_android_mobile')
         current_node_id = data.get('current_node_id')
+        available_nodes = data.get('available_nodes')  # NEW: Accept from caller
         team_id = request.args.get('team_id')
         
         print(f"[@host_ai] Generating graph for device: {device_id}, team: {team_id}")
@@ -63,7 +64,8 @@ def ai_generate_plan():
             prompt=prompt,
             userinterface_name=userinterface_name,
             team_id=team_id,
-            current_node_id=current_node_id
+            current_node_id=current_node_id,
+            available_nodes=available_nodes  # NEW: Pass to AI builder
         )
         
         print(f"[@host_ai] Graph generation result: success={result.get('success')}")

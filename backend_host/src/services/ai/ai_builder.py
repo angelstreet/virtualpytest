@@ -309,7 +309,8 @@ class AIGraphBuilder:
                       prompt: str,
                       userinterface_name: str,
                       team_id: str,
-                      current_node_id: Optional[str] = None) -> Dict[str, Any]:
+                      current_node_id: Optional[str] = None,
+                      available_nodes: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Generate test case graph from natural language prompt
         
@@ -328,6 +329,7 @@ class AIGraphBuilder:
             userinterface_name: Interface context (e.g., "horizon_android_mobile")
             team_id: Team ID for database operations
             current_node_id: Optional current navigation position
+            available_nodes: Pre-fetched nodes to use (skips cache if provided)
             
         Returns:
             {
@@ -349,8 +351,8 @@ class AIGraphBuilder:
             print(f"[@ai_builder]   Prompt: {prompt[:100]}...")
             print(f"[@ai_builder]   Interface: {userinterface_name}")
             
-            # Step 1: Load context
-            context = self._load_context(userinterface_name, current_node_id, team_id)
+            # Step 1: Load context (or use provided nodes)
+            context = self._load_context(userinterface_name, current_node_id, team_id, available_nodes)
             
             # Step 2: Generate fingerprint for this request
             fingerprint = _generate_fingerprint(prompt, context)
@@ -374,7 +376,8 @@ class AIGraphBuilder:
                         'analysis': cached['analysis'],
                         'execution_time': time.time() - start_time,
                         'message': 'Graph loaded from cache',
-                        'cached': True
+                        'cached': True,
+                        'available_nodes': context.get('nodes_raw', [])  # Include nodes used
                     }
                 
                 print(f"[@ai_builder] Cache MISS - this request will generate")
@@ -428,7 +431,8 @@ class AIGraphBuilder:
                         'execution_time': time.time() - start_time,
                         'message': 'Simple navigation generated (exact match)',
                         'cached': False,
-                        'exact_match': True
+                        'exact_match': True,
+                        'available_nodes': context.get('nodes_raw', [])  # Include nodes used
                     }
                 
                 elif preprocessed['status'] == 'needs_disambiguation':
@@ -591,7 +595,8 @@ class AIGraphBuilder:
                     'plan_id': ai_response.get('id'),
                     'execution_time': time.time() - start_time,
                     'message': 'Graph generated successfully',
-                    'generation_stats': stats
+                    'generation_stats': stats,
+                    'available_nodes': context.get('nodes_raw', [])  # Include nodes used
                 }
             # Lock released here - subsequent requests can now use cached result
             
@@ -609,12 +614,37 @@ class AIGraphBuilder:
     # CONTEXT LOADING
     # ========================================
     
-    def _load_context(self, userinterface_name: str, current_node_id: Optional[str], team_id: str) -> Dict[str, Any]:
+    def _load_context(self, 
+                      userinterface_name: str, 
+                      current_node_id: Optional[str], 
+                      team_id: str,
+                      available_nodes: Optional[List[str]] = None) -> Dict[str, Any]:
         """
         Load execution context: available nodes, actions, verifications
         
-        Uses caching to avoid repeated database queries
+        Uses caching to avoid repeated database queries.
+        If available_nodes provided, uses them directly (skips cache).
+        
+        Args:
+            available_nodes: Pre-fetched nodes to use (skips cache/fetch if provided)
         """
+        # If nodes provided, use directly and skip cache
+        if available_nodes is not None:
+            print(f"[@ai_builder:context] Using provided nodes: {len(available_nodes)} nodes")
+            return {
+                'device_model': self.device.device_model,
+                'userinterface_name': userinterface_name,
+                'team_id': team_id,
+                'current_node_id': current_node_id,
+                'nodes_raw': available_nodes,
+                'available_nodes': self._format_navigation_nodes(available_nodes),
+                'actions_raw': [],
+                'available_actions': [],
+                'verifications_raw': [],
+                'available_verifications': [],
+                'source': 'provided'
+            }
+        
         # Check cache
         cache_key = f"{self.device.device_id}_{userinterface_name}_{team_id}"
         cached_data, cache_time = self._context_cache.get(cache_key, (None, None))

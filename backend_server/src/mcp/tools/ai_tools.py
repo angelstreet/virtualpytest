@@ -203,6 +203,9 @@ class AITools:
         if not graph:
             return {"content": [{"type": "text", "text": "❌ Error: Failed to extract graph from generation"}], "isError": True}
         
+        # Extract available_nodes from generation (used for validation)
+        available_nodes = generate_result.get('available_nodes')
+        
         # Step 2: Save the graph
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         save_data = {
@@ -211,7 +214,8 @@ class AITools:
             'description': params.get('description', ''),
             'userinterface_name': params.get('userinterface_name', ''),
             'folder': params.get('folder', '(Root)'),
-            'tags': params.get('tags', [])
+            'tags': params.get('tags', []),
+            'available_nodes': available_nodes  # NEW: Pass to validation
         }
         
         save_result = self.api.post('/server/testcase/save', data=save_data, params={'team_id': team_id})

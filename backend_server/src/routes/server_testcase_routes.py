@@ -86,7 +86,8 @@ def testcase_save():
                 ai_analysis=data.get('ai_analysis'),
                 overwrite=overwrite,
                 folder=data.get('folder'),  # NEW: Folder name (user-selected or typed)
-                tags=data.get('tags')  # NEW: List of tag names
+                tags=data.get('tags'),  # NEW: List of tag names
+                available_nodes=data.get('available_nodes')  # NEW: Nodes from AI generation
             )
             
             # Handle dict response (new format with auto-increment info)
