@@ -2,6 +2,7 @@ import { AppBar, Toolbar, Typography, Box, Button } from '@mui/material';
 import { SmartToy as SmartToyIcon } from '@mui/icons-material';
 import React from 'react';
 
+import { ConfirmDialog } from '../common/ConfirmDialog';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { useNavigationStack } from '../../contexts/navigation/NavigationStackContext';
 import { useDeviceControlWithForceUnlock } from '../../hooks/useDeviceControlWithForceUnlock';
@@ -102,6 +103,9 @@ export const NavigationEditorHeader: React.FC<{
     controlError,
     handleDeviceControl,
     clearError,
+    confirmDialogState,
+    confirmDialogHandleConfirm,
+    confirmDialogHandleCancel,
   } = useDeviceControlWithForceUnlock({
     host: selectedHost,
     device_id: selectedDeviceId || null,
@@ -247,6 +251,18 @@ export const NavigationEditorHeader: React.FC<{
           </Box>
         </Toolbar>
       </AppBar>
+
+      {/* Confirmation Dialog - for force unlock */}
+      <ConfirmDialog
+        open={confirmDialogState.open}
+        title={confirmDialogState.title}
+        message={confirmDialogState.message}
+        confirmText={confirmDialogState.confirmText}
+        cancelText={confirmDialogState.cancelText}
+        confirmColor={confirmDialogState.confirmColor}
+        onConfirm={confirmDialogHandleConfirm}
+        onCancel={confirmDialogHandleCancel}
+      />
 
       {/* Validation components are now rendered by ValidationButtonClient when needed */}
     </>

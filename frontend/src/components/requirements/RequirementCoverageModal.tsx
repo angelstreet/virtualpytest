@@ -37,6 +37,8 @@ import {
   Warning as WarningIcon,
 } from '@mui/icons-material';
 import { RequirementCoverage } from '../../hooks/pages/useRequirements';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface RequirementCoverageModalProps {
   open: boolean;
@@ -66,6 +68,9 @@ export const RequirementCoverageModal: React.FC<RequirementCoverageModalProps> =
   const [error, setError] = useState<string | null>(null);
   const [expandedUIs, setExpandedUIs] = useState<Set<string>>(new Set());
 
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+
   // Load coverage data when modal opens
   useEffect(() => {
     if (open && requirementId) {
@@ -94,15 +99,22 @@ export const RequirementCoverageModal: React.FC<RequirementCoverageModalProps> =
   };
 
   const handleUnlink = async (testcaseId: string) => {
-    if (!window.confirm('Are you sure you want to unlink this testcase?')) return;
-    
-    const result = await onUnlinkTestcase(testcaseId, requirementId);
-    if (result.success) {
-      // Reload coverage
-      loadCoverage();
-    } else {
-      alert(`Failed to unlink: ${result.error}`);
-    }
+    confirm({
+      title: 'Unlink Testcase',
+      message: 'Are you sure you want to unlink this testcase?',
+      confirmColor: 'error',
+      confirmText: 'Unlink',
+      cancelText: 'Cancel',
+      onConfirm: async () => {
+        const result = await onUnlinkTestcase(testcaseId, requirementId);
+        if (result.success) {
+          // Reload coverage
+          loadCoverage();
+        } else {
+          alert(`Failed to unlink: ${result.error}`);
+        }
+      },
+    });
   };
 
   const handleOpenTestcase = (testcaseId: string) => {
@@ -300,6 +312,18 @@ export const RequirementCoverageModal: React.FC<RequirementCoverageModalProps> =
       <DialogActions>
         <Button onClick={onClose}>Close</Button>
       </DialogActions>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Dialog>
   );
 };

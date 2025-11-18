@@ -4,6 +4,7 @@ import { MarkerType, addEdge, Connection } from 'reactflow';
 import { useNavigationConfig } from '../../contexts/navigation/NavigationConfigContext';
 import NavigationContext from '../../contexts/navigation/NavigationContext';
 import { useHostManager } from '../useHostManager';
+import { useConfirmDialog } from '../useConfirmDialog';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
@@ -19,6 +20,9 @@ export const useNavigationEditor = () => {
 
   // Get host manager
   const hostManager = useHostManager();
+
+  // Confirmation dialog for replacing window.confirm
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   // Edge hook will be initialized when needed for edge operations
 
@@ -738,10 +742,27 @@ export const useNavigationEditor = () => {
       if (node.data?.has_subtree && (node.data?.subtree_count || 0) > 0) {
         const subtreeCount = node.data?.subtree_count || 0;
         const confirmMessage = `This node has ${subtreeCount} nested tree(s). Deleting it will also delete all nested navigation trees. Are you sure?`;
-        if (!window.confirm(confirmMessage)) {
-          return; // User cancelled
-        }
-        console.log(`[@useNavigationEditor:deleteSelected] User confirmed deletion of node with ${subtreeCount} nested trees`);
+        
+        // Use custom confirm dialog instead of window.confirm
+        return new Promise<void>((resolve) => {
+          confirm({
+            title: 'Delete Node with Nested Trees',
+            message: confirmMessage,
+            confirmColor: 'error',
+            confirmText: 'Delete',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+              console.log(`[@useNavigationEditor:deleteSelected] User confirmed deletion of node with ${subtreeCount} nested trees`);
+              const filteredNodes = navigation.nodes.filter((n) => n.id !== nodeId);
+              console.log('[@useNavigationEditor:deleteSelected] Deleting node:', nodeId, 
+                'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length);
+              navigation.setNodes(filteredNodes);
+              navigation.setSelectedNode(null);
+              navigation.markUnsavedChanges();
+              resolve();
+            },
+          });
+        });
       }
       
       const filteredNodes = navigation.nodes.filter((n) => n.id !== nodeId);
@@ -756,27 +777,35 @@ export const useNavigationEditor = () => {
     if (navigation.selectedEdge) {
       const selectedEdge = navigation.selectedEdge;
       
-      // Simple confirmation for entire edge deletion (keyboard shortcut scenario)
-      if (!window.confirm('Delete this entire edge and all its directions?')) {
-        return;
-      }
-      
-      // Handle edge deletion directly without using the hook
-      // Always delete the entire edge for simplicity in this context
-      const deletionResult = { action: 'delete_entire_edge', edgeId: selectedEdge.id };
-      
-      console.log('[@useNavigationEditor:deleteSelected] Edge deletion result:', deletionResult);
-      
-      // Always delete the entire edge (simplified logic)
-      if (deletionResult.action === 'delete_entire_edge') {
-        const filteredEdges = navigation.edges.filter(e => e.id !== selectedEdge.id);
-        navigation.setEdges(filteredEdges);
-        navigation.setSelectedEdge(null);
-        navigation.markUnsavedChanges();
-        console.log('[@useNavigationEditor:deleteSelected] Edge deleted successfully');
-      }
+      // Use custom confirm dialog instead of window.confirm
+      return new Promise<void>((resolve) => {
+        confirm({
+          title: 'Delete Edge',
+          message: 'Delete this entire edge and all its directions?',
+          confirmColor: 'error',
+          confirmText: 'Delete',
+          cancelText: 'Cancel',
+          onConfirm: () => {
+            // Handle edge deletion directly without using the hook
+            // Always delete the entire edge for simplicity in this context
+            const deletionResult = { action: 'delete_entire_edge', edgeId: selectedEdge.id };
+            
+            console.log('[@useNavigationEditor:deleteSelected] Edge deletion result:', deletionResult);
+            
+            // Always delete the entire edge (simplified logic)
+            if (deletionResult.action === 'delete_entire_edge') {
+              const filteredEdges = navigation.edges.filter(e => e.id !== selectedEdge.id);
+              navigation.setEdges(filteredEdges);
+              navigation.setSelectedEdge(null);
+              navigation.markUnsavedChanges();
+              console.log('[@useNavigationEditor:deleteSelected] Edge deleted successfully');
+            }
+            resolve();
+          },
+        });
+      });
     }
-  }, [navigation]);
+  }, [navigation, confirm]);
 
   const resetNode = useCallback(
     (nodeId: string) => {
@@ -994,6 +1023,11 @@ export const useNavigationEditor = () => {
       // Host data - from HostManager (filtered by userInterface models)
       availableHosts: hostManager.getHostsByModel(navigation.userInterface?.models || []),
       getHostByName: hostManager.getHostByName,
+
+      // Confirmation dialog state and handlers
+      confirmDialogState: dialogState,
+      confirmDialogHandleConfirm: handleConfirm,
+      confirmDialogHandleCancel: handleCancel,
     }),
     [
       navigation,
@@ -1017,6 +1051,9 @@ export const useNavigationEditor = () => {
       fitView,
       navigateToParent,
       setUserInterfaceFromProps,
+      dialogState,
+      handleConfirm,
+      handleCancel,
     ],
   );
 };

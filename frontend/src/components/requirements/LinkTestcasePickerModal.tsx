@@ -36,6 +36,8 @@ import {
   Clear as ClearIcon,
 } from '@mui/icons-material';
 import { TestcaseWithLink } from '../../hooks/pages/useRequirements';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface LinkTestcasePickerModalProps {
   open: boolean;
@@ -66,6 +68,9 @@ export const LinkTestcasePickerModal: React.FC<LinkTestcasePickerModalProps> = (
   const [selectedUI, setSelectedUI] = useState<string>('');
   const [selectedTestcaseIds, setSelectedTestcaseIds] = useState<Set<string>>(new Set());
   const [isSaving, setIsSaving] = useState(false);
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   // Get unique UI names from testcases
   const uniqueUIs = Array.from(new Set(testcases.map(tc => tc.userinterface_name).filter(Boolean))).sort();
@@ -114,8 +119,23 @@ export const LinkTestcasePickerModal: React.FC<LinkTestcasePickerModalProps> = (
       const newSet = new Set(prev);
       if (newSet.has(testcaseId)) {
         // Only allow unlinking if it was already linked (don't uncheck new selections accidentally)
-        if (!currentlyLinked || window.confirm('Unlink this testcase?')) {
+        if (!currentlyLinked) {
+          // Not currently linked, so just uncheck
           newSet.delete(testcaseId);
+        } else {
+          // Currently linked, so confirm before unlinking
+          confirm({
+            title: 'Unlink Testcase',
+            message: 'Unlink this testcase?',
+            confirmColor: 'warning',
+            confirmText: 'Unlink',
+            cancelText: 'Cancel',
+            onConfirm: () => {
+              const updatedSet = new Set(prev);
+              updatedSet.delete(testcaseId);
+              setSelectedTestcaseIds(updatedSet);
+            },
+          });
         }
       } else {
         newSet.add(testcaseId);
@@ -312,6 +332,18 @@ export const LinkTestcasePickerModal: React.FC<LinkTestcasePickerModalProps> = (
           {isSaving ? <CircularProgress size={20} /> : `Link ${newLinksCount} Testcase${newLinksCount !== 1 ? 's' : ''}`}
         </Button>
       </DialogActions>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Dialog>
   );
 };

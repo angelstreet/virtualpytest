@@ -8,6 +8,7 @@
 import { useCallback } from 'react';
 import { useDeviceControl } from './useDeviceControl';
 import { useToast } from './useToast';
+import { useConfirmDialog } from './useConfirmDialog';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 interface UseDeviceControlWithForceUnlockProps {
@@ -26,6 +27,9 @@ interface UseDeviceControlWithForceUnlockReturn {
   controlError: string | null;
   handleDeviceControl: () => Promise<void>;
   clearError: () => void;
+  confirmDialogState: any;
+  confirmDialogHandleConfirm: () => void;
+  confirmDialogHandleCancel: () => void;
 }
 
 /**
@@ -42,6 +46,9 @@ export const useDeviceControlWithForceUnlock = ({
 }: UseDeviceControlWithForceUnlockProps): UseDeviceControlWithForceUnlockReturn => {
   
   const { showError } = useToast();
+  
+  // Confirmation dialog for force unlock
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
   
   const {
     isControlActive,
@@ -93,40 +100,44 @@ export const useDeviceControlWithForceUnlock = ({
       
       // If failed due to device lock, offer force unlock
       if (result.errorType === 'device_locked' && host) {
-        const confirmed = window.confirm(
-          `Device ${host.host_name} is currently locked by another session.\n\n` +
-          `This might be your own session from a different browser or Wi-Fi network.\n\n` +
-          `Do you want to force release the lock and take control?`
-        );
-        
-        if (confirmed) {
-          console.log('[@useDeviceControlWithForceUnlock] User confirmed force takeover');
-          
-          // Call force unlock API
-          try {
-            const response = await fetch(buildServerUrl('/server/control/forceUnlock'), {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ host_name: host.host_name }),
-            });
+        confirm({
+          title: 'Device Locked',
+          message: 
+            `Device ${host.host_name} is currently locked by another session.\n\n` +
+            `This might be your own session from a different browser or Wi-Fi network.\n\n` +
+            `Do you want to force release the lock and take control?`,
+          confirmColor: 'warning',
+          confirmText: 'Force Unlock',
+          cancelText: 'Cancel',
+          onConfirm: async () => {
+            console.log('[@useDeviceControlWithForceUnlock] User confirmed force takeover');
             
-            const unlockResult = await response.json();
-            
-            if (unlockResult.success) {
-              console.log('[@useDeviceControlWithForceUnlock] Force unlock successful, retrying take control');
+            // Call force unlock API
+            try {
+              const response = await fetch(buildServerUrl('/server/control/forceUnlock'), {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ host_name: host.host_name }),
+              });
               
-              // Retry take control
-              const retryResult = await handleTakeControl();
-              if (retryResult.success && onControlStateChange) {
-                onControlStateChange(true);
+              const unlockResult = await response.json();
+              
+              if (unlockResult.success) {
+                console.log('[@useDeviceControlWithForceUnlock] Force unlock successful, retrying take control');
+                
+                // Retry take control
+                const retryResult = await handleTakeControl();
+                if (retryResult.success && onControlStateChange) {
+                  onControlStateChange(true);
+                }
+              } else {
+                showError(`Failed to force unlock: ${unlockResult.error || 'Unknown error'}`);
               }
-            } else {
-              showError(`Failed to force unlock: ${unlockResult.error || 'Unknown error'}`);
+            } catch (error: any) {
+              showError(`Failed to force unlock: ${error.message || 'Unknown error'}`);
             }
-          } catch (error: any) {
-            showError(`Failed to force unlock: ${error.message || 'Unknown error'}`);
-          }
-        }
+          },
+        });
       }
     }
   }, [
@@ -137,6 +148,7 @@ export const useDeviceControlWithForceUnlock = ({
     host,
     showError,
     tree_id,
+    confirm,
   ]);
 
   return {
@@ -145,6 +157,9 @@ export const useDeviceControlWithForceUnlock = ({
     controlError,
     handleDeviceControl,
     clearError,
+    confirmDialogState: dialogState,
+    confirmDialogHandleConfirm: handleConfirm,
+    confirmDialogHandleCancel: handleCancel,
   };
 };
 

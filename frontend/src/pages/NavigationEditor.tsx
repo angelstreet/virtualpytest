@@ -33,6 +33,7 @@ import { DesktopPanel } from '../components/controller/desktop/DesktopPanel';
 import { WebPanel } from '../components/controller/web/WebPanel';
 import { VNCStream } from '../components/controller/av/VNCStream';
 import { HDMIStream } from '../components/controller/av/HDMIStream';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { NavigationBreadcrumbCompact } from '../components/navigation/NavigationBreadcrumbCompact';
 import { EdgeEditDialog } from '../components/navigation/Navigation_EdgeEditDialog';
 import { AIGenerationModal } from '../components/navigation/AIGenerationModal';
@@ -267,6 +268,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       
       // API methods
       loadTreeByUserInterface,
+
+      // Confirmation dialog state and handlers
+      confirmDialogState,
+      confirmDialogHandleConfirm,
+      confirmDialogHandleCancel,
     } = useNavigationEditor();
 
     // treeName is available from useParams and used for userInterface resolution
@@ -1647,6 +1653,18 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             </Alert>
           </Snackbar>
         )}
+
+        {/* Confirmation Dialog - replaces window.confirm */}
+        <ConfirmDialog
+          open={confirmDialogState.open}
+          title={confirmDialogState.title}
+          message={confirmDialogState.message}
+          confirmText={confirmDialogState.confirmText}
+          cancelText={confirmDialogState.cancelText}
+          confirmColor={confirmDialogState.confirmColor}
+          onConfirm={confirmDialogHandleConfirm}
+          onCancel={confirmDialogHandleCancel}
+        />
       </Box>
     );
 };
