@@ -969,6 +969,27 @@ Example workflow:
                 }
             },
             {
+                "name": "get_compatible_hosts",
+                "description": """Get hosts and devices compatible with a userinterface
+
+⚠️ CRITICAL: Use this tool BEFORE execute_edge, navigate_to_node, 
+execute_testcase, or generate_test_graph to find compatible hosts/devices.
+
+This tool automatically filters hosts based on the userinterface's device models
+and returns the first compatible host/device for immediate use.
+
+Example:
+  get_compatible_hosts(userinterface_name='sauce-demo')
+  # Returns: recommended_host='your-mac', recommended_device='device1'""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "userinterface_name": {"type": "string", "description": "Interface name (e.g., 'sauce-demo') (REQUIRED)"}
+                    },
+                    "required": ["userinterface_name"]
+                }
+            },
+            {
                 "name": "get_execution_status",
                 "description": "Poll async execution status for actions, testcases, or AI operations.",
                 "inputSchema": {
