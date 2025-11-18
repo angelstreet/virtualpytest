@@ -504,6 +504,18 @@ class AIGraphBuilder:
                     context['available_nodes'] = formatted_context
                     context['structure_hints'] = structure_hints
                     context['intent'] = preprocessed['intent']
+                    
+                    # 📋 DEBUG: Log what nodes/actions/verifications are being sent to AI
+                    print(f"[@ai_builder] 📋 Context being sent to AI:")
+                    print(f"[@ai_builder]   Nodes (raw): {context.get('nodes_raw', [])}")
+                    print(f"[@ai_builder]   Actions count: {len(context.get('actions_raw', []))}")
+                    print(f"[@ai_builder]   Verifications count: {len(context.get('verifications_raw', []))}")
+                    if filtered_context and 'Navigation' in formatted_context:
+                        # Extract node list from formatted context for debugging
+                        import re
+                        node_matches = re.findall(r'- (\w+)', formatted_context)
+                        if node_matches:
+                            print(f"[@ai_builder]   Filtered nodes for AI: {node_matches}")
                 else:
                     # Unknown status
                     return {
@@ -535,6 +547,24 @@ class AIGraphBuilder:
                 
                 # Step 9: Post-process graph
                 graph = self._postprocess_graph(graph, context)
+                
+                # 📋 DEBUG: Log what nodes the AI generated
+                print(f"[@ai_builder] 📋 AI Generated Graph:")
+                print(f"[@ai_builder]   Total blocks: {len(graph.get('nodes', []))}")
+                for idx, node in enumerate(graph.get('nodes', [])[:10]):  # Show first 10
+                    node_type = node.get('type', 'unknown')
+                    node_id = node.get('id', f'node_{idx}')
+                    if node_type == 'navigation':
+                        target = node.get('data', {}).get('target_node_label') or node.get('data', {}).get('target_node_id')
+                        print(f"[@ai_builder]     {idx+1}. Navigation → {target}")
+                    elif node_type == 'action':
+                        command = node.get('data', {}).get('command', 'unknown')
+                        print(f"[@ai_builder]     {idx+1}. Action: {command}")
+                    elif node_type == 'verification':
+                        command = node.get('data', {}).get('command', 'unknown')
+                        print(f"[@ai_builder]     {idx+1}. Verify: {command}")
+                    else:
+                        print(f"[@ai_builder]     {idx+1}. {node_type}")
                 
                 # Step 10: Calculate stats
                 stats = self._calculate_stats(graph, ai_response.get('_usage', {}))
@@ -631,6 +661,7 @@ class AIGraphBuilder:
         self._context_cache[cache_key] = (context, time.time())
         
         print(f"[@ai_builder:context] Loaded: {len(nav_nodes)} nodes, {len(actions)} actions, {len(verifications)} verifications")
+        print(f"[@ai_builder:context] 📋 Available navigation nodes: {nav_nodes}")
         
         return context
     

@@ -23,6 +23,151 @@ def get_supabase():
     return get_supabase_client()
 
 
+def validate_testcase_graph(
+    graph_json: Dict[str, Any],
+    userinterface_name: str,
+    team_id: str
+) -> Dict[str, Any]:
+    """
+    Validate testcase graph before saving - checks that all referenced nodes, edges, and actions exist.
+    
+    This prevents AI-generated or manually created test cases from referencing non-existent resources,
+    which would cause runtime failures during execution.
+    
+    Args:
+        graph_json: Test case graph {nodes: [...], edges: [...]}
+        userinterface_name: User interface name (e.g., 'sauce-demo')
+        team_id: Team ID for database queries
+        
+    Returns:
+        {
+            'success': bool,
+            'errors': List[str] (if validation fails),
+            'warnings': List[str] (non-critical issues)
+        }
+    """
+    from shared.src.lib.database.navigation_trees_db import get_tree_nodes
+    from shared.src.lib.database.userinterface_db import get_userinterface_by_name
+    
+    errors = []
+    warnings = []
+    
+    try:
+        # Get userinterface to find tree_id
+        ui_result = get_userinterface_by_name(userinterface_name, team_id)
+        if not ui_result or not ui_result.get('success'):
+            return {
+                'success': False,
+                'errors': [f"User interface '{userinterface_name}' not found"]
+            }
+        
+        tree_id = ui_result['userinterface'].get('root_tree_id')
+        if not tree_id:
+            return {
+                'success': False,
+                'errors': [f"No navigation tree found for '{userinterface_name}'"]
+            }
+        
+        # Get available navigation nodes from tree
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        if not nodes_result.get('success'):
+            errors.append(f"Failed to load navigation tree: {nodes_result.get('error')}")
+            return {'success': False, 'errors': errors}
+        
+        # Extract valid node labels
+        valid_node_labels = set()
+        for node in nodes_result.get('nodes', []):
+            label = node.get('label')
+            if label:
+                valid_node_labels.add(label)
+        
+        print(f"[@testcase_db:validate] Valid navigation nodes: {valid_node_labels}")
+        
+        # Validate each node in the graph
+        graph_nodes = graph_json.get('nodes', [])
+        for idx, graph_node in enumerate(graph_nodes):
+            node_id = graph_node.get('id', f'node_{idx}')
+            node_type = graph_node.get('type', 'unknown')
+            node_data = graph_node.get('data', {})
+            
+            # Check navigation blocks
+            if node_type == 'navigation':
+                target_label = node_data.get('target_node_label')
+                target_id = node_data.get('target_node_id')
+                
+                # Validation: Must have at least one target
+                if not target_label and not target_id:
+                    errors.append(
+                        f"Navigation block '{node_id}' missing both target_node_label and target_node_id"
+                    )
+                    continue
+                
+                # Validate target_node_label if provided
+                if target_label:
+                    if target_label not in valid_node_labels:
+                        errors.append(
+                            f"Navigation block '{node_id}' references non-existent node '{target_label}'. "
+                            f"Valid nodes: {sorted(valid_node_labels)}"
+                        )
+                
+                # Validate target_node_id if provided (should match label)
+                if target_id and target_id not in valid_node_labels:
+                    # target_node_id should also be a label in new architecture
+                    warnings.append(
+                        f"Navigation block '{node_id}' uses target_node_id='{target_id}' "
+                        f"which doesn't match any known label. Consider using target_node_label instead."
+                    )
+            
+            # Check action blocks (future enhancement - would need device context)
+            elif node_type == 'action':
+                # For now, just warn if action looks suspicious
+                action_command = node_data.get('command')
+                if not action_command:
+                    warnings.append(
+                        f"Action block '{node_id}' has no command specified"
+                    )
+            
+            # Check verification blocks (future enhancement)
+            elif node_type == 'verification':
+                verification_command = node_data.get('command')
+                if not verification_command:
+                    warnings.append(
+                        f"Verification block '{node_id}' has no command specified"
+                    )
+        
+        # Return validation result
+        if errors:
+            print(f"[@testcase_db:validate] ❌ Validation FAILED: {len(errors)} error(s)")
+            for error in errors:
+                print(f"[@testcase_db:validate]   - {error}")
+            return {
+                'success': False,
+                'errors': errors,
+                'warnings': warnings
+            }
+        
+        if warnings:
+            print(f"[@testcase_db:validate] ⚠️  Validation passed with {len(warnings)} warning(s)")
+            for warning in warnings:
+                print(f"[@testcase_db:validate]   - {warning}")
+        else:
+            print(f"[@testcase_db:validate] ✅ Validation passed - all references valid")
+        
+        return {
+            'success': True,
+            'warnings': warnings
+        }
+        
+    except Exception as e:
+        print(f"[@testcase_db:validate] Exception during validation: {e}")
+        import traceback
+        traceback.print_exc()
+        return {
+            'success': False,
+            'errors': [f"Validation failed with exception: {str(e)}"]
+        }
+
+
 def create_testcase(
     team_id: str,
     testcase_name: str,
@@ -65,6 +210,25 @@ def create_testcase(
         return None
     
     try:
+        # 🛡️ VALIDATION: Validate graph before saving (if userinterface_name provided)
+        if userinterface_name and graph_json:
+            print(f"[@testcase_db] 🛡️ Validating test case graph...")
+            validation_result = validate_testcase_graph(graph_json, userinterface_name, team_id)
+            
+            if not validation_result['success']:
+                errors = validation_result.get('errors', [])
+                print(f"[@testcase_db] ❌ Validation FAILED - cannot save test case")
+                for error in errors:
+                    print(f"[@testcase_db]   - {error}")
+                # Return special error code so caller knows why it failed
+                return 'VALIDATION_FAILED'
+            
+            warnings = validation_result.get('warnings', [])
+            if warnings:
+                print(f"[@testcase_db] ⚠️  Validation passed with warnings:")
+                for warning in warnings:
+                    print(f"[@testcase_db]   - {warning}")
+        
         # Check if test case with this name already exists in this environment
         if overwrite:
             existing = get_testcase_by_name(testcase_name, team_id, environment)

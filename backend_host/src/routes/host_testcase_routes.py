@@ -513,6 +513,13 @@ def execute_from_prompt():
                         ai_analysis=analysis
                     )
                     
+                    # Check for validation failure
+                    if testcase_id == 'VALIDATION_FAILED':
+                        return jsonify({
+                            'success': False,
+                            'error': 'Test case validation failed - graph references non-existent nodes, edges, or actions. Check logs for details.'
+                        }), 400
+                    
                     if testcase_id:
                         print(f"[@host_testcase] Saved test case: {testcase_name} (ID: {testcase_id})")
                     else:
