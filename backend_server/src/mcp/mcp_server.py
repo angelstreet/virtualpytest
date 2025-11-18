@@ -24,12 +24,13 @@ This server provides 52 core tools for device automation:
 16. list_scripts - List all available Python scripts
 17. execute_script - Execute Python scripts with CLI parameters
 18. generate_test_graph - AI-powered test generation
-19. capture_screenshot - Capture screenshots for vision analysis
-20. get_transcript - Fetch audio transcripts
-21. get_device_info - Get device capabilities and info
-22. get_compatible_hosts - Find compatible hosts/devices for userinterface (use BEFORE test execution)
-23. get_execution_status - Poll async execution status
-24. view_logs - View systemd service logs
+19. generate_and_save_testcase - AI generation + auto-save in one step (NEW)
+20. capture_screenshot - Capture screenshots for vision analysis
+21. get_transcript - Fetch audio transcripts
+22. get_device_info - Get device capabilities and info
+23. get_compatible_hosts - Find compatible hosts/devices for userinterface (use BEFORE test execution)
+24. get_execution_status - Poll async execution status
+25. view_logs - View systemd service logs
 25. list_services - List available systemd services
 26. create_node - Create navigation tree nodes
 27. update_node - Update node properties
@@ -149,6 +150,7 @@ class VirtualPyTestMCPServer:
             
             # AI tools
             'generate_test_graph': self.ai_tools.generate_test_graph,
+            'generate_and_save_testcase': self.ai_tools.generate_and_save_testcase,  # NEW - Generate + save in one step
             
             # Screenshot tools
             'capture_screenshot': self.screenshot_tools.capture_screenshot,
@@ -924,6 +926,45 @@ Example workflow:
                         "current_node_id": {"type": "string", "description": "Current node ID for context (optional)"}
                     },
                     "required": ["prompt", "userinterface_name"]
+                }
+            },
+            {
+                "name": "generate_and_save_testcase",
+                "description": """Generate test case graph AND save it in one step
+
+This tool combines AI generation + saving to work around MCP protocol limitations.
+Use this instead of generate_test_graph when you want to save the result immediately.
+
+⚠️ CRITICAL: Use get_compatible_hosts(userinterface_name='...') FIRST to find host/device.
+
+Example workflow:
+1. hosts = get_compatible_hosts(userinterface_name='sauce-demo')
+2. generate_and_save_testcase(
+     prompt="Test login flow",
+     testcase_name="TC_AUTH_01_LoginFlow",
+     host_name=hosts['recommended_host'],
+     device_id=hosts['recommended_device'],
+     userinterface_name='sauce-demo',
+     description="Tests login with valid credentials",
+     folder="authentication",
+     tags=["auth", "critical"]
+   )
+3. execute_testcase(testcase_name="TC_AUTH_01_LoginFlow")""",
+                "inputSchema": {
+                    "type": "object",
+                    "properties": {
+                        "prompt": {"type": "string", "description": "Natural language test description"},
+                        "testcase_name": {"type": "string", "description": "Name to save testcase as"},
+                        "userinterface_name": {"type": "string", "description": "User interface name"},
+                        "host_name": {"type": "string", "description": "Host name (get from get_compatible_hosts)"},
+                        "device_id": {"type": "string", "description": "Device ID (get from get_compatible_hosts)"},
+                        "description": {"type": "string", "description": "Test description (optional)"},
+                        "folder": {"type": "string", "description": "Folder path (optional)"},
+                        "tags": {"type": "array", "items": {"type": "string"}, "description": "Tags (optional)"},
+                        "team_id": {"type": "string", "description": "Team ID (optional)"},
+                        "current_node_id": {"type": "string", "description": "Current node ID for context (optional)"}
+                    },
+                    "required": ["prompt", "testcase_name", "userinterface_name", "host_name", "device_id"]
                 }
             },
             {

@@ -130,4 +130,87 @@ class AITools:
             "analysis": analysis,
             "stats": stats
         }
+    
+    def generate_and_save_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Generate test case graph from prompt AND save it in one step
+        
+        This combines generate_test_graph + save_testcase to avoid the MCP protocol
+        limitation where complex objects can't be passed between tools.
+        
+        Args:
+            params: {
+                'prompt': str (REQUIRED) - Natural language test description,
+                'testcase_name': str (REQUIRED) - Name to save testcase as,
+                'device_id': str (REQUIRED),
+                'host_name': str (REQUIRED),
+                'userinterface_name': str (REQUIRED),
+                'team_id': str (OPTIONAL),
+                'description': str (OPTIONAL),
+                'folder': str (OPTIONAL),
+                'tags': List[str] (OPTIONAL),
+                'current_node_id': str (OPTIONAL)
+            }
+            
+        Returns:
+            MCP-formatted response with saved testcase info
+        """
+        # Step 1: Generate the graph
+        generate_params = {
+            'prompt': params.get('prompt'),
+            'device_id': params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID']),
+            'host_name': params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME']),
+            'userinterface_name': params.get('userinterface_name'),
+            'team_id': params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID']),
+            'current_node_id': params.get('current_node_id')
+        }
+        
+        generate_result = self.generate_test_graph(generate_params)
+        
+        if generate_result.get('isError'):
+            return generate_result
+        
+        # Extract graph from generation result
+        graph = generate_result.get('graph')
+        if not graph:
+            return {"content": [{"type": "text", "text": "❌ Error: Failed to extract graph from generation"}], "isError": True}
+        
+        # Step 2: Save the graph
+        save_data = {
+            'testcase_name': params.get('testcase_name'),
+            'graph_json': graph,
+            'team_id': params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID']),
+            'description': params.get('description', ''),
+            'userinterface_name': params.get('userinterface_name', ''),
+            'folder': params.get('folder', '(Root)'),
+            'tags': params.get('tags', [])
+        }
+        
+        save_result = self.api.post('/server/testcase/save', data=save_data)
+        
+        if not save_result.get('success'):
+            error_msg = save_result.get('error', 'Failed to save testcase')
+            return {"content": [{"type": "text", "text": f"❌ Save failed: {error_msg}"}], "isError": True}
+        
+        testcase_id = save_result.get('testcase_id')
+        analysis = generate_result.get('analysis', '')
+        stats = generate_result.get('stats', {})
+        
+        response_text = f"✅ Test case generated and saved successfully!\n\n"
+        response_text += f"Name: {params.get('testcase_name')}\n"
+        response_text += f"ID: {testcase_id}\n\n"
+        response_text += f"Analysis: {analysis}\n\n"
+        
+        if stats:
+            block_counts = stats.get('block_counts', {})
+            response_text += f"Blocks: {block_counts.get('total', 0)} total "
+            response_text += f"({block_counts.get('navigation', 0)} nav, {block_counts.get('action', 0)} action, {block_counts.get('verification', 0)} verify)\n"
+        
+        response_text += f"\nUse execute_testcase(testcase_name='{params.get('testcase_name')}') to run."
+        
+        return {
+            "content": [{"type": "text", "text": response_text}],
+            "isError": False,
+            "testcase_id": testcase_id
+        }
 
