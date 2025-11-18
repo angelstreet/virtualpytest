@@ -342,7 +342,23 @@ def get_node_api(tree_id, node_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/nodes', methods=['POST'])
 def create_node_api(tree_id):
-    """Create a new node."""
+    """
+    Create a new node.
+    
+    Node Structure:
+    {
+        "node_id": "string",
+        "label": "string", 
+        "node_type": "screen|entry|...",
+        "position_x": number,
+        "position_y": number,
+        "verifications": [...]  # ⚠️ TOP-LEVEL FIELD - verifications go HERE, not in data.verifications
+        "data": {...}           # Metadata only - don't put verifications here
+    }
+    
+    Note: The backend will auto-migrate verifications from data.verifications to root level
+    as a safety measure, but always put them at the top level in your requests.
+    """
     try:
         team_id = request.args.get('team_id')
         if not team_id:
@@ -380,7 +396,19 @@ def create_node_api(tree_id):
 
 @server_navigation_trees_bp.route('/navigationTrees/<tree_id>/nodes/<node_id>', methods=['PUT'])
 def update_node_api(tree_id, node_id):
-    """Update a node."""
+    """
+    Update a node.
+    
+    Updates Structure:
+    {
+        "verifications": [...]  # ⚠️ TOP-LEVEL FIELD - verifications go HERE, not in data.verifications
+        "data": {...}           # Metadata only - don't put verifications here
+        ... other fields ...
+    }
+    
+    Note: The backend will auto-migrate verifications from data.verifications to root level
+    as a safety measure, but always put them at the top level in your requests.
+    """
     try:
         team_id = request.args.get('team_id')
         if not team_id:

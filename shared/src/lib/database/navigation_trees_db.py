@@ -351,6 +351,21 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         if 'node_type' in node_data:
             node_data['data']['type'] = node_data['node_type']
         
+        # 🛡️ PROTECTION: Auto-migrate verifications from data.verifications to root level
+        # This protects against AI/API misuse where verifications are put in wrong location
+        if 'data' in node_data and 'verifications' in node_data.get('data', {}):
+            data_verifications = node_data['data']['verifications']
+            
+            # If root verifications is empty or missing, migrate from data
+            if not node_data.get('verifications'):
+                node_data['verifications'] = data_verifications
+                print(f"[@db:save_node] ⚠️ Auto-migrated {len(data_verifications)} verifications from data.verifications to root level for node {node_data.get('node_id')}")
+            
+            # Always clean up the duplicate to avoid confusion
+            if data_verifications:
+                del node_data['data']['verifications']
+                print(f"[@db:save_node] 🧹 Removed duplicate verifications from data.verifications")
+        
         # Log what we're about to save
         print(f"[@db:navigation_trees:save_node] Saving node {node_data['node_id']}")
         print(f"[@db:navigation_trees:save_node] data.is_root = {node_data.get('data', {}).get('is_root')}")
