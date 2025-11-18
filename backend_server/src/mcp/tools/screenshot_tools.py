@@ -35,10 +35,10 @@ class ScreenshotTools:
         Returns:
             MCP-formatted response with base64 screenshot for AI vision analysis
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        device_id = params.get('device_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         include_ui_dump = params.get('include_ui_dump', False)
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        host_name = params.get('host_name')
         
         # Validate required parameters
         

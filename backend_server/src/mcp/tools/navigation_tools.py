@@ -217,10 +217,10 @@ class NavigationTools:
         userinterface_name = params.get('userinterface_name')
         target_node_id = params.get('target_node_id')
         target_node_label = params.get('target_node_label')
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        device_id = params.get('device_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         current_node_id = params.get('current_node_id')
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        host_name = params.get('host_name')
         
         # Validate required parameters
         if not tree_id:

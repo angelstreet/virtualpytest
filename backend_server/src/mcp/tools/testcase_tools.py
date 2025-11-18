@@ -53,8 +53,8 @@ class TestCaseTools:
             MCP-formatted response with execution results
         """
         testcase_name = params.get('testcase_name')
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         graph_json = params.get('graph_json')
         userinterface_name = params.get('userinterface_name', '')
@@ -178,8 +178,8 @@ class TestCaseTools:
             MCP-formatted response with execution results
         """
         testcase_id = params.get('testcase_id')
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         userinterface_name_override = params.get('userinterface_name', '')
         

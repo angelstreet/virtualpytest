@@ -35,8 +35,8 @@ class ActionTools:
         Returns:
             MCP-formatted response with categorized list of available actions
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Validate required parameters
@@ -139,8 +139,8 @@ class ActionTools:
         Returns:
             MCP-formatted response with execution results
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         actions = params.get('actions', [])
         retry_actions = params.get('retry_actions', [])

@@ -51,7 +51,7 @@ class VerificationValidator:
         if not verifications:
             return True, [], []
         
-        host_name = host_name or APP_CONFIG.get('DEFAULT_HOST_NAME', 'sunri-pi1')
+        # No default host_name - must be provided explicitly via get_compatible_hosts()
         device_id = device_id or self._get_default_device_id_for_model(device_model)
         
         # Get valid commands for this device model
@@ -231,7 +231,7 @@ class VerificationValidator:
         Returns:
             Formatted string listing available commands by category
         """
-        host_name = host_name or APP_CONFIG.get('DEFAULT_HOST_NAME', 'sunri-pi1')
+        # No default host_name - must be provided explicitly via get_compatible_hosts()
         device_id = device_id or self._get_default_device_id_for_model(device_model)
         
         valid_commands = self._get_valid_commands(device_model, host_name, device_id)

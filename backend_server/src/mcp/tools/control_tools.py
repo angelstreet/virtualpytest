@@ -35,8 +35,8 @@ class ControlTools:
         Returns:
             MCP-formatted response with session_id and cache status
         """
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name')
+        device_id = params.get('device_id')
         tree_id = params.get('tree_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
@@ -66,8 +66,8 @@ class ControlTools:
         Returns:
             MCP-formatted response
         """
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        host_name = params.get('host_name')
+        device_id = params.get('device_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Build request

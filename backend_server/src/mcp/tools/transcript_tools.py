@@ -36,7 +36,7 @@ class TranscriptTools:
         Returns:
             MCP-formatted response with transcript segments and timestamps
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        device_id = params.get('device_id')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         chunk_url = params.get('chunk_url')
         hour = params.get('hour')

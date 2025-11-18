@@ -32,8 +32,8 @@ class DeviceTools:
         Returns:
             MCP-formatted response with device information
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         
         # Build request
         query_params = {}

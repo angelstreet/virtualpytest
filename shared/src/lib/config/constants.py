@@ -26,15 +26,6 @@ APP_CONFIG = {
     # Can be overridden via USER_ID environment variable
     'DEFAULT_USER_ID': os.getenv('USER_ID', 'eb6cfd93-44ab-4783-bd0c-129b734640f3'),
     
-    # Default Host Name for device operations
-    # MUST be provided via HOST_NAME environment variable or get_compatible_hosts() tool
-    # No hardcoded default - forces explicit host discovery
-    'DEFAULT_HOST_NAME': os.getenv('HOST_NAME'),
-    
-    # Default Device ID fallback
-    # Can be overridden via DEVICE_ID environment variable
-    'DEFAULT_DEVICE_ID': os.getenv('DEVICE_ID', 'device1'),
-    
     # Default identifiers for legacy APIs
     'DEFAULT_USER_NAME': 'default-user',
     'DEFAULT_TEAM_NAME': 'default-team-id',

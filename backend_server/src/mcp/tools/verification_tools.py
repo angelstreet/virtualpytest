@@ -34,8 +34,8 @@ class VerificationTools:
         Returns:
             MCP-formatted response with categorized list of available verifications
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         
         # Validate required parameters
@@ -152,8 +152,8 @@ class VerificationTools:
         Returns:
             MCP-formatted response with verification results and evidence
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         userinterface_name = params.get('userinterface_name')
         verifications = params.get('verifications', [])
@@ -224,8 +224,8 @@ class VerificationTools:
         Returns:
             MCP-formatted response with UI elements array
         """
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         platform = params.get('platform', 'mobile')
         
@@ -367,8 +367,8 @@ class VerificationTools:
             node_id = params['node_id']
             tree_id = params['tree_id']
             userinterface_name = params['userinterface_name']
-            device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-            host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+            device_id = params.get('device_id')
+            host_name = params.get('host_name')
             team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
             
             print(f"[@MCP:verify_node] Verifying node {node_id} in tree {tree_id}")

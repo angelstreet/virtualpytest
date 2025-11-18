@@ -56,8 +56,8 @@ class AITools:
             Graph can be passed to execute_testcase or save_testcase.
         """
         prompt = params.get('prompt')
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
-        host_name = params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME'])
+        device_id = params.get('device_id')
+        host_name = params.get('host_name')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         userinterface_name = params.get('userinterface_name')
         current_node_id = params.get('current_node_id')
@@ -186,8 +186,8 @@ class AITools:
         # Step 1: Generate the graph
         generate_params = {
             'prompt': params.get('prompt'),
-            'device_id': params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID']),
-            'host_name': params.get('host_name', APP_CONFIG['DEFAULT_HOST_NAME']),
+            'device_id': params.get('device_id'),
+            'host_name': params.get('host_name'),
             'userinterface_name': params.get('userinterface_name'),
             'team_id': params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID']),
             'current_node_id': params.get('current_node_id')

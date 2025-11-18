@@ -77,7 +77,7 @@ class ScriptTools:
         """
         script_name = params.get('script_name')
         host_name = params.get('host_name')
-        device_id = params.get('device_id', APP_CONFIG['DEFAULT_DEVICE_ID'])
+        device_id = params.get('device_id')
         parameters = params.get('parameters', '')
         userinterface_name = params.get('userinterface_name', '')
         team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
