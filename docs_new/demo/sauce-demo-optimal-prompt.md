@@ -43,17 +43,54 @@ Navigation flow to implement:
 6. Search flow: home → search_results → product_detail
 
 Process:
+
+**PHASE 1: Setup & Discovery (DO THIS FIRST)**
+
 0. Get compatible host and device:
    hosts = get_compatible_hosts(userinterface_name='sauce-demo')
    host_name = hosts['recommended_host']
    device_id = hosts['recommended_device']
+
+1. Get tree_id for execute_edge() calls:
+   nodes = list_navigation_nodes(userinterface_name='sauce-demo')
+   # Note the tree_id from response - needed for all edge testing
+
+2. Navigate site logged OUT: inspect signup (#customer_register), login (#customer_login_link)
+
+3. Create signup account with test credentials
+
+4. Navigate site logged IN: find logout element location
+
+5. Dump UI elements for all screens to get exact selectors:
+   dump_ui_elements(device_id=device_id, host_name=host_name, platform='web')
+
+**PHASE 2: Build Navigation Tree (ONE EDGE AT A TIME - TEST IMMEDIATELY)**
+
+6. For EACH node/edge pair, follow this sequence:
+
+   a. Create node:
+      create_node(tree_id='...', label='login', type='screen')
    
-1. Navigate site logged OUT: inspect signup (#customer_register), login (#customer_login_link)
-2. Create signup account with test credentials
-3. Navigate site logged IN: find logout element location
-4. Dump UI elements for all screens to get exact selectors
-5. Create nodes with structural verifications (1 per node, unless not unique)
-6. Create edges using CSS/XPath selectors:
+   b. Create edge with verifications:
+      create_edge(
+        tree_id='...',
+        source_node_id='home',
+        target_node_id='login',
+        source_label='home',
+        target_label='login',
+        action_sets=[...]  # Use CSS/XPath selectors discovered in Phase 1
+      )
+   
+   c. TEST EDGE IMMEDIATELY (MANDATORY):
+      execute_edge(edge_id='...', tree_id='...', userinterface_name='sauce-demo')
+   
+   d. If fails: update_edge() with correct selectors, repeat step c
+   
+   e. If success: Move to next node/edge pair
+   
+   DO NOT create multiple edges without testing each one.
+
+   Example edges to create (in order):
    - home → signup: click_element("#customer_login_link") then click "Sign up"
    - home → login: click_element("#customer_login_link")
    - login → home (after login): verify redirect
@@ -61,20 +98,16 @@ Process:
    - home → search: click_element(".search-input"), input_text(".search-input", "jacket"), click submit
    - home → product: click_element("Grey jacket")
    - product → cart: click_element("Add to Cart"), click_element(".checkout-link")
-   
-7. MANDATORY - Test each edge immediately after creation:
-   
-   For EACH edge:
-   a. create_edge(...)  ← Creates edge
-   b. execute_edge(edge_id='...', tree_id='...')  ← TEST IT NOW
-   c. If fails: update_edge() with correct selectors, goto b
-   d. If success: Move to next edge
-   
-   DO NOT create multiple edges without testing each one.
-   
-8. After all edges validated: Create 6 requirements with acceptance criteria
-9. Create 6 test cases linked to requirements
-10. Execute TC_AUTH_01_CompleteAuthFlow end-to-end to validate
+
+**PHASE 3: Requirements & Test Cases (AFTER ALL EDGES VALIDATED)**
+
+7. Create 6 requirements with acceptance criteria
+
+8. Create 6 test cases linked to requirements
+
+9. Execute TC_AUTH_01_CompleteAuthFlow end-to-end to validate
+
+10. Verify all test cases pass
 
 Deliver:
 - Navigation tree: 7 nodes (home, signup, login, logout, product_detail, cart, search_results)
