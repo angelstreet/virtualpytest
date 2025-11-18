@@ -19,7 +19,7 @@ def _get_nginx_host_url(host_info: dict) -> str:
         host_info: Host information from registry
         
     Returns:
-        Host URL without port for nginx serving (preserves HTTPS for local access)
+        Host URL without port for nginx serving (preserves original protocol)
     """
     host_url = host_info.get('host_url', '')
     
@@ -27,17 +27,14 @@ def _get_nginx_host_url(host_info: dict) -> str:
     if ':' in host_url:
         import re
         # Only strip port numbers, not the protocol
-        # This preserves HTTPS for local access (e.g., https://192.168.1.34:8084 -> https://192.168.1.34)
+        # Preserves original protocol (http:// stays http://, https:// stays https://)
         host_url = re.sub(r':(\d+)$', '', host_url)
     
-    # For local IP addresses, ensure HTTPS if the original had HTTPS or if it's missing protocol
+    # For local IP addresses without protocol, default to HTTP
     if host_url and ('192.168.' in host_url or '10.' in host_url or '127.0.0.1' in host_url):
         if not host_url.startswith(('http://', 'https://')):
-            # No protocol specified, default to HTTPS for local IPs
-            host_url = f'https://{host_url}'
-        elif host_url.startswith('http://'):
-            # Convert HTTP to HTTPS for local IPs to avoid mixed content issues
-            host_url = host_url.replace('http://', 'https://', 1)
+            # No protocol specified, default to HTTP for local IPs
+            host_url = f'http://{host_url}'
     
     return host_url
 
