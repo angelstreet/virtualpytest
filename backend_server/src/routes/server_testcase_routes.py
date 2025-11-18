@@ -106,6 +106,8 @@ def testcase_save():
                     })
                 else:
                     return jsonify({'success': False, 'error': 'Test case not found after creation'}), 404
+            elif new_testcase_result == 'VALIDATION_FAILED':
+                return jsonify({'success': False, 'error': 'Graph validation failed. Check graph structure and userinterface name.'}), 400
             elif new_testcase_result == 'DUPLICATE_NAME':
                 return jsonify({'success': False, 'error': f'Test case name "{testcase_name}" already exists. Please choose a different name or enable overwrite.'}), 409
             elif new_testcase_result:
