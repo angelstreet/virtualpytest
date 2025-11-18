@@ -34,7 +34,18 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
   reportUrl,
 }) => {
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+    <Dialog 
+      open={open} 
+      onClose={onClose} 
+      maxWidth="xs" 
+      fullWidth
+      PaperProps={{
+        sx: {
+          border: 2,
+          borderColor: 'divider',
+        }
+      }}
+    >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="h6">Validation Complete</Typography>
