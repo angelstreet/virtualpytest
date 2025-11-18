@@ -937,6 +937,11 @@ Use this instead of generate_test_graph when you want to save the result immedia
 
 ⚠️ CRITICAL: Use get_compatible_hosts(userinterface_name='...') FIRST to find host/device.
 
+⚠️ CRITICAL: Testcase Naming Convention (REQUIRED)
+- Format: TC_<CATEGORY>_<NUMBER>_<CamelCaseAction>
+- Examples: TC_AUTH_01_LoginFlow, TC_SRCH_01_ProductSearch (note: SRCH not SEARCH)
+- Categories: AUTH, NAV, SRCH, PLAY, PROD, CART, VOD, etc.
+
 Example workflow:
 1. hosts = get_compatible_hosts(userinterface_name='sauce-demo')
 2. generate_and_save_testcase(
@@ -954,7 +959,7 @@ Example workflow:
                     "type": "object",
                     "properties": {
                         "prompt": {"type": "string", "description": "Natural language test description"},
-                        "testcase_name": {"type": "string", "description": "Name to save testcase as"},
+                        "testcase_name": {"type": "string", "description": "Name following TC_<CATEGORY>_<NUMBER>_<CamelCaseAction> format (e.g. TC_AUTH_01_LoginFlow)"},
                         "userinterface_name": {"type": "string", "description": "User interface name"},
                         "host_name": {"type": "string", "description": "Host name (get from get_compatible_hosts)"},
                         "device_id": {"type": "string", "description": "Device ID (get from get_compatible_hosts)"},

@@ -138,10 +138,38 @@ class AITools:
         This combines generate_test_graph + save_testcase to avoid the MCP protocol
         limitation where complex objects can't be passed between tools.
         
+        ⚠️ CRITICAL: Testcase Naming Convention (REQUIRED)
+        - Format: TC_<CATEGORY>_<NUMBER>_<CamelCaseAction>
+        - Category: 3-4 char uppercase code (AUTH, NAV, SRCH, PLAY, PROD, CART, etc.)
+        - Number: 2-digit zero-padded (01-99)
+        - Action: CamelCase descriptor (2-4 words)
+        
+        Examples:
+        - ✅ TC_AUTH_01_SignupLoginFlow
+        - ✅ TC_SRCH_01_ProductSearch (note: SRCH not SEARCH)
+        - ✅ TC_NAV_01_CategoryNavigation
+        - ✅ TC_CART_01_AddToCart
+        - ❌ TestCase_Auth_1_Signup (wrong format)
+        - ❌ TC_SEARCH_01_Search (should be SRCH)
+        
+        Common Categories:
+        - AUTH: Authentication/signup/login
+        - NAV: Navigation/menus
+        - SRCH: Search functionality
+        - PROD: Product browsing
+        - CART: Shopping cart
+        - PLAY: Video playback
+        - VOD: Video on demand
+        
+        ⚠️ CRITICAL: Host/Device Selection
+        - If user explicitly specifies host_name/device_id: Use those values directly
+        - Otherwise: Call get_compatible_hosts(userinterface_name='...') FIRST
+        - DO NOT use default values blindly
+        
         Args:
             params: {
                 'prompt': str (REQUIRED) - Natural language test description,
-                'testcase_name': str (REQUIRED) - Name to save testcase as,
+                'testcase_name': str (REQUIRED) - Name following TC_<CAT>_<NUM>_<Action> format,
                 'device_id': str (REQUIRED),
                 'host_name': str (REQUIRED),
                 'userinterface_name': str (REQUIRED),
