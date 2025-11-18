@@ -108,6 +108,18 @@ class TreeTools:
         """
         Create a node in navigation tree
         
+        ⚠️ REMINDER: Add verifications and test them
+        
+        After creating a node, consider:
+        1. Add verifications to the node (unique stable elements)
+        2. Test them: verify_node(node_id='...', tree_id='...')
+        3. Create edges to/from this node
+        4. Test each edge: execute_edge(edge_id='...', tree_id='...')
+        
+        **Tools for validation:**
+        - verify_node(node_id, tree_id) - Test node verifications
+        - execute_edge(edge_id, tree_id) - Test edges after creation
+        
         Args:
             tree_id: Navigation tree ID
             node_id: Node identifier (optional - auto-generated if omitted)
@@ -345,6 +357,27 @@ class TreeTools:
     def create_edge(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
         Create an edge between two nodes
+        
+        ⚠️ CRITICAL: INCREMENTAL VALIDATION REQUIRED
+        
+        After creating an edge, you MUST test it before creating the next one.
+        
+        **Workflow (AI must follow):**
+          1. create_edge(...)  
+          2. execute_edge(edge_id='...', tree_id='...')  ← TEST IT
+          3. If fails: update_edge() with correct selectors, test again
+          4. If success: Create next edge
+        
+        **Why this matters:**
+        - Catches selector errors immediately
+        - Prevents cascading failures (10 broken edges)
+        - Easier to debug when tested incrementally
+        - Ensures each transition works before building on it
+        
+        **Tools for validation:**
+        - execute_edge(edge_id, tree_id) - Test specific edge
+        - navigate_to_node(target_node_label, tree_id) - Test full path
+        - verify_node(node_id, tree_id) - Test node verifications
         
         Args:
             tree_id: Navigation tree ID (REQUIRED)
@@ -706,7 +739,9 @@ class TreeTools:
                 permanent_edge_id = edge.get('edge_id') or edge.get('id')
                 
                 return self.formatter.format_success(
-                    f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')} (ID: {permanent_edge_id})"
+                    f"✅ Edge created: {edge.get('source_node_id')} → {edge.get('target_node_id')} (ID: {permanent_edge_id})\n\n"
+                    f"⚠️ NEXT STEP REQUIRED: Test this edge before creating more!\n"
+                    f"Run: execute_edge(edge_id='{permanent_edge_id}', tree_id='{tree_id}')"
                 )
             else:
                 error_msg = result.get('error', 'Unknown error')
