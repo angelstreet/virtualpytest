@@ -59,7 +59,7 @@ Example workflow:
                 "properties": {
                     "prompt": {"type": "string", "description": "Natural language test description"},
                     "userinterface_name": {"type": "string", "description": "User interface name (e.g., 'horizon_android_tv', 'horizon_android_mobile')"},
-                    "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
+                    "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'use get_compatible_hosts to discover')"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
                     "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                     "current_node_id": {"type": "string", "description": "Current node ID for context (optional)"}

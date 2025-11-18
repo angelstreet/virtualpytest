@@ -13,7 +13,7 @@ def get_tools() -> List[Dict[str, Any]]:
                 "type": "object",
                 "properties": {
                     "device_id": {"type": "string", "description": "Specific device ID, or omit for all devices"},
-                    "host_name": {"type": "string", "description": "Host name to query (optional - defaults to 'sunri-pi1')"}
+                    "host_name": {"type": "string", "description": "Host name to query (use get_compatible_hosts to discover)"}
                 },
                 "required": []
             }

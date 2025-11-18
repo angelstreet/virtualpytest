@@ -32,10 +32,13 @@ Executes a Python script with optional CLI parameters.
 Polls automatically until completion (up to 2 hours for long scripts).
 
 Example:
+  # First get compatible host
+  hosts = get_compatible_hosts(userinterface_name='your-interface')
+  
   execute_script(
     script_name='my_validation.py',
-    host_name='sunri-pi1',
-    device_id='device1',
+    host_name=hosts['recommended_host'],
+    device_id=hosts['recommended_device'],
     userinterface_name='horizon_android_mobile',
     parameters='--param1 value1 --param2 value2'
   )""",

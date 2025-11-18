@@ -27,8 +27,9 @@ APP_CONFIG = {
     'DEFAULT_USER_ID': os.getenv('USER_ID', 'eb6cfd93-44ab-4783-bd0c-129b734640f3'),
     
     # Default Host Name for device operations
-    # Can be overridden via HOST_NAME environment variable
-    'DEFAULT_HOST_NAME': os.getenv('HOST_NAME', 'sunri-pi1'),
+    # MUST be provided via HOST_NAME environment variable or get_compatible_hosts() tool
+    # No hardcoded default - forces explicit host discovery
+    'DEFAULT_HOST_NAME': os.getenv('HOST_NAME'),
     
     # Default Device ID fallback
     # Can be overridden via DEVICE_ID environment variable

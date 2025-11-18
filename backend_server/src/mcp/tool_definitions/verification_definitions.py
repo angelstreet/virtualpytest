@@ -20,9 +20,12 @@ Device Model Specific:
 - web/desktop: Returns web verification methods
 
 Example:
+  # First get compatible host
+  hosts = get_compatible_hosts(userinterface_name='your-interface')
+  
   list_verifications(
-    device_id='device1',
-    host_name='sunri-pi1'
+    device_id=hosts['recommended_device'],
+    host_name=hosts['recommended_host']
   )""",
             "inputSchema": {
                 "type": "object",
@@ -92,7 +95,7 @@ Prefer stable structural elements (form fields, buttons) over dynamic content (p
                     },
                     "tree_id": {"type": "string", "description": "Navigation tree ID (optional)"},
                     "node_id": {"type": "string", "description": "Node ID to verify (optional)"},
-                    "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
+                    "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'use get_compatible_hosts to discover')"}
                 },
                 "required": ["userinterface_name", "verifications"]
             }
@@ -140,7 +143,7 @@ Example:
                 "type": "object",
                 "properties": {
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'sunri-pi1')"},
+                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'use get_compatible_hosts to discover')"},
                     "platform": {"type": "string", "description": "Platform type (optional: 'mobile', 'web', 'tv')"},
                     "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                 },
@@ -160,7 +163,7 @@ Args:
     node_id: Node identifier (REQUIRED)
     tree_id: Navigation tree ID (REQUIRED)
     device_id: Device identifier (optional - defaults to 'device1')
-    host_name: Host name (optional - defaults to 'sunri-pi1')
+    host_name: Host name (optional - defaults to 'use get_compatible_hosts to discover')
     userinterface_name: User interface name (REQUIRED)
     team_id: Team ID (optional - defaults to default)
 
@@ -180,7 +183,7 @@ Example:
                     "tree_id": {"type": "string", "description": "Navigation tree ID"},
                     "userinterface_name": {"type": "string", "description": "User interface name"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'sunri-pi1')"},
+                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'use get_compatible_hosts to discover')"},
                     "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                 },
                 "required": ["node_id", "tree_id", "userinterface_name"]

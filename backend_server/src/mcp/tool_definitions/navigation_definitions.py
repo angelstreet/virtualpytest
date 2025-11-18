@@ -61,7 +61,7 @@ Example workflow:
                     "target_node_id": {"type": "string", "description": "Target node ID (provide either this or target_node_label)"},
                     "target_node_label": {"type": "string", "description": "Target node label (provide either this or target_node_id)"},
                     "current_node_id": {"type": "string", "description": "Current node ID (optional)"},
-                    "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"}
+                    "host_name": {"type": "string", "description": "Host name where device is connected (use get_compatible_hosts to discover)"}
                 },
                 "required": ["tree_id", "userinterface_name"]
             }

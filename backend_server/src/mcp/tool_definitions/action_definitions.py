@@ -20,9 +20,12 @@ Device Model Specific:
 - web/desktop: Returns web automation commands (web_click, web_type, etc)
 
 Example:
+  # First get compatible host
+  hosts = get_compatible_hosts(userinterface_name='your-interface')
+  
   list_actions(
-    device_id='device1',
-    host_name='sunri-pi1'
+    device_id=hosts['recommended_device'],
+    host_name=hosts['recommended_host']
   )""",
             "inputSchema": {
                 "type": "object",

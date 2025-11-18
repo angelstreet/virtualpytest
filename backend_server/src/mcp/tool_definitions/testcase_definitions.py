@@ -14,11 +14,14 @@ Executes saved test cases by name or unsaved testcases by graph.
 Polls automatically until completion (up to 5 minutes).
 
 Usage:
+  # First get compatible host
+  hosts = get_compatible_hosts(userinterface_name='your-interface')
+  
   # Execute saved testcase by name
   execute_testcase(
     testcase_name='Login Flow Test',
-    host_name='sunri-pi1',
-    device_id='device1',
+    host_name=hosts['recommended_host'],
+    device_id=hosts['recommended_device'],
     userinterface_name='horizon_android_mobile'
   )
   
@@ -26,8 +29,8 @@ Usage:
   execute_testcase(
     testcase_name='temp_test',
     graph_json=graph_from_generate_test_graph,
-    host_name='sunri-pi1',
-    device_id='device1',
+    host_name=hosts['recommended_host'],
+    device_id=hosts['recommended_device'],
     userinterface_name='horizon_android_mobile'
   )""",
             "inputSchema": {

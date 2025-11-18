@@ -367,7 +367,7 @@ Args:
     tree_id: Navigation tree ID (REQUIRED)
     action_set_id: Specific action set to execute (optional - uses default if omitted)
     device_id: Device identifier (optional - defaults to 'device1')
-    host_name: Host name (optional - defaults to 'sunri-pi1')
+    host_name: Host name (optional - defaults to 'use get_compatible_hosts to discover')
     team_id: Team ID (optional - defaults to default)
 
 Returns:
@@ -386,7 +386,7 @@ Example:
                     "tree_id": {"type": "string", "description": "Navigation tree ID"},
                     "action_set_id": {"type": "string", "description": "Specific action set to execute (optional - uses default if omitted)"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
-                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'sunri-pi1')"},
+                    "host_name": {"type": "string", "description": "Host name (optional - defaults to 'use get_compatible_hosts to discover')"},
                     "team_id": {"type": "string", "description": "Team ID (optional - uses default)"}
                 },
                 "required": ["tree_id", "edge_id"]
@@ -426,7 +426,7 @@ Example:
         "tree_id": "ae9147a0-07eb-44d9-be71-aeffa3549ee0",
         "node_id": "home",
         "label": "Home Screen",
-        "host_name": "sunri-pi1",
+        "host_name": "use get_compatible_hosts to discover",
         "device_id": "device1",
         "userinterface_name": "netflix_mobile"
     })""",

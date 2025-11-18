@@ -24,7 +24,7 @@ For simple actions (swipe, click, type), just call execute_device_action directl
             "inputSchema": {
                 "type": "object",
                 "properties": {
-                    "host_name": {"type": "string", "description": "Host name where device is connected (optional - defaults to 'sunri-pi1')"},
+                    "host_name": {"type": "string", "description": "Host name where device is connected (use get_compatible_hosts to discover)"},
                     "device_id": {"type": "string", "description": "Device identifier (optional - defaults to 'device1')"},
                     "team_id": {"type": "string", "description": "Team ID for security (optional - uses default if omitted)"},
                     "tree_id": {"type": "string", "description": "Navigation tree ID - REQUIRED for navigation"}
