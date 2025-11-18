@@ -39,6 +39,8 @@ import {
 import React, { useState, useEffect } from 'react';
 
 import { useNotifications } from '../hooks/pages/useNotifications';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 const Notifications: React.FC = () => {
   const {
@@ -53,6 +55,9 @@ const Notifications: React.FC = () => {
   } = useNotifications();
 
   const [activeTab, setActiveTab] = useState(0);
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   // Load data on component mount - DISABLED FOR FRONTEND-ONLY VERSION
   useEffect(() => {
@@ -144,25 +149,35 @@ const Notifications: React.FC = () => {
   };
 
   const handleDeleteIntegration = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete the integration "${name}"?`)) {
-      try {
-        await deleteIntegration(id);
-        // TODO: Show success toast
-      } catch (err) {
-        console.error('Error deleting integration:', err);
-      }
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: `Are you sure you want to delete the integration "${name}"?`,
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          await deleteIntegration(id);
+          // TODO: Show success toast
+        } catch (err) {
+          console.error('Error deleting integration:', err);
+        }
+      },
+    });
   };
 
   const handleDeleteRule = async (id: string, name: string) => {
-    if (window.confirm(`Are you sure you want to delete the rule "${name}"?`)) {
-      try {
-        await deleteRule(id);
-        // TODO: Show success toast
-      } catch (err) {
-        console.error('Error deleting rule:', err);
-      }
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: `Are you sure you want to delete the rule "${name}"?`,
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          await deleteRule(id);
+          // TODO: Show success toast
+        } catch (err) {
+          console.error('Error deleting rule:', err);
+        }
+      },
+    });
   };
 
   // Loading state component
@@ -543,6 +558,18 @@ const Notifications: React.FC = () => {
       {activeTab === 0 && <IntegrationsTab />}
       {activeTab === 1 && <RulesTab />}
       {activeTab === 2 && <HistoryTab />}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 };

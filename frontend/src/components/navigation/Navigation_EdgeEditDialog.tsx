@@ -292,6 +292,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
               fullWidth
               margin="dense"
               size="small"
+              autoComplete="off"
               inputProps={{ step: 100, min: 0 }}
             />
           </Box>

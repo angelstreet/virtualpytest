@@ -21,6 +21,8 @@ import {
 import React, { useState, useEffect, useCallback } from 'react';
 
 import CreateModelDialog from '../components/models/Models_CreateDialog';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { Model, ModelCreatePayload } from '../types/pages/Models_Types';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
@@ -31,6 +33,9 @@ const Models: React.FC = () => {
   const [openDialog, setOpenDialog] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   const loadModels = useCallback(async () => {
     try {
@@ -59,30 +64,33 @@ const Models: React.FC = () => {
   }, [loadModels]);
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this model?')) {
-      return;
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: 'Are you sure you want to delete this model?',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          setError(null);
 
-    try {
-      setError(null);
+          const response = await fetch(buildServerUrl(`/server/devicemodel/deleteDeviceModel/${id}`), {
+            method: 'DELETE',
+          });
 
-      const response = await fetch(buildServerUrl(`/server/devicemodel/deleteDeviceModel/${id}`), {
-        method: 'DELETE',
-      });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to delete model: ${response.status}`);
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to delete model: ${response.status}`);
-      }
-
-      // Update local state
-      setModels(models.filter((m) => m.id !== id));
-      setSuccessMessage('Model deleted successfully');
-      console.log('[@component:Models] Deleted model');
-    } catch (err) {
-      console.error('[@component:Models] Error deleting model:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete model');
-    }
+          // Update local state
+          setModels(models.filter((m) => m.id !== id));
+          setSuccessMessage('Model deleted successfully');
+          console.log('[@component:Models] Deleted model');
+        } catch (err) {
+          console.error('[@component:Models] Error deleting model:', err);
+          setError(err instanceof Error ? err.message : 'Failed to delete model');
+        }
+      },
+    });
   };
 
   const handleAddNew = async (newModelData: ModelCreatePayload) => {
@@ -296,6 +304,18 @@ const Models: React.FC = () => {
         autoHideDuration={6000}
         onClose={() => setSuccessMessage(null)}
         message={successMessage}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
       />
     </Box>
   );

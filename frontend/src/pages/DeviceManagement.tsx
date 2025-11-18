@@ -31,6 +31,8 @@ import React, { useState, useEffect, useCallback } from 'react';
 
 import CreateDeviceDialog from '../components/devicemanagement/DeviceManagement_CreateDialog';
 import EditDeviceDialog from '../components/devicemanagement/DeviceManagement_EditDialog';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { Device } from '../types/common/Host_Types';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
@@ -55,6 +57,9 @@ const DeviceManagement: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   const fetchDevices = useCallback(async () => {
     console.log('[@component:DeviceManagement] Fetching devices');
@@ -220,30 +225,33 @@ const DeviceManagement: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this device?')) {
-      return;
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: 'Are you sure you want to delete this device?',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          setError(null);
 
-    try {
-      setError(null);
+          const response = await fetch(buildServerUrl(`/server/devices/deleteDevice/${id}`), {
+            method: 'DELETE',
+          });
 
-      const response = await fetch(buildServerUrl(`/server/devices/deleteDevice/${id}`), {
-        method: 'DELETE',
-      });
+          if (!response.ok) {
+            const errorData = await response.json();
+            throw new Error(errorData.error || `Failed to delete device: ${response.status}`);
+          }
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || `Failed to delete device: ${response.status}`);
-      }
-
-      // Update local state
-      setDevices(devices.filter((d) => d.id !== id));
-      setSuccessMessage('Device deleted successfully');
-      console.log('[@component:DeviceManagement] Successfully deleted device');
-    } catch (err) {
-      console.error('[@component:DeviceManagement] Error deleting device:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete device');
-    }
+          // Update local state
+          setDevices(devices.filter((d) => d.id !== id));
+          setSuccessMessage('Device deleted successfully');
+          console.log('[@component:DeviceManagement] Successfully deleted device');
+        } catch (err) {
+          console.error('[@component:DeviceManagement] Error deleting device:', err);
+          setError(err instanceof Error ? err.message : 'Failed to delete device');
+        }
+      },
+    });
   };
 
   const handleCloseCreateDialog = () => {
@@ -701,6 +709,18 @@ const DeviceManagement: React.FC = () => {
         autoHideDuration={6000}
         onClose={() => setSuccessMessage(null)}
         message={successMessage}
+      />
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
       />
     </Box>
   );

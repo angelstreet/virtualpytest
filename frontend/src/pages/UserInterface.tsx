@@ -35,6 +35,8 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 
 import { useUserInterface } from '../hooks/pages/useUserInterface';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { Model } from '../types/pages/Models_Types';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import {
@@ -73,6 +75,9 @@ const UserInterface: React.FC = () => {
   });
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   // State for real models from database
   const [availableModels, setAvailableModels] = useState<string[]>([]);
@@ -173,21 +178,24 @@ const UserInterface: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
-    if (!window.confirm('Are you sure you want to delete this user interface?')) {
-      return;
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: 'Are you sure you want to delete this user interface?',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          setError(null);
+          await deleteUserInterface(id);
 
-    try {
-      setError(null);
-      await deleteUserInterface(id);
-
-      // Update local state
-      setUserInterfaces(userInterfaces.filter((ui) => ui.id !== id));
-      console.log('[@component:UserInterface] Successfully deleted user interface');
-    } catch (err) {
-      console.error('[@component:UserInterface] Error deleting user interface:', err);
-      setError(err instanceof Error ? err.message : 'Failed to delete user interface');
-    }
+          // Update local state
+          setUserInterfaces(userInterfaces.filter((ui) => ui.id !== id));
+          console.log('[@component:UserInterface] Successfully deleted user interface');
+        } catch (err) {
+          console.error('[@component:UserInterface] Error deleting user interface:', err);
+          setError(err instanceof Error ? err.message : 'Failed to delete user interface');
+        }
+      },
+    });
   };
 
   const handleDuplicate = async (userInterface: UserInterfaceType) => {
@@ -667,6 +675,18 @@ const UserInterface: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 };

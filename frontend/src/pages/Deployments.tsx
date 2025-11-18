@@ -9,6 +9,8 @@ import { UserinterfaceSelector } from '../components/common/UserinterfaceSelecto
 import { ParameterInputRenderer } from '../components/common/ParameterInput/ParameterInputRenderer';
 import { CronHelper } from '../components/common/CronHelper';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 import { useHostManager } from '../hooks/useHostManager';
 import { useToast } from '../hooks/useToast';
 import { useDeployment, Deployment } from '../hooks/useDeployment';
@@ -33,6 +35,9 @@ const Deployments: React.FC = () => {
   const { createDeployment, listDeployments, pauseDeployment, resumeDeployment, deleteDeployment, getRecentExecutions } = useDeployment();
   const { getAllHosts, getDevicesFromHost, getHostByName } = useHostManager();
   const { showSuccess, showError } = useToast();
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   const [showCreate, setShowCreate] = useState(false);
   const [selectedScript, setSelectedScript] = useState('');
@@ -336,11 +341,15 @@ const Deployments: React.FC = () => {
   };
 
   const handleDelete = async (id: string, deploymentName: string) => {
-    if (!window.confirm(`Are you sure you want to delete deployment "${deploymentName}"?\n\nThis action cannot be undone.`)) {
-      return;
-    }
-    await deleteDeployment(id);
-    loadDeployments();
+    confirm({
+      title: 'Confirm Delete',
+      message: `Are you sure you want to delete deployment "${deploymentName}"?\n\nThis action cannot be undone.`,
+      confirmColor: 'error',
+      onConfirm: async () => {
+        await deleteDeployment(id);
+        loadDeployments();
+      },
+    });
   };
 
   const handleEditOpen = (deployment: Deployment) => {
@@ -986,6 +995,18 @@ const Deployments: React.FC = () => {
           showRemoteByDefault={false}
         />
       )}
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 };

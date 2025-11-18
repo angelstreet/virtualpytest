@@ -11,10 +11,15 @@ import React from 'react';
 
 // Reuse TestCaseSelector component
 import { TestCaseSelector } from '../components/testcase/TestCaseSelector';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 const TestCaseEditor: React.FC = () => {
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
+
   // Handle testcase load - store in sessionStorage and navigate to builder
   const handleLoad = (testcaseId: string) => {
     console.log('[@TestCaseEditor] Loading testcase:', testcaseId);
@@ -28,22 +33,25 @@ const TestCaseEditor: React.FC = () => {
 
   // Handle testcase delete
   const handleDelete = async (testcaseId: string, testcaseName: string) => {
-    if (!window.confirm(`Are you sure you want to delete "${testcaseName}"?`)) {
-      throw new Error('Deletion cancelled');
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: `Are you sure you want to delete "${testcaseName}"?`,
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          const response = await fetch(buildServerUrl(`/server/testcase/${testcaseId}`), {
+            method: 'DELETE',
+          });
 
-    try {
-      const response = await fetch(buildServerUrl(`/server/testcase/${testcaseId}`), {
-        method: 'DELETE',
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to delete test case');
-      }
-    } catch (err) {
-      console.error('Error deleting test case:', err);
-      throw err;
-    }
+          if (!response.ok) {
+            throw new Error('Failed to delete test case');
+          }
+        } catch (err) {
+          console.error('Error deleting test case:', err);
+          throw err;
+        }
+      },
+    });
   };
 
   // Navigate to TestCase Builder for new test case
@@ -73,6 +81,18 @@ const TestCaseEditor: React.FC = () => {
           selectedTestCaseId={null}
         />
       </Paper>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 };

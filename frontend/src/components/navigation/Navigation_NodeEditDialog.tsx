@@ -141,6 +141,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             error={!nodeForm?.label?.trim()}
             margin="dense"
             size="small"
+            autoComplete="off"
           />
           <FormControl fullWidth margin="dense" size="small">
             <InputLabel>Type</InputLabel>
@@ -166,6 +167,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             variant="outlined"
             margin="dense"
             size="small"
+            autoComplete="off"
           />
           <FormControl fullWidth margin="dense" size="small">
             <InputLabel>Priority</InputLabel>
@@ -189,6 +191,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             variant="outlined"
             margin="dense"
             size="small"
+            autoComplete="off"
           />
         </Box>
 
@@ -200,6 +203,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           fullWidth
           margin="dense"
           size="small"
+          autoComplete="off"
           sx={{ mb: 1 }}
         />
 
@@ -212,6 +216,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
             fullWidth
             margin="dense"
             size="small"
+            autoComplete="off"
             sx={{ mb: 1 }}
           />
         )}
