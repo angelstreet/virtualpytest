@@ -66,30 +66,37 @@ class TreeTools:
         """Normalize parameter names in an action list"""
         normalized = []
         for action in actions:
-            normalized_action = action.copy()
-            command = action.get('command')
-            params = action.get('params', {}).copy()
+            # Deep copy to avoid modifying original
+            import copy
+            normalized_action = copy.deepcopy(action)
+            command = normalized_action.get('command')
+            params = normalized_action.get('params', {})
             
             # Normalize based on command
             if command == 'click_element':
                 # Standardize to element_id
                 if 'text' in params or 'selector' in params:
                     element_id = params.get('element_id') or params.get('selector') or params.get('text')
-                    params = {k: v for k, v in params.items() if k not in ['text', 'selector']}
+                    # Remove old keys
+                    params.pop('text', None)
+                    params.pop('selector', None)
                     params['element_id'] = element_id
             
             elif command in ['hover_element', 'find_element']:
                 # Standardize to selector
                 if 'text' in params or 'element_id' in params:
                     selector = params.get('selector') or params.get('element_id') or params.get('text')
-                    params = {k: v for k, v in params.items() if k not in ['text', 'element_id']}
+                    # Remove old keys
+                    params.pop('text', None)
+                    params.pop('element_id', None)
                     params['selector'] = selector
             
             elif command == 'input_text':
                 # Standardize to selector (text param is for input content, not selector)
                 if 'element_id' in params:
                     selector = params.get('selector') or params.get('element_id')
-                    params = {k: v for k, v in params.items() if k != 'element_id'}
+                    # Remove old key
+                    params.pop('element_id', None)
                     params['selector'] = selector
             
             normalized_action['params'] = params
@@ -579,6 +586,9 @@ class TreeTools:
             # Build edge payload - backend expects: edge_id, source_node_id, target_node_id, action_sets, default_action_set_id
             action_sets = params.get('action_sets', [])
             
+            # ✅ NORMALIZE: Convert parameter names to canonical format before saving
+            action_sets = self._normalize_action_params(action_sets)
+            
             # ✅ VALIDATION: Validate action commands if action_sets provided
             if action_sets:
                 # Get userinterface to determine device_model
@@ -758,6 +768,9 @@ class TreeTools:
             
             # STEP 2: Validate action commands if provided
             action_sets = params['action_sets']
+            
+            # ✅ NORMALIZE: Convert parameter names to canonical format before saving
+            action_sets = self._normalize_action_params(action_sets)
             
             # ✅ VALIDATION: Validate action commands before updating
             if action_sets:
