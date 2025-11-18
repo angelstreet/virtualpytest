@@ -10,7 +10,7 @@ DROP TABLE IF EXISTS ai_plan_generation CASCADE; -- Remove old naming
 CREATE TABLE ai_graph_cache (
     -- Primary identification
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    fingerprint VARCHAR(32) UNIQUE NOT NULL,
+    fingerprint VARCHAR(64) UNIQUE NOT NULL,  -- Changed from VARCHAR(32) to support SHA-256
     
     -- Prompt information
     original_prompt TEXT NOT NULL,
@@ -61,7 +61,7 @@ CREATE POLICY "ai_graph_cache_access_policy" ON ai_graph_cache
 
 -- Function to update graph metrics after execution
 CREATE OR REPLACE FUNCTION update_ai_graph_metrics(
-    p_fingerprint VARCHAR(32),
+    p_fingerprint VARCHAR(64),  -- Changed from VARCHAR(32) to support SHA-256
     p_success BOOLEAN,
     p_execution_time_ms INTEGER,
     p_team_id UUID
@@ -105,7 +105,7 @@ GRANT EXECUTE ON FUNCTION cleanup_ai_graph_cache TO authenticated;
 
 -- Add comments for documentation
 COMMENT ON TABLE ai_graph_cache IS 'AI Graph Cache - stores successful AI-generated graphs for reuse';
-COMMENT ON COLUMN ai_graph_cache.fingerprint IS 'MD5 hash of normalized prompt + context signature for fast lookups';
+COMMENT ON COLUMN ai_graph_cache.fingerprint IS 'SHA-256 hash (64 chars) of normalized prompt + context signature for fast lookups';
 COMMENT ON COLUMN ai_graph_cache.normalized_prompt IS 'Standardized prompt format for semantic matching';
 COMMENT ON COLUMN ai_graph_cache.available_nodes IS 'JSON array of navigation nodes available during graph generation';
 COMMENT ON COLUMN ai_graph_cache.graph IS 'Complete AI-generated graph with nodes and edges';
