@@ -179,6 +179,7 @@ def create_testcase(
     ai_prompt: str = None,
     ai_analysis: str = None,
     overwrite: bool = False,
+    auto_increment_if_exists: bool = True,
     environment: str = 'dev',
     folder: str = None,
     tags: List[str] = None
@@ -196,7 +197,8 @@ def create_testcase(
         creation_method: 'visual' (drag-drop) or 'ai' (prompt)
         ai_prompt: Original prompt if AI-generated
         ai_analysis: AI reasoning if AI-generated
-        overwrite: If True, update existing test case with same name
+        overwrite: If True, update existing test case with same name (DEPRECATED - use auto_increment_if_exists instead)
+        auto_increment_if_exists: If True, append _2, _3, etc. if name exists (safer than overwrite)
         environment: Environment ('dev', 'test', 'prod') - defaults to 'dev'
         folder: Folder name (user-selected or typed) - defaults to '(Root)'
         tags: List of tag names (existing or new) - auto-created if not exist
@@ -229,6 +231,24 @@ def create_testcase(
                 for warning in warnings:
                     print(f"[@testcase_db]   - {warning}")
         
+        # 🔄 AUTO-INCREMENT: Check for name conflicts and increment if needed
+        final_testcase_name = testcase_name
+        if not overwrite and auto_increment_if_exists:
+            existing = get_testcase_by_name(testcase_name, team_id, environment)
+            if existing:
+                # Name exists - find next available increment
+                counter = 2
+                while True:
+                    candidate_name = f"{testcase_name}_{counter}"
+                    if not get_testcase_by_name(candidate_name, team_id, environment):
+                        final_testcase_name = candidate_name
+                        print(f"[@testcase_db] ⚠️  '{testcase_name}' exists → auto-renamed to '{final_testcase_name}'")
+                        break
+                    counter += 1
+                    if counter > 100:  # Safety limit
+                        print(f"[@testcase_db] ❌ Too many duplicates (>100), aborting")
+                        return None
+        
         # Check if test case with this name already exists in this environment
         if overwrite:
             existing = get_testcase_by_name(testcase_name, team_id, environment)
@@ -252,7 +272,7 @@ def create_testcase(
         
         data = {
             'team_id': team_id,
-            'testcase_name': testcase_name,
+            'testcase_name': final_testcase_name,  # Use final name (possibly incremented)
             'graph_json': graph_json,
             'description': description,
             'userinterface_name': userinterface_name,
@@ -273,7 +293,7 @@ def create_testcase(
             if tags:
                 set_executable_tags('testcase', str(testcase_id), tags)
             
-            print(f"[@testcase_db] Created test case: {testcase_name} (ID: {testcase_id}, method: {creation_method}, env: {environment}, folder_id: {folder_id}, tags: {len(tags) if tags else 0})")
+            print(f"[@testcase_db] Created test case: {final_testcase_name} (ID: {testcase_id}, method: {creation_method}, env: {environment}, folder_id: {folder_id}, tags: {len(tags) if tags else 0})")
             return str(testcase_id)
         else:
             print(f"[@testcase_db] ERROR: No data returned after insert")
