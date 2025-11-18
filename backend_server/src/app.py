@@ -180,10 +180,6 @@ def register_all_server_routes(app):
         from routes import server_campaign_routes
         print("[@backend_server:routes] ✅ server_campaign_routes imported successfully")
         
-        print("[@backend_server:routes] 🔍 Importing server_testcase_routes...")
-        from routes import server_testcase_routes
-        print("[@backend_server:routes] ✅ server_testcase_routes imported successfully")
-        
         print("[@backend_server:routes] 🔍 Importing server_requirements_routes...")
         from routes import server_requirements_routes
         print("[@backend_server:routes] ✅ server_requirements_routes imported successfully")

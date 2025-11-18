@@ -172,15 +172,20 @@ def testcase_delete(testcase_id):
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
+        print(f"[@server_testcase:delete] Attempting to delete testcase_id={testcase_id}, team_id={team_id}")
         success = delete_testcase(testcase_id, team_id)
         
         if success:
+            print(f"[@server_testcase:delete] Successfully deleted testcase: {testcase_id}")
             return jsonify({'success': True, 'message': 'Test case deleted'})
         else:
+            print(f"[@server_testcase:delete] Failed to delete - testcase not found: {testcase_id}")
             return jsonify({'success': False, 'error': 'Test case not found or already deleted'}), 404
             
     except Exception as e:
         print(f"[@server_testcase:delete] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
 
 

@@ -533,27 +533,48 @@ def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
     """
     supabase = get_supabase()
     if not supabase:
+        print(f"[@testcase_db:delete] ERROR: Failed to get Supabase client")
         return False
     
     try:
-        query = supabase.table('testcase_definitions')\
+        # First check if testcase exists
+        check_query = supabase.table('testcase_definitions')\
+            .select('testcase_id,team_id,testcase_name')\
+            .eq('testcase_id', testcase_id)
+        
+        if team_id:
+            check_query = check_query.eq('team_id', team_id)
+        
+        check_result = check_query.execute()
+        
+        if not check_result.data or len(check_result.data) == 0:
+            print(f"[@testcase_db:delete] WARNING: Test case not found (ID: {testcase_id}, team_id: {team_id})")
+            return False
+        
+        testcase_name = check_result.data[0].get('testcase_name', 'unknown')
+        print(f"[@testcase_db:delete] Found testcase to delete: {testcase_name} (ID: {testcase_id})")
+        
+        # Now delete it
+        delete_query = supabase.table('testcase_definitions')\
             .delete()\
             .eq('testcase_id', testcase_id)
         
         if team_id:
-            query = query.eq('team_id', team_id)
+            delete_query = delete_query.eq('team_id', team_id)
         
-        result = query.execute()
+        result = delete_query.execute()
         
         if result.data and len(result.data) > 0:
-            print(f"[@testcase_db] Deleted test case: {testcase_id}")
+            print(f"[@testcase_db:delete] ✅ Deleted test case: {testcase_name} (ID: {testcase_id})")
             return True
         else:
-            print(f"[@testcase_db] WARNING: No test case deleted (ID: {testcase_id})")
+            print(f"[@testcase_db:delete] ⚠️ Delete executed but no rows affected (ID: {testcase_id})")
             return False
-        
+            
     except Exception as e:
-        print(f"[@testcase_db] ERROR deleting test case: {e}")
+        print(f"[@testcase_db:delete] ERROR: {e}")
+        import traceback
+        traceback.print_exc()
         return False
 
 
