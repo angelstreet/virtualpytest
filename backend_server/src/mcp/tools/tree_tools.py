@@ -10,7 +10,7 @@ These are atomic primitives that can be composed for any workflow:
 """
 
 import logging
-from typing import Dict, Any
+from typing import Dict, Any, List
 from ..utils.api_client import MCPAPIClient
 from ..utils.mcp_formatter import MCPFormatter, ErrorCategory
 from ..utils.verification_validator import VerificationValidator
