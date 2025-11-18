@@ -66,19 +66,39 @@ def get_userinterface(interface_id: str, team_id: str) -> Optional[Dict]:
         return None
 
 def get_userinterface_by_name(interface_name: str, team_id: str) -> Optional[Dict]:
-    """Retrieve a user interface by name and team ID from Supabase."""
+    """
+    Retrieve a user interface by name and team ID from Supabase.
+    
+    Returns:
+        {
+            'success': bool,
+            'userinterface': {
+                'id': str,
+                'name': str,
+                'models': list,
+                'root_tree_id': str (from root_tree.id)
+            }
+        }
+    """
     supabase = get_supabase()
     try:
         result = supabase.table('userinterfaces').select(
-            'id', 'name', 'models'
+            'id, name, models, root_tree:navigation_trees!userinterface_id(id)'
         ).eq('name', interface_name).eq('team_id', team_id).single().execute()
         
         if result.data:
             ui = result.data
+            root_tree = ui.get('root_tree')
+            root_tree_id = root_tree['id'] if root_tree else None
+            
             return {
-                'id': ui['id'],
-                'name': ui['name'],
-                'models': ui.get('models', []),
+                'success': True,
+                'userinterface': {
+                    'id': ui['id'],
+                    'name': ui['name'],
+                    'models': ui.get('models', []),
+                    'root_tree_id': root_tree_id
+                }
             }
         return None
     except Exception as e:
