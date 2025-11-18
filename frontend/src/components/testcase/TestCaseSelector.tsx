@@ -47,7 +47,6 @@ export interface TestCaseSelectorProps {
   onLoad: (testcaseId: string) => void;
   onDelete?: (testcaseId: string, testcaseName: string) => Promise<void>;
   selectedTestCaseId?: string | null;
-  onDeleteSuccess?: () => void;
   testCasesOnly?: boolean; // If true, only show test cases (no scripts)
 }
 
@@ -55,7 +54,6 @@ export const TestCaseSelector = forwardRef<{ refresh: () => void }, TestCaseSele
   onLoad,
   onDelete,
   selectedTestCaseId,
-  onDeleteSuccess,
   testCasesOnly = false,
 }, ref) => {
   const [loading, setLoading] = useState(true);
