@@ -569,22 +569,19 @@ for i in $(seq 1 $HOST_MAX); do
 EOF
 done
 
-cat >> "$COMPOSE_FILE" <<EOF
-volumes:
-EOF
-
 # Conditionally add Grafana volumes if enabled
 if [ "${ENABLE_GRAFANA}" = "true" ]; then
     cat >> "$COMPOSE_FILE" <<EOF
+volumes:
   grafana-data:
     name: virtualpytest-hetzner-grafana-data
   grafana-logs:
     name: virtualpytest-hetzner-grafana-logs
+
 EOF
 fi
 
 cat >> "$COMPOSE_FILE" <<EOF
-
 networks:
   hetzner_network:
     name: virtualpytest-hetzner-network
