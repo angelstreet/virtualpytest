@@ -55,18 +55,22 @@ def validate_testcase_graph(
     try:
         # Get userinterface to find tree_id
         ui_result = get_userinterface_by_name(userinterface_name, team_id)
-        if not ui_result or not ui_result.get('success'):
+        if not ui_result:
             return {
                 'success': False,
                 'errors': [f"User interface '{userinterface_name}' not found"]
             }
         
-        tree_id = ui_result['userinterface'].get('root_tree_id')
-        if not tree_id:
+        # Get root tree for the userinterface
+        from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
+        root_tree = get_root_tree_for_interface(ui_result['id'], team_id)
+        if not root_tree:
             return {
                 'success': False,
                 'errors': [f"No navigation tree found for '{userinterface_name}'"]
             }
+        
+        tree_id = root_tree['id']
         
         # Get available navigation nodes from tree
         nodes_result = get_tree_nodes(tree_id, team_id)
