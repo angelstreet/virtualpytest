@@ -21,11 +21,25 @@ class AITools:
         """
         Generate test case graph from natural language prompt
         
+        ⚠️ CRITICAL: Host/Device Selection
+        - If user explicitly specifies host_name/device_id: Use those values directly
+        - Otherwise: Call get_compatible_hosts(userinterface_name='...') FIRST to find compatible hosts
+        - DO NOT use default values blindly without checking compatibility
+        
         Uses AI to convert natural language descriptions into executable test graphs.
         Returns a graph object that can be saved or executed directly.
         
         REUSES existing /server/ai/generatePlan endpoint (same as frontend)
         Pattern from useTestCaseAI.ts line 45
+        
+        Workflow (when host NOT specified by user):
+            1. Call get_compatible_hosts(userinterface_name='your_ui')
+            2. Use recommended host_name and device_id from response
+            3. Call generate_test_graph with those values
+        
+        Workflow (when user specifies host):
+            1. User says "use host X with device Y"
+            2. Call generate_test_graph directly with host_name='X', device_id='Y'
         
         Args:
             params: {

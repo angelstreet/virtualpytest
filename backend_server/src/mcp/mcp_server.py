@@ -27,37 +27,38 @@ This server provides 52 core tools for device automation:
 19. capture_screenshot - Capture screenshots for vision analysis
 20. get_transcript - Fetch audio transcripts
 21. get_device_info - Get device capabilities and info
-22. get_execution_status - Poll async execution status
-23. view_logs - View systemd service logs
-24. list_services - List available systemd services
-25. create_node - Create navigation tree nodes
-26. update_node - Update node properties
-27. delete_node - Delete nodes from trees
-28. create_edge - Create edges with actions
-29. update_edge - Update edge actions
-30. delete_edge - Delete edges
-31. create_subtree - Create nested subtrees
-32. get_node - Get node details
-33. get_edge - Get edge details
-34. execute_edge - Execute edge actions directly
-35. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
-36. create_userinterface - Create new app models
-37. list_userinterfaces - List all app models
-38. get_userinterface_complete - Get complete tree data
-39. list_nodes - List nodes with verifications
-40. list_edges - List edges with actions
-41. delete_userinterface - Delete userinterface models
-42. verify_node - Verify node verifications directly
-43. create_requirement - Create new requirement
-44. list_requirements - List all requirements  
-45. get_requirement - Get requirement by ID
-46. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
-47. link_testcase_to_requirement - Link testcase for coverage
-48. unlink_testcase_from_requirement - Unlink testcase
-49. get_testcase_requirements - Get testcase requirements
-50. get_requirement_coverage - Get requirement coverage details
-51. get_coverage_summary - Get overall coverage metrics
-52. get_uncovered_requirements - Get requirements without coverage
+22. get_compatible_hosts - Find compatible hosts/devices for userinterface (use BEFORE test execution)
+23. get_execution_status - Poll async execution status
+24. view_logs - View systemd service logs
+25. list_services - List available systemd services
+26. create_node - Create navigation tree nodes
+27. update_node - Update node properties
+28. delete_node - Delete nodes from trees
+29. create_edge - Create edges with actions
+30. update_edge - Update edge actions
+31. delete_edge - Delete edges
+32. create_subtree - Create nested subtrees
+33. get_node - Get node details
+34. get_edge - Get edge details
+35. execute_edge - Execute edge actions directly
+36. save_node_screenshot - Save screenshot to node (NEW - wraps takeAndSaveScreenshot)
+37. create_userinterface - Create new app models
+38. list_userinterfaces - List all app models
+39. get_userinterface_complete - Get complete tree data
+40. list_nodes - List nodes with verifications
+41. list_edges - List edges with actions
+42. delete_userinterface - Delete userinterface models
+43. verify_node - Verify node verifications directly
+44. create_requirement - Create new requirement
+45. list_requirements - List all requirements  
+46. get_requirement - Get requirement by ID
+47. update_requirement - Update requirement (NEW - app_type, device_model for reusability)
+48. link_testcase_to_requirement - Link testcase for coverage
+49. unlink_testcase_from_requirement - Unlink testcase
+50. get_testcase_requirements - Get testcase requirements
+51. get_requirement_coverage - Get requirement coverage details
+52. get_coverage_summary - Get overall coverage metrics
+53. get_uncovered_requirements - Get requirements without coverage
 """
 
 import logging
@@ -157,6 +158,7 @@ class VirtualPyTestMCPServer:
             
             # Device info tools
             'get_device_info': self.device_tools.get_device_info,
+            'get_compatible_hosts': self.device_tools.get_compatible_hosts,  # NEW - Find compatible hosts for userinterface
             'get_execution_status': self.device_tools.get_execution_status,
             
             # Logs tools

@@ -164,6 +164,11 @@ class NavigationTools:
         """
         Navigate to a target node in UI tree
         
+        ⚠️ CRITICAL: Host/Device Selection
+        - If user explicitly specifies host_name/device_id: Use those values directly
+        - Otherwise: Call get_compatible_hosts(userinterface_name='...') FIRST to find compatible hosts
+        - DO NOT use default values blindly without checking compatibility
+        
         ⚠️ AUTONOMOUS NAVIGATION:
         This tool uses the pre-built navigation tree to automatically find and execute
         the path to the target node. You only need to specify WHERE to go (target_node_label),
@@ -181,6 +186,17 @@ class NavigationTools:
         Requires take_control to be called first (cache must be ready).
         
         REUSES existing /server/navigation/execute/{tree_id} endpoint (same as frontend)
+        
+        Workflow (when host NOT specified by user):
+            1. Call get_compatible_hosts(userinterface_name='your_ui')
+            2. Use recommended host_name and device_id from response
+            3. Call take_control(tree_id='...') once
+            4. Call navigate_to_node with those values
+        
+        Workflow (when user specifies host):
+            1. User says "use host X with device Y"
+            2. Call take_control(tree_id='...') once
+            3. Call navigate_to_node directly with host_name='X', device_id='Y'
         
         Args:
             params: {

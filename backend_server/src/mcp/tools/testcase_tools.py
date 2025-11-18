@@ -22,8 +22,22 @@ class TestCaseTools:
         """
         Execute a test case by name (or graph for unsaved testcases)
         
+        ⚠️ CRITICAL: Host/Device Selection
+        - If user explicitly specifies host_name/device_id: Use those values directly
+        - Otherwise: Call get_compatible_hosts(userinterface_name='...') FIRST to find compatible hosts
+        - DO NOT use default values blindly without checking compatibility
+        
         REUSES existing /server/testcase/execute endpoint (same as frontend)
         Pattern from server_testcase_routes.py line 167
+        
+        Workflow (when host NOT specified by user):
+            1. Call get_compatible_hosts(userinterface_name='your_ui')
+            2. Use recommended host_name and device_id from response
+            3. Call execute_testcase with those values
+        
+        Workflow (when user specifies host):
+            1. User says "use host X with device Y"
+            2. Call execute_testcase directly with host_name='X', device_id='Y'
         
         Args:
             params: {
