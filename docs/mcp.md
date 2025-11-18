@@ -1,8 +1,8 @@
 # VirtualPyTest MCP Server Documentation
 
-**Version**: 4.4.0  
-**Last Updated**: 2025-11-10  
-**Total Tools**: 51
+**Version**: 4.5.0  
+**Last Updated**: 2025-11-18  
+**Total Tools**: 54
 
 This documentation has been modularized for easier navigation and maintenance.
 
@@ -22,20 +22,20 @@ This documentation has been modularized for easier navigation and maintenance.
 - **[Verification Tools](mcp/mcp_tools_verification.md)** (4 tools) - `verify_device_state`, `verify_node`, `list_verifications`, `dump_ui_elements`
 
 #### 🔧 Tree Building (Primitives)
-- **[Tree Tools](mcp/mcp_tools_tree.md)** (12 tools) - Create/update/delete nodes/edges, subtrees, execute_edge, verify_node, get_node, get_edge, dump_ui_elements
+- **[Tree Tools](mcp/mcp_tools_tree.md)** (11 tools) - Create/update/delete nodes/edges, subtrees, execute_edge, get_node, get_edge, save_node_screenshot
 
 #### 🧪 Test Management
-- **[TestCase Tools](mcp/mcp_tools_testcase.md)** (5 tools) - Save, load, list, execute testcases
+- **[TestCase Tools](mcp/mcp_tools_testcase.md)** (6 tools) - Save, load, list, execute, rename testcases
 - **[Script Tools](mcp/mcp_tools_script.md)** (2 tools) - `execute_script`, `list_scripts`
-- **[AI Tools](mcp/mcp_tools_ai.md)** (1 tool) - `generate_test_graph`
+- **[AI Tools](mcp/mcp_tools_ai.md)** (2 tools) - `generate_test_graph`, `generate_and_save_testcase`
 
 #### 🎨 App & Requirements
 - **[UserInterface Tools](mcp/mcp_tools_userinterface.md)** (6 tools) - Create/list/delete userinterfaces, nodes, edges
 - **[Requirements Tools](mcp/mcp_tools_requirements.md)** (10 tools) - Requirements & coverage tracking
 
 #### 📸 Media & Monitoring
-- **[Screenshot Tools](mcp/mcp_tools_screenshot.md)** (2 tools) - `capture_screenshot`, `save_node_screenshot`
-- **Device Tools** (2 tools) - `get_device_info`, `get_execution_status` *(in mcp_core.md)*
+- **[Screenshot Tools](mcp/mcp_tools_screenshot.md)** (1 tool) - `capture_screenshot`
+- **Device Tools** (3 tools) - `get_device_info`, `get_compatible_hosts`, `get_execution_status` *(in mcp_core.md)*
 - **Transcript Tools** (1 tool) - `get_transcript` *(in mcp_core.md)*
 - **Logs Tools** (2 tools) - `view_logs`, `list_services` *(in mcp_core.md)*
 
@@ -160,18 +160,18 @@ This documentation has been modularized for easier navigation and maintenance.
 **Execution** (5 tools)
 - `execute_device_action`, `navigate_to_node`, `verify_device_state`, `execute_edge`, `verify_node`
 
-**Tree Management** (10 tools)
-- `create_node`, `update_node`, `delete_node`, `create_edge`, `update_edge`, `delete_edge`, `create_subtree`, `get_node`, `get_edge`, `dump_ui_elements`
+**Tree Management** (11 tools)
+- `create_node`, `update_node`, `delete_node`, `create_edge`, `update_edge`, `delete_edge`, `create_subtree`, `get_node`, `get_edge`, `save_node_screenshot`, `dump_ui_elements`
 
-**Test Management** (8 tools)
-- `save_testcase`, `load_testcase`, `list_testcases`, `execute_testcase`, `execute_testcase_by_id`, `execute_script`, `list_scripts`, `generate_test_graph`
+**Test Management** (9 tools)
+- `save_testcase`, `load_testcase`, `list_testcases`, `rename_testcase`, `execute_testcase`, `execute_testcase_by_id`, `execute_script`, `list_scripts`, `generate_test_graph`, `generate_and_save_testcase`
 
 **App & Requirements** (16 tools)
 - `create_userinterface`, `list_userinterfaces`, `delete_userinterface`, `list_nodes`, `list_edges`, `get_userinterface_complete`
 - `create_requirement`, `update_requirement`, `get_requirement`, `list_requirements`, `link_testcase_to_requirement`, `unlink_testcase_from_requirement`, `get_testcase_requirements`, `get_requirement_coverage`, `get_coverage_summary`, `get_uncovered_requirements`
 
-**Media & Monitoring** (5 tools)
-- `capture_screenshot`, `save_node_screenshot`, `get_transcript`, `get_device_info`, `get_execution_status`, `view_logs`, `list_services`
+**Media & Monitoring** (7 tools)
+- `capture_screenshot`, `save_node_screenshot`, `get_transcript`, `get_device_info`, `get_compatible_hosts`, `get_execution_status`, `view_logs`, `list_services`
 
 ---
 
@@ -212,11 +212,12 @@ Most tools support optional parameters with sensible defaults:
 
 ## 📊 Statistics
 
-- **Total Tools**: 51
+- **Total Tools**: 54
 - **Tool Categories**: 12
 - **Documentation Pages**: 13
 - **Supported Integrations**: 3 (Cursor, Claude Desktop, MCP Playground)
 - **Lines of Documentation**: 3,400+
+- **MCP Server Code**: 327 lines (refactored from 2,028 lines)
 
 ---
 
@@ -261,6 +262,7 @@ For issues or questions:
 
 ## 📈 Version History
 
+- **v4.5.0** (2025-11-18): 54 tools (+ generate_and_save_testcase, rename_testcase, get_compatible_hosts + MCP server refactor: 327 lines)
 - **v4.4.0** (2025-11): 51 tools (+ preview_userinterface - "What do we test?")
 - **v4.3.0** (2025-11): 49 tools (+ requirements management)
 - **v4.2.1** (2025-11): 39 tools (documentation alignment)
