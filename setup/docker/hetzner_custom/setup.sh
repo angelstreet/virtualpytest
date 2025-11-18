@@ -41,6 +41,7 @@ echo "📋 Configuration:"
 echo "   Hosts: $HOST_MAX"
 echo "   Ports: ${HOST_START_PORT}-$((HOST_START_PORT + HOST_MAX - 1))"
 echo "   Domain: $DOMAIN"
+echo "   Grafana: ${ENABLE_GRAFANA:-false}"
 echo ""
 
 # Check if main .env exists
@@ -320,9 +321,14 @@ server {
         proxy_set_header Host \$host;
     }
 
+EOF
+
+# Conditionally add Grafana location if enabled
+if [ "${ENABLE_GRAFANA}" = "true" ]; then
+    cat >> "$NGINX_FILE" <<EOF
     # Grafana
     location /grafana/ {
-        proxy_pass http://127.0.0.1:3000;
+        proxy_pass http://127.0.0.1:${GRAFANA_PORT:-3000};
         proxy_http_version 1.1;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
@@ -331,6 +337,10 @@ server {
     }
 
 EOF
+fi
+
+cat >> "$NGINX_FILE" <<EOF
+
 
 # Generate individual hardcoded location blocks for each host (1-8 max)
 for i in $(seq 1 $HOST_MAX); do
@@ -455,7 +465,6 @@ COMPOSE_FILE="docker-compose.yml"
 
 cat > "$COMPOSE_FILE" <<EOF
 # Auto-generated for ${HOST_MAX} hosts
-# OPTIMIZED: Single backend_host image shared across all hosts
 services:
   backend_server:
     build:
@@ -464,13 +473,10 @@ services:
     container_name: virtualpytest-backend-server
     ports:
       - "${SERVER_PORT}:${SERVER_PORT}"
-      - "3000:3000"
     volumes:
       - ../../../.env:/app/.env:ro
       - ../../../test_scripts:/app/test_scripts:ro
       - ../../../test_campaign:/app/test_campaign:ro
-      - grafana-data:/var/lib/grafana
-      - grafana-logs:/var/log/grafana
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - SERVER_URL=\${SERVER_URL:-http://localhost:${SERVER_PORT}}
@@ -479,18 +485,45 @@ services:
       - SUPABASE_DB_URI=\${SUPABASE_DB_URI}
       - NEXT_PUBLIC_SUPABASE_URL=\${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=\${NEXT_PUBLIC_SUPABASE_ANON_KEY}
-      - GRAFANA_ADMIN_USER=admin
-      - GRAFANA_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
-      - GRAFANA_SECRET_KEY=\${GRAFANA_SECRET_KEY}
+    restart: unless-stopped
+    networks:
+      - hetzner_network
+
+EOF
+
+# Conditionally add Grafana service if enabled
+if [ "${ENABLE_GRAFANA}" = "true" ]; then
+    cat >> "$COMPOSE_FILE" <<EOF
+  grafana:
+    image: grafana/grafana:latest
+    container_name: virtualpytest-grafana
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - grafana-logs:/var/log/grafana
+      - ../../../grafana/config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ../../../grafana/config/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
+      - ../../../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
       - GF_SERVER_HTTP_PORT=3000
       - GF_SERVER_PROTOCOL=http
       - GF_SERVER_DOMAIN=${DOMAIN}
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
+      - GF_INSTALL_PLUGINS=\${GF_INSTALL_PLUGINS:-}
     restart: unless-stopped
     networks:
       - hetzner_network
+    depends_on:
+      - backend_server
 
+EOF
+fi
+
+cat >> "$COMPOSE_FILE" <<EOF
   # Build backend_host image ONCE (shared by all hosts)
   backend_host_base:
     build:
@@ -544,10 +577,19 @@ done
 
 cat >> "$COMPOSE_FILE" <<EOF
 volumes:
+EOF
+
+# Conditionally add Grafana volumes if enabled
+if [ "${ENABLE_GRAFANA}" = "true" ]; then
+    cat >> "$COMPOSE_FILE" <<EOF
   grafana-data:
     name: virtualpytest-hetzner-grafana-data
   grafana-logs:
     name: virtualpytest-hetzner-grafana-logs
+EOF
+fi
+
+cat >> "$COMPOSE_FILE" <<EOF
 
 networks:
   hetzner_network:
@@ -650,7 +692,11 @@ echo "✅ Setup Complete!"
 echo ""
 echo "📝 Generated:"
 echo "   • host-nginx.conf (${HOST_MAX} hosts)"
-echo "   • docker-compose.yml (1 server + ${HOST_MAX} hosts)"
+if [ "${ENABLE_GRAFANA}" = "true" ]; then
+    echo "   • docker-compose.yml (1 server + ${HOST_MAX} hosts + Grafana)"
+else
+    echo "   • docker-compose.yml (1 server + ${HOST_MAX} hosts)"
+fi
 echo "   • backend_host_1/.env through backend_host_${HOST_MAX}/.env"
 echo ""
 
@@ -718,5 +764,14 @@ echo "🌐 Access points:"
 for i in $(seq 1 $HOST_MAX); do
     echo "   https://${DOMAIN}/host${i}/vnc/vnc_lite.html"
 done
+if [ "${ENABLE_GRAFANA}" = "true" ]; then
+    echo ""
+    echo "📊 Grafana dashboard:"
+    echo "   https://${DOMAIN}/grafana"
+    echo "   (credentials: admin / \${GRAFANA_ADMIN_PASSWORD})"
+else
+    echo ""
+    echo "ℹ️  Grafana disabled (set ENABLE_GRAFANA=true in config.env to enable)"
+fi
 echo ""
 
