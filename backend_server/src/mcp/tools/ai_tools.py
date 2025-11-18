@@ -176,17 +176,17 @@ class AITools:
             return {"content": [{"type": "text", "text": "❌ Error: Failed to extract graph from generation"}], "isError": True}
         
         # Step 2: Save the graph
+        team_id = params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID'])
         save_data = {
             'testcase_name': params.get('testcase_name'),
             'graph_json': graph,
-            'team_id': params.get('team_id', APP_CONFIG['DEFAULT_TEAM_ID']),
             'description': params.get('description', ''),
             'userinterface_name': params.get('userinterface_name', ''),
             'folder': params.get('folder', '(Root)'),
             'tags': params.get('tags', [])
         }
         
-        save_result = self.api.post('/server/testcase/save', data=save_data)
+        save_result = self.api.post('/server/testcase/save', data=save_data, params={'team_id': team_id})
         
         if not save_result.get('success'):
             error_msg = save_result.get('error', 'Failed to save testcase')
