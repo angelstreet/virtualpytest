@@ -191,9 +191,12 @@ export const useValidation = (treeId: string, providedHost?: any, providedDevice
 
         // Calculate duration
         const duration = state.startTime ? (Date.now() - state.startTime) / 1000 : 0;
-        const success = scriptResult.script_success ?? scriptResult.success;
         
-        console.log(`[@hook:useValidation] Final success value: ${success}`);
+        // CRITICAL: Only use script_success (from SCRIPT_SUCCESS marker in stdout)
+        // DO NOT fall back to overall success, as it includes non-validation failures like video capture
+        const success = scriptResult.script_success ?? false;
+        
+        console.log(`[@hook:useValidation] Final success value (script_success only): ${success}`);
 
         // Save report URL for "View Last Results" functionality
         if (scriptResult.report_url) {
