@@ -112,6 +112,7 @@ class AITools:
         graph = result.get('graph', {})
         analysis = result.get('analysis', '')
         stats = result.get('generation_stats', {})
+        available_nodes = result.get('available_nodes', [])  # NEW: Extract nodes used
         
         response_text = f"✅ Test case generated successfully!\n\n"
         response_text += f"Analysis: {analysis}\n\n"
@@ -128,7 +129,8 @@ class AITools:
             "isError": False,
             "graph": graph,  # Include graph for further operations
             "analysis": analysis,
-            "stats": stats
+            "stats": stats,
+            "available_nodes": available_nodes  # NEW: Pass to save
         }
     
     def generate_and_save_testcase(self, params: Dict[str, Any]) -> Dict[str, Any]:
