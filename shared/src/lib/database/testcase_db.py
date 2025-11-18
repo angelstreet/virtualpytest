@@ -294,7 +294,13 @@ def create_testcase(
                 set_executable_tags('testcase', str(testcase_id), tags)
             
             print(f"[@testcase_db] Created test case: {final_testcase_name} (ID: {testcase_id}, method: {creation_method}, env: {environment}, folder_id: {folder_id}, tags: {len(tags) if tags else 0})")
-            return str(testcase_id)
+            
+            # Return dict with testcase_id and actual name used (may be auto-incremented)
+            return {
+                'testcase_id': str(testcase_id),
+                'testcase_name': final_testcase_name,
+                'success': True
+            }
         else:
             print(f"[@testcase_db] ERROR: No data returned after insert")
             return None

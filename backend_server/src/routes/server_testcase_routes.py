@@ -74,7 +74,7 @@ def testcase_save():
             
             overwrite = data.get('overwrite', False)  # Allow overwriting existing test case
             
-            new_testcase_id = create_testcase(
+            new_testcase_result = create_testcase(
                 team_id=team_id,
                 testcase_name=testcase_name,
                 graph_json=graph_json,
@@ -89,11 +89,28 @@ def testcase_save():
                 tags=data.get('tags')  # NEW: List of tag names
             )
             
-            if new_testcase_id == 'DUPLICATE_NAME':
+            # Handle dict response (new format with auto-increment info)
+            if isinstance(new_testcase_result, dict) and new_testcase_result.get('success'):
+                testcase_id = new_testcase_result['testcase_id']
+                final_name = new_testcase_result['testcase_name']
+                
+                # Fetch full testcase data
+                testcase = get_testcase(testcase_id, team_id)
+                if testcase:
+                    return jsonify({
+                        'success': True, 
+                        'testcase': testcase,
+                        'testcase_id': testcase_id,
+                        'testcase_name': final_name,
+                        'action': 'created'
+                    })
+                else:
+                    return jsonify({'success': False, 'error': 'Test case not found after creation'}), 404
+            elif new_testcase_result == 'DUPLICATE_NAME':
                 return jsonify({'success': False, 'error': f'Test case name "{testcase_name}" already exists. Please choose a different name or enable overwrite.'}), 409
-            elif new_testcase_id:
-                # Fetch created testcase
-                testcase = get_testcase(new_testcase_id, team_id)
+            elif new_testcase_result:
+                # Old format (backward compatibility) - just testcase_id string
+                testcase = get_testcase(new_testcase_result, team_id)
                 if testcase:
                     return jsonify({'success': True, 'testcase': testcase, 'action': 'updated' if overwrite else 'created'})
                 else:
