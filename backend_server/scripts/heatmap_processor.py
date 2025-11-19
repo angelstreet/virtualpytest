@@ -253,12 +253,23 @@ class HeatmapProcessor:
             api_url = buildHostUrl(host_data, 'host/monitoring/latest-json')
             
             logger.info(f"🔗 [{host_name}/{device_id}/{device_name}] Calling: {api_url}")
+
+            # Add API key header so this direct call matches secured /host/* behavior
+            import os
+            api_key = os.getenv('API_KEY')
+            headers = {}
+            if api_key:
+                headers['X-API-Key'] = api_key
+                logger.info(f"🔑 [{host_name}/{device_id}/{device_name}] Using API_KEY (len={len(api_key)}) for monitoring latest-json")
+            else:
+                logger.warning(f"⚠️ [{host_name}/{device_id}/{device_name}] API_KEY not set - monitoring latest-json will fail auth")
             
             response = self.session.post(
                 api_url,
                 json={
                     'device_id': device_id
                 },
+                headers=headers if headers else None,
                 timeout=10,
                 verify=False  # For self-signed certificates
             )
