@@ -6,6 +6,7 @@ Handles server/client communication and registry
 from flask import Blueprint, request, jsonify, current_app
 import threading
 import time
+import requests
 import os
 import psutil
 from datetime import datetime
@@ -15,8 +16,6 @@ print("[@server_system_routes] Importing server_utils")
 from  backend_server.src.lib.utils.server_utils import get_host_manager, get_server_system_stats
 print("[@server_system_routes] Importing system_metrics_db")
 from shared.src.lib.database.system_metrics_db import store_system_metrics
-print("[@server_system_routes] Importing route_utils helpers")
-from  backend_server.src.lib.utils.route_utils import api_get, api_post
 print("[@server_system_routes] Importing server_system_bp")
 server_system_bp = Blueprint('server_system', __name__, url_prefix='/server/system')
 print("[@server_system_routes] Server_system_bp imported")
@@ -588,7 +587,7 @@ def restart_host_service_proxy():
         from shared.src.lib.utils.build_url_utils import buildHostUrl
         host_url = buildHostUrl(host_data, '/host/system/restartHostService')
         
-        response = api_post(host_url, json={}, timeout=30)
+        response = requests.post(host_url, json={}, timeout=30)
         
         if response.status_code == 200:
             return jsonify(response.json()), 200
@@ -636,7 +635,7 @@ def reboot_host_proxy():
         from shared.src.lib.utils.build_url_utils import buildHostUrl
         host_url = buildHostUrl(host_data, '/host/system/rebootHost')
         
-        response = api_post(host_url, json={}, timeout=10)
+        response = requests.post(host_url, json={}, timeout=10)
         
         if response.status_code == 200:
             return jsonify(response.json()), 200
@@ -692,7 +691,7 @@ def restart_host_stream_service_proxy():
         from shared.src.lib.utils.build_url_utils import buildHostUrl
         host_url = buildHostUrl(host_data, '/host/system/restartHostStreamService')
         
-        response = api_post(host_url, json={'device_id': device_id, 'quality': quality}, timeout=60)
+        response = requests.post(host_url, json={'device_id': device_id, 'quality': quality}, timeout=60)
         
         if response.status_code == 200:
             return jsonify(response.json()), 200
@@ -752,7 +751,7 @@ def disk_usage_diagnostics_proxy():
         host_endpoint = f'/host/monitoring/disk-usage?capture_dir={capture_dir}'
         host_url = buildHostUrl(host_data, host_endpoint)
         
-        response = api_get(host_url, timeout=30)  # Long timeout for file scanning
+        response = requests.get(host_url, timeout=30)  # Long timeout for file scanning
         
         if response.status_code == 200:
             result = response.json()
