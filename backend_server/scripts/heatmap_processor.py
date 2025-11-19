@@ -243,6 +243,7 @@ class HeatmapProcessor:
         """Fetch current capture for a single device (for parallel execution)"""
         try:
             from shared.src.lib.utils.build_url_utils import buildHostUrl
+            from backend_server.src.lib.utils.route_utils import build_host_auth_headers
             
             host_name = device['host_name']
             device_id = device['device_id']
@@ -254,15 +255,12 @@ class HeatmapProcessor:
             
             logger.info(f"🔗 [{host_name}/{device_id}/{device_name}] Calling: {api_url}")
 
-            # Add API key header so this direct call matches secured /host/* behavior
-            import os
-            api_key = os.getenv('API_KEY')
-            headers = {}
-            if api_key:
-                headers['X-API-Key'] = api_key
-                logger.info(f"🔑 [{host_name}/{device_id}/{device_name}] Using API_KEY (len={len(api_key)}) for monitoring latest-json")
-            else:
-                logger.warning(f"⚠️ [{host_name}/{device_id}/{device_name}] API_KEY not set - monitoring latest-json will fail auth")
+            # Add API key header via centralized helper so this direct call matches secured /host/* behavior
+            headers = build_host_auth_headers(
+                existing_headers=None,
+                log_prefix=f'[@heatmap_processor:{host_name}/{device_id}/{device_name}]'
+            )
+            logger.info(f"🔑 [{host_name}/{device_id}/{device_name}] Prepared auth headers for monitoring latest-json (has_api_key={'X-API-Key' in headers})")
             
             response = self.session.post(
                 api_url,

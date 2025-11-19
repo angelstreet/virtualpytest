@@ -1,8 +1,14 @@
 # API Security Setup Guide
 
-## 🔐 Security Implementation Complete
+## 🔐 Clean Centralized Architecture
 
-API Key authentication has been added to protect all `/host/*` routes.
+API Key authentication uses a **single source of truth** pattern - one place to validate (host), one place to inject (server).
+
+### Architecture Pattern
+
+**Host Side**: Decorator validates all incoming requests  
+**Server Side**: Centralized `call_host()` injects API key on all outgoing requests  
+**Result**: Zero duplication, single source of truth
 
 ---
 
@@ -32,12 +38,21 @@ API_KEY=your-api-key
 
 ### 3️⃣ Restart Services
 
+**For Raspberry Pi (systemd services):**
 ```bash
 # Restart backend_host
 sudo systemctl restart backend_host
 
 # Restart backend_server
 sudo systemctl restart backend_server
+```
+
+**For Hetzner/Docker deployment:**
+```bash
+# The setup.sh script automatically extracts API_KEY from .env
+cd setup/docker/hetzner_custom
+./setup.sh  # Re-run to regenerate host .env files with API_KEY
+./launch.sh  # Restart containers
 ```
 
 ---
@@ -62,26 +77,46 @@ sudo systemctl restart backend_server
 
 ## Security Features Implemented
 
-### 1. **Global API Key Protection** (backend_host)
-- All `/host/*` requests require `X-API-Key` header
+### 1. **Global API Key Validation** (backend_host)
+- Flask `@app.before_request` decorator validates all `/host/*` requests
 - Invalid/missing keys return 401 Unauthorized
-- Logged for security auditing
+- Located: `backend_host/src/app.py → setup_api_authentication()`
 
-### 2. **PyAutoGUI Command Filtering** (backend_host)
-- Blocks dangerous commands (`rm -rf`, `sudo`, `shutdown`)
-- Blocks sensitive file access (`.env`, `/etc/passwd`, `.ssh`)
-- Blocks malicious applications (`bash`, `rm`, `systemctl`)
-- Blocks directory traversal (`../../../`)
+### 2. **Centralized API Key Injection** (backend_server)
+- Single `call_host()` function in `shared/src/lib/utils/build_url_utils.py`
+- **Automatically injects `X-API-Key` header** on ALL server→host calls
+- Eliminates duplicated `os.getenv('API_KEY')` across 50+ files
 
-### 3. **Automatic API Key Forwarding** (backend_server)
-- All proxy functions include API key in requests
-- `proxy_to_host()` - Updated ✓
-- `proxy_to_host_with_params()` - Updated ✓
-- `proxy_to_host_direct()` - Updated ✓
+### 3. **How It Works**
+
+**Server Side (Injection)**:
+```python
+# ONE place handles ALL host calls
+from shared.src.lib.utils.build_url_utils import call_host
+
+# API key injection is automatic - no manual headers needed
+response_data, status = call_host(
+    host_info,
+    '/host/monitoring/latest-json',
+    method='POST',
+    data={'device_id': 'device1'}
+)
+```
+
+**Host Side (Validation)**:
+```python
+# ONE decorator checks ALL /host/* routes
+@app.before_request
+def check_api_key():
+    if request.path.startswith('/host/'):
+        is_valid, error = validate_api_key()
+        if not is_valid:
+            return jsonify(error), 401
+```
 
 ---
 
-## How It Works
+## Architecture Diagram
 
 ```
 ┌─────────────┐                  ┌─────────────────┐                  ┌──────────────┐
@@ -92,10 +127,12 @@ sudo systemctl restart backend_server
        │  Request                         │                                   │
        │─────────────────────────────────>│                                   │
        │                                  │                                   │
-       │                                  │  Proxy + X-API-Key                │
+       │                                  │  call_host(host_info, endpoint)   │
+       │                                  │  ↓ Automatic X-API-Key injection  │
        │                                  │──────────────────────────────────>│
        │                                  │                                   │
-       │                                  │                                   │ Validate API Key
+       │                                  │                                   │ @app.before_request
+       │                                  │                                   │ ↓ Validate API Key
        │                                  │                                   │ ✓ Valid → Process
        │                                  │                                   │ ✗ Invalid → 401
        │                                  │                                   │
@@ -103,7 +140,6 @@ sudo systemctl restart backend_server
        │                                  │<──────────────────────────────────│
        │  Response                        │                                   │
        │<─────────────────────────────────│                                   │
-       │                                  │                                   │
 ```
 
 ---
@@ -181,18 +217,47 @@ curl -X POST http://localhost:6109/host/desktop/pyautogui/executeCommand \
 
 ## Files Modified
 
-1. **shared/src/lib/utils/auth_utils.py** - NEW
-   - API key validation logic
+### Core Architecture (Single Source of Truth)
 
-2. **backend_host/src/app.py** - UPDATED
-   - Added global `@app.before_request` for API key checking
+1. **shared/src/lib/utils/build_url_utils.py** - NEW FUNCTION
+   - Added `call_host()` - centralized server→host call handler
+   - **Automatic API key injection** (line 84-86)
+   - Handles URL building, timeouts, error handling
 
-3. **backend_host/src/controllers/desktop/pyautogui.py** - UPDATED
-   - Added command/file/app whitelisting/blacklisting
-   - Security validation methods
+2. **backend_server/src/lib/utils/route_utils.py** - REFACTORED
+   - All proxy functions now use `call_host()`
+   - Eliminated duplicate API key logic (150+ lines removed)
 
-4. **backend_server/src/lib/utils/route_utils.py** - UPDATED
-   - Added API key to all proxy functions
+3. **backend_host/src/app.py** - UNCHANGED
+   - `setup_api_authentication()` decorator already in place
+   - Validates all `/host/*` requests
+
+### Files Using Centralized Architecture
+
+4. **backend_server/src/routes/server_monitoring_routes.py**
+   - Uses `proxy_to_host_with_params()` → automatic API key ✓
+
+5. **backend_server/src/routes/auto_proxy.py**
+   - Uses `proxy_to_host_with_params()` → automatic API key ✓
+
+6. **All 45+ other server routes**
+   - Inherit centralized behavior via `route_utils.py` ✓
+
+### Migration Example
+
+**Before** (duplicated in every file):
+```python
+api_key = os.getenv('API_KEY')
+headers = {'X-API-Key': api_key} if api_key else {}
+response = requests.post(host_url, json=data, headers=headers, timeout=30)
+result = response.json()
+```
+
+**After** (centralized):
+```python
+from shared.src.lib.utils.build_url_utils import call_host
+result, status = call_host(host_info, '/host/endpoint', data=data)
+```
 
 ---
 

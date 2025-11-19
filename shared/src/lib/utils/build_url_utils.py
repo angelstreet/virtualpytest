@@ -6,10 +6,137 @@ Eliminates hardcoded URLs and inconsistent building patterns.
 Supports multi-device hosts with device-specific paths.
 """
 import os
+import requests
+import json
+import urllib3
+
+# Disable InsecureRequestWarning for self-signed certificates
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
 # =====================================================
 # CORE URL BUILDING FUNCTION (No Dependencies)
 # =====================================================
+
+def call_host(
+    host_info: dict,
+    endpoint: str,
+    method: str = 'POST',
+    data: dict = None,
+    query_params: dict = None,
+    timeout: int = 30,
+    extra_headers: dict = None
+) -> tuple:
+    """
+    **SINGLE SOURCE OF TRUTH** for all server-to-host API calls.
+    
+    This function centralizes:
+    - URL building (buildHostUrl)
+    - API key injection (X-API-Key header) - the "decorator equivalent" for server side
+    - Request execution (requests.post/get)
+    - Error handling
+    
+    This is the server-side equivalent of @app.before_request decorator on host.
+    
+    Args:
+        host_info: Complete host information (from get_host_manager)
+        endpoint: The endpoint path (e.g., '/host/monitoring/latest-json')
+        method: HTTP method ('GET', 'POST', 'PUT', 'DELETE')
+        data: Request body data (dict)
+        query_params: URL query parameters (dict)
+        timeout: Request timeout in seconds (default: 30)
+        extra_headers: Additional headers to include (dict)
+        
+    Returns:
+        Tuple of (response_data, status_code)
+        
+    Example:
+        response_data, status = call_host(
+            host_info,
+            '/host/monitoring/latest-json',
+            method='POST',
+            data={'device_id': 'device1'}
+        )
+    """
+    try:
+        # Build URL
+        full_url = buildHostUrl(host_info, endpoint)
+        
+        # Prepare request kwargs
+        kwargs = {
+            'timeout': (60, timeout),  # (connect_timeout, read_timeout)
+            'verify': False  # For self-signed certificates
+        }
+        
+        # Add query parameters
+        if query_params:
+            kwargs['params'] = query_params
+        
+        # Build headers with automatic API key injection
+        headers = {}
+        
+        # Add Content-Type for POST/PUT with data
+        if data and method.upper() in ['POST', 'PUT']:
+            headers['Content-Type'] = 'application/json'
+            kwargs['json'] = data
+        
+        # **AUTOMATIC API KEY INJECTION** - the "decorator equivalent" for server side
+        # This single line replaces all scattered os.getenv('API_KEY') calls
+        api_key = os.getenv('API_KEY')
+        if api_key:
+            headers['X-API-Key'] = api_key
+        else:
+            print(f"[@call_host] ⚠️ WARNING: API_KEY not found in environment - request to {endpoint} will fail!")
+        
+        # Merge with extra headers
+        if extra_headers:
+            headers.update(extra_headers)
+        
+        if headers:
+            kwargs['headers'] = headers
+        
+        # Execute request
+        method_upper = method.upper()
+        if method_upper == 'GET':
+            response = requests.get(full_url, **kwargs)
+        elif method_upper == 'POST':
+            response = requests.post(full_url, **kwargs)
+        elif method_upper == 'PUT':
+            response = requests.put(full_url, **kwargs)
+        elif method_upper == 'DELETE':
+            response = requests.delete(full_url, **kwargs)
+        else:
+            return {
+                'success': False,
+                'error': f'Unsupported HTTP method: {method}'
+            }, 400
+        
+        # Parse response
+        try:
+            response_data = response.json()
+        except json.JSONDecodeError:
+            response_data = {
+                'success': False,
+                'error': 'Invalid JSON response from host',
+                'raw_response': response.text[:500]
+            }
+        
+        return response_data, response.status_code
+        
+    except requests.exceptions.Timeout:
+        return {
+            'success': False,
+            'error': f'Request to host timed out (timeout={timeout}s)'
+        }, 504
+    except requests.exceptions.ConnectionError as e:
+        return {
+            'success': False,
+            'error': f'Could not connect to host: {str(e)}'
+        }, 503
+    except Exception as e:
+        return {
+            'success': False,
+            'error': f'Host call error: {str(e)}'
+        }, 500
 
 def _get_nginx_host_url(host_info: dict) -> str:
     """

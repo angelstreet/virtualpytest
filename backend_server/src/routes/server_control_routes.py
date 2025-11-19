@@ -21,7 +21,7 @@ from typing import Dict, Any, Optional
 from shared.src.lib.utils.build_url_utils import buildHostUrl
 from  backend_server.src.lib.utils.server_utils import get_host_manager
 from  backend_server.src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
-from  backend_server.src.lib.utils.route_utils import proxy_to_host_direct
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_direct, build_host_auth_headers
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')
@@ -78,10 +78,18 @@ def take_control():
                 request_payload = {}
                 if device_id:
                     request_payload['device_id'] = device_id
+
+                # Add API key for backend_host authentication via centralized helper
+                headers: Dict[str, str] = build_host_auth_headers(
+                    log_prefix='[CONTROL]',
+                    existing_headers=None
+                )
+                print(f"🔑 [CONTROL] Prepared auth headers for /host/takeControl (has_api_key={'X-API-Key' in headers})")
                 
                 response = requests.post(
                     host_url,
                     json=request_payload,
+                    headers=headers if headers else None,
                     timeout=30
                 )
                     
@@ -224,10 +232,18 @@ def release_control():
                     host_url = buildHostUrl(host_data, host_endpoint)
                     
                     print(f"📡 [CONTROL:ASYNC] Notifying host of release: {host_url}")
+
+                    # Add API key for backend_host authentication via centralized helper
+                    headers: Dict[str, str] = build_host_auth_headers(
+                        log_prefix='[CONTROL:ASYNC]',
+                        existing_headers=None
+                    )
+                    print(f"🔑 [CONTROL:ASYNC] Prepared auth headers for /host/releaseControl (has_api_key={'X-API-Key' in headers})")
                     
                     response = requests.post(
                         host_url,
                         json={'device_id': device_id},
+                        headers=headers if headers else None,
                         timeout=10  # Reduced timeout for background task
                     )
                     
@@ -361,10 +377,18 @@ def execute_navigation():
         host_url = buildHostUrl(host_data, host_endpoint)
         
         print(f"📡 [NAVIGATION] Forwarding to: {host_url}")
+
+        # Add API key for backend_host authentication via centralized helper
+        headers: Dict[str, str] = build_host_auth_headers(
+            log_prefix='[NAVIGATION]',
+            existing_headers=None
+        )
+        print(f"🔑 [NAVIGATION] Prepared auth headers for /host/navigation/execute (has_api_key={'X-API-Key' in headers})")
         
         response = requests.post(
             host_url,
             json={'navigation_data': navigation_data},
+            headers=headers if headers else None,
             timeout=90
         )
         
@@ -414,10 +438,18 @@ def batch_execute_navigation():
         host_url = buildHostUrl(host_data, host_endpoint)
         
         print(f"📡 [BATCH-NAVIGATION] Forwarding to: {host_url}")
+
+        # Add API key for backend_host authentication via centralized helper
+        headers: Dict[str, str] = build_host_auth_headers(
+            log_prefix='[BATCH-NAVIGATION]',
+            existing_headers=None
+        )
+        print(f"🔑 [BATCH-NAVIGATION] Prepared auth headers for /host/navigation/batchExecute (has_api_key={'X-API-Key' in headers})")
         
         response = requests.post(
             host_url,
             json={'batch_data': batch_data},
+            headers=headers if headers else None,
             timeout=180  # Longer timeout for batch operations
         )
         
