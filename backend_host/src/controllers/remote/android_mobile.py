@@ -280,7 +280,10 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                             x, y = x1, y1
                             width, height = x2 - x1, y2 - y1
                     
-                    print(f"Remote[{self.device_type.upper()}]: Element: {name} | Index: {element.id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}")
+                    # Get XPath if available
+                    xpath_info = f" | XPath: {element.xpath}" if hasattr(element, 'xpath') and element.xpath else ""
+                    
+                    print(f"Remote[{self.device_type.upper()}]: Element: {name} | Index: {element.id} | Order: {i+1} | X: {x} | Y: {y} | Width: {width} | Height: {height}{xpath_info}")
             else:
                 print(f"Remote[{self.device_type.upper()}]: UI dump failed: {error}")
                 

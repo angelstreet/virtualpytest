@@ -453,13 +453,13 @@ class ADBUtils:
             
     def _parse_ui_elements(self, xml_data: str) -> List[AndroidElement]:
         """
-        Parse XML data to extract UI elements.
+        Parse XML data to extract UI elements with XPath information.
         
         Args:
             xml_data: XML content from uiautomator dump
             
         Returns:
-            List of AndroidElement objects
+            List of AndroidElement objects with XPath
         """
         elements = []
         
@@ -467,8 +467,120 @@ class ADBUtils:
         if '<node' not in xml_data or '</hierarchy>' not in xml_data:
             print(f"[@lib:adbUtils:_parse_ui_elements] Invalid XML format received")
             return elements
+        
+        try:
+            # Parse XML using ElementTree
+            root = ET.fromstring(xml_data)
             
-       
+            element_counter = 0
+            filtered_out_count = 0
+            
+            def get_xpath(node, parent_path="", parent_node=None):
+                """Generate XPath for a node considering sibling positions."""
+                class_name = node.get('class', '')
+                
+                if not parent_node:
+                    # Root node
+                    return f"/{class_name}" if class_name else "/node"
+                
+                # Count preceding siblings with same class name
+                sibling_index = 0
+                for sibling in parent_node:
+                    if sibling == node:
+                        break
+                    if sibling.get('class', '') == class_name:
+                        sibling_index += 1
+                
+                # Build XPath with index
+                current_path = f"{parent_path}/{class_name}[{sibling_index}]" if class_name else f"{parent_path}/node[{sibling_index}]"
+                return current_path
+            
+            def traverse_and_extract(node, parent_path="", parent_node=None):
+                """Recursively traverse XML tree and extract elements with XPath."""
+                nonlocal element_counter, filtered_out_count
+                
+                # Get node attributes
+                class_name = node.get('class', '').strip()
+                text = node.get('text', '').strip()
+                resource_id = node.get('resource-id', '').strip()
+                content_desc = node.get('content-desc', '').strip()
+                bounds = node.get('bounds', '').strip()
+                clickable = node.get('clickable', 'false') == 'true'
+                enabled = node.get('enabled', 'false') == 'true'
+                
+                # Generate XPath for this element
+                xpath = get_xpath(node, parent_path, parent_node)
+                
+                # Early filtering - skip obviously useless elements
+                skip_element = False
+                if (not text or text == '' or text == ' ' or text == '\n') and \
+                   (not content_desc or content_desc == '' or content_desc == ' ') and \
+                   (not resource_id or resource_id == 'null' or resource_id == '') and \
+                   (not class_name or class_name == ''):
+                    skip_element = True
+                
+                # Skip elements with null resource-id
+                if resource_id == 'null':
+                    skip_element = True
+                
+                # Skip elements that are not interactive and have no text/desc
+                if not clickable and not enabled and (not text or text == '') and (not content_desc or content_desc == ''):
+                    skip_element = True
+                
+                # Add element if not filtered
+                if not skip_element:
+                    element_counter += 1
+                    element = AndroidElement(
+                        element_id=element_counter,
+                        tag=class_name or 'unknown',
+                        text=text or '<no text>',
+                        resource_id=resource_id or '<no resource-id>',
+                        content_desc=content_desc or '<no content-desc>',
+                        class_name=class_name or '',
+                        bounds=bounds or '',
+                        clickable=clickable,
+                        enabled=enabled,
+                        xpath=xpath
+                    )
+                    elements.append(element)
+                else:
+                    filtered_out_count += 1
+                
+                # Recursively process children
+                for child in node:
+                    traverse_and_extract(child, xpath, node)
+            
+            # Start traversal from root
+            traverse_and_extract(root, "", None)
+            
+            print(f"[@lib:adbUtils:_parse_ui_elements] Extracted {len(elements)} elements, filtered {filtered_out_count}")
+            
+        except ET.ParseError as e:
+            print(f"[@lib:adbUtils:_parse_ui_elements] XML Parse Error: {e}")
+            print(f"[@lib:adbUtils:_parse_ui_elements] Falling back to regex parsing...")
+            # Fall back to original regex-based parsing (without XPath)
+            return self._parse_ui_elements_regex(xml_data)
+        except Exception as e:
+            print(f"[@lib:adbUtils:_parse_ui_elements] Error: {e}")
+            import traceback
+            traceback.print_exc()
+            # Fall back to regex parsing
+            return self._parse_ui_elements_regex(xml_data)
+        
+        return elements
+    
+    def _parse_ui_elements_regex(self, xml_data: str) -> List[AndroidElement]:
+        """
+        Fallback regex-based parsing when XML parsing fails (without XPath).
+        
+        Args:
+            xml_data: XML content from uiautomator dump
+            
+        Returns:
+            List of AndroidElement objects (without XPath)
+        """
+        elements = []
+        
         # Pattern 1: Self-closing nodes
         self_closing_pattern = r'<node[^>]*\/>'
         self_closing_matches = re.findall(self_closing_pattern, xml_data, re.DOTALL)
@@ -481,7 +593,7 @@ class ADBUtils:
         all_nodes_pattern = r'<node[^>]*(?:\/>|>.*?<\/node>)'
         all_matches = re.findall(all_nodes_pattern, xml_data, re.DOTALL)
         
-        # Use the pattern that finds the most nodes (same logic as TypeScript)
+        # Use the pattern that finds the most nodes
         matches = all_matches
         if len(self_closing_matches) > len(all_matches):
             matches = self_closing_matches
@@ -541,17 +653,17 @@ class ADBUtils:
                     class_name=class_name or '',
                     bounds=bounds or '',
                     clickable=clickable,
-                    enabled=enabled
+                    enabled=enabled,
+                    xpath=None  # No XPath in regex fallback
                 )
                 
                 elements.append(element)
                 
             except Exception as e:
-                print(f"[@lib:adbUtils:_parse_ui_elements] Error parsing element {i+1}: {e}")
+                print(f"[@lib:adbUtils:_parse_ui_elements_regex] Error parsing element {i+1}: {e}")
                 filtered_out_count += 1
         
-        for index, el in enumerate(elements):
-            overlay_number = index + 1
+        print(f"[@lib:adbUtils:_parse_ui_elements_regex] Regex fallback: {len(elements)} elements, filtered {filtered_out_count}")
         return elements
         
     def click_element(self, device_id: str, element: AndroidElement) -> bool:
@@ -838,6 +950,52 @@ class ADBUtils:
             error_msg = f"Smart element search failed: {e}"
             print(f"[@lib:adbUtils:smart_element_search] ERROR: {error_msg}")
             return False, [], error_msg
+    
+    def search_element_by_xpath(self, device_id: str, xpath: str) -> Tuple[bool, List[AndroidElement], str]:
+        """
+        Search for elements by XPath expression.
+        
+        Args:
+            device_id: Android device ID
+            xpath: XPath expression to match elements
+        
+        Returns:
+            Tuple of (success, matching_elements, error_message)
+        """
+        try:
+            print(f"[@lib:adbUtils:search_element_by_xpath] Searching for XPath: '{xpath}' on device {device_id}")
+            
+            # Get all UI elements
+            dump_success, elements, dump_error = self.dump_elements(device_id)
+            
+            if not dump_success:
+                error_msg = f"Failed to dump UI elements: {dump_error}"
+                print(f"[@lib:adbUtils:search_element_by_xpath] {error_msg}")
+                return False, [], error_msg
+            
+            # Filter elements by XPath
+            matches = []
+            for element in elements:
+                if hasattr(element, 'xpath') and element.xpath:
+                    # Check if element's XPath matches the search
+                    # Support both exact match and contains/startswith patterns
+                    if element.xpath == xpath or xpath in element.xpath or element.xpath.startswith(xpath):
+                        matches.append(element)
+            
+            success = len(matches) > 0
+            if success:
+                print(f"[@lib:adbUtils:search_element_by_xpath] SUCCESS: Found {len(matches)} matching elements")
+                for element in matches:
+                    print(f"[@lib:adbUtils:search_element_by_xpath]   Element {element.id}: {element.xpath}")
+            else:
+                print(f"[@lib:adbUtils:search_element_by_xpath] No elements found matching XPath '{xpath}'")
+            
+            return success, matches, ""
+            
+        except Exception as e:
+            error_msg = f"XPath search failed: {e}"
+            print(f"[@lib:adbUtils:search_element_by_xpath] ERROR: {error_msg}")
+            return False, [], error_msg
 
     def check_element_exists(self, device_id: str, search_term: str, **options) -> Tuple[bool, Optional[AndroidElement], str]:
         """
@@ -875,7 +1033,8 @@ class ADBUtils:
                             class_name=element_dict['class_name'],
                             bounds=element_dict['bounds'],
                             clickable=element_dict['clickable'],
-                            enabled=element_dict['enabled']
+                            enabled=element_dict['enabled'],
+                            xpath=element_dict.get('xpath')
                         )
                         
                         return True, element, ""
@@ -904,6 +1063,10 @@ class ADBUtils:
                         content_desc=element_dict['content_desc'], 
                         class_name=element_dict['class_name'],
                         bounds=element_dict['bounds'],
+                        clickable=element_dict['clickable'],
+                        enabled=element_dict['enabled'],
+                        xpath=element_dict.get('xpath')
+                    )
                         clickable=element_dict['clickable'],
                         enabled=element_dict['enabled']
                     )
