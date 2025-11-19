@@ -3,10 +3,16 @@ PyAutoGUI Desktop Controller Implementation
 
 This controller provides PyAutoGUI cross-platform GUI automation functionality.
 Works on Windows, Linux, and ARM (Raspberry Pi) - assumes PyAutoGUI is installed on the system.
+
+SECURITY: This controller includes protections against dangerous operations:
+- Blocked commands and patterns (file deletion, system commands, etc.)
+- Restricted file/directory access (config files, system paths, etc.)
+- Application launch restrictions
 """
 
 from typing import Dict, Any, List, Optional
 import time
+import re
 from ..base_controller import DesktopControllerInterface
 
 # Import basic modules at module level
@@ -16,6 +22,134 @@ import sys
 # Global flag to track availability - will be set during first controller instantiation
 PYAUTOGUI_AVAILABLE = None
 pyautogui = None
+
+# =====================================================
+# SECURITY CONFIGURATION
+# =====================================================
+
+# Dangerous command patterns that should be blocked
+BLOCKED_COMMAND_PATTERNS = [
+    # File operations
+    r'\brm\b.*-rf',
+    r'\brm\b.*-fr',
+    r'\brm\s+-[a-zA-Z]*r[a-zA-Z]*f',
+    r'\brm\s+-[a-zA-Z]*f[a-zA-Z]*r',
+    r'\brmdir\b',
+    r'\bdel\b.*\/[sS]',
+    r'\brd\b.*\/[sS]',
+    
+    # System commands
+    r'\bshutdown\b',
+    r'\breboot\b',
+    r'\binit\s+[06]',
+    r'\bpoweroff\b',
+    r'\bhalt\b',
+    r'\bkillall\b',
+    r'\bpkill\b',
+    
+    # User/permission changes
+    r'\bsudo\b',
+    r'\bsu\s',
+    r'\bchmod\b.*777',
+    r'\bchown\b',
+    r'\buseradd\b',
+    r'\busermod\b',
+    r'\buserdel\b',
+    
+    # Package management
+    r'\bapt\s+remove',
+    r'\bapt\s+purge',
+    r'\byum\s+remove',
+    r'\bdnf\s+remove',
+    r'\bpip\s+uninstall',
+    r'\bnpm\s+uninstall',
+    
+    # Process manipulation
+    r'\bkill\s+-9',
+    r'\bkill\s+-KILL',
+    
+    # Network/firewall
+    r'\biptables\b',
+    r'\bufw\b',
+    r'\bfirewall-cmd\b',
+    
+    # Disk operations
+    r'\bdd\b.*if=',
+    r'\bmkfs\b',
+    r'\bfdisk\b',
+    r'\bparted\b',
+    
+    # Archive extraction in root
+    r'\btar\b.*-x.*\s+/',
+    r'\bunzip\b.*\s+/',
+    
+    # Command chaining (to bypass other checks)
+    r'[;&|]\s*rm\b',
+    r'[;&|]\s*sudo\b',
+    r'`.*rm\b',
+    r'\$\(.*rm\b',
+]
+
+# Sensitive file patterns to block
+BLOCKED_FILE_PATTERNS = [
+    r'\.env',
+    r'\.env\.',
+    r'password',
+    r'passwd',
+    r'shadow',
+    r'secret',
+    r'credentials',
+    r'\.ssh',
+    r'id_rsa',
+    r'\.pem',
+    r'\.key',
+    r'\.cert',
+    r'\.crt',
+    r'config\.json',
+    r'\.aws',
+    r'\.kube',
+    r'/etc/passwd',
+    r'/etc/shadow',
+    r'/etc/sudoers',
+]
+
+# Sensitive directories to block
+BLOCKED_DIRECTORIES = [
+    '/etc',
+    '/sys',
+    '/proc',
+    '/dev',
+    '/boot',
+    '/root',
+    '~/.ssh',
+    '~/.aws',
+    '~/.kube',
+    '/var/lib',
+    '/usr/bin',
+    '/usr/sbin',
+    '/sbin',
+    'C:\\Windows\\System32',
+    'C:\\Windows\\SysWOW64',
+]
+
+# Blocked applications (dangerous to launch)
+BLOCKED_APPLICATIONS = [
+    'sudo',
+    'su',
+    'passwd',
+    'shutdown',
+    'reboot',
+    'init',
+    'systemctl',
+    'service',
+    'rm',
+    'dd',
+    'fdisk',
+    'mkfs',
+    'iptables',
+    'ufw',
+    'firewall-cmd',
+]
 
 
 class PyAutoGUIDesktopController(DesktopControllerInterface):
@@ -37,6 +171,102 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
             print(f"[@controller:PyAutoGUIDesktop] WARNING: PyAutoGUI module not available. Please install pyautogui")
         else:
             print(f"[@controller:PyAutoGUIDesktop] Initialized for cross-platform GUI automation")
+            print(f"[@controller:PyAutoGUIDesktop] Security protections enabled")
+    
+    def _validate_text_input(self, text: str) -> tuple[bool, str]:
+        """
+        Validate text input for security concerns.
+        
+        Args:
+            text: Text to validate
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not text:
+            return True, ""
+        
+        # Check for dangerous command patterns
+        for pattern in BLOCKED_COMMAND_PATTERNS:
+            if re.search(pattern, text, re.IGNORECASE):
+                error_msg = f"SECURITY BLOCK: Text contains blocked command pattern: {pattern}"
+                print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+                return False, error_msg
+        
+        # Check for sensitive file patterns
+        for pattern in BLOCKED_FILE_PATTERNS:
+            if re.search(pattern, text, re.IGNORECASE):
+                error_msg = f"SECURITY BLOCK: Text references blocked file pattern: {pattern}"
+                print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+                return False, error_msg
+        
+        # Check for sensitive directory patterns
+        for blocked_dir in BLOCKED_DIRECTORIES:
+            if blocked_dir.lower() in text.lower():
+                error_msg = f"SECURITY BLOCK: Text references blocked directory: {blocked_dir}"
+                print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+                return False, error_msg
+        
+        return True, ""
+    
+    def _validate_application(self, app_name: str) -> tuple[bool, str]:
+        """
+        Validate application launch for security concerns.
+        
+        Args:
+            app_name: Application name to validate
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not app_name:
+            return False, "Application name is required"
+        
+        # Extract base command name (without path or arguments)
+        base_app = os.path.basename(app_name).split()[0].lower()
+        
+        # Check against blocked applications
+        for blocked_app in BLOCKED_APPLICATIONS:
+            if blocked_app.lower() in base_app:
+                error_msg = f"SECURITY BLOCK: Application '{app_name}' is blocked for security reasons"
+                print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+                return False, error_msg
+        
+        # Additional check for shell commands
+        if base_app in ['bash', 'sh', 'zsh', 'fish', 'cmd', 'powershell', 'pwsh']:
+            error_msg = f"SECURITY BLOCK: Shell/terminal applications are blocked: {app_name}"
+            print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+            return False, error_msg
+        
+        return True, ""
+    
+    def _validate_image_path(self, image_path: str) -> tuple[bool, str]:
+        """
+        Validate image path for security concerns.
+        
+        Args:
+            image_path: Image path to validate
+            
+        Returns:
+            Tuple of (is_valid, error_message)
+        """
+        if not image_path:
+            return False, "Image path is required"
+        
+        # Check for directory traversal
+        if '..' in image_path:
+            error_msg = f"SECURITY BLOCK: Directory traversal detected in path: {image_path}"
+            print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+            return False, error_msg
+        
+        # Check for sensitive directories
+        for blocked_dir in BLOCKED_DIRECTORIES:
+            if image_path.startswith(blocked_dir):
+                error_msg = f"SECURITY BLOCK: Image path in blocked directory: {blocked_dir}"
+                print(f"[@controller:PyAutoGUIDesktop] {error_msg}")
+                return False, error_msg
+        
+        return True, ""
     
     def _initialize_pyautogui(self):
         """Initialize PyAutoGUI module - only called once per controller instantiation."""
@@ -230,6 +460,11 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                 if text is None:
                     return self._error_result('Missing text for type', start_time)
                 
+                # SECURITY: Validate text input
+                is_valid, error_msg = self._validate_text_input(text)
+                if not is_valid:
+                    return self._error_result(error_msg, start_time)
+                
                 print(f"Desktop[{self.desktop_type.upper()}]: Typing text: '{text}'")
                 pyautogui.typewrite(text, interval=interval)
                 return self._success_result(f"Text typed: {text}", start_time)
@@ -258,6 +493,11 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                 if not image_path:
                     return self._error_result('Missing image_path for locate', start_time)
                 
+                # SECURITY: Validate image path
+                is_valid, error_msg = self._validate_image_path(image_path)
+                if not is_valid:
+                    return self._error_result(error_msg, start_time)
+                
                 print(f"Desktop[{self.desktop_type.upper()}]: Locating image: {image_path}")
                 try:
                     if region:
@@ -279,6 +519,11 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                 
                 if not image_path:
                     return self._error_result('Missing image_path for locate_and_click', start_time)
+                
+                # SECURITY: Validate image path
+                is_valid, error_msg = self._validate_image_path(image_path)
+                if not is_valid:
+                    return self._error_result(error_msg, start_time)
                 
                 print(f"Desktop[{self.desktop_type.upper()}]: Locating and clicking image: {image_path}")
                 try:
@@ -326,6 +571,11 @@ class PyAutoGUIDesktopController(DesktopControllerInterface):
                 
                 if not app_name:
                     return self._error_result('Missing app_name for launch', start_time)
+                
+                # SECURITY: Validate application name
+                is_valid, error_msg = self._validate_application(app_name)
+                if not is_valid:
+                    return self._error_result(error_msg, start_time)
                 
                 print(f"Desktop[{self.desktop_type.upper()}]: Launching application: {app_name}")
                 

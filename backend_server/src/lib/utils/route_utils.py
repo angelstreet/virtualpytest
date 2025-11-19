@@ -8,6 +8,7 @@ from flask import request
 import requests
 import json
 import urllib3
+import os
 
 # Disable InsecureRequestWarning for self-signed certificates
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
@@ -87,6 +88,11 @@ def proxy_to_host(endpoint, method='GET', data=None, timeout=30, headers=None):
         if data:
             request_headers['Content-Type'] = 'application/json'
             kwargs['json'] = data
+        
+        # Add API key for backend_host authentication
+        api_key = os.getenv('API_KEY')
+        if api_key:
+            request_headers['X-API-Key'] = api_key
         
         if headers:
             request_headers.update(headers)
@@ -203,6 +209,11 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
             request_headers['Content-Type'] = 'application/json'
             kwargs['json'] = data
         
+        # Add API key for backend_host authentication
+        api_key = os.getenv('API_KEY')
+        if api_key:
+            request_headers['X-API-Key'] = api_key
+        
         if headers:
             request_headers.update(headers)
         
@@ -310,6 +321,12 @@ def proxy_to_host_direct(host_info, endpoint, method='GET', data=None, timeout=3
         
         # Prepare headers
         request_headers = {'Content-Type': 'application/json'}
+        
+        # Add API key for backend_host authentication
+        api_key = os.getenv('API_KEY')
+        if api_key:
+            request_headers['X-API-Key'] = api_key
+        
         if headers:
             request_headers.update(headers)
         

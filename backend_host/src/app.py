@@ -202,6 +202,30 @@ def cleanup_host_ports():
     host_port = int(os.getenv('HOST_PORT', '6109'))
     kill_process_on_port(host_port)
 
+def setup_api_authentication(app):
+    """Setup global API key authentication for all /host/* routes"""
+    from flask import request, jsonify
+    from shared.src.lib.utils.auth_utils import validate_api_key
+    
+    @app.before_request
+    def check_api_key():
+        """Global API key check for all /host/* routes"""
+        # Only check /host/* routes (not health checks or other endpoints)
+        if not request.path.startswith('/host/'):
+            return None
+        
+        # Validate API key
+        is_valid, error_response = validate_api_key()
+        
+        if not is_valid:
+            print(f"[@backend_host:auth] ❌ API key validation failed for {request.path}")
+            print(f"[@backend_host:auth]    From: {request.remote_addr}")
+            print(f"[@backend_host:auth]    Reason: {error_response.get('message')}")
+            return jsonify(error_response), 401
+        
+        # Valid API key - allow request to proceed
+        return None
+
 def main():
     """Main function for backend_host application"""
     print("🏠 VIRTUALPYTEST backend_host")
@@ -280,6 +304,11 @@ def main():
         print("[@backend_host:main] ❌ CRITICAL: Failed to register host routes")
         print("[@backend_host:main] ❌ Cannot start host without all routes properly loaded")
         sys.exit(1)
+    
+    # STEP 3.5: Setup Global API Key Authentication
+    print("[@backend_host:main] Step 3.5: Setting up API key authentication...")
+    setup_api_authentication(app)
+    print("[@backend_host:main] ✅ API key authentication enabled for all /host/* routes")
     
     # STEP 4: Start Host Services
     print("[@backend_host:main] Step 4: Starting host services...")
