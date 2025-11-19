@@ -496,10 +496,10 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
     volumes:
       - grafana-data:/var/lib/grafana
       - grafana-logs:/var/log/grafana
-      - ../../../grafana/config/grafana.ini:/app/backend_server/config/grafana/grafana.ini:rw
-      - ../../../grafana/config/provisioning/dashboards:/app/backend_server/config/grafana/provisioning/dashboards:ro
-      - ../../../grafana/dashboards:/app/backend_server/config/grafana/dashboards:ro
-      - ../../../backend_server/docker/scripts/setup_grafana_datasource.sh:/setup_grafana_datasource.sh:ro
+      - ./grafana_entrypoint.sh:/grafana_entrypoint.sh:ro
+      - ../../../grafana/config/grafana.ini:/etc/grafana/grafana.ini:ro
+      - ../../../grafana/config/provisioning:/etc/grafana/provisioning:ro
+      - ../../../grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
@@ -513,10 +513,8 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - GRAFANA_ADMIN_USER=admin
       - GRAFANA_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
       - GRAFANA_SECRET_KEY=\${GRAFANA_SECRET_KEY:-SW2YcwTIb9zpOOhoPsMm}
-      - GF_PATHS_CONFIG=/app/backend_server/config/grafana/grafana.ini
-      - GF_PATHS_DATA=/var/lib/grafana
-      - GF_PATHS_LOGS=/var/log/grafana
-    entrypoint: ["/bin/bash", "-c", "bash /setup_grafana_datasource.sh && /run.sh"]
+      - GF_SERVER_DOMAIN=${DOMAIN}
+    entrypoint: ["/bin/bash", "/grafana_entrypoint.sh"]
     restart: unless-stopped
     networks:
       - hetzner_network
