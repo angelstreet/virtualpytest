@@ -106,20 +106,31 @@ export const TestCaseBuilderHeader: React.FC<TestCaseBuilderHeaderProps> = ({
   // Keyboard shortcuts for undo/redo and copy/paste
   React.useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+      // Check if user is focused on an input field (TextField, textarea, contenteditable)
+      const target = e.target as HTMLElement;
+      const isInputField = 
+        target.tagName === 'INPUT' || 
+        target.tagName === 'TEXTAREA' || 
+        target.isContentEditable ||
+        target.closest('input') !== null ||
+        target.closest('textarea') !== null;
+      
+      // Undo/Redo shortcuts - only when NOT in input fields
+      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z' && !isInputField) {
         e.preventDefault();
         undo();
       }
-      if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+      if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y') && !isInputField) {
         e.preventDefault();
         redo();
       }
-      // Copy/Paste shortcuts
-      if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+      
+      // Copy/Paste shortcuts - only when NOT in input fields (allow normal text copy/paste)
+      if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isInputField) {
         e.preventDefault();
         copyBlock();
       }
-      if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isInputField) {
         e.preventDefault();
         pasteBlock();
       }

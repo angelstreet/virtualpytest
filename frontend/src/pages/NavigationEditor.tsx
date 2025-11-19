@@ -366,24 +366,35 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // Keyboard event listeners for modifier keys
     useEffect(() => {
       const handleKeyDown = (e: KeyboardEvent) => {
+        // Check if user is focused on an input field (TextField, textarea, contenteditable)
+        const target = e.target as HTMLElement;
+        const isInputField = 
+          target.tagName === 'INPUT' || 
+          target.tagName === 'TEXTAREA' || 
+          target.isContentEditable ||
+          target.closest('input') !== null ||
+          target.closest('textarea') !== null;
+        
         if (e.shiftKey) {
           setIsShiftHeld(true);
         }
-        // Undo/Redo shortcuts
-        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z') {
+        
+        // Undo/Redo shortcuts - only when NOT in input fields
+        if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z' && !isInputField) {
           e.preventDefault();
           navigation.undo();
         }
-        if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y')) {
+        if ((e.ctrlKey || e.metaKey) && (e.shiftKey && e.key === 'z' || e.key === 'y') && !isInputField) {
           e.preventDefault();
           navigation.redo();
         }
-        // Copy/Paste shortcuts
-        if ((e.ctrlKey || e.metaKey) && e.key === 'c') {
+        
+        // Copy/Paste shortcuts - only when NOT in input fields (allow normal text copy/paste)
+        if ((e.ctrlKey || e.metaKey) && e.key === 'c' && !isInputField) {
           e.preventDefault();
           navigation.copyNode();
         }
-        if ((e.ctrlKey || e.metaKey) && e.key === 'v') {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'v' && !isInputField) {
           e.preventDefault();
           navigation.pasteNode();
         }

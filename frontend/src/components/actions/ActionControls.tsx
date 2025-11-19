@@ -117,6 +117,7 @@ export const ActionControls: React.FC<ActionControlsProps> = ({
         value={getInputValue(action)}
         onChange={(e) => handleInputValueChange(e.target.value)}
         placeholder={getPlaceholder()}
+        autoComplete="off"
         fullWidth
         sx={{
           '& .MuiInputBase-input': {

@@ -126,6 +126,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     // Common wait_time field for all actions
     fields.push(
       <TextField
+        autoComplete="off"
         key="wait_time"
         label="Wait Time (ms)"
         type="number"
@@ -150,6 +151,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
     if (action.action_type !== 'verification') {
       fields.push(
         <TextField
+          autoComplete="off"
           key="iterator"
           label="Iterations"
           type="number"
@@ -242,6 +244,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             // Render text input (fallback)
             fields.push(
               <TextField
+                autoComplete="off"
                 key="key"
                 label="Key"
                 size="small"
@@ -268,6 +271,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             // Web input_text needs selector and text fields
             fields.push(
               <TextField
+                autoComplete="off"
                 key="selector"
                 label="Selector"
                 size="small"
@@ -283,6 +287,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 }}
               />,
               <TextField
+                autoComplete="off"
                 key="text"
                 label="Text"
                 size="small"
@@ -302,6 +307,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             // Remote input_text only needs text field
             fields.push(
               <TextField
+                autoComplete="off"
                 key="text"
                 label="Text"
                 size="small"
@@ -326,6 +332,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="element_id"
               label="Element Text/ID"
               size="small"
@@ -349,6 +356,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="selector"
               label="Selector or Text"
               size="small"
@@ -372,6 +380,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="selector"
               label="Selector or Text"
               size="small"
@@ -395,6 +404,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="element_id"
               label="Element ID"
               size="small"
@@ -419,6 +429,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           fields.push(
             <Box key="coordinates" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
               <TextField
+                autoComplete="off"
                 label="X"
                 type="number"
                 size="small"
@@ -433,6 +444,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 }}
               />
               <TextField
+                autoComplete="off"
                 label="Y"
                 type="number"
                 size="small"
@@ -454,6 +466,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'swipe':
         fields.push(
           <TextField
+            autoComplete="off"
             key="from_x"
             label="From X"
             type="number"
@@ -469,6 +482,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="from_y"
             label="From Y"
             type="number"
@@ -484,6 +498,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_x"
             label="To X"
             type="number"
@@ -499,6 +514,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_y"
             label="To Y"
             type="number"
@@ -514,6 +530,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="duration"
             label="Duration (ms)"
             type="number"
@@ -535,6 +552,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'swipe_up':
         fields.push(
           <TextField
+            autoComplete="off"
             key="from_x"
             label="From X"
             type="number"
@@ -550,6 +568,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="from_y"
             label="From Y"
             type="number"
@@ -565,6 +584,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_x"
             label="To X"
             type="number"
@@ -580,6 +600,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_y"
             label="To Y"
             type="number"
@@ -595,6 +616,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="duration"
             label="Duration (ms)"
             type="number"
@@ -616,6 +638,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'swipe_down':
         fields.push(
           <TextField
+            autoComplete="off"
             key="from_x"
             label="From X"
             type="number"
@@ -631,6 +654,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="from_y"
             label="From Y"
             type="number"
@@ -646,6 +670,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_x"
             label="To X"
             type="number"
@@ -661,6 +686,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_y"
             label="To Y"
             type="number"
@@ -676,6 +702,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="duration"
             label="Duration (ms)"
             type="number"
@@ -697,6 +724,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'swipe_left':
         fields.push(
           <TextField
+            autoComplete="off"
             key="from_x"
             label="From X"
             type="number"
@@ -712,6 +740,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="from_y"
             label="From Y"
             type="number"
@@ -727,6 +756,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_x"
             label="To X"
             type="number"
@@ -742,6 +772,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_y"
             label="To Y"
             type="number"
@@ -757,6 +788,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="duration"
             label="Duration (ms)"
             type="number"
@@ -778,6 +810,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'swipe_right':
         fields.push(
           <TextField
+            autoComplete="off"
             key="from_x"
             label="From X"
             type="number"
@@ -793,6 +826,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="from_y"
             label="From Y"
             type="number"
@@ -808,6 +842,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_x"
             label="To X"
             type="number"
@@ -823,6 +858,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="to_y"
             label="To Y"
             type="number"
@@ -838,6 +874,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="duration"
             label="Duration (ms)"
             type="number"
@@ -862,6 +899,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="package"
               label="Package Name"
               size="small"
@@ -883,6 +921,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'wait':
         fields.push(
           <TextField
+            autoComplete="off"
             key="duration"
             label="Duration (s)"
             type="number"
@@ -909,6 +948,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
       case 'auto_return':
         fields.push(
           <TextField
+            autoComplete="off"
             key="timer"
             label="Timer (ms)"
             type="number"
@@ -925,6 +965,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             }}
           />,
           <TextField
+            autoComplete="off"
             key="target_node_id"
             label="Target Node ID"
             size="small"
@@ -1198,6 +1239,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           // Simple text input for search term (like ADB verifications - consistent parameter name)
           fields.push(
             <TextField
+              autoComplete="off"
               key="search_term"
               label="Element Text/ID"
               size="small"
@@ -1227,6 +1269,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           fields.push(
             <Box key="coordinates" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
               <TextField
+                autoComplete="off"
                 label="X"
                 type="number"
                 size="small"
@@ -1241,6 +1284,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 }}
               />
               <TextField
+                autoComplete="off"
                 label="Y"
                 type="number"
                 size="small"
@@ -1292,6 +1336,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
             // Render text input (fallback)
             fields.push(
               <TextField
+                autoComplete="off"
                 key="key"
                 label="Key"
                 size="small"
@@ -1315,6 +1360,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="text"
               label="Text"
               size="small"
@@ -1337,6 +1383,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="clicks"
               label="Scroll Clicks"
               type="number"
@@ -1361,6 +1408,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="image_path"
               label="Image Path"
               size="small"
@@ -1383,6 +1431,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="app_name"
               label="App Name"
               size="small"
@@ -1405,6 +1454,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="command"
               label="Bash Command"
               size="small"
@@ -1428,6 +1478,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="url"
               label="URL"
               size="small"
@@ -1454,6 +1505,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
           fields.push(
             <Box key="coordinates" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
               <TextField
+                autoComplete="off"
                 label="X"
                 type="number"
                 size="small"
@@ -1468,6 +1520,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
                 }}
               />
               <TextField
+                autoComplete="off"
                 label="Y"
                 type="number"
                 size="small"
@@ -1490,6 +1543,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="script"
               label="JavaScript"
               size="small"
@@ -1512,6 +1566,7 @@ export const ActionItem: React.FC<ActionItemProps> = ({
         if (currentActionDef?.requiresInput) {
           fields.push(
             <TextField
+              autoComplete="off"
               key="task"
               label="Task Description"
               size="small"

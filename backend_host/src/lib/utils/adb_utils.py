@@ -20,7 +20,8 @@ class AndroidElement:
     """Represents an Android UI element from UI dump."""
     
     def __init__(self, element_id: int, tag: str, text: str, resource_id: str, 
-                 content_desc: str, class_name: str, bounds: str, clickable: bool = False, enabled: bool = True):
+                 content_desc: str, class_name: str, bounds: str, clickable: bool = False, 
+                 enabled: bool = True, xpath: str = None):
         self.id = element_id
         self.tag = tag
         self.text = text
@@ -30,6 +31,7 @@ class AndroidElement:
         self.bounds = bounds
         self.clickable = clickable
         self.enabled = enabled
+        self.xpath = xpath
         
     def to_dict(self) -> Dict[str, Any]:
         """Convert element to dictionary for JSON serialization."""
@@ -42,7 +44,8 @@ class AndroidElement:
             'class_name': self.class_name,
             'bounds': self.bounds,
             'clickable': self.clickable,
-            'enabled': self.enabled
+            'enabled': self.enabled,
+            'xpath': self.xpath
         }
 
 
