@@ -31,6 +31,7 @@ fi
 source config.env
 
 echo "📋 Configuration:"
+echo "   Deployment: ${DEPLOYMENT_NAME:-hetzner1}"
 echo "   Hosts: $HOST_MAX"
 echo "   Ports: ${HOST_START_PORT}-$((HOST_START_PORT + HOST_MAX - 1))"
 echo "   Domain: $DOMAIN"
@@ -653,15 +654,31 @@ echo "   ✅ Created: $DEV_COMPOSE_FILE"
 # ============================================
 echo "🔧 [3/4] Generating host .env files..."
 
+# Try to extract API_KEY from main .env file
+API_KEY_VALUE=""
+if [ -f "$PROJECT_ROOT/.env" ]; then
+    # Extract API_KEY from .env file (handles quotes and comments)
+    API_KEY_VALUE=$(grep -E "^API_KEY=" "$PROJECT_ROOT/.env" | head -1 | cut -d'=' -f2- | sed 's/^["'\'']//' | sed 's/["'\'']$//')
+    if [ -n "$API_KEY_VALUE" ]; then
+        echo "   ✅ Found API_KEY in main .env (length: ${#API_KEY_VALUE})"
+    else
+        echo "   ⚠️  Warning: API_KEY not found in main .env"
+        echo "   Add API_KEY to $PROJECT_ROOT/.env for server↔host authentication"
+    fi
+fi
+
 for i in $(seq 1 $HOST_MAX); do
     PORT=$((HOST_START_PORT + i - 1))
     DIR="$PROJECT_ROOT/backend_host_${i}"
     mkdir -p "$DIR"
     
+    # Use DEPLOYMENT_NAME with fallback to 'hetzner1' if not set
+    DEPLOY_NAME="${DEPLOYMENT_NAME:-hetzner1}"
+    
     cat > "$DIR/.env" <<EOF
 # Backend Host ${i} Configuration (Auto-generated)
 SERVER_URL=http://backend_server:${SERVER_PORT}
-HOST_NAME=hetzner-host-${i}
+HOST_NAME=${DEPLOY_NAME}-host${i}
 HOST_PORT=${HOST_START_PORT}
 HOST_URL=https://${DOMAIN}/host${i}
 HOST_API_URL=http://backend_host_${i}:80
@@ -674,6 +691,9 @@ HOST_VIDEO_FPS=2
 DEBUG=0
 PYTHONUNBUFFERED=1
 
+# API Key for server↔host authentication (required)
+API_KEY=${API_KEY_VALUE}
+
 # R2 Storage - Copy from main .env if exists
 # NOTE: These will be overwritten if present in main .env (OS env vars take priority)
 CLOUDFLARE_R2_ENDPOINT=
@@ -682,7 +702,7 @@ CLOUDFLARE_R2_SECRET_ACCESS_KEY=
 CLOUDFLARE_R2_PUBLIC_URL=
 EOF
     
-    echo "   ✅ Created: backend_host_${i}/.env"
+    echo "   ✅ Created: backend_host_${i}/.env (${DEPLOY_NAME}-host${i})"
 done
 
 echo ""
@@ -697,6 +717,11 @@ else
     echo "   • docker-compose.yml (1 server + ${HOST_MAX} hosts)"
 fi
 echo "   • backend_host_1/.env through backend_host_${HOST_MAX}/.env"
+echo ""
+echo "📛 Host Names (${DEPLOYMENT_NAME:-hetzner1}):"
+for i in $(seq 1 $HOST_MAX); do
+    echo "   • ${DEPLOYMENT_NAME:-hetzner1}-host${i}"
+done
 echo ""
 
 # ============================================
