@@ -242,46 +242,33 @@ class HeatmapProcessor:
     def _fetch_device_capture(self, device: Dict) -> Optional[Dict]:
         """Fetch current capture for a single device (for parallel execution)"""
         try:
-            from shared.src.lib.utils.build_url_utils import buildHostUrl
-            from backend_server.src.lib.utils.route_utils import build_host_auth_headers
+            from shared.src.lib.utils.build_url_utils import call_host
             
             host_name = device['host_name']
             device_id = device['device_id']
             device_name = device.get('device_name', 'Unknown')
             host_data = device['host_data']
             
-            # Call host directly (not via central server proxy) since we're running as standalone script
-            api_url = buildHostUrl(host_data, 'host/monitoring/latest-json')
-            
-            logger.info(f"🔗 [{host_name}/{device_id}/{device_name}] Calling: {api_url}")
+            logger.info(f"🔗 [{host_name}/{device_id}/{device_name}] Calling host monitoring endpoint")
 
-            # Add API key header via centralized helper so this direct call matches secured /host/* behavior
-            headers = build_host_auth_headers(
-                existing_headers=None,
-                log_prefix=f'[@heatmap_processor:{host_name}/{device_id}/{device_name}]'
-            )
-            logger.info(f"🔑 [{host_name}/{device_id}/{device_name}] Prepared auth headers for monitoring latest-json (has_api_key={'X-API-Key' in headers})")
-            
-            response = self.session.post(
-                api_url,
-                json={
-                    'device_id': device_id
-                },
-                headers=headers if headers else None,
-                timeout=10,
-                verify=False  # For self-signed certificates
+            # Use centralized call_host() which automatically adds API key
+            response_data, status_code = call_host(
+                host_data,
+                '/host/monitoring/latest-json',
+                method='POST',
+                data={'device_id': device_id},
+                timeout=10
             )
             
-            logger.info(f"📥 [{host_name}/{device_id}/{device_name}] Response: HTTP {response.status_code}")
+            logger.info(f"📥 [{host_name}/{device_id}/{device_name}] Response: HTTP {status_code}")
                     
-            if response.status_code == 200:
-                result = response.json()
-                logger.info(f"📦 [{host_name}/{device_id}/{device_name}] Response body: {result}")
+            if status_code == 200:
+                logger.info(f"📦 [{host_name}/{device_id}/{device_name}] Response body: {response_data}")
                 
-                if result.get('success') and 'json_data' in result and 'filename' in result:
+                if response_data.get('success') and 'json_data' in response_data and 'filename' in response_data:
                     # Host returns json_data directly - no need for separate request
-                    json_data = result['json_data']
-                    filename = result['filename']
+                    json_data = response_data['json_data']
+                    filename = response_data['filename']
                     
                     # Extract sequence from filename
                     import re

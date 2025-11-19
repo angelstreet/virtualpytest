@@ -12,16 +12,14 @@ This module contains server-side control endpoints that:
 from flask import Blueprint, request, jsonify, session
 import uuid
 import json
-import requests
 import time
 import threading
 from datetime import datetime
 from typing import Dict, Any, Optional
 
-from shared.src.lib.utils.build_url_utils import buildHostUrl
+from shared.src.lib.utils.build_url_utils import call_host
 from  backend_server.src.lib.utils.server_utils import get_host_manager
 from  backend_server.src.lib.utils.lock_utils import lock_device, unlock_device, get_all_locked_devices, get_device_lock_info, get_client_ip
-from  backend_server.src.lib.utils.route_utils import proxy_to_host_direct, build_host_auth_headers
 
 # Create blueprint
 server_control_bp = Blueprint('server_control', __name__, url_prefix='/server/control')
@@ -67,114 +65,103 @@ def take_control():
         success = lock_device(host_name, session_id, client_ip)
         
         if success:
-            # Forward take-control request to the specific host with device_id
+            # Forward take-control request to the specific host with device_id using call_host
             try:
                 host_endpoint = '/host/takeControl'
-                host_url = buildHostUrl(host_data, host_endpoint)
                 
-                print(f"📡 [CONTROL] Forwarding take-control to host: {host_url}")
+                print(f"📡 [CONTROL] Forwarding take-control to host: {host_name} device: {device_id} via call_host")
                 
                 # Send device_id as provided, let host handle device ID mapping
                 request_payload = {}
                 if device_id:
                     request_payload['device_id'] = device_id
 
-                # Add API key for backend_host authentication via centralized helper
-                headers: Dict[str, str] = build_host_auth_headers(
-                    log_prefix='[CONTROL]',
-                    existing_headers=None
-                )
-                print(f"🔑 [CONTROL] Prepared auth headers for /host/takeControl (has_api_key={'X-API-Key' in headers})")
-                
-                response = requests.post(
-                    host_url,
-                    json=request_payload,
-                    headers=headers if headers else None,
+                # Use centralized call_host() which automatically adds API key
+                response_data, status_code = call_host(
+                    host_data,
+                    host_endpoint,
+                    method='POST',
+                    data=request_payload,
                     timeout=30
                 )
                     
-                if response.status_code == 200:
-                    result = response.json()
-                    if result.get('success'):
-                        print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
+                if status_code == 200 and response_data.get('success'):
+                    result = response_data # Use response_data directly
+                    print(f"✅ [CONTROL] Host confirmed control of device: {device_id}")
+                    
+                    # Populate navigation cache for the controlled device
+                    # Accept EITHER tree_id OR userinterface_id (resolve tree_id if needed)
+                    # SYNCHRONOUS - blocks until cache is ready to prevent "cache not ready" errors
+                    tree_id = data.get('tree_id')
+                    userinterface_id = data.get('userinterface_id')
+                    team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
+                    
+                    # Resolve tree_id from userinterface_id if provided
+                    if userinterface_id and team_id and not tree_id:
+                        print(f"🔍 [CONTROL] Resolving tree_id from userinterface_id: {userinterface_id}")
+                        from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
                         
-                        # Populate navigation cache for the controlled device
-                        # Accept EITHER tree_id OR userinterface_id (resolve tree_id if needed)
-                        # SYNCHRONOUS - blocks until cache is ready to prevent "cache not ready" errors
-                        tree_id = data.get('tree_id')
-                        userinterface_id = data.get('userinterface_id')
-                        team_id = request.args.get('team_id') # team_id comes from buildServerUrl query params
+                        tree = get_root_tree_for_interface(userinterface_id, team_id)
+                        if tree:
+                            tree_id = tree['id']
+                            print(f"✅ [CONTROL] Resolved tree_id: {tree_id}")
+                        else:
+                            print(f"⚠️ [CONTROL] No tree found for userinterface_id: {userinterface_id}")
+                    
+                    if tree_id and team_id:
+                        print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
                         
-                        # Resolve tree_id from userinterface_id if provided
-                        if userinterface_id and team_id and not tree_id:
-                            print(f"🔍 [CONTROL] Resolving tree_id from userinterface_id: {userinterface_id}")
-                            from shared.src.lib.database.navigation_trees_db import get_root_tree_for_interface
-                            
-                            tree = get_root_tree_for_interface(userinterface_id, team_id)
-                            if tree:
-                                tree_id = tree['id']
-                                print(f"✅ [CONTROL] Resolved tree_id: {tree_id}")
-                            else:
-                                print(f"⚠️ [CONTROL] No tree found for userinterface_id: {userinterface_id}")
+                        cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
                         
-                        if tree_id and team_id:
-                            print(f"🗺️ [CONTROL] Populating navigation cache for tree: {tree_id}")
-                            
-                            cache_success = populate_navigation_cache_for_control(tree_id, team_id, host_name)
-                            
-                            if not cache_success:
-                                # Cache population failed - unlock device and fail takeControl
-                                print(f"❌ [CONTROL] Navigation cache population FAILED for tree: {tree_id}")
-                                unlock_device(host_name, session_id)
-                                return jsonify({
-                                    'success': False,
-                                    'error': f'Failed to populate navigation cache for tree {tree_id}. Check server logs for details.',
-                                    'errorType': 'cache_error'
-                                }), 500
-                            
-                            print(f"✅ [CONTROL] Navigation cache populated successfully")
+                        if not cache_success:
+                            # Cache population failed - unlock device and fail takeControl
+                            print(f"❌ [CONTROL] Navigation cache population FAILED for tree: {tree_id}")
+                            unlock_device(host_name, session_id)
+                            return jsonify({
+                                'success': False,
+                                'error': f'Failed to populate navigation cache for tree {tree_id}. Check server logs for details.',
+                                'errorType': 'cache_error'
+                            }), 500
                         
-                        return jsonify({
-                            'success': True,
-                            'message': f'Successfully took control of host: {host_name}, device: {device_id}',
-                            'session_id': session_id,
-                            'host_name': host_name,
-                            'device_id': device_id,
-                            'host_result': result,
-                            'cache_ready': True,
-                            'warning': result.get('warning')  # Pass through warning from host (e.g., ADB connection failed)
-                        })
-                    else:
-                        # Host rejected control - unlock and return error
-                        unlock_device(host_name, session_id)
-                        return jsonify({
-                            'success': False,
-                            'error': result.get('error', 'Host failed to take control'),
-                            'errorType': result.get('error_type', 'host_error'),
-                            'host_result': result
-                        }), 500
+                        print(f"✅ [CONTROL] Navigation cache populated successfully")
+                    
+                    return jsonify({
+                        'success': True,
+                        'message': f'Successfully took control of host: {host_name}, device: {device_id}',
+                        'session_id': session_id,
+                        'host_name': host_name,
+                        'device_id': device_id,
+                        'host_result': result,
+                        'cache_ready': True,
+                        'warning': result.get('warning')  # Pass through warning from host (e.g., ADB connection failed)
+                    })
                 else:
-                    # Host communication failed - unlock and return error  
+                    # Host rejected control or communication failed - unlock and return error
                     unlock_device(host_name, session_id)
+                    error_message = response_data.get('error', 'Host failed to take control or communication error')
+                    error_type = response_data.get('errorType', 'host_error')
+                    if status_code == 504:
+                        error_message = f"Host communication timeout: {error_message}"
+                        error_type = 'network_error'
+                    elif status_code == 503:
+                        error_message = f"Could not connect to host: {error_message}"
+                        error_type = 'network_error'
+                    
+                    print(f"❌ [CONTROL] Host call failed (status: {status_code}): {error_message}")
                     return jsonify({
                         'success': False,
-                        'error': f'Host communication failed: {response.status_code}',
-                        'errorType': 'network_error'
-                    }), 500
+                        'error': error_message,
+                        'errorType': error_type,
+                        'host_result': response_data
+                    }), status_code
                     
-            except requests.exceptions.Timeout:
+            except Exception as e:
                 unlock_device(host_name, session_id)
+                print(f"❌ [CONTROL] Error forwarding take-control: {e}")
                 return jsonify({
                     'success': False,
-                    'error': 'Host communication timeout',
-                    'errorType': 'network_error'
-                }), 408
-            except requests.exceptions.RequestException as e:
-                unlock_device(host_name, session_id)
-                return jsonify({
-                    'success': False,
-                    'error': f'Network error: {str(e)}',
-                    'errorType': 'network_error'
+                    'error': f'Server error forwarding take-control: {str(e)}',
+                    'errorType': 'server_error'
                 }), 500
         else:
             lock_info = get_device_lock_info(host_name)
@@ -229,29 +216,22 @@ def release_control():
                 """Background task to notify host of control release"""
                 try:
                     host_endpoint = '/host/releaseControl'
-                    host_url = buildHostUrl(host_data, host_endpoint)
                     
-                    print(f"📡 [CONTROL:ASYNC] Notifying host of release: {host_url}")
+                    print(f"📡 [CONTROL:ASYNC] Notifying host of release: {host_name}")
 
-                    # Add API key for backend_host authentication via centralized helper
-                    headers: Dict[str, str] = build_host_auth_headers(
-                        log_prefix='[CONTROL:ASYNC]',
-                        existing_headers=None
-                    )
-                    print(f"🔑 [CONTROL:ASYNC] Prepared auth headers for /host/releaseControl (has_api_key={'X-API-Key' in headers})")
-                    
-                    response = requests.post(
-                        host_url,
-                        json={'device_id': device_id},
-                        headers=headers if headers else None,
+                    # Use centralized call_host() which automatically adds API key
+                    response_data, status_code = call_host(
+                        host_data,
+                        host_endpoint,
+                        method='POST',
+                        data={'device_id': device_id},
                         timeout=10  # Reduced timeout for background task
                     )
                     
-                    if response.status_code == 200:
-                        result = response.json()
+                    if status_code == 200:
                         print(f"✅ [CONTROL:ASYNC] Host confirmed release of device: {device_id}")
                     else:
-                        print(f"⚠️ [CONTROL:ASYNC] Host responded with status {response.status_code}")
+                        print(f"⚠️ [CONTROL:ASYNC] Host responded with status {status_code}")
                         
                 except Exception as e:
                     print(f"⚠️ [CONTROL:ASYNC] Host notification error: {e}")
@@ -373,38 +353,25 @@ def execute_navigation():
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
         # Forward request to host with async support
-        host_endpoint = '/host/navigation/execute'
-        host_url = buildHostUrl(host_data, host_endpoint)
-        
-        print(f"📡 [NAVIGATION] Forwarding to: {host_url}")
+        print(f"📡 [NAVIGATION] Forwarding navigation to: {host_name}")
 
-        # Add API key for backend_host authentication via centralized helper
-        headers: Dict[str, str] = build_host_auth_headers(
-            log_prefix='[NAVIGATION]',
-            existing_headers=None
-        )
-        print(f"🔑 [NAVIGATION] Prepared auth headers for /host/navigation/execute (has_api_key={'X-API-Key' in headers})")
-        
-        response = requests.post(
-            host_url,
-            json={'navigation_data': navigation_data},
-            headers=headers if headers else None,
+        # Use centralized call_host() which automatically adds API key
+        response_data, status_code = call_host(
+            host_data,
+            '/host/navigation/execute',
+            method='POST',
+            data={'navigation_data': navigation_data},
             timeout=90
         )
         
-        if response.status_code == 200:
-            result = response.json()
+        if status_code == 200:
             print(f"✅ [NAVIGATION] Navigation completed successfully")
-            return jsonify(result)
+            return jsonify(response_data)
         else:
-            error_msg = f"Navigation failed with status {response.status_code}: {response.text}"
+            error_msg = response_data.get('error', f"Navigation failed with status {status_code}")
             print(f"❌ [NAVIGATION] {error_msg}")
-            return jsonify({'error': error_msg}), response.status_code
+            return jsonify({'error': error_msg}), status_code
         
-    except requests.exceptions.Timeout:
-        return jsonify({'error': 'Navigation request timed out'}), 408
-    except requests.exceptions.RequestException as e:
-        return jsonify({'error': f'Network error: {str(e)}'}), 500
     except Exception as e:
         print(f"❌ [NAVIGATION] Error executing navigation: {e}")
         return jsonify({'error': str(e)}), 500
@@ -434,38 +401,25 @@ def batch_execute_navigation():
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
         # Forward request to host
-        host_endpoint = '/host/navigation/batchExecute'
-        host_url = buildHostUrl(host_data, host_endpoint)
-        
-        print(f"📡 [BATCH-NAVIGATION] Forwarding to: {host_url}")
+        print(f"📡 [BATCH-NAVIGATION] Forwarding batch navigation to: {host_name}")
 
-        # Add API key for backend_host authentication via centralized helper
-        headers: Dict[str, str] = build_host_auth_headers(
-            log_prefix='[BATCH-NAVIGATION]',
-            existing_headers=None
-        )
-        print(f"🔑 [BATCH-NAVIGATION] Prepared auth headers for /host/navigation/batchExecute (has_api_key={'X-API-Key' in headers})")
-        
-        response = requests.post(
-            host_url,
-            json={'batch_data': batch_data},
-            headers=headers if headers else None,
+        # Use centralized call_host() which automatically adds API key
+        response_data, status_code = call_host(
+            host_data,
+            '/host/navigation/batchExecute',
+            method='POST',
+            data={'batch_data': batch_data},
             timeout=180  # Longer timeout for batch operations
         )
         
-        if response.status_code == 200:
-            result = response.json()
+        if status_code == 200:
             print(f"✅ [BATCH-NAVIGATION] Batch navigation completed successfully")
-            return jsonify(result)
+            return jsonify(response_data)
         else:
-            error_msg = f"Batch navigation failed with status {response.status_code}: {response.text}"
+            error_msg = response_data.get('error', f"Batch navigation failed with status {status_code}")
             print(f"❌ [BATCH-NAVIGATION] {error_msg}")
-            return jsonify({'error': error_msg}), response.status_code
+            return jsonify({'error': error_msg}), status_code
         
-    except requests.exceptions.Timeout:
-        return jsonify({'error': 'Batch navigation request timed out'}), 408
-    except requests.exceptions.RequestException as e:
-        return jsonify({'error': f'Network error: {str(e)}'}), 500
     except Exception as e:
         print(f"❌ [BATCH-NAVIGATION] Error executing batch navigation: {e}")
         return jsonify({'error': str(e)}), 500
