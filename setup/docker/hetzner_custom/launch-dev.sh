@@ -49,8 +49,10 @@ echo "   → Changes reflect immediately"
 echo "   → Just restart containers to pick up changes"
 echo ""
 
-# Build images first (one-time, or when Dockerfile changes)
-echo "🐳 Building images (if needed)..."
+# Build base image ONLY (one-time, or when Dockerfile changes)
+# Note: This builds the base image that backend_host_1-N use
+# Dev mode will mount source code into the running containers
+echo "🐳 Building base image (if needed)..."
 docker-compose --env-file .env \
     -f setup/docker/hetzner_custom/docker-compose.yml \
     -f setup/docker/hetzner_custom/docker-compose.dev.yml \
@@ -78,14 +80,15 @@ echo ""
 echo "========================================="
 echo "✅ Services Started (DEV MODE)!"
 echo ""
-echo "📦 Source Code Mounted:"
+echo "📦 Source Code Mounted (live editing enabled):"
 echo "   • shared/ → All containers"
 echo "   • backend_server/src/ → backend_server"
-echo "   • backend_host/src/ → All backend_host containers"
+echo "   • backend_host/src/ → backend_host_1 through backend_host_N (running containers)"
+echo "   Note: backend_host_base is just the base image, not a running container"
 echo ""
 echo "💡 Quick Restart After Code Changes:"
-echo "   docker-compose -f setup/docker/hetzner_custom/docker-compose.yml restart backend_host_1"
-echo "   docker-compose -f setup/docker/hetzner_custom/docker-compose.yml restart backend_server"
+echo "   docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml -f setup/docker/hetzner_custom/docker-compose.dev.yml restart backend_host_1"
+echo "   docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml -f setup/docker/hetzner_custom/docker-compose.dev.yml restart backend_server"
 echo ""
 echo "📋 Local Access:"
 echo "   Backend Server:  http://localhost:5109"
@@ -112,9 +115,9 @@ fi
 
 echo ""
 echo "📊 View logs:"
-echo "   docker-compose -f setup/docker/hetzner_custom/docker-compose.yml logs -f [service]"
+echo "   docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml -f setup/docker/hetzner_custom/docker-compose.dev.yml logs -f [service]"
 echo ""
 echo "🛑 Stop:"
-echo "   docker-compose -f setup/docker/hetzner_custom/docker-compose.yml down"
+echo "   docker-compose --env-file .env -f setup/docker/hetzner_custom/docker-compose.yml -f setup/docker/hetzner_custom/docker-compose.dev.yml down"
 echo ""
 

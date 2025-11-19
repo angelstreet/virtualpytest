@@ -48,9 +48,9 @@ COPY shared/ shared/
 # Add shared to PYTHONPATH
 ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_host/src"
 
-# Copy backend_host requirements and install with exact versions (no cache)
+# Copy backend_host requirements and install with exact versions
 COPY backend_host/requirements.txt backend_host/
-RUN pip install --no-cache-dir --force-reinstall -r backend_host/requirements.txt
+RUN pip install --no-cache-dir -r backend_host/requirements.txt
 
 # Install Playwright WebKit browser and all its system dependencies
 RUN playwright install-deps webkit

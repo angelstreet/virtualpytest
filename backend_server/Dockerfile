@@ -39,9 +39,9 @@ COPY shared/ shared/
 # Add shared to PYTHONPATH
 ENV PYTHONPATH="/app/shared:/app/shared/src/lib:/app/backend_server/src"
 
-# Copy backend_server requirements and install with exact versions (no cache)
+# Copy backend_server requirements and install with exact versions
 COPY backend_server/requirements.txt backend_server/
-RUN pip install --no-cache-dir --force-reinstall -r backend_server/requirements.txt
+RUN pip install --no-cache-dir -r backend_server/requirements.txt
 
 # Copy backend_server source
 COPY backend_server/src/ backend_server/src/
