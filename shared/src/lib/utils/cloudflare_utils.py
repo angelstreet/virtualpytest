@@ -83,7 +83,14 @@ class CloudflareUtils:
             secret_key = os.environ.get('CLOUDFLARE_R2_SECRET_ACCESS_KEY')
             
             if not all([endpoint_url, access_key, secret_key]):
-                raise ValueError("Missing required Cloudflare R2 environment variables")
+                missing_vars = []
+                if not endpoint_url:
+                    missing_vars.append('CLOUDFLARE_R2_ENDPOINT')
+                if not access_key:
+                    missing_vars.append('CLOUDFLARE_R2_ACCESS_KEY_ID')
+                if not secret_key:
+                    missing_vars.append('CLOUDFLARE_R2_SECRET_ACCESS_KEY')
+                raise ValueError(f"Missing required Cloudflare R2 environment variables: {', '.join(missing_vars)}")
             
             logger.info("Initializing S3 client for Cloudflare R2")
             logger.info(f"Using endpoint: {endpoint_url}")
