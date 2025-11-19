@@ -511,20 +511,29 @@ class ADBUtils:
                 # Generate XPath for this element
                 xpath = get_xpath(node, parent_path, parent_node)
                 
-                # Early filtering - skip obviously useless elements
+                # Early filtering - skip obviously useless elements (same logic as original regex version)
                 skip_element = False
+                
+                # Filter 1: Skip completely empty/useless elements
                 if (not text or text == '' or text == ' ' or text == '\n') and \
                    (not content_desc or content_desc == '' or content_desc == ' ') and \
                    (not resource_id or resource_id == 'null' or resource_id == '') and \
-                   (not class_name or class_name == ''):
+                   (not class_name or class_name == '' or class_name == 'android.view.View'):
                     skip_element = True
                 
-                # Skip elements with null resource-id
+                # Filter 2: Skip elements with no useful identifiers at all
+                if (not class_name or class_name == '') and \
+                   (not text or text == '') and \
+                   (not resource_id or resource_id == 'null' or resource_id == '') and \
+                   (not content_desc or content_desc == ''):
+                    skip_element = True
+                
+                # Filter 3: Skip elements with null resource-id
                 if resource_id == 'null':
                     skip_element = True
                 
-                # Skip elements that are not interactive and have no text/desc
-                if not clickable and not enabled and (not text or text == '') and (not content_desc or content_desc == ''):
+                # Filter 4: Skip non-interactive elements with no meaningful text (strictest filter)
+                if not clickable and not enabled and (not text or text == ''):
                     skip_element = True
                 
                 # Add element if not filtered
@@ -1066,9 +1075,6 @@ class ADBUtils:
                         clickable=element_dict['clickable'],
                         enabled=element_dict['enabled'],
                         xpath=element_dict.get('xpath')
-                    )
-                        clickable=element_dict['clickable'],
-                        enabled=element_dict['enabled']
                     )
                     
                     print(f"[@lib:adbUtils:check_element_exists] Found element: ID={element.id}")

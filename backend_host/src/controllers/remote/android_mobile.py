@@ -324,11 +324,12 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             
     def click_element(self, element_identifier: str) -> bool:
         """
-        Click element directly by text, resource_id, or content_desc using simple ADB command.
+        Click element directly by text, resource_id, content_desc, or XPath.
         Supports pipe-separated fallback: "Settings|Preferences|Options"
+        Supports XPath: "/android.widget.FrameLayout[0]/android.widget.TextView[0]"
         
         Args:
-            element_identifier: Text, resource ID, or content description to click
+            element_identifier: Text, resource ID, content description, or XPath to click
                                 Can use pipe "|" to specify multiple options (tries each until one succeeds)
             
         Returns:
@@ -349,6 +350,47 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             for i, term in enumerate(terms):
                 if len(terms) > 1:
                     print(f"Remote[{self.device_type.upper()}]: Attempt {i+1}/{len(terms)}: Searching for '{term}'")
+                
+                # OPTIMIZATION: Detect XPath and use direct search (similar to Playwright CSS selector optimization)
+                if term.startswith('/') and ('/' in term[1:] or '[' in term):
+                    print(f"Remote[{self.device_type.upper()}]: Detected XPath, using direct XPath search: {term}")
+                    
+                    try:
+                        # Use XPath search method
+                        success, matches, error = self.adb_utils.search_element_by_xpath(self.android_device_id, term)
+                        
+                        if success and matches:
+                            element = matches[0]  # Get first match
+                            print(f"Remote[{self.device_type.upper()}]: Found element via XPath (ID={element.id}), clicking...")
+                            
+                            # Click the found element
+                            click_success = self.adb_utils.click_element(self.android_device_id, element)
+                            
+                            if click_success:
+                                print(f"Remote[{self.device_type.upper()}]: XPath click successful: {term}")
+                                self.last_error = None
+                                return True
+                            else:
+                                last_error = f"XPath element found but click failed: {term}"
+                                print(f"Remote[{self.device_type.upper()}]: {last_error}")
+                                if len(terms) > 1:
+                                    print(f"Remote[{self.device_type.upper()}]: XPath '{term}' click failed, trying next...")
+                                continue
+                        else:
+                            last_error = f"XPath element not found: {error}"
+                            print(f"Remote[{self.device_type.upper()}]: {last_error}")
+                            if len(terms) > 1:
+                                print(f"Remote[{self.device_type.upper()}]: XPath '{term}' not found, trying next...")
+                            continue
+                    except Exception as xpath_error:
+                        last_error = f"XPath search failed: {xpath_error}"
+                        print(f"Remote[{self.device_type.upper()}]: {last_error}")
+                        if len(terms) > 1:
+                            print(f"Remote[{self.device_type.upper()}]: XPath '{term}' failed, trying next...")
+                        continue
+                
+                # Plain text/resource_id/content_desc search - use dump-first approach
+                print(f"Remote[{self.device_type.upper()}]: Plain text detected, using dump-first approach: {term}")
                 
                 # Find element using single UI dump
                 exists, element, error = self.adb_utils.check_element_exists(self.android_device_id, term)
