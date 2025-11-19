@@ -496,9 +496,10 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
     volumes:
       - grafana-data:/var/lib/grafana
       - grafana-logs:/var/log/grafana
-      - ../../../grafana/config/grafana.ini:/etc/grafana/grafana.ini:ro
-      - ../../../grafana/config/provisioning:/app/backend_server/config/grafana/provisioning:ro
-      - ../../../grafana/dashboards:/app/backend_server/config/grafana/dashboards:ro
+      - ../../../grafana/config/grafana.ini:/app/backend_server/config/grafana/grafana.ini:rw
+      - ../../../grafana/config/provisioning:/app/backend_server/config/grafana/provisioning:rw
+      - ../../../grafana/dashboards:/app/backend_server/config/grafana/dashboards:rw
+      - ../../../backend_server/docker/scripts/setup_grafana_datasource.sh:/setup_grafana_datasource.sh:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
@@ -509,6 +510,13 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_INSTALL_PLUGINS=\${GF_INSTALL_PLUGINS:-}
       - SUPABASE_DB_URI=\${SUPABASE_DB_URI}
+      - GRAFANA_ADMIN_USER=admin
+      - GRAFANA_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
+      - GRAFANA_SECRET_KEY=\${GRAFANA_SECRET_KEY:-SW2YcwTIb9zpOOhoPsMm}
+      - GF_PATHS_CONFIG=/app/backend_server/config/grafana/grafana.ini
+      - GF_PATHS_DATA=/var/lib/grafana
+      - GF_PATHS_LOGS=/var/log/grafana
+    command: ["/bin/bash", "-c", "/setup_grafana_datasource.sh && /run.sh"]
     restart: unless-stopped
     networks:
       - hetzner_network
