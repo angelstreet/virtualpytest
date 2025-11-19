@@ -1,10 +1,13 @@
 #!/bin/bash
 # Grafana Container Startup Script (Hetzner Deployment)
-# Configures Grafana datasource from environment variables
+# Generates dynamic datasource configuration at runtime
 
 set -e
 
 echo "🔧 Setting up Grafana datasource from SUPABASE_DB_URI..."
+
+# Create datasources directory (not mounted, so writable)
+mkdir -p /etc/grafana/provisioning/datasources
 
 # Check if SUPABASE_DB_URI is set
 if [ -z "$SUPABASE_DB_URI" ]; then
