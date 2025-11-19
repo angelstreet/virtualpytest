@@ -12,5 +12,5 @@ providers:
     updateIntervalSeconds: 10
     allowUiUpdates: true
     options:
-      path: /var/lib/grafana/dashboards
+      path: /app/backend_server/config/grafana/dashboards
 
