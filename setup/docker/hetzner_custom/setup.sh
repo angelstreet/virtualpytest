@@ -497,8 +497,8 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - grafana-data:/var/lib/grafana
       - grafana-logs:/var/log/grafana
       - ../../../grafana/config/grafana.ini:/etc/grafana/grafana.ini:ro
-      - ../../../grafana/config/datasources.yaml:/etc/grafana/provisioning/datasources/datasources.yaml:ro
-      - ../../../grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ../../../grafana/config/provisioning:/etc/grafana/provisioning:ro
+      - ../../../grafana/dashboards:/var/lib/grafana/dashboards:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
       - GF_SECURITY_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
