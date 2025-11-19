@@ -171,6 +171,66 @@ class ExplorationEngine:
         
         return context
     
+    def phase1_analyze_and_plan(self, context: ExplorationContext) -> ExplorationContext:
+        """
+        Phase 1: Analyze screenshot and populate context with sanitized items
+        
+        Args:
+            context: Exploration context
+            
+        Returns:
+            Updated context with predicted_items (sanitized), item_selectors, screenshot_url, menu_type
+        """
+        print(f"\n[@exploration_engine] === PHASE 1: Analysis & Planning ===")
+        
+        # Capture screenshot
+        screenshot_path = self.screen_analyzer.capture_screenshot()
+        if not screenshot_path:
+            context.add_step_result('phase1_analysis', {
+                'success': False,
+                'error': 'Failed to capture screenshot'
+            })
+            return context
+        
+        # Analyze and predict
+        prediction = self._phase1_anticipation(screenshot_path)
+        
+        # Get raw items from prediction
+        raw_items = prediction.get('items', [])
+        
+        # ✅ SANITIZE ALL ITEMS before storing in context
+        # This ensures frontend displays clean labels that match node IDs
+        print(f"  📝 Sanitizing {len(raw_items)} items...")
+        sanitized_items = []
+        for item in raw_items:
+            sanitized = self.node_generator.target_to_node_name(item)
+            print(f"    '{item}' → '{sanitized}'")
+            sanitized_items.append(sanitized)
+        
+        # Populate context with SANITIZED items
+        context.predicted_items = sanitized_items
+        context.menu_type = prediction.get('menu_type')
+        context.screenshot_url = screenshot_path
+        context.total_steps = len(sanitized_items)
+        
+        # Store item selectors if available (keys should also be sanitized)
+        item_selectors = prediction.get('item_selectors', {})
+        context.item_selectors = {
+            self.node_generator.target_to_node_name(k): v 
+            for k, v in item_selectors.items()
+        }
+        
+        context.add_step_result('phase1_analysis', {
+            'success': True,
+            'items_found': len(sanitized_items),
+            'menu_type': context.menu_type
+        })
+        
+        print(f"  ✅ Phase 1 complete: {len(sanitized_items)} items (sanitized)")
+        print(f"[@exploration_engine] === PHASE 1 COMPLETE ===\n")
+        
+        return context
+    
     def phase2_create_single_edge_mcp(self, item: str, context: ExplorationContext) -> Dict:
         """
         Phase 2: Create and test SINGLE edge using MCP tools (incremental)

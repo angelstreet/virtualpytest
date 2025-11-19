@@ -944,6 +944,34 @@ class ExplorationExecutor:
             'context': self.context.to_dict()
         }
     
+    def execute_phase1(self) -> Dict[str, Any]:
+        """
+        Execute Phase 1: Analyze and plan (with sanitized labels)
+        
+        NEW in v2.0
+        
+        Returns:
+            {
+                'success': True,
+                'predicted_items': List[str],  # SANITIZED labels
+                'menu_type': str,
+                'context': dict
+            }
+        """
+        if not self.context:
+            return {'success': False, 'error': 'No active exploration'}
+        
+        # Call engine Phase 1
+        self.context = self.exploration_engine.phase1_analyze_and_plan(self.context)
+        
+        return {
+            'success': True,
+            'predicted_items': self.context.predicted_items,  # SANITIZED
+            'menu_type': self.context.menu_type,
+            'total_items': self.context.total_steps,
+            'context': self.context.to_dict()
+        }
+    
     def execute_phase2_next_item(self) -> Dict[str, Any]:
         """
         Execute Phase 2: Create and test ONE edge incrementally
