@@ -195,6 +195,10 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
         if query_params:
             print(f"[@utils:routeUtils:proxy_to_host_with_params] Query params: {query_params}")
         
+        # DEBUG: Check API key availability
+        api_key_test = os.getenv('API_KEY')
+        print(f"[@utils:routeUtils:proxy_to_host_with_params] 🔑 DEBUG: API_KEY from env: {('SET (len=' + str(len(api_key_test)) + ')') if api_key_test else 'NOT SET'}")
+        
         # Prepare request parameters
         # Use tuple format: (connect_timeout, read_timeout) to ensure read timeout is respected
         kwargs = {
