@@ -7,6 +7,7 @@ from datetime import datetime, timezone
 from typing import Dict, List, Optional
 from uuid import uuid4
 import re
+import unicodedata
 
 
 class NodeGenerator:
@@ -59,6 +60,10 @@ class NodeGenerator:
         for word in remove_words:
             text = text.replace(word, ' ')
         
+        # Normalize accents: è→e, é→e, à→a, ñ→n, etc.
+        text = unicodedata.normalize('NFD', text)
+        text = ''.join(char for char in text if unicodedata.category(char) != 'Mn')
+        
         # Replace special chars and multiple spaces with single underscore
         text = re.sub(r'[^a-z0-9]+', '_', text)
         
@@ -99,7 +104,13 @@ class NodeGenerator:
         """
         # Clean AI suggestion (remove spaces, lowercase, sanitize)
         clean_name = ai_suggestion.lower().replace(' ', '_').replace('-', '_')
-        clean_name = ''.join(c for c in clean_name if c.isalnum() or c == '_')
+        
+        # Normalize accents: è→e, é→e, à→a, ñ→n, etc.
+        clean_name = unicodedata.normalize('NFD', clean_name)
+        clean_name = ''.join(char for char in clean_name if unicodedata.category(char) != 'Mn')
+        
+        # Keep only ASCII alphanumeric and underscores
+        clean_name = ''.join(c for c in clean_name if c.isascii() and (c.isalnum() or c == '_'))
         
         # If no parent, this is root-level node
         if not parent_node:
