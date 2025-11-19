@@ -137,7 +137,8 @@ def screenshot_and_dump():
                     'package': element.resource_id,
                     'bounds': bounds_obj,
                     'clickable': element.clickable,
-                    'enabled': element.enabled
+                    'enabled': element.enabled,
+                    'xpath': element.xpath if hasattr(element, 'xpath') else None
                 })
             response['elements'] = elements_data
         
@@ -421,7 +422,8 @@ def dump_ui():
                     'package': element.resource_id,
                     'bounds': bounds_obj,
                     'clickable': element.clickable,
-                    'enabled': element.enabled
+                    'enabled': element.enabled,
+                    'xpath': element.xpath if hasattr(element, 'xpath') else None
                 })
             
             print(f"[@route:host_remote:dump_ui] UI dump successful, found {len(elements_data)} elements")

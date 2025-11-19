@@ -173,10 +173,10 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
           setAndroidElements(result.elements);
           console.log(`[@hook:useAndroidMobile] Updated ${result.elements.length} UI elements`);
           
-          // Copy dump to clipboard in user-friendly format
+          // Copy dump to clipboard - use the same format as backend logs
           try {
             const dumpText = result.elements.map((el: any, index: number) => {
-              // Get display name (same logic as getElementDisplayName)
+              // Get display name (same priority as backend logs: contentDesc → text → className)
               let name = '';
               if (el.contentDesc && el.contentDesc !== '<no content-desc>') {
                 name = el.contentDesc;
@@ -186,27 +186,23 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
                 name = el.className ? el.className.split('.').pop() : 'Unknown';
               }
               
-              // Parse bounds to get position
-              let position = '';
-              if (el.bounds) {
-                const boundsMatch = el.bounds.match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
-                if (boundsMatch) {
-                  const [, x1, y1, x2, y2] = boundsMatch.map(Number);
-                  const x = x1, y = y1, width = x2 - x1, height = y2 - y1;
-                  position = `X: ${x} | Y: ${y} | Width: ${width} | Height: ${height}`;
-                }
-              }
+              // Calculate position from bounds object (backend already parsed it)
+              const x = el.bounds.left;
+              const y = el.bounds.top;
+              const width = el.bounds.right - el.bounds.left;
+              const height = el.bounds.bottom - el.bounds.top;
               
-              // Include XPath if available
+              // Use same format as backend logs
               const xpathInfo = el.xpath ? ` | XPath: ${el.xpath}` : '';
-              
-              return `${index + 1}. ${name} | Index: ${el.id} | ${position}${xpathInfo}`;
+              return `${index + 1}. ${name} | Index: ${el.id} | Order: ${index + 1} | X: ${x} | Y: ${y} | Width: ${width} | Height: ${height}${xpathInfo}`;
             }).join('\n');
             
             await navigator.clipboard.writeText(dumpText);
             console.log(`[@hook:useAndroidMobile] ✅ Copied ${result.elements.length} elements to clipboard`);
           } catch (clipboardError) {
-            console.warn('[@hook:useAndroidMobile] Failed to copy dump to clipboard:', clipboardError);
+            console.error('[@hook:useAndroidMobile] Failed to copy dump to clipboard:', clipboardError);
+            // Show error to user if clipboard fails (could be permissions or HTTPS requirement)
+            alert('Failed to copy to clipboard. Make sure you are using HTTPS or localhost.');
           }
         }
         
@@ -270,47 +266,31 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
 
       console.log(`[@hook:useAndroidMobile] Element clicked: ${element.id}`);
       
-      // Copy element info to clipboard when selected
+      // Copy element info to clipboard - same format as backend logs
       try {
-        // Get display name (same logic as getElementDisplayName)
+        // Get display name
         let name = '';
         if (element.contentDesc && element.contentDesc !== '<no content-desc>') {
           name = element.contentDesc;
         } else if (element.text && element.text !== '<no text>') {
           name = `"${element.text}"`;
         } else {
-          name = element.className ? element.className.split('.').pop() : 'Unknown';
+          name = element.className ? (element.className.split('.').pop() || 'Unknown') : 'Unknown';
         }
         
-        // Parse bounds to get position
-        let position = '';
-        if (element.bounds) {
-          const boundsMatch = element.bounds.match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
-          if (boundsMatch) {
-            const [, x1, y1, x2, y2] = boundsMatch.map(Number);
-            const x = x1, y = y1, width = x2 - x1, height = y2 - y1;
-            position = `X: ${x}, Y: ${y}, Width: ${width}, Height: ${height}`;
-          }
-        }
+        // Calculate position from bounds object
+        const x = element.bounds.left;
+        const y = element.bounds.top;
+        const width = element.bounds.right - element.bounds.left;
+        const height = element.bounds.bottom - element.bounds.top;
         
-        // Build element info string
-        const elementInfo = [
-          `Element: ${name}`,
-          `Index: ${element.id}`,
-          `Position: ${position}`,
-          element.xpath ? `XPath: ${element.xpath}` : '',
-          `Text: ${element.text || '<no text>'}`,
-          `ContentDesc: ${element.contentDesc || '<no content-desc>'}`,
-          `ResourceId: ${element.resourceId || '<no resource-id>'}`,
-          `ClassName: ${element.className || 'Unknown'}`,
-          `Clickable: ${element.clickable}`,
-          `Enabled: ${element.enabled}`,
-        ].filter(Boolean).join('\n');
+        // Build element info - simple and clean like backend logs
+        const elementInfo = `Element: ${name} | Index: ${element.id} | X: ${x} | Y: ${y} | Width: ${width} | Height: ${height}${element.xpath ? ` | XPath: ${element.xpath}` : ''}`;
         
         await navigator.clipboard.writeText(elementInfo);
-        console.log(`[@hook:useAndroidMobile] ✅ Copied element info to clipboard`);
+        console.log(`[@hook:useAndroidMobile] ✅ Copied element info to clipboard: ${elementInfo}`);
       } catch (clipboardError) {
-        console.warn('[@hook:useAndroidMobile] Failed to copy element info to clipboard:', clipboardError);
+        console.error('[@hook:useAndroidMobile] Failed to copy element info to clipboard:', clipboardError);
       }
       
       try {

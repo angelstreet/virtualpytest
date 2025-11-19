@@ -15,6 +15,7 @@ export interface AndroidElement {
   enabled: boolean;
   focused: boolean;
   selected: boolean;
+  xpath?: string; // XPath from ADB UI dump
 }
 
 // Android App interface
