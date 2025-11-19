@@ -24,7 +24,7 @@ interface AndroidMobileLayoutConfig {
   autoDumpDelay: number;
 }
 
-export function useAndroidMobile(selectedHost: Host | null, deviceId: string | null) {
+export function useAndroidMobile(selectedHost: Host | null, deviceId: string | null, onOrientationChange?: (isLandscape: boolean) => void) {
   // Simple validation - no complex memoization
   if (!selectedHost || !deviceId) {
     console.warn('[@hook:useAndroidMobile] Missing host or deviceId');
@@ -83,9 +83,10 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     setIsLandscape(prev => {
       const newOrientation = !prev;
       console.log(`[@hook:useAndroidMobile] Manual orientation toggle: ${newOrientation ? 'landscape' : 'portrait'}`);
+      onOrientationChange?.(newOrientation);
       return newOrientation;
     });
-  }, []);
+  }, [onOrientationChange]);
 
   // Note: Debug logging removed to reduce console spam
 

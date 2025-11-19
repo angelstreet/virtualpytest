@@ -830,6 +830,8 @@ const TestCaseBuilderContent: React.FC = () => {
         handleAVPanelCollapsedChange={hookData.handleAVPanelCollapsedChange}
         handleAVPanelMinimizedChange={hookData.handleAVPanelMinimizedChange}
         handleCaptureModeChange={hookData.handleCaptureModeChange}
+        isMobileOrientationLandscape={hookData.isMobileOrientationLandscape}
+        handleMobileOrientationChange={hookData.handleMobileOrientationChange}
       />
       
       {/* AI Generation Result Panel */}

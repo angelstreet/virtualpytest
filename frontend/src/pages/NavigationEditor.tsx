@@ -331,6 +331,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // Capture mode state for coordinating between AV and Remote panels
     const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
 
+    // Mobile orientation state for coordinating video aspect ratio
+    const [isMobileOrientationLandscape, setIsMobileOrientationLandscape] = useState(false);
+
     // Calculate verification editor visibility based on capture mode (same logic as AV components)
     const isVerificationVisible = captureMode === 'screenshot' || captureMode === 'video';
 
@@ -517,6 +520,11 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
       setIsAVPanelMinimized(isMinimized);
       console.log('[@NavigationEditor] AV panel minimized changed to:', isMinimized);
+    }, []);
+
+    // Handle mobile orientation changes
+    const handleMobileOrientationChange = useCallback((isLandscape: boolean) => {
+      setIsMobileOrientationLandscape(isLandscape);
     }, []);
 
 
@@ -1356,6 +1364,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 captureMode={captureMode}
                 isVerificationVisible={isVerificationVisible}
                 isNavigationEditorContext={true}
+                onOrientationChange={handleMobileOrientationChange}
               />
             );
           }
@@ -1391,6 +1400,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 onMinimizedChange={handleAVPanelMinimizedChange}
                 onCaptureModeChange={handleCaptureModeChange}
                 deviceResolution={DEFAULT_DEVICE_RESOLUTION}
+                isLandscape={isMobileOrientationLandscape}
               />
             );
           }

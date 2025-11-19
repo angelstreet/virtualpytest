@@ -73,7 +73,7 @@ export const AndroidMobileRemote = React.memo(
     streamPositionBottom,
     onOrientationChange,
   }: AndroidMobileRemoteProps) {
-    const hookResult = useAndroidMobile(host, deviceId);
+    const hookResult = useAndroidMobile(host, deviceId, onOrientationChange);
 
     const {
       // State

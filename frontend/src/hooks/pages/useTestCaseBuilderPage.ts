@@ -126,6 +126,8 @@ export interface UseTestCaseBuilderPageReturn {
   handleAVPanelCollapsedChange: (collapsed: boolean) => void;
   handleCaptureModeChange: (mode: 'stream' | 'screenshot' | 'video') => void;
   handleAVPanelMinimizedChange: (minimized: boolean) => void;
+  isMobileOrientationLandscape: boolean;
+  handleMobileOrientationChange: (isLandscape: boolean) => void;
   
   // Snackbar
   snackbar: {
@@ -505,6 +507,7 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   const [isAVPanelCollapsed, setIsAVPanelCollapsed] = useState(true);
   const [isAVPanelMinimized, setIsAVPanelMinimized] = useState(false);
   const [captureMode, setCaptureMode] = useState<'stream' | 'screenshot' | 'video'>('stream');
+  const [isMobileOrientationLandscape, setIsMobileOrientationLandscape] = useState(false);
   const isVerificationVisible = captureMode === 'screenshot' || captureMode === 'video';
   
   const handleAVPanelCollapsedChange = useCallback((isCollapsed: boolean) => {
@@ -517,6 +520,10 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
   
   const handleAVPanelMinimizedChange = useCallback((isMinimized: boolean) => {
     setIsAVPanelMinimized(isMinimized);
+  }, []);
+  
+  const handleMobileOrientationChange = useCallback((isLandscape: boolean) => {
+    setIsMobileOrientationLandscape(isLandscape);
   }, []);
   
   // ==================== SNACKBAR ====================
@@ -945,6 +952,8 @@ export function useTestCaseBuilderPage(): UseTestCaseBuilderPageReturn {
     handleAVPanelCollapsedChange,
     handleCaptureModeChange,
     handleAVPanelMinimizedChange,
+    isMobileOrientationLandscape,
+    handleMobileOrientationChange,
     
     // Snackbar
     snackbar,

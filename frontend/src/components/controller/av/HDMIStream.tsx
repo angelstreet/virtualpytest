@@ -280,14 +280,26 @@ export const HDMIStream = React.memo(
 
     const headerHeight = panelLayout.header?.height || '40px';
 
-    // Calculate panel dimensions based on state
+    // Calculate panel dimensions based on state and orientation
     const getPanelWidth = () => {
-      if (isMinimized) return collapsedWidth; // Use collapsed width when minimized
+      if (isMinimized) return collapsedWidth;
+      
+      // For mobile landscape: swap width and height
+      if (isMobile && isLandscape) {
+        return isExpanded ? expandedHeight : collapsedHeight;
+      }
+      
       return isExpanded ? expandedWidth : collapsedWidth;
     };
 
     const getPanelHeight = () => {
-      if (isMinimized) return headerHeight; // Only header height when minimized
+      if (isMinimized) return headerHeight;
+      
+      // For mobile landscape: swap width and height
+      if (isMobile && isLandscape) {
+        return isExpanded ? expandedWidth : collapsedWidth;
+      }
+      
       return isExpanded ? expandedHeight : collapsedHeight;
     };
 
@@ -464,13 +476,10 @@ export const HDMIStream = React.memo(
                   isExpanded={isExpanded}
                   onRestartRequest={hlsRestartRef as any}
                   layoutConfig={{
-                    minHeight: isExpanded ? '400px' : '120px', // Fixed heights for aspect-ratio to work correctly
-                    // Swap aspect ratio based on orientation for mobile
+                    minHeight: isExpanded ? '400px' : '120px',
                     aspectRatio: isMobile
-                      ? isLandscape
-                        ? `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}` // Landscape: 16:9
-                        : `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` // Portrait: 9:16
-                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`, // TV: always 16:9
+                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` // Mobile: 9:16
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`, // TV: 16:9
                     objectFit: isMobile ? 'cover' : 'contain',
                     isMobileModel: isMobile,
                   }}

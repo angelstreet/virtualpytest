@@ -33,6 +33,8 @@ interface TestCaseBuilderPanelsProps {
   handleAVPanelCollapsedChange: (collapsed: boolean) => void;
   handleAVPanelMinimizedChange: (minimized: boolean) => void;
   handleCaptureModeChange: (mode: 'stream' | 'screenshot' | 'video') => void;
+  isMobileOrientationLandscape: boolean;
+  handleMobileOrientationChange: (isLandscape: boolean) => void;
 }
 
 export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
@@ -52,10 +54,9 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
   handleAVPanelCollapsedChange,
   handleAVPanelMinimizedChange,
   handleCaptureModeChange,
+  isMobileOrientationLandscape,
+  handleMobileOrientationChange,
 }) => {
-  // NEW: Manage orientation state for mobile devices
-  const [isLandscape, setIsLandscape] = React.useState(false);
-  
   const selectedDevice = selectedHost?.devices?.find((d: any) => d.device_id === selectedDeviceId);
   const deviceModel = selectedDevice?.device_model;
   const remoteCapability = selectedDevice?.device_capabilities?.remote;
@@ -65,12 +66,6 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
   // Calculate stream position based on sidebar state
   const sidebarWidth = 280; // Width of the sidebar when open (from TestCaseBuilderSidebar.tsx)
   const streamLeftPosition = isSidebarOpen ? `${sidebarWidth + 10}px` : '10px'; // sidebar width + margin
-
-  // Handle orientation change from remote panel
-  const handleOrientationChange = React.useCallback((landscape: boolean) => {
-    console.log('[@component:TestCaseBuilderPanels] Orientation changed to:', landscape ? 'landscape' : 'portrait');
-    setIsLandscape(landscape);
-  }, []);
 
   return (
     <>
@@ -201,7 +196,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               positionBottom={`${footerHeight + 10}px`}
               streamPositionLeft={streamLeftPosition}
               streamPositionBottom={`${footerHeight + 10}px`}
-              onOrientationChange={handleOrientationChange}
+              onOrientationChange={handleMobileOrientationChange}
             />
           )}
         </>
@@ -238,7 +233,7 @@ export const TestCaseBuilderPanels: React.FC<TestCaseBuilderPanelsProps> = ({
               useAbsolutePositioning={true}
               positionLeft={streamLeftPosition}
               positionBottom={`${footerHeight + 10}px`}
-              isLandscape={isLandscape}
+              isLandscape={isMobileOrientationLandscape}
             />
           )}
         </>
