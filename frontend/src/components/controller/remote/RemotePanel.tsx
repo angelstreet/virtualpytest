@@ -409,10 +409,13 @@ export const RemotePanel = React.memo(
       streamMinimized,
       streamHidden,
       captureMode,
+      isVerificationVisible,
       stableStreamContainerDimensions,
       // Ensure overlay re-renders when sidebar-driven positions change
       streamPositionLeft,
       streamPositionBottom,
+      // Orientation callback for mobile devices
+      onOrientationChange,
     ]);
 
     return (
