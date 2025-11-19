@@ -497,8 +497,8 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - grafana-data:/var/lib/grafana
       - grafana-logs:/var/log/grafana
       - ../../../grafana/config/grafana.ini:/app/backend_server/config/grafana/grafana.ini:rw
-      - ../../../grafana/config/provisioning:/app/backend_server/config/grafana/provisioning:rw
-      - ../../../grafana/dashboards:/app/backend_server/config/grafana/dashboards:rw
+      - ../../../grafana/config/provisioning/dashboards:/app/backend_server/config/grafana/provisioning/dashboards:ro
+      - ../../../grafana/dashboards:/app/backend_server/config/grafana/dashboards:ro
       - ../../../backend_server/docker/scripts/setup_grafana_datasource.sh:/setup_grafana_datasource.sh:ro
     environment:
       - GF_SECURITY_ADMIN_USER=admin
