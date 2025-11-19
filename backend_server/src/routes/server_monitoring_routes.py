@@ -81,6 +81,11 @@ def list_captures():
 def get_latest_monitoring_json():
     """Get the latest available JSON analysis file from selected host"""
     try:
+        import os
+        print(f"[@server_monitoring:latest-json] 🎯 ROUTE HIT - Checking API_KEY...")
+        api_key = os.getenv('API_KEY')
+        print(f"[@server_monitoring:latest-json] 🔑 API_KEY in env: {('YES (len=' + str(len(api_key)) + ')') if api_key else 'NO - MISSING!'}")
+        
         request_data = request.get_json() or {}
         device_id = request_data.get('device_id', 'device1')
         
