@@ -93,6 +93,9 @@ def proxy_to_host(endpoint, method='GET', data=None, timeout=30, headers=None):
         api_key = os.getenv('API_KEY')
         if api_key:
             request_headers['X-API-Key'] = api_key
+            print(f"[@utils:routeUtils:proxy_to_host] ✅ API key added (length: {len(api_key)})")
+        else:
+            print(f"[@utils:routeUtils:proxy_to_host] ⚠️ WARNING: API_KEY not found in environment")
         
         if headers:
             request_headers.update(headers)
@@ -213,6 +216,9 @@ def proxy_to_host_with_params(endpoint, method='GET', data=None, query_params=No
         api_key = os.getenv('API_KEY')
         if api_key:
             request_headers['X-API-Key'] = api_key
+            print(f"[@utils:routeUtils:proxy_to_host_with_params] ✅ API key added (length: {len(api_key)})")
+        else:
+            print(f"[@utils:routeUtils:proxy_to_host_with_params] ⚠️ WARNING: API_KEY not found in environment - requests will fail!")
         
         if headers:
             request_headers.update(headers)
