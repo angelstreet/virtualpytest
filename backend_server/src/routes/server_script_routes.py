@@ -249,30 +249,31 @@ def get_edge_options():
             }), 404
         
         # Call host to get edges
-        host_url = buildHostUrl(host_info, '/host/script/get_edge_options')
-        response = requests.post(
-            host_url,
-            json={
+        from shared.src.lib.utils.build_url_utils import call_host
+        
+        response_data, status_code = call_host(
+            host_info,
+            '/host/script/get_edge_options',
+            method='POST',
+            data={
                 'userinterface_name': userinterface_name,
                 'team_id': team_id
             },
             timeout=30
         )
         
-        if response.status_code != 200:
+        if status_code != 200:
             return jsonify({
                 'success': False,
-                'error': f'Host request failed: {response.text}'
-            }), response.status_code
+                'error': f'Host request failed: {response_data.get("error", "Unknown error")}'
+            }), status_code
         
-        result = response.json()
+        if not response_data.get('success'):
+            return jsonify(response_data), 400
         
-        if not result.get('success'):
-            return jsonify(result), 400
+        print(f"[@get_edge_options] Found {len(response_data.get('edge_options', []))} edge options")
         
-        print(f"[@get_edge_options] Found {len(result.get('edge_options', []))} edge options")
-        
-        return jsonify(result)
+        return jsonify(response_data)
         
     except Exception as e:
         print(f"[@get_edge_options] Error: {e}")
@@ -441,27 +442,25 @@ def execute_script():
         import threading
         def execute_async():
             try:
-                print(f"[@route:server_script:execute_script] Starting background execution for task {task_id}")
+                from shared.src.lib.utils.build_url_utils import call_host
                 
-                # Build host URL
-                host_url = buildHostUrl(host_info, '/host/script/execute')
-                print(f"[@route:server_script:execute_script] Making request to host URL: {host_url}")
+                print(f"[@route:server_script:execute_script] Starting background execution for task {task_id}")
                 print(f"[@route:server_script:execute_script] Payload: {payload}")
                 
-                # Make request to host (immediate response expected)
-                response = requests.post(
-                    host_url,
-                    json=payload,
+                # Use centralized call_host() which automatically adds API key
+                response_data, status_code = call_host(
+                    host_info,
+                    '/host/script/execute',
+                    method='POST',
+                    data=payload,
                     timeout=120  # 2 minutes timeout for immediate response
                 )
                 
-                result = response.json()
-                
-                if response.status_code not in [200, 202]:
+                if status_code not in [200, 202]:
                     # Host execution failed, complete task with error and unlock device
                     print(f"[@route:server_script:execute_script] Host execution failed for task {task_id}")
                     unlock_device(host_name, session_id)
-                    task_manager.complete_task(task_id, {}, error=result.get('error', 'Host execution failed'))
+                    task_manager.complete_task(task_id, {}, error=response_data.get('error', 'Host execution failed'))
                 else:
                     print(f"[@route:server_script:execute_script] Host execution started for task {task_id}")
                     # Task will be completed by the host's callback (which will unlock device)

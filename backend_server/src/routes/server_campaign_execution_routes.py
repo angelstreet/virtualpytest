@@ -10,14 +10,13 @@ This module contains the campaign execution endpoints for:
 from flask import Blueprint, request, jsonify, current_app
 import threading
 import time
-import requests
 from typing import Dict, Any
 
 # Import utility functions
 
 from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
 from  backend_server.src.lib.utils.task_manager import task_manager
-from shared.src.lib.utils.build_url_utils import buildHostUrl, buildServerUrl
+from shared.src.lib.utils.build_url_utils import buildServerUrl, call_host
 
 # Import database functions
 from shared.src.lib.database.campaign_executions_db import (
@@ -55,32 +54,30 @@ def execute_campaign_async_proxy(campaign_config: Dict[str, Any], execution_id: 
         proxy_config['task_id'] = execution_id
         proxy_config['async'] = True
         
-        # Build host URL for campaign execution
-        host_url = buildHostUrl(host_info, '/host/campaigns/execute')
-        
-        print(f"[@server_campaign] Proxying to host: {host_url}")
+        print(f"[@server_campaign] Proxying to host via call_host()")
         print(f"[@server_campaign] Callback URL: {callback_url}")
         
-        # Make request to host
-        response = requests.post(
-            host_url,
-            json=proxy_config,
+        # Use centralized call_host() which automatically adds API key
+        response_data, status_code = call_host(
+            host_info,
+            '/host/campaigns/execute',
+            method='POST',
+            data=proxy_config,
             timeout=120  # 2 minutes timeout for initial response
         )
         
-        if response.status_code in [200, 202]:
-            result = response.json()
-            print(f"[@server_campaign] Host accepted campaign execution: {result}")
+        if status_code in [200, 202]:
+            print(f"[@server_campaign] Host accepted campaign execution: {response_data}")
             
             # Update running campaigns with host response
             if execution_id in running_campaigns:
                 running_campaigns[execution_id].update({
                     'status': 'running',
-                    'host_execution_id': result.get('execution_id'),
-                    'host_response': result
+                    'host_execution_id': response_data.get('execution_id'),
+                    'host_response': response_data
                 })
         else:
-            error_msg = f"Host rejected campaign execution: {response.status_code} {response.text}"
+            error_msg = f"Host rejected campaign execution: {status_code} {response_data.get('error', 'Unknown error')}"
             print(f"[@server_campaign] {error_msg}")
             
             # Update running campaigns with error
@@ -310,25 +307,30 @@ def get_campaign_execution_status(execution_id: str):
                     host_data = host_manager.get_host(host_name)
                     
                     if host_data:
-                        host_url = buildHostUrl(host_data, f'/host/campaigns/status/{host_execution_id}')
+                        print(f"[@server_campaign:get_status] Checking host status: {host_name}/{host_execution_id}")
                         
-                        response = requests.get(host_url, timeout=10)
-                        if response.status_code == 200:
-                            host_status = response.json()
-                            if host_status.get('success'):
-                                # Update with host status
-                                response_data['host_status'] = host_status.get('status')
-                                response_data['host_runtime_seconds'] = host_status.get('runtime_seconds')
-                                
-                                # If host shows completed, update our tracking
-                                if host_status.get('status') in ['completed', 'failed']:
-                                    campaign_info['status'] = host_status.get('status')
-                                    campaign_info['host_result'] = host_status.get('result')
-                                    campaign_info['completed_at'] = time.time()
-                                    response_data['status'] = host_status.get('status')
-                                    response_data['result'] = host_status.get('result')
+                        # Use centralized call_host() which automatically adds API key
+                        host_response_data, host_status_code = call_host(
+                            host_data,
+                            f'/host/campaigns/status/{host_execution_id}',
+                            method='GET',
+                            timeout=10
+                        )
+                        
+                        if host_status_code == 200 and host_response_data.get('success'):
+                            # Update with host status
+                            response_data['host_status'] = host_response_data.get('status')
+                            response_data['host_runtime_seconds'] = host_response_data.get('runtime_seconds')
+                            
+                            # If host shows completed, update our tracking
+                            if host_response_data.get('status') in ['completed', 'failed']:
+                                campaign_info['status'] = host_response_data.get('status')
+                                campaign_info['host_result'] = host_response_data.get('result')
+                                campaign_info['completed_at'] = time.time()
+                                response_data['status'] = host_response_data.get('status')
+                                response_data['result'] = host_response_data.get('result')
                         else:
-                            print(f"[@server_campaign:get_status] Host status check failed: {response.status_code}")
+                            print(f"[@server_campaign:get_status] Host status check failed: {host_status_code}")
                     else:
                         print(f"[@server_campaign:get_status] Host not found: {host_name}")
                         

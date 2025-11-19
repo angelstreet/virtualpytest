@@ -178,31 +178,20 @@ def stream_tap():
 def tap_coordinates_internal(host, x, y):
     """Internal helper for tap coordinate handling"""
     try:
-        # Use the centralized API URL builder to forward to host
-        from shared.src.lib.utils.build_url_utils import buildHostUrl
-        full_url = buildHostUrl(host, '/host/remote/tapCoordinates')
+        # Use the centralized call_host() which automatically adds API key
+        from shared.src.lib.utils.build_url_utils import call_host
         
-        if not full_url:
-            return jsonify({
-                'success': False,
-                'error': 'Failed to build host URL'
-            }), 500
+        print(f"[@route:server_remote] Internal tap proxying via call_host(): ({x}, {y})")
         
-        print(f"[@route:server_remote] Internal tap proxying to {full_url}: ({x}, {y})")
-        
-        response = requests.post(
-            full_url,
-            json={'x': x, 'y': y},
-            timeout=30,
-            headers={'Content-Type': 'application/json'}
+        response_data, status_code = call_host(
+            host,
+            '/host/remote/tapCoordinates',
+            method='POST',
+            data={'x': x, 'y': y},
+            timeout=30
         )
         
-        try:
-            result = response.json()
-        except:
-            result = {'success': False, 'error': 'Invalid response from host'}
-        
-        return jsonify(result), response.status_code
+        return jsonify(response_data), status_code
             
     except Exception as e:
         print(f"[@route:server_remote] Error in tap_coordinates_internal: {str(e)}")

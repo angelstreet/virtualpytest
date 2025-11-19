@@ -3,10 +3,9 @@ Server stream proxy routes for forwarding requests to hosts
 """
 
 from flask import Blueprint, request, jsonify, Response
-import requests
 import json
 
-from shared.src.lib.utils.build_url_utils import buildHostUrl
+from shared.src.lib.utils.build_url_utils import call_host
 from  backend_server.src.lib.utils.server_utils import get_host_manager
 
 server_stream_proxy_bp = Blueprint('server_stream_proxy', __name__, url_prefix='/server/stream')
@@ -31,22 +30,22 @@ def proxy_screenshot():
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
         # Forward request to host
-        host_url = buildHostUrl(host_data, '/host/av/screenshot')
+        print(f"📡 [PROXY] Forwarding screenshot request to host via call_host()")
         
-        print(f"📡 [PROXY] Forwarding screenshot request to: {host_url}")
-        
-        response = requests.post(
-            host_url,
-            json=data,
+        response_data, status_code = call_host(
+            host_data,
+            '/host/av/screenshot',
+            method='POST',
+            data=data,
             timeout=30
         )
         
-        if response.status_code == 200:
-            return jsonify(response.json())
+        if status_code == 200:
+            return jsonify(response_data)
         else:
-            error_msg = f"Screenshot request failed: {response.status_code} {response.text}"
+            error_msg = f"Screenshot request failed: {status_code} {response_data.get('error', 'Unknown error')}"
             print(f"❌ [PROXY] {error_msg}")
-            return jsonify({'error': error_msg}), response.status_code
+            return jsonify({'error': error_msg}), status_code
         
     except Exception as e:
         print(f"❌ [PROXY] Error proxying screenshot: {e}")
@@ -72,22 +71,22 @@ def proxy_stream_url():
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
         # Forward request to host
-        host_url = buildHostUrl(host_data, '/host/av/streamUrl')
+        print(f"📡 [PROXY] Forwarding stream URL request to host via call_host()")
         
-        print(f"📡 [PROXY] Forwarding stream URL request to: {host_url}")
-        
-        response = requests.post(
-            host_url,
-            json=data,
+        response_data, status_code = call_host(
+            host_data,
+            '/host/av/streamUrl',
+            method='POST',
+            data=data,
             timeout=30
         )
         
-        if response.status_code == 200:
-            return jsonify(response.json())
+        if status_code == 200:
+            return jsonify(response_data)
         else:
-            error_msg = f"Stream URL request failed: {response.status_code} {response.text}"
+            error_msg = f"Stream URL request failed: {status_code} {response_data.get('error', 'Unknown error')}"
             print(f"❌ [PROXY] {error_msg}")
-            return jsonify({'error': error_msg}), response.status_code
+            return jsonify({'error': error_msg}), status_code
         
     except Exception as e:
         print(f"❌ [PROXY] Error proxying stream URL: {e}")
@@ -113,22 +112,22 @@ def proxy_verification():
             return jsonify({'error': f'Host {host_name} not found'}), 404
         
         # Forward request to host with async support
-        host_url = buildHostUrl(host_data, '/host/verification/execute')
+        print(f"📡 [PROXY] Forwarding verification request to host via call_host()")
         
-        print(f"📡 [PROXY] Forwarding verification request to: {host_url}")
-        
-        response = requests.post(
-            host_url,
-            json=data,
+        response_data, status_code = call_host(
+            host_data,
+            '/host/verification/execute',
+            method='POST',
+            data=data,
             timeout=60  # Longer timeout for verification
         )
         
-        if response.status_code == 200:
-            return jsonify(response.json())
+        if status_code == 200:
+            return jsonify(response_data)
         else:
-            error_msg = f"Verification request failed: {response.status_code} {response.text}"
+            error_msg = f"Verification request failed: {status_code} {response_data.get('error', 'Unknown error')}"
             print(f"❌ [PROXY] {error_msg}")
-            return jsonify({'error': error_msg}), response.status_code
+            return jsonify({'error': error_msg}), status_code
         
     except Exception as e:
         print(f"❌ [PROXY] Error proxying verification: {e}")

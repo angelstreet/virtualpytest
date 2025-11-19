@@ -1,8 +1,7 @@
 """Server Deployment Routes - Proxy to hosts and manage deployments"""
 from flask import Blueprint, request, jsonify
-import requests
 from backend_server.src.lib.utils.server_utils import get_host_manager
-from shared.src.lib.utils.build_url_utils import buildHostUrl
+from shared.src.lib.utils.build_url_utils import call_host
 from shared.src.lib.utils.supabase_utils import get_supabase_client
 
 server_deployment_bp = Blueprint('server_deployment', __name__, url_prefix='/server/deployment')
@@ -44,8 +43,7 @@ def create_deployment():
         host_manager = get_host_manager()
         host_info = host_manager.get_host(data['host_name'])
         if host_info:
-            host_url = buildHostUrl(host_info, '/host/deployment/add')
-            requests.post(host_url, json=deployment, timeout=10)
+            call_host(host_info, '/host/deployment/add', method='POST', data=deployment, timeout=10)
         
         return jsonify({'success': True, 'deployment': deployment})
     except Exception as e:
@@ -80,11 +78,8 @@ def update_deployment(deployment_id):
         host_info = host_manager.get_host(dep['host_name'])
         if host_info:
             # Remove old job and add updated one
-            host_url = buildHostUrl(host_info, f'/host/deployment/remove/{deployment_id}')
-            requests.delete(host_url, timeout=10)
-            
-            host_url = buildHostUrl(host_info, '/host/deployment/add')
-            requests.post(host_url, json=updated_deployment, timeout=10)
+            call_host(host_info, f'/host/deployment/remove/{deployment_id}', method='DELETE', timeout=10)
+            call_host(host_info, '/host/deployment/add', method='POST', data=updated_deployment, timeout=10)
         
         return jsonify({'success': True, 'deployment': updated_deployment})
     except Exception as e:
@@ -110,8 +105,7 @@ def pause_deployment(deployment_id):
         host_manager = get_host_manager()
         host_info = host_manager.get_host(dep['host_name'])
         if host_info:
-            host_url = buildHostUrl(host_info, f'/host/deployment/pause/{deployment_id}')
-            requests.post(host_url, timeout=10)
+            call_host(host_info, f'/host/deployment/pause/{deployment_id}', method='POST', timeout=10)
         
         return jsonify({'success': True})
     except Exception as e:
@@ -127,8 +121,7 @@ def resume_deployment(deployment_id):
         host_manager = get_host_manager()
         host_info = host_manager.get_host(dep['host_name'])
         if host_info:
-            host_url = buildHostUrl(host_info, f'/host/deployment/resume/{deployment_id}')
-            requests.post(host_url, timeout=10)
+            call_host(host_info, f'/host/deployment/resume/{deployment_id}', method='POST', timeout=10)
         
         return jsonify({'success': True})
     except Exception as e:
@@ -144,8 +137,7 @@ def delete_deployment(deployment_id):
         host_manager = get_host_manager()
         host_info = host_manager.get_host(dep['host_name'])
         if host_info:
-            host_url = buildHostUrl(host_info, f'/host/deployment/remove/{deployment_id}')
-            requests.delete(host_url, timeout=10)
+            call_host(host_info, f'/host/deployment/remove/{deployment_id}', method='DELETE', timeout=10)
         
         return jsonify({'success': True})
     except Exception as e:

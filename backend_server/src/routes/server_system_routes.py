@@ -584,24 +584,24 @@ def restart_host_service_proxy():
             }), 404
         
         # Forward request to host
-        from shared.src.lib.utils.build_url_utils import buildHostUrl
-        host_url = buildHostUrl(host_data, '/host/system/restartHostService')
+        from shared.src.lib.utils.build_url_utils import call_host
         
-        response = requests.post(host_url, json={}, timeout=30)
+        response_data, status_code = call_host(
+            host_data,
+            '/host/system/restartHostService',
+            method='POST',
+            data={},
+            timeout=30
+        )
         
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
+        if status_code == 200:
+            return jsonify(response_data), 200
         else:
             return jsonify({
                 'success': False,
-                'error': f'Host returned status {response.status_code}'
-            }), response.status_code
+                'error': f'Host returned status {status_code}'
+            }), status_code
             
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            'success': False,
-            'error': f'Network error: {str(e)}'
-        }), 500
     except Exception as e:
         return jsonify({
             'success': False,
@@ -632,30 +632,30 @@ def reboot_host_proxy():
             }), 404
         
         # Forward request to host
-        from shared.src.lib.utils.build_url_utils import buildHostUrl
-        host_url = buildHostUrl(host_data, '/host/system/rebootHost')
+        from shared.src.lib.utils.build_url_utils import call_host
         
-        response = requests.post(host_url, json={}, timeout=10)
+        response_data, status_code = call_host(
+            host_data,
+            '/host/system/rebootHost',
+            method='POST',
+            data={},
+            timeout=10
+        )
         
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
+        if status_code == 200:
+            return jsonify(response_data), 200
+        elif status_code == 504:
+            # Timeout is expected for reboot
+            return jsonify({
+                'success': True,
+                'message': 'Reboot command sent (timeout expected)'
+            }), 200
         else:
             return jsonify({
                 'success': False,
-                'error': f'Host returned status {response.status_code}'
-            }), response.status_code
+                'error': f'Host returned status {status_code}'
+            }), status_code
             
-    except requests.exceptions.Timeout:
-        # Timeout is expected for reboot
-        return jsonify({
-            'success': True,
-            'message': 'Reboot command sent (timeout expected)'
-        }), 200
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            'success': False,
-            'error': f'Network error: {str(e)}'
-        }), 500
     except Exception as e:
         return jsonify({
             'success': False,
@@ -688,24 +688,24 @@ def restart_host_stream_service_proxy():
             }), 404
         
         # Forward request to host
-        from shared.src.lib.utils.build_url_utils import buildHostUrl
-        host_url = buildHostUrl(host_data, '/host/system/restartHostStreamService')
+        from shared.src.lib.utils.build_url_utils import call_host
         
-        response = requests.post(host_url, json={'device_id': device_id, 'quality': quality}, timeout=60)
+        response_data, status_code = call_host(
+            host_data,
+            '/host/system/restartHostStreamService',
+            method='POST',
+            data={'device_id': device_id, 'quality': quality},
+            timeout=60
+        )
         
-        if response.status_code == 200:
-            return jsonify(response.json()), 200
+        if status_code == 200:
+            return jsonify(response_data), 200
         else:
             return jsonify({
                 'success': False,
-                'error': f'Host returned status {response.status_code}'
-            }), response.status_code
+                'error': f'Host returned status {status_code}'
+            }), status_code
             
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            'success': False,
-            'error': f'Network error: {str(e)}'
-        }), 500
     except Exception as e:
         return jsonify({
             'success': False,
@@ -747,34 +747,31 @@ def disk_usage_diagnostics_proxy():
             }), 404
         
         # Forward request to host
-        from shared.src.lib.utils.build_url_utils import buildHostUrl
-        host_endpoint = f'/host/monitoring/disk-usage?capture_dir={capture_dir}'
-        host_url = buildHostUrl(host_data, host_endpoint)
+        from shared.src.lib.utils.build_url_utils import call_host
         
-        response = requests.get(host_url, timeout=30)  # Long timeout for file scanning
+        response_data, status_code = call_host(
+            host_data,
+            f'/host/monitoring/disk-usage?capture_dir={capture_dir}',
+            method='GET',
+            timeout=30  # Long timeout for file scanning
+        )
         
-        if response.status_code == 200:
-            result = response.json()
+        if status_code == 200:
             # Add host identification to response
-            result['host_name'] = host_name
-            return jsonify(result), 200
+            response_data['host_name'] = host_name
+            return jsonify(response_data), 200
+        elif status_code == 504:
+            return jsonify({
+                'success': False,
+                'error': 'Request timeout - disk analysis taking too long (check host logs)'
+            }), 504
         else:
             return jsonify({
                 'success': False,
-                'error': f'Host returned status {response.status_code}',
-                'host_response': response.text
-            }), response.status_code
+                'error': f'Host returned status {status_code}',
+                'host_response': response_data.get('error', 'Unknown error')
+            }), status_code
             
-    except requests.exceptions.Timeout:
-        return jsonify({
-            'success': False,
-            'error': 'Request timeout - disk analysis taking too long (check host logs)'
-        }), 504
-    except requests.exceptions.RequestException as e:
-        return jsonify({
-            'success': False,
-            'error': f'Network error: {str(e)}'
-        }), 500
     except Exception as e:
         return jsonify({
             'success': False,

@@ -5,12 +5,11 @@ Routes for AI-powered text translation - proxies requests to Host for processing
 """
 
 from flask import Blueprint, request, jsonify
-import requests
 import sys
 import os
 from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params
 # All translation work is now handled by host - server just coordinates
-from shared.src.lib.utils.build_url_utils import buildHostUrl
+from shared.src.lib.utils.build_url_utils import call_host
 
 # Create blueprint
 server_translation_bp = Blueprint('server_translation', __name__, url_prefix='/server/translate')
@@ -35,27 +34,26 @@ def translate_single_text():
                 'error': 'Host information required'
             }), 400
         
-        host_url = buildHostUrl(host_data, '')
+        print(f"[SERVER_TRANSLATION] 🌐 Proxying text translation to host via call_host()")
         
-        print(f"[SERVER_TRANSLATION] 🌐 Proxying text translation to host: {host_url}")
-        
-        # Proxy request to host
-        response = requests.post(
-            f"{host_url}/host/translate/text",
-            json=data,
+        # Use centralized call_host() which automatically adds API key
+        response_data, status_code = call_host(
+            host_data,
+            '/host/translate/text',
+            method='POST',
+            data=data,
             timeout=30
         )
         
-        if response.status_code == 200:
-            result = response.json()
+        if status_code == 200:
             print(f"[SERVER_TRANSLATION] ✅ Text translation completed via host")
-            return jsonify(result)
+            return jsonify(response_data)
         else:
-            print(f"[SERVER_TRANSLATION] ❌ Host translation failed: {response.status_code}")
+            print(f"[SERVER_TRANSLATION] ❌ Host translation failed: {status_code}")
             return jsonify({
                 'success': False,
-                'error': f'Host translation failed: {response.status_code}'
-            }), response.status_code
+                'error': f'Host translation failed: {status_code}'
+            }), status_code
         
     except Exception as e:
         print(f"[SERVER_TRANSLATION] 💥 Exception in text translation proxy: {e}")
@@ -118,15 +116,14 @@ def translate_restart_batch():
                 'error': error or 'Host information required for translation'
             }), 400
         
-        from shared.src.lib.utils.build_url_utils import buildHostUrl
-        host_url = buildHostUrl(host_info, '')
+        print(f"[SERVER_TRANSLATION] 🌐 Proxying batch translation to host via call_host()")
         
-        print(f"[SERVER_TRANSLATION] 🌐 Proxying batch translation to host: {host_url}")
-        
-        # Proxy request to host
-        response = requests.post(
-            f"{host_url}/host/translate/restart-batch",
-            json={
+        # Use centralized call_host() which automatically adds API key
+        response_data, status_code = call_host(
+            host_info,
+            '/host/translate/restart-batch',
+            method='POST',
+            data={
                 'content_blocks': content_blocks,
                 'target_language': target_language
             },
@@ -135,23 +132,22 @@ def translate_restart_batch():
         
         translation_duration = time.time() - translation_start_time
         
-        if response.status_code == 200:
-            result = response.json()
-            print(f"[SERVER_TRANSLATION] Translation result: success={result.get('success', False)}")
+        if status_code == 200:
+            print(f"[SERVER_TRANSLATION] Translation result: success={response_data.get('success', False)}")
             
-            if result.get('success', False):
+            if response_data.get('success', False):
                 print(f"[SERVER_TRANSLATION] ✅ Batch translation to {target_language} completed in {translation_duration:.1f}s")
             else:
                 print(f"[SERVER_TRANSLATION] ❌ Translation failed after {translation_duration:.1f}s")
-                print(f"[SERVER_TRANSLATION] Translation error: {result.get('error', 'Unknown error')}")
+                print(f"[SERVER_TRANSLATION] Translation error: {response_data.get('error', 'Unknown error')}")
             
-            return jsonify(result)
+            return jsonify(response_data)
         else:
-            print(f"[SERVER_TRANSLATION] ❌ Host translation failed: {response.status_code}")
+            print(f"[SERVER_TRANSLATION] ❌ Host translation failed: {status_code}")
             return jsonify({
                 'success': False,
-                'error': f'Host translation failed: {response.status_code}'
-            }), response.status_code
+                'error': f'Host translation failed: {status_code}'
+            }), status_code
         
     except Exception as e:
         translation_duration = time.time() - translation_start_time
