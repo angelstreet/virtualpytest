@@ -144,15 +144,22 @@ class ScreenAnalyzer:
         dynamic_indicators = [
             'available for replay', 'watch now', 'continue watching',
             'chf', 'usd', 'eur', 'gbp', '$', '€', '£',  # Price indicators
-            ' from ', ' to ',  # Time/price ranges
+            ' - ',  # Time ranges like "21:10 - 23:10"
+            ' from ', ' to ',  # Alternate time/price ranges
             'season ', 'episode ', 's0', 'e0',  # TV series
+            'podcast ',  # Podcast titles
             ','  # Titles often have commas (e.g., "Show Name, Description")
         ]
         
+        # Navigation keywords that should NOT be filtered (even if they match above)
+        # These are common navigation tab names that we MUST keep
+        navigation_whitelist = ['replay', 'radio', 'guide', 'tv', 'home', 'search', 'settings', 'accueil']
+        
         for elem in elements:
-            # ✅ STRICT: Only consider elements that are actually clickable
-            if not elem.clickable:
-                continue
+            # ✅ FIX: Don't require clickable=true
+            # TextViews in navigation bars (bottom tabs, top tabs) are NOT marked clickable
+            # but they ARE navigation elements. We'll filter by content instead.
+            # Only skip if it's a container or decoration (checked via keywords)
             
             # Get the best label for this element
             label = None
@@ -197,10 +204,21 @@ class ScreenAnalyzer:
             
             # ✅ Detect and SKIP dynamic content (AFTER cleaning accessibility text)
             # 1. Very long labels (> 30 chars) = likely program description
-            # 2. Contains time patterns or replay keywords
-            # We SKIP these because we can't click on "dynamic_1" - it's not a real element
-            if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
-                continue  # Skip dynamic content entirely
+            # 2. Contains time patterns or content indicators
+            # BUT: Don't skip common navigation keywords even if they match
+            
+            # Check if it's a navigation keyword (whitelist)
+            is_navigation = any(nav.lower() == label.lower() for nav in navigation_whitelist)
+            
+            if not is_navigation:
+                # Not a whitelisted navigation keyword, apply dynamic content filter
+                if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
+                    continue  # Skip dynamic content
+                
+                # Additional heuristic: If element is NOT clickable (TextView)
+                # AND label is > 15 chars, it's likely dynamic content (show title, etc.)
+                if not elem.clickable and len(label) > 15:
+                    continue  # Skip long TextViews that aren't navigation
             
             # Add to list (avoid duplicates)
             if label not in interactive_elements:
