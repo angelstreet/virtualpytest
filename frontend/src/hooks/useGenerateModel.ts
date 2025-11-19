@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import type { ExplorationContext, ExplorationPhase, ExplorationStrategy } from '../types/exploration';
 
 interface UseGenerateModelProps {
   treeId: string;
@@ -106,6 +107,11 @@ export const useGenerateModel = ({
   const [isGenerating, setIsGenerating] = useState(false);
   const [validationProgress, setValidationProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
+  
+  // ✅ NEW v2.0: Context and phase state
+  const [context, setContext] = useState<ExplorationContext | null>(null);
+  const [currentPhase, setCurrentPhase] = useState<ExplorationPhase | null>(null);
+  const [strategy, setStrategy] = useState<ExplorationStrategy | null>(null);
 
   // Clear state when dependencies change
   useEffect(() => {
@@ -575,6 +581,131 @@ export const useGenerateModel = ({
     }
   }, [explorationId, treeId, selectedHost, resetState]);
 
+  // ========== NEW v2.0: MCP-FIRST METHODS ==========
+  
+  /**
+   * Phase 0: Detect device strategy
+   */
+  const executePhase0 = useCallback(async () => {
+    if (!explorationHostName) {
+      setError('No exploration host');
+      return null;
+    }
+
+    try {
+      setCurrentPhase('phase0');
+      setCurrentStep('Detecting device strategy...');
+      setIsExploring(true);
+
+      const url = buildServerUrl(
+        `/host/ai-generation/init`,
+        explorationHostName,
+        { team_id: selectedHost?.team_id }
+      );
+
+      const response = await fetch(url, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: selectedDeviceId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setContext(data.context);
+        setStrategy(data.strategy);
+        console.log('[@useGenerateModel:executePhase0] Strategy detected:', data.strategy);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to detect strategy');
+      }
+    } catch (err: any) {
+      console.error('[@useGenerateModel:executePhase0] Error:', err);
+      setError(err.message || 'Failed to detect strategy');
+      return null;
+    } finally {
+      setIsExploring(false);
+    }
+  }, [explorationHostName, selectedDeviceId, selectedHost?.team_id]);
+
+  /**
+   * Phase 2: Create and test items incrementally
+   */
+  const executePhase2Incremental = useCallback(async () => {
+    if (!explorationHostName || !context) {
+      setError('No exploration context');
+      return null;
+    }
+
+    try {
+      setCurrentPhase('phase2');
+      setIsExploring(true);
+      const results: any[] = [];
+
+      // Loop until all items are processed or error occurs
+      while (true) {
+        setCurrentStep(`Creating item ${(context.current_step || 0) + 1}/${context.total_steps || 0}...`);
+
+        const url = buildServerUrl(
+          `/host/ai-generation/next`,
+          explorationHostName,
+          { team_id: selectedHost?.team_id }
+        );
+
+        const response = await fetch(url, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            device_id: selectedDeviceId
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+        results.push(data);
+
+        if (!data.success) {
+          // Stop on error
+          setError(`Failed on item "${data.item}": ${data.error}`);
+          setStatus('failed');
+          break;
+        }
+
+        // Update context
+        if (data.context) {
+          setContext(data.context);
+        }
+
+        console.log(`[@useGenerateModel:executePhase2Incremental] Item "${data.item}" created and tested ✅`);
+
+        if (!data.has_more_items) {
+          // All items completed
+          console.log('[@useGenerateModel:executePhase2Incremental] All items completed!');
+          setStatus('structure_created');
+          break;
+        }
+      }
+
+      return results;
+    } catch (err: any) {
+      console.error('[@useGenerateModel:executePhase2Incremental] Error:', err);
+      setError(err.message || 'Failed during incremental creation');
+      setStatus('failed');
+      return null;
+    } finally {
+      setIsExploring(false);
+    }
+  }, [explorationHostName, context, selectedDeviceId, selectedHost?.team_id]);
+
   return {
     // State
     explorationId,
@@ -593,6 +724,11 @@ export const useGenerateModel = ({
     validationProgress,
     validationResults,
     
+    // ✅ NEW v2.0: Context and phase
+    context,
+    currentPhase,
+    strategy,
+    
     // Actions
     startExploration,
     continueExploration,
@@ -601,6 +737,10 @@ export const useGenerateModel = ({
     cancelExploration,
     approveGeneration,
     resetState,
+    
+    // ✅ NEW v2.0: Phase methods
+    executePhase0,
+    executePhase2Incremental,
     
     // Computed
     canStart: !isExploring && !isGenerating && isControlActive && treeId && selectedHost && selectedDeviceId,

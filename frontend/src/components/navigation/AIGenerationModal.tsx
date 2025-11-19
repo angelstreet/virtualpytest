@@ -26,6 +26,9 @@ import {
 import { useGenerateModel } from '../../hooks/useGenerateModel';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { AIGenerationPhaseIndicator } from './AIGenerationPhaseIndicator';
+import { Phase2IncrementalView } from './Phase2IncrementalView';
+import { ContextSummary } from './ContextSummary';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -72,7 +75,12 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     cancelExploration,
     resetState,
     canStart,
-    isAwaitingApproval
+    isAwaitingApproval,
+    context,
+    currentPhase,
+    strategy,
+    executePhase0,
+    executePhase2Incremental
   } = useGenerateModel({
     treeId,
     selectedHost,
@@ -279,6 +287,17 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       </DialogTitle>
 
       <DialogContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 2 }}>
+        {/* v2.0: Phase Indicator */}
+        {currentPhase && (
+          <AIGenerationPhaseIndicator 
+            currentPhase={currentPhase} 
+            strategy={strategy} 
+          />
+        )}
+
+        {/* v2.0: Context Summary */}
+        {context && <ContextSummary context={context} />}
+
         {error && (
           <Alert severity="error" sx={{ mb: 2 }}>
             {error}
@@ -440,7 +459,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         )}
 
         {/* Exploration Progress Section - Phase 1 only */}
-        {isExploring && (
+        {isExploring && currentPhase !== 'phase2' && (
           <Paper sx={{ p: 2, flex: 1, display: 'flex', flexDirection: 'column', bgcolor: 'transparent' }}>
             {/* Current Step */}
             <Box sx={{ mb: 2 }}>
@@ -462,6 +481,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               </Box>
             </Box>
           </Paper>
+        )}
+
+        {/* v2.0: Phase 2 Incremental View */}
+        {currentPhase === 'phase2' && (
+          <Phase2IncrementalView context={context} error={error} />
         )}
       </DialogContent>
 

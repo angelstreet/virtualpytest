@@ -14,6 +14,7 @@ from datetime import datetime, timezone
 from typing import Dict, Optional, Any
 
 from backend_host.src.services.ai_exploration.exploration_engine import ExplorationEngine
+from backend_host.src.services.ai_exploration.exploration_context import ExplorationContext, create_exploration_context
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
@@ -83,6 +84,10 @@ class ExplorationExecutor:
         # Persistent exploration state (replaces global _exploration_sessions dict)
         self.current_exploration_id: Optional[str] = None
         self.exploration_engine: Optional[ExplorationEngine] = None
+        
+        # ✅ NEW v2.0: Context instance
+        self.context: Optional[ExplorationContext] = None
+        
         self.exploration_state: Dict[str, Any] = {
             'status': 'idle',  # idle, exploring, awaiting_approval, structure_created, validating, validation_complete
             'phase': None,  # analysis, structure_creation, validation
@@ -119,16 +124,17 @@ class ExplorationExecutor:
         
         print(f"[@ExplorationExecutor] Initialized for device {device.device_id}")
     
-    def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str) -> Dict[str, Any]:
+    def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str, original_prompt: str = "") -> Dict[str, Any]:
         """
-        Start AI exploration (Phase 1: Analysis)
+        Start AI exploration (Phase 0+1: Strategy Detection + Analysis)
         
-        Note: Exploration depth is FIXED at 2 levels (main items + sub-items)
+        v2.0: Now accepts original_prompt for context-aware execution
         
         Args:
             tree_id: Navigation tree ID
             userinterface_name: User interface name
             team_id: Team ID
+            original_prompt: User's goal (NEW in v2.0)
             
         Returns:
             {
@@ -142,7 +148,18 @@ class ExplorationExecutor:
             exploration_id = str(uuid4())
             self.current_exploration_id = exploration_id
             
-            # Reset exploration state
+            # ✅ NEW v2.0: Create context
+            self.context = create_exploration_context(
+                original_prompt=original_prompt or f"Explore {userinterface_name}",
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                device_model=self.device_model,
+                device_id=self.device_id,
+                host_name=self.host_name,
+                team_id=team_id
+            )
+            
+            # Reset exploration state (keep for compatibility)
             self.exploration_state = {
                 'status': 'starting',
                 'phase': 'analysis',
@@ -896,5 +913,99 @@ class ExplorationExecutor:
             return {
                 'success': True,
                 'message': 'Exploration cancelled, temporary nodes deleted'
+            }
+    
+    # ========== NEW v2.0: MCP-FIRST INCREMENTAL METHODS ==========
+    
+    def execute_phase0(self) -> Dict[str, Any]:
+        """
+        Execute Phase 0: Strategy detection
+        
+        NEW in v2.0
+        
+        Returns:
+            {
+                'success': True,
+                'strategy': str,
+                'has_dump_ui': bool,
+                'context': dict
+            }
+        """
+        if not self.context:
+            return {'success': False, 'error': 'No active exploration'}
+        
+        # Call engine Phase 0
+        self.context = self.exploration_engine.phase0_detect_strategy(self.context)
+        
+        return {
+            'success': True,
+            'strategy': self.context.strategy,
+            'has_dump_ui': self.context.has_dump_ui,
+            'context': self.context.to_dict()
+        }
+    
+    def execute_phase2_next_item(self) -> Dict[str, Any]:
+        """
+        Execute Phase 2: Create and test ONE edge incrementally
+        
+        NEW in v2.0: Incremental approach
+        
+        Returns:
+            {
+                'success': bool,
+                'item': str,
+                'has_more_items': bool,
+                'progress': dict
+            }
+        """
+        if not self.context:
+            return {'success': False, 'error': 'No active exploration'}
+        
+        items = self.context.predicted_items
+        current_idx = self.context.current_step
+        
+        if current_idx >= len(items):
+            return {
+                'success': True,
+                'has_more_items': False,
+                'message': 'All items completed'
+            }
+        
+        item = items[current_idx]
+        
+        # Create and test single edge via MCP
+        result = self.exploration_engine.phase2_create_single_edge_mcp(item, self.context)
+        
+        if result['success']:
+            self.context.completed_items.append(item)
+            self.context.current_step += 1
+            self.context.add_step_result(f'create_{item}', result)
+            
+            return {
+                'success': True,
+                'item': item,
+                'node_created': True,
+                'edge_created': True,
+                'edge_tested': True,
+                'has_more_items': self.context.current_step < len(items),
+                'progress': {
+                    'current_item': self.context.current_step,
+                    'total_items': len(items)
+                },
+                'context': self.context.to_dict()
+            }
+        else:
+            self.context.failed_items.append({
+                'item': item,
+                'error': result.get('error')
+            })
+            self.context.add_step_result(f'create_{item}', result)
+            
+            return {
+                'success': False,
+                'item': item,
+                'error': result.get('error'),
+                'has_more_items': False,  # Stop on failure
+                'context': self.context.to_dict()
             }
 

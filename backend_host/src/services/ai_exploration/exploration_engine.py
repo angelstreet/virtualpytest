@@ -10,6 +10,7 @@ import traceback
 from backend_host.src.services.ai_exploration.screen_analyzer import ScreenAnalyzer
 from backend_host.src.services.ai_exploration.navigation_strategy import NavigationStrategy
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
+from backend_host.src.services.ai_exploration.exploration_context import ExplorationContext, create_exploration_context
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_edge,
@@ -79,6 +80,353 @@ class ExplorationEngine:
         self.initial_screenshot = None
         self.prediction = None
         
+        # ✅ NEW: MCP client for tool orchestration
+        try:
+            from backend_server.src.mcp.mcp_server import VirtualPyTestMCPServer
+            self.mcp_server = VirtualPyTestMCPServer()
+            print(f"[@exploration_engine] MCP server initialized")
+        except Exception as e:
+            print(f"[@exploration_engine] Warning: MCP server initialization failed: {e}")
+            self.mcp_server = None
+        
+        # ✅ NEW: Context instance (will be set by executor)
+        self.context: Optional[ExplorationContext] = None
+        
+    # ========== NEW: MCP-FIRST METHODS (v2.0) ==========
+    
+    def phase0_detect_strategy(self, context: ExplorationContext) -> ExplorationContext:
+        """
+        Phase 0: Detect device capabilities and determine strategy
+        
+        NEW in v2.0: Device-aware strategy detection
+        
+        Args:
+            context: Exploration context to update
+            
+        Returns:
+            Updated context with strategy and available_elements
+        """
+        print(f"\n[@exploration_engine] === PHASE 0: STRATEGY DETECTION ===")
+        print(f"Device Model: {context.device_model}")
+        
+        device_model = context.device_model.lower()
+        
+        # Mobile/Web: Try dump_ui_elements
+        if 'mobile' in device_model or 'host' in device_model:
+            print(f"  Device type: Mobile/Web - attempting dump_ui_elements")
+            
+            if self.mcp_server:
+                try:
+                    # Call MCP tool: dump_ui_elements
+                    result = self.mcp_server.call_tool('dump_ui_elements', {
+                        'device_id': context.device_id,
+                        'host_name': context.host_name,
+                        'platform': 'android' if 'mobile' in device_model else 'web'
+                    })
+                    
+                    if result and not result.get('isError', False):
+                        context.strategy = 'click_with_selectors'
+                        context.has_dump_ui = True
+                        # Extract elements from MCP response
+                        if 'content' in result and result['content']:
+                            # Parse MCP response
+                            content = result['content'][0].get('text', '{}')
+                            import json
+                            try:
+                                parsed = json.loads(content) if isinstance(content, str) else content
+                                context.available_elements = parsed.get('elements', [])
+                            except:
+                                context.available_elements = []
+                        print(f"  ✅ dump_ui_elements succeeded: {len(context.available_elements)} elements found")
+                    else:
+                        context.strategy = 'click_with_text'
+                        context.has_dump_ui = False
+                        print(f"  ⚠️ dump_ui_elements failed: fallback to click_with_text")
+                except Exception as e:
+                    print(f"  ⚠️ dump_ui_elements error: {e}")
+                    context.strategy = 'click_with_text'
+                    context.has_dump_ui = False
+            else:
+                # No MCP server - fallback
+                context.strategy = 'click_with_text'
+                context.has_dump_ui = False
+                print(f"  ⚠️ MCP server not available: fallback to click_with_text")
+        
+        # TV/STB: Screenshot only
+        else:
+            print(f"  Device type: TV/STB - using screenshot-based strategy")
+            context.strategy = 'dpad_with_screenshot'
+            context.has_dump_ui = False
+        
+        context.add_step_result('phase0_detection', {
+            'success': True,
+            'strategy': context.strategy,
+            'has_dump_ui': context.has_dump_ui,
+            'elements_found': len(context.available_elements)
+        })
+        
+        print(f"  Strategy: {context.strategy}")
+        print(f"  Has dump_ui: {context.has_dump_ui}")
+        print(f"[@exploration_engine] === PHASE 0 COMPLETE ===\n")
+        
+        return context
+    
+    def phase2_create_single_edge_mcp(self, item: str, context: ExplorationContext) -> Dict:
+        """
+        Phase 2: Create and test SINGLE edge using MCP tools (incremental)
+        
+        NEW in v2.0: MCP-first incremental approach
+        
+        Workflow:
+        1. create_node (MCP)
+        2. create_edge (MCP)
+        3. execute_edge (MCP) ← MANDATORY TEST
+        4. save_node_screenshot (MCP)
+        
+        Args:
+            item: Item name to create edge for
+            context: Exploration context
+            
+        Returns:
+            {
+                'success': bool,
+                'node_created': str,
+                'edge_created': str,
+                'edge_tested': bool,
+                'error': str  # if failed
+            }
+        """
+        print(f"\n[@exploration_engine] Creating edge for: {item}")
+        
+        if not self.mcp_server:
+            return {'success': False, 'error': 'MCP server not available'}
+        
+        # 1. Create Node via MCP
+        print(f"  Step 1/4: Creating node...")
+        node_result = self.mcp_server.call_tool('create_node', {
+            'tree_id': context.tree_id,
+            'label': item,
+            'type': 'screen',
+            'position': {'x': 250 + (context.current_step * 200), 'y': 300},
+            'team_id': context.team_id
+        })
+        
+        if node_result.get('isError', False):
+            return {
+                'success': False,
+                'error': f"Node creation failed: {node_result.get('content', [{}])[0].get('text', 'Unknown error')}",
+                'step': 'create_node'
+            }
+        
+        print(f"  ✅ Node created: {item}")
+        
+        # 2. Create Edge via MCP
+        print(f"  Step 2/4: Creating edge...")
+        action_sets = self._build_action_sets_for_context(item, context)
+        
+        edge_result = self.mcp_server.call_tool('create_edge', {
+            'tree_id': context.tree_id,
+            'source_node_id': 'home',
+            'target_node_id': item,
+            'source_label': 'home',
+            'target_label': item,
+            'action_sets': action_sets,
+            'team_id': context.team_id
+        })
+        
+        if edge_result.get('isError', False):
+            return {
+                'success': False,
+                'error': f"Edge creation failed: {edge_result.get('content', [{}])[0].get('text', 'Unknown error')}",
+                'step': 'create_edge'
+            }
+        
+        # Extract edge_id from response
+        edge_content = edge_result.get('content', [{}])[0].get('text', '')
+        edge_id = self._extract_edge_id_from_response(edge_content)
+        
+        print(f"  ✅ Edge created: {edge_id}")
+        
+        # 3. TEST EDGE via MCP (CRITICAL!)
+        print(f"  Step 3/4: Testing edge...")
+        test_result = self.mcp_server.call_tool('execute_edge', {
+            'edge_id': edge_id,
+            'tree_id': context.tree_id,
+            'device_id': context.device_id,
+            'host_name': context.host_name,
+            'team_id': context.team_id
+        })
+        
+        if test_result.get('isError', False):
+            return {
+                'success': False,
+                'error': f"Edge test failed: {test_result.get('content', [{}])[0].get('text', 'Test failed')}",
+                'step': 'execute_edge',
+                'edge_id': edge_id
+            }
+        
+        print(f"  ✅ Edge tested successfully")
+        
+        # 4. Capture Screenshot via MCP
+        print(f"  Step 4/4: Capturing screenshot...")
+        screenshot_result = self.mcp_server.call_tool('save_node_screenshot', {
+            'tree_id': context.tree_id,
+            'node_id': item,
+            'label': item,
+            'host_name': context.host_name,
+            'device_id': context.device_id,
+            'userinterface_name': context.userinterface_name,
+            'team_id': context.team_id
+        })
+        
+        screenshot_url = None
+        if not screenshot_result.get('isError', False):
+            print(f"  ✅ Screenshot captured")
+            # Extract URL from response if available
+            screenshot_content = screenshot_result.get('content', [{}])[0].get('text', '')
+            # Parse URL from response (format: "✅ Screenshot saved to node...")
+            if 'Screenshot URL:' in screenshot_content:
+                screenshot_url = screenshot_content.split('Screenshot URL:')[1].split('\n')[0].strip()
+        
+        return {
+            'success': True,
+            'node_created': item,
+            'edge_created': edge_id,
+            'edge_tested': True,
+            'screenshot_url': screenshot_url
+        }
+    
+    def _build_action_sets_for_context(self, item: str, context: ExplorationContext) -> List[Dict]:
+        """
+        Build device-aware action_sets based on context strategy
+        
+        Args:
+            item: Item name
+            context: Exploration context with strategy
+            
+        Returns:
+            List of action_sets (bidirectional)
+        """
+        if context.strategy == 'click_with_selectors':
+            # Use exact selector from Phase 1
+            selector_info = context.item_selectors.get(item, {})
+            selector = selector_info.get('value', item)  # Fallback to text
+            
+            return [
+                {
+                    'id': f'home_to_{item}',
+                    'label': f'home → {item}',
+                    'actions': [{
+                        'command': 'click_element',
+                        'params': {'element_id': selector}
+                    }],
+                    'retry_actions': [],
+                    'failure_actions': []
+                },
+                {
+                    'id': f'{item}_to_home',
+                    'label': f'{item} → home',
+                    'actions': [{
+                        'command': 'press_key',
+                        'params': {'key': 'BACK'}
+                    }],
+                    'retry_actions': [],
+                    'failure_actions': []
+                }
+            ]
+        
+        elif context.strategy == 'dpad_with_screenshot':
+            # Calculate DPAD sequence
+            item_index = context.predicted_items.index(item)
+            dpad_key = 'RIGHT' if context.menu_type == 'horizontal' else 'DOWN'
+            
+            actions = []
+            for _ in range(item_index):
+                actions.append({
+                    'command': 'press_key',
+                    'action_type': 'remote',
+                    'params': {'key': dpad_key, 'wait_time': 500}
+                })
+            actions.append({
+                'command': 'press_key',
+                'action_type': 'remote',
+                'params': {'key': 'OK', 'wait_time': 1000}
+            })
+            
+            return [
+                {
+                    'id': f'home_to_{item}',
+                    'label': f'home → {item}',
+                    'actions': actions,
+                    'retry_actions': [],
+                    'failure_actions': []
+                },
+                {
+                    'id': f'{item}_to_home',
+                    'label': f'{item} → home',
+                    'actions': [{
+                        'command': 'press_key',
+                        'action_type': 'remote',
+                        'params': {'key': 'BACK', 'wait_time': 1000}
+                    }],
+                    'retry_actions': [],
+                    'failure_actions': []
+                }
+            ]
+        
+        else:
+            # Fallback: click_with_text
+            return [
+                {
+                    'id': f'home_to_{item}',
+                    'label': f'home → {item}',
+                    'actions': [{
+                        'command': 'click_element',
+                        'params': {'element_id': item}
+                    }],
+                    'retry_actions': [],
+                    'failure_actions': []
+                },
+                {
+                    'id': f'{item}_to_home',
+                    'label': f'{item} → home',
+                    'actions': [{
+                        'command': 'press_key',
+                        'params': {'key': 'BACK'}
+                    }],
+                    'retry_actions': [],
+                    'failure_actions': []
+                }
+            ]
+    
+    def _extract_edge_id_from_response(self, response_text: str) -> str:
+        """
+        Extract edge_id from MCP response text
+        
+        Args:
+            response_text: MCP response text
+            
+        Returns:
+            Extracted edge_id or generated fallback
+        """
+        import re
+        
+        # Look for "ID: <edge_id>" pattern
+        match = re.search(r'ID:\s*([a-f0-9\-]+)', response_text, re.IGNORECASE)
+        if match:
+            return match.group(1)
+        
+        # Fallback: look for UUID pattern
+        uuid_match = re.search(r'[a-f0-9]{8}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{4}-[a-f0-9]{12}', response_text)
+        if uuid_match:
+            return uuid_match.group(0)
+        
+        # Last fallback
+        import uuid
+        return str(uuid.uuid4())
+    
+    # ========== EXISTING METHODS (v1.x - kept for compatibility) ==========
+    
     def analyze_and_plan(self) -> Dict:
         """
         PHASE 1: Analyze screenshot and create exploration plan

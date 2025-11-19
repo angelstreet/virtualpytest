@@ -92,7 +92,8 @@ def start_exploration():
     {
         'tree_id': 'uuid',
         'device_id': 'device1',
-        'userinterface_name': 'horizon_android_mobile'
+        'userinterface_name': 'horizon_android_mobile',
+        'original_prompt': 'Automate sauce demo' (optional, for v2.0 context)
     }
     Query params: team_id (auto-added)
     """
@@ -104,6 +105,7 @@ def start_exploration():
         tree_id = data.get('tree_id')
         device_id = data.get('device_id', 'device1')
         userinterface_name = data.get('userinterface_name')
+        original_prompt = data.get('original_prompt', '')
         
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id required'}), 400
@@ -122,13 +124,86 @@ def start_exploration():
         result = device.exploration_executor.start_exploration(
             tree_id=tree_id,
             userinterface_name=userinterface_name,
-            team_id=team_id
+            team_id=team_id,
+            original_prompt=original_prompt
         )
         
         return jsonify(result)
         
     except Exception as e:
         print(f"[@route:ai_generation:start_exploration] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@host_ai_exploration_bp.route('/init', methods=['POST'])
+def init_exploration():
+    """
+    Phase 0: Detect device strategy (dump_ui available? click vs DPAD?)
+    
+    Request body:
+    {
+        'device_id': 'device1'
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        # Get device
+        if device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        
+        # Delegate to exploration executor
+        result = device.exploration_executor.execute_phase0()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:init] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@host_ai_exploration_bp.route('/next', methods=['POST'])
+def next_item():
+    """
+    Phase 2: Create and test ONE edge incrementally
+    
+    Request body:
+    {
+        'device_id': 'device1'
+    }
+    
+    Returns:
+    {
+        'success': bool,
+        'item': str,
+        'has_more_items': bool,
+        'progress': {'current_item': int, 'total_items': int}
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        # Get device
+        if device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        
+        # Delegate to exploration executor
+        result = device.exploration_executor.execute_phase2_next_item()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:next] Error: {e}")
         import traceback
         traceback.print_exc()
         return jsonify({'success': False, 'error': str(e)}), 500
