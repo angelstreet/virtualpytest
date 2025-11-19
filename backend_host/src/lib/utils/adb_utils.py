@@ -513,6 +513,7 @@ class ADBUtils:
                 
                 # Early filtering - skip obviously useless elements (same logic as original regex version)
                 skip_element = False
+                filter_reason = None
                 
                 # Filter 0: Skip container/layout elements (FrameLayout, LinearLayout, etc.)
                 container_classes = [
@@ -527,28 +528,33 @@ class ADBUtils:
                 ]
                 if class_name in container_classes:
                     skip_element = True
+                    filter_reason = f"Container class: {class_name}"
                 
                 # Filter 1: Skip completely empty/useless elements
-                if (not text or text == '' or text == ' ' or text == '\n') and \
+                if not skip_element and (not text or text == '' or text == ' ' or text == '\n') and \
                    (not content_desc or content_desc == '' or content_desc == ' ') and \
                    (not resource_id or resource_id == 'null' or resource_id == '') and \
                    (not class_name or class_name == '' or class_name == 'android.view.View'):
                     skip_element = True
+                    filter_reason = "Empty element (no text, desc, id)"
                 
                 # Filter 2: Skip elements with no useful identifiers at all
-                if (not class_name or class_name == '') and \
+                if not skip_element and (not class_name or class_name == '') and \
                    (not text or text == '') and \
                    (not resource_id or resource_id == 'null' or resource_id == '') and \
                    (not content_desc or content_desc == ''):
                     skip_element = True
+                    filter_reason = "No identifiers"
                 
                 # Filter 3: Skip elements with null resource-id
-                if resource_id == 'null':
+                if not skip_element and resource_id == 'null':
                     skip_element = True
+                    filter_reason = "Null resource-id"
                 
                 # Filter 4: Skip non-interactive elements with no meaningful text (strictest filter)
-                if not clickable and not enabled and (not text or text == ''):
+                if not skip_element and not clickable and not enabled and (not text or text == ''):
                     skip_element = True
+                    filter_reason = "Non-interactive with no text"
                 
                 # Add element if not filtered
                 if not skip_element:
@@ -568,6 +574,8 @@ class ADBUtils:
                     elements.append(element)
                 else:
                     filtered_out_count += 1
+                    # Log filtered element with reason
+                    print(f"[@lib:adbUtils:_parse_ui_elements] 🚫 FILTERED: {filter_reason} | text='{text}' | desc='{content_desc}' | class={class_name} | clickable={clickable} | enabled={enabled}")
                 
                 # Recursively process children
                 for child in node:

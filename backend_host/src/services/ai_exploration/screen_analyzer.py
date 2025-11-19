@@ -155,6 +155,17 @@ class ScreenAnalyzer:
         # These are common navigation tab names that we MUST keep
         navigation_whitelist = ['replay', 'radio', 'guide', 'tv', 'home', 'search', 'settings', 'accueil']
         
+        # UI element type keywords (multilingual) - elements containing these get more lenient filtering
+        # These indicate proper UI elements, not dynamic content
+        ui_element_keywords = [
+            'button', 'btn', 'bouton',  # Button (EN, abbrev, FR)
+            'tab', 'onglet',  # Tab (EN, FR)
+            'selected', 'sélectionné', 'seleccionado',  # Selected (EN, FR, ES)
+            'menu', 'menü',  # Menu (EN, DE)
+            'switch', 'toggle',  # Toggle switches
+            'checkbox', 'radio',  # Form controls
+        ]
+        
         for elem in elements:
             # ✅ FIX: Don't require clickable=true
             # TextViews in navigation bars (bottom tabs, top tabs) are NOT marked clickable
@@ -210,19 +221,28 @@ class ScreenAnalyzer:
             # Check if it's a navigation keyword (whitelist)
             is_navigation = any(nav.lower() == label.lower() for nav in navigation_whitelist)
             
+            # Check if label contains UI element type keywords (more lenient filtering)
+            contains_ui_keyword = any(keyword in label.lower() for keyword in ui_element_keywords)
+            
+            # Determine length threshold based on whether it's a UI element
+            if contains_ui_keyword:
+                length_threshold = 40  # More lenient for UI elements with metadata
+                print(f"[@screen_analyzer:_extract_interactive_elements_mobile] 🏷️  UI element detected: '{label}' | using threshold={length_threshold}")
+            else:
+                length_threshold = 30  # Standard threshold for other elements
+            
             if not is_navigation:
                 # Not a whitelisted navigation keyword, apply dynamic content filter
-            if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
+                if len(label) > length_threshold or any(indicator in label.lower() for indicator in dynamic_indicators):
+                    print(f"[@screen_analyzer:_extract_interactive_elements_mobile] 🚫 FILTERED: Dynamic content | label='{label}' | len={len(label)} | threshold={length_threshold} | elem.id={elem.id}")
                     continue  # Skip dynamic content
-                
-                # Additional heuristic: If element is NOT clickable (TextView)
-                # AND label is > 15 chars, it's likely dynamic content (show title, etc.)
-                if not elem.clickable and len(label) > 15:
-                    continue  # Skip long TextViews that aren't navigation
             
             # Add to list (avoid duplicates)
             if label not in interactive_elements:
                 interactive_elements.append(label)
+                print(f"[@screen_analyzer:_extract_interactive_elements_mobile] ✅ KEPT: '{label}' | elem.id={elem.id} | clickable={elem.clickable}")
+            else:
+                print(f"[@screen_analyzer:_extract_interactive_elements_mobile] 🔁 DUPLICATE: '{label}' | elem.id={elem.id}")
         
         return interactive_elements[:20]  # Limit to top 20 elements
     
