@@ -208,9 +208,22 @@ export const AndroidMobileRemote = React.memo(
         height: Math.round(streamContentHeight-2),
       };
 
+      // Swap panel width and height for landscape mode
+      const finalPanelSize = isLandscape
+        ? { width: streamActualSize.height, height: streamActualSize.width }
+        : streamActualSize;
+
+      // Adjust position for landscape - when height becomes width, Y position needs adjustment
+      const finalPosition = isLandscape
+        ? {
+            x: panelX+20,
+            y: panelY + streamActualSize.height/2+35, // Adjust Y for height difference
+          }
+        : streamActualPosition;
+
       const info = {
-        position: streamActualPosition, // Use calculated stream position
-        size: streamActualSize, // Use calculated stream size with proper aspect ratio
+        position: finalPosition, // Adjusted position for landscape
+        size: finalPanelSize, // Swap size for landscape
         deviceResolution: hdmiStreamResolution, // Keep HDMI resolution for overlay positioning
         isCollapsed: streamCollapsed ?? true, // Use stream collapsed state directly, default to collapsed
       };
@@ -225,6 +238,7 @@ export const AndroidMobileRemote = React.memo(
       // Include dynamic stream offsets so overlay follows sidebar
       streamPositionLeft,
       streamPositionBottom,
+      isLandscape, // Recalculate when orientation changes
     ]);
 
 
