@@ -519,15 +519,16 @@ fi
 
 cat >> "$COMPOSE_FILE" <<EOF
   # Build backend_host image ONCE (shared by all hosts)
+  # This service only builds the image, it never runs as a container
   backend_host_base:
     build:
       context: ../../../
       dockerfile: backend_host/Dockerfile
     image: virtualpytest-backend-host:latest
-    container_name: virtualpytest-backend-host-build
-    # This service builds the image but never runs
-    command: "true"
-    restart: "no"
+    profiles:
+      - build-only
+    # The profiles directive prevents this from starting with 'up -d'
+    # It's only used for building the image with 'docker-compose build backend_host_base'
 
 EOF
 
