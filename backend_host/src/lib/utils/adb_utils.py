@@ -514,6 +514,20 @@ class ADBUtils:
                 # Early filtering - skip obviously useless elements (same logic as original regex version)
                 skip_element = False
                 
+                # Filter 0: Skip container/layout elements (FrameLayout, LinearLayout, etc.)
+                container_classes = [
+                    'android.widget.FrameLayout',
+                    'android.widget.LinearLayout',
+                    'android.widget.RelativeLayout',
+                    'android.widget.ConstraintLayout',
+                    'android.widget.ScrollView',
+                    'android.widget.HorizontalScrollView',
+                    'androidx.compose.ui.platform.ComposeView',
+                    'android.view.ViewGroup'
+                ]
+                if class_name in container_classes:
+                    skip_element = True
+                
                 # Filter 1: Skip completely empty/useless elements
                 if (not text or text == '' or text == ' ' or text == '\n') and \
                    (not content_desc or content_desc == '' or content_desc == ' ') and \
