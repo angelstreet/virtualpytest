@@ -426,7 +426,7 @@ class ExplorationEngine:
         return str(uuid.uuid4())
     
     # ========== EXISTING METHODS (v1.x - kept for compatibility) ==========
-    
+        
     def analyze_and_plan(self) -> Dict:
         """
         PHASE 1: Analyze screenshot and create exploration plan

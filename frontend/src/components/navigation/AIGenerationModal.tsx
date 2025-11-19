@@ -270,7 +270,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       fullWidth
       PaperProps={{
         sx: { 
-          maxHeight: '90vh'
+          maxHeight: '90vh',
+          border: '2px solid white',
+          borderRadius: 2
         }
       }}
     >

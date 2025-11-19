@@ -66,7 +66,7 @@ export const Phase2IncrementalView: React.FC<Phase2IncrementalViewProps> = ({
       )}
 
       {/* Items List */}
-      <Paper variant="outlined" sx={{ maxHeight: 300, overflow: 'auto' }}>
+      <Paper variant="outlined" sx={{ maxHeight: 300, overflow: 'auto', border: '1px solid white' }}>
         <List dense>
           {predicted_items.map((item, index) => {
             const isCompleted = completed_items.includes(item);

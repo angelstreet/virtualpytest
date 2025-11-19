@@ -42,7 +42,7 @@ export const ContextSummary: React.FC<ContextSummaryProps> = ({ context }) => {
   const progressPercent = total_steps > 0 ? Math.round((current_step / total_steps) * 100) : 0;
 
   return (
-    <Paper variant="outlined" sx={{ mb: 2 }}>
+    <Paper variant="outlined" sx={{ mb: 2, border: '1px solid white' }}>
       {/* Collapsed Summary */}
       <Box
         sx={{
