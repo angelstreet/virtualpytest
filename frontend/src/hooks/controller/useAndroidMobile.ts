@@ -172,6 +172,42 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
         if (result.elements) {
           setAndroidElements(result.elements);
           console.log(`[@hook:useAndroidMobile] Updated ${result.elements.length} UI elements`);
+          
+          // Copy dump to clipboard in user-friendly format
+          try {
+            const dumpText = result.elements.map((el: any, index: number) => {
+              // Get display name (same logic as getElementDisplayName)
+              let name = '';
+              if (el.contentDesc && el.contentDesc !== '<no content-desc>') {
+                name = el.contentDesc;
+              } else if (el.text && el.text !== '<no text>') {
+                name = `"${el.text}"`;
+              } else {
+                name = el.className ? el.className.split('.').pop() : 'Unknown';
+              }
+              
+              // Parse bounds to get position
+              let position = '';
+              if (el.bounds) {
+                const boundsMatch = el.bounds.match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
+                if (boundsMatch) {
+                  const [, x1, y1, x2, y2] = boundsMatch.map(Number);
+                  const x = x1, y = y1, width = x2 - x1, height = y2 - y1;
+                  position = `X: ${x} | Y: ${y} | Width: ${width} | Height: ${height}`;
+                }
+              }
+              
+              // Include XPath if available
+              const xpathInfo = el.xpath ? ` | XPath: ${el.xpath}` : '';
+              
+              return `${index + 1}. ${name} | Index: ${el.id} | ${position}${xpathInfo}`;
+            }).join('\n');
+            
+            await navigator.clipboard.writeText(dumpText);
+            console.log(`[@hook:useAndroidMobile] ✅ Copied ${result.elements.length} elements to clipboard`);
+          } catch (clipboardError) {
+            console.warn('[@hook:useAndroidMobile] Failed to copy dump to clipboard:', clipboardError);
+          }
         }
         
 
@@ -233,6 +269,50 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
       }
 
       console.log(`[@hook:useAndroidMobile] Element clicked: ${element.id}`);
+      
+      // Copy element info to clipboard when selected
+      try {
+        // Get display name (same logic as getElementDisplayName)
+        let name = '';
+        if (element.contentDesc && element.contentDesc !== '<no content-desc>') {
+          name = element.contentDesc;
+        } else if (element.text && element.text !== '<no text>') {
+          name = `"${element.text}"`;
+        } else {
+          name = element.className ? element.className.split('.').pop() : 'Unknown';
+        }
+        
+        // Parse bounds to get position
+        let position = '';
+        if (element.bounds) {
+          const boundsMatch = element.bounds.match(/\[(\d+),(\d+)\]\[(\d+),(\d+)\]/);
+          if (boundsMatch) {
+            const [, x1, y1, x2, y2] = boundsMatch.map(Number);
+            const x = x1, y = y1, width = x2 - x1, height = y2 - y1;
+            position = `X: ${x}, Y: ${y}, Width: ${width}, Height: ${height}`;
+          }
+        }
+        
+        // Build element info string
+        const elementInfo = [
+          `Element: ${name}`,
+          `Index: ${element.id}`,
+          `Position: ${position}`,
+          element.xpath ? `XPath: ${element.xpath}` : '',
+          `Text: ${element.text || '<no text>'}`,
+          `ContentDesc: ${element.contentDesc || '<no content-desc>'}`,
+          `ResourceId: ${element.resourceId || '<no resource-id>'}`,
+          `ClassName: ${element.className || 'Unknown'}`,
+          `Clickable: ${element.clickable}`,
+          `Enabled: ${element.enabled}`,
+        ].filter(Boolean).join('\n');
+        
+        await navigator.clipboard.writeText(elementInfo);
+        console.log(`[@hook:useAndroidMobile] ✅ Copied element info to clipboard`);
+      } catch (clipboardError) {
+        console.warn('[@hook:useAndroidMobile] Failed to copy element info to clipboard:', clipboardError);
+      }
+      
       try {
         const response = await fetch(buildServerUrl('/server/remote/executeCommand'), {
           method: 'POST',
