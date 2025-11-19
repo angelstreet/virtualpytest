@@ -8,6 +8,11 @@ import { useConfirmDialog } from '../useConfirmDialog';
 import { UINavigationEdge } from '../../types/pages/Navigation_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+
+const normalizeAccents = (text: string) => {
+  return text.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+};
+
 export const useNavigationEditor = () => {
   // Get the navigation config context (save/load functionality)
   const navigationConfig = useNavigationConfig();
@@ -307,8 +312,8 @@ export const useNavigationEditor = () => {
       // Helper function to create bidirectional edge data
       const createEdgeData = (sourceLabel: string, targetLabel: string, conditionalSetId?: string | null, sharedActions?: any) => {
         // Clean labels for ID format
-        const cleanSourceLabel = sourceLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
-        const cleanTargetLabel = targetLabel.toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const cleanSourceLabel = normalizeAccents(sourceLabel).toLowerCase().replace(/[^a-z0-9]/g, '_');
+        const cleanTargetLabel = normalizeAccents(targetLabel).toLowerCase().replace(/[^a-z0-9]/g, '_');
         
         // CONDITIONAL EDGES: Only FORWARD action uses shared action_set_id
         // Reverse action ALWAYS gets unique ID (not part of conditional group)
