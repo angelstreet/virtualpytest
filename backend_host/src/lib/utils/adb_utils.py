@@ -287,7 +287,8 @@ class ADBUtils:
             print(f"[@lib:adbUtils:get_installed_apps] Getting apps for device {device_id}")
             
             # Get list of installed packages (3rd party apps only)
-            command = f"adb -s {device_id} shell pm list packages -3"
+            # Use --user 0 to avoid SecurityException on devices with work profiles (user 150+)
+            command = f"adb -s {device_id} shell pm list packages -3 --user 0"
             success, stdout, stderr, exit_code = self.execute_command(command)
             
             if not success or exit_code != 0:
