@@ -516,7 +516,7 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - GF_PATHS_CONFIG=/app/backend_server/config/grafana/grafana.ini
       - GF_PATHS_DATA=/var/lib/grafana
       - GF_PATHS_LOGS=/var/log/grafana
-    command: ["/bin/bash", "-c", "/setup_grafana_datasource.sh && /run.sh"]
+    entrypoint: ["/bin/bash", "-c", "/setup_grafana_datasource.sh && /run.sh"]
     restart: unless-stopped
     networks:
       - hetzner_network
