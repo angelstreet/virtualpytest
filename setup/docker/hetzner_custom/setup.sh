@@ -508,6 +508,7 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - GF_SERVER_ROOT_URL=https://${DOMAIN}/grafana
       - GF_SERVER_SERVE_FROM_SUB_PATH=true
       - GF_INSTALL_PLUGINS=\${GF_INSTALL_PLUGINS:-}
+      - SUPABASE_DB_URI=\${SUPABASE_DB_URI}
     restart: unless-stopped
     networks:
       - hetzner_network
