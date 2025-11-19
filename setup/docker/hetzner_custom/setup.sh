@@ -498,7 +498,6 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - grafana-logs:/var/log/grafana
       - ../../../grafana/config/grafana.ini:/app/backend_server/config/grafana/grafana.ini:rw
       - ../../../grafana/config/provisioning/dashboards:/app/backend_server/config/grafana/provisioning/dashboards:ro
-      - ../../../grafana/config/provisioning/datasources:/app/backend_server/config/grafana/provisioning/datasources:rw
       - ../../../grafana/dashboards:/app/backend_server/config/grafana/dashboards:ro
       - ../../../backend_server/docker/scripts/setup_grafana_datasource.sh:/setup_grafana_datasource.sh:ro
     environment:
