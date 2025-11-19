@@ -58,6 +58,8 @@ interface RemotePanelProps {
   // NEW: Dynamic stream position for overlay alignment
   streamPositionLeft?: string;
   streamPositionBottom?: string;
+  // NEW: Orientation change callback for mobile devices
+  onOrientationChange?: (isLandscape: boolean) => void;
 }
 
 export const RemotePanel = React.memo(
@@ -83,6 +85,7 @@ export const RemotePanel = React.memo(
     positionRight,
     streamPositionLeft,
     streamPositionBottom,
+    onOrientationChange,
   }: RemotePanelProps) {
     console.log(`[@component:RemotePanel] Props debug:`, {
       deviceId,
@@ -295,6 +298,7 @@ export const RemotePanel = React.memo(
               streamContainerDimensions={stableStreamContainerDimensions}
               streamPositionLeft={streamPositionLeft}
               streamPositionBottom={streamPositionBottom}
+              onOrientationChange={onOrientationChange}
               sx={{
                 height: '100%',
                 '& .MuiButton-root': {

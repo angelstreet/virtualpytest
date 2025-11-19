@@ -38,6 +38,8 @@ interface HDMIStreamProps {
   positionLeft?: string;
   positionBottom?: string;
   sx?: any;
+  // NEW: Orientation state for mobile devices
+  isLandscape?: boolean;
 }
 
 export const HDMIStream = React.memo(
@@ -54,6 +56,7 @@ export const HDMIStream = React.memo(
     positionLeft,
     positionBottom,
     sx = {},
+    isLandscape = false,
   }: HDMIStreamProps) {
     // Stream state
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
@@ -462,9 +465,12 @@ export const HDMIStream = React.memo(
                   onRestartRequest={hlsRestartRef as any}
                   layoutConfig={{
                     minHeight: isExpanded ? '400px' : '120px', // Fixed heights for aspect-ratio to work correctly
+                    // Swap aspect ratio based on orientation for mobile
                     aspectRatio: isMobile
-                      ? `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}`
-                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`,
+                      ? isLandscape
+                        ? `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}` // Landscape: 16:9
+                        : `${DEFAULT_DEVICE_RESOLUTION.height}/${DEFAULT_DEVICE_RESOLUTION.width}` // Portrait: 9:16
+                      : `${DEFAULT_DEVICE_RESOLUTION.width}/${DEFAULT_DEVICE_RESOLUTION.height}`, // TV: always 16:9
                     objectFit: isMobile ? 'cover' : 'contain',
                     isMobileModel: isMobile,
                   }}
@@ -591,6 +597,7 @@ export const HDMIStream = React.memo(
     const useAbsolutePositioningChanged = prevProps.useAbsolutePositioning !== nextProps.useAbsolutePositioning;
     const positionLeftChanged = prevProps.positionLeft !== nextProps.positionLeft;
     const positionBottomChanged = prevProps.positionBottom !== nextProps.positionBottom;
+    const isLandscapeChanged = prevProps.isLandscape !== nextProps.isLandscape;
 
     // Only re-render if meaningful props have changed
     const shouldRerender =
@@ -601,7 +608,8 @@ export const HDMIStream = React.memo(
       onCaptureModeChangeChanged ||
       useAbsolutePositioningChanged ||
       positionLeftChanged ||
-      positionBottomChanged;
+      positionBottomChanged ||
+      isLandscapeChanged;
 
     if (shouldRerender) {
       console.log('[@component:HDMIStream] Props changed, re-rendering:', {
@@ -613,6 +621,7 @@ export const HDMIStream = React.memo(
         useAbsolutePositioningChanged,
         positionLeftChanged,
         positionBottomChanged,
+        isLandscapeChanged,
       });
     }
 

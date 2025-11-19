@@ -50,6 +50,8 @@ interface AndroidMobileRemoteProps {
   // NEW: Dynamic stream position for overlay alignment
   streamPositionLeft?: string;
   streamPositionBottom?: string;
+  // NEW: Orientation change callback to sync with HDMI stream
+  onOrientationChange?: (isLandscape: boolean) => void;
 }
 
 export const AndroidMobileRemote = React.memo(
@@ -69,6 +71,7 @@ export const AndroidMobileRemote = React.memo(
     streamContainerDimensions,
     streamPositionLeft,
     streamPositionBottom,
+    onOrientationChange,
   }: AndroidMobileRemoteProps) {
     const hookResult = useAndroidMobile(host, deviceId);
 
@@ -106,7 +109,9 @@ export const AndroidMobileRemote = React.memo(
     // Debug: Log orientation changes in remote component
     React.useEffect(() => {
       console.log(`[@component:AndroidMobileRemote] Orientation: ${isLandscape ? 'landscape' : 'portrait'}`);
-    }, [isLandscape]);
+      // Notify parent component about orientation change
+      onOrientationChange?.(isLandscape);
+    }, [isLandscape, onOrientationChange]);
 
     // Debug logging for elements state
     React.useEffect(() => {
@@ -674,6 +679,7 @@ export const AndroidMobileRemote = React.memo(
       JSON.stringify(nextProps.streamContainerDimensions);
     const streamPositionLeftChanged = prevProps.streamPositionLeft !== nextProps.streamPositionLeft;
     const streamPositionBottomChanged = prevProps.streamPositionBottom !== nextProps.streamPositionBottom;
+    const onOrientationChangeChanged = prevProps.onOrientationChange !== nextProps.onOrientationChange;
 
     // Return true if props are equal (don't re-render), false if they changed (re-render)
     const shouldSkipRender =
@@ -690,7 +696,8 @@ export const AndroidMobileRemote = React.memo(
       !onDisconnectCompleteChanged &&
       !streamContainerDimensionsChanged &&
       !streamPositionLeftChanged &&
-      !streamPositionBottomChanged;
+      !streamPositionBottomChanged &&
+      !onOrientationChangeChanged;
 
     // Log only significant re-renders for debugging
     // if (!shouldSkipRender) {
