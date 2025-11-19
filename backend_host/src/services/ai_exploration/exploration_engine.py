@@ -201,11 +201,16 @@ class ExplorationEngine:
         if not self.mcp_server:
             return {'success': False, 'error': 'MCP server not available'}
         
+        # Sanitize label (normalize accents: è→e, é→e, etc.)
+        from .node_generator import NodeGenerator
+        node_gen = NodeGenerator()
+        sanitized_label = node_gen.target_to_node_name(item)
+        
         # 1. Create Node via MCP
-        print(f"  Step 1/4: Creating node...")
+        print(f"  Step 1/4: Creating node ('{item}' → '{sanitized_label}')...")
         node_result = self.mcp_server.call_tool('create_node', {
             'tree_id': context.tree_id,
-            'label': item,
+            'label': sanitized_label,
             'type': 'screen',
             'position': {'x': 250 + (context.current_step * 200), 'y': 300},
             'team_id': context.team_id
@@ -218,7 +223,7 @@ class ExplorationEngine:
                 'step': 'create_node'
             }
         
-        print(f"  ✅ Node created: {item}")
+        print(f"  ✅ Node created: {sanitized_label}")
         
         # 2. Create Edge via MCP
         print(f"  Step 2/4: Creating edge...")
