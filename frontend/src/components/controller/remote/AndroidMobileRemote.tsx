@@ -109,8 +109,12 @@ export const AndroidMobileRemote = React.memo(
     // Debug: Log orientation changes in remote component
     React.useEffect(() => {
       console.log(`[@component:AndroidMobileRemote] Orientation: ${isLandscape ? 'landscape' : 'portrait'}`);
+      console.log(`[@component:AndroidMobileRemote] onOrientationChange callback:`, onOrientationChange ? 'defined' : 'undefined');
       // Notify parent component about orientation change
-      onOrientationChange?.(isLandscape);
+      if (onOrientationChange) {
+        console.log(`[@component:AndroidMobileRemote] Calling onOrientationChange with:`, isLandscape);
+        onOrientationChange(isLandscape);
+      }
     }, [isLandscape, onOrientationChange]);
 
     // Debug logging for elements state
