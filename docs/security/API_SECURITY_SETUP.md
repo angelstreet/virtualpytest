@@ -191,8 +191,19 @@ curl -X POST http://localhost:6109/host/desktop/pyautogui/executeCommand \
    - Added command/file/app whitelisting/blacklisting
    - Security validation methods
 
-4. **backend_server/src/lib/utils/route_utils.py** - UPDATED
+4. **backend_server/src/lib/utils/route_utils.py** - UPDATED ✨
+   - Added reusable API request helpers: `api_get()`, `api_post()`, `api_delete()`
+   - All helpers automatically inject X-API-Key header
    - Added API key to all proxy functions
+
+5. **backend_server/src/routes/server_system_routes.py** - UPDATED
+   - Replaced direct `requests.*` calls with `api_get()`, `api_post()`
+
+6. **backend_server/src/routes/server_deployment_routes.py** - UPDATED
+   - Replaced direct `requests.*` calls with `api_post()`, `api_delete()`
+
+7. **backend_server/src/routes/server_campaign_execution_routes.py** - UPDATED
+   - Replaced direct `requests.*` calls with `api_get()`
 
 ---
 

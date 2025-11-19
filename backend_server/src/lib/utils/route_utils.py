@@ -386,4 +386,113 @@ def proxy_to_host_direct(host_info, endpoint, method='GET', data=None, timeout=3
         return {
             'success': False,
             'error': f'Proxy error: {str(e)}'
-        }, 500 
+        }, 500
+
+
+# ============================================================================
+# API REQUEST HELPERS - Automatic API Key Injection
+# ============================================================================
+
+def _get_api_headers(additional_headers=None):
+    """
+    Get headers with API key automatically included.
+    
+    Args:
+        additional_headers: Optional dict of additional headers to merge
+        
+    Returns:
+        dict: Headers with X-API-Key included
+    """
+    headers = {}
+    
+    # Add API key for backend_host authentication
+    api_key = os.getenv('API_KEY')
+    if api_key:
+        headers['X-API-Key'] = api_key
+    else:
+        print("[@route_utils:api_headers] ⚠️ WARNING: API_KEY not found in environment")
+    
+    # Merge additional headers
+    if additional_headers:
+        headers.update(additional_headers)
+    
+    return headers
+
+
+def api_get(url, params=None, timeout=30, **kwargs):
+    """
+    Make a GET request with automatic API key injection.
+    
+    Args:
+        url: Target URL
+        params: Query parameters (optional)
+        timeout: Request timeout in seconds (default: 30)
+        **kwargs: Additional arguments passed to requests.get()
+        
+    Returns:
+        requests.Response object
+        
+    Example:
+        response = api_get(host_url, timeout=60)
+        if response.status_code == 200:
+            data = response.json()
+    """
+    # Get headers with API key
+    headers = _get_api_headers(kwargs.pop('headers', None))
+    
+    # Make request
+    return requests.get(url, params=params, headers=headers, timeout=timeout, verify=False, **kwargs)
+
+
+def api_post(url, json=None, data=None, timeout=30, **kwargs):
+    """
+    Make a POST request with automatic API key injection.
+    
+    Args:
+        url: Target URL
+        json: JSON data to send (optional)
+        data: Form data to send (optional)
+        timeout: Request timeout in seconds (default: 30)
+        **kwargs: Additional arguments passed to requests.post()
+        
+    Returns:
+        requests.Response object
+        
+    Example:
+        response = api_post(host_url, json={'device_id': 'device1'}, timeout=60)
+        if response.status_code == 200:
+            result = response.json()
+    """
+    # Get headers with API key
+    headers = _get_api_headers(kwargs.pop('headers', None))
+    
+    # Set Content-Type if sending JSON
+    if json is not None and 'Content-Type' not in headers:
+        headers['Content-Type'] = 'application/json'
+    
+    # Make request
+    return requests.post(url, json=json, data=data, headers=headers, timeout=timeout, verify=False, **kwargs)
+
+
+def api_delete(url, timeout=30, **kwargs):
+    """
+    Make a DELETE request with automatic API key injection.
+    
+    Args:
+        url: Target URL
+        timeout: Request timeout in seconds (default: 30)
+        **kwargs: Additional arguments passed to requests.delete()
+        
+    Returns:
+        requests.Response object
+        
+    Example:
+        response = api_delete(host_url, timeout=60)
+        if response.status_code == 200:
+            result = response.json()
+    """
+    # Get headers with API key
+    headers = _get_api_headers(kwargs.pop('headers', None))
+    
+    # Make request
+    return requests.delete(url, headers=headers, timeout=timeout, verify=False, **kwargs) 

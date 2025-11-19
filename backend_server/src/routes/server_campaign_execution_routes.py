@@ -10,12 +10,10 @@ This module contains the campaign execution endpoints for:
 from flask import Blueprint, request, jsonify, current_app
 import threading
 import time
-import requests
 from typing import Dict, Any
 
 # Import utility functions
-
-from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request
+from  backend_server.src.lib.utils.route_utils import proxy_to_host_with_params, get_host_from_request, api_get, api_post
 from  backend_server.src.lib.utils.task_manager import task_manager
 from shared.src.lib.utils.build_url_utils import buildHostUrl, buildServerUrl
 
@@ -312,7 +310,7 @@ def get_campaign_execution_status(execution_id: str):
                     if host_data:
                         host_url = buildHostUrl(host_data, f'/host/campaigns/status/{host_execution_id}')
                         
-                        response = requests.get(host_url, timeout=10)
+                        response = api_get(host_url, timeout=10)
                         if response.status_code == 200:
                             host_status = response.json()
                             if host_status.get('success'):
