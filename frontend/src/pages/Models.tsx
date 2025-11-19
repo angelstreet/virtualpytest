@@ -245,6 +245,9 @@ const Models: React.FC = () => {
                     <TableCell>
                       <strong>Description</strong>
                     </TableCell>
+                    <TableCell>
+                      <strong>Default</strong>
+                    </TableCell>
                     <TableCell align="center">
                       <strong>Actions</strong>
                     </TableCell>
@@ -263,13 +266,19 @@ const Models: React.FC = () => {
                       </TableCell>
                       <TableCell>{model.version || 'N/A'}</TableCell>
                       <TableCell>{model.description || 'N/A'}</TableCell>
+                      <TableCell>
+                        {model.is_default && (
+                          <Chip label="System" size="small" color="primary" variant="outlined" />
+                        )}
+                      </TableCell>
                       <TableCell align="center">
                         <IconButton
                           size="small"
                           color="error"
                           onClick={() => handleDelete(model.id)}
                           sx={{ p: 0.5 }}
-                          disabled={submitting}
+                          disabled={submitting || model.is_default}
+                          title={model.is_default ? 'Cannot delete default model' : 'Delete model'}
                         >
                           <DeleteIcon fontSize="small" />
                         </IconButton>

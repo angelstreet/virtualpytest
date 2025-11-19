@@ -33,6 +33,7 @@ CREATE TABLE device_models (
     controllers jsonb DEFAULT '{"av": "", "power": "", "remote": "", "network": ""}'::jsonb NOT NULL CHECK (jsonb_typeof(controllers) = 'object'::text),
     version character varying,
     description text,
+    is_default boolean DEFAULT false NOT NULL,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now()
 );
@@ -198,58 +199,63 @@ BEGIN
     IF NOT EXISTS (SELECT 1 FROM device_models WHERE team_id = p_team_id LIMIT 1) THEN
         
         -- Web device model
-        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        INSERT INTO device_models (team_id, name, types, controllers, version, description, is_default)
         VALUES (
             p_team_id,
             'web',
             '["safari", "chrome", "firefox", "edge"]'::jsonb,
             '{"av": "", "web": "playwright", "power": "", "remote": "", "network": ""}'::jsonb,
             '',
-            'Web browser testing via Playwright'
+            'Web browser testing via Playwright',
+            true
         );
 
         -- Android TV device model
-        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        INSERT INTO device_models (team_id, name, types, controllers, version, description, is_default)
         VALUES (
             p_team_id,
             'android_tv',
             '["Android TV", "Fire TV", "Nvidia Shield"]'::jsonb,
             '{"av": "hdmi_stream", "power": "", "remote": "android_tv", "network": ""}'::jsonb,
             '',
-            'Android TV and streaming devices'
+            'Android TV and streaming devices',
+            true
         );
 
         -- STB (Set-Top Box) device model
-        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        INSERT INTO device_models (team_id, name, types, controllers, version, description, is_default)
         VALUES (
             p_team_id,
             'stb',
             '["STB"]'::jsonb,
             '{}'::jsonb,
             '',
-            'Generic Set-Top Box'
+            'Generic Set-Top Box',
+            true
         );
 
         -- Android Mobile device model
-        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        INSERT INTO device_models (team_id, name, types, controllers, version, description, is_default)
         VALUES (
             p_team_id,
             'android_mobile',
             '["Android Phone", "Android TV"]'::jsonb,
             '{"av": "hdmi_stream", "power": "", "remote": "android_mobile", "network": ""}'::jsonb,
             '',
-            'Android mobile devices'
+            'Android mobile devices',
+            true
         );
 
         -- Apple TV device model
-        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        INSERT INTO device_models (team_id, name, types, controllers, version, description, is_default)
         VALUES (
             p_team_id,
             'apple_tv',
             '["apple_tv"]'::jsonb,
             '{"av": "hdmi_stream", "power": "", "remote": "apple_tv", "network": ""}'::jsonb,
             '',
-            'Apple TV devices'
+            'Apple TV devices',
+            true
         );
 
     END IF;
@@ -277,12 +283,12 @@ COMMENT ON FUNCTION trigger_create_default_device_models() IS 'Trigger function 
 DO $$
 BEGIN
     IF NOT EXISTS (SELECT 1 FROM device_models WHERE team_id = '7fdeb4bb-3639-4ec3-959f-b54769a219ce' LIMIT 1) THEN
-        INSERT INTO device_models (team_id, name, types, controllers, version, description)
+        INSERT INTO device_models (team_id, name, types, controllers, version, description, is_default)
         VALUES
-            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'web', '["safari", "chrome", "firefox", "edge"]'::jsonb, '{"av": "", "web": "playwright", "power": "", "remote": "", "network": ""}'::jsonb, '', 'Web browser testing via Playwright'),
-            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'android_tv', '["Android TV", "Fire TV", "Nvidia Shield"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "android_tv", "network": ""}'::jsonb, '', 'Android TV and streaming devices'),
-            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'stb', '["STB"]'::jsonb, '{}'::jsonb, '', 'Generic Set-Top Box'),
-            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'android_mobile', '["Android Phone", "Android TV"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "android_mobile", "network": ""}'::jsonb, '', 'Android mobile devices'),
-            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'apple_tv', '["apple_tv"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "apple_tv", "network": ""}'::jsonb, '', 'Apple TV devices');
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'web', '["safari", "chrome", "firefox", "edge"]'::jsonb, '{"av": "", "web": "playwright", "power": "", "remote": "", "network": ""}'::jsonb, '', 'Web browser testing via Playwright', true),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'android_tv', '["Android TV", "Fire TV", "Nvidia Shield"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "android_tv", "network": ""}'::jsonb, '', 'Android TV and streaming devices', true),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'stb', '["STB"]'::jsonb, '{}'::jsonb, '', 'Generic Set-Top Box', true),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'android_mobile', '["Android Phone", "Android TV"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "android_mobile", "network": ""}'::jsonb, '', 'Android mobile devices', true),
+            ('7fdeb4bb-3639-4ec3-959f-b54769a219ce', 'apple_tv', '["apple_tv"]'::jsonb, '{"av": "hdmi_stream", "power": "", "remote": "apple_tv", "network": ""}'::jsonb, '', 'Apple TV devices', true);
     END IF;
 END $$;

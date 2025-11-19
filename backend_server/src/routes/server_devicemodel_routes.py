@@ -180,5 +180,8 @@ def delete_device_model_endpoint(model_id):
             return jsonify({'status': 'success'})
         else:
             return jsonify({'error': 'Device model not found or failed to delete'}), 404
+    except ValueError as ve:
+        # Handle default model deletion attempt
+        return jsonify({'error': str(ve)}), 403
     except Exception as e:
         return jsonify({'error': str(e)}), 500 
