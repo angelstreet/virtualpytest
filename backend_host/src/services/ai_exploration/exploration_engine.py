@@ -232,9 +232,9 @@ class ExplorationEngine:
         edge_result = self.mcp_server.call_tool('create_edge', {
             'tree_id': context.tree_id,
             'source_node_id': 'home',
-            'target_node_id': item,
+            'target_node_id': sanitized_label,  # Use sanitized label
             'source_label': 'home',
-            'target_label': item,
+            'target_label': sanitized_label,    # Use sanitized label
             'action_sets': action_sets,
             'team_id': context.team_id
         })
