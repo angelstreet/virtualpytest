@@ -212,7 +212,7 @@ class ScreenAnalyzer:
             
             if not is_navigation:
                 # Not a whitelisted navigation keyword, apply dynamic content filter
-            if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
+                if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
                     continue  # Skip dynamic content
                 
                 # Additional heuristic: If element is NOT clickable (TextView)
