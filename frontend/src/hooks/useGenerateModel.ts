@@ -112,6 +112,10 @@ export const useGenerateModel = ({
   const [validationProgress, setValidationProgress] = useState<{current: number, total: number}>({current: 0, total: 0});
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   
+  // ✅ NEW: Node verification state
+  const [nodeVerificationSuggestions, setNodeVerificationSuggestions] = useState<any[]>([]);
+  const [isAnalyzingVerifications, setIsAnalyzingVerifications] = useState(false);
+  
   // ✅ NEW v2.0: Context and phase state
   const [context, setContext] = useState<ExplorationContext | null>(null);
   const [currentPhase, setCurrentPhase] = useState<ExplorationPhase | null>(null);
@@ -577,6 +581,92 @@ export const useGenerateModel = ({
       return null;
     }
   }, [explorationId, explorationHostName]);
+  
+  const startNodeVerification = useCallback(async () => {
+    if (!selectedHost || !selectedDeviceId) {
+      setError('No device selected');
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsAnalyzingVerifications(true);
+      setStatus('analyzing_verifications');
+      setCurrentStep('Analyzing dumps for unique elements...');
+
+      const response = await fetch(buildServerUrl('/host/ai-generation/start-node-verification'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: selectedDeviceId
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setNodeVerificationSuggestions(data.suggestions || []);
+        setStatus('awaiting_node_verification');
+        setCurrentStep('Node verification suggestions ready');
+        console.log('[@useGenerateModel:startNodeVerification] Suggestions:', data.suggestions);
+      } else {
+        throw new Error(data.error || 'Failed to analyze verifications');
+      }
+    } catch (err: any) {
+      console.error('[@useGenerateModel:startNodeVerification] Error:', err);
+      setError(err.message || 'Failed to analyze verifications');
+      setStatus('failed');
+    } finally {
+      setIsAnalyzingVerifications(false);
+    }
+  }, [selectedHost, selectedDeviceId]);
+  
+  const approveNodeVerifications = useCallback(async (approvedVerifications: any[]) => {
+    if (!selectedHost || !selectedDeviceId) {
+      setError('No device selected');
+      return;
+    }
+
+    try {
+      setError(null);
+      setIsGenerating(true);
+      setCurrentStep('Updating nodes with verifications...');
+
+      const response = await fetch(buildServerUrl('/host/ai-generation/approve-node-verifications'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: selectedDeviceId,
+          approved_verifications: approvedVerifications
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+
+      const data = await response.json();
+
+      if (data.success) {
+        setStatus('node_verification_complete');
+        setCurrentStep(`Updated ${data.nodes_updated} nodes - ready to finalize`);
+        console.log('[@useGenerateModel:approveNodeVerifications] Updated:', data.nodes_updated);
+        return data;
+      } else {
+        throw new Error(data.error || 'Failed to update nodes');
+      }
+    } catch (err: any) {
+      console.error('[@useGenerateModel:approveNodeVerifications] Error:', err);
+      setError(err.message || 'Failed to update nodes');
+      return null;
+    } finally {
+      setIsGenerating(false);
+    }
+  }, [selectedHost, selectedDeviceId]);
 
   const cancelExploration = useCallback(async () => {
     if (!explorationId || !selectedHost) return;
@@ -796,6 +886,10 @@ export const useGenerateModel = ({
     validationProgress,
     validationResults,
     
+    // ✅ NEW: Node verification
+    nodeVerificationSuggestions,
+    isAnalyzingVerifications,
+    
     // ✅ NEW v2.0: Context and phase
     context,
     currentPhase,
@@ -816,6 +910,10 @@ export const useGenerateModel = ({
     approveGeneration,
     resetState,
     
+    // ✅ NEW: Node verification methods
+    startNodeVerification,
+    approveNodeVerifications,
+    
     // ✅ NEW v2.0: Phase methods
     executePhase0,
     executePhase2Incremental,
@@ -827,6 +925,8 @@ export const useGenerateModel = ({
     isStructureCreated: status === 'structure_created',
     isAwaitingValidation: status === 'awaiting_validation',
     isValidating: status === 'validating',
-    isValidationComplete: status === 'validation_complete'
+    isValidationComplete: status === 'validation_complete',
+    isAwaitingNodeVerification: status === 'awaiting_node_verification',
+    isNodeVerificationComplete: status === 'node_verification_complete'
   };
 };

@@ -114,6 +114,8 @@ class ExplorationExecutor:
             'home_id': None,
             'nodes_created': [],
             'edges_created': [],
+            'node_verification_data': [],
+            'node_verification_suggestions': [],
             'started_at': None,
             'completed_at': None,
             'error': None
@@ -716,7 +718,7 @@ class ExplorationExecutor:
             print(f"    {'✅' if click_success else '❌'} Click {click_result}")
             time.sleep(5)
             
-            # 1.5. Capture screenshot
+            # 1.5. Capture screenshot + dump
             if click_success:
                 try:
                     av_controller = self.device._get_controller('av')
@@ -734,6 +736,22 @@ class ExplorationExecutor:
                             if upload_result.get('success'):
                                 screenshot_url = upload_result.get('url')
                                 print(f"    📸 Screenshot: {screenshot_url}")
+                                
+                                # Capture dump for verification analysis
+                                try:
+                                    dump_data = controller.dump_elements()
+                                    
+                                    # Store node verification data
+                                    with self._lock:
+                                        self.exploration_state['node_verification_data'].append({
+                                            'node_id': node_name,
+                                            'node_label': node_name_clean,
+                                            'dump': dump_data,
+                                            'screenshot_url': screenshot_url
+                                        })
+                                    print(f"    📱 Dump captured for verification analysis")
+                                except Exception as dump_err:
+                                    print(f"    ⚠️ Dump capture failed: {dump_err}")
                 except Exception as e:
                     print(f"    ⚠️ Screenshot failed: {e}")
         except Exception as e:
@@ -920,7 +938,7 @@ class ExplorationExecutor:
             
             if not has_more:
                 self.exploration_state['status'] = 'validation_complete'
-                self.exploration_state['current_step'] = 'All items validated - ready to finalize'
+                self.exploration_state['current_step'] = 'Edge validation complete - ready for node verification'
             else:
                 self.exploration_state['status'] = 'awaiting_validation'
                 # ✅ FIX: Update current_step to show NEXT item that will be validated
@@ -1049,6 +1067,130 @@ class ExplorationExecutor:
             return {
                 'success': True,
                 'message': 'Exploration cancelled, temporary nodes deleted'
+            }
+    
+    def start_node_verification(self) -> Dict[str, Any]:
+        """
+        Phase 2c: Analyze dumps and suggest verifications
+        
+        Returns:
+            {
+                'success': True,
+                'suggestions': [...],
+                'total_nodes': 5
+            }
+        """
+        with self._lock:
+            if self.exploration_state['status'] != 'validation_complete':
+                return {
+                    'success': False,
+                    'error': f"Cannot start node verification: status is {self.exploration_state['status']}"
+                }
+            
+            node_verification_data = self.exploration_state['node_verification_data']
+            
+            if not node_verification_data:
+                return {
+                    'success': False,
+                    'error': 'No node verification data available'
+                }
+            
+            print(f"[@ExplorationExecutor:start_node_verification] Analyzing {len(node_verification_data)} nodes")
+            
+            # Analyze dumps to find unique elements
+            from backend_host.src.services.ai_exploration.dump_analyzer import analyze_unique_elements
+            suggestions = analyze_unique_elements(node_verification_data)
+            
+            # Store suggestions
+            self.exploration_state['node_verification_suggestions'] = suggestions
+            self.exploration_state['status'] = 'awaiting_node_verification'
+            self.exploration_state['current_step'] = 'Node verification suggestions ready - review and approve'
+            
+            print(f"[@ExplorationExecutor:start_node_verification] Generated {len(suggestions)} suggestions")
+            
+            return {
+                'success': True,
+                'suggestions': suggestions,
+                'total_nodes': len(suggestions),
+                'message': 'Node verification analysis complete'
+            }
+    
+    def approve_node_verifications(self, approved_verifications: List[Dict], team_id: str) -> Dict[str, Any]:
+        """
+        Update nodes with approved verifications + screenshots
+        
+        Args:
+            approved_verifications: [
+                {
+                    'node_id': 'search',
+                    'verification': {...},
+                    'screenshot_url': '...'
+                }
+            ]
+            
+        Returns:
+            {
+                'success': True,
+                'nodes_updated': 5
+            }
+        """
+        with self._lock:
+            if self.exploration_state['status'] != 'awaiting_node_verification':
+                return {
+                    'success': False,
+                    'error': f"Cannot approve: status is {self.exploration_state['status']}"
+                }
+            
+            tree_id = self.exploration_state['tree_id']
+            
+            print(f"[@ExplorationExecutor:approve_node_verifications] Updating {len(approved_verifications)} nodes")
+            
+            nodes_updated = 0
+            
+            for item in approved_verifications:
+                node_id = item['node_id']
+                verification = item.get('verification')
+                screenshot_url = item.get('screenshot_url')
+                
+                # Get node
+                node_result = get_node_by_id(tree_id, node_id, team_id)
+                if not node_result.get('success'):
+                    print(f"  ❌ Node {node_id} not found")
+                    continue
+                
+                node_data = node_result['node']
+                
+                # Update node with screenshot + verification
+                if screenshot_url:
+                    node_data['screenshot'] = screenshot_url
+                
+                if verification and verification.get('params'):
+                    # Add verification to node
+                    if 'verifications' not in node_data:
+                        node_data['verifications'] = []
+                    
+                    node_data['verifications'].append({
+                        'method': verification['method'],
+                        'params': verification['params'],
+                        'expected': True
+                    })
+                
+                # Save updated node
+                save_result = save_node(tree_id, node_data, team_id)
+                if save_result.get('success'):
+                    nodes_updated += 1
+                    print(f"  ✅ Updated node: {node_id}")
+                else:
+                    print(f"  ❌ Failed to update node: {node_id}")
+            
+            # Update state
+            self.exploration_state['status'] = 'node_verification_complete'
+            self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
+            
+            return {
+                'success': True,
+                'nodes_updated': nodes_updated,
+                'message': f'Updated {nodes_updated} nodes with verifications'
             }
     
     # ========== NEW v2.0: MCP-FIRST INCREMENTAL METHODS ==========

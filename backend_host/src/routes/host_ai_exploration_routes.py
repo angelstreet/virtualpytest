@@ -360,6 +360,80 @@ def validate_next_item():
         return jsonify({'success': False, 'error': str(e)}), 500
 
 
+@host_ai_exploration_bp.route('/start-node-verification', methods=['POST'])
+def start_node_verification():
+    """
+    Phase 2c: Analyze dumps and suggest node verifications
+    
+    Request body:
+    {
+        'device_id': 'device1'
+    }
+    """
+    try:
+        data = request.get_json() or {}
+        device_id = data.get('device_id', 'device1')
+        
+        if device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        result = device.exploration_executor.start_node_verification()
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:start_node_verification] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+@host_ai_exploration_bp.route('/approve-node-verifications', methods=['POST'])
+def approve_node_verifications():
+    """
+    Phase 2c: Approve and save node verifications
+    
+    Request body:
+    {
+        'device_id': 'device1',
+        'approved_verifications': [
+            {
+                'node_id': 'search',
+                'verification': {...},
+                'screenshot_url': '...'
+            }
+        ]
+    }
+    Query params: team_id
+    """
+    try:
+        data = request.get_json() or {}
+        team_id = request.args.get('team_id')
+        device_id = data.get('device_id', 'device1')
+        approved_verifications = data.get('approved_verifications', [])
+        
+        if not team_id:
+            return jsonify({'success': False, 'error': 'team_id required'}), 400
+        
+        if device_id not in current_app.host_devices:
+            return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
+        
+        device = current_app.host_devices[device_id]
+        result = device.exploration_executor.approve_node_verifications(
+            approved_verifications=approved_verifications,
+            team_id=team_id
+        )
+        
+        return jsonify(result)
+        
+    except Exception as e:
+        print(f"[@route:ai_generation:approve_node_verifications] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
 @host_ai_exploration_bp.route('/finalize-structure', methods=['POST'])
 def finalize_structure():
     """
