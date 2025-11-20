@@ -2,8 +2,9 @@
 Dump Analyzer - Find unique elements across multiple UI dumps
 """
 
-from typing import List, Dict, Optional
+from typing import List, Dict, Optional, Set, Tuple
 import json
+import re
 
 
 def _dump_to_string(dump: Dict) -> str:
@@ -71,12 +72,6 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
     # Extract all dumps
     all_dumps = {item['node_id']: item['dump'] for item in node_verification_data}
     
-    print(f"\n[@dump_analyzer] 📊 Overview of all nodes:")
-    for node_id, dump in all_dumps.items():
-        node_label = next(item['node_label'] for item in node_verification_data if item['node_id'] == node_id)
-        elements_count = len(dump.get('elements', [])) if isinstance(dump, dict) else 0
-        print(f"  • {node_label} ({node_id}): {elements_count} elements")
-    
     for item in node_verification_data:
         node_id = item['node_id']
         node_label = item['node_label']
@@ -90,8 +85,8 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
         print(f"[@dump_analyzer] 🎯 ANALYZING NODE: '{node_label}' ({node_id})")
         print(f"{'='*100}")
         
-        # Try text first
-        unique_text = _find_unique_text_for_node(node_id, current_dump, all_dumps)
+        # Try text first (using smart scoring)
+        unique_text = _find_unique_text_for_node(node_id, node_label, current_dump, all_dumps)
         if unique_text:
             print(f"[@dump_analyzer] ✅ SUCCESS: Found unique text: '{unique_text}'")
             results.append({
@@ -131,7 +126,6 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
         # No unique element found
         print(f"[@dump_analyzer] ❌ FAILURE: No unique element found for '{node_label}'")
         print(f"[@dump_analyzer]    → This node has no text or xpath that's unique to it")
-        print(f"[@dump_analyzer]    → User will need to manually add verification")
         results.append({
             'node_id': node_id,
             'node_label': node_label,
@@ -145,30 +139,65 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
             }
         })
     
-    print(f"\n{'='*100}")
-    print(f"[@dump_analyzer] 📋 SUMMARY:")
-    print(f"  • Total nodes analyzed: {len(node_verification_data)}")
-    print(f"  • Unique elements found: {len([r for r in results if r['suggested_verification']['found']])}")
-    print(f"  • No unique element: {len([r for r in results if not r['suggested_verification']['found']])}")
-    print(f"{'='*100}\n")
-    
     return results
 
 
-def _find_unique_text_for_node(target_node_id: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[str]:
-    """Find text that appears only in target node"""
+def _score_text_candidate(text: str, node_label: str) -> int:
+    """
+    Score a text candidate for how good it is as a verification point.
+    Higher score = better candidate.
+    """
+    score = 0
+    text_lower = text.lower()
+    label_lower = node_label.lower()
     
-    print(f"[@dump_analyzer:_find_unique_text_for_node] 🔍 Searching for unique text...")
+    # 1. EXACT MATCH to Node Label (Highest Priority)
+    # If node is "Settings" and text is "Settings", this is the gold standard
+    if text_lower == label_lower:
+        return 1000
+    
+    # 2. Partial Match to Node Label
+    if label_lower in text_lower:
+        score += 100
+    
+    # 3. Length Heuristics
+    length = len(text)
+    if length < 3:
+        score -= 50  # Too short (e.g., "ok", "en")
+    elif 4 <= length <= 25:
+        score += 20  # Sweet spot for titles/labels
+    elif length > 40:
+        score -= 20  # Likely a description/paragraph
+        
+    # 4. Content Analysis
+    
+    # Penalize potential dynamic content (digits, time, prices)
+    if re.search(r'\d', text): 
+        score -= 30  # Contains numbers (risk of dynamic ID/Time)
+    if re.search(r'\d{1,2}:\d{2}', text):
+        score -= 100 # Looks like time
+    if re.search(r'[\$\€\£]', text):
+        score -= 100 # Looks like price
+        
+    # Penalize common low-value words
+    bad_words = {'ok', 'cancel', 'back', 'next', 'done', 'yes', 'no', 'on', 'off'}
+    if text_lower in bad_words:
+        score -= 50
+        
+    # Boost Title Case (likely a proper UI label)
+    if text[0].isupper() and ' ' in text:
+        score += 10
+        
+    return score
+
+
+def _find_unique_text_for_node(target_node_id: str, target_node_label: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[str]:
+    """Find text that appears only in target node, using scoring"""
     
     # Extract text elements from target dump
     target_texts = _extract_texts_from_dump(target_dump)
     
-    print(f"[@dump_analyzer:_find_unique_text_for_node]   → Target node has {len(target_texts)} text elements")
-    if target_texts:
-        print(f"[@dump_analyzer:_find_unique_text_for_node]   → Sample texts: {list(target_texts)[:5]}")
-    
     if not target_texts:
-        print(f"[@dump_analyzer:_find_unique_text_for_node]   ❌ No text elements found in target dump")
         return None
     
     # Extract texts from all OTHER nodes
@@ -178,39 +207,43 @@ def _find_unique_text_for_node(target_node_id: str, target_dump: Dict, all_dumps
             node_texts = _extract_texts_from_dump(dump)
             other_texts.update(node_texts)
     
-    print(f"[@dump_analyzer:_find_unique_text_for_node]   → Other nodes have {len(other_texts)} total text elements")
-    
     # Find texts unique to target
     unique_texts = target_texts - other_texts
     
-    print(f"[@dump_analyzer:_find_unique_text_for_node]   → Found {len(unique_texts)} unique texts")
-    if unique_texts:
-        print(f"[@dump_analyzer:_find_unique_text_for_node]   → Unique texts: {list(unique_texts)[:10]}")
-    
     if not unique_texts:
-        print(f"[@dump_analyzer:_find_unique_text_for_node]   ❌ All texts also appear in other nodes")
         return None
     
-    # Pick shortest unique text (usually most specific)
-    shortest = min(unique_texts, key=len)
-    print(f"[@dump_analyzer:_find_unique_text_for_node]   ✅ Selected shortest: '{shortest}' (length: {len(shortest)})")
-    return shortest
+    # Score all candidates
+    scored_candidates = []
+    print(f"[@dump_analyzer]   📊 Scoring {len(unique_texts)} unique candidates for '{target_node_label}':")
+    
+    for text in unique_texts:
+        score = _score_text_candidate(text, target_node_label)
+        scored_candidates.append((score, text))
+        if score > 0: # Only log positive/relevant scores to avoid noise
+            print(f"      • '{text}' = {score}")
+            
+    # Sort by score descending
+    scored_candidates.sort(key=lambda x: x[0], reverse=True)
+    
+    best_score, best_text = scored_candidates[0]
+    
+    # If the best candidate has a terrible score (e.g. it's just "12:34"), reject it
+    if best_score < -20:
+        print(f"[@dump_analyzer]   ❌ All unique texts had low scores (best was '{best_text}' with {best_score}). Ignoring.")
+        return None
+        
+    print(f"[@dump_analyzer]   ✅ Selected best candidate: '{best_text}' (score: {best_score})")
+    return best_text
 
 
 def _find_unique_xpath_for_node(target_node_id: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[str]:
     """Find xpath that appears only in target node"""
     
-    print(f"[@dump_analyzer:_find_unique_xpath_for_node] 🔍 Searching for unique xpath...")
-    
     # Extract xpaths from target dump
     target_xpaths = _extract_xpaths_from_dump(target_dump)
     
-    print(f"[@dump_analyzer:_find_unique_xpath_for_node]   → Target node has {len(target_xpaths)} xpath elements")
-    if target_xpaths:
-        print(f"[@dump_analyzer:_find_unique_xpath_for_node]   → Sample xpaths: {list(target_xpaths)[:3]}")
-    
     if not target_xpaths:
-        print(f"[@dump_analyzer:_find_unique_xpath_for_node]   ❌ No xpath elements found in target dump")
         return None
     
     # Extract xpaths from all OTHER nodes
@@ -220,22 +253,14 @@ def _find_unique_xpath_for_node(target_node_id: str, target_dump: Dict, all_dump
             node_xpaths = _extract_xpaths_from_dump(dump)
             other_xpaths.update(node_xpaths)
     
-    print(f"[@dump_analyzer:_find_unique_xpath_for_node]   → Other nodes have {len(other_xpaths)} total xpath elements")
-    
     # Find xpaths unique to target
     unique_xpaths = target_xpaths - other_xpaths
     
-    print(f"[@dump_analyzer:_find_unique_xpath_for_node]   → Found {len(unique_xpaths)} unique xpaths")
-    if unique_xpaths:
-        print(f"[@dump_analyzer:_find_unique_xpath_for_node]   → Sample unique xpaths: {list(unique_xpaths)[:3]}")
-    
     if not unique_xpaths:
-        print(f"[@dump_analyzer:_find_unique_xpath_for_node]   ❌ All xpaths also appear in other nodes")
         return None
     
     # Pick shortest unique xpath (usually most specific)
     shortest = min(unique_xpaths, key=len)
-    print(f"[@dump_analyzer:_find_unique_xpath_for_node]   ✅ Selected shortest: '{shortest[:100]}...' (length: {len(shortest)})")
     return shortest
 
 
@@ -287,4 +312,3 @@ def _extract_xpaths_from_dump(dump: Dict) -> set:
                 xpaths.add(xpath.strip())
     
     return xpaths
-
