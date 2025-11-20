@@ -110,6 +110,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
   const validateNextItem = useCallback(async () => {
     try {
       console.log('[@ValidationModal] Validating next item...');
+      setCurrentStep(''); // Clear previous step name
       
       const response = await fetch(
         buildServerUrl(`/server/ai-generation/validate-next-item`),
@@ -343,14 +344,14 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', color: 'info.light', ml: 3 }}>
-                {truncate(currentStep || 'Starting validation...', 70)}
+                {truncate(currentStep || 'Validating...', 70)}
               </Typography>
             </Paper>
           )}
           
           {/* Pending steps */}
           {validationProgress.total > 0 && 
-           [...Array(Math.max(0, validationProgress.total - Math.max(validationProgress.current, 1)))].map((_, index) => (
+           [...Array(Math.max(0, validationProgress.total - (validationProgress.current || 0) - 1))].map((_, index) => (
             <Paper 
               key={`pending-${index}`}
               sx={{ 
@@ -363,7 +364,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               }}
             >
               <Typography variant="body2" color="text.secondary">
-                ⏳ Step {Math.max(validationProgress.current, 1) + index + 1} - PENDING
+                ⏳ Step {(validationProgress.current || 0) + index + 2} - PENDING
               </Typography>
             </Paper>
           ))}
