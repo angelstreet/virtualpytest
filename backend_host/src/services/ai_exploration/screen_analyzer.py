@@ -194,6 +194,10 @@ class ScreenAnalyzer:
             if not label:
                 continue
             
+            # Filter out simple single digits (1, 2, 3, etc.)
+            if label.isdigit() and len(label) <= 2:
+                continue
+            
             # Filter out non-interactive keywords
             if any(keyword in label.lower() for keyword in ignore_keywords):
                 continue
