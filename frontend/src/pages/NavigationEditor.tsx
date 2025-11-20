@@ -1639,6 +1639,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               // Refresh to show permanent nodes/edges
               await handleAIGenerated();
               
+              // Close modal
+              setIsValidationModalOpen(false);
+              
               // Reset exploration state
               setExplorationId(null);
               setExplorationHostName(null);

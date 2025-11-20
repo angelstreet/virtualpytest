@@ -178,7 +178,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         console.log('[@ValidationModal] Validation complete!');
         setIsValidating(false);
         setIsValidationComplete(true);
-        onValidationComplete?.();
+        // Don't call onValidationComplete automatically - wait for user confirmation
       } else {
         // Continue with next item
         setTimeout(() => validateNextItem(), 500);
@@ -427,7 +427,6 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
             <Button
               onClick={() => {
                 onValidationComplete?.();
-                onClose();
               }}
               variant="contained"
               color="success"
