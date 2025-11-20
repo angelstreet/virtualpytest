@@ -26,6 +26,7 @@ import {
 import { useGenerateModel } from '../../hooks/useGenerateModel';
 import { useNavigation } from '../../contexts/navigation/NavigationContext';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { APP_CONFIG } from '../../config/constants';
 import { AIGenerationPhaseIndicator } from './AIGenerationPhaseIndicator';
 import { Phase2IncrementalView } from './Phase2IncrementalView';
 import { ContextSummary } from './ContextSummary';
@@ -56,6 +57,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const [hasTempNodes, setHasTempNodes] = useState(false);
   const [isValidating, setIsValidating] = useState(false);
   const [isAborting, setIsAborting] = useState(false);
+  const [showCleanConfirm, setShowCleanConfirm] = useState(false);
+  const [existingNodesCount, setExistingNodesCount] = useState(0);
+  const [existingEdgesCount, setExistingEdgesCount] = useState(0);
+  const [isCheckingTree, setIsCheckingTree] = useState(false);
   
   // Get navigation context to access nodes
   const { nodes } = useNavigation();
@@ -89,8 +94,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     selectedDeviceId,
     userinterfaceName,
     isControlActive: true,
-    onStructureCreated: (nodesCount, edgesCount) => {
+    onStructureCreated: async (nodesCount, edgesCount) => {
       console.log('[@AIGenerationModal:Phase1] Structure created:', nodesCount, 'nodes,', edgesCount, 'edges');
+      
+      // Wait for cache to clear before refreshing
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Trigger ReactFlow refresh
       onGenerated();
@@ -184,6 +192,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       if (data.success) {
         console.log('[@AIGenerationModal] ✅ Aborted:', data.nodes_deleted, 'nodes,', data.edges_deleted, 'edges');
         
+        // Wait a moment for cache to clear
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Refresh tree to remove deleted nodes
         onGenerated();
         onCleanupTemp?.();
@@ -202,6 +213,50 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   };
 
   const handleStart = async () => {
+    setIsCheckingTree(true);
+    
+    try {
+      // ✅ STEP 0: Check if tree has existing non-home nodes/edges using existing APIs
+      console.log('[@AIGenerationModal] Checking tree state...');
+      
+      const [nodesResponse, edgesResponse] = await Promise.all([
+        fetch(buildServerUrl(`/server/navigationTrees/${treeId}/nodes?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`)),
+        fetch(buildServerUrl(`/server/navigationTrees/${treeId}/edges?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`))
+      ]);
+      
+      const nodesData = await nodesResponse.json();
+      const edgesData = await edgesResponse.json();
+      
+      // Count non-home nodes
+      const nonHomeNodes = nodesData.success && nodesData.nodes 
+        ? nodesData.nodes.filter((n: any) => n.node_id.toLowerCase() !== 'home')
+        : [];
+      
+      const allEdges = edgesData.success && edgesData.edges ? edgesData.edges : [];
+      
+      console.log(`[@AIGenerationModal] Found ${nonHomeNodes.length} non-home nodes, ${allEdges.length} edges`);
+      
+      // If tree has existing data, ask user to confirm deletion
+      if (nonHomeNodes.length > 0 || allEdges.length > 0) {
+        setExistingNodesCount(nonHomeNodes.length);
+        setExistingEdgesCount(allEdges.length);
+        setShowCleanConfirm(true);
+        return;  // Wait for user confirmation
+      }
+      
+      // No existing data - proceed directly
+      await startExplorationFlow();
+      
+    } catch (error) {
+      console.error('[@AIGenerationModal] Error checking tree state:', error);
+      // On error, proceed anyway (fallback)
+      await startExplorationFlow();
+    } finally {
+      setIsCheckingTree(false);
+    }
+  };
+  
+  const startExplorationFlow = async () => {
     // Auto-abort any existing temp nodes before starting new exploration
     if (hasTempNodes) {
       console.log('[@AIGenerationModal] Auto-aborting existing _temp nodes before new exploration');
@@ -209,6 +264,74 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
     
     await startExploration();
+  };
+  
+  const handleConfirmClean = async () => {
+    setShowCleanConfirm(false);
+    setIsCheckingTree(true);
+    
+    try {
+      console.log('[@AIGenerationModal] User confirmed - deleting all non-home nodes/edges...');
+      
+      // ✅ Delete using existing DELETE APIs
+      // 1. Get nodes and edges again (in case they changed)
+      const [nodesResponse, edgesResponse] = await Promise.all([
+        fetch(buildServerUrl(`/server/navigationTrees/${treeId}/nodes?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`)),
+        fetch(buildServerUrl(`/server/navigationTrees/${treeId}/edges?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`))
+      ]);
+      
+      const nodesData = await nodesResponse.json();
+      const edgesData = await edgesResponse.json();
+      
+      const nonHomeNodes = nodesData.success && nodesData.nodes 
+        ? nodesData.nodes.filter((n: any) => n.node_id.toLowerCase() !== 'home')
+        : [];
+      
+      const allEdges = edgesData.success && edgesData.edges ? edgesData.edges : [];
+      
+      // 2. Delete all edges first (avoid foreign key issues)
+      console.log(`[@AIGenerationModal] Deleting ${allEdges.length} edges...`);
+      for (const edge of allEdges) {
+        try {
+          await fetch(
+            buildServerUrl(`/server/navigationTrees/${treeId}/edges/${edge.edge_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
+            { method: 'DELETE' }
+          );
+        } catch (err) {
+          console.warn(`[@AIGenerationModal] Failed to delete edge ${edge.edge_id}:`, err);
+        }
+      }
+      
+      // 3. Delete all non-home nodes
+      console.log(`[@AIGenerationModal] Deleting ${nonHomeNodes.length} non-home nodes...`);
+      for (const node of nonHomeNodes) {
+        try {
+          await fetch(
+            buildServerUrl(`/server/navigationTrees/${treeId}/nodes/${node.node_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
+            { method: 'DELETE' }
+          );
+        } catch (err) {
+          console.warn(`[@AIGenerationModal] Failed to delete node ${node.node_id}:`, err);
+        }
+      }
+      
+      console.log('[@AIGenerationModal] Tree cleaned successfully');
+      
+      // 4. Refresh ReactFlow to show clean tree
+      onGenerated();
+      
+      // 5. Now start AI generation
+      await startExplorationFlow();
+      
+    } catch (error) {
+      console.error('[@AIGenerationModal] Error cleaning tree:', error);
+    } finally {
+      setIsCheckingTree(false);
+    }
+  };
+  
+  const handleCancelClean = () => {
+    setShowCleanConfirm(false);
   };
 
   const handleCancel = async () => {
@@ -265,16 +388,17 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   };
 
   return (
-    <Dialog
-      open={isOpen}
-      onClose={onClose}
-      maxWidth="md"
-      fullWidth
-      PaperProps={{
-        sx: { 
-          maxHeight: '90vh',
-          border: '2px solid white',
-          borderRadius: 2
+    <>
+      <Dialog
+        open={isOpen}
+        onClose={onClose}
+        maxWidth="md"
+        fullWidth
+        PaperProps={{
+          sx: { 
+            maxHeight: '90vh',
+            border: '2px solid white',
+            borderRadius: 2
         }
       }}
     >
@@ -575,9 +699,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               onClick={handleStart}
               variant="contained"
               startIcon={<AIIcon />}
-              disabled={!canStart}
+              disabled={!canStart || isCheckingTree}
             >
-              Start
+              {isCheckingTree ? 'Checking...' : 'Start'}
             </Button>
           </>
         )}
@@ -595,5 +719,39 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         )}
       </DialogActions>
     </Dialog>
+    
+    {/* Confirmation Dialog: Delete existing nodes/edges */}
+    <Dialog open={showCleanConfirm} onClose={handleCancelClean} maxWidth="sm" fullWidth>
+      <DialogTitle>Clean Tree Before AI Generation?</DialogTitle>
+      <DialogContent>
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          This tree already contains navigation data. AI generation works best with a clean tree (only home node).
+        </Alert>
+        <Typography variant="body2" gutterBottom>
+          Found existing data:
+        </Typography>
+        <Box sx={{ pl: 2, mb: 2 }}>
+          <Typography variant="body2">• {existingNodesCount} node{existingNodesCount !== 1 ? 's' : ''} (excluding home)</Typography>
+          <Typography variant="body2">• {existingEdgesCount} edge{existingEdgesCount !== 1 ? 's' : ''}</Typography>
+        </Box>
+        <Typography variant="body2" color="text.secondary">
+          Do you want to delete all existing nodes and edges (except home) before starting AI generation?
+        </Typography>
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={handleCancelClean} variant="outlined">
+          Cancel
+        </Button>
+        <Button 
+          onClick={handleConfirmClean} 
+          variant="contained" 
+          color="error"
+          disabled={isCheckingTree}
+        >
+          {isCheckingTree ? 'Deleting...' : 'Delete & Start'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+    </>
   );
 };

@@ -39,32 +39,57 @@ def cleanup_temp():
         
         print(f"[@route:ai_generation:cleanup_temp] Cleaning up _temp for tree: {tree_id}")
         
-        # Get all nodes and edges
-        nodes_result = get_tree_nodes(tree_id, team_id)
+        # ✅ SIMPLE: Delete ALL edges except entry-to-home, then delete all non-home nodes
         edges_result = get_tree_edges(tree_id, team_id)
         
-        nodes_deleted = 0
+        print(f"[@route:ai_generation:cleanup_temp] Edges query result: success={edges_result.get('success')}, count={len(edges_result.get('edges', []))}")
+        
         edges_deleted = 0
         
-        # Delete edges with _temp
         if edges_result.get('success') and edges_result.get('edges'):
+            print(f"[@route:ai_generation:cleanup_temp] Processing {len(edges_result['edges'])} edges...")
             for edge in edges_result['edges']:
                 edge_id = edge.get('edge_id', '')
-                if '_temp' in edge_id:
+                source = edge.get('source_node_id', '')
+                target = edge.get('target_node_id', '')
+                
+                # Keep ONLY the entry-to-home edge, delete everything else
+                is_entry_to_home = (
+                    'entry' in edge_id.lower() and 
+                    target.lower() == 'home'
+                )
+                
+                if not is_entry_to_home:
+                    print(f"  🗑️  Deleting edge: {edge_id} ({source} → {target})")
                     delete_result = delete_edge(tree_id, edge_id, team_id)
                     if delete_result.get('success'):
                         edges_deleted += 1
-                        print(f"  🗑️  Deleted edge: {edge_id}")
+                        print(f"  ✅ Deleted edge: {edge_id}")
+                    else:
+                        print(f"  ❌ Failed to delete edge: {edge_id}, error: {delete_result.get('error')}")
+                else:
+                    print(f"  ⏭️  Keeping entry edge: {edge_id}")
+        else:
+            print(f"[@route:ai_generation:cleanup_temp] No edges found or query failed")
         
-        # Delete nodes ending with _temp
+        # Now get nodes
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        
+        print(f"[@route:ai_generation:cleanup_temp] Found {len(nodes_result.get('nodes', []))} nodes")
+        
+        nodes_deleted = 0
+        
+        # Delete ALL nodes except home
         if nodes_result.get('success') and nodes_result.get('nodes'):
             for node in nodes_result['nodes']:
                 node_id = node.get('node_id', '')
-                if node_id.endswith('_temp'):
+                if node_id.lower() != 'home':
                     delete_result = delete_node(tree_id, node_id, team_id)
                     if delete_result.get('success'):
                         nodes_deleted += 1
                         print(f"  🗑️  Deleted node: {node_id}")
+                else:
+                    print(f"  ⏭️  Keeping home node")
         
         print(f"[@route:ai_generation:cleanup_temp] Complete: {nodes_deleted} nodes, {edges_deleted} edges deleted")
         

@@ -190,6 +190,12 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
     }
   }, [explorationId, explorationHostName, validationResults.length]);
 
+  // Helper function to truncate long text
+  const truncate = (text: string, maxLength: number = 50) => {
+    if (!text) return '';
+    return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
+  };
+
   return (
     <Dialog
       open={isOpen}
@@ -275,10 +281,10 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                   Step {result.step}.1
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                  {result.sourceNode} → {result.targetNode}
+                  {truncate(`${result.sourceNode} → ${result.targetNode}`, 30)}
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                  {result.forward.action}
+                  {truncate(result.forward.action, 40)}
                 </Typography>
                 <Typography 
                   variant="body2" 
@@ -298,10 +304,10 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                   Step {result.step}.2
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                  {result.targetNode} → {result.sourceNode}
+                  {truncate(`${result.targetNode} → ${result.sourceNode}`, 30)}
                 </Typography>
                 <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                  {result.backward.action}
+                  {truncate(result.backward.action, 40)}
                 </Typography>
                 <Typography 
                   variant="body2" 
@@ -337,7 +343,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', color: 'info.light', ml: 3 }}>
-                {currentStep || 'Starting validation...'}
+                {truncate(currentStep || 'Starting validation...', 70)}
               </Typography>
             </Paper>
           )}

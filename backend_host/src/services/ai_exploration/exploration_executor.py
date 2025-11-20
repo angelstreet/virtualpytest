@@ -759,12 +759,17 @@ class ExplorationExecutor:
         if click_result == 'failed' or back_result == 'failed':
             print(f"    🔄 Validation failed (click={click_result}, back={back_result}) - going home for next step...")
             try:
+                import asyncio
                 home_id = self.exploration_state['home_id']
-                nav_result = self.device.navigation_executor.goto_node(
+                
+                # ✅ Use execute_navigation with target_node_label='home' (correct method)
+                nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
                     tree_id=tree_id,
-                    node_id=home_id,
+                    userinterface_name=self.userinterface_name,
+                    target_node_label='home',
                     team_id=team_id
-                )
+                ))
+                
                 if nav_result.get('success'):
                     print(f"    ✅ Recovery successful - ready for next validation")
                     if back_result == 'failed':
