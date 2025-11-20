@@ -313,7 +313,7 @@ export const useGenerateModel = ({
       setError(null);
       setIsExploring(true);
       setStatus('exploring');
-      setCurrentStep('Starting AI exploration (2-level depth)...');
+      setCurrentStep('Starting AI exploration...');
       
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
         treeId,
