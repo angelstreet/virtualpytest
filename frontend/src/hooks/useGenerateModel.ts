@@ -101,6 +101,9 @@ export const useGenerateModel = ({
     screenshot: undefined
   });
   const [explorationPlan, setExplorationPlan] = useState<ExplorationPlan | null>(null);
+  
+  // ✅ Selected nodes state (all selected by default)
+  const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
   const [proposedNodes, setProposedNodes] = useState<ProposedNode[]>([]);
   const [proposedEdges, setProposedEdges] = useState<ProposedEdge[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -112,6 +115,26 @@ export const useGenerateModel = ({
   const [context, setContext] = useState<ExplorationContext | null>(null);
   const [currentPhase, setCurrentPhase] = useState<ExplorationPhase | null>(null);
   const [strategy, setStrategy] = useState<ExplorationStrategy | null>(null);
+  
+  // ✅ Auto-select all nodes when context.predicted_items is available
+  useEffect(() => {
+    if (context?.predicted_items && context.predicted_items.length > 0) {
+      setSelectedNodes(new Set(context.predicted_items));
+    }
+  }, [context?.predicted_items]);
+  
+  // ✅ Toggle node selection
+  const toggleNodeSelection = useCallback((nodeName: string) => {
+    setSelectedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeName)) {
+        newSet.delete(nodeName);
+      } else {
+        newSet.add(nodeName);
+      }
+      return newSet;
+    });
+  }, []);
 
   // Clear state when dependencies change
   useEffect(() => {
@@ -728,6 +751,10 @@ export const useGenerateModel = ({
     context,
     currentPhase,
     strategy,
+    
+    // ✅ Node selection
+    selectedNodes,
+    toggleNodeSelection,
     
     // Actions
     startExploration,

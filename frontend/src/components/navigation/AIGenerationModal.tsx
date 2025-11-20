@@ -80,7 +80,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     currentPhase,
     strategy,
     executePhase0,
-    executePhase2Incremental
+    executePhase2Incremental,
+    selectedNodes,
+    toggleNodeSelection
   } = useGenerateModel({
     treeId,
     selectedHost,
@@ -487,7 +489,12 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
         {/* v2.0: Phase 2 Incremental View */}
         {currentPhase === 'phase2' && (
-          <Phase2IncrementalView context={context} error={error} />
+          <Phase2IncrementalView 
+            context={context} 
+            error={error}
+            selectedNodes={selectedNodes}
+            onToggleNode={toggleNodeSelection}
+          />
         )}
       </DialogContent>
 

@@ -22,11 +22,15 @@ import type { ExplorationContext } from '../../types/exploration';
 interface Phase2IncrementalViewProps {
   context: ExplorationContext | null;
   error?: string | null;
+  selectedNodes?: Set<string>;
+  onToggleNode?: (nodeName: string) => void;
 }
 
 export const Phase2IncrementalView: React.FC<Phase2IncrementalViewProps> = ({
   context,
-  error
+  error,
+  selectedNodes = new Set(),
+  onToggleNode
 }) => {
   if (!context) {
     return (
@@ -73,19 +77,57 @@ export const Phase2IncrementalView: React.FC<Phase2IncrementalViewProps> = ({
             const isFailed = failed_items.some(f => f.item === item);
             const isCurrent = index === current_step && !isCompleted && !isFailed;
             const isPending = index > current_step;
+            const isSelected = selectedNodes.has(item);
 
             let icon = <PendingIcon color="disabled" />;
-            let statusChip = <Chip label="Pending" size="small" variant="outlined" />;
+            let statusChip = <Chip 
+              label="Pending" 
+              size="small" 
+              variant="outlined"
+              onClick={() => onToggleNode?.(item)}
+              sx={{ 
+                cursor: 'pointer',
+                bgcolor: isSelected ? 'primary.dark' : 'grey.800',
+                opacity: isSelected ? 1 : 0.5
+              }}
+            />;
 
             if (isCompleted) {
               icon = <SuccessIcon color="success" />;
-              statusChip = <Chip label="✓ Tested" size="small" color="success" />;
+              statusChip = <Chip 
+                label="✓ Tested" 
+                size="small" 
+                color="success"
+                onClick={() => onToggleNode?.(item)}
+                sx={{ 
+                  cursor: 'pointer',
+                  opacity: isSelected ? 1 : 0.5
+                }}
+              />;
             } else if (isFailed) {
               icon = <ErrorIcon color="error" />;
-              statusChip = <Chip label="Failed" size="small" color="error" />;
+              statusChip = <Chip 
+                label="Failed" 
+                size="small" 
+                color="error"
+                onClick={() => onToggleNode?.(item)}
+                sx={{ 
+                  cursor: 'pointer',
+                  opacity: isSelected ? 1 : 0.5
+                }}
+              />;
             } else if (isCurrent) {
               icon = <InProgressIcon color="primary" />;
-              statusChip = <Chip label="Testing..." size="small" color="primary" />;
+              statusChip = <Chip 
+                label="Testing..." 
+                size="small" 
+                color="primary"
+                onClick={() => onToggleNode?.(item)}
+                sx={{ 
+                  cursor: 'pointer',
+                  opacity: isSelected ? 1 : 0.5
+                }}
+              />;
             }
 
             return (
