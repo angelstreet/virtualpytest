@@ -227,19 +227,25 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       const nodesData = await nodesResponse.json();
       const edgesData = await edgesResponse.json();
       
-      // Count non-home nodes
-      const nonHomeNodes = nodesData.success && nodesData.nodes 
-        ? nodesData.nodes.filter((n: any) => n.node_id.toLowerCase() !== 'home')
+      // Count non-essential nodes (exclude entry-node and home)
+      const nonEssentialNodes = nodesData.success && nodesData.nodes 
+        ? nodesData.nodes.filter((n: any) => 
+            n.node_id !== 'entry-node' && n.node_id !== 'home'
+          )
         : [];
       
+      // Count deletable edges (exclude edge-entry-node-to-home)
       const allEdges = edgesData.success && edgesData.edges ? edgesData.edges : [];
+      const deletableEdges = allEdges.filter((e: any) => 
+        e.edge_id !== 'edge-entry-node-to-home'
+      );
       
-      console.log(`[@AIGenerationModal] Found ${nonHomeNodes.length} non-home nodes, ${allEdges.length} edges`);
+      console.log(`[@AIGenerationModal] Found ${nonEssentialNodes.length} deletable nodes, ${deletableEdges.length} deletable edges`);
       
       // If tree has existing data, ask user to confirm deletion
-      if (nonHomeNodes.length > 0 || allEdges.length > 0) {
-        setExistingNodesCount(nonHomeNodes.length);
-        setExistingEdgesCount(allEdges.length);
+      if (nonEssentialNodes.length > 0 || deletableEdges.length > 0) {
+        setExistingNodesCount(nonEssentialNodes.length);
+        setExistingEdgesCount(deletableEdges.length);
         setShowCleanConfirm(true);
         return;  // Wait for user confirmation
       }
@@ -283,15 +289,22 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       const nodesData = await nodesResponse.json();
       const edgesData = await edgesResponse.json();
       
-      const nonHomeNodes = nodesData.success && nodesData.nodes 
-        ? nodesData.nodes.filter((n: any) => n.node_id.toLowerCase() !== 'home')
+      // Filter nodes: Keep 'entry-node' and 'home'
+      const nonEssentialNodes = nodesData.success && nodesData.nodes 
+        ? nodesData.nodes.filter((n: any) => 
+            n.node_id !== 'entry-node' && n.node_id !== 'home'
+          )
         : [];
       
+      // Filter edges: Keep 'edge-entry-node-to-home'
       const allEdges = edgesData.success && edgesData.edges ? edgesData.edges : [];
+      const edgesToDelete = allEdges.filter((e: any) => 
+        e.edge_id !== 'edge-entry-node-to-home'
+      );
       
-      // 2. Delete all edges first (avoid foreign key issues)
-      console.log(`[@AIGenerationModal] Deleting ${allEdges.length} edges...`);
-      for (const edge of allEdges) {
+      // 2. Delete all edges EXCEPT 'edge-entry-node-to-home' (avoid foreign key issues)
+      console.log(`[@AIGenerationModal] Deleting ${edgesToDelete.length} edges (keeping edge-entry-node-to-home)...`);
+      for (const edge of edgesToDelete) {
         try {
           await fetch(
             buildServerUrl(`/server/navigationTrees/${treeId}/edges/${edge.edge_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
@@ -302,9 +315,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         }
       }
       
-      // 3. Delete all non-home nodes
-      console.log(`[@AIGenerationModal] Deleting ${nonHomeNodes.length} non-home nodes...`);
-      for (const node of nonHomeNodes) {
+      // 3. Delete all non-essential nodes (keep 'entry-node' and 'home')
+      console.log(`[@AIGenerationModal] Deleting ${nonEssentialNodes.length} nodes (keeping entry-node and home)...`);
+      for (const node of nonEssentialNodes) {
         try {
           await fetch(
             buildServerUrl(`/server/navigationTrees/${treeId}/nodes/${node.node_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
