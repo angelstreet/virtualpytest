@@ -387,7 +387,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                 Edge found ({validEdges.length})
                               </Typography>
                             </summary>
-                            <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
+                            <Box sx={{ mt: 1, pl: 2, pr:2, maxHeight: 200, overflow: 'auto' }}>
                               {validEdges.map((item: string, idx: number) => {
                                 // Generate clean node name (simplified version of backend logic)
                                 const cleanNodeName = item.toLowerCase()
