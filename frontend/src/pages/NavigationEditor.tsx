@@ -868,9 +868,21 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         setTimeout(() => {
           handleAutoLayout();
           setApplyAutoLayoutFlag(false); // Reset flag
+          
+          // Auto-save after layout is applied
+          console.log('[@NavigationEditor] Auto-saving after layout...');
+          setTimeout(() => {
+            handleSaveToConfig()
+              .then(() => {
+                console.log('[@NavigationEditor] ✅ Auto-save completed after layout');
+              })
+              .catch((error) => {
+                console.error('[@NavigationEditor] ❌ Auto-save failed:', error);
+              });
+          }, 500); // Small delay to ensure layout is complete
         }, 500); // Small delay to ensure nodes are rendered
       }
-    }, [applyAutoLayoutFlag, nodes.length, handleAutoLayout]);
+    }, [applyAutoLayoutFlag, nodes.length, handleAutoLayout, handleSaveToConfig]);
 
     // Wrap onNodesChange to track position changes as unsaved changes
     const wrappedOnNodesChange = useCallback(
@@ -1483,6 +1495,10 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               setExplorationId(explId);
               setExplorationHostName(explHostName);
               setShowValidationPrompt(true);
+              
+              // Trigger auto-layout after nodes/edges are created
+              console.log('[@NavigationEditor] Triggering auto-layout after AI generation');
+              setApplyAutoLayoutFlag(true);
             }}
             onCleanupTemp={() => {
               // Clean up _temp nodes from frontend state
