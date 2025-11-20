@@ -235,7 +235,7 @@ CREATE TABLE verifications_references (
     id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
     name text NOT NULL,
     device_model text NOT NULL,  -- DEPRECATED: Kept for backward compatibility during migration, will be removed
-    userinterface_id uuid REFERENCES userinterfaces(id) ON DELETE CASCADE,  -- NEW: References are now organized by userinterface
+    userinterface_id uuid REFERENCES userinterfaces(id),  -- NEW: References are now organized by userinterface
     reference_type text NOT NULL CHECK (reference_type = ANY (ARRAY['reference_image'::text, 'reference_text'::text])),
     area jsonb,
     r2_path text NOT NULL,  -- Path format: reference-images/{userinterface_name}/{filename} or text-references/{userinterface_name}/{filename}
