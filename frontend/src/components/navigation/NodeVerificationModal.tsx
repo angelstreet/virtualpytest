@@ -216,7 +216,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                 </Typography>
                 
                 {selectedSuggestion.suggested_verification?.found ? (
-                  <Box sx={{ mb: 3, p: 2, bgcolor: 'success.light', borderRadius: 1, border: '1px solid', borderColor: 'success.main' }}>
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
                       <strong>Method:</strong> {selectedSuggestion.suggested_verification.method}
                     </Typography>
