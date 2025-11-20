@@ -724,6 +724,15 @@ class ExplorationExecutor:
             
             # 1.5. Capture screenshot + dump
             if click_success:
+                # A. Capture Dump (Critical for node verification - do this first/independently)
+                dump_data = None
+                try:
+                    dump_data = controller.dump_elements()
+                    print(f"    📱 Dump captured for verification analysis")
+                except Exception as dump_err:
+                    print(f"    ⚠️ Dump capture failed: {dump_err}")
+                
+                # B. Capture Screenshot (Visual aid)
                 try:
                     av_controller = self.device._get_controller('av')
                     if av_controller:
@@ -740,24 +749,31 @@ class ExplorationExecutor:
                             if upload_result.get('success'):
                                 screenshot_url = upload_result.get('url')
                                 print(f"    📸 Screenshot: {screenshot_url}")
-                                
-                                # Capture dump for verification analysis
-                                try:
-                                    dump_data = controller.dump_elements()
-                                    
-                                    # Store node verification data
-                                    with self._lock:
-                                        self.exploration_state['node_verification_data'].append({
-                                            'node_id': node_name,
-                                            'node_label': node_name_clean,
-                                            'dump': dump_data,
-                                            'screenshot_url': screenshot_url
-                                        })
-                                    print(f"    📱 Dump captured for verification analysis")
-                                except Exception as dump_err:
-                                    print(f"    ⚠️ Dump capture failed: {dump_err}")
+                            else:
+                                print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
+                        else:
+                            print(f"    ⚠️ Screenshot capture returned no path")
+                    else:
+                        print(f"    ⚠️ No AV controller found for screenshot")
                 except Exception as e:
-                    print(f"    ⚠️ Screenshot failed: {e}")
+                    print(f"    ⚠️ Screenshot process failed: {e}")
+                
+                # C. Store Data (if dump was captured)
+                if dump_data:
+                    with self._lock:
+                        # Ensure list exists
+                        if 'node_verification_data' not in self.exploration_state:
+                            self.exploration_state['node_verification_data'] = []
+                            
+                        self.exploration_state['node_verification_data'].append({
+                            'node_id': node_name,
+                            'node_label': node_name.replace('_temp', ''),
+                            'dump': dump_data,
+                            'screenshot_url': screenshot_url  # Might be None, that's fine
+                        })
+                    print(f"    ✅ Node verification data stored (with screenshot: {screenshot_url is not None})")
+                else:
+                    print(f"    ❌ Skipping node verification data storage (no dump captured)")
         except Exception as e:
             print(f"    ❌ Click failed: {e}")
         
