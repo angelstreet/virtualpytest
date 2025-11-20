@@ -72,7 +72,9 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     currentPhase,
     strategy,
     selectedNodes,
-    toggleNodeSelection
+    selectedEdges,
+    toggleNodeSelection,
+    toggleEdgeSelection
   } = useGenerateModel({
     treeId,
     selectedHost,
@@ -300,7 +302,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                       <details open>
                         <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
                           <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                            Nodes found ({explorationPlan.items.filter((item: string) => item.toLowerCase() !== 'home').length + 1})
+                            Nodes found ({explorationPlan.items.filter((item: string) => {
+                              const lower = item.toLowerCase();
+                              return !['home', 'accueil'].includes(lower);
+                            }).length})
                           </Typography>
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
@@ -317,12 +322,13 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                             ))
                           ) : (
                             // Click-based navigation (mobile/web) - show cleaned node names as chips
+                            // ✅ Filter out home nodes (home, Home, Accueil, etc.)
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                              {/* Always show home first */}
-                              <Chip label="home" size="small" variant="outlined" />
-                              
                               {explorationPlan.items
-                                .filter((item: string) => item.toLowerCase() !== 'home')
+                                .filter((item: string) => {
+                                  const lower = item.toLowerCase();
+                                  return !['home', 'accueil'].includes(lower);
+                                })
                                 .map((item: string, idx: number) => {
                                   // Generate clean node name (same logic as action sets)
                                   const cleanNodeName = item.toLowerCase()
@@ -332,8 +338,26 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                     .replace(/_+/g, '_')
                                     .replace(/^_|_$/g, '');
                                   
+                                  const isSelected = selectedNodes.has(item);
+                                  
                                   return (
-                                    <Chip key={idx} label={cleanNodeName} size="small" variant="outlined" />
+                                    <Chip 
+                                      key={idx} 
+                                      label={cleanNodeName} 
+                                      size="small" 
+                                      variant="outlined"
+                                      onClick={() => toggleNodeSelection(item)}
+                                      sx={{ 
+                                        cursor: 'pointer',
+                                        opacity: isSelected ? 1 : 0.4,
+                                        bgcolor: isSelected ? 'primary.dark' : 'transparent',
+                                        borderColor: isSelected ? 'primary.main' : 'grey.600',
+                                        '&:hover': {
+                                          opacity: 0.8,
+                                          bgcolor: isSelected ? 'primary.dark' : 'action.hover'
+                                        }
+                                      }}
+                                    />
                                   );
                                 })}
                             </Box>
@@ -343,8 +367,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
                       {/* Edges Found - Show bilateral action sets - OPEN BY DEFAULT */}
                       {(() => {
-                        // Filter out self-referencing edges (e.g., home → home)
-                        const validEdges = explorationPlan.items.filter((item: string) => item.toLowerCase() !== 'home');
+                        // Filter out home nodes and self-referencing edges
+                        const validEdges = explorationPlan.items.filter((item: string) => {
+                          const lower = item.toLowerCase();
+                          return !['home', 'accueil'].includes(lower);
+                        });
                         return (
                           <details open>
                             <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
@@ -362,10 +389,30 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                   .replace(/_+/g, '_')
                                   .replace(/^_|_$/g, '');
                                 
+                                const isSelected = selectedEdges.has(item);
+                                
                                 return (
-                                  <Box key={idx} sx={{ mb: 0.5, p: 1, bgcolor: 'rgba(255,255,255,0.02)', borderRadius: 1, border: '1px solid rgba(255,255,255,0.05)' }}>
+                                  <Box 
+                                    key={idx} 
+                                    sx={{ 
+                                      mb: 0.5, 
+                                      p: 1, 
+                                      bgcolor: isSelected ? 'rgba(25,118,210,0.08)' : 'rgba(255,255,255,0.02)', 
+                                      borderRadius: 1, 
+                                      border: '1px solid', 
+                                      borderColor: isSelected ? 'primary.main' : 'rgba(255,255,255,0.05)',
+                                      opacity: isSelected ? 1 : 0.4,
+                                      cursor: 'pointer',
+                                      transition: 'all 0.2s',
+                                      '&:hover': {
+                                        opacity: 0.8,
+                                        bgcolor: isSelected ? 'rgba(25,118,210,0.12)' : 'rgba(255,255,255,0.05)'
+                                      }
+                                    }}
+                                    onClick={() => toggleEdgeSelection(item)}
+                                  >
                                     <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                      Step {idx + 1}
+                                      Step {idx + 1} {!isSelected && '(skipped)'}
                                     </Typography>
                                     {/* Forward action */}
                                     <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>

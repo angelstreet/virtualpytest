@@ -102,8 +102,9 @@ export const useGenerateModel = ({
   });
   const [explorationPlan, setExplorationPlan] = useState<ExplorationPlan | null>(null);
   
-  // ✅ Selected nodes state (all selected by default)
+  // ✅ Selected nodes and edges state (all selected by default)
   const [selectedNodes, setSelectedNodes] = useState<Set<string>>(new Set());
+  const [selectedEdges, setSelectedEdges] = useState<Set<string>>(new Set()); // Track selected edges
   const [proposedNodes, setProposedNodes] = useState<ProposedNode[]>([]);
   const [proposedEdges, setProposedEdges] = useState<ProposedEdge[]>([]);
   const [error, setError] = useState<string | null>(null);
@@ -116,14 +117,29 @@ export const useGenerateModel = ({
   const [currentPhase, setCurrentPhase] = useState<ExplorationPhase | null>(null);
   const [strategy, setStrategy] = useState<ExplorationStrategy | null>(null);
   
-  // ✅ Auto-select all nodes when context.predicted_items is available
+  // ✅ Auto-select all nodes and edges when context.predicted_items OR explorationPlan.items is available
+  // Filter out home/Accueil nodes since they already exist by default
   useEffect(() => {
+    const filterHomeNodes = (items: string[]) => {
+      return items.filter((item: string) => {
+        const lower = item.toLowerCase();
+        return !['home', 'accueil'].includes(lower);
+      });
+    };
+    
     if (context?.predicted_items && context.predicted_items.length > 0) {
-      setSelectedNodes(new Set(context.predicted_items));
+      const filtered = filterHomeNodes(context.predicted_items);
+      setSelectedNodes(new Set(filtered));
+      setSelectedEdges(new Set(filtered)); // Edges correspond 1:1 with nodes
+    } else if (explorationPlan?.items && explorationPlan.items.length > 0) {
+      // Phase 1: Initialize from exploration plan (excluding home nodes)
+      const filtered = filterHomeNodes(explorationPlan.items);
+      setSelectedNodes(new Set(filtered));
+      setSelectedEdges(new Set(filtered)); // Edges correspond 1:1 with nodes
     }
-  }, [context?.predicted_items]);
+  }, [context?.predicted_items, explorationPlan?.items]);
   
-  // ✅ Toggle node selection
+  // ✅ Toggle node selection (and corresponding edge)
   const toggleNodeSelection = useCallback((nodeName: string) => {
     setSelectedNodes(prev => {
       const newSet = new Set(prev);
@@ -131,6 +147,41 @@ export const useGenerateModel = ({
         newSet.delete(nodeName);
       } else {
         newSet.add(nodeName);
+      }
+      return newSet;
+    });
+    
+    // Also toggle the corresponding edge
+    setSelectedEdges(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(nodeName)) {
+        newSet.delete(nodeName);
+      } else {
+        newSet.add(nodeName);
+      }
+      return newSet;
+    });
+  }, []);
+  
+  // ✅ Toggle edge selection (and corresponding node)
+  const toggleEdgeSelection = useCallback((edgeName: string) => {
+    setSelectedEdges(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(edgeName)) {
+        newSet.delete(edgeName);
+      } else {
+        newSet.add(edgeName);
+      }
+      return newSet;
+    });
+    
+    // Also toggle the corresponding node
+    setSelectedNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(edgeName)) {
+        newSet.delete(edgeName);
+      } else {
+        newSet.add(edgeName);
       }
       return newSet;
     });
@@ -342,12 +393,14 @@ export const useGenerateModel = ({
       setCurrentStep('Creating navigation structure...');
       
       console.log('[@useGenerateModel:continueExploration] Creating structure (Phase 2a):', explorationId);
+      console.log('[@useGenerateModel:continueExploration] Selected nodes:', Array.from(selectedNodes));
 
       const response = await fetch(buildServerUrl(`/server/ai-generation/continue-exploration?host_name=${encodeURIComponent(explorationHostName)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId
+          exploration_id: explorationId,
+          selected_items: Array.from(selectedNodes) // ✅ Only create selected nodes
         })
       });
 
@@ -748,9 +801,11 @@ export const useGenerateModel = ({
     currentPhase,
     strategy,
     
-    // ✅ Node selection
+    // ✅ Node and edge selection
     selectedNodes,
+    selectedEdges,
     toggleNodeSelection,
+    toggleEdgeSelection,
     
     // Actions
     startExploration,

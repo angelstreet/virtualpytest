@@ -263,15 +263,19 @@ def exploration_status(exploration_id):
 @host_ai_exploration_bp.route('/continue-exploration', methods=['POST'])
 def continue_exploration():
     """
-    Phase 2a: Create all nodes and edges structure - delegates to device.exploration_executor
+    Phase 2a: Create nodes and edges structure for selected items - delegates to device.exploration_executor
     
-    Body: {'exploration_id': 'abc123'}
+    Body: {
+        'exploration_id': 'abc123',
+        'selected_items': ['item1', 'item2'] (optional - if omitted, creates all)
+    }
     Query params: team_id
     """
     try:
         data = request.get_json() or {}
         team_id = request.args.get('team_id')
         device_id = data.get('device_id', 'device1')
+        selected_items = data.get('selected_items')  # ✅ Get user selection
         
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id required'}), 400
@@ -282,8 +286,11 @@ def continue_exploration():
         
         device = current_app.host_devices[device_id]
         
-        # Delegate to exploration executor
-        result = device.exploration_executor.continue_exploration(team_id=team_id)
+        # Delegate to exploration executor with selected items
+        result = device.exploration_executor.continue_exploration(
+            team_id=team_id,
+            selected_items=selected_items
+        )
         
         return jsonify(result)
         

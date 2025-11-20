@@ -386,10 +386,14 @@ class ExplorationExecutor:
                 'error': state.get('error')
             }
     
-    def continue_exploration(self, team_id: str) -> Dict[str, Any]:
+    def continue_exploration(self, team_id: str, selected_items: List[str] = None) -> Dict[str, Any]:
         """
-        Phase 2a: Create all nodes and edges structure (instant)
+        Phase 2a: Create nodes and edges structure for selected items only
         Uses BATCH SAVE for efficiency.
+        
+        Args:
+            team_id: Team ID
+            selected_items: Optional list of items to create (if None, creates all)
         
         Returns:
             {
@@ -409,7 +413,15 @@ class ExplorationExecutor:
                 }
             
             tree_id = self.exploration_state['tree_id']
-            items = self.exploration_state['exploration_plan']['items']
+            all_items = self.exploration_state['exploration_plan']['items']
+            
+            # ✅ Filter items based on user selection
+            if selected_items is not None:
+                items = [item for item in all_items if item in selected_items]
+                print(f"[@ExplorationExecutor:continue_exploration] User selected {len(items)}/{len(all_items)} items")
+            else:
+                items = all_items
+                print(f"[@ExplorationExecutor:continue_exploration] Creating all {len(items)} items (no selection)")
             
             print(f"[@ExplorationExecutor:continue_exploration] Creating structure for {self.current_exploration_id}")
             
@@ -432,8 +444,9 @@ class ExplorationExecutor:
             for idx, item in enumerate(items):
                 node_name_clean = node_gen.target_to_node_name(item)
                 
-                if node_name_clean == 'home' or 'home' in node_name_clean:
-                    print(f"  ⏭️  Skipping '{node_name_clean}' (home indicator)")
+                # Skip home nodes - they already exist by default
+                if node_name_clean == 'home' or 'home' in node_name_clean or node_name_clean.lower() in ['home', 'accueil']:
+                    print(f"  ⏭️  Skipping '{node_name_clean}' (home node already exists)")
                     continue
                 
                 # ✅ Use clean node_id, add _temp to label for visual distinction

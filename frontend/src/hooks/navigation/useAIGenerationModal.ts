@@ -68,7 +68,7 @@ export const useAIGenerationModal = ({
       
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Validated:', data.nodes_renamed, 'nodes,', data.edges_renamed, 'edges');
-        
+2.        
         // CRITICAL: Rebuild unified cache after validation
         // This ensures navigation commands like "go to" work immediately
         await rebuildNavigationCache();
