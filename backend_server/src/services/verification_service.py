@@ -62,8 +62,8 @@ class VerificationService:
     def get_all_references(self, team_id: str) -> Dict[str, Any]:
         """
         Get all reference images/data for a team.
-        Only returns references where device_model matches actual userinterface names.
-        NO LEGACY references.
+        Only returns references where userinterface_name matches actual userinterface names.
+        NO LEGACY references. Filters at database level for efficiency.
         
         Args:
             team_id: The team ID to get references for
@@ -79,12 +79,31 @@ class VerificationService:
                     'status_code': 400
                 }
             
-            # Get all references from database
+            # Get valid userinterface names FIRST (small query)
+            from shared.src.lib.database.userinterface_db import get_all_userinterfaces
+            userinterfaces = get_all_userinterfaces(team_id)
+            
+            if not userinterfaces:
+                print(f'[VerificationService] No userinterfaces found for team')
+                return {
+                    'success': True,
+                    'references': []
+                }
+            
+            # Extract valid userinterface names
+            valid_ui_names = [ui['name'] for ui in userinterfaces]
+            print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
+            
+            # Get references filtered by userinterface names AT DATABASE LEVEL
+            # This is much more efficient than fetching all references and filtering in Python
             from shared.src.lib.database.verifications_references_db import get_references
             
-            print(f'[VerificationService] Getting all references for team: {team_id}')
+            print(f'[VerificationService] Getting references for team: {team_id} filtered by {len(valid_ui_names)} userinterfaces')
             
-            result = get_references(team_id=team_id)
+            result = get_references(
+                team_id=team_id,
+                userinterface_names=valid_ui_names  # Filter at database level using IN clause
+            )
             
             if not result['success']:
                 print(f'[VerificationService] Error getting references: {result.get("error")}')
@@ -94,34 +113,11 @@ class VerificationService:
                     'status_code': 500
                 }
             
-            # Get valid userinterface names from database
-            from shared.src.lib.database.userinterface_db import get_all_userinterfaces
-            userinterfaces = get_all_userinterfaces(team_id)
-            
-            if not userinterfaces:
-                print(f'[VerificationService] No userinterfaces found for team')
-                # If no userinterfaces, return empty list (no legacy fallback)
-                return {
-                    'success': True,
-                    'references': []
-                }
-            
-            # Extract valid userinterface names
-            valid_ui_names = {ui['name'] for ui in userinterfaces}
-            print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
-            
-            # Filter references to ONLY include those matching valid userinterfaces
-            # Use userinterface_name column (primary), fallback to device_model for migration
-            filtered_references = [
-                ref for ref in result['references']
-                if (ref.get('userinterface_name') or ref.get('device_model')) in valid_ui_names
-            ]
-            
-            print(f'[VerificationService] Filtered {len(result["references"])} references down to {len(filtered_references)} (removed legacy)')
+            print(f'[VerificationService] Retrieved {len(result["references"])} references (database-level filtering)')
             
             return {
                 'success': True,
-                'references': filtered_references
+                'references': result['references']
             }
                 
         except Exception as e:
