@@ -230,6 +230,34 @@ class ExplorationExecutor:
             
             print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: Navigation to home works")
             
+            # ✅ CAPTURE HOME SCREENSHOT (store for later use during node verification approval)
+            try:
+                print(f"[@ExplorationExecutor:start_exploration] 📸 Capturing Home screenshot...")
+                av_controller = self.device._get_controller('av')
+                if av_controller:
+                    local_path = av_controller.save_screenshot("home_base")
+                    
+                    if local_path:
+                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+                        r2_filename = f"home_base.jpg"
+                        upload_result = upload_navigation_screenshot(local_path, userinterface_name, r2_filename)
+                        
+                        if upload_result.get('success'):
+                            home_screenshot_url = upload_result.get('url')
+                            print(f"    ✅ Home screenshot captured: {home_screenshot_url}")
+                            
+                            # Store in exploration state for later use (same as other nodes)
+                            with self._lock:
+                                self.exploration_state['home_screenshot_url'] = home_screenshot_url
+                        else:
+                            print(f"    ⚠️ Home screenshot upload failed: {upload_result.get('error')}")
+                    else:
+                        print(f"    ⚠️ Home screenshot capture returned no path")
+                else:
+                    print(f"    ⚠️ No AV controller found for home screenshot")
+            except Exception as e:
+                print(f"    ⚠️ Home screenshot process failed: {e}")
+            
         except Exception as e:
             error_msg = str(e)
             print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check EXCEPTION: {error_msg}")
@@ -719,15 +747,18 @@ class ExplorationExecutor:
                         # Ensure list exists
                         if 'node_verification_data' not in self.exploration_state:
                             self.exploration_state['node_verification_data'] = []
-                            
-                        # Store Home Dump
+                        
+                        # Get home screenshot URL from exploration state (captured during pre-flight)
+                        home_screenshot_url = self.exploration_state.get('home_screenshot_url')
+                        
+                        # Store Home Dump with screenshot
                         self.exploration_state['node_verification_data'].append({
                             'node_id': self.exploration_state.get('home_id', 'home'),
                             'node_label': 'home',
                             'dump': home_dump_data,
-                            'screenshot_url': None
+                            'screenshot_url': home_screenshot_url  # Use pre-captured screenshot
                         })
-                        print(f"    ✅ Home dump stored for baseline comparison")
+                        print(f"    ✅ Home dump stored for baseline comparison (with screenshot: {home_screenshot_url is not None})")
                 except Exception as e:
                     print(f"    ⚠️ Failed to capture Home dump: {e}")
 
@@ -1232,7 +1263,13 @@ class ExplorationExecutor:
                 
                 # Update node with screenshot + verification
                 if screenshot_url:
-                    node_data['screenshot'] = screenshot_url
+                    # Ensure data field exists
+                    if 'data' not in node_data or node_data['data'] is None:
+                        node_data['data'] = {}
+                    
+                    # Store screenshot in data JSONB column, not as root column
+                    node_data['data']['screenshot'] = screenshot_url
+                    node_data['data']['screenshot_timestamp'] = int(time.time() * 1000)
                 
                 if verification and verification.get('params'):
                     # Add verification to node
