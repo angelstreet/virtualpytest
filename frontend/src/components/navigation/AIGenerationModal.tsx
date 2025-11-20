@@ -524,11 +524,22 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     </Dialog>
     
     {/* Confirmation Dialog: Delete existing nodes/edges */}
-    <Dialog open={showCleanConfirm} onClose={handleCancelClean} maxWidth="sm" fullWidth>
+    <Dialog 
+      open={showCleanConfirm} 
+      onClose={handleCancelClean} 
+      maxWidth="sm" 
+      fullWidth
+      PaperProps={{
+        sx: { 
+          border: '2px solid white',
+          borderRadius: 2
+        }
+      }}
+    >
       <DialogTitle>Clean Tree Before AI Generation?</DialogTitle>
       <DialogContent>
         <Alert severity="warning" sx={{ mb: 2 }}>
-          This tree already contains navigation data. AI generation works best with a clean tree (only home node).
+          This tree already contains navigation data. AI generation requires a clean tree.
         </Alert>
         <Typography variant="body2" gutterBottom>
           Found existing data:
@@ -538,7 +549,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           <Typography variant="body2">• {existingEdgesCount} edge{existingEdgesCount !== 1 ? 's' : ''}</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary">
-          Do you want to delete all existing nodes and edges (except home) before starting AI generation?
+          Do you agree to delete all existing nodes and edges before starting AI generation?
         </Typography>
       </DialogContent>
       <DialogActions>
