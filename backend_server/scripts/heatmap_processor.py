@@ -343,20 +343,16 @@ class HeatmapProcessor:
                             'image_url': image_url,
                             'json_url': json_url,
                             'analysis': analysis_data,
-                            'timestamp': result.get('timestamp', ''),
+                            'timestamp': response_data.get('timestamp', ''),
                             'sequence': sequence
                         }
                     else:
-                        error_msg = result.get('error', 'Unknown error')
+                        error_msg = response_data.get('error', 'Unknown error')
                         logger.warning(f"⚠️ No latest JSON for {host_name}/{device_id}/{device_name}: {error_msg}")
-                        logger.warning(f"   Full response: {result}")
+                        logger.warning(f"   Full response: {response_data}")
             else:
-                logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {response.status_code}")
-                try:
-                    error_body = response.text[:500]  # First 500 chars
-                    logger.error(f"   Error body: {error_body}")
-                except:
-                    pass
+                logger.error(f"❌ API error for {host_name}/{device_id}/{device_name}: HTTP {status_code}")
+                logger.error(f"   Error response: {response_data}")
         except Exception as e:
             logger.error(f"❌ Error fetching capture for {host_name}/{device_id}/{device_name}: {e}")
             logger.error(f"   Exception type: {type(e).__name__}")
