@@ -862,33 +862,50 @@ class ADBUtils:
             print(f"[@lib:adbUtils:take_screenshot] {error_msg}")
             return False, "", error_msg 
 
-    def _calculate_match_score(self, search_term: str, matched_value: str) -> Tuple[int, int, int]:
+    def _calculate_match_score(self, search_term: str, matched_value: str, element: Optional[AndroidElement] = None) -> Tuple[int, int, int, int, int]:
         """
         Calculate match quality score for prioritization.
         
-        Returns tuple of (exact_match, case_match_score, length) where:
+        Returns tuple of (exact_match, starts_with, widget_priority, case_match_score, length) where:
         - exact_match: 1 if exact match, 0 otherwise (highest priority)
+        - starts_with: 1 if matched value starts with search term (2nd priority)
+        - widget_priority: 2 for Button/Tab, 1 for Clickable, 0 otherwise (3rd priority)
         - case_match_score: number of matching case characters (higher is better)
         - length: length of matched value (lower is better, so we negate for sorting)
         
         Args:
             search_term: The search term to compare
             matched_value: The value that was matched
+            element: Optional AndroidElement for widget type checking
         
         Returns:
-            Tuple[int, int, int]: (exact_match, case_match_score, -length)
+            Tuple[int, int, int, int, int]: (exact_match, starts_with, widget_priority, case_match_score, -length)
         """
         search_stripped = search_term.strip()
         value_stripped = matched_value.strip()
+        search_lower = search_stripped.lower()
+        value_lower = value_stripped.lower()
         
         # 1. Check for exact match (highest priority)
         exact_match = 1 if search_stripped == value_stripped else 0
         
-        # 2. Calculate case match score (character-by-character case matching)
+        # 2. Check if starts with search term (2nd priority)
+        starts_with = 1 if value_lower.startswith(search_lower) else 0
+        
+        # 3. Widget Priority (Tab/Button preference)
+        widget_priority = 0
+        if element:
+            class_name = getattr(element, 'class_name', '').lower()
+            # Check class name for button/tab/switch/input identifiers
+            if any(x in class_name for x in ['button', 'tab', 'switch', 'edittext']):
+                widget_priority = 2
+            # Check if clickable (secondary priority if not explicitly a button class)
+            elif getattr(element, 'clickable', False):
+                widget_priority = 1
+        
+        # 4. Calculate case match score (character-by-character case matching)
         # For each character position where both have the same case, add 1 point
         case_match_score = 0
-        search_lower = search_stripped.lower()
-        value_lower = value_stripped.lower()
         
         # Find where the search term appears in the value (case-insensitive)
         if search_lower in value_lower:
@@ -902,15 +919,15 @@ class ADBUtils:
                     if search_char.isupper() == value_char.isupper():
                         case_match_score += 1
         
-        # 3. Get length (we'll negate it for sorting so shorter is better)
+        # 5. Get length (we'll negate it for sorting so shorter is better)
         length = len(value_stripped)
         
-        return (exact_match, case_match_score, -length)
+        return (exact_match, starts_with, widget_priority, case_match_score, -length)
 
     def smart_element_search(self, device_id: str, search_term: str, **options) -> Tuple[bool, List[Dict[str, Any]], str]:
         """
         Smart element search that looks for search_term (case-insensitive) in ANY attribute.
-        Results are prioritized by: 1) Exact match, 2) Case match, 3) Shortest length.
+        Results are prioritized by: 1) Exact match, 2) Starts with, 3) Widget Type, 4) Case match, 5) Shortest length.
         
         Args:
             device_id: Android device ID
@@ -996,7 +1013,7 @@ class ADBUtils:
                     primary_match = element_matches[0]
                     
                     # Calculate match score for prioritization
-                    match_score = self._calculate_match_score(search_term, primary_match["value"])
+                    match_score = self._calculate_match_score(search_term, primary_match["value"], element)
                     
                     # Determine case match description
                     case_match = "Exact case match" if search_term in primary_match["value"] else f"Different case: searched '{search_term}', found '{primary_match['value']}'"
@@ -1017,13 +1034,14 @@ class ADBUtils:
                     
                     print(f"[@lib:adbUtils:smart_element_search] Match found - Element {element.id}: {primary_match['reason']}")
             
-            # Sort matches by priority: 1) Exact match, 2) Case match score, 3) Shortest length
+            # Sort matches by priority: 1) Exact match, 2) Starts with, 3) Widget Type, 4) Case match score, 5) Shortest length
             if matches:
                 matches.sort(key=lambda m: m["match_score"], reverse=True)
                 print(f"[@lib:adbUtils:smart_element_search] Prioritized {len(matches)} matches:")
                 for i, match in enumerate(matches[:5]):  # Show top 5
                     score = match["match_score"]
-                    print(f"[@lib:adbUtils:smart_element_search]   {i+1}. '{match['matched_value']}' (exact={score[0]}, case_score={score[1]}, len={-score[2]})")
+                    # Score tuple: (exact_match, starts_with, widget_priority, case_match_score, -length)
+                    print(f"[@lib:adbUtils:smart_element_search]   {i+1}. '{match['matched_value']}' (exact={score[0]}, start={score[1]}, widget={score[2]}, case={score[3]}, len={-score[4]})")
             
             success = len(matches) > 0
             if success:

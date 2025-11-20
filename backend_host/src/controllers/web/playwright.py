@@ -898,33 +898,55 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 'selector_attempted': selector
             }
     
-    def _calculate_match_score(self, search_term: str, matched_value: str) -> tuple:
+    def _calculate_match_score(self, search_term: str, matched_value: str, element: Dict[str, Any] = None) -> tuple:
         """
         Calculate match quality score for prioritization.
         
-        Returns tuple of (exact_match, case_match_score, length) where:
+        Returns tuple of (exact_match, starts_with, widget_priority, case_match_score, length) where:
         - exact_match: 1 if exact match, 0 otherwise (highest priority)
+        - starts_with: 1 if matched value starts with search term (2nd priority)
+        - widget_priority: 2 for Button/Tab/Input, 1 for Clickable class, 0 otherwise (3rd priority)
         - case_match_score: number of matching case characters (higher is better)
         - length: length of matched value (lower is better, so we negate for sorting)
         
         Args:
             search_term: The search term to compare
             matched_value: The value that was matched
+            element: Optional element dictionary for widget type checking
         
         Returns:
-            Tuple[int, int, int]: (exact_match, case_match_score, -length)
+            Tuple[int, int, int, int, int]: (exact_match, starts_with, widget_priority, case_match_score, -length)
         """
         search_stripped = search_term.strip()
         value_stripped = matched_value.strip()
+        search_lower = search_stripped.lower()
+        value_lower = value_stripped.lower()
         
         # 1. Check for exact match (highest priority)
         exact_match = 1 if search_stripped == value_stripped else 0
         
-        # 2. Calculate case match score (character-by-character case matching)
+        # 2. Check if starts with search term (2nd priority)
+        starts_with = 1 if value_lower.startswith(search_lower) else 0
+        
+        # 3. Widget Priority (Tab/Button/Input preference)
+        widget_priority = 0
+        if element:
+            tag_name = element.get('tagName', '').upper()
+            attributes = element.get('attributes', {})
+            role = attributes.get('role', '').lower()
+            class_name = element.get('className', '').lower()
+            
+            # High priority: Semantic interactive elements
+            if (tag_name in ['BUTTON', 'INPUT', 'SELECT', 'TEXTAREA', 'A'] or 
+                role in ['button', 'link', 'menuitem', 'tab', 'checkbox', 'radio', 'switch', 'combobox', 'textbox']):
+                widget_priority = 2
+            # Medium priority: Class indicating interactivity
+            elif any(x in class_name for x in ['btn', 'button', 'clickable', 'tab', 'menu', 'nav']):
+                widget_priority = 1
+        
+        # 4. Calculate case match score (character-by-character case matching)
         # For each character position where both have the same case, add 1 point
         case_match_score = 0
-        search_lower = search_stripped.lower()
-        value_lower = value_stripped.lower()
         
         # Find where the search term appears in the value (case-insensitive)
         if search_lower in value_lower:
@@ -938,13 +960,13 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     if search_char.isupper() == value_char.isupper():
                         case_match_score += 1
         
-        # 3. Get length (we'll negate it for sorting so shorter is better)
+        # 5. Get length (we'll negate it for sorting so shorter is better)
         length = len(value_stripped)
         
-        return (exact_match, case_match_score, -length)
+        return (exact_match, starts_with, widget_priority, case_match_score, -length)
     
     def _search_dumped_elements(self, search_term: str, elements: list) -> list:
-        """Search within dumped elements with smart prioritization (exact match, case match, shortest length)."""
+        """Search within dumped elements with smart prioritization (exact match, starts with, widget type, case match, shortest length)."""
         search_lower = search_term.strip().lower()
         matches = []
         
@@ -993,7 +1015,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 element_index = element.get('index', 0)
                 
                 # Calculate match score for prioritization
-                match_score = self._calculate_match_score(search_term, primary_match["value"])
+                match_score = self._calculate_match_score(search_term, primary_match["value"], element)
                 
                 match_info = {
                     "element_id": f"element_{element_index}",  # Add element_id like Android does
@@ -1010,13 +1032,13 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 
                 matches.append(match_info)
         
-        # Sort matches by priority: 1) Exact match, 2) Case match score, 3) Shortest length
+        # Sort matches by priority: 1) Exact match, 2) Starts with, 3) Widget Type, 4) Case match score, 5) Shortest length
         if matches:
             matches.sort(key=lambda m: m["match_score"], reverse=True)
-            print(f"[PLAYWRIGHT]: Prioritized {len(matches)} matches:")
+            print(f"[PLAYWRIGHT]: Prioritized {len(matches)} matches for '{search_term}':")
             for i, match in enumerate(matches[:5]):  # Show top 5
                 score = match["match_score"]
-                print(f"[PLAYWRIGHT]:   {i+1}. '{match['matched_value'][:50]}' (exact={score[0]}, case_score={score[1]}, len={-score[2]})")
+                print(f"[PLAYWRIGHT]:   {i+1}. '{match['matched_value'][:50]}' (exact={score[0]}, start={score[1]}, widget={score[2]}, case={score[3]}, len={-score[4]}) - {match['match_reason']}")
         
         return matches
     
