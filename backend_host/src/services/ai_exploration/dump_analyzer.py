@@ -7,30 +7,36 @@ import json
 import re
 
 
-def _get_verification_command(device_model: str) -> str:
+def _get_verification_command_and_type(device_model: str) -> Tuple[str, str, str]:
     """
-    Get the correct verification command based on device model.
+    Get the correct verification command, type, and param name based on device model.
+    Uses verification_executor.py logic - NO reinventing the wheel!
     
     Returns:
-        - 'waitForElementToAppear' for ADB/Appium (android_mobile, android_tv)
-        - 'waitForElementToAppear' for Web (horizon_web, etc.)
-        - 'waitForImageToAppear' for image-based (default fallback)
+        Tuple of (command, verification_type, param_name):
+        - ADB/Appium: ('waitForElementToAppear', 'adb', 'search_term')
+        - Web: ('waitForElementToAppear', 'web', 'text')
+        - Text/OCR fallback: ('waitForTextToAppear', 'text', 'text')
     """
     if not device_model:
-        return 'waitForImageToAppear'
+        return 'waitForTextToAppear', 'text', 'text'
     
     model_lower = device_model.lower()
     
-    # ADB/Appium: android_mobile, android_tv
-    if 'android' in model_lower or 'mobile' in model_lower or 'appium' in model_lower:
-        return 'waitForElementToAppear'
+    # ADB: android_mobile, android_tv
+    if 'android' in model_lower or 'mobile' in model_lower:
+        return 'waitForElementToAppear', 'adb', 'search_term'
+    
+    # Appium: (if we support it in the future)
+    if 'appium' in model_lower:
+        return 'waitForElementToAppear', 'appium', 'search_term'
     
     # Web: horizon_web, playwright, etc.
     if 'web' in model_lower or 'playwright' in model_lower:
-        return 'waitForElementToAppear'
+        return 'waitForElementToAppear', 'web', 'text'
     
-    # Default: Image verification
-    return 'waitForImageToAppear'
+    # Default: Text/OCR verification (fallback)
+    return 'waitForTextToAppear', 'text', 'text'
 
 
 # ============================================================================
@@ -147,9 +153,11 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
     print(f"[@dump_analyzer] 🎮 Device model: {device_model}")
     print(f"{'='*100}")
     
-    # Determine verification command based on device type
-    verification_command = _get_verification_command(device_model)
+    # Determine verification command, type, and param name based on device type
+    verification_command, verification_type, param_name = _get_verification_command_and_type(device_model)
     print(f"[@dump_analyzer] ✅ Using verification command: {verification_command}")
+    print(f"[@dump_analyzer] ✅ Using verification type: {verification_type}")
+    print(f"[@dump_analyzer] ✅ Using param name: {param_name}")
     
     results = []
     
@@ -182,9 +190,9 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
             
             # Store verifications
             verifications = []
-            verifications.append({'text': primary})
+            verifications.append({param_name: primary})
             if secondary:
-                verifications.append({'text': secondary})
+                verifications.append({param_name: secondary})
             
             results.append({
                 'node_id': node_id,
@@ -196,7 +204,7 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
                     'params': verifications[0],  # Frontend expects single params for now
                     'params_all': verifications,  # Store all for future use
                     'found': True,
-                    'type': 'text',
+                    'type': verification_type,
                     'has_secondary': len(verifications) > 1
                 }
             })
@@ -217,7 +225,7 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
                     'method': verification_command,
                     'params': {'xpath': unique_xpath},
                     'found': True,
-                    'type': 'xpath'
+                    'type': verification_type
                 }
             })
             continue
@@ -234,7 +242,7 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
                 'method': verification_command,
                 'params': {},
                 'found': False,
-                'type': None
+                'type': verification_type
             }
         })
     
