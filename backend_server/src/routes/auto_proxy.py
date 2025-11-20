@@ -101,6 +101,9 @@ def auto_proxy(endpoint):
         elif '/av/getStreamUrl' in endpoint:
             timeout = HTTP_CONFIG['VERY_SHORT_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: very short timeout)")
+        elif 'ai-generation/start-validation' in endpoint or 'ai-generation/validate-next-item' in endpoint:
+            timeout = 300 # 5 minutes
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: validation long timeout)")
         else:
             timeout = HTTP_CONFIG['DEFAULT_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: default timeout)")
