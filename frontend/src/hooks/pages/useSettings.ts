@@ -91,7 +91,7 @@ const getDefaultConfig = (): SettingsConfig => ({
   },
   frontend: {
     VITE_SERVER_URL: '',
-    VITE_SLAVE_SERVER_URL: '[]',
+    VITE_SLAVE_SERVER_URL: '',
     VITE_GRAFANA_URL: '',
     VITE_CLOUDFLARE_R2_PUBLIC_URL: '',
     VITE_DEV_MODE: 'true',

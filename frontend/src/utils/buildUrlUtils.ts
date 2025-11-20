@@ -43,6 +43,66 @@ export const buildServerUrl = (endpoint: string): string => {
 };
 
 /**
+ * Parse URL list from various formats
+ * Handles: comma-separated strings, JSON arrays, stringified arrays, single URLs
+ * 
+ * Examples:
+ *   "url1,url2,url3" -> ["url1", "url2", "url3"]
+ *   '["url1", "url2"]' -> ["url1", "url2"]
+ *   "['url1', 'url2']" -> ["url1", "url2"]
+ *   "url1" -> ["url1"]
+ *   '[]' -> []
+ */
+const parseUrlList = (value: string | string[]): string[] => {
+  // Already an array
+  if (Array.isArray(value)) {
+    return value.map(u => u.trim()).filter(u => u);
+  }
+  
+  if (!value || typeof value !== 'string') {
+    return [];
+  }
+  
+  const trimmed = value.trim();
+  
+  // Empty or invalid patterns
+  if (!trimmed || trimmed === '[]' || trimmed === '{}' || trimmed === 'null' || trimmed === 'undefined') {
+    return [];
+  }
+  
+  // Try to parse as JSON array first (handles '["url1", "url2"]')
+  if (trimmed.startsWith('[') && trimmed.endsWith(']')) {
+    try {
+      // Try direct JSON parse
+      const parsed = JSON.parse(trimmed);
+      if (Array.isArray(parsed)) {
+        return parsed.map(u => String(u).trim()).filter(u => u);
+      }
+    } catch {
+      // Not valid JSON, try to extract URLs from stringified array
+      // Handle cases like "['url1', 'url2']" or '["url1", "url2"]'
+      const urlMatch = trimmed.match(/\[(.*)\]/);
+      if (urlMatch) {
+        const inner = urlMatch[1];
+        // Split by comma and clean up quotes
+        return inner
+          .split(',')
+          .map(u => u.trim().replace(/^["']|["']$/g, ''))
+          .filter(u => u);
+      }
+    }
+  }
+  
+  // Comma-separated string (handles "url1,url2,url3")
+  if (trimmed.includes(',')) {
+    return trimmed.split(',').map(u => u.trim()).filter(u => u);
+  }
+  
+  // Single URL
+  return [trimmed];
+};
+
+/**
  * Validate if a string is a valid server URL
  */
 const isValidServerUrl = (url: string): boolean => {
@@ -50,6 +110,10 @@ const isValidServerUrl = (url: string): boolean => {
   const trimmed = url.trim();
   // Reject common invalid patterns
   if (trimmed === '[]' || trimmed === '{}' || trimmed === 'null' || trimmed === 'undefined') {
+    return false;
+  }
+  // Reject if still contains brackets (malformed)
+  if (trimmed.includes('[') || trimmed.includes(']')) {
     return false;
   }
   // Must have at least a domain or localhost
@@ -62,22 +126,28 @@ const isValidServerUrl = (url: string): boolean => {
 /**
  * Get all configured server URLs (primary + slaves)
  * Reads VITE_SERVER_URL and VITE_SLAVE_SERVER_URL
+ * 
+ * Smart parsing handles multiple formats:
+ * - Comma-separated: "url1,url2"
+ * - JSON array: ["url1", "url2"]
+ * - Stringified array: '["url1", "url2"]' or "['url1', 'url2']"
+ * - Single URL: "url1"
  */
 export const getAllServerUrls = (): string[] => {
   const urls: string[] = [];
   
+  // Parse primary URL
   const primaryUrl = (import.meta as any).env?.VITE_SERVER_URL;
-  if (primaryUrl && isValidServerUrl(primaryUrl)) {
-    urls.push(primaryUrl.trim());
+  if (primaryUrl) {
+    const parsedPrimary = parseUrlList(primaryUrl);
+    urls.push(...parsedPrimary.filter(url => isValidServerUrl(url)));
   }
   
+  // Parse slave URLs (supports all formats)
   const slaveUrls = (import.meta as any).env?.VITE_SLAVE_SERVER_URL;
   if (slaveUrls) {
-    const slaveUrlList = slaveUrls
-      .split(',')
-      .map((url: string) => url.trim())
-      .filter((url: string) => isValidServerUrl(url));
-    urls.push(...slaveUrlList);
+    const parsedSlaves = parseUrlList(slaveUrls);
+    urls.push(...parsedSlaves.filter(url => isValidServerUrl(url)));
   }
   
   // Only add default if it's valid and we have no other URLs
@@ -89,7 +159,7 @@ export const getAllServerUrls = (): string[] => {
     }
   }
   
-  console.log('getAllServerUrls:', urls);
+  console.log('[getAllServerUrls] Resolved URLs:', urls);
   return urls;
 };
 
