@@ -18,6 +18,7 @@ from backend_host.src.services.ai_exploration.exploration_context import Explora
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
+    save_nodes_batch,
     save_edge,
     get_node_by_id,
     get_edge_by_id,
@@ -1214,6 +1215,7 @@ class ExplorationExecutor:
             print(f"[@ExplorationExecutor:approve_node_verifications] Updating {len(approved_verifications)} nodes")
             
             nodes_updated = 0
+            nodes_to_save = []
             
             for item in approved_verifications:
                 node_id = item['node_id']
@@ -1237,19 +1239,35 @@ class ExplorationExecutor:
                     if 'verifications' not in node_data:
                         node_data['verifications'] = []
                     
-                    node_data['verifications'].append({
-                        'method': verification['method'],
-                        'params': verification['params'],
-                        'expected': True
-                    })
+                    # Check if verification already exists to avoid duplicates
+                    verification_exists = False
+                    new_params = verification['params']
+                    
+                    for v in node_data['verifications']:
+                        if v.get('method') == verification['method'] and v.get('params') == new_params:
+                            verification_exists = True
+                            break
+                    
+                    if not verification_exists:
+                        node_data['verifications'].append({
+                            'method': verification['method'],
+                            'params': verification['params'],
+                            'expected': True
+                        })
                 
-                # Save updated node
-                save_result = save_node(tree_id, node_data, team_id)
+                nodes_to_save.append(node_data)
+            
+            # Save all updated nodes in a SINGLE BATCH
+            # This ensures the materialized view refresh trigger fires only ONCE
+            if nodes_to_save:
+                save_result = save_nodes_batch(tree_id, nodes_to_save, team_id)
                 if save_result.get('success'):
-                    nodes_updated += 1
-                    print(f"  ✅ Updated node: {node_id}")
+                    nodes_updated = len(nodes_to_save)
+                    print(f"  ✅ Successfully updated {nodes_updated} nodes (batch)")
+                    for n in nodes_to_save:
+                         print(f"    • {n.get('node_id')}")
                 else:
-                    print(f"  ❌ Failed to update node: {node_id}")
+                    print(f"  ❌ Failed to batch update nodes: {save_result.get('error')}")
             
             # Update state
             self.exploration_state['status'] = 'node_verification_complete'

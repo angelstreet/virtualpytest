@@ -13,7 +13,10 @@ from shared.src.lib.database.navigation_trees_db import (
     get_tree_nodes,
     get_tree_edges,
     delete_node,
-    delete_edge
+    delete_edge,
+    save_nodes_batch,
+    save_edges_batch,
+    get_supabase
 )
 
 host_ai_exploration_bp = Blueprint('host_ai_exploration', __name__, url_prefix='/host/ai-generation')
@@ -513,39 +516,48 @@ def finalize_structure():
         nodes_updated = 0
         edges_updated = 0
         
-        supabase = get_supabase()
+        # Prepare Batch Updates
+        nodes_to_update = []
+        edges_to_update = []
 
         # Update node labels: remove _temp suffix
         for node in nodes:
             label = node.get('label', '')
             if label.endswith('_temp'):
                 new_label = label.replace('_temp', '')
-                internal_id = node.get('id')
-                
-                result = supabase.table('navigation_nodes').update({
-                    'label': new_label,
-                    'updated_at': 'now()'
-                }).eq('id', internal_id).execute()
-                
-                if result.data:
-                    nodes_updated += 1
-                    print(f"  ✅ Updated node label: {label} → {new_label}")
+                node['label'] = new_label
+                nodes_to_update.append(node)
+                print(f"  Queueing node label update: {label} → {new_label}")
 
         # Update edge labels: remove _temp suffix
         for edge in edges:
             label = edge.get('label', '')
             if label and '_temp' in label:
                 new_label = label.replace('_temp', '')
-                internal_id = edge.get('id')
-                
-                result = supabase.table('navigation_edges').update({
-                    'label': new_label,
-                    'updated_at': 'now()'
-                }).eq('id', internal_id).execute()
-                
-                if result.data:
-                    edges_updated += 1
-                    print(f"  ✅ Updated edge label: {label} → {new_label}")
+                edge['label'] = new_label
+                edges_to_update.append(edge)
+                print(f"  Queueing edge label update: {label} → {new_label}")
+        
+        # Execute Batch Updates
+        if nodes_to_update:
+            print(f"[@route:ai_generation:finalize_structure] Batch updating {len(nodes_to_update)} nodes...")
+            res = save_nodes_batch(tree_id, nodes_to_update, team_id)
+            if res['success']:
+                nodes_updated = len(nodes_to_update)
+                print(f"  ✅ Successfully updated {nodes_updated} nodes")
+            else:
+                print(f"  ❌ Failed to update nodes: {res.get('error')}")
+                return jsonify({'success': False, 'error': f"Node update failed: {res.get('error')}"}), 500
+
+        if edges_to_update:
+            print(f"[@route:ai_generation:finalize_structure] Batch updating {len(edges_to_update)} edges...")
+            res = save_edges_batch(tree_id, edges_to_update, team_id)
+            if res['success']:
+                edges_updated = len(edges_to_update)
+                print(f"  ✅ Successfully updated {edges_updated} edges")
+            else:
+                print(f"  ❌ Failed to update edges: {res.get('error')}")
+                return jsonify({'success': False, 'error': f"Edge update failed: {res.get('error')}"}), 500
         
         # Invalidate cache after all changes
         from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree

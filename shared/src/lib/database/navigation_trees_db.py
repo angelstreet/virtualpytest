@@ -405,6 +405,70 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
         print(f"[@db:navigation_trees:save_node] Error: {e}")
         return {'success': False, 'error': str(e)}
 
+def save_nodes_batch(tree_id: str, nodes_data: List[Dict], team_id: str) -> Dict:
+    """
+    Save multiple nodes in a single transaction (upsert).
+    
+    BENEFITS:
+    1. Efficiency: 1 Network request vs N requests
+    2. Trigger Control: Database trigger (FOR EACH STATEMENT) fires ONLY ONCE per batch,
+       preventing "refresh storm" on materialized view which causes race conditions.
+    
+    Normalizes data (style, data structure) just like single save_node.
+    """
+    try:
+        supabase = get_supabase()
+        
+        processed_nodes = []
+        
+        for node_data in nodes_data:
+            # Prepare fields
+            node_data['tree_id'] = tree_id
+            node_data['team_id'] = team_id
+            node_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+            
+            # Handle 'created_at' for new nodes
+            # Note: upsert will ignore this for updates if configured, but we send it just in case
+            if 'created_at' not in node_data:
+                 node_data['created_at'] = datetime.now(timezone.utc).isoformat()
+
+            # Ensure data field is never null
+            if 'data' not in node_data or node_data['data'] is None:
+                node_data['data'] = {}
+            
+            # Sync data.type with node_type
+            if 'node_type' in node_data:
+                node_data['data']['type'] = node_data['node_type']
+            
+            # 🛡️ PROTECTION: Auto-migrate verifications
+            if 'data' in node_data and 'verifications' in node_data.get('data', {}):
+                data_verifications = node_data['data']['verifications']
+                if not node_data.get('verifications'):
+                    node_data['verifications'] = data_verifications
+                    print(f"[@db:save_nodes_batch] ⚠️ Auto-migrated verifications for node {node_data.get('node_id')}")
+                if data_verifications:
+                    del node_data['data']['verifications']
+            
+            # Ensure style field is never null
+            if 'style' not in node_data or node_data['style'] is None:
+                node_data['style'] = {}
+                
+            processed_nodes.append(node_data)
+            
+        print(f"[@db:navigation_trees:save_nodes_batch] Saving {len(processed_nodes)} nodes in one batch...")
+        
+        # Perform Batch Upsert
+        # on_conflict matches (tree_id, node_id) (composite PK or unique constraint)
+        result = supabase.table('navigation_nodes').upsert(processed_nodes, on_conflict='tree_id, node_id').execute()
+        
+        print(f"[@db:navigation_trees:save_nodes_batch] ✅ Batch complete. Saved {len(result.data)} nodes.")
+        
+        return {'success': True, 'nodes': result.data}
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:save_nodes_batch] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
 def delete_node(tree_id: str, node_id: str, team_id: str) -> Dict:
     """Delete a node, all connected edges, and cascade delete any nested trees."""
     try:
@@ -560,6 +624,53 @@ def save_edge(tree_id: str, edge_data: Dict, team_id: str) -> Dict:
         return {'success': True, 'edge': result.data[0]}
     except Exception as e:
         print(f"[@db:navigation_trees:save_edge] Error: {e}")
+        return {'success': False, 'error': str(e)}
+
+def save_edges_batch(tree_id: str, edges_data: List[Dict], team_id: str) -> Dict:
+    """
+    Save multiple edges in a single transaction (upsert).
+    
+    BENEFITS:
+    1. Efficiency: 1 Network request vs N requests
+    2. Trigger Control: Database trigger fires ONLY ONCE per batch.
+    
+    Enforces 'action_sets' structure.
+    """
+    try:
+        supabase = get_supabase()
+        
+        processed_edges = []
+        
+        for edge_data in edges_data:
+            # STRICT: Only accept new action_sets format
+            if 'action_sets' not in edge_data:
+                raise ValueError(f"Edge {edge_data.get('edge_id')} missing action_sets")
+            
+            if not edge_data.get('default_action_set_id'):
+                raise ValueError(f"Edge {edge_data.get('edge_id')} missing default_action_set_id")
+            
+            # Prepare fields
+            edge_data['tree_id'] = tree_id
+            edge_data['team_id'] = team_id
+            edge_data['updated_at'] = datetime.now(timezone.utc).isoformat()
+            
+            if 'created_at' not in edge_data:
+                edge_data['created_at'] = datetime.now(timezone.utc).isoformat()
+                
+            processed_edges.append(edge_data)
+            
+        print(f"[@db:navigation_trees:save_edges_batch] Saving {len(processed_edges)} edges in one batch...")
+        
+        # Perform Batch Upsert
+        # on_conflict matches (tree_id, edge_id) (composite PK or unique constraint)
+        result = supabase.table('navigation_edges').upsert(processed_edges, on_conflict='tree_id, edge_id').execute()
+        
+        print(f"[@db:navigation_trees:save_edges_batch] ✅ Batch complete. Saved {len(result.data)} edges.")
+        
+        return {'success': True, 'edges': result.data}
+        
+    except Exception as e:
+        print(f"[@db:navigation_trees:save_edges_batch] Error: {e}")
         return {'success': False, 'error': str(e)}
 
 def delete_edge(tree_id: str, edge_id: str, team_id: str) -> Dict:
