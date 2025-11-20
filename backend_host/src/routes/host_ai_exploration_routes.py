@@ -402,15 +402,22 @@ def start_node_verification():
     }
     """
     try:
+        print(f"[@route:ai_generation:start_node_verification] START")
         data = request.get_json() or {}
         device_id = data.get('device_id', 'device1')
         
+        print(f"[@route:ai_generation:start_node_verification] device_id: {device_id}")
+        print(f"[@route:ai_generation:start_node_verification] Available devices: {list(current_app.host_devices.keys())}")
+        
         if device_id not in current_app.host_devices:
+            print(f"[@route:ai_generation:start_node_verification] Device {device_id} not found!")
             return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
         
         device = current_app.host_devices[device_id]
+        print(f"[@route:ai_generation:start_node_verification] Calling device.exploration_executor.start_node_verification()")
         result = device.exploration_executor.start_node_verification()
         
+        print(f"[@route:ai_generation:start_node_verification] Result: {result}")
         return jsonify(result)
         
     except Exception as e:

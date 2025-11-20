@@ -28,7 +28,6 @@ import { useAIGenerationModal } from '../../hooks/navigation/useAIGenerationModa
 import { AIGenerationPhaseIndicator } from './AIGenerationPhaseIndicator';
 import { Phase2IncrementalView } from './Phase2IncrementalView';
 import { ContextSummary } from './ContextSummary';
-import { NodeVerificationModal } from './NodeVerificationModal';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -75,14 +74,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     selectedNodes,
     selectedEdges,
     toggleNodeSelection,
-    toggleEdgeSelection,
-    nodeVerificationSuggestions,
-    isAnalyzingVerifications,
-    startNodeVerification,
-    approveNodeVerifications,
-    isAwaitingNodeVerification,
-    isNodeVerificationComplete,
-    isGenerating
+    toggleEdgeSelection
   } = useGenerateModel({
     treeId,
     selectedHost,
@@ -575,59 +567,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             Cancel
           </Button>
         )}
-        
-        {/* Validation Complete: Show Node Verification button */}
-        {status === 'validation_complete' && (
-          <>
-            <Button
-              onClick={handleCancel}
-              variant="outlined"
-              startIcon={<CancelIcon />}
-            >
-              Cancel
-            </Button>
-            <Button
-              onClick={startNodeVerification}
-              variant="contained"
-              color="primary"
-              disabled={isAnalyzingVerifications}
-            >
-              {isAnalyzingVerifications ? 'Analyzing...' : 'Review Node Verifications'}
-            </Button>
-          </>
-        )}
-        
-        {/* Node Verification Complete: Show Finalize */}
-        {isNodeVerificationComplete && (
-          <>
-            <Button
-              onClick={handleCancel}
-              variant="outlined"
-              startIcon={<CancelIcon />}
-            >
-              Close
-            </Button>
-            <Button
-              onClick={handleValidatePrevious}
-              variant="contained"
-              color="success"
-              startIcon={<ValidateIcon />}
-            >
-              Finalize Structure
-            </Button>
-          </>
-        )}
       </DialogActions>
     </Dialog>
-    
-    {/* Node Verification Modal */}
-    <NodeVerificationModal
-      isOpen={isAwaitingNodeVerification}
-      onClose={() => {}}
-      suggestions={nodeVerificationSuggestions}
-      onApprove={approveNodeVerifications}
-      isUpdating={isGenerating}
-    />
     
     {/* Confirmation Dialog: Delete existing nodes/edges */}
     <Dialog 

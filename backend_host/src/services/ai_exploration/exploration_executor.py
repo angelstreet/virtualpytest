@@ -560,6 +560,7 @@ class ExplorationExecutor:
             
             self.exploration_state['status'] = 'awaiting_validation'
             self.exploration_state['current_validation_index'] = 0
+            self.exploration_state['node_verification_data'] = []  # Initialize for collecting dumps during validation
             
             return {
                 'success': True,
@@ -1090,7 +1091,7 @@ class ExplorationExecutor:
                     'error': f"Cannot start node verification: status is {self.exploration_state['status']}"
                 }
             
-            node_verification_data = self.exploration_state['node_verification_data']
+            node_verification_data = self.exploration_state.get('node_verification_data', [])
             
             if not node_verification_data:
                 return {

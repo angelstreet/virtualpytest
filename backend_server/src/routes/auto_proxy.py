@@ -101,9 +101,9 @@ def auto_proxy(endpoint):
         elif '/av/getStreamUrl' in endpoint:
             timeout = HTTP_CONFIG['VERY_SHORT_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: very short timeout)")
-        elif 'ai-generation/start-validation' in endpoint or 'ai-generation/validate-next-item' in endpoint:
+        elif 'ai-generation/start-validation' in endpoint or 'ai-generation/validate-next-item' in endpoint or 'ai-generation/start-node-verification' in endpoint:
             timeout = 300 # 5 minutes
-            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: validation long timeout)")
+            print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: validation/node-verification long timeout)")
         else:
             timeout = HTTP_CONFIG['DEFAULT_TIMEOUT']
             print(f"[@auto_proxy] 🕐 TIMEOUT SET: {timeout}s for endpoint: {endpoint} (reason: default timeout)")
@@ -126,7 +126,8 @@ def auto_proxy(endpoint):
             cache_invalidation_endpoints = [
                 'ai-generation/continue-exploration',
                 'ai-generation/finalize-structure',
-                'ai-generation/cleanup-temp'
+                'ai-generation/cleanup-temp',
+                'ai-generation/approve-node-verifications'
             ]
             
             if any(endpoint.endswith(ep) for ep in cache_invalidation_endpoints):

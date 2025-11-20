@@ -1572,7 +1572,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         )}
 
         {/* Validation Modal - Phase 2b: Validation */}
-        {isValidationModalOpen && explorationId && explorationHostName && actualTreeId && (
+        {isValidationModalOpen && explorationId && explorationHostName && actualTreeId && selectedDeviceId && (
           <ValidationModal
             isOpen={isValidationModalOpen}
             onClose={() => {
@@ -1605,6 +1605,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             explorationId={explorationId}
             explorationHostName={explorationHostName}
             treeId={actualTreeId}
+            selectedDeviceId={selectedDeviceId}
             onValidationStarted={() => {
               console.log('[@NavigationEditor] Validation started');
             }}

@@ -13,9 +13,11 @@ import {
 } from '@mui/material';
 import {
   CheckCircle as CompleteIcon,
-  Cancel as CancelIcon
+  Cancel as CancelIcon,
+  Visibility as ReviewIcon
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { NodeVerificationModal } from './NodeVerificationModal';
 
 interface ValidationModalProps {
   isOpen: boolean;
@@ -25,6 +27,7 @@ interface ValidationModalProps {
   explorationId: string;
   explorationHostName: string;
   treeId: string;
+  selectedDeviceId: string;
   
   // Callbacks
   onValidationStarted?: () => void;
@@ -54,6 +57,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
   explorationId,
   explorationHostName,
   treeId,
+  selectedDeviceId,
   onValidationStarted,
   onValidationComplete
 }) => {
@@ -63,6 +67,13 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
   const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
   const [currentStep, setCurrentStep] = useState('');
   const [error, setError] = useState<string | null>(null);
+  
+  // Node verification state
+  const [showNodeVerificationModal, setShowNodeVerificationModal] = useState(false);
+  const [nodeVerificationSuggestions, setNodeVerificationSuggestions] = useState<any[]>([]);
+  const [isAnalyzingVerifications, setIsAnalyzingVerifications] = useState(false);
+  const [isUpdatingNodes, setIsUpdatingNodes] = useState(false);
+  const [nodeVerificationComplete, setNodeVerificationComplete] = useState(false);
 
   // Start validation when modal opens
   useEffect(() => {
@@ -178,7 +189,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         console.log('[@ValidationModal] Validation complete!');
         setIsValidating(false);
         setIsValidationComplete(true);
-        // Don't call onValidationComplete automatically - wait for user confirmation
+        // Don't call onValidationComplete yet - wait for node verification approval
       } else {
         // Continue with next item
         setTimeout(() => validateNextItem(), 500);
@@ -196,8 +207,89 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
     if (!text) return '';
     return text.length > maxLength ? text.substring(0, maxLength) + '...' : text;
   };
+  
+  // Start node verification analysis
+  const handleStartNodeVerification = useCallback(async () => {
+    try {
+      setIsAnalyzingVerifications(true);
+      setError(null);
+      
+      console.log('[@ValidationModal] Starting node verification analysis');
+      
+      const response = await fetch(buildServerUrl('/server/ai-generation/start-node-verification'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: selectedDeviceId,
+          host_name: explorationHostName
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to start node verification: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        setNodeVerificationSuggestions(data.suggestions || []);
+        setShowNodeVerificationModal(true);
+        console.log('[@ValidationModal] Got suggestions:', data.suggestions);
+      } else {
+        throw new Error(data.error || 'Failed to analyze node verifications');
+      }
+    } catch (err) {
+      console.error('[@ValidationModal] Error starting node verification:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+    } finally {
+      setIsAnalyzingVerifications(false);
+    }
+  }, []);
+  
+  // Approve node verifications
+  const handleApproveNodeVerifications = useCallback(async (approvedVerifications: any[]) => {
+    try {
+      setIsUpdatingNodes(true);
+      setError(null);
+      
+      console.log('[@ValidationModal] Approving node verifications:', approvedVerifications);
+      
+      const response = await fetch(buildServerUrl('/server/ai-generation/approve-node-verifications'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: selectedDeviceId,
+          host_name: explorationHostName,
+          approved_verifications: approvedVerifications
+        })
+      });
+      
+      if (!response.ok) {
+        throw new Error(`Failed to approve verifications: ${response.status}`);
+      }
+      
+      const data = await response.json();
+      
+      if (data.success) {
+        console.log('[@ValidationModal] Node verifications approved:', data.nodes_updated);
+        setShowNodeVerificationModal(false);
+        setNodeVerificationComplete(true);
+      } else {
+        throw new Error(data.error || 'Failed to update nodes');
+      }
+      
+      return data;
+    } catch (err) {
+      console.error('[@ValidationModal] Error approving verifications:', err);
+      setError(err instanceof Error ? err.message : 'Unknown error');
+      return null;
+    } finally {
+      setIsUpdatingNodes(false);
+    }
+  }, []);
 
   return (
+    <>
     <Dialog
       open={isOpen}
       onClose={onClose}
@@ -413,8 +505,31 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           </Button>
         )}
         
-        {/* After validation complete - show Confirm and Cancel */}
-        {isValidationComplete && (
+        {/* After validation complete - show Review Node Verifications or Confirm & Save */}
+        {isValidationComplete && !nodeVerificationComplete && (
+          <>
+            <Button
+              onClick={onClose}
+              variant="outlined"
+              color="error"
+              startIcon={<CancelIcon />}
+            >
+              Cancel & Delete
+            </Button>
+            <Button
+              onClick={handleStartNodeVerification}
+              variant="contained"
+              color="primary"
+              startIcon={<ReviewIcon />}
+              disabled={isAnalyzingVerifications}
+            >
+              {isAnalyzingVerifications ? 'Analyzing...' : 'Review Node Verifications'}
+            </Button>
+          </>
+        )}
+        
+        {/* After node verification complete - show Confirm & Save */}
+        {nodeVerificationComplete && (
           <>
             <Button
               onClick={onClose}
@@ -449,6 +564,16 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         )}
       </DialogActions>
     </Dialog>
+    
+    {/* Node Verification Modal */}
+    <NodeVerificationModal
+      isOpen={showNodeVerificationModal}
+      onClose={() => setShowNodeVerificationModal(false)}
+      suggestions={nodeVerificationSuggestions}
+      onApprove={handleApproveNodeVerifications}
+      isUpdating={isUpdatingNodes}
+    />
+    </>
   );
 };
 
