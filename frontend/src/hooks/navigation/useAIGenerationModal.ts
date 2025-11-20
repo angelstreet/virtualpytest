@@ -20,7 +20,6 @@ export const useAIGenerationModal = ({
   treeId,
   selectedHost,
   onGenerated,
-  onClose,
   onCleanupTemp,
   startExploration
 }: UseAIGenerationModalProps) => {
