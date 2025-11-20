@@ -7,6 +7,58 @@ import json
 import re
 
 
+# ============================================================================
+# WEAK WORDS: Can be used as secondary verification only (not strong enough alone)
+# ============================================================================
+WEAK_VERIFICATION_WORDS = {
+    # Navigation/Actions (too common alone, but OK as secondary)
+    'back', 'next', 'previous', 'prev', 'forward', 'close', 'exit',
+    'cancel', 'ok', 'confirm', 'yes', 'no', 'done', 'finish',
+    
+    # Search/Filter (appear everywhere)
+    'search', 'filter', 'sort', 'order', 'show all', 'view all',
+    
+    # Media controls
+    'play', 'pause', 'stop', 'watch', 'listen',
+    
+    # Generic content words
+    'more', 'less', 'info', 'details', 'description',
+    'title', 'name', 'delete', 'remove', 'add', 'edit',
+    
+    # Time/Date (dynamic but can be used as secondary)
+    'today', 'yesterday', 'tomorrow', 'now',
+    
+    # Generic UI elements
+    'menu', 'options', 'settings',  # Settings as standalone word
+    'button', 'tab', 'icon', 'image',
+    
+    # Content-specific weak words
+    'popular', 'trending', 'new', 'featured', 'recommended',
+    'movies', 'shows', 'series', 'videos', 'channels'
+}
+
+
+def _is_weak_word(text: str) -> bool:
+    """
+    Check if text is a weak verification candidate.
+    Weak = Can be used as secondary/complementary verification only.
+    Returns True if the text should not be used as primary verification.
+    """
+    text_lower = text.lower().strip()
+    
+    # Check if text is ONLY a weak word (single word)
+    words = text_lower.split()
+    if len(words) == 1 and words[0] in WEAK_VERIFICATION_WORDS:
+        return True
+    
+    # Also check if it's a simple 2-word phrase with weak words
+    # e.g., "Popular Movies" = weak + weak
+    if len(words) == 2 and all(w in WEAK_VERIFICATION_WORDS for w in words):
+        return True
+    
+    return False
+
+
 def _dump_to_string(dump: Dict) -> str:
     """
     Convert dump data to readable string format for frontend display
@@ -85,10 +137,23 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
         print(f"[@dump_analyzer] 🎯 ANALYZING NODE: '{node_label}' ({node_id})")
         print(f"{'='*100}")
         
-        # Try text first (using smart scoring)
-        unique_text = _find_unique_text_for_node(node_id, node_label, current_dump, all_dumps)
-        if unique_text:
-            print(f"[@dump_analyzer] ✅ SUCCESS: Found unique text: '{unique_text}'")
+        # Try text first (using smart scoring with primary/secondary support)
+        unique_text_result = _find_unique_text_for_node(node_id, node_label, current_dump, all_dumps)
+        if unique_text_result:
+            primary = unique_text_result['primary']
+            secondary = unique_text_result.get('secondary')
+            
+            if secondary:
+                print(f"[@dump_analyzer] ✅ SUCCESS: Primary='{primary}', Secondary='{secondary}'")
+            else:
+                print(f"[@dump_analyzer] ✅ SUCCESS: Primary='{primary}' (no secondary needed)")
+            
+            # Store verifications
+            verifications = []
+            verifications.append({'text': primary})
+            if secondary:
+                verifications.append({'text': secondary})
+            
             results.append({
                 'node_id': node_id,
                 'node_label': node_label,
@@ -96,9 +161,11 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
                 'dump': dump_string,
                 'suggested_verification': {
                     'method': 'checkElement',
-                    'params': {'text': unique_text},
+                    'params': verifications[0],  # Frontend expects single params for now
+                    'params_all': verifications,  # Store all for future use
                     'found': True,
-                    'type': 'text'
+                    'type': 'text',
+                    'has_secondary': len(verifications) > 1
                 }
             })
             continue
@@ -142,19 +209,26 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
     return results
 
 
-def _score_text_candidate(text: str, node_label: str) -> int:
+def _score_text_candidate(text: str, node_label: str) -> Tuple[int, bool]:
     """
     Score a text candidate for how good it is as a verification point.
-    Higher score = better candidate.
+    
+    Returns:
+        (score, is_weak): 
+            - score: Higher = better candidate
+            - is_weak: True if this should only be used as secondary verification
     """
     score = 0
     text_lower = text.lower()
     label_lower = node_label.lower()
     
+    # 0. CHECK IF WEAK (can only be secondary verification)
+    is_weak = _is_weak_word(text)
+    
     # 1. EXACT MATCH to Node Label (Highest Priority)
     # If node is "Settings" and text is "Settings", this is the gold standard
     if text_lower == label_lower:
-        return 1000
+        return (1000, False)  # Always strong if exact match
     
     # 2. Partial Match to Node Label
     if label_lower in text_lower:
@@ -192,11 +266,20 @@ def _score_text_candidate(text: str, node_label: str) -> int:
     if text[0].isupper() and ' ' in text:
         score += 10
         
-    return score
+    return (score, is_weak)
 
 
-def _find_unique_text_for_node(target_node_id: str, target_node_label: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[str]:
-    """Find text that appears only in target node, using scoring"""
+def _find_unique_text_for_node(target_node_id: str, target_node_label: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[Dict]:
+    """
+    Find text that appears only in target node, using scoring.
+    
+    Returns:
+        Dict with 'primary' and optionally 'secondary' verification, or None
+        {
+            'primary': 'Home Tab currently selected',
+            'secondary': 'Popular Movies'  # Optional
+        }
+    """
     
     # Extract text elements from target dump
     target_texts = _extract_texts_from_dump(target_dump)
@@ -217,28 +300,69 @@ def _find_unique_text_for_node(target_node_id: str, target_node_label: str, targ
     if not unique_texts:
         return None
     
-    # Score all candidates
-    scored_candidates = []
+    # Score all candidates and separate strong vs weak
+    strong_candidates = []  # Can be used as primary
+    weak_candidates = []    # Can only be used as secondary
+    
     print(f"[@dump_analyzer]   📊 Scoring {len(unique_texts)} unique candidates for '{target_node_label}':")
     
     for text in unique_texts:
-        score = _score_text_candidate(text, target_node_label)
-        scored_candidates.append((score, text))
-        if score > 0: # Only log positive/relevant scores to avoid noise
-            print(f"      • '{text}' = {score}")
-            
-    # Sort by score descending
-    scored_candidates.sort(key=lambda x: x[0], reverse=True)
-    
-    best_score, best_text = scored_candidates[0]
-    
-    # If the best candidate has a terrible score (e.g. it's just "12:34"), reject it
-    if best_score < -20:
-        print(f"[@dump_analyzer]   ❌ All unique texts had low scores (best was '{best_text}' with {best_score}). Ignoring.")
-        return None
+        score, is_weak = _score_text_candidate(text, target_node_label)
         
-    print(f"[@dump_analyzer]   ✅ Selected best candidate: '{best_text}' (score: {best_score})")
-    return best_text
+        if is_weak:
+            weak_candidates.append((score, text))
+            if score > 0:  # Only log relevant weak candidates
+                print(f"      • '{text}' = {score} (weak)")
+        else:
+            strong_candidates.append((score, text))
+            if score > 0:  # Only log positive/relevant scores
+                print(f"      • '{text}' = {score}")
+    
+    # Sort both lists by score
+    strong_candidates.sort(key=lambda x: x[0], reverse=True)
+    weak_candidates.sort(key=lambda x: x[0], reverse=True)
+    
+    # Strategy: Use best strong candidate as primary, best weak as secondary (if available)
+    primary_verification = None
+    secondary_verification = None
+    
+    if strong_candidates and strong_candidates[0][0] > -20:
+        # We have a good strong candidate
+        primary_verification = strong_candidates[0][1]
+        print(f"[@dump_analyzer]   ✅ Primary: '{primary_verification}' (score: {strong_candidates[0][0]})")
+        
+        # Try to add a secondary (another strong OR a weak)
+        if len(strong_candidates) > 1 and strong_candidates[1][0] > 0:
+            secondary_verification = strong_candidates[1][1]
+            print(f"[@dump_analyzer]   ➕ Secondary: '{secondary_verification}' (score: {strong_candidates[1][0]})")
+        elif weak_candidates and weak_candidates[0][0] > 0:
+            secondary_verification = weak_candidates[0][1]
+            print(f"[@dump_analyzer]   ➕ Secondary: '{secondary_verification}' (score: {weak_candidates[0][0]}, weak)")
+    
+    elif weak_candidates and weak_candidates[0][0] > -20:
+        # No strong candidates, but we have a decent weak one
+        # In this case, we MUST have a secondary to make it reliable
+        if len(weak_candidates) >= 2 and weak_candidates[1][0] > 0:
+            primary_verification = weak_candidates[0][1]
+            secondary_verification = weak_candidates[1][1]
+            print(f"[@dump_analyzer]   ⚠️  Only weak candidates available:")
+            print(f"[@dump_analyzer]      Primary (weak): '{primary_verification}' (score: {weak_candidates[0][0]})")
+            print(f"[@dump_analyzer]      Secondary (weak): '{secondary_verification}' (score: {weak_candidates[1][0]})")
+        else:
+            print(f"[@dump_analyzer]   ❌ Only one weak candidate, not reliable enough without secondary")
+            return None
+    else:
+        print(f"[@dump_analyzer]   ❌ All candidates had low scores")
+        return None
+    
+    # Return result
+    if primary_verification:
+        result = {'primary': primary_verification}
+        if secondary_verification:
+            result['secondary'] = secondary_verification
+        return result
+    
+    return None
 
 
 def _find_unique_xpath_for_node(target_node_id: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[str]:
