@@ -297,6 +297,9 @@ export const useAIGenerationModal = ({
       // Refresh ReactFlow to show clean tree
       onGenerated();
       
+      // Wait 3s for cache to rebuild fully
+      await new Promise(resolve => setTimeout(resolve, 3000));
+      
       // Start AI generation
       await startExplorationFlow();
       

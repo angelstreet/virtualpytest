@@ -422,7 +422,7 @@ export const useGenerateModel = ({
       setIsExploring(false);
       setStatus('failed');
     }
-  }, [explorationId, explorationHostName]);
+  }, [explorationId, explorationHostName, selectedNodes, onClose, onStructureCreated]);
   
   const startValidation = useCallback(async () => {
     if (!explorationId || !explorationHostName) {
