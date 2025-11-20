@@ -349,12 +349,12 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
             params: params || {},
           };
         } else if (command === 'CLICK_ELEMENT_BY_TEXT') {
-          // Click by text - use click_element
+          // Click by text - use click_element (backend expects 'element_id' param for text search)
           requestBody = {
             host_name: selectedHost.host_name,
             device_id: deviceId,
             command: 'click_element',
-            params: params || {},
+            params: { element_id: params?.text || params?.element_id },
           };
         } else if (command === 'FIND_ELEMENT') {
           // Find element - use dump_elements and search in result

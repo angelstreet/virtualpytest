@@ -135,7 +135,7 @@ export const AndroidMobileRemote = React.memo(
 
     // Handle element interaction action execution
     const handleElementAction = async () => {
-      if (!elementActionInput.trim() || isExecutingAction) return;
+      if (!elementActionInput.trim() || isExecutingAction || isDumpingUI) return;
 
       setIsExecutingAction(true);
       setActionStatus('idle');
@@ -786,7 +786,7 @@ export const AndroidMobileRemote = React.memo(
                   variant="contained"
                   size="small"
                   onClick={handleElementAction}
-                  disabled={!session.connected || !elementActionInput.trim() || isExecutingAction}
+                  disabled={!session.connected || !elementActionInput.trim() || isExecutingAction || isDumpingUI}
                   color={
                     actionStatus === 'success' ? 'success' : 
                     actionStatus === 'error' ? 'error' : 
