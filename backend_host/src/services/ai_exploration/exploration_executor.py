@@ -1243,7 +1243,30 @@ class ExplorationExecutor:
                     node_data['data']['screenshot'] = screenshot_url
                     node_data['data']['screenshot_timestamp'] = int(time.time() * 1000)
                 
+                # 🛡️ VALIDATION: Only save valid verifications (same logic as useNodeEdit.ts)
                 if verification and verification.get('params'):
+                    # Validate: params must not be empty dict
+                    params = verification['params']
+                    if not params or not isinstance(params, dict):
+                        print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
+                        continue
+                    
+                    # Validate: at least one param key must have a non-empty value
+                    has_valid_param = any(
+                        v and str(v).strip() != '' 
+                        for v in params.values()
+                    )
+                    
+                    if not has_valid_param:
+                        print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
+                        continue
+                    
+                    # Validate: command must exist and not be empty
+                    command = verification.get('method', '')
+                    if not command or command.strip() == '':
+                        print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
+                        continue
+                    
                     # Add verification to node
                     if 'verifications' not in node_data:
                         node_data['verifications'] = []
@@ -1260,7 +1283,7 @@ class ExplorationExecutor:
                     if not verification_exists:
                         # Map 'method' to 'command' for standard verification format
                         node_data['verifications'].append({
-                            'command': verification.get('method', 'checkElement'),  # Use 'command' not 'method'
+                            'command': command,  # Use validated command
                             'verification_type': verification.get('type', 'text'),
                             'params': verification['params'],
                             'expected': True
