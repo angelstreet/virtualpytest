@@ -275,16 +275,26 @@ def _extract_texts_from_dump(dump: Dict) -> set:
     
     for elem in elements:
         # Mobile dump (AndroidElement)
-        if hasattr(elem, 'text'):
-            text = elem.text
-            if text and text.strip() and text != '<no text>':
-                texts.add(text.strip())
+        if hasattr(elem, 'text') or hasattr(elem, 'content_desc'):
+            text = getattr(elem, 'text', '')
+            content_desc = getattr(elem, 'content_desc', '')
+            
+            # Clean up placeholder values often found in Android dumps
+            if str(text) == '<no text>': text = ''
+            if str(content_desc) == '<no content-desc>': content_desc = ''
+            
+            # Use text if available, otherwise content_desc
+            # This allows us to find "en" which is often in content_desc only
+            val = str(text).strip() or str(content_desc).strip()
+            
+            if val:
+                texts.add(val)
         
         # Web dump (dict)
         elif isinstance(elem, dict):
             text = elem.get('text', '') or elem.get('content_desc', '')
-            if text and text.strip():
-                texts.add(text.strip())
+            if text and str(text).strip():
+                texts.add(str(text).strip())
     
     return texts
 
