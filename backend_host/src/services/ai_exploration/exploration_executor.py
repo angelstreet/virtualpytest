@@ -817,8 +817,15 @@ class ExplorationExecutor:
             
             if not has_more:
                 self.exploration_state['status'] = 'validation_complete'
+                self.exploration_state['current_step'] = 'All items validated - ready to finalize'
             else:
                 self.exploration_state['status'] = 'awaiting_validation'
+                # ✅ FIX: Update current_step to show NEXT item that will be validated
+                next_index = self.exploration_state['current_validation_index']
+                next_item = items_to_validate[next_index]
+                next_node_name = target_to_node_map.get(next_item, f"{next_item}_temp")
+                next_node_display = next_node_name.replace('_temp', '')
+                self.exploration_state['current_step'] = f"Ready: Step {next_index + 1}/{len(items_to_validate)} - home → {next_node_display}: click_element(\"{next_item}\")"
             
             node_name_display = node_name.replace('_temp', '')
             
