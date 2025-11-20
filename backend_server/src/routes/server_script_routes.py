@@ -49,8 +49,9 @@ def analyze_script_parameters(script_path):
         if script_args_match:
             args_content = script_args_match.group(1)
             # Parse each argument: '--param:type:default' or '--param:type'
+            # Extract strings between quotes, but ignore Python comments after them
             arg_items = re.findall(r"['\"]([^'\"]+)['\"]", args_content)
-            print(f"[@analyze_script] Found _script_args: {arg_items}")
+            print(f"[@analyze_script] Found _script_args raw: {arg_items}")
             
             for arg_item in arg_items:
                 # Parse format: --param-name:type:default or --param-name:type

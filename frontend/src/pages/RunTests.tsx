@@ -1224,15 +1224,10 @@ const RunTests: React.FC = () => {
                           </Typography>
                         )}
 
-                        {/* Parameters inline with labels */}
+                        {/* Parameters inline without redundant labels (labels are in the inputs) */}
                         {displayParameters.map((param) => (
-                          <Box key={param.name} sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                            <Typography variant="body2" sx={{ fontSize: '0.85rem', whiteSpace: 'nowrap' }}>
-                              {param.name}:
-                            </Typography>
-                            <Box sx={{ minWidth: 100 }}>
-                              {renderParameterInput(param)}
-                            </Box>
+                          <Box key={param.name} sx={{ minWidth: 150 }}>
+                            {renderParameterInput(param)}
                           </Box>
                         ))}
                       </>
