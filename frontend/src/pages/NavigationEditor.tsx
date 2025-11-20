@@ -379,6 +379,12 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           setIsShiftHeld(true);
         }
         
+        // DELETE/BACKSPACE key - delete selected node/edge with protection
+        if ((e.key === 'Delete' || e.key === 'Backspace') && !isInputField) {
+          e.preventDefault();
+          deleteSelected();
+        }
+        
         // Undo/Redo shortcuts - only when NOT in input fields
         if ((e.ctrlKey || e.metaKey) && !e.shiftKey && e.key === 'z' && !isInputField) {
           e.preventDefault();
@@ -413,7 +419,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         window.removeEventListener('keydown', handleKeyDown);
         window.removeEventListener('keyup', handleKeyUp);
       };
-    }, []);
+    }, [deleteSelected, navigation]);
 
     // AI Generation handler
     const handleToggleAIGeneration = useCallback(() => {
@@ -1022,6 +1028,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   onEdgeClick={wrappedOnEdgeClick}
                   onNodeDoubleClick={nestedNavigation.handleNodeDoubleClick}
                   onPaneClick={wrappedOnPaneClick}
+                  deleteKeyCode={null}
                   onInit={(instance) => {
                     console.log(`[@NavigationEditor] ReactFlow onInit called`);
                     setReactFlowInstance(instance);

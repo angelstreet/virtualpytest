@@ -743,6 +743,12 @@ export const useNavigationEditor = () => {
       const nodeId = navigation.selectedNode.id;
       const node = navigation.selectedNode;
       
+      // ✅ PROTECTION: Prevent deletion of essential nodes (silently)
+      if (nodeId === 'entry-node' || nodeId === 'home') {
+        console.log(`[@useNavigationEditor:deleteSelected] Cannot delete protected node: ${nodeId}`);
+        return;
+      }
+      
       // Check if node has nested trees and warn user
       if (node.data?.has_subtree && (node.data?.subtree_count || 0) > 0) {
         const subtreeCount = node.data?.subtree_count || 0;
@@ -781,6 +787,12 @@ export const useNavigationEditor = () => {
     // Handle edge deletion - DELEGATED TO useEdge
     if (navigation.selectedEdge) {
       const selectedEdge = navigation.selectedEdge;
+      
+      // ✅ PROTECTION: Prevent deletion of essential edge (silently)
+      if (selectedEdge.id === 'edge-entry-node-to-home') {
+        console.log(`[@useNavigationEditor:deleteSelected] Cannot delete protected edge: ${selectedEdge.id}`);
+        return;
+      }
       
       // Use custom confirm dialog instead of window.confirm
       return new Promise<void>((resolve) => {

@@ -67,6 +67,7 @@ export const useEdge = (props: UseEdgeProps = {}) => {
    */
   const isProtectedEdge = useCallback((edge: UINavigationEdge): boolean => {
     return (
+      edge.id === 'edge-entry-node-to-home' ||
       edge.source === 'entry-node' ||
       edge.source?.toLowerCase().includes('entry')
     );
