@@ -256,22 +256,25 @@ class ExplorationExecutor:
                 
                 # Create exploration engine with callbacks
                 def update_screenshot(screenshot_path: str):
-                    """Convert screenshot path to URL"""
+                    """Upload screenshot to R2 (same as validation screenshots)"""
                     try:
-                        from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         
-                        # Use self.device.host directly (no Flask context needed!)
-                        host_dict = {
-                            'host_name': self.host_name,
-                            'host_ip': getattr(self.device, 'host_ip', 'localhost'),
-                            'host_port': getattr(self.device, 'host_port', 6109)
-                        }
-                        screenshot_url = buildHostImageUrl(host_dict, screenshot_path)
+                        # Upload to R2 (same as other navigation screenshots)
+                        r2_filename = "home_initial.jpg"
+                        userinterface_name = self.exploration_state['userinterface_name']
+                        upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
                         
-                        with self._lock:
-                            self.exploration_state['current_analysis']['screenshot'] = screenshot_url
+                        if upload_result.get('success'):
+                            screenshot_url = upload_result.get('url')
+                            print(f"[@ExplorationExecutor] Home screenshot uploaded to R2: {screenshot_url}")
+                            
+                            with self._lock:
+                                self.exploration_state['current_analysis']['screenshot'] = screenshot_url
+                        else:
+                            print(f"[@ExplorationExecutor] Screenshot upload failed: {upload_result.get('error')}")
                     except Exception as e:
-                        print(f"[@ExplorationExecutor] Screenshot URL conversion failed: {e}")
+                        print(f"[@ExplorationExecutor] Screenshot upload failed: {e}")
                         import traceback
                         traceback.print_exc()
                 
