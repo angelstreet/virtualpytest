@@ -7,16 +7,24 @@ import {
   Button,
   Box,
   Typography,
-  List,
-  ListItem,
-  Checkbox,
-  FormControlLabel,
-  Alert
+  Alert,
+  Chip,
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
+  Grid,
+  Card,
+  CardContent,
+  IconButton,
 } from '@mui/material';
 import {
   CheckCircle as CheckIcon,
   Error as ErrorIcon,
-  Close as CloseIcon
+  Close as CloseIcon,
+  Save as SaveIcon,
+  ExpandMore as ExpandMoreIcon,
+  ImageNotSupported as NoImageIcon,
+  ArrowBack as BackIcon,
 } from '@mui/icons-material';
 
 interface NodeVerificationModalProps {
@@ -35,31 +43,32 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
   isUpdating
 }) => {
   const [selectedNodeId, setSelectedNodeId] = useState<string | null>(null);
-  const [approvedMap, setApprovedMap] = useState<Record<string, boolean>>({});
 
+  // Reset to grid view when modal opens
   useEffect(() => {
-    if (isOpen && suggestions.length > 0) {
-      const initialApproved: Record<string, boolean> = {};
-      suggestions.forEach(s => {
-        initialApproved[s.node_id] = s.suggested_verification?.found || false;
-      });
-      setApprovedMap(initialApproved);
-      setSelectedNodeId(suggestions[0]?.node_id || null);
+    if (isOpen) {
+      setSelectedNodeId(null);
     }
-  }, [isOpen, suggestions]);
+  }, [isOpen]);
 
-  const handleApprove = async () => {
+  const handleSave = async () => {
+    // Save ALL nodes that have data (screenshot or verification)
     const approvedVerifications = suggestions
-      .filter(s => approvedMap[s.node_id] && s.suggested_verification?.found)
+      .filter(s => s.screenshot_url || s.suggested_verification?.found)
       .map(s => ({
         node_id: s.node_id,
-        verification: s.suggested_verification,
-        screenshot_url: s.screenshot_url
+        verification: s.suggested_verification?.found ? s.suggested_verification : null,
+        screenshot_url: s.screenshot_url || null
       }));
 
     await onApprove(approvedVerifications);
     onClose();
   };
+
+  // Count nodes with data
+  const nodesWithScreenshot = suggestions.filter(s => s.screenshot_url).length;
+  const nodesWithVerification = suggestions.filter(s => s.suggested_verification?.found).length;
+  const totalNodesToSave = suggestions.filter(s => s.screenshot_url || s.suggested_verification?.found).length;
 
   const selectedSuggestion = suggestions.find(s => s.node_id === selectedNodeId);
 
@@ -67,11 +76,12 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
     <Dialog
       open={isOpen}
       onClose={onClose}
-      maxWidth="lg"
+      maxWidth="xl"
       fullWidth
       PaperProps={{
         sx: {
           maxHeight: '90vh',
+          height: '90vh',
           border: '2px solid',
           borderColor: 'divider',
           borderRadius: 2,
@@ -79,83 +89,101 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
         }
       }}
     >
-      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider' }}>
+      <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, borderBottom: '1px solid', borderColor: 'divider', pb: 1 }}>
+        {selectedNodeId && (
+          <IconButton size="small" onClick={() => setSelectedNodeId(null)} sx={{ mr: 1 }}>
+            <BackIcon />
+          </IconButton>
+        )}
         <CheckIcon />
-        Node Verification Review
-        <Box sx={{ ml: 'auto', display: 'flex', gap: 1 }}>
-          <Typography variant="body2" color="text.secondary">
-            {suggestions.filter(s => approvedMap[s.node_id]).length} / {suggestions.length} selected
-          </Typography>
+        {selectedNodeId ? selectedSuggestion?.node_label : 'Node Verification Review'}
+        <Box sx={{ ml: 'auto', display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Chip 
+            label={`${nodesWithScreenshot} screenshots`} 
+            size="small" 
+            color={nodesWithScreenshot > 0 ? 'primary' : 'default'}
+          />
+          <Chip 
+            label={`${nodesWithVerification} verifications`} 
+            size="small" 
+            color={nodesWithVerification > 0 ? 'success' : 'default'}
+          />
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, display: 'flex', height: 600 }}>
-        <Box sx={{ width: 300, borderRight: '1px solid', borderColor: 'divider', overflow: 'auto' }}>
-          <List dense disablePadding>
-            {suggestions.map((suggestion) => {
-              const isSelected = selectedNodeId === suggestion.node_id;
-              const hasVerification = suggestion.suggested_verification?.found;
-              
-              return (
-                <ListItem
-                  key={suggestion.node_id}
-                  onClick={() => setSelectedNodeId(suggestion.node_id)}
-                  sx={{
-                    cursor: 'pointer',
-                    bgcolor: isSelected ? 'action.selected' : 'transparent',
-                    borderLeft: isSelected ? 3 : 0,
-                    borderColor: 'primary.main',
-                    '&:hover': {
-                      bgcolor: 'action.hover'
-                    },
-                    py: 1.5,
-                    px: 2,
-                    borderBottom: '1px solid',
-                    borderBottomColor: 'divider'
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
-                    <Checkbox
-                      checked={approvedMap[suggestion.node_id] || false}
-                      disabled={!hasVerification}
-                      onChange={(e) => {
-                        e.stopPropagation();
-                        setApprovedMap(prev => ({
-                          ...prev,
-                          [suggestion.node_id]: e.target.checked
-                        }));
-                      }}
-                      sx={{ p: 0, mr: 1 }}
-                    />
-                    <Box sx={{ flex: 1, minWidth: 0 }}>
-                      <Typography variant="body2" noWrap>
-                        {suggestion.node_label}
-                      </Typography>
-                      {hasVerification ? (
-                        <Typography variant="caption" color="success.main">
-                          ✓ Found
-                        </Typography>
-                      ) : (
-                        <Typography variant="caption" color="error.main">
-                          ✗ None
-                        </Typography>
-                      )}
-                    </Box>
-                  </Box>
-                </ListItem>
-              );
-            })}
-          </List>
-        </Box>
-
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', overflow: 'auto' }}>
-          {selectedSuggestion ? (
-            <>
-              <Box sx={{ p: 3, borderBottom: '1px solid', borderColor: 'divider' }}>
-                <Typography variant="h6" gutterBottom>
-                  {selectedSuggestion.node_label}
-                </Typography>
+      <DialogContent sx={{ p: 0, overflow: 'auto', flex: 1 }}>
+        {/* GRID VIEW */}
+        {!selectedNodeId && (
+          <Box sx={{ p: 3 }}>
+            <Grid container spacing={2}>
+              {suggestions.map((suggestion) => {
+                const hasScreenshot = !!suggestion.screenshot_url;
+                const hasVerification = suggestion.suggested_verification?.found;
                 
+                return (
+                  <Grid item xs={12} sm={6} md={4} lg={3} xl={2.4} key={suggestion.node_id}>
+                    <Card 
+                      sx={{ 
+                        cursor: 'pointer',
+                        height: '100%',
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        transition: 'all 0.2s',
+                        '&:hover': {
+                          borderColor: 'primary.main',
+                          bgcolor: 'action.hover',
+                          transform: 'translateY(-2px)',
+                          boxShadow: 2
+                        }
+                      }}
+                      onClick={() => setSelectedNodeId(suggestion.node_id)}
+                    >
+                      <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                        <Typography variant="body2" sx={{ fontWeight: 600, mb: 1 }} noWrap>
+                          {suggestion.node_label}
+                        </Typography>
+                        
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {hasScreenshot ? (
+                              <CheckIcon fontSize="small" sx={{ fontSize: 14, color: 'success.main' }} />
+                            ) : (
+                              <NoImageIcon fontSize="small" sx={{ fontSize: 14, color: 'action.disabled' }} />
+                            )}
+                            <Typography variant="caption" color={hasScreenshot ? 'text.primary' : 'text.disabled'}>
+                              Screenshot
+                            </Typography>
+                          </Box>
+                          
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                            {hasVerification ? (
+                              <CheckIcon fontSize="small" sx={{ fontSize: 14, color: 'success.main' }} />
+                            ) : (
+                              <ErrorIcon fontSize="small" sx={{ fontSize: 14, color: 'error.main' }} />
+                            )}
+                            <Typography variant="caption" color={hasVerification ? 'text.primary' : 'error.main'} noWrap>
+                              {hasVerification ? 'Found' : 'Not found'}
+                            </Typography>
+                          </Box>
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+          </Box>
+        )}
+
+        {/* DETAIL VIEW */}
+        {selectedNodeId && selectedSuggestion && (
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+            <Grid container spacing={3}>
+              {/* LEFT: Screenshot */}
+              <Grid item xs={12} md={6}>
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                  Screenshot
+                </Typography>
                 {selectedSuggestion.screenshot_url ? (
                   <Box
                     component="img"
@@ -163,53 +191,48 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                     alt={selectedSuggestion.node_label}
                     sx={{
                       width: '100%',
-                      maxHeight: 300,
+                      maxHeight: 400,
                       objectFit: 'contain',
                       borderRadius: 1,
                       border: '1px solid',
-                      borderColor: 'divider'
+                      borderColor: 'divider',
+                      bgcolor: 'background.default'
                     }}
                   />
                 ) : (
-                  <Alert severity="warning" sx={{ mt: 2 }}>
+                  <Alert severity="warning" icon={<NoImageIcon />}>
                     No screenshot available
                   </Alert>
                 )}
-              </Box>
+              </Grid>
 
-              <Box sx={{ p: 3 }}>
-                <Typography variant="subtitle2" gutterBottom>
-                  Suggested Verification:
+              {/* RIGHT: Verification + Dump */}
+              <Grid item xs={12} md={6}>
+                {/* Verification */}
+                <Typography variant="subtitle2" gutterBottom sx={{ fontWeight: 600 }}>
+                  Suggested Verification
                 </Typography>
                 
                 {selectedSuggestion.suggested_verification?.found ? (
-                  <Box sx={{ mt: 1, p: 2, bgcolor: 'action.hover', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                  <Box sx={{ mb: 3, p: 2, bgcolor: 'success.light', borderRadius: 1, border: '1px solid', borderColor: 'success.main' }}>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
                       <strong>Method:</strong> {selectedSuggestion.suggested_verification.method}
                     </Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', mt: 1 }}>
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
                       <strong>Type:</strong> {selectedSuggestion.suggested_verification.type}
                     </Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', mt: 1, wordBreak: 'break-all' }}>
-                      <strong>Value:</strong> {JSON.stringify(selectedSuggestion.suggested_verification.params)}
+                    <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                      <strong>Value:</strong> {JSON.stringify(selectedSuggestion.suggested_verification.params, null, 2)}
                     </Typography>
-                    
-                    <FormControlLabel
-                      control={
-                        <Checkbox
-                          checked={approvedMap[selectedSuggestion.node_id] || false}
-                          onChange={(e) => setApprovedMap(prev => ({
-                            ...prev,
-                            [selectedSuggestion.node_id]: e.target.checked
-                          }))}
-                        />
-                      }
-                      label="Use this verification"
-                      sx={{ mt: 2 }}
+                    <Chip 
+                      label="Will be saved" 
+                      size="small" 
+                      color="success" 
+                      sx={{ mt: 1 }}
                     />
                   </Box>
                 ) : (
-                  <Alert severity="error" sx={{ mt: 1 }}>
+                  <Alert severity="error" sx={{ mb: 3 }}>
                     <Typography variant="body2">
                       No unique element found for this node.
                     </Typography>
@@ -218,38 +241,77 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                     </Typography>
                   </Alert>
                 )}
-              </Box>
-            </>
-          ) : (
-            <Box sx={{ p: 3, display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-              <Typography color="text.secondary">
-                Select a node to review
-              </Typography>
-            </Box>
-          )}
-        </Box>
+
+                {/* XML Dump */}
+                <Accordion>
+                  <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
+                      XML Dump
+                    </Typography>
+                  </AccordionSummary>
+                  <AccordionDetails>
+                    {selectedSuggestion.dump ? (
+                      <Box 
+                        sx={{ 
+                          maxHeight: 300, 
+                          overflow: 'auto', 
+                          bgcolor: 'background.default',
+                          p: 2,
+                          borderRadius: 1,
+                          border: '1px solid',
+                          borderColor: 'divider'
+                        }}
+                      >
+                        <Typography 
+                          variant="caption" 
+                          component="pre" 
+                          sx={{ 
+                            fontFamily: 'monospace',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            fontSize: '0.7rem'
+                          }}
+                        >
+                          {selectedSuggestion.dump}
+                        </Typography>
+                      </Box>
+                    ) : (
+                      <Alert severity="info">
+                        No dump data available
+                      </Alert>
+                    )}
+                  </AccordionDetails>
+                </Accordion>
+              </Grid>
+            </Grid>
+          </Box>
+        )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid', borderColor: 'divider' }}>
-        <Button
-          onClick={onClose}
-          variant="outlined"
-          startIcon={<CloseIcon />}
-          disabled={isUpdating}
-        >
-          Cancel
-        </Button>
-        <Button
-          onClick={handleApprove}
-          variant="contained"
-          color="primary"
-          startIcon={<CheckIcon />}
-          disabled={isUpdating || suggestions.filter(s => approvedMap[s.node_id]).length === 0}
-        >
-          {isUpdating ? 'Updating...' : `Approve (${suggestions.filter(s => approvedMap[s.node_id]).length})`}
-        </Button>
+      <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid', borderColor: 'divider', justifyContent: 'space-between' }}>
+        <Typography variant="caption" color="text.secondary">
+          {totalNodesToSave} / {suggestions.length} nodes
+        </Typography>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            onClick={onClose}
+            variant="outlined"
+            startIcon={<CloseIcon />}
+            disabled={isUpdating}
+          >
+            Cancel
+          </Button>
+          <Button
+            onClick={handleSave}
+            variant="contained"
+            color="primary"
+            startIcon={<SaveIcon />}
+            disabled={isUpdating || totalNodesToSave === 0}
+          >
+            {isUpdating ? 'Saving...' : `Save ${totalNodesToSave > 0 ? `(${totalNodesToSave})` : ''}`}
+          </Button>
+        </Box>
       </DialogActions>
     </Dialog>
   );
 };
-
