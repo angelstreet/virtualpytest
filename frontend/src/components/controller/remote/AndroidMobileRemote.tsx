@@ -7,6 +7,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  TextField,
 } from '@mui/material';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -105,6 +106,11 @@ export const AndroidMobileRemote = React.memo(
       // Session info
       session,
     } = hookResult;
+
+    // Local state for element interaction inputs
+    const [clickElementId, setClickElementId] = React.useState('');
+    const [clickElementText, setClickElementText] = React.useState('');
+    const [findElementSelector, setFindElementSelector] = React.useState('');
 
     // Debug: Log orientation changes in remote component
     React.useEffect(() => {
@@ -644,6 +650,135 @@ export const AndroidMobileRemote = React.memo(
                 >
                   Scr→
                 </Button>
+              </Box>
+            </Box>
+
+            {/* Element Interaction Section */}
+            <Box sx={{ mb: 1 }}>
+              {/* Click by Element ID */}
+              <Box sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', fontWeight: 'bold' }}
+                >
+                  Click by ID
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <TextField
+                    value={clickElementId}
+                    onChange={(e) => setClickElementId(e.target.value)}
+                    placeholder="Element ID"
+                    variant="outlined"
+                    size="small"
+                    disabled={!session.connected}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && clickElementId.trim()) {
+                        e.preventDefault();
+                        handleRemoteCommand('CLICK_ELEMENT_BY_ID', { element_id: clickElementId });
+                      }
+                    }}
+                    sx={{
+                      flex: 1,
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: '0.75rem',
+                        '& input': { py: 0.5 },
+                      },
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => handleRemoteCommand('CLICK_ELEMENT_BY_ID', { element_id: clickElementId })}
+                    disabled={!session.connected || !clickElementId.trim()}
+                    sx={{ minWidth: '60px' }}
+                  >
+                    Click
+                  </Button>
+                </Box>
+              </Box>
+
+              {/* Click by Text */}
+              <Box sx={{ mb: 1 }}>
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', fontWeight: 'bold' }}
+                >
+                  Click by Text
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <TextField
+                    value={clickElementText}
+                    onChange={(e) => setClickElementText(e.target.value)}
+                    placeholder="Element text"
+                    variant="outlined"
+                    size="small"
+                    disabled={!session.connected}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && clickElementText.trim()) {
+                        e.preventDefault();
+                        handleRemoteCommand('CLICK_ELEMENT_BY_TEXT', { text: clickElementText });
+                      }
+                    }}
+                    sx={{
+                      flex: 1,
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: '0.75rem',
+                        '& input': { py: 0.5 },
+                      },
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => handleRemoteCommand('CLICK_ELEMENT_BY_TEXT', { text: clickElementText })}
+                    disabled={!session.connected || !clickElementText.trim()}
+                    sx={{ minWidth: '60px' }}
+                  >
+                    Click
+                  </Button>
+                </Box>
+              </Box>
+
+              {/* Find Element */}
+              <Box>
+                <Typography
+                  variant="caption"
+                  sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', fontWeight: 'bold' }}
+                >
+                  Find Element
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 0.5 }}>
+                  <TextField
+                    value={findElementSelector}
+                    onChange={(e) => setFindElementSelector(e.target.value)}
+                    placeholder="Search term"
+                    variant="outlined"
+                    size="small"
+                    disabled={!session.connected}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' && findElementSelector.trim()) {
+                        e.preventDefault();
+                        handleRemoteCommand('FIND_ELEMENT', { search_term: findElementSelector });
+                      }
+                    }}
+                    sx={{
+                      flex: 1,
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: '0.75rem',
+                        '& input': { py: 0.5 },
+                      },
+                    }}
+                  />
+                  <Button
+                    variant="contained"
+                    size="small"
+                    onClick={() => handleRemoteCommand('FIND_ELEMENT', { search_term: findElementSelector })}
+                    disabled={!session.connected || !findElementSelector.trim()}
+                    sx={{ minWidth: '60px' }}
+                  >
+                    Find
+                  </Button>
+                </Box>
               </Box>
             </Box>
 
