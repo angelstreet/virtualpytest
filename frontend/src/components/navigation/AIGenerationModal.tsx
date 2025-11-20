@@ -369,11 +369,11 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                     </Typography>
                                     {/* Forward action */}
                                     <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                      Forward: home → {cleanNodeName}: click_element("{item}")
+                                      → home → {cleanNodeName}: click("{item}")
                                     </Typography>
                                     {/* Reverse action */}
                                     <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                      Backward: {cleanNodeName} → home: press_key(BACK)
+                                      ← {cleanNodeName} → home: BACK
                                     </Typography>
                                   </Box>
                                 );
@@ -407,7 +407,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
             <Box sx={{ mb: 2 }}>
               <LinearProgress variant="indeterminate" sx={{ mb: 1 }} />
               <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap' }}>
-                <Chip label={`Screens: ${progress.screens_analyzed}/${progress.total_screens_found}`} size="small" />
                 <Chip label={`Nodes: ${progress.nodes_proposed}`} size="small" />
                 <Chip label={`Edges: ${progress.edges_proposed}`} size="small" />
               </Box>

@@ -34,13 +34,13 @@ export const useAIGenerationModal = ({
   
   const { nodes } = useNavigation();
 
-  // Check for _temp nodes when modal opens
+  // Check for _temp nodes when modal opens (check labels, not IDs)
   useEffect(() => {
     if (isOpen) {
-      const tempNodesExist = nodes.some(n => n.id.endsWith('_temp'));
+      const tempNodesExist = nodes.some(n => n.data?.label?.endsWith('_temp'));
       setHasTempNodes(tempNodesExist);
       if (tempNodesExist) {
-        const tempCount = nodes.filter(n => n.id.endsWith('_temp')).length;
+        const tempCount = nodes.filter(n => n.data?.label?.endsWith('_temp')).length;
         console.log(`[@useAIGenerationModal] Found ${tempCount} _temp nodes in tree`);
       }
     }
@@ -62,6 +62,10 @@ export const useAIGenerationModal = ({
       
       const data = await response.json();
       
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+      }
+      
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Validated:', data.nodes_renamed, 'nodes,', data.edges_renamed, 'edges');
         
@@ -73,9 +77,11 @@ export const useAIGenerationModal = ({
         onClose();
       } else {
         console.error('[@useAIGenerationModal] ❌ Validation failed:', data.error);
+        alert(`Failed to validate: ${data.error || 'Unknown error'}`);
       }
     } catch (error) {
       console.error('[@useAIGenerationModal] ❌ Validation error:', error);
+      alert(`Error during validation: ${error instanceof Error ? error.message : 'Unknown error'}`);
     } finally {
       setIsValidating(false);
     }

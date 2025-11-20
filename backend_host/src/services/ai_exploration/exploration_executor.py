@@ -436,13 +436,15 @@ class ExplorationExecutor:
                     print(f"  ⏭️  Skipping '{node_name_clean}' (home indicator)")
                     continue
                 
-                node_name = f"{node_name_clean}_temp"
+                # ✅ Use clean node_id, add _temp to label for visual distinction
+                node_name = node_name_clean
                 position_x = 250 + (idx % 5) * 200
                 position_y = 300 + (idx // 5) * 150
                 
                 # Create node data
                 node_data = node_gen.create_node_data(
                     node_name=node_name,
+                    label=f"{node_name}_temp",  # Add _temp to label only
                     position={'x': position_x, 'y': position_y},
                     ai_analysis={
                         'suggested_name': node_name_clean,
@@ -475,7 +477,7 @@ class ExplorationExecutor:
                     target=node_name,
                     actions=forward_actions,
                     reverse_actions=reverse_actions,
-                    label=item
+                    label=f"{item}_temp"  # Add _temp to label for visual distinction
                 )
                 edges_to_save.append(edge_data)
             

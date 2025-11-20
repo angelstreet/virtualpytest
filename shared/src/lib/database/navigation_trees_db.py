@@ -455,9 +455,9 @@ def get_tree_edges(tree_id: str, team_id: str, node_ids: List[str] = None) -> Di
     try:
         supabase = get_supabase()
         
-        # Select only new structure fields
+        # Select only new structure fields (including id for finalize_structure)
         query = supabase.table('navigation_edges')\
-            .select('edge_id', 'source_node_id', 'target_node_id', 'action_sets', 'default_action_set_id', 'final_wait_time', 'label', 'data')\
+            .select('id, edge_id, source_node_id, target_node_id, action_sets, default_action_set_id, final_wait_time, label, data')\
             .eq('tree_id', tree_id)\
             .eq('team_id', team_id)
         

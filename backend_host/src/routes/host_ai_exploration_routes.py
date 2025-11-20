@@ -356,7 +356,8 @@ def validate_next_item():
 @host_ai_exploration_bp.route('/finalize-structure', methods=['POST'])
 def finalize_structure():
     """
-    Finalize structure: Rename all _temp nodes/edges to permanent
+    Finalize structure: Remove _temp from labels only (non-destructive)
+    Node IDs and edge IDs are already clean - only labels have _temp for visual distinction.
     Works standalone without active exploration session.
     
     Body: {'tree_id': 'uuid'} (optional: 'device_id' for backwards compatibility)
@@ -372,16 +373,12 @@ def finalize_structure():
         if not tree_id:
             return jsonify({'success': False, 'error': 'tree_id required'}), 400
         
-        print(f"[@route:ai_generation:finalize_structure] Renaming _temp nodes/edges for tree: {tree_id}")
+        print(f"[@route:ai_generation:finalize_structure] Removing _temp from labels for tree: {tree_id}")
         
         # Get all nodes and edges from tree
         from shared.src.lib.database.navigation_trees_db import (
             get_tree_nodes, 
-            get_tree_edges, 
-            save_node, 
-            save_edge, 
-            delete_node, 
-            delete_edge,
+            get_tree_edges,
             get_supabase
         )
         
@@ -394,92 +391,54 @@ def finalize_structure():
         nodes = nodes_result.get('nodes', [])
         edges = edges_result.get('edges', [])
         
-        nodes_renamed = 0
-        edges_renamed = 0
+        nodes_updated = 0
+        edges_updated = 0
         
         supabase = get_supabase()
 
-        # Rename nodes: delete old target if exists, update temp to new id
+        # Update node labels: remove _temp suffix
         for node in nodes:
-            node_id = node.get('node_id', '')
-            if node_id.endswith('_temp'):
-                new_node_id = node_id.replace('_temp', '')
-                
-                # Check if target node already exists
-                existing = supabase.table('navigation_nodes').select('id')\
-                    .eq('tree_id', tree_id)\
-                    .eq('node_id', new_node_id)\
-                    .eq('team_id', team_id)\
-                    .execute()
-                
-                if existing.data:
-                    print(f"  🗑️  Deleting existing target node: {new_node_id}")
-                    # We use delete_node to ensure cascade happens if needed
-                    # But be careful: if we just want to replace, maybe we should have just updated?
-                    # Standard 'finalize' implies replacing the old structure with the new one
-                    delete_node(tree_id, new_node_id, team_id)
-                
-                # Rename the _temp node record directly to avoid PK conflicts
+            label = node.get('label', '')
+            if label.endswith('_temp'):
+                new_label = label.replace('_temp', '')
                 internal_id = node.get('id')
+                
                 result = supabase.table('navigation_nodes').update({
-                    'node_id': new_node_id,
+                    'label': new_label,
                     'updated_at': 'now()'
                 }).eq('id', internal_id).execute()
                 
                 if result.data:
-                    nodes_renamed += 1
-                    print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
-                else:
-                    print(f"  ❌ Failed to rename node: {node_id}")
+                    nodes_updated += 1
+                    print(f"  ✅ Updated node label: {label} → {new_label}")
 
-        # Rename edges: delete old target if exists, update temp to new ids
+        # Update edge labels: remove _temp suffix
         for edge in edges:
-            edge_id = edge.get('edge_id', '')
-            source = edge.get('source_node_id', '')
-            target = edge.get('target_node_id', '')
-            
-            if '_temp' in edge_id or '_temp' in source or '_temp' in target:
-                new_edge_id = edge_id.replace('_temp', '')
-                new_source = source.replace('_temp', '')
-                new_target = target.replace('_temp', '')
-                
-                # Check if target edge already exists
-                existing = supabase.table('navigation_edges').select('id')\
-                    .eq('tree_id', tree_id)\
-                    .eq('edge_id', new_edge_id)\
-                    .eq('team_id', team_id)\
-                    .execute()
-                
-                if existing.data:
-                    print(f"  🗑️  Deleting existing target edge: {new_edge_id}")
-                    delete_edge(tree_id, new_edge_id, team_id)
-                
-                # Update the _temp edge record directly
+            label = edge.get('label', '')
+            if label and '_temp' in label:
+                new_label = label.replace('_temp', '')
                 internal_id = edge.get('id')
+                
                 result = supabase.table('navigation_edges').update({
-                    'edge_id': new_edge_id,
-                    'source_node_id': new_source,
-                    'target_node_id': new_target,
+                    'label': new_label,
                     'updated_at': 'now()'
                 }).eq('id', internal_id).execute()
                 
                 if result.data:
-                    edges_renamed += 1
-                    print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
-                else:
-                    print(f"  ❌ Failed to rename edge: {edge_id}")
+                    edges_updated += 1
+                    print(f"  ✅ Updated edge label: {label} → {new_label}")
         
         # Invalidate cache after all changes
         from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree
         invalidate_navigation_cache_for_tree(tree_id, team_id)
         
-        print(f"[@route:ai_generation:finalize_structure] Complete: {nodes_renamed} nodes, {edges_renamed} edges renamed")
+        print(f"[@route:ai_generation:finalize_structure] Complete: {nodes_updated} nodes, {edges_updated} edges updated")
         
         return jsonify({
             'success': True,
-            'nodes_renamed': nodes_renamed,
-            'edges_renamed': edges_renamed,
-            'message': f'Finalized: {nodes_renamed} nodes and {edges_renamed} edges renamed'
+            'nodes_renamed': nodes_updated,  # Keep old key name for frontend compatibility
+            'edges_renamed': edges_updated,  # Keep old key name for frontend compatibility
+            'message': f'Finalized: {nodes_updated} node labels and {edges_updated} edge labels updated'
         })
             
     except Exception as e:
