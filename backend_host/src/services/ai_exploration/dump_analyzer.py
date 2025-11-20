@@ -7,6 +7,32 @@ import json
 import re
 
 
+def _get_verification_command(device_model: str) -> str:
+    """
+    Get the correct verification command based on device model.
+    
+    Returns:
+        - 'waitForElementToAppear' for ADB/Appium (android_mobile, android_tv)
+        - 'waitForElementToAppear' for Web (horizon_web, etc.)
+        - 'waitForImageToAppear' for image-based (default fallback)
+    """
+    if not device_model:
+        return 'waitForImageToAppear'
+    
+    model_lower = device_model.lower()
+    
+    # ADB/Appium: android_mobile, android_tv
+    if 'android' in model_lower or 'mobile' in model_lower or 'appium' in model_lower:
+        return 'waitForElementToAppear'
+    
+    # Web: horizon_web, playwright, etc.
+    if 'web' in model_lower or 'playwright' in model_lower:
+        return 'waitForElementToAppear'
+    
+    # Default: Image verification
+    return 'waitForImageToAppear'
+
+
 # ============================================================================
 # WEAK WORDS: Can be used as secondary verification only (not strong enough alone)
 # ============================================================================
@@ -105,19 +131,25 @@ def _dump_to_string(dump: Dict) -> str:
     return "\n".join(lines)
 
 
-def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
+def analyze_unique_elements(node_verification_data: List[Dict], device_model: str = None) -> List[Dict]:
     """
     Analyze dumps to find unique element per node
     
     Args:
         node_verification_data: List of {node_id, node_label, dump, screenshot_url}
-        
+        device_model: Device model name to determine verification command (e.g., 'android_mobile', 'horizon_web')
+    
     Returns:
         List of {node_id, node_label, screenshot_url, dump, suggested_verification}
     """
     print(f"\n{'='*100}")
     print(f"[@dump_analyzer] 🔍 STARTING ANALYSIS: {len(node_verification_data)} nodes to analyze")
+    print(f"[@dump_analyzer] 🎮 Device model: {device_model}")
     print(f"{'='*100}")
+    
+    # Determine verification command based on device type
+    verification_command = _get_verification_command(device_model)
+    print(f"[@dump_analyzer] ✅ Using verification command: {verification_command}")
     
     results = []
     
@@ -160,7 +192,7 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
                 'screenshot_url': screenshot_url,
                 'dump': dump_string,
                 'suggested_verification': {
-                    'method': 'checkElement',
+                    'method': verification_command,
                     'params': verifications[0],  # Frontend expects single params for now
                     'params_all': verifications,  # Store all for future use
                     'found': True,
@@ -182,7 +214,7 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
                 'screenshot_url': screenshot_url,
                 'dump': dump_string,
                 'suggested_verification': {
-                    'method': 'checkElement',
+                    'method': verification_command,
                     'params': {'xpath': unique_xpath},
                     'found': True,
                     'type': 'xpath'
@@ -199,7 +231,7 @@ def analyze_unique_elements(node_verification_data: List[Dict]) -> List[Dict]:
             'screenshot_url': screenshot_url,
             'dump': dump_string,
             'suggested_verification': {
-                'method': 'checkElement',
+                'method': verification_command,
                 'params': {},
                 'found': False,
                 'type': None
