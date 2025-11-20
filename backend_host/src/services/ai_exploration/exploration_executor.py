@@ -1168,7 +1168,7 @@ class ExplorationExecutor:
             
             # Analyze dumps to find unique elements
             from backend_host.src.services.ai_exploration.dump_analyzer import analyze_unique_elements
-            suggestions = analyze_unique_elements(node_verification_data)
+            suggestions = analyze_unique_elements(node_verification_data, device_model=self.device_model)
             
             # Store suggestions
             self.exploration_state['node_verification_suggestions'] = suggestions

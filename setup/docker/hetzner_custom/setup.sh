@@ -470,6 +470,8 @@ services:
       - "${SERVER_PORT}:${SERVER_PORT}"
     volumes:
       - ../../../.env:/app/.env:ro
+      - ../../../test_scripts:/app/test_scripts:ro
+      - ../../../test_campaign:/app/test_campaign:ro
     environment:
       - SERVER_PORT=${SERVER_PORT}
       - SERVER_URL=\${SERVER_URL:-http://localhost:${SERVER_PORT}}
@@ -552,6 +554,8 @@ for i in $(seq 1 $HOST_MAX); do
       - /dev:/dev
       - ../../../.env:/app/.env:ro
       - ../../../backend_host_${i}/.env:/app/backend_host/src/.env:ro
+      - ../../../test_scripts:/app/test_scripts:ro
+      - ../../../test_campaign:/app/test_campaign:ro
       - ../../../backend_discard:/app/backend_discard:ro
     tmpfs:
       - /var/www/html/stream/capture${i}/hot:size=200M,mode=777
@@ -619,9 +623,6 @@ services:
       - ../../../shared:/app/shared:rw
       - ../../../backend_server/src:/app/backend_server/src:rw
       - ../../../backend_server/scripts:/app/backend_server/scripts:rw
-      # Mount test scripts and campaigns for live editing
-      - ../../../test_scripts:/app/test_scripts:rw
-      - ../../../test_campaign:/app/test_campaign:rw
     environment:
       - DEBUG=1
       - PYTHONDONTWRITEBYTECODE=1
@@ -638,9 +639,6 @@ for i in $(seq 1 $HOST_MAX); do
       - ../../../shared:/app/shared:rw
       - ../../../backend_host/src:/app/backend_host/src:rw
       - ../../../backend_host/scripts:/app/backend_host/scripts:rw
-      # Mount test scripts and campaigns for live editing
-      - ../../../test_scripts:/app/test_scripts:rw
-      - ../../../test_campaign:/app/test_campaign:rw
     environment:
       - DEBUG=1
       - PYTHONDONTWRITEBYTECODE=1
