@@ -334,7 +334,7 @@ export const AndroidMobileRemote = React.memo(
       const finalPosition = isLandscape
         ? {
             x: panelX+20,
-            y: panelY + streamActualSize.height/2+35, // Adjust Y for height difference
+            y: window.innerHeight-streamActualSize.height/2-30, // Adjust Y for height difference
           }
         : streamActualPosition;
 
