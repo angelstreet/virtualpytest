@@ -52,6 +52,10 @@ COPY backend_server/scripts/ backend_server/scripts/
 # Copy backend_server configuration
 COPY backend_server/config/ backend_server/config/
 
+# Copy test scripts and campaigns (self-contained deployment)
+COPY test_scripts/ /app/test_scripts/
+COPY test_campaign/ /app/test_campaign/
+
 # Copy nginx configuration for Render
 COPY backend_server/config/nginx/render.conf /etc/nginx/sites-available/default
 

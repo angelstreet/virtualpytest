@@ -65,6 +65,10 @@ COPY backend_host/scripts/ backend_host/scripts/
 # Copy backend_host configuration
 COPY backend_host/config/ backend_host/config/
 
+# Copy test scripts and campaigns (self-contained deployment)
+COPY test_scripts/ /app/test_scripts/
+COPY test_campaign/ /app/test_campaign/
+
 # Set working directory to backend_host
 WORKDIR /app/backend_host
 
