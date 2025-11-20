@@ -862,9 +862,55 @@ class ADBUtils:
             print(f"[@lib:adbUtils:take_screenshot] {error_msg}")
             return False, "", error_msg 
 
+    def _calculate_match_score(self, search_term: str, matched_value: str) -> Tuple[int, int, int]:
+        """
+        Calculate match quality score for prioritization.
+        
+        Returns tuple of (exact_match, case_match_score, length) where:
+        - exact_match: 1 if exact match, 0 otherwise (highest priority)
+        - case_match_score: number of matching case characters (higher is better)
+        - length: length of matched value (lower is better, so we negate for sorting)
+        
+        Args:
+            search_term: The search term to compare
+            matched_value: The value that was matched
+        
+        Returns:
+            Tuple[int, int, int]: (exact_match, case_match_score, -length)
+        """
+        search_stripped = search_term.strip()
+        value_stripped = matched_value.strip()
+        
+        # 1. Check for exact match (highest priority)
+        exact_match = 1 if search_stripped == value_stripped else 0
+        
+        # 2. Calculate case match score (character-by-character case matching)
+        # For each character position where both have the same case, add 1 point
+        case_match_score = 0
+        search_lower = search_stripped.lower()
+        value_lower = value_stripped.lower()
+        
+        # Find where the search term appears in the value (case-insensitive)
+        if search_lower in value_lower:
+            start_idx = value_lower.index(search_lower)
+            # Compare case character by character
+            for i in range(len(search_stripped)):
+                if i + start_idx < len(value_stripped):
+                    search_char = search_stripped[i]
+                    value_char = value_stripped[i + start_idx]
+                    # Check if both are same case (both upper or both lower)
+                    if search_char.isupper() == value_char.isupper():
+                        case_match_score += 1
+        
+        # 3. Get length (we'll negate it for sorting so shorter is better)
+        length = len(value_stripped)
+        
+        return (exact_match, case_match_score, -length)
+
     def smart_element_search(self, device_id: str, search_term: str, **options) -> Tuple[bool, List[Dict[str, Any]], str]:
         """
         Smart element search that looks for search_term (case-insensitive) in ANY attribute.
+        Results are prioritized by: 1) Exact match, 2) Case match, 3) Shortest length.
         
         Args:
             device_id: Android device ID
@@ -883,7 +929,8 @@ class ADBUtils:
                 "search_term": str,
                 "case_match": str,
                 "all_matches": list,
-                "full_element": dict
+                "full_element": dict,
+                "match_score": tuple
             }
         """
         try:
@@ -948,6 +995,9 @@ class ADBUtils:
                     # Use the first/best match for primary result
                     primary_match = element_matches[0]
                     
+                    # Calculate match score for prioritization
+                    match_score = self._calculate_match_score(search_term, primary_match["value"])
+                    
                     # Determine case match description
                     case_match = "Exact case match" if search_term in primary_match["value"] else f"Different case: searched '{search_term}', found '{primary_match['value']}'"
                     
@@ -959,12 +1009,21 @@ class ADBUtils:
                         "search_term": search_term,
                         "case_match": case_match,
                         "all_matches": element_matches,  # Include all matching attributes
-                        "full_element": element.to_dict()
+                        "full_element": element.to_dict(),
+                        "match_score": match_score  # For sorting/debugging
                     }
                     
                     matches.append(match_info)
                     
                     print(f"[@lib:adbUtils:smart_element_search] Match found - Element {element.id}: {primary_match['reason']}")
+            
+            # Sort matches by priority: 1) Exact match, 2) Case match score, 3) Shortest length
+            if matches:
+                matches.sort(key=lambda m: m["match_score"], reverse=True)
+                print(f"[@lib:adbUtils:smart_element_search] Prioritized {len(matches)} matches:")
+                for i, match in enumerate(matches[:5]):  # Show top 5
+                    score = match["match_score"]
+                    print(f"[@lib:adbUtils:smart_element_search]   {i+1}. '{match['matched_value']}' (exact={score[0]}, case_score={score[1]}, len={-score[2]})")
             
             success = len(matches) > 0
             if success:
