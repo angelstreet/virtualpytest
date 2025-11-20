@@ -54,6 +54,13 @@ def analyze_script_parameters(script_path):
             print(f"[@analyze_script] Found _script_args raw: {arg_items}")
             
             for arg_item in arg_items:
+                # Strip any Python comments that somehow got included (after # character)
+                if '#' in arg_item:
+                    arg_item = arg_item.split('#')[0].strip()
+                
+                # Strip any commas or whitespace that got included
+                arg_item = arg_item.strip().rstrip(',').strip()
+                
                 # Parse format: --param-name:type:default or --param-name:type
                 parts = arg_item.split(':')
                 if len(parts) >= 2:

@@ -37,11 +37,9 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 _script_args = [
-    '--userinterface:str:web_test',   # Ignored (framework passes it, but we don't need it)
-    '--target:str:google.com',        # Target URL or IP (can include :port)
-    '--protocol:str:icmp',            # Protocol: icmp, tcp, udp
-    '--count:int:5',                  # Number of ping attempts
-    '--max_hops:int:30',              # Maximum hops for traceroute
+    '--target:str:google.com',
+    '--protocol:str:icmp',
+    '--count:int:5',
 ]
 
 

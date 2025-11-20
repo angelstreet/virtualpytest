@@ -32,8 +32,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 _script_args = [
-    '--userinterface:str:web_test',           # Ignored (framework passes it, but we don't need it)
-    '--dns:str:epg.prod.ch.dmdsdp.com'        # Domain to lookup
+    '--dns:str:epg.prod.ch.dmdsdp.com'
 ]
 
 
