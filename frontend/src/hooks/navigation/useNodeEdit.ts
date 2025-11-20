@@ -175,8 +175,39 @@ export const useNodeEdit = ({
         }
       }
       
+      // 🛡️ VALIDATION: Filter out invalid/empty verifications before saving
+      const validVerifications = (nodeForm.verifications || []).filter((v: any) => {
+        // Must have a command (or method)
+        const hasCommand = v.command || v.method;
+        if (!hasCommand || hasCommand.trim() === '') {
+          console.warn('[useNodeEdit] 🛡️ Filtered out verification with missing command:', v);
+          return false;
+        }
+        
+        // Type-specific validation
+        if (v.verification_type === 'text' && (!v.params?.text || v.params.text.trim() === '')) {
+          console.warn('[useNodeEdit] 🛡️ Filtered out text verification with missing text:', v);
+          return false;
+        }
+        
+        if (v.verification_type === 'image' && !v.params?.image_path) {
+          console.warn('[useNodeEdit] 🛡️ Filtered out image verification with missing image_path:', v);
+          return false;
+        }
+        
+        return true;
+      });
+      
+      // Update nodeForm with validated verifications
+      const validatedNodeForm = {
+        ...nodeForm,
+        verifications: validVerifications
+      };
+      
+      console.log(`[useNodeEdit] 🛡️ Validation: ${nodeForm.verifications?.length || 0} → ${validVerifications.length} verifications`);
+      
       // 1. Save to database via context
-      await saveNodeWithStateUpdate(nodeForm);
+      await saveNodeWithStateUpdate(validatedNodeForm);
       setSaveSuccess(true);
       setTimeout(() => setSaveSuccess(false), 2000);
       
@@ -190,7 +221,7 @@ export const useNodeEdit = ({
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            node: nodeForm,
+            node: validatedNodeForm,  // Use validated form
             tree_id: treeId
           })
         });

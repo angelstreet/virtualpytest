@@ -1244,13 +1244,15 @@ class ExplorationExecutor:
                     new_params = verification['params']
                     
                     for v in node_data['verifications']:
-                        if v.get('method') == verification['method'] and v.get('params') == new_params:
+                        if v.get('command') == verification.get('method') and v.get('params') == new_params:
                             verification_exists = True
                             break
                     
                     if not verification_exists:
+                        # Map 'method' to 'command' for standard verification format
                         node_data['verifications'].append({
-                            'method': verification['method'],
+                            'command': verification.get('method', 'checkElement'),  # Use 'command' not 'method'
+                            'verification_type': verification.get('type', 'text'),
                             'params': verification['params'],
                             'expected': True
                         })

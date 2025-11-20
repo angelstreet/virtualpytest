@@ -203,7 +203,12 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
         onClose={onClose}
         maxWidth="md"
         fullWidth
-        sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
+        sx={{ 
+          zIndex: getZIndex('NAVIGATION_DIALOGS'),
+          '& .MuiDialog-paper': {
+            border: '1px solid white',
+          }
+        }}
       >
         <DialogTitle sx={{ pb: 0.5 }}>
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

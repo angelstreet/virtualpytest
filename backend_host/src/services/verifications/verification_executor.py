@@ -257,8 +257,9 @@ class VerificationExecutor:
         
         if not valid_verifications:
             return {
-                'success': False,
-                'error': 'All verifications were invalid and filtered out',
+                'success': True,
+                'has_verifications': False,
+                'message': 'All verifications were invalid and filtered out',
                 'results': [],
                 'passed_count': 0,
                 'total_count': 0

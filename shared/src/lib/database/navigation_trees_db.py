@@ -366,6 +366,25 @@ def save_node(tree_id: str, node_data: Dict, team_id: str) -> Dict:
                 del node_data['data']['verifications']
                 print(f"[@db:save_node] 🧹 Removed duplicate verifications from data.verifications")
         
+        # 🛡️ PROTECTION: Normalize verification structure (ensure 'command' exists, not just 'method')
+        if 'verifications' in node_data and isinstance(node_data['verifications'], list):
+            normalized_verifications = []
+            for v in node_data['verifications']:
+                if isinstance(v, dict):
+                    # If 'method' exists but 'command' doesn't, migrate it
+                    if 'method' in v and 'command' not in v:
+                        v['command'] = v['method']
+                        print(f"[@db:save_node] 🔧 Auto-migrated verification: 'method' → 'command' = '{v['command']}'")
+                    
+                    # Ensure 'command' is not empty
+                    if not v.get('command') or v.get('command', '').strip() == '':
+                        print(f"[@db:save_node] ⚠️ Skipping verification with missing/empty command")
+                        continue
+                    
+                    normalized_verifications.append(v)
+            
+            node_data['verifications'] = normalized_verifications
+        
         # Log what we're about to save
         print(f"[@db:navigation_trees:save_node] Saving node {node_data['node_id']}")
         print(f"[@db:navigation_trees:save_node] data.is_root = {node_data.get('data', {}).get('is_root')}")
@@ -448,6 +467,25 @@ def save_nodes_batch(tree_id: str, nodes_data: List[Dict], team_id: str) -> Dict
                     print(f"[@db:save_nodes_batch] ⚠️ Auto-migrated verifications for node {node_data.get('node_id')}")
                 if data_verifications:
                     del node_data['data']['verifications']
+            
+            # 🛡️ PROTECTION: Normalize verification structure (ensure 'command' exists, not just 'method')
+            if 'verifications' in node_data and isinstance(node_data['verifications'], list):
+                normalized_verifications = []
+                for v in node_data['verifications']:
+                    if isinstance(v, dict):
+                        # If 'method' exists but 'command' doesn't, migrate it
+                        if 'method' in v and 'command' not in v:
+                            v['command'] = v['method']
+                            print(f"[@db:save_nodes_batch] 🔧 Auto-migrated verification: 'method' → 'command' = '{v['command']}'")
+                        
+                        # Ensure 'command' is not empty
+                        if not v.get('command') or v.get('command', '').strip() == '':
+                            print(f"[@db:save_nodes_batch] ⚠️ Skipping verification with missing/empty command")
+                            continue
+                        
+                        normalized_verifications.append(v)
+                
+                node_data['verifications'] = normalized_verifications
             
             # Ensure style field is never null
             if 'style' not in node_data or node_data['style'] is None:

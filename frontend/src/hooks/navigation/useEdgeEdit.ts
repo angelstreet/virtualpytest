@@ -350,9 +350,51 @@ export const useEdgeEdit = ({
     }
     
     try {
+      // 🛡️ VALIDATION: Filter out empty actions from all action sets before saving
+      const validatedActionSets = (edgeForm.action_sets || []).map((actionSet: ActionSet) => {
+        return {
+          ...actionSet,
+          actions: (actionSet.actions || []).filter((action: Action) => {
+            // Must have a command
+            if (!action.command || action.command.trim() === '') {
+              console.warn('[useEdgeEdit] 🛡️ Filtered out action with missing command:', action);
+              return false;
+            }
+            return true;
+          }),
+          retry_actions: (actionSet.retry_actions || []).filter((action: Action) => {
+            if (!action.command || action.command.trim() === '') {
+              console.warn('[useEdgeEdit] 🛡️ Filtered out retry action with missing command:', action);
+              return false;
+            }
+            return true;
+          }),
+          failure_actions: (actionSet.failure_actions || []).filter((action: Action) => {
+            if (!action.command || action.command.trim() === '') {
+              console.warn('[useEdgeEdit] 🛡️ Filtered out failure action with missing command:', action);
+              return false;
+            }
+            return true;
+          })
+        };
+      });
+      
+      // Update edgeForm with validated action sets
+      const validatedEdgeForm = {
+        ...edgeForm,
+        action_sets: validatedActionSets
+      };
+      
+      const totalBefore = (edgeForm.action_sets || []).reduce((sum, as) => 
+        sum + (as.actions?.length || 0) + (as.retry_actions?.length || 0) + (as.failure_actions?.length || 0), 0);
+      const totalAfter = validatedActionSets.reduce((sum, as) => 
+        sum + (as.actions?.length || 0) + (as.retry_actions?.length || 0) + (as.failure_actions?.length || 0), 0);
+      
+      console.log(`[useEdgeEdit] 🛡️ Validation: ${totalBefore} → ${totalAfter} actions across all sets`);
+      
       // 1. Save to database via context
-      console.log('[useEdgeEdit] 💾 Saving edge to database:', edgeForm.edgeId);
-      await saveEdgeWithStateUpdate(edgeForm);
+      console.log('[useEdgeEdit] 💾 Saving edge to database:', validatedEdgeForm.edgeId);
+      await saveEdgeWithStateUpdate(validatedEdgeForm);
       console.log('[useEdgeEdit] ✅ Edge saved to database');
       
       // 2. Update cache incrementally on all hosts (no rebuild)
@@ -367,14 +409,14 @@ export const useEdgeEdit = ({
         
         // Build proper edge data structure for cache update
         const edgeDataForCache = {
-          id: edgeForm.edgeId,
+          id: validatedEdgeForm.edgeId,
           source_node_id: selectedEdge.source,
           target_node_id: selectedEdge.target,
-          action_sets: edgeForm.action_sets,
-          default_action_set_id: edgeForm.default_action_set_id,
-          final_wait_time: edgeForm.final_wait_time,
-          priority: edgeForm.priority,
-          threshold: edgeForm.threshold
+          action_sets: validatedEdgeForm.action_sets,
+          default_action_set_id: validatedEdgeForm.default_action_set_id,
+          final_wait_time: validatedEdgeForm.final_wait_time,
+          priority: validatedEdgeForm.priority,
+          threshold: validatedEdgeForm.threshold
         };
         
         console.log('[useEdgeEdit]   → Action sets:', edgeDataForCache.action_sets?.length || 0);
