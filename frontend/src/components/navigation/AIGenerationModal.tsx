@@ -561,6 +561,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           variant="contained" 
           color="error"
           disabled={isCheckingTree}
+          startIcon={isCheckingTree ? <CircularProgress size={16} sx={{ color: 'inherit' }} /> : undefined}
         >
           {isCheckingTree ? 'Deleting...' : 'Delete'}
         </Button>
