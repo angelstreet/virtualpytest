@@ -562,7 +562,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           color="error"
           disabled={isCheckingTree}
         >
-          {isCheckingTree ? 'Deleting...' : 'Delete & Start'}
+          {isCheckingTree ? 'Deleting...' : 'Delete'}
         </Button>
       </DialogActions>
     </Dialog>

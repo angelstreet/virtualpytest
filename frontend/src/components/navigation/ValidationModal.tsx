@@ -262,12 +262,33 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           </Box>
         )}
 
-        {/* Results List - Compact Format */}
+        {/* Results List - Compact Format - Reverse order (newest first) */}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {/* Completed steps */}
-          {validationResults.map((result, index) => (
+          {/* Current step (in progress) - Show first so user doesn't need to scroll */}
+          {(isValidating || validationResults.length === 0) && (
+            <Paper sx={{ 
+              p: 1.5, 
+              bgcolor: 'info.dark', 
+              border: '2px solid', 
+              borderColor: 'info.main',
+              borderRadius: 1
+            }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                <CircularProgress size={16} sx={{ color: 'info.light' }} />
+                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
+                  Step {Math.max(1, (validationProgress.current || 0) + 1)} - IN PROGRESS
+                </Typography>
+              </Box>
+              <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', color: 'info.light', ml: 3 }}>
+                {truncate(currentStep || 'Validating...', 70)}
+              </Typography>
+            </Paper>
+          )}
+          
+          {/* Completed steps - Reverse chronological order (newest first) */}
+          {[...validationResults].reverse().map((result, index) => (
             <Paper 
-              key={index}
+              key={validationResults.length - 1 - index}
               sx={{ 
                 p: 1.5,
                 bgcolor: 'background.default',
@@ -327,27 +348,6 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               </Box>
             </Paper>
           ))}
-          
-          {/* Current step (in progress) - Always show at least Step 1 */}
-          {(isValidating || validationResults.length === 0) && (
-            <Paper sx={{ 
-              p: 1.5, 
-              bgcolor: 'info.dark', 
-              border: '2px solid', 
-              borderColor: 'info.main',
-              borderRadius: 1
-            }}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                <CircularProgress size={16} sx={{ color: 'info.light' }} />
-                <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  Step {Math.max(1, (validationProgress.current || 0) + 1)} - IN PROGRESS
-                </Typography>
-              </Box>
-              <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', color: 'info.light', ml: 3 }}>
-                {truncate(currentStep || 'Validating...', 70)}
-              </Typography>
-            </Paper>
-          )}
           
           {/* Pending steps */}
           {validationProgress.total > 0 && 
