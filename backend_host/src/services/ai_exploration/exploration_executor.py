@@ -727,8 +727,25 @@ class ExplorationExecutor:
                 # A. Capture Dump (Critical for node verification - do this first/independently)
                 dump_data = None
                 try:
-                    dump_data = controller.dump_elements()
-                    print(f"    📱 Dump captured for verification analysis")
+                    dump_result = controller.dump_elements()
+                    
+                    # Normalize dump format (mobile returns tuple, web returns dict)
+                    if isinstance(dump_result, tuple):
+                        # Mobile: (success, elements, error)
+                        success, elements, error = dump_result
+                        if success and elements:
+                            dump_data = {'elements': elements}
+                            print(f"    📱 Dump captured: {len(elements)} elements")
+                        else:
+                            print(f"    ⚠️ Dump failed: {error or 'no elements'}")
+                    elif isinstance(dump_result, dict):
+                        # Web: already dict format
+                        dump_data = dump_result
+                        element_count = len(dump_result.get('elements', []))
+                        print(f"    🌐 Dump captured: {element_count} elements")
+                    else:
+                        print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
+                        
                 except Exception as dump_err:
                     print(f"    ⚠️ Dump capture failed: {dump_err}")
                 
