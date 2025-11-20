@@ -1119,6 +1119,54 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                 success, _, _ = self.dump_elements()
                 return success
             
+            elif command == 'find_element':
+                # Android Mobile specific - find element by search term
+                search_term = params.get('search_term', '')
+                if not search_term:
+                    return {'success': False, 'error': 'No search term provided'}
+                
+                # Dump UI elements first
+                dump_success, elements, dump_error = self.dump_elements()
+                
+                if not dump_success:
+                    return {'success': False, 'error': f'Failed to dump UI: {dump_error}'}
+                
+                # Search for matching elements (same logic as ADB verification smart_element_search)
+                matches = []
+                search_lower = search_term.lower()
+                
+                for element in elements:
+                    # Search in text, content_desc, resource_id, class_name
+                    element_text = (element.text or '').lower()
+                    content_desc = (element.content_desc or '').lower()
+                    resource_id = (element.resource_id or '').lower()
+                    class_name = (element.class_name or '').lower()
+                    
+                    match_reason = None
+                    if search_lower in element_text:
+                        match_reason = f"Text: '{element.text}'"
+                    elif search_lower in content_desc:
+                        match_reason = f"Content Desc: '{element.content_desc}'"
+                    elif search_lower in resource_id:
+                        match_reason = f"Resource ID: '{element.resource_id}'"
+                    elif search_lower in class_name:
+                        match_reason = f"Class: '{element.class_name}'"
+                    
+                    if match_reason:
+                        matches.append({
+                            'element_id': element.id,
+                            'match_reason': match_reason,
+                            'text': element.text,
+                            'content_desc': element.content_desc,
+                            'resource_id': element.resource_id,
+                            'class_name': element.class_name,
+                            'bounds': element.bounds,
+                            'clickable': element.clickable
+                        })
+                
+                print(f"Remote[{self.device_type.upper()}]: Found {len(matches)} matching elements for '{search_term}'")
+                return {'success': True, 'matches': matches, 'total_matches': len(matches)}
+            
             elif command == 'get_installed_apps':
                 # Android Mobile specific
                 apps = self.get_installed_apps()
@@ -1136,7 +1184,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'click_element', 'click_element_by_id', 'tap_coordinates',
                     'swipe', 'swipe_up', 'swipe_down', 'swipe_left', 'swipe_right',
                     'SWIPE_UP', 'SWIPE_DOWN', 'SWIPE_LEFT', 'SWIPE_RIGHT',
-                    'dump_elements', 'get_installed_apps'
+                    'dump_elements', 'find_element', 'get_installed_apps'
                 ]
                 error_msg = (
                     f"❌ Invalid command '{command}' for android_mobile device. "

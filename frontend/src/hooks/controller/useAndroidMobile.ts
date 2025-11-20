@@ -318,7 +318,7 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
     async (command: string, params?: any) => {
       if (!selectedHost) {
         console.warn('[@hook:useAndroidMobile] No host data available for remote command');
-        return;
+        return { success: false, error: 'No host data available' };
       }
 
       console.log(`[@hook:useAndroidMobile] Executing remote command: ${command}`, params);
@@ -340,6 +340,30 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
             command: command, // Send swipe commands directly as commands
             params: params || {},
           };
+        } else if (command === 'CLICK_ELEMENT_BY_ID') {
+          // Click by element ID - use click_element_by_id
+          requestBody = {
+            host_name: selectedHost.host_name,
+            device_id: deviceId,
+            command: 'click_element_by_id',
+            params: params || {},
+          };
+        } else if (command === 'CLICK_ELEMENT_BY_TEXT') {
+          // Click by text - use click_element
+          requestBody = {
+            host_name: selectedHost.host_name,
+            device_id: deviceId,
+            command: 'click_element',
+            params: params || {},
+          };
+        } else if (command === 'FIND_ELEMENT') {
+          // Find element - use dump_elements and search in result
+          requestBody = {
+            host_name: selectedHost.host_name,
+            device_id: deviceId,
+            command: 'find_element',
+            params: params || {},
+          };
         } else {
           requestBody = {
             host_name: selectedHost.host_name,
@@ -357,8 +381,10 @@ export function useAndroidMobile(selectedHost: Host | null, deviceId: string | n
 
         const result = await response.json();
         console.log('[@hook:useAndroidMobile] Remote command result:', result);
+        return result;
       } catch (error) {
         console.error('[@hook:useAndroidMobile] Remote command error:', error);
+        return { success: false, error: String(error) };
       }
     },
     [selectedHost, deviceId],

@@ -107,10 +107,12 @@ export const AndroidMobileRemote = React.memo(
       session,
     } = hookResult;
 
-    // Local state for element interaction inputs
-    const [clickElementId, setClickElementId] = React.useState('');
-    const [clickElementText, setClickElementText] = React.useState('');
-    const [findElementSelector, setFindElementSelector] = React.useState('');
+    // Local state for element interaction
+    const [elementActionType, setElementActionType] = React.useState<'click_id' | 'click_text' | 'find'>('click_id');
+    const [elementActionInput, setElementActionInput] = React.useState('');
+    const [isExecutingAction, setIsExecutingAction] = React.useState(false);
+    const [actionStatus, setActionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
+    const [findResults, setFindResults] = React.useState<any>(null);
 
     // Debug: Log orientation changes in remote component
     React.useEffect(() => {
@@ -122,6 +124,59 @@ export const AndroidMobileRemote = React.memo(
         onOrientationChange(isLandscape);
       }
     }, [isLandscape, onOrientationChange]);
+
+    // Reset action status after 3 seconds
+    React.useEffect(() => {
+      if (actionStatus !== 'idle') {
+        const timer = setTimeout(() => setActionStatus('idle'), 3000);
+        return () => clearTimeout(timer);
+      }
+    }, [actionStatus]);
+
+    // Handle element interaction action execution
+    const handleElementAction = async () => {
+      if (!elementActionInput.trim() || isExecutingAction) return;
+
+      setIsExecutingAction(true);
+      setActionStatus('idle');
+
+      try {
+        let result;
+        if (elementActionType === 'click_id') {
+          result = await handleRemoteCommand('CLICK_ELEMENT_BY_ID', { element_id: elementActionInput });
+        } else if (elementActionType === 'click_text') {
+          result = await handleRemoteCommand('CLICK_ELEMENT_BY_TEXT', { text: elementActionInput });
+        } else {
+          result = await handleRemoteCommand('FIND_ELEMENT', { search_term: elementActionInput });
+        }
+
+        // Set visual feedback
+        setActionStatus(result?.success ? 'success' : 'error');
+
+        // Store find results for display
+        if (elementActionType === 'find' && result?.success) {
+          setFindResults(result);
+        }
+      } catch (error) {
+        console.error('Element action error:', error);
+        setActionStatus('error');
+      } finally {
+        setIsExecutingAction(false);
+      }
+    };
+
+    // Copy find results to clipboard
+    const handleCopyFindResults = async () => {
+      if (!findResults) return;
+      
+      try {
+        const resultText = JSON.stringify(findResults, null, 2);
+        await navigator.clipboard.writeText(resultText);
+        console.log('✅ Find results copied to clipboard');
+      } catch (error) {
+        console.error('Failed to copy to clipboard:', error);
+      }
+    };
 
     // Debug logging for elements state
     React.useEffect(() => {
@@ -322,12 +377,12 @@ export const AndroidMobileRemote = React.memo(
             }}
           >
             {/* App Launcher Section */}
-            <Box sx={{ mb: 1 }}>
+            <Box sx={{ mb: 0 }}>
               <Typography variant="subtitle2" gutterBottom>
                 App Launcher ({androidApps.length} apps)
               </Typography>
 
-              <Box sx={{ mb: 1, mt: 1 }}>
+              <Box sx={{ mb: 1, mt: 0 }}>
                 <FormControl fullWidth size="small">
                   <InputLabel>Select an app...</InputLabel>
                   <Select
@@ -456,7 +511,7 @@ export const AndroidMobileRemote = React.memo(
                     },
                   },
                   maxWidth: '100%',
-                  mb: 1,
+                  mb: 0,
                 }}
               >
                 <InputLabel>Select element...</InputLabel>
@@ -519,7 +574,7 @@ export const AndroidMobileRemote = React.memo(
             </Box>
 
             {/* Device Controls */}
-            <Box sx={{ mb: 1 }}>
+            <Box sx={{ mb: 0.5 }}>
               <Typography variant="subtitle2" gutterBottom>
                 Device Controls
               </Typography>
@@ -653,133 +708,149 @@ export const AndroidMobileRemote = React.memo(
               </Box>
             </Box>
 
-            {/* Element Interaction Section */}
+            {/* Element Interaction Section - Compact version with dropdown */}
             <Box sx={{ mb: 1 }}>
-              {/* Click by Element ID */}
-              <Box sx={{ mb: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', fontWeight: 'bold' }}
+              <Typography variant="subtitle2" gutterBottom>
+                Element Interaction
+              </Typography>
+
+              {/* Action Type Selector */}
+              <FormControl fullWidth size="small" sx={{ mb: 0.5 }}>
+                <Select
+                  value={elementActionType}
+                  onChange={(e) => {
+                    setElementActionType(e.target.value as 'click_id' | 'click_text' | 'find');
+                    setActionStatus('idle');
+                    setFindResults(null);
+                  }}
+                  disabled={!session.connected}
+                  sx={{
+                    fontSize: '0.75rem',
+                    '& .MuiSelect-select': { py: 0.5 },
+                  }}
                 >
-                  Click by ID
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <TextField
-                    value={clickElementId}
-                    onChange={(e) => setClickElementId(e.target.value)}
-                    placeholder="Element ID"
-                    variant="outlined"
-                    size="small"
-                    disabled={!session.connected}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && clickElementId.trim()) {
-                        e.preventDefault();
-                        handleRemoteCommand('CLICK_ELEMENT_BY_ID', { element_id: clickElementId });
+                  <MenuItem value="click_id" sx={{ fontSize: '0.75rem' }}>
+                    Click by ID
+                  </MenuItem>
+                  <MenuItem value="click_text" sx={{ fontSize: '0.75rem' }}>
+                    Click by Text
+                  </MenuItem>
+                  <MenuItem value="find" sx={{ fontSize: '0.75rem' }}>
+                    Find Element
+                  </MenuItem>
+                </Select>
+              </FormControl>
+
+              {/* Input and Action Button */}
+              <Box sx={{ display: 'flex', gap: 0.5 }}>
+                <TextField
+                  value={elementActionInput}
+                  onChange={(e) => {
+                    // For click_id, only allow integers
+                    if (elementActionType === 'click_id') {
+                      const value = e.target.value;
+                      // Allow empty string or valid integers (including negative)
+                      if (value === '' || /^-?\d+$/.test(value)) {
+                        setElementActionInput(value);
                       }
-                    }}
-                    sx={{
-                      flex: 1,
-                      '& .MuiOutlinedInput-root': {
-                        fontSize: '0.75rem',
-                        '& input': { py: 0.5 },
-                      },
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handleRemoteCommand('CLICK_ELEMENT_BY_ID', { element_id: clickElementId })}
-                    disabled={!session.connected || !clickElementId.trim()}
-                    sx={{ minWidth: '60px' }}
-                  >
-                    Click
-                  </Button>
-                </Box>
+                    } else {
+                      setElementActionInput(e.target.value);
+                    }
+                  }}
+                  placeholder={
+                    elementActionType === 'click_id'
+                      ? 'Element ID (number)'
+                      : elementActionType === 'click_text'
+                      ? 'Element text'
+                      : 'Search term'
+                  }
+                  variant="outlined"
+                  size="small"
+                  type={elementActionType === 'click_id' ? 'number' : 'text'}
+                  disabled={!session.connected || isExecutingAction}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && elementActionInput.trim()) {
+                      e.preventDefault();
+                      handleElementAction();
+                    }
+                  }}
+                  sx={{
+                    flex: 1,
+                    '& .MuiOutlinedInput-root': {
+                      fontSize: '0.75rem',
+                      '& input': { py: 0.5 },
+                    },
+                  }}
+                />
+                <Button
+                  variant="contained"
+                  size="small"
+                  onClick={handleElementAction}
+                  disabled={!session.connected || !elementActionInput.trim() || isExecutingAction}
+                  color={
+                    actionStatus === 'success' ? 'success' : 
+                    actionStatus === 'error' ? 'error' : 
+                    'primary'
+                  }
+                  sx={{ 
+                    minWidth: '60px',
+                    position: 'relative'
+                  }}
+                >
+                  {isExecutingAction ? (
+                    <CircularProgress size={16} sx={{ color: 'white' }} />
+                  ) : (
+                    <>
+                      {actionStatus === 'success' && '✓ '}
+                      {actionStatus === 'error' && '✗ '}
+                      {elementActionType === 'find' ? 'Find' : 'Click'}
+                    </>
+                  )}
+                </Button>
               </Box>
 
-              {/* Click by Text */}
-              <Box sx={{ mb: 1 }}>
-                <Typography
-                  variant="caption"
-                  sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', fontWeight: 'bold' }}
-                >
-                  Click by Text
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <TextField
-                    value={clickElementText}
-                    onChange={(e) => setClickElementText(e.target.value)}
-                    placeholder="Element text"
-                    variant="outlined"
-                    size="small"
-                    disabled={!session.connected}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && clickElementText.trim()) {
-                        e.preventDefault();
-                        handleRemoteCommand('CLICK_ELEMENT_BY_TEXT', { text: clickElementText });
-                      }
-                    }}
-                    sx={{
-                      flex: 1,
-                      '& .MuiOutlinedInput-root': {
-                        fontSize: '0.75rem',
-                        '& input': { py: 0.5 },
-                      },
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handleRemoteCommand('CLICK_ELEMENT_BY_TEXT', { text: clickElementText })}
-                    disabled={!session.connected || !clickElementText.trim()}
-                    sx={{ minWidth: '60px' }}
-                  >
-                    Click
-                  </Button>
+              {/* Find Results Display */}
+              {elementActionType === 'find' && findResults?.success && (
+                <Box sx={{ mt: 0.5, p: 0.5, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
+                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}>
+                      Found: {findResults.matches?.length || 0} element(s)
+                    </Typography>
+                    <Button
+                      size="small"
+                      onClick={handleCopyFindResults}
+                      sx={{ 
+                        minWidth: 'auto', 
+                        fontSize: '0.65rem', 
+                        py: 0.25, 
+                        px: 0.5 
+                      }}
+                    >
+                      📋 Copy
+                    </Button>
+                  </Box>
+                  {findResults.matches && findResults.matches.length > 0 && (
+                    <Box sx={{ maxHeight: '100px', overflow: 'auto' }}>
+                      {findResults.matches.map((match: any, index: number) => (
+                        <Typography 
+                          key={index} 
+                          variant="caption" 
+                          sx={{ 
+                            display: 'block', 
+                            fontSize: '0.65rem',
+                            color: '#666',
+                            whiteSpace: 'nowrap',
+                            overflow: 'hidden',
+                            textOverflow: 'ellipsis'
+                          }}
+                        >
+                          {index + 1}. {match.match_reason || match.element_id}
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
                 </Box>
-              </Box>
-
-              {/* Find Element */}
-              <Box>
-                <Typography
-                  variant="caption"
-                  sx={{ display: 'block', mb: 0.5, fontSize: '0.7rem', fontWeight: 'bold' }}
-                >
-                  Find Element
-                </Typography>
-                <Box sx={{ display: 'flex', gap: 0.5 }}>
-                  <TextField
-                    value={findElementSelector}
-                    onChange={(e) => setFindElementSelector(e.target.value)}
-                    placeholder="Search term"
-                    variant="outlined"
-                    size="small"
-                    disabled={!session.connected}
-                    onKeyDown={(e) => {
-                      if (e.key === 'Enter' && findElementSelector.trim()) {
-                        e.preventDefault();
-                        handleRemoteCommand('FIND_ELEMENT', { search_term: findElementSelector });
-                      }
-                    }}
-                    sx={{
-                      flex: 1,
-                      '& .MuiOutlinedInput-root': {
-                        fontSize: '0.75rem',
-                        '& input': { py: 0.5 },
-                      },
-                    }}
-                  />
-                  <Button
-                    variant="contained"
-                    size="small"
-                    onClick={() => handleRemoteCommand('FIND_ELEMENT', { search_term: findElementSelector })}
-                    disabled={!session.connected || !findElementSelector.trim()}
-                    sx={{ minWidth: '60px' }}
-                  >
-                    Find
-                  </Button>
-                </Box>
-              </Box>
+              )}
             </Box>
 
             {/* Disconnect Button - REMOVED: Users can close panel or release control */}
