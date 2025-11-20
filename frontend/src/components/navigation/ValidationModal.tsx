@@ -333,7 +333,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <CircularProgress size={16} sx={{ color: 'info.light' }} />
                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  Step {Math.max(1, validationProgress.current || 1)} - IN PROGRESS
+                  Step {Math.max(1, (validationProgress.current || 0) + 1)} - IN PROGRESS
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', color: 'info.light', ml: 3 }}>

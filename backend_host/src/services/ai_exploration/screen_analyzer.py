@@ -129,7 +129,7 @@ class ScreenAnalyzer:
         interactive_elements = []
         
         # Filter out common non-interactive text
-        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration']
+        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', '...', 'content', 'decoration', 'logo']
         
         # UI accessibility hints to strip (before dynamic content detection)
         # ONLY strip instructions/state, NOT element types (Tab, Button, etc.)

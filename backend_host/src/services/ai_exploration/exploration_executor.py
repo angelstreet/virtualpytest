@@ -751,6 +751,26 @@ class ExplorationExecutor:
                         back_success = False
                 
                 back_result = 'success' if back_success else 'failed'
+                
+                # ✅ RECOVERY: If BACK failed, use navigation to return to home
+                if not back_success:
+                    print(f"    🔄 BACK failed - attempting recovery via navigation goto home...")
+                    try:
+                        # Use device's navigation executor to go to home
+                        nav_result = self.device.navigation_executor.goto_node(
+                            tree_id=tree_id,
+                            node_id=home_id,
+                            team_id=team_id
+                        )
+                        if nav_result.get('success'):
+                            print(f"    ✅ Recovery successful - navigated back to home")
+                            # Update back_result to indicate recovery was used
+                            back_result = 'success_via_recovery'
+                        else:
+                            print(f"    ❌ Recovery failed: {nav_result.get('error', 'Unknown error')}")
+                    except Exception as recovery_error:
+                        print(f"    ❌ Recovery exception: {recovery_error}")
+                
             except Exception as e:
                 print(f"    ⚠️ Back failed: {e}")
         
