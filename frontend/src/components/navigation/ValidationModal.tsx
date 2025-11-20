@@ -242,7 +242,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         }
       }}>
         {error && (
-          <Box sx={{ mb: 2, p: 2, bgcolor: 'error.dark', borderRadius: 1 }}>
+          <Box sx={{ mb: 1, p: 1, bgcolor: 'error.dark', borderRadius: 1 }}>
             <Typography variant="body2" color="error.light">
               {error}
             </Typography>
@@ -251,7 +251,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
 
         {/* Progress Bar */}
         {validationProgress.total > 0 && (
-          <Box sx={{ mb: 2, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pb: 1 }}>
+          <Box sx={{ mb: 0.5, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pb: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1, pl: 1.5 }}>
               Progress: {validationProgress.current}/{validationProgress.total}
             </Typography>
