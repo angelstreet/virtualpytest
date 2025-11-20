@@ -93,6 +93,11 @@ def cleanup_temp():
         
         print(f"[@route:ai_generation:cleanup_temp] Complete: {nodes_deleted} nodes, {edges_deleted} edges deleted")
         
+        # ✅ Invalidate cache after cleanup so unified graph is rebuilt
+        from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        print(f"[@route:ai_generation:cleanup_temp] ✅ Cache invalidated for tree {tree_id}")
+        
         return jsonify({
             'success': True,
             'nodes_deleted': nodes_deleted,
