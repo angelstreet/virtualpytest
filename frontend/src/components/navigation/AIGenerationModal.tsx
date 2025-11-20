@@ -556,7 +556,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               onClick={handleCreateStructure}
               startIcon={<NavigationIcon />}
             >
-              Create Nodes
+              Create Nodes/Edges
             </Button>
           </>
         )}
