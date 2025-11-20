@@ -6,13 +6,14 @@ Performs network path analysis with ping, traceroute, and QoS metrics.
 Measures RTT, jitter, packet loss, and maps the complete path to target.
 
 Usage:
-    python test_scripts/gw/smartping.py [--target <url:port>] [--protocol <icmp|tcp|udp>] [--count <n>] [--host <host>] [--device <device>]
+    python test_scripts/gw/smartping.py [--target <url:port>] [--protocol <icmp|tcp|udp>] [--count <n>] [--userinterface <ui>] [--host <host>] [--device <device>]
     
 Examples:
     python test_scripts/gw/smartping.py                                              # Default: ICMP to google.com
     python test_scripts/gw/smartping.py --target youtube.com:443 --protocol tcp      # TCP to YouTube
     python test_scripts/gw/smartping.py --target 8.8.8.8 --protocol icmp --count 10  # 10 ICMP pings to Google DNS
     python test_scripts/gw/smartping.py --target epg.prod.ch.dmdsdp.com:443 --protocol tcp --host sunri-pi1
+    python test_scripts/gw/smartping.py --target google.com --userinterface web_test
     
 """
 
@@ -36,6 +37,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 _script_args = [
+    '--userinterface:str:web_test',   # Ignored (framework passes it, but we don't need it)
     '--target:str:google.com',        # Target URL or IP (can include :port)
     '--protocol:str:icmp',            # Protocol: icmp, tcp, udp
     '--count:int:5',                  # Number of ping attempts

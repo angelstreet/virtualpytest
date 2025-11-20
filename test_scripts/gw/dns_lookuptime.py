@@ -5,12 +5,13 @@ DNS Lookup Time Script for VirtualPyTest
 Performs DNS lookup and measures response time, storing results in metadata.
 
 Usage:
-    python test_scripts/gw/dns_lookuptime.py [--dns <domain>] [--host <host>] [--device <device>]
+    python test_scripts/gw/dns_lookuptime.py [--dns <domain>] [--userinterface <ui>] [--host <host>] [--device <device>]
     
 Examples:
     python test_scripts/gw/dns_lookuptime.py                                    # Default: epg.prod.ch.dmdsdp.com
     python test_scripts/gw/dns_lookuptime.py --dns google.com                   # Custom domain
     python test_scripts/gw/dns_lookuptime.py --dns epg.prod.ch.dmdsdp.com --host sunri-pi1
+    python test_scripts/gw/dns_lookuptime.py --dns google.com --userinterface web_test
     
 """
 
@@ -31,7 +32,8 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 _script_args = [
-    '--dns:str:epg.prod.ch.dmdsdp.com'  # Domain to lookup
+    '--userinterface:str:web_test',           # Ignored (framework passes it, but we don't need it)
+    '--dns:str:epg.prod.ch.dmdsdp.com'        # Domain to lookup
 ]
 
 
