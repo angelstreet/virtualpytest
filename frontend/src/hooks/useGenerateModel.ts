@@ -313,31 +313,6 @@ export const useGenerateModel = ({
       setError(null);
       setIsExploring(true);
       setStatus('exploring');
-      setCurrentStep('Cleaning up previous _temp nodes...');
-      
-      console.log('[@useGenerateModel:startExploration] Cleaning up _temp nodes before starting');
-      
-      // ✅ STEP 1: Clean up any existing _temp nodes/edges
-      try {
-        const cleanupResponse = await fetch(buildServerUrl('/server/ai-generation/cleanup-temp'), {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            tree_id: treeId,
-            host_name: selectedHost.host_name
-          })
-        });
-        
-        if (cleanupResponse.ok) {
-          const cleanupData = await cleanupResponse.json();
-          console.log('[@useGenerateModel:startExploration] Cleanup complete:', cleanupData);
-        } else {
-          console.warn('[@useGenerateModel:startExploration] Cleanup failed, continuing anyway');
-        }
-      } catch (cleanupErr) {
-        console.warn('[@useGenerateModel:startExploration] Cleanup error, continuing anyway:', cleanupErr);
-      }
-      
       setCurrentStep('Starting AI exploration (2-level depth)...');
       
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
@@ -347,7 +322,7 @@ export const useGenerateModel = ({
         userinterface_name: userinterfaceName
       });
 
-      // ✅ STEP 2: Start new exploration (depth is fixed at 2 levels)
+      // Start new exploration (depth is fixed at 2 levels)
       const response = await fetch(buildServerUrl('/server/ai-generation/start-exploration'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
