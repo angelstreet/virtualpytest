@@ -1200,11 +1200,12 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
         try:
             result = _execute_specific_command()
             
-            # Handle dict returns (for error messages)
+            # Handle dict returns (for error messages and structured responses)
             if isinstance(result, dict):
                 if not result.get('success', False):
                     print(f"Remote[{self.device_type.upper()}]: Command '{command}' returned error: {result.get('error', 'Unknown error')}")
-                return result.get('success', False)
+                # Return the full dict, not just success boolean
+                return result
             
             # If command failed, try reconnecting and retry once
             if not result:

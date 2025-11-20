@@ -153,28 +153,26 @@ export const AndroidMobileRemote = React.memo(
         // Set visual feedback
         setActionStatus(result?.success ? 'success' : 'error');
 
-        // Store find results for display
+        // Store find results and auto-copy to clipboard
         if (elementActionType === 'find' && result?.success) {
           setFindResults(result);
+          
+          // Auto-copy to clipboard like dump does
+          if (result.matches) {
+            try {
+              const resultText = JSON.stringify(result, null, 2);
+              await navigator.clipboard.writeText(resultText);
+              console.log('✅ Find results copied to clipboard');
+            } catch (clipboardError) {
+              console.error('Failed to copy to clipboard:', clipboardError);
+            }
+          }
         }
       } catch (error) {
         console.error('Element action error:', error);
         setActionStatus('error');
       } finally {
         setIsExecutingAction(false);
-      }
-    };
-
-    // Copy find results to clipboard
-    const handleCopyFindResults = async () => {
-      if (!findResults) return;
-      
-      try {
-        const resultText = JSON.stringify(findResults, null, 2);
-        await navigator.clipboard.writeText(resultText);
-        console.log('✅ Find results copied to clipboard');
-      } catch (error) {
-        console.error('Failed to copy to clipboard:', error);
       }
     };
 
@@ -445,7 +443,7 @@ export const AndroidMobileRemote = React.memo(
             </Box>
 
             {/* UI Elements Section */}
-            <Box sx={{ mb: 1 }}>
+            <Box sx={{ mb: 0.5 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
                 <Typography variant="subtitle2">
                   UI Elements ({androidElements.length})
@@ -467,7 +465,7 @@ export const AndroidMobileRemote = React.memo(
                 </Button>
               </Box>
 
-              <Box sx={{ display: 'flex', gap: 0.5, mb: 1 }}>
+              <Box sx={{ display: 'flex', gap: 0.5, mb: 0.5 }}>
                 <Button
                   variant="contained"
                   size="small"
@@ -811,24 +809,10 @@ export const AndroidMobileRemote = React.memo(
 
               {/* Find Results Display */}
               {elementActionType === 'find' && findResults?.success && (
-                <Box sx={{ mt: 0.5, p: 0.5, backgroundColor: '#f5f5f5', borderRadius: 1 }}>
-                  <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                    <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem' }}>
-                      Found: {findResults.matches?.length || 0} element(s)
-                    </Typography>
-                    <Button
-                      size="small"
-                      onClick={handleCopyFindResults}
-                      sx={{ 
-                        minWidth: 'auto', 
-                        fontSize: '0.65rem', 
-                        py: 0.25, 
-                        px: 0.5 
-                      }}
-                    >
-                      📋 Copy
-                    </Button>
-                  </Box>
+                <Box sx={{ mt: 0.5, p: 0.5, backgroundColor: 'transparent', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)' }}>
+                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
+                    Found: {findResults.matches?.length || 0} element(s)
+                  </Typography>
                   {findResults.matches && findResults.matches.length > 0 && (
                     <Box sx={{ maxHeight: '100px', overflow: 'auto' }}>
                       {findResults.matches.map((match: any, index: number) => (
@@ -838,7 +822,7 @@ export const AndroidMobileRemote = React.memo(
                           sx={{ 
                             display: 'block', 
                             fontSize: '0.65rem',
-                            color: '#666',
+                            color: 'rgba(255,255,255,0.7)',
                             whiteSpace: 'nowrap',
                             overflow: 'hidden',
                             textOverflow: 'ellipsis'

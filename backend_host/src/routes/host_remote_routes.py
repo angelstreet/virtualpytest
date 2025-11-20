@@ -320,7 +320,16 @@ def execute_command():
         print(f"[@route:host_remote:execute_command] Using remote controller: {type(remote_controller).__name__}")
         
         # Use controller-specific abstraction - single line!
-        success = remote_controller.execute_command(command, params)
+        result = remote_controller.execute_command(command, params)
+        
+        # Handle dict returns (e.g., from find_element) vs boolean returns
+        if isinstance(result, dict):
+            success = result.get('success', False)
+            # Keep the full result dict to return additional data (matches, etc.)
+            result_data = result
+        else:
+            success = result
+            result_data = {'success': success}
         
         # Write action metadata to frame JSON for automatic zap measurement (if successful)
         if success:
@@ -346,7 +355,7 @@ def execute_command():
                 traceback.print_exc()
         
         return jsonify({
-            'success': success,
+            **result_data,  # Include all result data (matches, etc.)
             'message': f'Command {command} {"executed successfully" if success else "failed"}',
             'device_id': device_id
         })
