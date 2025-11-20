@@ -375,7 +375,15 @@ def finalize_structure():
         print(f"[@route:ai_generation:finalize_structure] Renaming _temp nodes/edges for tree: {tree_id}")
         
         # Get all nodes and edges from tree
-        from shared.src.lib.database.navigation_trees_db import get_tree_nodes, get_tree_edges, save_node, save_edge, delete_node, delete_edge
+        from shared.src.lib.database.navigation_trees_db import (
+            get_tree_nodes, 
+            get_tree_edges, 
+            save_node, 
+            save_edge, 
+            delete_node, 
+            delete_edge,
+            get_supabase
+        )
         
         nodes_result = get_tree_nodes(tree_id, team_id)
         edges_result = get_tree_edges(tree_id, team_id)
@@ -389,26 +397,42 @@ def finalize_structure():
         nodes_renamed = 0
         edges_renamed = 0
         
-        # Rename nodes: delete old, create new without _temp suffix
+        supabase = get_supabase()
+
+        # Rename nodes: delete old target if exists, update temp to new id
         for node in nodes:
             node_id = node.get('node_id', '')
             if node_id.endswith('_temp'):
                 new_node_id = node_id.replace('_temp', '')
                 
-                # Update node_id in the data
-                node['node_id'] = new_node_id
+                # Check if target node already exists
+                existing = supabase.table('navigation_nodes').select('id')\
+                    .eq('tree_id', tree_id)\
+                    .eq('node_id', new_node_id)\
+                    .eq('team_id', team_id)\
+                    .execute()
                 
-                # Create new node with updated id
-                result = save_node(tree_id, node, team_id)
-                if result.get('success'):
-                    # Delete old _temp node
-                    delete_node(tree_id, node_id, team_id)
+                if existing.data:
+                    print(f"  🗑️  Deleting existing target node: {new_node_id}")
+                    # We use delete_node to ensure cascade happens if needed
+                    # But be careful: if we just want to replace, maybe we should have just updated?
+                    # Standard 'finalize' implies replacing the old structure with the new one
+                    delete_node(tree_id, new_node_id, team_id)
+                
+                # Rename the _temp node record directly to avoid PK conflicts
+                internal_id = node.get('id')
+                result = supabase.table('navigation_nodes').update({
+                    'node_id': new_node_id,
+                    'updated_at': 'now()'
+                }).eq('id', internal_id).execute()
+                
+                if result.data:
                     nodes_renamed += 1
                     print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
                 else:
                     print(f"  ❌ Failed to rename node: {node_id}")
-        
-        # Rename edges: delete old, create new without _temp suffix
+
+        # Rename edges: delete old target if exists, update temp to new ids
         for edge in edges:
             edge_id = edge.get('edge_id', '')
             source = edge.get('source_node_id', '')
@@ -419,20 +443,35 @@ def finalize_structure():
                 new_source = source.replace('_temp', '')
                 new_target = target.replace('_temp', '')
                 
-                # Update edge data
-                edge['edge_id'] = new_edge_id
-                edge['source_node_id'] = new_source
-                edge['target_node_id'] = new_target
+                # Check if target edge already exists
+                existing = supabase.table('navigation_edges').select('id')\
+                    .eq('tree_id', tree_id)\
+                    .eq('edge_id', new_edge_id)\
+                    .eq('team_id', team_id)\
+                    .execute()
                 
-                # Create new edge with updated ids
-                result = save_edge(tree_id, edge, team_id)
-                if result.get('success'):
-                    # Delete old _temp edge
-                    delete_edge(tree_id, edge_id, team_id)
+                if existing.data:
+                    print(f"  🗑️  Deleting existing target edge: {new_edge_id}")
+                    delete_edge(tree_id, new_edge_id, team_id)
+                
+                # Update the _temp edge record directly
+                internal_id = edge.get('id')
+                result = supabase.table('navigation_edges').update({
+                    'edge_id': new_edge_id,
+                    'source_node_id': new_source,
+                    'target_node_id': new_target,
+                    'updated_at': 'now()'
+                }).eq('id', internal_id).execute()
+                
+                if result.data:
                     edges_renamed += 1
                     print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
                 else:
                     print(f"  ❌ Failed to rename edge: {edge_id}")
+        
+        # Invalidate cache after all changes
+        from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree
+        invalidate_navigation_cache_for_tree(tree_id, team_id)
         
         print(f"[@route:ai_generation:finalize_structure] Complete: {nodes_renamed} nodes, {edges_renamed} edges renamed")
         
