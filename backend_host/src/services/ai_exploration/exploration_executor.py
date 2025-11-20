@@ -453,6 +453,10 @@ class ExplorationExecutor:
                 else:
                     print(f"  ❌ Failed to create edge {edge_data['edge_id']}: {edge_result.get('error')}")
             
+            # ✅ CRITICAL: Wait for DB commits and cache clearing
+            print(f"  ⏳ Waiting 1s for database commits and cache invalidation...")
+            time.sleep(1.0)
+            
             # Update state
             self.exploration_state['status'] = 'structure_created'
             self.exploration_state['nodes_created'] = nodes_created
