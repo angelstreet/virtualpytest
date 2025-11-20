@@ -81,14 +81,15 @@ def save_reference(name: str, userinterface_name: str, reference_type: str, team
             'error': str(e)
         }
 
-def get_references(team_id: str, reference_type: str = None, userinterface_name: str = None, name: str = None) -> Dict:
+def get_references(team_id: str, reference_type: str = None, userinterface_name: str = None, userinterface_names: List[str] = None, name: str = None) -> Dict:
     """
     Get references with optional filtering.
     
     Args:
         team_id: Team ID for RLS
         reference_type: Filter by type ('reference_image' or 'reference_text')
-        userinterface_name: Filter by userinterface name
+        userinterface_name: Filter by single userinterface name (deprecated - use userinterface_names)
+        userinterface_names: Filter by multiple userinterface names (more efficient than post-filtering)
         name: Filter by name (partial match)
         
     Returns:
@@ -97,7 +98,7 @@ def get_references(team_id: str, reference_type: str = None, userinterface_name:
     try:
         supabase = get_supabase()
         
-        print(f"[@db:verifications_references:get_references] Getting references with filters: type={reference_type}, userinterface={userinterface_name}, name={name}")
+        print(f"[@db:verifications_references:get_references] Getting references with filters: type={reference_type}, userinterface={userinterface_name}, userinterface_names={userinterface_names}, name={name}")
         print(f"[@db:verifications_references:get_references] Using team_id: {team_id}")
         
         # Start with base query
@@ -106,8 +107,15 @@ def get_references(team_id: str, reference_type: str = None, userinterface_name:
         # Add filters
         if reference_type:
             query = query.eq('reference_type', reference_type)
-        if userinterface_name:
+        
+        # Handle userinterface filtering - prefer userinterface_names list for efficiency
+        if userinterface_names:
+            # Use IN clause for multiple userinterface names - much more efficient than fetching all and filtering
+            query = query.in_('userinterface_name', userinterface_names)
+        elif userinterface_name:
+            # Backward compatibility - single userinterface name
             query = query.eq('userinterface_name', userinterface_name)
+        
         if name:
             query = query.ilike('name', f'%{name}%')
         
