@@ -14,7 +14,7 @@ CREATE TABLE verifications_references (
     name text NOT NULL,
     userinterface_name text,  -- PRIMARY: Userinterface name (e.g., 'horizon_android_tv')
     device_model text,  -- DEPRECATED: Kept for backward compatibility during migration
-    userinterface_id uuid REFERENCES userinterfaces(id),  -- Foreign key reference (optional)
+    userinterface_id uuid REFERENCES userinterfaces(id) ON DELETE CASCADE,  -- Foreign key reference (optional)
     reference_type text NOT NULL CHECK (reference_type = ANY (ARRAY['reference_image'::text, 'reference_text'::text])),
     area jsonb,
     r2_path text NOT NULL,  -- Path format: reference-images/{userinterface_name}/{filename} or text-references/{userinterface_name}/{filename}
