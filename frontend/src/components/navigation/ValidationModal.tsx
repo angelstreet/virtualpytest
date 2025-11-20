@@ -396,22 +396,27 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
             bgcolor: 'action.selected', 
             borderRadius: 1, 
             border: '1px solid', 
-            borderColor: 'divider'
+            borderColor: 'divider',
+            display: 'flex',
+            alignItems: 'center',
+            gap: 2
           }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
-              📊 Summary
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold' }}>
+              📊 Summary:
             </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Typography variant="body2">
-                ✅ Successful forward: {validationResults.filter(r => r.forward.result === 'success').length}/{validationResults.length}
-              </Typography>
-              <Typography variant="body2">
-                ❌ Failed forward: {validationResults.filter(r => r.forward.result === 'failure').length}/{validationResults.length}
-              </Typography>
-              <Typography variant="body2">
-                ⚠️ Backward warnings: {validationResults.filter(r => r.backward.result === 'warning').length}/{validationResults.length}
-              </Typography>
-            </Box>
+            <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <span>✅ {
+                validationResults.filter(r => r.forward.result === 'success').length +
+                validationResults.filter(r => r.backward.result === 'success').length
+              } Success</span>
+              <span>•</span>
+              <span>❌ {
+                validationResults.filter(r => r.forward.result === 'failure').length +
+                validationResults.filter(r => r.backward.result === 'failure').length
+              } Failed</span>
+              <span>•</span>
+              <span>⚠️ {validationResults.filter(r => r.backward.result === 'warning').length} Warnings</span>
+            </Typography>
           </Box>
         )}
 

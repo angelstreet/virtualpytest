@@ -113,7 +113,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, overflow: 'auto', flex: 1 }}>
+      <DialogContent sx={{ p: 0, overflow: selectedNodeId ? 'hidden' : 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* GRID VIEW */}
         {!selectedNodeId && (
           <Box sx={{ p: 3 }}>
@@ -179,7 +179,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
 
         {/* DETAIL VIEW */}
         {selectedNodeId && selectedSuggestion && (
-          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3 }}>
+          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'auto', flex: 1 }}>
             <Grid container spacing={3}>
               {/* LEFT: Screenshot */}
               <Grid item xs={12} md={6}>
