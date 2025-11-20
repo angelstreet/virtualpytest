@@ -73,8 +73,7 @@ export const useAIGenerationModal = ({
         onGenerated();
         setHasTempNodes(false);
         
-        // Close modal after successful validation
-        onClose();
+        // Keep modal open - user decides when to close
       } else {
         console.error('[@useAIGenerationModal] ❌ Validation failed:', data.error);
         alert(`Failed to validate: ${data.error || 'Unknown error'}`);
@@ -114,8 +113,7 @@ export const useAIGenerationModal = ({
         onCleanupTemp?.();
         setHasTempNodes(false);
         
-        // Close modal after successful abort
-        onClose();
+        // Keep modal open - user decides when to close
       } else {
         console.error('[@useAIGenerationModal] ❌ Abort failed:', data.error);
       }
