@@ -197,6 +197,52 @@ class ExplorationExecutor:
             print(f"  UI: {userinterface_name}")
             print(f"  Depth: FIXED at 2 levels")
         
+        # ✅ PRE-FLIGHT CHECK: Test navigation to home BEFORE starting exploration
+        print(f"\n[@ExplorationExecutor:start_exploration] 🔍 Pre-flight check: Testing navigation to home...")
+        try:
+            import asyncio
+            test_result = asyncio.run(self.device.navigation_executor.execute_navigation(
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                target_node_label='home',
+                team_id=team_id
+            ))
+            
+            if not test_result.get('success'):
+                error_msg = test_result.get('error', 'Navigation to home failed')
+                print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
+                
+                with self._lock:
+                    self.exploration_state['status'] = 'failed'
+                    self.exploration_state['error'] = f"Pre-flight check failed: {error_msg}"
+                
+                return {
+                    'success': False,
+                    'error': f"Cannot start AI exploration: Navigation to 'home' failed.\n\n"
+                            f"Reason: {error_msg}\n\n"
+                            f"Action required: Please ensure the entry → home edge has proper actions configured "
+                            f"(click or navigation steps). Test 'goto home' manually before retrying AI exploration.",
+                    'exploration_id': exploration_id
+                }
+            
+            print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: Navigation to home works")
+            
+        except Exception as e:
+            error_msg = str(e)
+            print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check EXCEPTION: {error_msg}")
+            
+            with self._lock:
+                self.exploration_state['status'] = 'failed'
+                self.exploration_state['error'] = f"Pre-flight check exception: {error_msg}"
+            
+            return {
+                'success': False,
+                'error': f"Cannot start AI exploration: Pre-flight check failed with exception.\n\n"
+                        f"Exception: {error_msg}\n\n"
+                        f"Action required: Ensure the navigation tree is properly configured with entry → home edge.",
+                'exploration_id': exploration_id
+            }
+        
         # Start exploration in background thread
         def run_exploration():
             try:
@@ -780,9 +826,47 @@ class ExplorationExecutor:
                     if back_result == 'failed':
                         back_result = 'failed_recovered'
                 else:
-                    print(f"    ❌ Recovery failed: {nav_result.get('error', 'Unknown error')}")
+                    error_msg = nav_result.get('error', 'Unknown error')
+                    print(f"    ❌ Recovery failed: {error_msg}")
+                    
+                    # ✅ STOP VALIDATION: Recovery failed, no point continuing
+                    print(f"    🛑 STOPPING validation - recovery failed, cannot continue")
+                    with self._lock:
+                        self.exploration_state['status'] = 'validation_failed'
+                        self.exploration_state['error'] = f"Validation recovery failed: {error_msg}. Cannot navigate to home."
+                        self.exploration_state['current_step'] = 'Validation stopped - recovery failed'
+                    
+                    return {
+                        'success': False,
+                        'error': f"Validation stopped: Cannot recover to home after failed validation.\n\n"
+                                f"Reason: {error_msg}\n\n"
+                                f"Current item: {current_item} (step {current_index + 1}/{len(items_to_validate)})\n\n"
+                                f"Action required: Fix navigation to home before continuing validation.",
+                        'validation_stopped': True,
+                        'failed_at_item': current_item,
+                        'failed_at_index': current_index
+                    }
+                    
             except Exception as recovery_error:
                 print(f"    ❌ Recovery exception: {recovery_error}")
+                
+                # ✅ STOP VALIDATION: Recovery exception, no point continuing
+                print(f"    🛑 STOPPING validation - recovery exception")
+                with self._lock:
+                    self.exploration_state['status'] = 'validation_failed'
+                    self.exploration_state['error'] = f"Validation recovery exception: {recovery_error}"
+                    self.exploration_state['current_step'] = 'Validation stopped - recovery exception'
+                
+                return {
+                    'success': False,
+                    'error': f"Validation stopped: Recovery exception occurred.\n\n"
+                            f"Exception: {recovery_error}\n\n"
+                            f"Current item: {current_item} (step {current_index + 1}/{len(items_to_validate)})\n\n"
+                            f"Action required: Check navigation configuration.",
+                    'validation_stopped': True,
+                    'failed_at_item': current_item,
+                    'failed_at_index': current_index
+                }
         
         # 3. Update edge with validation results (using action_sets like frontend)
         with self._lock:
