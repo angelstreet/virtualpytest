@@ -207,11 +207,22 @@ def setup_api_authentication(app):
     from flask import request, jsonify
     from shared.src.lib.utils.auth_utils import validate_api_key
     
+    # Health check endpoints that should be exempt from authentication
+    HEALTH_CHECK_ENDPOINTS = [
+        '/host/system/health',
+        '/host/actions/health',
+        '/host/navigation/health',
+    ]
+    
     @app.before_request
     def check_api_key():
         """Global API key check for all /host/* routes"""
         # Only check /host/* routes (not health checks or other endpoints)
         if not request.path.startswith('/host/'):
+            return None
+        
+        # Exempt health check endpoints from authentication
+        if request.path in HEALTH_CHECK_ENDPOINTS:
             return None
         
         # Validate API key
