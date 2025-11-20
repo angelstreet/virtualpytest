@@ -82,9 +82,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     onStructureCreated: async (nodesCount, edgesCount) => {
       console.log('[@AIGenerationModal:Phase1] Structure created:', nodesCount, 'nodes,', edgesCount, 'edges');
       
-      // ✅ Wait for backend DB commits + cache clearing + server-side cache invalidation
-      console.log('[@AIGenerationModal:Phase1] Waiting 2s for DB commits and cache clearing...');
-      await new Promise(resolve => setTimeout(resolve, 2000));
+      // Wait for cache to clear before refreshing
+      await new Promise(resolve => setTimeout(resolve, 500));
       
       // Trigger ReactFlow refresh (refetches tree data)
       console.log('[@AIGenerationModal:Phase1] Triggering React Flow refresh...');
