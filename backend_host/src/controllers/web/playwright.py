@@ -898,55 +898,76 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 'selector_attempted': selector
             }
     
+    def _calculate_match_score(self, search_term: str, matched_value: str) -> tuple:
+        """
+        Calculate match quality score for prioritization.
+        
+        Returns tuple of (exact_match, case_match_score, length) where:
+        - exact_match: 1 if exact match, 0 otherwise (highest priority)
+        - case_match_score: number of matching case characters (higher is better)
+        - length: length of matched value (lower is better, so we negate for sorting)
+        
+        Args:
+            search_term: The search term to compare
+            matched_value: The value that was matched
+        
+        Returns:
+            Tuple[int, int, int]: (exact_match, case_match_score, -length)
+        """
+        search_stripped = search_term.strip()
+        value_stripped = matched_value.strip()
+        
+        # 1. Check for exact match (highest priority)
+        exact_match = 1 if search_stripped == value_stripped else 0
+        
+        # 2. Calculate case match score (character-by-character case matching)
+        # For each character position where both have the same case, add 1 point
+        case_match_score = 0
+        search_lower = search_stripped.lower()
+        value_lower = value_stripped.lower()
+        
+        # Find where the search term appears in the value (case-insensitive)
+        if search_lower in value_lower:
+            start_idx = value_lower.index(search_lower)
+            # Compare case character by character
+            for i in range(len(search_stripped)):
+                if i + start_idx < len(value_stripped):
+                    search_char = search_stripped[i]
+                    value_char = value_stripped[i + start_idx]
+                    # Check if both are same case (both upper or both lower)
+                    if search_char.isupper() == value_char.isupper():
+                        case_match_score += 1
+        
+        # 3. Get length (we'll negate it for sorting so shorter is better)
+        length = len(value_stripped)
+        
+        return (exact_match, case_match_score, -length)
+    
     def _search_dumped_elements(self, search_term: str, elements: list) -> list:
-        """Search within dumped elements with smart prioritization (exact matches first)."""
+        """Search within dumped elements with smart prioritization (exact match, case match, shortest length)."""
         search_lower = search_term.strip().lower()
-        exact_matches = []
-        partial_matches = []
+        matches = []
         
         for element in elements:
             element_matches = []
-            is_exact = False
             
             # Check textContent (like Android mobile text attribute)
             text_content = element.get('textContent', '').strip()
-            if text_content:
-                if text_content.lower() == search_lower:
-                    # Exact match - highest priority
-                    element_matches.append({
-                        "attribute": "textContent",
-                        "value": text_content,
-                        "reason": f"Exact match '{search_term}' in text content",
-                        "priority": 1
-                    })
-                    is_exact = True
-                elif search_lower in text_content.lower():
-                    # Partial match - lower priority
-                    element_matches.append({
-                        "attribute": "textContent",
-                        "value": text_content,
-                        "reason": f"Contains '{search_term}' in text content",
-                        "priority": 2
-                    })
+            if text_content and search_lower in text_content.lower():
+                element_matches.append({
+                    "attribute": "textContent",
+                    "value": text_content,
+                    "reason": f"Contains '{search_term}' in text content"
+                })
             
             # Check aria-label (like Android mobile content_desc)
             aria_label = element.get('attributes', {}).get('aria-label', '').strip()
-            if aria_label:
-                if aria_label.lower() == search_lower:
-                    element_matches.append({
-                        "attribute": "aria-label", 
-                        "value": aria_label,
-                        "reason": f"Exact match '{search_term}' in aria-label",
-                        "priority": 1
-                    })
-                    is_exact = True
-                elif search_lower in aria_label.lower():
-                    element_matches.append({
-                        "attribute": "aria-label", 
-                        "value": aria_label,
-                        "reason": f"Contains '{search_term}' in aria-label",
-                        "priority": 2
-                    })
+            if aria_label and search_lower in aria_label.lower():
+                element_matches.append({
+                    "attribute": "aria-label", 
+                    "value": aria_label,
+                    "reason": f"Contains '{search_term}' in aria-label"
+                })
             
             # Check selector/id (like Android mobile resource_id)
             selector = element.get('selector', '').strip()
@@ -954,8 +975,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 element_matches.append({
                     "attribute": "selector",
                     "value": selector,
-                    "reason": f"Contains '{search_term}' in selector",
-                    "priority": 3
+                    "reason": f"Contains '{search_term}' in selector"
                 })
             
             # Check className (like Android mobile class_name)
@@ -964,14 +984,16 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 element_matches.append({
                     "attribute": "className",
                     "value": class_name,
-                    "reason": f"Contains '{search_term}' in class name",
-                    "priority": 3
+                    "reason": f"Contains '{search_term}' in class name"
                 })
             
-            # If matches found, add to results with prioritization
+            # If matches found, calculate score and add to results
             if element_matches:
                 primary_match = element_matches[0]
                 element_index = element.get('index', 0)
+                
+                # Calculate match score for prioritization
+                match_score = self._calculate_match_score(search_term, primary_match["value"])
                 
                 match_info = {
                     "element_id": f"element_{element_index}",  # Add element_id like Android does
@@ -983,21 +1005,20 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                     "position": element.get('position', {}),
                     "selector": element.get('selector', ''),
                     "full_element": element,
-                    "priority": primary_match["priority"]
+                    "match_score": match_score  # For sorting/debugging
                 }
                 
-                # Separate exact and partial matches
-                if is_exact:
-                    exact_matches.append(match_info)
-                else:
-                    partial_matches.append(match_info)
+                matches.append(match_info)
         
-        # Return exact matches first, then partial matches
-        # Also sort by text length (shorter = more specific) within each category
-        exact_matches.sort(key=lambda x: len(x["matched_value"]))
-        partial_matches.sort(key=lambda x: len(x["matched_value"]))
+        # Sort matches by priority: 1) Exact match, 2) Case match score, 3) Shortest length
+        if matches:
+            matches.sort(key=lambda m: m["match_score"], reverse=True)
+            print(f"[PLAYWRIGHT]: Prioritized {len(matches)} matches:")
+            for i, match in enumerate(matches[:5]):  # Show top 5
+                score = match["match_score"]
+                print(f"[PLAYWRIGHT]:   {i+1}. '{match['matched_value'][:50]}' (exact={score[0]}, case_score={score[1]}, len={-score[2]})")
         
-        return exact_matches + partial_matches
+        return matches
     
     @ensure_controller_loop
     async def input_text(self, selector: str, text: str, wait_time: int = 200) -> Dict[str, Any]:
