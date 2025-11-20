@@ -277,6 +277,9 @@ def continue_exploration():
         device_id = data.get('device_id', 'device1')
         selected_items = data.get('selected_items')  # ✅ Get user selection
         
+        print(f"[@route:ai_generation:continue_exploration] Received selected_items: {selected_items}")
+        print(f"[@route:ai_generation:continue_exploration] Type: {type(selected_items)}, Length: {len(selected_items) if selected_items else 0}")
+        
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id required'}), 400
         

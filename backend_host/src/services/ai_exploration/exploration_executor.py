@@ -417,13 +417,16 @@ class ExplorationExecutor:
             tree_id = self.exploration_state['tree_id']
             all_items = self.exploration_state['exploration_plan']['items']
             
+            print(f"[@ExplorationExecutor:continue_exploration] All items from plan: {all_items}")
+            print(f"[@ExplorationExecutor:continue_exploration] Received selected_items: {selected_items}")
+            
             # ✅ Filter items based on user selection
-            if selected_items is not None:
+            if selected_items is not None and len(selected_items) > 0:
                 items = [item for item in all_items if item in selected_items]
-                print(f"[@ExplorationExecutor:continue_exploration] User selected {len(items)}/{len(all_items)} items")
+                print(f"[@ExplorationExecutor:continue_exploration] ✅ User selected {len(items)}/{len(all_items)} items: {items}")
             else:
                 items = all_items
-                print(f"[@ExplorationExecutor:continue_exploration] Creating all {len(items)} items (no selection)")
+                print(f"[@ExplorationExecutor:continue_exploration] ⚠️ No selection provided - creating all {len(items)} items")
             
             print(f"[@ExplorationExecutor:continue_exploration] Creating structure for {self.current_exploration_id}")
             
