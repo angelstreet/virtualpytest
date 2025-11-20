@@ -189,6 +189,13 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         console.log('[@ValidationModal] Validation complete!');
         setIsValidating(false);
         setIsValidationComplete(true);
+        
+        // Force progress to 100%
+        setValidationProgress(prev => ({
+          ...prev,
+          current: prev.total
+        }));
+        
         // Don't call onValidationComplete yet - wait for node verification approval
       } else {
         // Continue with next item
@@ -288,6 +295,33 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
     }
   }, []);
 
+  // Cancel exploration
+  const handleCancelExploration = useCallback(async () => {
+    try {
+      console.log('[@ValidationModal] Cancelling exploration...');
+      
+      // Call backend to clean up
+      await fetch(buildServerUrl('/server/ai-generation/cancel-exploration'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          device_id: selectedDeviceId,
+          host_name: explorationHostName,
+          exploration_id: explorationId,
+          tree_id: treeId
+        })
+      });
+      
+      // Close modal
+      onClose();
+      
+    } catch (err) {
+      console.error('[@ValidationModal] Error cancelling exploration:', err);
+      // Close anyway
+      onClose();
+    }
+  }, [selectedDeviceId, explorationHostName, explorationId, treeId, onClose]);
+
   return (
     <>
     <Dialog
@@ -351,6 +385,33 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               variant="determinate" 
               value={(validationProgress.current / validationProgress.total) * 100}
             />
+          </Box>
+        )}
+
+        {/* Summary - MOVED UP */}
+        {isValidationComplete && validationResults.length > 0 && (
+          <Box sx={{ 
+            mb: 2,  // Margin bottom instead of top
+            p: 1, 
+            bgcolor: 'action.selected', 
+            borderRadius: 1, 
+            border: '1px solid', 
+            borderColor: 'divider'
+          }}>
+            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+              📊 Summary
+            </Typography>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+              <Typography variant="body2">
+                ✅ Successful forward: {validationResults.filter(r => r.forward.result === 'success').length}/{validationResults.length}
+              </Typography>
+              <Typography variant="body2">
+                ❌ Failed forward: {validationResults.filter(r => r.forward.result === 'failure').length}/{validationResults.length}
+              </Typography>
+              <Typography variant="body2">
+                ⚠️ Backward warnings: {validationResults.filter(r => r.backward.result === 'warning').length}/{validationResults.length}
+              </Typography>
+            </Box>
           </Box>
         )}
 
@@ -461,33 +522,6 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
             </Paper>
           ))}
         </Box>
-
-        {/* Summary */}
-        {isValidationComplete && validationResults.length > 0 && (
-          <Box sx={{ 
-            mt: 2, 
-            p: 2, 
-            bgcolor: 'action.selected', 
-            borderRadius: 1, 
-            border: '1px solid', 
-            borderColor: 'divider'
-          }}>
-            <Typography variant="subtitle2" sx={{ fontWeight: 'bold', mb: 1.5 }}>
-              📊 Summary
-            </Typography>
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-              <Typography variant="body2">
-                ✅ Successful forward: {validationResults.filter(r => r.forward.result === 'success').length}/{validationResults.length}
-              </Typography>
-              <Typography variant="body2">
-                ❌ Failed forward: {validationResults.filter(r => r.forward.result === 'failure').length}/{validationResults.length}
-              </Typography>
-              <Typography variant="body2">
-                ⚠️ Backward warnings: {validationResults.filter(r => r.backward.result === 'warning').length}/{validationResults.length}
-              </Typography>
-            </Box>
-          </Box>
-        )}
       </DialogContent>
 
       {/* Actions */}
@@ -509,7 +543,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         {isValidationComplete && !nodeVerificationComplete && (
           <>
             <Button
-              onClick={onClose}
+              onClick={handleCancelExploration}
               variant="outlined"
               color="error"
               startIcon={<CancelIcon />}
@@ -532,7 +566,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         {nodeVerificationComplete && (
           <>
             <Button
-              onClick={onClose}
+              onClick={handleCancelExploration}
               variant="outlined"
               color="error"
               startIcon={<CancelIcon />}
@@ -569,6 +603,10 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
     <NodeVerificationModal
       isOpen={showNodeVerificationModal}
       onClose={() => setShowNodeVerificationModal(false)}
+      onCancel={() => {
+        setShowNodeVerificationModal(false);
+        handleCancelExploration();
+      }}
       suggestions={nodeVerificationSuggestions}
       onApprove={handleApproveNodeVerifications}
       isUpdating={isUpdatingNodes}

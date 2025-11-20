@@ -30,6 +30,7 @@ import {
 interface NodeVerificationModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onCancel?: () => void;
   suggestions: any[];
   onApprove: (approvedVerifications: any[]) => Promise<any>;
   isUpdating: boolean;
@@ -38,6 +39,7 @@ interface NodeVerificationModalProps {
 export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
   isOpen,
   onClose,
+  onCancel,
   suggestions,
   onApprove,
   isUpdating
@@ -294,7 +296,13 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
           <Button
-            onClick={onClose}
+            onClick={() => {
+              if (onCancel) {
+                onCancel();
+              } else {
+                onClose();
+              }
+            }}
             variant="outlined"
             startIcon={<CloseIcon />}
             disabled={isUpdating}

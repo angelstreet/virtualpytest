@@ -699,6 +699,37 @@ class ExplorationExecutor:
                 self.exploration_state['current_validation_index'] = current_index + 1
                 return self.validate_next_item()
             
+            # ✅ NEW: Capture HOME dump before first navigation (Critical for Uniqueness)
+            if current_index == 0:
+                try:
+                    controller = self.exploration_engine.controller
+                    print(f"[@ExplorationExecutor:validate_next_item] 🏠 Capturing HOME dump for uniqueness baseline...")
+                    dump_result = controller.dump_elements()
+                    home_dump_data = None
+                    
+                    if isinstance(dump_result, tuple):
+                        success, elements, error = dump_result
+                        if success and elements:
+                            home_dump_data = {'elements': elements}
+                    elif isinstance(dump_result, dict):
+                        home_dump_data = dump_result
+                        
+                    if home_dump_data:
+                        # Ensure list exists
+                        if 'node_verification_data' not in self.exploration_state:
+                            self.exploration_state['node_verification_data'] = []
+                            
+                        # Store Home Dump
+                        self.exploration_state['node_verification_data'].append({
+                            'node_id': self.exploration_state.get('home_id', 'home'),
+                            'node_label': 'home',
+                            'dump': home_dump_data,
+                            'screenshot_url': None
+                        })
+                        print(f"    ✅ Home dump stored for baseline comparison")
+                except Exception as e:
+                    print(f"    ⚠️ Failed to capture Home dump: {e}")
+
             print(f"[@ExplorationExecutor:validate_next_item] Validating {current_index + 1}/{len(items_to_validate)}")
             print(f"  Target: {current_item} → {node_name}")
             

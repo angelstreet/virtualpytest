@@ -171,6 +171,10 @@ def _score_text_candidate(text: str, node_label: str) -> int:
         
     # 4. Content Analysis
     
+    # Boost "Selected/Active" state (Strongest indicator of current screen)
+    if 'selected' in text_lower or 'focused' in text_lower or 'current' in text_lower:
+        score += 500
+
     # Penalize potential dynamic content (digits, time, prices)
     if re.search(r'\d', text): 
         score -= 30  # Contains numbers (risk of dynamic ID/Time)
