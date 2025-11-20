@@ -761,11 +761,12 @@ class ExplorationExecutor:
             try:
                 import asyncio
                 home_id = self.exploration_state['home_id']
+                userinterface_name = self.exploration_state['userinterface_name']
                 
                 # ✅ Use execute_navigation with target_node_label='home' (correct method)
                 nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
                     tree_id=tree_id,
-                    userinterface_name=self.userinterface_name,
+                    userinterface_name=userinterface_name,
                     target_node_label='home',
                     team_id=team_id
                 ))
