@@ -8,6 +8,12 @@ import {
   FormControl,
   InputLabel,
   TextField,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Snackbar,
+  Alert,
 } from '@mui/material';
 import React from 'react';
 import { createPortal } from 'react-dom';
@@ -112,7 +118,39 @@ export const AndroidMobileRemote = React.memo(
     const [elementActionInput, setElementActionInput] = React.useState('');
     const [isExecutingAction, setIsExecutingAction] = React.useState(false);
     const [actionStatus, setActionStatus] = React.useState<'idle' | 'success' | 'error'>('idle');
-    const [findResults, setFindResults] = React.useState<any>(null);
+
+    // Modal and toast state
+    const [modalOpen, setModalOpen] = React.useState(false);
+    const [modalTitle, setModalTitle] = React.useState('');
+    const [modalContent, setModalContent] = React.useState<any>(null);
+    const [toastOpen, setToastOpen] = React.useState(false);
+    const [toastMessage, setToastMessage] = React.useState('');
+    const [toastSeverity, setToastSeverity] = React.useState<'success' | 'error'>('success');
+    const [waitingForDump, setWaitingForDump] = React.useState(false);
+
+    // Watch for dump completion
+    React.useEffect(() => {
+      if (waitingForDump && !isDumpingUI) {
+        // Dump just completed
+        setWaitingForDump(false);
+        
+        if (androidElements.length > 0) {
+          setToastMessage(`✅ Dump succeeded! ${androidElements.length} elements copied to clipboard`);
+          setToastSeverity('success');
+          setToastOpen(true);
+          
+          // Only show modal on success
+          setModalTitle(`UI Dump (${androidElements.length} elements)`);
+          setModalContent(androidElements);
+          setModalOpen(true);
+        } else {
+          // Only show toast on failure (no modal)
+          setToastMessage('❌ Dump failed or no elements found');
+          setToastSeverity('error');
+          setToastOpen(true);
+        }
+      }
+    }, [isDumpingUI, androidElements, waitingForDump]);
 
     // Debug: Log orientation changes in remote component
     React.useEffect(() => {
@@ -153,27 +191,47 @@ export const AndroidMobileRemote = React.memo(
         // Set visual feedback
         setActionStatus(result?.success ? 'success' : 'error');
 
-        // Store find results and auto-copy to clipboard
-        if (elementActionType === 'find' && result?.success) {
-          setFindResults(result);
-          
-          // Auto-copy to clipboard like dump does
-          if (result.matches) {
+        // For find action, show modal with results
+        if (elementActionType === 'find') {
+          if (result?.success && result?.matches) {
+            // Auto-copy to clipboard
             try {
               const resultText = JSON.stringify(result, null, 2);
               await navigator.clipboard.writeText(resultText);
-              console.log('✅ Find results copied to clipboard');
-            } catch (clipboardError) {
-              console.error('Failed to copy to clipboard:', clipboardError);
+            } catch (error) {
+              console.error('Failed to copy:', error);
             }
+
+            // Show success toast
+            setToastMessage(`✅ Found ${result.matches.length} element(s)! Copied to clipboard`);
+            setToastSeverity('success');
+            setToastOpen(true);
+
+            // Show modal with results
+            setModalTitle(`Found ${result.matches.length} Element(s)`);
+            setModalContent(result.matches);
+            setModalOpen(true);
+          } else {
+            setToastMessage('❌ No elements found');
+            setToastSeverity('error');
+            setToastOpen(true);
           }
         }
       } catch (error) {
         console.error('Element action error:', error);
         setActionStatus('error');
+        setToastMessage('❌ Action failed');
+        setToastSeverity('error');
+        setToastOpen(true);
       } finally {
         setIsExecutingAction(false);
       }
+    };
+
+    // Override dump UI handler to show modal
+    const handleDumpUIWithModal = async () => {
+      setWaitingForDump(true);
+      await handleDumpUIWithLoading();
     };
 
     // Debug logging for elements state
@@ -469,7 +527,7 @@ export const AndroidMobileRemote = React.memo(
                 <Button
                   variant="contained"
                   size="small"
-                  onClick={handleDumpUIWithLoading}
+                  onClick={handleDumpUIWithModal}
                   disabled={!session.connected || isDumpingUI}
                   sx={{ flex: 1 }}
                 >
@@ -719,7 +777,6 @@ export const AndroidMobileRemote = React.memo(
                   onChange={(e) => {
                     setElementActionType(e.target.value as 'click_id' | 'click_text' | 'find');
                     setActionStatus('idle');
-                    setFindResults(null);
                   }}
                   disabled={!session.connected}
                   sx={{
@@ -806,40 +863,63 @@ export const AndroidMobileRemote = React.memo(
                   )}
                 </Button>
               </Box>
-
-              {/* Find Results Display */}
-              {elementActionType === 'find' && findResults?.success && (
-                <Box sx={{ mt: 0.5, p: 0.5, backgroundColor: 'transparent', borderRadius: 1, border: '1px solid rgba(255,255,255,0.1)' }}>
-                  <Typography variant="caption" sx={{ fontWeight: 'bold', fontSize: '0.7rem', display: 'block', mb: 0.5 }}>
-                    Found: {findResults.matches?.length || 0} element(s)
-                  </Typography>
-                  {findResults.matches && findResults.matches.length > 0 && (
-                    <Box sx={{ maxHeight: '100px', overflow: 'auto' }}>
-                      {findResults.matches.map((match: any, index: number) => (
-                        <Typography 
-                          key={index} 
-                          variant="caption" 
-                          sx={{ 
-                            display: 'block', 
-                            fontSize: '0.65rem',
-                            color: 'rgba(255,255,255,0.7)',
-                            whiteSpace: 'nowrap',
-                            overflow: 'hidden',
-                            textOverflow: 'ellipsis'
-                          }}
-                        >
-                          {index + 1}. {match.match_reason || match.element_id}
-                        </Typography>
-                      ))}
-                    </Box>
-                  )}
-                </Box>
-              )}
             </Box>
 
             {/* Disconnect Button - REMOVED: Users can close panel or release control */}
           </Box>
         </Box>
+
+        {/* Results Modal */}
+        <Dialog 
+          open={modalOpen} 
+          onClose={() => setModalOpen(false)} 
+          maxWidth="lg" 
+          fullWidth
+          PaperProps={{
+            sx: {
+              border: '2px solid white',
+              borderRadius: 2
+            }
+          }}
+        >
+          <DialogTitle>{modalTitle}</DialogTitle>
+          <DialogContent>
+            <Box sx={{ maxHeight: '400px', overflowY: 'auto', overflowX: 'hidden' }}>
+              {modalContent && Array.isArray(modalContent) && modalContent.map((item: any, index: number) => (
+                <Box key={index} sx={{ mb: 1, p: 1, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 1 }}>
+                  <Typography variant="caption" sx={{ display: 'block', fontWeight: 'bold', wordBreak: 'break-word' }}>
+                    {index + 1}. {item.match_reason || item.contentDesc || item.text || `Element ${item.id || item.element_id}`}
+                  </Typography>
+                  {item.bounds && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.7rem', wordBreak: 'break-word' }}>
+                      Bounds: {typeof item.bounds === 'string' ? item.bounds : JSON.stringify(item.bounds)}
+                    </Typography>
+                  )}
+                  {item.xpath && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.7rem', wordBreak: 'break-all' }}>
+                      XPath: {item.xpath}
+                    </Typography>
+                  )}
+                </Box>
+              ))}
+            </Box>
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setModalOpen(false)} variant="outlined">Close</Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Toast Notification */}
+        <Snackbar
+          open={toastOpen}
+          autoHideDuration={3000}
+          onClose={() => setToastOpen(false)}
+          anchorOrigin={{ vertical: 'top', horizontal: 'right' }}
+        >
+          <Alert onClose={() => setToastOpen(false)} severity={toastSeverity} sx={{ width: '100%' }}>
+            {toastMessage}
+          </Alert>
+        </Snackbar>
 
         {/* AndroidMobileOverlay - Only visible when in stream mode (not during screenshot/video capture or verification editor), not minimized, and not hidden */}
         {panelInfo &&

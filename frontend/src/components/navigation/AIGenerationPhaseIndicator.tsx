@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Typography, Stepper, Step, StepLabel, StepIcon } from '@mui/material';
+import { Box, Typography, Stepper, Step, StepLabel } from '@mui/material';
 import {
   Search as DetectIcon,
   Analytics as AnalyzeIcon,

@@ -768,7 +768,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
       {isBrowserOpen && (
         <Box sx={{ flex: 1, overflow: 'auto' }}>
           {/* Browser-Use Section */}
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold', flex: 1 }}>
                 Browser-Use
@@ -825,10 +825,10 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
             </Collapse>
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: 1 }} />
 
           {/* Keyboard Controls Section */}
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 1 }}>
             <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 'bold' }}>
               Keyboard Controls
             </Typography>
@@ -869,10 +869,10 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
             </Box>
           </Box>
 
-          <Divider sx={{ my: 2 }} />
+          <Divider sx={{ my: 1 }} />
 
           {/* Playwright Section */}
-          <Box sx={{ mb: 2 }}>
+          <Box sx={{ mb: 1 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 1 }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 'bold', flex: 1 }}>
                 Playwright
@@ -887,7 +887,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
             <Collapse in={isPlaywrightExpanded}>
               <Box>
                 {/* Navigate Action */}
-                <Box sx={{ mb: 2 }}>
+                <Box sx={{ mb: 1 }}>
                   <Typography
                     variant="caption"
                     sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}
@@ -932,7 +932,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                 <Divider sx={{ my: 1 }} />
 
                 {/* Click Element Action */}
-                <Box sx={{ mb: 2 }}>
+                <Box sx={{ mb: 1 }}>
                   <Typography
                     variant="caption"
                     sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}
@@ -979,7 +979,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                 <Divider sx={{ my: 1 }} />
 
                 {/* Tap X,Y Action */}
-                <Box sx={{ mb: 2 }}>
+                <Box sx={{ mb: 1 }}>
                   <Typography
                     variant="caption"
                     sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}
@@ -1034,7 +1034,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                 <Divider sx={{ my: 1 }} />
 
                 {/* Find Element Action */}
-                <Box sx={{ mb: 2 }}>
+                <Box sx={{ mb: 1 }}>
                   <Typography
                     variant="caption"
                     sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}
@@ -1079,7 +1079,7 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                 <Divider sx={{ my: 1 }} />
 
                 {/* Dump Elements Action */}
-                <Box sx={{ mb: 2 }}>
+                <Box sx={{ mb: 1 }}>
                   <Typography
                     variant="caption"
                     sx={{ display: 'block', mb: 0.5, fontWeight: 'bold' }}

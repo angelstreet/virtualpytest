@@ -76,7 +76,6 @@ export const Phase2IncrementalView: React.FC<Phase2IncrementalViewProps> = ({
             const isCompleted = completed_items.includes(item);
             const isFailed = failed_items.some(f => f.item === item);
             const isCurrent = index === current_step && !isCompleted && !isFailed;
-            const isPending = index > current_step;
             const isSelected = selectedNodes.has(item);
 
             let icon = <PendingIcon color="disabled" />;

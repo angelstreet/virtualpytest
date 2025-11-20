@@ -19,12 +19,10 @@ export const useAIGenerationModal = ({
   isOpen,
   treeId,
   selectedHost,
-  selectedDeviceId,
   onGenerated,
   onClose,
   onCleanupTemp,
-  startExploration,
-  explorationId
+  startExploration
 }: UseAIGenerationModalProps) => {
   const [hasTempNodes, setHasTempNodes] = useState(false);
   const [isValidating, setIsValidating] = useState(false);

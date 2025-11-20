@@ -621,9 +621,7 @@ export const useGenerateModel = ({
       setIsExploring(true);
 
       const url = buildServerUrl(
-        `/host/ai-generation/init`,
-        explorationHostName,
-        { team_id: selectedHost?.team_id }
+        `/host/ai-generation/init?host_name=${encodeURIComponent(explorationHostName)}&team_id=${selectedHost?.team_id || ''}`
       );
 
       const response = await fetch(url, {
@@ -676,9 +674,7 @@ export const useGenerateModel = ({
         setCurrentStep(`Creating item ${(context.current_step || 0) + 1}/${context.total_steps || 0}...`);
 
         const url = buildServerUrl(
-          `/host/ai-generation/next`,
-          explorationHostName,
-          { team_id: selectedHost?.team_id }
+          `/host/ai-generation/next?host_name=${encodeURIComponent(explorationHostName)}&team_id=${selectedHost?.team_id || ''}`
         );
 
         const response = await fetch(url, {
