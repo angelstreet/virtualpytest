@@ -391,18 +391,42 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                 
                                 const isSelected = selectedEdges.has(item);
                                 
-                                // Get strategy and menu type from exploration plan
+                                // Get strategy and structure from exploration plan
                                 const strategy = explorationPlan.strategy || 'click';
                                 const menuType = explorationPlan.menu_type || 'horizontal';
-                                const allItems = explorationPlan.items || [];
+                                const lines = explorationPlan.lines || [];
                                 
                                 // Calculate action preview based on strategy
                                 let forwardActionPreview = '';
                                 if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
-                                  // D-pad navigation for TV/STB
-                                  const itemIndex = allItems.indexOf(item);
-                                  const dpadKey = menuType === 'horizontal' ? 'RIGHT' : 'DOWN';
-                                  forwardActionPreview = `${itemIndex}x ${dpadKey} + OK`;
+                                  // D-pad navigation for TV/STB - ROW-AWARE
+                                  
+                                  // Find which row the item is in
+                                  let itemRowIdx = -1;
+                                  let itemColIdx = -1;
+                                  for (let rowIdx = 0; rowIdx < lines.length; rowIdx++) {
+                                    const rowItems = lines[rowIdx];
+                                    if (rowItems.includes(item)) {
+                                      itemRowIdx = rowIdx;
+                                      itemColIdx = rowItems.indexOf(item);
+                                      break;
+                                    }
+                                  }
+                                  
+                                  // Fallback if not found
+                                  if (itemRowIdx === -1) {
+                                    itemRowIdx = 0;
+                                    itemColIdx = explorationPlan.items?.indexOf(item) || idx;
+                                  }
+                                  
+                                  // Determine D-pad direction based on row
+                                  if (itemRowIdx === 0 && lines.length > 0 && lines[0].length > 1) {
+                                    // Row 1 (horizontal) - use RIGHT
+                                    forwardActionPreview = `${itemColIdx}x RIGHT + OK`;
+                                  } else {
+                                    // Other rows (vertical) - use DOWN
+                                    forwardActionPreview = `${itemRowIdx}x DOWN + OK`;
+                                  }
                                 } else {
                                   // Click navigation for mobile/web
                                   forwardActionPreview = `click("${item}")`;

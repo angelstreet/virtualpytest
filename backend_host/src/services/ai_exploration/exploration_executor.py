@@ -458,10 +458,14 @@ class ExplorationExecutor:
             # Get strategy from exploration plan
             strategy = exploration_plan.get('strategy', 'click')
             menu_type = exploration_plan.get('menu_type', 'horizontal')
+            lines = exploration_plan.get('lines', [])  # Row structure: [['home', 'tv guide', ...], ['watch'], ...]
             
             print(f"[@ExplorationExecutor:continue_exploration] 🎯 Strategy: {strategy}")
             print(f"[@ExplorationExecutor:continue_exploration] 🎯 Menu Type: {menu_type}")
             print(f"[@ExplorationExecutor:continue_exploration] 🎯 Device Model: {self.device_model}")
+            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Row Structure: {len(lines)} rows")
+            for row_idx, row_items in enumerate(lines):
+                print(f"[@ExplorationExecutor:continue_exploration]    Row {row_idx + 1}: {len(row_items)} items - {row_items[:3]}{'...' if len(row_items) > 3 else ''}")
             
             if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
                 print(f"[@ExplorationExecutor:continue_exploration] ✅ Will create D-PAD edges (press_key)")
@@ -529,30 +533,62 @@ class ExplorationExecutor:
                 
                 # ✅ STRATEGY-AWARE: Create D-pad or click actions based on strategy
                 if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-                    # D-pad navigation for TV/STB
-                    item_index = all_items.index(item) if item in all_items else idx
-                    dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
+                    # D-pad navigation for TV/STB - ROW-AWARE
+                    
+                    # Find which row the item is in
+                    item_row_idx = -1
+                    item_col_idx = -1
+                    for row_idx, row_items in enumerate(lines):
+                        if item in row_items:
+                            item_row_idx = row_idx
+                            item_col_idx = row_items.index(item)
+                            break
+                    
+                    # Fallback if item not found in lines structure
+                    if item_row_idx == -1:
+                        item_row_idx = 0
+                        item_col_idx = all_items.index(item) if item in all_items else idx
+                        print(f"  ⚠️  Item '{item}' not found in lines structure - using fallback")
                     
                     print(f"  🎮 Creating D-PAD edge for '{item}':")
-                    print(f"     Item index in menu: {item_index}")
-                    print(f"     D-pad key: {dpad_key}")
-                    print(f"     Actions: {item_index}x {dpad_key} + OK")
+                    print(f"     Row: {item_row_idx + 1}, Column: {item_col_idx}")
                     
-                    # Forward: Multiple D-pad presses + OK
+                    # Determine navigation strategy based on row structure
                     forward_actions = []
-                    for i in range(item_index):
-                        forward_actions.append({
-                            "command": "press_key",
-                            "params": {"key": dpad_key},
-                            "delay": 500
-                        })
+                    
+                    if item_row_idx == 0 and len(lines) > 0 and len(lines[0]) > 1:
+                        # Item is in Row 1 (horizontal row) - use RIGHT navigation
+                        dpad_key = 'RIGHT'
+                        presses_needed = item_col_idx
+                        print(f"     Navigation: {presses_needed}x {dpad_key} + OK (Row 1 - horizontal)")
+                        
+                        for i in range(presses_needed):
+                            forward_actions.append({
+                                "command": "press_key",
+                                "params": {"key": dpad_key},
+                                "delay": 500
+                            })
+                    else:
+                        # Item is in a different row (vertical navigation) - use DOWN
+                        dpad_key = 'DOWN'
+                        presses_needed = item_row_idx
+                        print(f"     Navigation: {presses_needed}x {dpad_key} + OK (Row {item_row_idx + 1} - vertical)")
+                        
+                        for i in range(presses_needed):
+                            forward_actions.append({
+                                "command": "press_key",
+                                "params": {"key": dpad_key},
+                                "delay": 500
+                            })
+                    
+                    # Add final OK press
                     forward_actions.append({
                         "command": "press_key",
                         "params": {"key": "OK"},
                         "delay": 2000
                     })
                     
-                    print(f"     Forward actions: {len(forward_actions)} total ({item_index} x {dpad_key}, 1 x OK)")
+                    print(f"     Forward actions: {len(forward_actions)} total ({presses_needed} x {dpad_key}, 1 x OK)")
                     
                     reverse_actions = [{
                         "command": "press_key",
