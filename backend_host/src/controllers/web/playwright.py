@@ -825,9 +825,9 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             elements = dump_result.get('elements', [])
             print(f"[PLAYWRIGHT]: Searching within {len(elements)} dumped elements")
             
-            # DEBUG: Log first 20 elements for verification
-            print(f"[PLAYWRIGHT]: === DUMPED ELEMENTS (first 20 of {len(elements)}) ===")
-            for i, el in enumerate(elements[:20]):
+            # DEBUG: Log ALL elements for verification (not just first 20)
+            print(f"[PLAYWRIGHT]: === DUMPED ELEMENTS (ALL {len(elements)}) ===")
+            for i, el in enumerate(elements):  # Show ALL, not just [:20]
                 # Clean up text: remove extra whitespace/newlines and limit to 50 chars
                 raw_text = el.get('textContent', '').strip()
                 clean_text = ' '.join(raw_text.split())  # Remove all extra whitespace
@@ -835,10 +835,11 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 
                 aria = el.get('attributes', {}).get('aria-label', '').strip()
                 selector = el.get('selector', '')
+                href = el.get('attributes', {}).get('href', '')
                 
-                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{display_text}' - aria: '{aria}' - selector: '{selector}'")
-            if len(elements) > 20:
-                print(f"[PLAYWRIGHT]:   ... and {len(elements) - 20} more elements")
+                # Include href in output for debugging
+                href_display = f" - href: '{href}'" if href else ""
+                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{display_text}' - aria: '{aria}' - selector: '{selector}'{href_display}")
             print(f"[PLAYWRIGHT]: === END DUMPED ELEMENTS ===")
             
             # Step 2: Search within dumped elements (same logic as Android mobile)
