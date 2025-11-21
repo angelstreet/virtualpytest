@@ -888,8 +888,28 @@ export const AndroidMobileRemote = React.memo(
               {modalContent && Array.isArray(modalContent) && modalContent.map((item: any, index: number) => (
                 <Box key={index} sx={{ mb: 1, p: 1, backgroundColor: 'rgba(0,0,0,0.05)', borderRadius: 1 }}>
                   <Typography variant="caption" sx={{ display: 'block', fontWeight: 'bold', wordBreak: 'break-word' }}>
-                    {index + 1}. {item.match_reason || item.contentDesc || item.text || `Element ${item.id || item.element_id}`}
+                    {index + 1}. Element
                   </Typography>
+                  {(item.id || item.element_id) && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.primary', fontSize: '0.7rem', wordBreak: 'break-word' }}>
+                      ID: {item.id || item.element_id}
+                    </Typography>
+                  )}
+                  {item.text && item.text !== '<no text>' && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.primary', fontSize: '0.7rem', wordBreak: 'break-word' }}>
+                      Text: {item.text}
+                    </Typography>
+                  )}
+                  {item.contentDesc && item.contentDesc !== '<no content-desc>' && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.primary', fontSize: '0.7rem', wordBreak: 'break-word' }}>
+                      Content-Desc: {item.contentDesc}
+                    </Typography>
+                  )}
+                  {item.match_reason && (
+                    <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.7rem', wordBreak: 'break-word', fontStyle: 'italic' }}>
+                      Match: {item.match_reason}
+                    </Typography>
+                  )}
                   {item.bounds && (
                     <Typography variant="caption" sx={{ display: 'block', color: 'text.secondary', fontSize: '0.7rem', wordBreak: 'break-word' }}>
                       Bounds: {typeof item.bounds === 'string' ? item.bounds : JSON.stringify(item.bounds)}
