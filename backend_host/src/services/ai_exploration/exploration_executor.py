@@ -741,7 +741,7 @@ class ExplorationExecutor:
                     # Handle async controllers (web) - run coroutine if needed
                     import inspect
                     if inspect.iscoroutine(dump_result):
-                    import asyncio
+                        import asyncio
                         dump_result = asyncio.run(dump_result)
                     
                     home_dump_data = None
