@@ -690,41 +690,25 @@ class ScreenAnalyzer:
         print(f"\n🤖 USING AI VISION ANALYSIS")
         print(f"{'-'*80}\n")
         
-        # Unified prompt for TV/STB - now requests reasoning
-        prompt = """You are a UI-automation engineer analyzing a streaming/TV app screenshot.
+        # Simple prompt for TV/STB - just ask for a table
+        prompt = """List ALL clickable/focusable elements from this TV app screenshot.
 
-**Task**: Identify ALL visible interactive elements (clickable items, tabs, buttons) that a user can navigate to.
+Output one row per line, elements separated by commas (left to right):
 
-**Rules**:
-- Include: Navigation tabs, menu items, buttons, clickable text
-- Exclude: Program cards, asset names, durations, timestamps, decorative elements
-- Order: Left to right on the same line
+Row 1: element1, element2, element3
+Row 2: element4, element5
+Row 3: element6
 
-**Format your response as**:
+Rules:
+- Row 1 = topmost row of interactive elements
+- Left to right order
+- Include buttons, tabs, menu items
+- Skip: program cards, images, timestamps
 
-```
-REASONING:
-[Explain what you see in the UI - menu structure, layout, element types]
-
-ELEMENTS:
-line1: item1, item2, item3
-line2: item4, item5
-line3: item6
-```
-
-**Example**:
-
-```
-REASONING:
-I see a horizontal navigation menu at the top with 5 tabs. Below that is a content section with a "Popular on TV" heading and a "Show all" link. At the bottom right are utility icons for search, settings, and profile.
-
-ELEMENTS:
-home, tv guide, replay, movies & series, saved
-popular on tv, show all
-search, settings, profile
-```
-
-**Now analyze the screenshot and provide your response:**"""
+Example:
+Row 1: home, tv guide, apps, replay, movies & series
+Row 2: search, settings, profile
+Row 3: watch, continue watching"""
 
         print(f"📝 PROMPT SENT TO AI:")
         print(f"{'-'*80}")
@@ -761,123 +745,26 @@ search, settings, profile
             print(response)
             print(f"{'='*80}\n")
             
-            # Parse response: Extract REASONING and ELEMENTS sections
-            reasoning = ""
-            elements_text = ""
-            
-            # Try to parse structured response
-            if "REASONING:" in response and "ELEMENTS:" in response:
-                parts = response.split("ELEMENTS:")
-                reasoning_part = parts[0].split("REASONING:")[1].strip() if "REASONING:" in parts[0] else ""
-                elements_text = parts[1].strip() if len(parts) > 1 else ""
-                reasoning = reasoning_part
-                print(f"[@screen_analyzer:_analyze_from_ai_vision] ✅ Found structured response (REASONING + ELEMENTS)")
-            elif "REASONING:" in response:
-                # AI provided reasoning but no ELEMENTS section - try to extract from reasoning
-                print(f"[@screen_analyzer:_analyze_from_ai_vision] ⚠️ AI provided REASONING but no ELEMENTS section")
-                reasoning_part = response.split("REASONING:")[1].strip()
-                reasoning = reasoning_part
-                
-                # Intelligent extraction: Look for lists of navigation items
-                # Pattern: "tabs for X, Y, Z" or "menu items: X, Y, Z"
-                import re
-                
-                # Try to find comma-separated lists of UI elements
-                # Look for patterns like "Home, TV Guide, Apps, Replay"
-                matches = re.findall(r'(?:tabs|items|buttons|elements|menu)(?:\s+for|\s+containing|\s*:)\s*([^.]+)', reasoning, re.IGNORECASE)
-                
-                if matches:
-                    # Found a list - extract it
-                    potential_list = matches[0]
-                    print(f"[@screen_analyzer:_analyze_from_ai_vision] 🔍 Extracted potential list: '{potential_list}'")
-                    elements_text = potential_list
-                else:
-                    print(f"[@screen_analyzer:_analyze_from_ai_vision] ❌ Could not extract element list from reasoning")
-                    elements_text = ""
-            else:
-                # Fallback: treat entire response as elements
-                print(f"[@screen_analyzer:_analyze_from_ai_vision] ⚠️ No structured response - treating as elements only")
-                elements_text = response
-            
-            # Log reasoning if present
-            if reasoning:
-                print(f"\n{'='*80}")
-                print(f"[@screen_analyzer:_analyze_from_ai_vision] 🧠 AI REASONING:")
-                print(f"{'='*80}")
-                print(reasoning)
-                print(f"{'='*80}\n")
-            
-            print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Parsing elements...")
-            
-            # Parse line-by-line elements
-            # Expected format:
-            # profile, sunrise, cast, airplay, search
-            # popular_on_tv, show all
-            # home, tvguide, replay, movies_and_series, saved, debug
+            # Parse simple table format
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Parsing table...")
             
             lines = []
             all_items = []
             
-            # Split elements_text into lines and parse each
-            for line_num, line in enumerate(elements_text.strip().split('\n'), 1):
+            for line in response.strip().split('\n'):
                 line = line.strip()
-                # Remove markdown code block markers if present
-                if line.startswith('```'):
-                    continue
-                
-                print(f"[@screen_analyzer:_analyze_from_ai_vision] Line {line_num}: '{line}'")
-                
-                if line and not line.startswith('#') and not line.startswith('Example') and not line.startswith('line'):
-                    # Remove "lineX:" prefix if present
-                    if ':' in line and line.split(':')[0].strip().lower().startswith('line'):
-                        line = line.split(':', 1)[1].strip()
+                if line.startswith('Row') and ':' in line:
+                    # Extract items after "Row X:"
+                    items_text = line.split(':', 1)[1].strip()
+                    items = [item.strip() for item in items_text.split(',') if item.strip()]
                     
-                    # Extract items from this line
-                    items_in_line = [item.strip() for item in line.split(',') if item.strip()]
-                    
-                    # Clean items: remove common garbage patterns
-                    cleaned_items = []
-                    for item in items_in_line:
-                        # Remove items that are clearly not navigation elements
-                        item_lower = item.lower()
-                        
-                        # Skip long descriptive text (likely parsing error)
-                        if len(item) > 50:
-                            print(f"[@screen_analyzer:_analyze_from_ai_vision]     ⏭️ Skipped (too long): '{item[:50]}...'")
-                            continue
-                        
-                        # Skip items with sentence-like patterns
-                        skip_patterns = [
-                            'the screenshot', 'below the', 'there are', 'each with',
-                            'navigation bar at', 'sections for', 'containing tabs for',
-                            'and tv shop. below'
-                        ]
-                        if any(pattern in item_lower for pattern in skip_patterns):
-                            print(f"[@screen_analyzer:_analyze_from_ai_vision]     ⏭️ Skipped (description): '{item}'")
-                            continue
-                        
-                        # Remove leading/trailing "and" or quotes
-                        item = item.strip('"\'')
-                        if item.lower().startswith('and '):
-                            item = item[4:].strip()
-                        
-                        # Skip if empty after cleaning
-                        if not item:
-                            continue
-                        
-                        cleaned_items.append(item)
-                    
-                    if cleaned_items:
-                        lines.append(cleaned_items)
-                        all_items.extend(cleaned_items)
-                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ✅ Extracted {len(cleaned_items)} items: {cleaned_items}")
-                    else:
-                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (no valid items after cleaning)")
-                else:
-                    print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (comment/example/header)")
+                    if items:
+                        lines.append(items)
+                        all_items.extend(items)
+                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ✅ {line.split(':')[0]}: {len(items)} items - {items}")
             
-            print(f"\n[@screen_analyzer:_analyze_from_ai_vision] 📊 Total items extracted: {len(all_items)}")
-            print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Total lines: {len(lines)}")
+            print(f"\n[@screen_analyzer:_analyze_from_ai_vision] 📊 Total items: {len(all_items)}")
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Total rows: {len(lines)}")
             
             # Determine menu structure from lines
             if len(lines) == 1:
@@ -902,20 +789,17 @@ search, settings, profile
                 'items': all_items,
                 'lines': lines,  # Keep line structure for navigation logic
                 'predicted_depth': 2,
-                'strategy': strategy,
-                'reasoning': reasoning  # Add reasoning to result
+                'strategy': strategy
             }
             
             print(f"\n{'='*80}")
             print(f"[@screen_analyzer:_analyze_from_ai_vision] ✅ ANALYSIS COMPLETE")
             print(f"{'='*80}")
-            if reasoning:
-                print(f"🧠 Reasoning: {reasoning[:100]}..." if len(reasoning) > 100 else f"🧠 Reasoning: {reasoning}")
             print(f"📊 Menu Type: {menu_type}")
             print(f"📊 Strategy: {strategy}")
             print(f"📊 Items ({len(all_items)}):")
             for i, line in enumerate(lines, 1):
-                print(f"   Line {i}: {', '.join(line)}")
+                print(f"   Row {i}: {', '.join(line)}")
             print(f"{'='*80}\n")
             
             if not all_items:
