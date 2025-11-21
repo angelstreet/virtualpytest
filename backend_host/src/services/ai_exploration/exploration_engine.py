@@ -536,14 +536,22 @@ class ExplorationEngine:
             }
         """
         try:
-            print(f"\n{'='*60}")
+            print(f"\n{'='*80}")
+            print(f"[@exploration_engine:analyze_and_plan] 🔬 METHOD STARTED")
+            print(f"{'='*80}")
             print(f"[@exploration_engine] PHASE 1: Analysis & Planning")
             print(f"Tree: {self.tree_id}")
             print(f"Device: {self.device_model_name} ({self.device_id})")
-            print(f"{'='*60}\n")
+            print(f"Controller: {type(self.controller).__name__}")
+            print(f"{'='*80}\n")
+            
+            print(f"[@exploration_engine:analyze_and_plan] Step 1: Capturing screenshot...")
             
             # Capture initial screenshot (optional - continue even if it fails)
             self.initial_screenshot = self.screen_analyzer.capture_screenshot()
+            
+            print(f"[@exploration_engine:analyze_and_plan] Screenshot result: {self.initial_screenshot}")
+            
             if not self.initial_screenshot:
                 print(f"[@exploration_engine:analyze_and_plan] ⚠️ Screenshot capture failed - continuing without screenshot")
                 self.initial_screenshot = None  # Continue with None

@@ -248,15 +248,27 @@ class ExplorationExecutor:
         
         # Start exploration in background thread
         def run_exploration():
+            print(f"\n{'='*80}")
+            print(f"[@ExplorationExecutor:run_exploration] 🚀 THREAD STARTED")
+            print(f"{'='*80}")
+            print(f"Exploration ID: {exploration_id}")
+            print(f"Tree ID: {tree_id}")
+            print(f"Device: {self.device_id}")
+            print(f"Host: {self.host_name}")
+            print(f"{'='*80}\n")
+            
             try:
                 # Update state (acquire lock briefly)
                 with self._lock:
                     self.exploration_state['status'] = 'exploring'
                     self.exploration_state['current_step'] = 'Capturing initial screenshot...'
                 
+                print(f"[@ExplorationExecutor:run_exploration] ✅ State updated to 'exploring'")
+                
                 # Create exploration engine with callbacks
                 def update_screenshot(screenshot_path: str):
                     """Upload screenshot to R2 (same as validation screenshots)"""
+                    print(f"[@ExplorationExecutor:update_screenshot] Called with: {screenshot_path}")
                     try:
                         from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         
@@ -298,6 +310,12 @@ class ExplorationExecutor:
                     if screenshot_to_update:
                         update_screenshot(screenshot_to_update)
                 
+                print(f"\n[@ExplorationExecutor:run_exploration] 📦 Creating ExplorationEngine...")
+                print(f"   tree_id: {tree_id}")
+                print(f"   device: {self.device_id}")
+                print(f"   team_id: {team_id}")
+                print(f"   userinterface_name: {userinterface_name}")
+                
                 # Create or reuse engine
                 self.exploration_engine = ExplorationEngine(
                     tree_id=tree_id,
@@ -308,8 +326,16 @@ class ExplorationExecutor:
                     progress_callback=update_progress
                 )
                 
+                print(f"[@ExplorationExecutor:run_exploration] ✅ ExplorationEngine created")
+                print(f"[@ExplorationExecutor:run_exploration] 🔬 Calling analyze_and_plan()...\n")
+                
                 # Run Phase 1: Analysis
                 result = self.exploration_engine.analyze_and_plan()
+                
+                print(f"\n[@ExplorationExecutor:run_exploration] ✅ analyze_and_plan() returned")
+                print(f"   Success: {result.get('success')}")
+                if not result.get('success'):
+                    print(f"   Error: {result.get('error')}")
                 
                 with self._lock:
                     if result['success']:
