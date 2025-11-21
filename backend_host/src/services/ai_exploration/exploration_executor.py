@@ -419,6 +419,10 @@ class ExplorationExecutor:
                 'edges_created': 10
             }
         """
+        print(f"\n{'='*80}")
+        print(f"[@ExplorationExecutor:continue_exploration] 🚀 PHASE 2: STRUCTURE CREATION STARTED")
+        print(f"{'='*80}")
+        
         with self._lock:
             if not self.current_exploration_id:
                 return {'success': False, 'error': 'No active exploration'}
@@ -430,10 +434,14 @@ class ExplorationExecutor:
                 }
             
             tree_id = self.exploration_state['tree_id']
-            all_items = self.exploration_state['exploration_plan']['items']
+            exploration_plan = self.exploration_state.get('exploration_plan', {})
+            all_items = exploration_plan.get('items', [])
             
             print(f"[@ExplorationExecutor:continue_exploration] All items from plan: {all_items}")
             print(f"[@ExplorationExecutor:continue_exploration] Received selected_items: {selected_items}")
+            print(f"[@ExplorationExecutor:continue_exploration] 🔍 Exploration Plan Keys: {list(exploration_plan.keys())}")
+            print(f"[@ExplorationExecutor:continue_exploration] 📊 Strategy from plan: {exploration_plan.get('strategy', 'NOT_FOUND')}")
+            print(f"[@ExplorationExecutor:continue_exploration] 📊 Menu Type from plan: {exploration_plan.get('menu_type', 'NOT_FOUND')}")
             
             # ✅ Filter items based on user selection
             if selected_items is not None and len(selected_items) > 0:
@@ -442,6 +450,25 @@ class ExplorationExecutor:
             else:
                 items = all_items
                 print(f"[@ExplorationExecutor:continue_exploration] ⚠️ No selection provided - creating all {len(items)} items")
+            
+            print(f"\n{'='*80}")
+            print(f"[@ExplorationExecutor:continue_exploration] 📋 EDGE CREATION STRATEGY")
+            print(f"{'='*80}")
+            
+            # Get strategy from exploration plan
+            strategy = exploration_plan.get('strategy', 'click')
+            menu_type = exploration_plan.get('menu_type', 'horizontal')
+            
+            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Strategy: {strategy}")
+            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Menu Type: {menu_type}")
+            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Device Model: {self.device_model}")
+            
+            if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+                print(f"[@ExplorationExecutor:continue_exploration] ✅ Will create D-PAD edges (press_key)")
+            else:
+                print(f"[@ExplorationExecutor:continue_exploration] ✅ Will create CLICK edges (click_element)")
+            
+            print(f"{'='*80}\n")
             
             print(f"[@ExplorationExecutor:continue_exploration] Creating structure for {self.current_exploration_id}")
             
@@ -503,10 +530,13 @@ class ExplorationExecutor:
                 # ✅ STRATEGY-AWARE: Create D-pad or click actions based on strategy
                 if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
                     # D-pad navigation for TV/STB
-                    item_index = all_predicted_items.index(item) if item in all_predicted_items else idx
+                    item_index = all_items.index(item) if item in all_items else idx
                     dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
                     
-                    print(f"  🎮 Creating D-pad edge for '{item}': {item_index} x {dpad_key} + OK")
+                    print(f"  🎮 Creating D-PAD edge for '{item}':")
+                    print(f"     Item index in menu: {item_index}")
+                    print(f"     D-pad key: {dpad_key}")
+                    print(f"     Actions: {item_index}x {dpad_key} + OK")
                     
                     # Forward: Multiple D-pad presses + OK
                     forward_actions = []
@@ -522,14 +552,18 @@ class ExplorationExecutor:
                         "delay": 2000
                     })
                     
+                    print(f"     Forward actions: {len(forward_actions)} total ({item_index} x {dpad_key}, 1 x OK)")
+                    
                     reverse_actions = [{
                         "command": "press_key",
                         "params": {"key": "BACK"},
                         "delay": 2000
                     }]
+                    
+                    print(f"     Reverse actions: press_key(BACK)")
                 else:
                     # Click navigation for mobile/web
-                    print(f"  📱 Creating click edge for '{item}'")
+                    print(f"  📱 Creating CLICK edge for '{item}': click_element(\"{item}\")")
                     
                     forward_actions = [{
                         "command": "click_element",

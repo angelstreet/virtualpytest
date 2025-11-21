@@ -391,6 +391,23 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                 
                                 const isSelected = selectedEdges.has(item);
                                 
+                                // Get strategy and menu type from exploration plan
+                                const strategy = explorationPlan.strategy || 'click';
+                                const menuType = explorationPlan.menu_type || 'horizontal';
+                                const allItems = explorationPlan.items || [];
+                                
+                                // Calculate action preview based on strategy
+                                let forwardActionPreview = '';
+                                if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
+                                  // D-pad navigation for TV/STB
+                                  const itemIndex = allItems.indexOf(item);
+                                  const dpadKey = menuType === 'horizontal' ? 'RIGHT' : 'DOWN';
+                                  forwardActionPreview = `${itemIndex}x ${dpadKey} + OK`;
+                                } else {
+                                  // Click navigation for mobile/web
+                                  forwardActionPreview = `click("${item}")`;
+                                }
+                                
                                 return (
                                   <Box 
                                     key={idx} 
@@ -416,7 +433,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                     </Typography>
                                     {/* Forward action */}
                                     <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                      → home → {cleanNodeName}: click("{item}")
+                                      → home → {cleanNodeName}: {forwardActionPreview}
                                     </Typography>
                                     {/* Reverse action */}
                                     <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
