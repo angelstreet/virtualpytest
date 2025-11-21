@@ -83,6 +83,9 @@ CREATE TABLE navigation_nodes (
     has_subtree boolean DEFAULT false, -- True if this node has associated subtrees
     subtree_count integer DEFAULT 0, -- Number of subtrees linked to this node
     
+    -- Protection flag
+    is_system_protected boolean DEFAULT false, -- True for essential nodes that cannot be deleted
+    
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
@@ -123,6 +126,7 @@ CREATE TABLE navigation_edges (
     action_sets jsonb NOT NULL DEFAULT '[]', -- ✅ REQUIRED: Array of action sets (2-3 per edge typical)
     default_action_set_id text NOT NULL, -- ✅ REQUIRED: ID of default action set (priority 1)
     final_wait_time integer DEFAULT 0,
+    is_system_protected boolean DEFAULT false, -- True for essential edges that cannot be deleted
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
     updated_at timestamp with time zone DEFAULT now(),
@@ -504,6 +508,69 @@ CREATE TRIGGER cascade_delete_subtrees_trigger
     AFTER DELETE ON navigation_nodes
     FOR EACH ROW
     EXECUTE FUNCTION cascade_delete_subtrees();
+
+-- ============================================================================
+-- PROTECTED NODE AND EDGE DELETION TRIGGERS
+-- ============================================================================
+
+-- Function to prevent deletion of protected nodes (unless CASCADE delete)
+CREATE OR REPLACE FUNCTION prevent_protected_node_deletion()
+RETURNS TRIGGER AS $$
+DECLARE
+    tree_exists BOOLEAN;
+BEGIN
+    -- Only enforce protection if this is a direct delete, not a CASCADE delete
+    -- Check if the parent tree still exists - if not, this is a CASCADE delete
+    SELECT EXISTS(
+        SELECT 1 FROM navigation_trees WHERE id = OLD.tree_id
+    ) INTO tree_exists;
+    
+    -- If tree exists and node is protected, this is a direct delete - block it
+    -- Protect: 1) system-protected flag, 2) entry-node, 3) home
+    IF tree_exists AND (OLD.is_system_protected = true OR OLD.node_id IN ('entry-node', 'home')) THEN
+        RAISE EXCEPTION 'Cannot delete system-protected node: % (node_id: %)', OLD.label, OLD.node_id
+            USING HINT = 'This node is essential for navigation tree structure and cannot be deleted.';
+    END IF;
+    
+    -- Otherwise allow deletion (CASCADE or unprotected node)
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for protected node deletion
+CREATE TRIGGER trigger_prevent_protected_node_deletion
+    BEFORE DELETE ON navigation_nodes
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_protected_node_deletion();
+
+-- Function to prevent deletion of protected edges (unless CASCADE delete)
+CREATE OR REPLACE FUNCTION prevent_protected_edge_deletion()
+RETURNS TRIGGER AS $$
+DECLARE
+    tree_exists BOOLEAN;
+BEGIN
+    -- Only enforce protection if this is a direct delete, not a CASCADE delete
+    -- Check if the parent tree still exists - if not, this is a CASCADE delete
+    SELECT EXISTS(
+        SELECT 1 FROM navigation_trees WHERE id = OLD.tree_id
+    ) INTO tree_exists;
+    
+    -- If tree exists and edge is protected, this is a direct delete - block it
+    IF tree_exists AND OLD.is_system_protected = true THEN
+        RAISE EXCEPTION 'Cannot delete system-protected edge: % (edge_id: %)', OLD.label, OLD.edge_id
+            USING HINT = 'This edge is essential for navigation tree structure and cannot be deleted.';
+    END IF;
+    
+    -- Otherwise allow deletion (CASCADE or unprotected edge)
+    RETURN OLD;
+END;
+$$ LANGUAGE plpgsql;
+
+-- Create trigger for protected edge deletion
+CREATE TRIGGER trigger_prevent_protected_edge_deletion
+    BEFORE DELETE ON navigation_edges
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_protected_edge_deletion();
 
 -- ============================================================================
 -- MATERIALIZED VIEW FOR FULL TREE DATA (Performance Optimization)

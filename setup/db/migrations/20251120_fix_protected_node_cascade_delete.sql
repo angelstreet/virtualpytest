@@ -20,7 +20,8 @@ BEGIN
     ) INTO tree_exists;
     
     -- If tree exists and node is protected, this is a direct delete - block it
-    IF tree_exists AND OLD.is_system_protected = true THEN
+    -- Protect: 1) system-protected flag, 2) entry-node, 3) home
+    IF tree_exists AND (OLD.is_system_protected = true OR OLD.node_id IN ('entry-node', 'home')) THEN
         RAISE EXCEPTION 'Cannot delete system-protected node: % (node_id: %)', OLD.label, OLD.node_id
             USING HINT = 'This node is essential for navigation tree structure and cannot be deleted.';
     END IF;

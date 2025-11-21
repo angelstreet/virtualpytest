@@ -82,17 +82,17 @@ def cleanup_temp():
         
         nodes_deleted = 0
         
-        # Delete ALL nodes except home
+        # Delete ALL nodes except entry-node and home
         if nodes_result.get('success') and nodes_result.get('nodes'):
             for node in nodes_result['nodes']:
                 node_id = node.get('node_id', '')
-                if node_id.lower() != 'home':
+                if node_id.lower() not in ['entry-node', 'home']:
                     delete_result = delete_node(tree_id, node_id, team_id)
                     if delete_result.get('success'):
                         nodes_deleted += 1
                         print(f"  🗑️  Deleted node: {node_id}")
                 else:
-                    print(f"  ⏭️  Keeping home node")
+                    print(f"  ⏭️  Keeping protected node: {node_id}")
         
         print(f"[@route:ai_generation:cleanup_temp] Complete: {nodes_deleted} nodes, {edges_deleted} edges deleted")
         
