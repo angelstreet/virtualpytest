@@ -184,13 +184,13 @@ Demonstration setup using **identical hardware** as production deployment, scale
 |------|-------|-----|------------|-------|-------|
 | **Proxmox Server** | Supermicro AS-1114S-WN10RT | 1 | $6,000 | $6,000 | 400W |
 | **HDMI Capture Card** | Magewell Quad HDMI | 4 | $1,295 | $5,180 | 100W |
-| **USB Controller** | StarTech PEXUSB3S44V | 1 | $150 | $150 | 5W |
-| **IR Controller** | Global Caché iTach IP2IR | 1 | $299 | $299 | 5W |
-| **Powered USB Hub** | Anker PowerPort 10 | 1 | $50 | $50 | 60W |
 | **Network Switch** | Netgear GS108 (8-port 1GbE) | 1 | $29 | $29 | 5W |
+| **Powered USB Hub** | Anker PowerPort 10 | 1 | $50 | $50 | 60W |
+| **IR Controller** | Global Caché iTach IP2IR | 1 | $299 | $299 | 5W |
+| **Cable Mgmt Kit** | Rack cable managers (3U) | 1 | $120 | $120 | 0W |
 | **PDU (Metered)** | Tripp Lite PDUMH15ATNET | 1 | $299 | $299 | 0W |
 | **UPS** | CyberPower OR1500LCDRM1U | 1 | $450 | $450 | 0W |
-| **Subtotal Infrastructure** | | | | **$12,457** | **575W** |
+| **Subtotal Infrastructure** | | | | **$12,627** | **580W** |
 
 ### Cables & Accessories
 
@@ -198,11 +198,12 @@ Demonstration setup using **identical hardware** as production deployment, scale
 |------|-------|-----|------------|-------|
 | **HDMI Cables** | 2m, 4K@60Hz, certified | 16 | $8 | $128 |
 | **USB 3.0 Cables** | 1.5m, shielded | 4 | $6 | $24 |
-| **USB-C to HDMI Adapters** | 4K@60Hz, DP alt mode | 4 | $15 | $60 |
+| USB-C to HDMI Adapters** | 4K@60Hz, DP alt mode | 4 | $15 | $60 |
 | **IR Extension Cables** | 2m, 3.5mm | 16 | $10 | $160 |
 | **Ethernet Cables** | Cat6a, 2m | 2 | $8 | $16 |
-| **Cable Management** | Rack-mount or desktop | 1 | $80 | $80 |
-| **Subtotal Cables** | | | | **$468** |
+| **Cable Management** | Breakout panels + organizers | 1 | $120 | $120 |
+| **Rack Labels** | Device labels (DEV-001-016) | 1 | $40 | $40 |
+| **Subtotal Cables** | | | | **$524** |
 
 ### Physical Devices (Optional - Customer Provided)
 
@@ -220,19 +221,19 @@ Demonstration setup using **identical hardware** as production deployment, scale
 
 | Category | Cost |
 |----------|------|
-| Server + Capture + USB + IR | $12,457 |
-| Cables & Accessories | $468 |
-| **Total Infrastructure** | **$12,925** |
-| **Cost per device slot** | **$808** (16 slots) |
+| Server + Capture + Network + Cable Mgmt | $12,627 |
+| Cables & Accessories | $524 |
+| **Total Infrastructure** | **$13,151** |
+| **Cost per device slot** | **$822** (16 slots) |
 
 ### With Devices (Turnkey Demo)
 
 | Category | Cost |
 |----------|------|
-| Infrastructure | $12,925 |
+| Infrastructure | $13,151 |
 | 4 STBs | $516 |
 | 4 Mobile Devices | $2,396 |
-| **Total Complete** | **$15,837** |
+| **Total Complete** | **$16,063** |
 
 ---
 
@@ -315,29 +316,31 @@ FRONT VIEW                                    REAR VIEW (Cable Side)
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U9 │🖥️ SERVER (continued)             │    │ U9 │ HDMI: [5][6][7][8]              │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U8 │[EMPTY]                           │    │ U8 │                                  │
+│ U8 │📡 NETWORK SWITCH (8-port 1GbE)   │    │ U8 │[8× RJ45] [Uplink] [Power]       │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U7 │[EMPTY]                           │    │ U7 │                                  │
+│ U7 │🔌 USB HUB + IR CONTROLLER        │    │ U7 │[10× USB3.0] [IR: 16 outputs]    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U6 │🔋 UPS (CyberPower 1500VA - 2U)   │    │ U6 │[Battery Bay] [AC Input] [AC Out] │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U5 │🔋 UPS (continued)                │    │ U5 │[AC Outlets: Server + Network]    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U4 │[EMPTY]                           │    │ U4 │                                  │
+│ U4 │📦 CABLE MANAGEMENT (Breakout)    │    │ U4 │[16× HDMI Female] [Cable Routing] │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U3 │[EMPTY]                           │    │ U3 │                                  │
+│ U3 │📦 CABLE MANAGEMENT (Vertical)    │    │ U3 │[Cable Channels] [Velcro Straps] │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U2 │[EMPTY]                           │    │ U2 │                                  │
+│ U2 │📦 CABLE MANAGEMENT (Routing)     │    │ U2 │[D-Ring Organizers] [Airflow]    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U1 │🔌 PDU (Metered, 8 outlets)       │    │ U1 │[AC Input] → [Outlets: 1-8]      │
 └────┴──────────────────────────────────┘    └────┴──────────────────────────────────┘
   ↑ Bottom (Floor Level)                       ↑ Bottom
 
-External Equipment (Not racked):
-├── 📡 Network Switch (8-port) - Place on top of rack
-├── 🔴 IR Controller (iTach) - Place on desk near STBs
-├── 🔌 Powered USB Hub - Place on desk near mobiles
-└── 📱 Devices (4 STBs + 4 Mobiles) - On desk/shelves
+External Equipment (On desk near rack):
+├── 📱 4× STBs (shelves with power/HDMI/IR)
+├── 📱 4× Mobiles (charging stands with HDMI/USB)
+└── 🌐 8× Web devices (no physical hardware)
+
+CRITICAL: This is NOT a "demo-only" setup.
+This is Production Server #1 that will become part of 5-server production!
 ```
 
 ### Installation Order (Top to Bottom - Practical)
@@ -350,32 +353,47 @@ External Equipment (Not racked):
    - Mount 1× StarTech USB controller in PCIe slot
    - Better cooling (hot air rises, exhausts at top)
 
-2. **U5-U6:** Install UPS (2U) in middle
-   - Sliding rails for battery access
-   - Power cables route up to server
+2. **U8:** Install network switch (1U)
+   - 8-port managed switch
+   - Connect to server 10GbE port
+   - Uplink to internet/router
 
-3. **U1 (Bottom):** Install PDU (1U) at floor level
+3. **U7:** Install USB hub array + IR controller (1U shelf)
+   - 1× Anker 10-port powered USB hub (for mobiles)
+   - 1× Global Caché iTach (network IR controller)
+   - Both mounted on 1U shelf
+
+4. **U5-U6:** Install UPS (2U) in middle
+   - Sliding rails for battery access
+   - Power cables route up to server, switch, hubs
+
+5. **U4:** Install cable breakout panel (1U)
+   - 16× HDMI female ports (routes to devices on desk)
+   - Labeled: DEV-001 to DEV-016
+   - Professional cable presentation
+
+6. **U3-U2:** Install vertical cable management (2U)
+   - Cable routing channels
+   - Velcro straps for organization
+   - Maintains proper airflow
+
+7. **U1 (Bottom):** Install PDU (1U) at floor level
    - Easy access for plugging/unplugging
    - Front-facing outlets pointing forward
    - Connect to wall outlet (shortest cable run)
    - Feeds power up to UPS
 
-4. **On top of rack:** Network switch
-   - 1× cable to server (U12 rear)
-   - 1× cable to router/internet
-   - 1× cable to IR controller
+8. **Cable routing from server (U9-U10) to breakout panel (U4):**
+   - 16× HDMI cables drop down through cable management
+   - 16× USB cables (from hub at U7)
+   - 16× IR cables (from iTach at U7)
+   - All cables labeled matching devices
 
-5. **On desk:** IR controller, USB hub, devices
-   - IR: Connect 4× IR emitters to 4 STBs
-   - USB hub: Connect 4× mobile devices
-   - HDMI: All 12 HDMI cables to server rear (U10-U11)
-
-**Why Server at Top:**
-- ✅ **Stability:** Heavy equipment at top = lower center of gravity for rack
-- ✅ **Cooling:** Hot air naturally exhausts at top of rack
-- ✅ **Cable management:** HDMI/USB cables drop down naturally from rear
-- ✅ **Access:** Work on server without bending down
-- ✅ **Professional:** Heavy compute at top, power/infrastructure at bottom
+**Why This Layout Matches Production (DEPLOYMENT_GUIDE.md Rack A):**
+- ✅ **Same structure:** Server top, network/infrastructure middle, power bottom
+- ✅ **Same cable management:** Professional breakout panels + routing
+- ✅ **Scalable:** Add 4 more servers = become 5-server Rack A
+- ✅ **No surprises:** Demo setup IS production Server #1
 
 ### Cable Management
 
@@ -419,7 +437,7 @@ Power & Network (U12 - Top Rear):
 
 ## Scaling Path (Demo → Production)
 
-### Phase 1: Demo (1 Server = 16 Devices) - **$12,925**
+### Phase 1: Demo (1 Server = 16 Devices) - **$13,151**
 
 This demo server **becomes Production Server #1**
 
@@ -468,7 +486,7 @@ Total: 160 devices
 | **Capture Cards** | 4 | 20 |
 | **Power** | 675W | 2,650W |
 | **Space** | 12U rack | 42U rack |
-| **Cost** | $12,925 | $67k |
+| **Cost** | $13,151 | $67k |
 | **Scalability** | Becomes Server #1 | Linear to 320+ |
 
 **Hardware is Identical:**
