@@ -21,6 +21,8 @@ import { useNodeEdit } from '../../hooks/navigation/useNodeEdit';
 import { NodeEditDialogProps } from '../../types/pages/Navigation_Types';
 import { getZIndex } from '../../utils/zIndexUtils';
 import { VerificationsList } from '../verification/VerificationsList';
+import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../common/ConfirmDialog';
 
 export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   isOpen,
@@ -57,6 +59,9 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     selectedHost,
     isControlActive,
   });
+
+  // Initialize confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   const handleSave = async () => {
     await nodeEdit.handleSave();
@@ -228,14 +233,19 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
                 endAdornment: nodeForm?.screenshot && (
                   <IconButton
                     size="small"
-                    onClick={async () => {
-                      if (window.confirm('Are you sure you want to delete this screenshot from R2 storage?')) {
-                        try {
-                          await nodeEdit.handleDeleteScreenshot();
-                        } catch (error) {
-                          alert('Failed to delete screenshot: ' + error);
-                        }
-                      }
+                    onClick={() => {
+                      confirm({
+                        title: 'Delete Screenshot',
+                        message: 'Are you sure you want to delete this screenshot from R2 storage?',
+                        confirmColor: 'error',
+                        onConfirm: async () => {
+                          try {
+                            await nodeEdit.handleDeleteScreenshot();
+                          } catch (error) {
+                            alert('Failed to delete screenshot: ' + error);
+                          }
+                        },
+                      });
                     }}
                     sx={{
                       position: 'absolute',
@@ -356,6 +366,18 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
           </Button>
         )}
       </DialogActions>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Dialog>
   );
 };
