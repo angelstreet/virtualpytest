@@ -68,6 +68,7 @@ import { useNestedNavigation } from '../hooks/navigation/useNestedNavigation';
 import { useEdge } from '../hooks/navigation/useEdge';
 import { useMetrics } from '../hooks/navigation/useMetrics';
 import { useUserInterface } from '../hooks/pages/useUserInterface';
+import { useDeviceCompatibilityGuard } from '../hooks/navigation/useDeviceCompatibilityGuard';
 import {
   NodeForm,
   EdgeForm,
@@ -690,34 +691,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       setControlState(stableSelectedHost, selectedDeviceId, isControlActive);
     }, [stableSelectedHost, selectedDeviceId, isControlActive, setControlState]);
 
-    // Auto-clear incompatible device selection when userInterface changes
-    useEffect(() => {
-      if (!userInterface || !selectedHost || !selectedDeviceId) return;
-
-      // Check if current device is compatible with current interface models
-      const selectedDevice = selectedHost.devices?.find((d: any) => d.device_id === selectedDeviceId);
-      if (!selectedDevice) return;
-
-      const interfaceModels = userInterface.models || [];
-      const isCompatible = interfaceModels.includes(selectedDevice.device_model);
-
-      if (!isCompatible) {
-        console.log(
-          `[@NavigationEditor] Device ${selectedHost.host_name}:${selectedDeviceId} (${selectedDevice.device_model}) ` +
-          `is NOT compatible with interface ${userInterface.name} (models: ${interfaceModels.join(', ')})`
-        );
-        
-        // Release control if active and clear selection
-        if (isControlActive) {
-          console.log('[@NavigationEditor] Auto-releasing incompatible device');
-          handleDisconnectComplete();
-        }
-        
-        // Clear device selection
-        console.log('[@NavigationEditor] Clearing incompatible device selection');
-        handleDeviceSelect(null, null);
-      }
-    }, [userInterface, selectedHost, selectedDeviceId, isControlActive, handleDisconnectComplete, handleDeviceSelect]);
+    // Auto-guard against incompatible device selections when userInterface changes
+    useDeviceCompatibilityGuard({
+      userInterface,
+      selectedHost,
+      selectedDeviceId,
+      isControlActive,
+      onReleaseControl: handleDisconnectComplete,
+      onClearSelection: () => handleDeviceSelect(null, null),
+    });
 
     // Focus node view handler - pan/zoom to focused node when selected
     useEffect(() => {
