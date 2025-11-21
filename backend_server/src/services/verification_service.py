@@ -111,12 +111,12 @@ class VerificationService:
             valid_ui_names = {ui['name'] for ui in userinterfaces}
             print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
             
-            # Get all references from database
+            # Get references from database filtered by userinterface names (efficient SQL IN clause)
             from shared.src.lib.database.verifications_references_db import get_references
             
-            print(f'[VerificationService] Getting all references for team: {team_id}')
+            print(f'[VerificationService] Getting references for team: {team_id} filtered by userinterfaces: {valid_ui_names}')
             
-            result = get_references(team_id=team_id)
+            result = get_references(team_id=team_id, userinterface_names=list(valid_ui_names))
             
             if not result['success']:
                 print(f'[VerificationService] Error getting references: {result.get("error")}')
@@ -126,17 +126,11 @@ class VerificationService:
                     'status_code': 500
                 }
             
-            # Filter references to ONLY include those matching valid userinterfaces
-            filtered_references = [
-                ref for ref in result['references']
-                if (ref.get('userinterface_name') or ref.get('device_model')) in valid_ui_names
-            ]
-            
-            print(f'[VerificationService] Filtered {len(result["references"])} references down to {len(filtered_references)} matching compatible userinterfaces')
+            print(f'[VerificationService] Found {len(result["references"])} references for compatible userinterfaces')
             
             return {
                 'success': True,
-                'references': filtered_references
+                'references': result['references']
             }
                 
         except Exception as e:
