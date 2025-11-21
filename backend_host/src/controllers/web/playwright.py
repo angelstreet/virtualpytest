@@ -1355,9 +1355,22 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             # Get persistent page from browser+context
             page = await self._get_persistent_page()
             
+            # Handle BACK specially - use browser history navigation
+            if key.upper() == 'BACK':
+                await page.go_back()
+                execution_time = int((time.time() - start_time) * 1000)
+                result = {
+                    'success': True,
+                    'error': '',
+                    'execution_time': execution_time,
+                    'key_pressed': key,
+                    'action': 'browser_back'
+                }
+                print(f"[PLAYWRIGHT]: Browser back navigation successful")
+                return result
+            
             # Map web-specific keys to Playwright key names
             key_mapping = {
-                'BACK': 'Escape',
                 'ESC': 'Escape', 
                 'ESCAPE': 'Escape',
                 'OK': 'Enter',

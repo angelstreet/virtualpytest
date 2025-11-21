@@ -48,10 +48,11 @@ def get_all_references():
     """Get all reference images/data."""
     try:
         team_id = request.args.get('team_id')
+        device_model = request.args.get('device_model')
         
         # Delegate to service layer (database logic moved out of route)
         from services.verification_service import verification_service
-        result = verification_service.get_all_references(team_id)
+        result = verification_service.get_all_references(team_id, device_model)
         
         if result['success']:
             return jsonify({

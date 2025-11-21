@@ -895,12 +895,9 @@ class ExplorationExecutor:
                             print(f"    📱 Using ADB verification for mobile device")
                             break
                 elif 'host' in device_model:
-                    # Web (host): Use Playwright verification
-                    for v in self.device.get_controllers('verification'):
-                        if getattr(v, 'verification_type', None) == 'web':
-                            verifier = v
-                            print(f"    🌐 Using Playwright verification for web device")
-                            break
+                    # Web (host): Use Playwright controller itself (has dump_elements for verification)
+                    verifier = controller  # The Playwright controller can verify elements
+                    print(f"    🌐 Using Playwright controller for web verification")
                 else:
                     # TV/STB: Image verification (not supported in AI exploration)
                     print(f"    ⚠️ Device model '{device_model}' requires image verification - not supported in AI exploration")
@@ -917,21 +914,47 @@ class ExplorationExecutor:
                 
                 back_success = False
                 if verifier:
-                    # Handle async (Playwright) vs sync (ADB) verifications
-                    import inspect
-                    if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                        import asyncio
-                        success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                            search_term=home_indicator,
-                            timeout=3.0
-                        ))
+                    if 'host' in device_model:
+                        # Web: Check if home element exists by dumping and searching
+                        try:
+                            dump_result = verifier.dump_elements()
+                            # Handle async
+                            import inspect
+                            if inspect.iscoroutine(dump_result):
+                                import asyncio
+                                dump_result = asyncio.run(dump_result)
+                            
+                            if isinstance(dump_result, dict) and dump_result.get('success'):
+                                elements = dump_result.get('elements', [])
+                                # Search for home indicator in elements
+                                found = any(
+                                    home_indicator.lower() in str(elem.get('text', '')).lower() or
+                                    home_indicator.lower() in str(elem.get('selector', '')).lower()
+                                    for elem in elements
+                                )
+                                back_success = found
+                                message = f"Element '{home_indicator}' {'found' if found else 'not found'} in page"
+                                print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
+                            else:
+                                print(f"    ❌ Back (1st) failed: Could not dump elements")
+                        except Exception as e:
+                            print(f"    ❌ Back (1st) failed: {e}")
                     else:
-                        success, message, details = verifier.waitForElementToAppear(
-                            search_term=home_indicator,
-                            timeout=3.0
-                        )
-                    back_success = success
-                    print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
+                        # Mobile: Use waitForElementToAppear
+                        import inspect
+                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                            import asyncio
+                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                                search_term=home_indicator,
+                                timeout=3.0
+                            ))
+                        else:
+                            success, message, details = verifier.waitForElementToAppear(
+                                search_term=home_indicator,
+                                timeout=3.0
+                            )
+                        back_success = success
+                        print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
                 else:
                     # Fallback if no verifier available
                     print(f"    ⚠️ No verifier available for device model '{device_model}'")
@@ -949,20 +972,47 @@ class ExplorationExecutor:
                     time.sleep(5)
                     
                     if verifier:
-                        import inspect
-                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                            import asyncio
-                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=5.0
-                            ))
+                        if 'host' in device_model:
+                            # Web: Check if home element exists by dumping and searching
+                            try:
+                                dump_result = verifier.dump_elements()
+                                # Handle async
+                                import inspect
+                                if inspect.iscoroutine(dump_result):
+                                    import asyncio
+                                    dump_result = asyncio.run(dump_result)
+                                
+                                if isinstance(dump_result, dict) and dump_result.get('success'):
+                                    elements = dump_result.get('elements', [])
+                                    # Search for home indicator in elements
+                                    found = any(
+                                        home_indicator.lower() in str(elem.get('text', '')).lower() or
+                                        home_indicator.lower() in str(elem.get('selector', '')).lower()
+                                        for elem in elements
+                                    )
+                                    back_success = found
+                                    message = f"Element '{home_indicator}' {'found' if found else 'not found'} in page"
+                                    print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
+                                else:
+                                    print(f"    ❌ Back (2nd) failed: Could not dump elements")
+                            except Exception as e:
+                                print(f"    ❌ Back (2nd) failed: {e}")
                         else:
-                            success, message, details = verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=5.0
-                            )
-                        back_success = success
-                        print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
+                            # Mobile: Use waitForElementToAppear
+                            import inspect
+                            if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                                import asyncio
+                                success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                                    search_term=home_indicator,
+                                    timeout=5.0
+                                ))
+                            else:
+                                success, message, details = verifier.waitForElementToAppear(
+                                    search_term=home_indicator,
+                                    timeout=5.0
+                                )
+                            back_success = success
+                            print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
                     else:
                         back_success = False
                 

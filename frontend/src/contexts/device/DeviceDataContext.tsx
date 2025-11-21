@@ -184,7 +184,24 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       setState((prev) => ({ ...prev, referencesLoading: true, referencesError: null }));
 
       try {
-        const response = await fetch(buildServerUrl('/server/verification/getAllReferences'), {
+        // Get current device to filter references by device_model
+        const currentDevice = state.currentHost.devices?.find(
+          (d) => d.device_id === state.currentDeviceId
+        );
+        const deviceModel = currentDevice?.device_model;
+
+        // Build URL with device_model for backend filtering
+        const params = new URLSearchParams();
+        if (deviceModel) {
+          params.append('device_model', deviceModel);
+          console.log('[DeviceDataContext] Fetching references for device_model:', deviceModel);
+        }
+
+        const url = buildServerUrl(
+          `/server/verification/getAllReferences${params.toString() ? `?${params.toString()}` : ''}`
+        );
+
+        const response = await fetch(url, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ host: state.currentHost }),
@@ -245,7 +262,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         }));
       }
     },
-    [state.currentHost, state.isControlActive, hostId],
+    [state.currentHost, state.currentDeviceId, state.isControlActive, hostId],
   );
 
   const fetchAvailableActions = useCallback(

@@ -67,10 +67,6 @@ export const useAIGenerationModal = ({
       
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Validated:', data.nodes_renamed, 'nodes,', data.edges_renamed, 'edges');
-2.        
-        // CRITICAL: Rebuild unified cache after validation
-        // This ensures navigation commands like "go to" work immediately
-        await rebuildNavigationCache();
         
         // Refresh tree to show renamed nodes
         onGenerated();
@@ -186,52 +182,6 @@ export const useAIGenerationModal = ({
     }
   };
 
-  const rebuildNavigationCache = async () => {
-    try {
-      console.log('[@useAIGenerationModal] Rebuilding unified navigation cache...');
-      
-      // STEP 1: Load tree hierarchy from database
-      const hierarchyResponse = await fetch(
-        buildServerUrl(`/server/navigationTrees/${treeId}/hierarchy?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`)
-      );
-      const hierarchyData = await hierarchyResponse.json();
-      
-      if (!hierarchyData.success) {
-        console.error('[@useAIGenerationModal] Failed to load tree hierarchy:', hierarchyData.error);
-        return false;
-      }
-      
-      const all_trees_data = hierarchyData.all_trees_data || [];
-      console.log(`[@useAIGenerationModal] Loaded hierarchy: ${all_trees_data.length} trees`);
-      
-      // STEP 2: Populate cache on HOST using same endpoint as take-control
-      const populateResponse = await fetch(
-        buildServerUrl(`/host/navigation/cache/populate/${treeId}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            all_trees_data: all_trees_data,
-            force_repopulate: true  // Force rebuild (same as take-control)
-          })
-        }
-      );
-      
-      const populateData = await populateResponse.json();
-      
-      if (populateData.success) {
-        console.log('[@useAIGenerationModal] ✅ Unified cache rebuilt successfully');
-        return true;
-      } else {
-        console.error('[@useAIGenerationModal] ❌ Cache rebuild failed:', populateData.error);
-        return false;
-      }
-    } catch (error) {
-      console.error('[@useAIGenerationModal] Error rebuilding cache:', error);
-      return false;
-    }
-  };
-
   const handleConfirmClean = async () => {
     setShowCleanConfirm(false);
     setIsCheckingTree(true);
@@ -289,15 +239,11 @@ export const useAIGenerationModal = ({
       
       console.log('[@useAIGenerationModal] Tree cleaned successfully');
       
-      // CRITICAL: Rebuild unified cache after deletion (same as take-control)
-      // This ensures "go to home" and other navigation actions will work
-      await rebuildNavigationCache();
-      
       // Refresh ReactFlow to show clean tree
       onGenerated();
       
-      // Wait 3s for cache to rebuild fully
-      await new Promise(resolve => setTimeout(resolve, 3000));
+      // Wait 1s for database updates to complete
+      await new Promise(resolve => setTimeout(resolve, 1000));
       
       // Start AI generation
       await startExplorationFlow();

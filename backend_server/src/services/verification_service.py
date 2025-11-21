@@ -59,14 +59,15 @@ class VerificationService:
                 'error': f'Failed to get verification types: {str(e)}'
             }
     
-    def get_all_references(self, team_id: str) -> Dict[str, Any]:
+    def get_all_references(self, team_id: str, device_model: str = None) -> Dict[str, Any]:
         """
         Get all reference images/data for a team.
         Only returns references where userinterface_name matches actual userinterface names.
-        NO LEGACY references. Filters at database level for efficiency.
+        Optionally filters by device_model compatibility.
         
         Args:
             team_id: The team ID to get references for
+            device_model: Optional device model to filter compatible userinterfaces
             
         Returns:
             Dict containing success status and references
@@ -79,7 +80,7 @@ class VerificationService:
                     'status_code': 400
                 }
             
-            # Get valid userinterface names FIRST (small query)
+            # Get valid userinterface names from database
             from shared.src.lib.database.userinterface_db import get_all_userinterfaces
             userinterfaces = get_all_userinterfaces(team_id)
             
@@ -90,20 +91,32 @@ class VerificationService:
                     'references': []
                 }
             
+            # Filter by device_model compatibility if provided
+            if device_model:
+                compatible_uis = [
+                    ui for ui in userinterfaces 
+                    if device_model in ui.get('models', [])
+                ]
+                print(f'[VerificationService] Filtered {len(userinterfaces)} userinterfaces to {len(compatible_uis)} compatible with device_model: {device_model}')
+                userinterfaces = compatible_uis
+            
+            if not userinterfaces:
+                print(f'[VerificationService] No compatible userinterfaces found')
+                return {
+                    'success': True,
+                    'references': []
+                }
+            
             # Extract valid userinterface names
-            valid_ui_names = [ui['name'] for ui in userinterfaces]
+            valid_ui_names = {ui['name'] for ui in userinterfaces}
             print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
             
-            # Get references filtered by userinterface names AT DATABASE LEVEL
-            # This is much more efficient than fetching all references and filtering in Python
+            # Get all references from database
             from shared.src.lib.database.verifications_references_db import get_references
             
-            print(f'[VerificationService] Getting references for team: {team_id} filtered by {len(valid_ui_names)} userinterfaces')
+            print(f'[VerificationService] Getting all references for team: {team_id}')
             
-            result = get_references(
-                team_id=team_id,
-                userinterface_names=valid_ui_names  # Filter at database level using IN clause
-            )
+            result = get_references(team_id=team_id)
             
             if not result['success']:
                 print(f'[VerificationService] Error getting references: {result.get("error")}')
@@ -113,11 +126,17 @@ class VerificationService:
                     'status_code': 500
                 }
             
-            print(f'[VerificationService] Retrieved {len(result["references"])} references (database-level filtering)')
+            # Filter references to ONLY include those matching valid userinterfaces
+            filtered_references = [
+                ref for ref in result['references']
+                if (ref.get('userinterface_name') or ref.get('device_model')) in valid_ui_names
+            ]
+            
+            print(f'[VerificationService] Filtered {len(result["references"])} references down to {len(filtered_references)} matching compatible userinterfaces')
             
             return {
                 'success': True,
-                'references': result['references']
+                'references': filtered_references
             }
                 
         except Exception as e:
