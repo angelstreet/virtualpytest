@@ -104,7 +104,7 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         self.last_command_error = ""
         self.current_url = ""
         self.page_title = ""
-        
+
         # Flutter semantics tracking (lazy activation on first dump)
         self._flutter_app_detected = None  # None = unknown, True = Flutter, False = not Flutter
         self._flutter_semantics_ready = False  # True = semantic nodes confirmed working
@@ -497,6 +497,11 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             
             # Wait for basic page load only - verifications will check readiness
             await page.goto(normalized_url, timeout=timeout, wait_until='load')
+            
+            # Reset Flutter detection flags on new page load
+            # (semantics state doesn't persist across pages)
+            self._flutter_app_detected = None
+            self._flutter_semantics_ready = False
             
             self.current_url = page.url
             self.page_title = await page.title()

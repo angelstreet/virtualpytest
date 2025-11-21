@@ -118,10 +118,28 @@ class ScreenAnalyzer:
             # ✅ Check if result is a coroutine (async method)
             import inspect
             if inspect.iscoroutine(result):
-                print(f"[@screen_analyzer] Detected async method - running with asyncio")
+                print(f"[@screen_analyzer] Detected async method - using existing event loop")
                 import asyncio
-                result = asyncio.run(result)
-                print(f"[@screen_analyzer] Async result type: {type(result)}")
+                try:
+                    # Try to get the running loop (Playwright's controller loop)
+                    loop = asyncio.get_running_loop()
+                    print(f"[@screen_analyzer] Using running loop: {loop}")
+                    # We're already in an async context - this shouldn't happen
+                    # But if it does, we need to schedule it differently
+                    raise RuntimeError("Cannot use asyncio.run() from within async context")
+                except RuntimeError:
+                    # Not in async context OR need to use existing loop
+                    # Get the controller's loop and submit the coroutine
+                    if hasattr(self.controller, '_submit_to_controller_loop'):
+                        print(f"[@screen_analyzer] Submitting to controller loop")
+                        future = self.controller._submit_to_controller_loop(result)
+                        result = future.result()  # Block until complete
+                        print(f"[@screen_analyzer] Controller loop result type: {type(result)}")
+                    else:
+                        # Fallback to asyncio.run (may cause issues but better than crashing)
+                        print(f"[@screen_analyzer] Fallback to asyncio.run()")
+                        result = asyncio.run(result)
+                        print(f"[@screen_analyzer] Async result type: {type(result)}")
             
         except Exception as e:
             print(f"❌ [@screen_analyzer:_analyze_from_dump] dump_elements() FAILED")
