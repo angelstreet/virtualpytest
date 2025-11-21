@@ -2010,6 +2010,8 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             # -------------------------------------------------------
             # OPTIMIZATION: Skip all checks if we already verified semantics work
             if not self._flutter_semantics_ready:
+                print(f"[PLAYWRIGHT:FLUTTER] 🔍 Starting Flutter detection (semantics_ready={self._flutter_semantics_ready}, app_detected={self._flutter_app_detected})")
+                
                 # OPTIMIZATION: Skip if we already know it's NOT a Flutter app
                 if self._flutter_app_detected != False:
                     # Check if this is a Flutter app (only if we haven't determined yet)
@@ -2019,47 +2021,67 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                             for el in result['elements']
                         )
                         self._flutter_app_detected = has_flutter_view
+                        print(f"[PLAYWRIGHT:FLUTTER] 📱 Flutter view detection: {has_flutter_view}")
                         
                         if not has_flutter_view:
                             # Not a Flutter app - we're done, never check again
-                            print(f"[PLAYWRIGHT]: Not a Flutter app - skipping semantics checks")
+                            print(f"[PLAYWRIGHT:FLUTTER] ✅ Not a Flutter app - skipping all future checks")
                         else:
-                            print(f"[PLAYWRIGHT]: Flutter app detected")
+                            print(f"[PLAYWRIGHT:FLUTTER] 🦋 Flutter app detected - checking semantics...")
                     
                     # At this point: self._flutter_app_detected == True (if we're still here)
                     if self._flutter_app_detected:
                         # Check if semantics are ready
+                        print(f"[PLAYWRIGHT:FLUTTER] 🔍 Checking for semantic nodes in {len(result['elements'])} elements...")
+                        
+                        # Debug: Log all element IDs
+                        element_ids = [el.get('id') for el in result['elements']]
+                        print(f"[PLAYWRIGHT:FLUTTER] 📋 Element IDs found: {element_ids}")
+                        
                         has_semantic_nodes = any(
-                            'flt-semantic-node' in el.get('id', '') 
+                            el.get('id') and 'flt-semantic-node' in el.get('id') 
                             for el in result['elements']
                         )
+                        print(f"[PLAYWRIGHT:FLUTTER] 🎯 Semantic nodes found: {has_semantic_nodes}")
                         
                         if has_semantic_nodes:
                             # Semantics working! Mark as ready, never check again
-                            print(f"[PLAYWRIGHT]: ✅ Flutter semantics confirmed working")
+                            print(f"[PLAYWRIGHT:FLUTTER] ✅ Flutter semantics confirmed working - skipping all future checks")
                             self._flutter_semantics_ready = True
                         else:
                             # Flutter app but semantics NOT ready - retry activation ONCE
-                            print(f"[PLAYWRIGHT]: ⚠️ Flutter detected but semantics not ready - retrying activation...")
-                            await self._try_activate_flutter_semantics()
+                            print(f"[PLAYWRIGHT:FLUTTER] ⚠️ Flutter detected but semantics not ready - retrying activation...")
+                            activation_result = await self._try_activate_flutter_semantics()
+                            print(f"[PLAYWRIGHT:FLUTTER] 🔧 Activation attempted: {activation_result}")
+                            
                             await _asyncio.sleep(2.0)  # Wait for semantics tree to populate
                             
                             # Re-dump to get semantic nodes
-                            print(f"[PLAYWRIGHT]: Re-dumping elements after Flutter activation...")
+                            print(f"[PLAYWRIGHT:FLUTTER] 🔄 Re-dumping elements after Flutter activation...")
                             result = await _asyncio.wait_for(page.evaluate(js_code), timeout=5.0)
                             execution_time = int((time.time() - start_time) * 1000)
-                            print(f"[PLAYWRIGHT]: Re-dump found {result['totalCount']} elements ({result['visibleCount']} visible)")
+                            print(f"[PLAYWRIGHT:FLUTTER] 📊 Re-dump found {result['totalCount']} elements ({result['visibleCount']} visible)")
+                            
+                            # Debug: Log all element IDs after retry
+                            element_ids_after = [el.get('id') for el in result['elements']]
+                            print(f"[PLAYWRIGHT:FLUTTER] 📋 Element IDs after retry: {element_ids_after}")
                             
                             # Check if retry worked
                             has_semantic_nodes = any(
-                                'flt-semantic-node' in el.get('id', '') 
+                                el.get('id') and 'flt-semantic-node' in el.get('id') 
                                 for el in result['elements']
                             )
+                            print(f"[PLAYWRIGHT:FLUTTER] 🎯 Semantic nodes after retry: {has_semantic_nodes}")
+                            
                             if has_semantic_nodes:
-                                print(f"[PLAYWRIGHT]: ✅ Flutter semantics now working after retry")
+                                print(f"[PLAYWRIGHT:FLUTTER] ✅ Flutter semantics now working after retry")
                                 self._flutter_semantics_ready = True
                             else:
-                                print(f"[PLAYWRIGHT]: ⚠️ Flutter semantics still not ready - may need manual intervention")
+                                print(f"[PLAYWRIGHT:FLUTTER] ⚠️ Flutter semantics still not ready - may need manual intervention")
+                else:
+                    print(f"[PLAYWRIGHT:FLUTTER] ⏭️ Skipping Flutter checks (app_detected=False)")
+            else:
+                print(f"[PLAYWRIGHT:FLUTTER] ⏭️ Skipping Flutter checks (semantics_ready=True)")
             # -------------------------------------------------------
             
             return {
