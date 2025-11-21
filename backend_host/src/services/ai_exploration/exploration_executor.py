@@ -562,14 +562,26 @@ class ExplorationExecutor:
                     'error': f"Cannot start validation: status is {self.exploration_state['status']}"
                 }
             
+            items_to_validate = self.exploration_state.get('items_to_validate', [])
+            print(f"[@ExplorationExecutor:start_validation] Items to validate: {len(items_to_validate)}")
+            print(f"[@ExplorationExecutor:start_validation] Items: {items_to_validate}")
+            
+            if not items_to_validate or len(items_to_validate) == 0:
+                return {
+                    'success': False,
+                    'error': 'No items to validate. Structure may not have been created properly.'
+                }
+            
             self.exploration_state['status'] = 'awaiting_validation'
             self.exploration_state['current_validation_index'] = 0
             self.exploration_state['node_verification_data'] = []  # Initialize for collecting dumps during validation
             
+            print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
+            
             return {
                 'success': True,
                 'message': 'Ready to start validation',
-                'total_items': len(self.exploration_state['items_to_validate'])
+                'total_items': len(items_to_validate)
             }
     
     def finalize_structure(self) -> Dict[str, Any]:
@@ -661,7 +673,7 @@ class ExplorationExecutor:
         Returns:
             {
                 'success': True,
-                'item': 'En',
+                'item': 'Search',
                 'click_result': 'success',
                 'back_result': 'success',
                 'has_more_items': True,
@@ -669,10 +681,16 @@ class ExplorationExecutor:
             }
         """
         with self._lock:
+            print(f"\n{'='*80}")
+            print(f"[@ExplorationExecutor:validate_next_item] VALIDATION STEP START")
+            print(f"{'='*80}")
+            
             if self.exploration_state['status'] not in ['awaiting_validation', 'validating']:
+                error_msg = f"Cannot validate: status is {self.exploration_state['status']}"
+                print(f"[@ExplorationExecutor:validate_next_item] ❌ {error_msg}")
                 return {
                     'success': False,
-                    'error': f"Cannot validate: status is {self.exploration_state['status']}"
+                    'error': error_msg
                 }
             
             tree_id = self.exploration_state['tree_id']
@@ -680,7 +698,12 @@ class ExplorationExecutor:
             current_index = self.exploration_state['current_validation_index']
             items_to_validate = self.exploration_state['items_to_validate']
             
+            print(f"[@ExplorationExecutor:validate_next_item] Current index: {current_index}")
+            print(f"[@ExplorationExecutor:validate_next_item] Total items: {len(items_to_validate)}")
+            print(f"[@ExplorationExecutor:validate_next_item] Items to validate: {items_to_validate}")
+            
             if current_index >= len(items_to_validate):
+                print(f"[@ExplorationExecutor:validate_next_item] ✅ All items validated!")
                 self.exploration_state['status'] = 'validation_complete'
                 return {
                     'success': True,
@@ -692,14 +715,19 @@ class ExplorationExecutor:
             target_to_node_map = self.exploration_state['target_to_node_map']
             node_name = target_to_node_map.get(current_item)
             
+            print(f"[@ExplorationExecutor:validate_next_item] Validating item: {current_item}")
+            print(f"[@ExplorationExecutor:validate_next_item] Node name: {node_name}")
+            
             if not node_name:
                 # Fallback
                 node_gen = NodeGenerator(tree_id, team_id)
                 node_name_clean = node_gen.target_to_node_name(current_item)
                 node_name = f"{node_name_clean}_temp"
+                print(f"[@ExplorationExecutor:validate_next_item] Using fallback node name: {node_name}")
             
             # Skip home
             if 'home' in node_name.lower() and node_name != 'home_temp':
+                print(f"[@ExplorationExecutor:validate_next_item] ⏭️  Skipping home node: {node_name}")
                 self.exploration_state['current_validation_index'] = current_index + 1
                 return self.validate_next_item()
             
