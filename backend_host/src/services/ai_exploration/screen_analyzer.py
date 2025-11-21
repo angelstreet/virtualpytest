@@ -488,12 +488,12 @@ class ScreenAnalyzer:
             # Priority 1: For Flutter, ALWAYS use text (IDs are dynamic)
             if is_flutter and text_content:
                 label = text_content
-            # Priority 2: ID from selector (most reliable for regular web)
-            elif has_id:
-                label = selector.split('#')[-1].strip()
-            # Priority 3: text content
+            # Priority 2: Text content (More human-readable than ID for web)
             elif text_content:
                 label = text_content
+            # Priority 3: ID from selector (Reliable fallback if text is missing)
+            elif has_id:
+                label = selector.split('#')[-1].strip()
             # Priority 4: aria-label
             elif attributes.get('aria-label'):
                 label = attributes['aria-label'].strip()
