@@ -507,8 +507,11 @@ class ScreenAnalyzer:
                 if not text_content or len(text_content) < 2:
                     print(f"[@screen_analyzer:_extract_web] Filtered FLUTTER NO TEXT: {selector}")
                     continue
-                # Check for tappable attribute
-                is_tappable = 'flt-tappable' in str(attributes) or elem.get('flt-tappable') is not None
+                # Check for tappable - can be className OR role=button in attributes
+                is_tappable = (
+                    'flt-tappable' in elem.get('className', '') or 
+                    elem.get('attributes', {}).get('role') == 'button'
+                )
                 if not is_tappable:
                     print(f"[@screen_analyzer:_extract_web] Filtered FLUTTER NOT TAPPABLE: {text_content[:30]}")
                     continue
