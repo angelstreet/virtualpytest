@@ -59,15 +59,17 @@ class VerificationService:
                 'error': f'Failed to get verification types: {str(e)}'
             }
     
-    def get_all_references(self, team_id: str, device_model: str = None) -> Dict[str, Any]:
+    def get_all_references(self, team_id: str, userinterface_name: str = None, device_model: str = None) -> Dict[str, Any]:
         """
         Get all reference images/data for a team.
-        Only returns references where userinterface_name matches actual userinterface names.
-        Optionally filters by device_model compatibility.
+        
+        OPTIMAL: Pass userinterface_name directly (e.g., from NavigationEditor) - most efficient.
+        FALLBACK: Pass device_model to filter compatible userinterfaces - less efficient.
         
         Args:
             team_id: The team ID to get references for
-            device_model: Optional device model to filter compatible userinterfaces
+            userinterface_name: Optional specific userinterface name (most efficient - direct DB filter)
+            device_model: Optional device model to filter compatible userinterfaces (fallback)
             
         Returns:
             Dict containing success status and references
@@ -80,43 +82,74 @@ class VerificationService:
                     'status_code': 400
                 }
             
-            # Get valid userinterface names from database
-            from shared.src.lib.database.userinterface_db import get_all_userinterfaces
-            userinterfaces = get_all_userinterfaces(team_id)
+            from shared.src.lib.database.verifications_references_db import get_references
             
-            if not userinterfaces:
-                print(f'[VerificationService] No userinterfaces found for team')
+            # OPTIMAL PATH: Direct userinterface name filter (e.g., from NavigationEditor)
+            if userinterface_name:
+                print(f'[VerificationService] ✅ Direct filter by userinterface: {userinterface_name}')
+                result = get_references(team_id=team_id, userinterface_names=[userinterface_name])
+                
+                if not result['success']:
+                    print(f'[VerificationService] Error getting references: {result.get("error")}')
+                    return {
+                        'success': False,
+                        'error': result.get('error', 'Failed to get references'),
+                        'status_code': 500
+                    }
+                
+                print(f'[VerificationService] Found {len(result["references"])} references for userinterface: {userinterface_name}')
                 return {
                     'success': True,
-                    'references': []
+                    'references': result['references']
                 }
             
-            # Filter by device_model compatibility if provided
+            # FALLBACK PATH: device_model filter requires resolving compatible userinterfaces
             if device_model:
+                from shared.src.lib.database.userinterface_db import get_all_userinterfaces
+                userinterfaces = get_all_userinterfaces(team_id)
+                
+                if not userinterfaces:
+                    print(f'[VerificationService] No userinterfaces found for team')
+                    return {
+                        'success': True,
+                        'references': []
+                    }
+                
                 compatible_uis = [
                     ui for ui in userinterfaces 
                     if device_model in ui.get('models', [])
                 ]
                 print(f'[VerificationService] Filtered {len(userinterfaces)} userinterfaces to {len(compatible_uis)} compatible with device_model: {device_model}')
-                userinterfaces = compatible_uis
-            
-            if not userinterfaces:
-                print(f'[VerificationService] No compatible userinterfaces found')
+                
+                if not compatible_uis:
+                    print(f'[VerificationService] No compatible userinterfaces found')
+                    return {
+                        'success': True,
+                        'references': []
+                    }
+                
+                valid_ui_names = [ui['name'] for ui in compatible_uis]
+                print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
+                
+                result = get_references(team_id=team_id, userinterface_names=valid_ui_names)
+                
+                if not result['success']:
+                    print(f'[VerificationService] Error getting references: {result.get("error")}')
+                    return {
+                        'success': False,
+                        'error': result.get('error', 'Failed to get references'),
+                        'status_code': 500
+                    }
+                
+                print(f'[VerificationService] Found {len(result["references"])} references for compatible userinterfaces')
                 return {
                     'success': True,
-                    'references': []
+                    'references': result['references']
                 }
             
-            # Extract valid userinterface names
-            valid_ui_names = {ui['name'] for ui in userinterfaces}
-            print(f'[VerificationService] Valid userinterface names: {valid_ui_names}')
-            
-            # Get references from database filtered by userinterface names (efficient SQL IN clause)
-            from shared.src.lib.database.verifications_references_db import get_references
-            
-            print(f'[VerificationService] Getting references for team: {team_id} filtered by userinterfaces: {valid_ui_names}')
-            
-            result = get_references(team_id=team_id, userinterface_names=list(valid_ui_names))
+            # NO FILTER: Return all references for the team
+            print(f'[VerificationService] ⚠️ No filter specified - getting all references for team')
+            result = get_references(team_id=team_id)
             
             if not result['success']:
                 print(f'[VerificationService] Error getting references: {result.get("error")}')
@@ -126,8 +159,7 @@ class VerificationService:
                     'status_code': 500
                 }
             
-            print(f'[VerificationService] Found {len(result["references"])} references for compatible userinterfaces')
-            
+            print(f'[VerificationService] Found {len(result["references"])} references (no filter)')
             return {
                 'success': True,
                 'references': result['references']

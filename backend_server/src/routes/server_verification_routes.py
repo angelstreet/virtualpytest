@@ -48,11 +48,12 @@ def get_all_references():
     """Get all reference images/data."""
     try:
         team_id = request.args.get('team_id')
-        device_model = request.args.get('device_model')
+        userinterface_name = request.args.get('userinterface_name')  # OPTIMAL: Direct userinterface filter
+        device_model = request.args.get('device_model')  # FALLBACK: Device model compatibility filter
         
-        # Delegate to service layer (database logic moved out of route)
+        # Delegate to service layer
         from services.verification_service import verification_service
-        result = verification_service.get_all_references(team_id, device_model)
+        result = verification_service.get_all_references(team_id, userinterface_name, device_model)
         
         if result['success']:
             return jsonify({

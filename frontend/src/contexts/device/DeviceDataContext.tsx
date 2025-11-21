@@ -38,6 +38,9 @@ interface DeviceDataState {
   currentDeviceId: string | null;
   isControlActive: boolean;
 
+  // Userinterface name for optimal reference filtering
+  userinterfaceName: string | null;
+
   // Device position tracking
   devicePositions: {
     [deviceKey: string]: { nodeId: string; nodeLabel: string; treeId: string; timestamp: number };
@@ -58,6 +61,7 @@ interface DeviceDataActions {
 
   // State management
   setControlState: (host: Host | null, deviceId: string | null, isActive: boolean) => void;
+  setUserinterfaceName: (name: string | null) => void; // NEW: Set userinterface name for optimal filtering
   clearData: () => void;
   reloadData: () => Promise<void>;
   reloadReferences: () => Promise<void>;
@@ -137,6 +141,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     currentHost: null,
     currentDeviceId: null,
     isControlActive: false,
+    userinterfaceName: null, // NEW: Userinterface name for optimal filtering
     devicePositions: {},
   });
 
@@ -190,11 +195,18 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
         );
         const deviceModel = currentDevice?.device_model;
 
-        // Build URL with device_model for backend filtering
+        // Build URL with optimal filtering
         const params = new URLSearchParams();
-        if (deviceModel) {
+        
+        // OPTIMAL PATH: If userinterface_name is set (e.g., from NavigationEditor), use it directly
+        if (state.userinterfaceName) {
+          params.append('userinterface_name', state.userinterfaceName);
+          console.log('[DeviceDataContext] ✅ OPTIMAL: Fetching references for userinterface:', state.userinterfaceName);
+        } 
+        // FALLBACK PATH: Use device_model for compatibility filtering
+        else if (deviceModel) {
           params.append('device_model', deviceModel);
-          console.log('[DeviceDataContext] Fetching references for device_model:', deviceModel);
+          console.log('[DeviceDataContext] ⚠️ FALLBACK: Fetching references for device_model:', deviceModel);
         }
 
         const url = buildServerUrl(
@@ -550,6 +562,15 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
     [],
   );
 
+  // NEW: Set userinterface name for optimal reference filtering
+  const setUserinterfaceName = useCallback((name: string | null) => {
+    setState((prev) => ({ ...prev, userinterfaceName: name }));
+    // Invalidate references cache when userinterface changes
+    if (name !== state.userinterfaceName) {
+      loadedDataRef.current.referencesLoaded = false;
+    }
+  }, [state.userinterfaceName]);
+
   const clearData = useCallback(() => {
     setState((prev) => ({
       ...prev,
@@ -737,6 +758,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       getAvailableActions,
       getAvailableVerificationTypes,
       setControlState,
+      setUserinterfaceName, // NEW: Set userinterface name for optimal filtering
       clearData,
       reloadData,
       reloadReferences,
@@ -759,6 +781,7 @@ export const DeviceDataProvider: React.FC<DeviceDataProviderProps> = ({ children
       getAvailableActions,
       getAvailableVerificationTypes,
       setControlState,
+      setUserinterfaceName, // NEW
       clearData,
       reloadData,
       reloadReferences,

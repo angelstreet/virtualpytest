@@ -684,12 +684,24 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     const stableSelectedHost = useMemo(() => selectedHost, [selectedHost]);
 
     // Centralized reference management - both verification references and actions
-    const { setControlState } = useDeviceData();
+    const { setControlState, setUserinterfaceName } = useDeviceData();
 
     // Set control state in device data context when it changes
     useEffect(() => {
       setControlState(stableSelectedHost, selectedDeviceId, isControlActive);
     }, [stableSelectedHost, selectedDeviceId, isControlActive, setControlState]);
+
+    // Set userinterface name for optimal reference filtering
+    useEffect(() => {
+      if (userInterface?.name) {
+        console.log('[@NavigationEditor] Setting userinterface name for optimal filtering:', userInterface.name);
+        setUserinterfaceName(userInterface.name);
+      }
+      return () => {
+        // Clear on unmount
+        setUserinterfaceName(null);
+      };
+    }, [userInterface?.name, setUserinterfaceName]);
 
     // Auto-guard against incompatible device selections when userInterface changes
     useDeviceCompatibilityGuard({
