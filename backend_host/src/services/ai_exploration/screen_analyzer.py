@@ -133,8 +133,8 @@ class ScreenAnalyzer:
         
         # Handle different return types
         if isinstance(result, dict):
-            # Dict format (both mobile and web now use this)
-            print(f"[@screen_analyzer] Dict format detected - keys: {result.keys()}")
+            # Web returns dict: {success: bool, elements: list, ...}
+            print(f"[@screen_analyzer] Web format detected - keys: {result.keys()}")
             
             if not result.get('success'):
                 error = result.get('error', 'Unknown error')
@@ -152,17 +152,9 @@ class ScreenAnalyzer:
                 print(f"   Result: {result}")
                 raise Exception("No elements found in UI dump")
             
-            # ✅ FIX: Distinguish mobile vs web elements based on device type
-            # Mobile returns AndroidElement/AppiumElement objects
-            # Web returns element dicts
-            if 'mobile' in self.device_model_name.lower():
-                # Mobile elements (AndroidElement objects in dict)
-                print(f"[@screen_analyzer] Parsing mobile elements (dict format)...")
-                interactive_elements = self._extract_interactive_elements_mobile(elements)
-            else:
-                # Web elements (dict format)
-                print(f"[@screen_analyzer] Parsing web elements (dict format)...")
-                interactive_elements = self._extract_interactive_elements_web(elements)
+            # Parse web elements (dict format)
+            print(f"[@screen_analyzer] Parsing web elements...")
+            interactive_elements = self._extract_interactive_elements_web(elements)
         else:
             # Mobile returns tuple: (success, elements, error)
             print(f"[@screen_analyzer] Mobile format detected - tuple with {len(result)} items")

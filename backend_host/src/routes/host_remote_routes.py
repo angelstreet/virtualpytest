@@ -7,7 +7,6 @@ Host-side remote control endpoints that execute remote commands using instantiat
 from flask import Blueprint, request, jsonify, current_app
 from  backend_host.src.lib.utils.host_utils import get_controller, get_device_by_id, get_remote_controller_by_type
 import time
-import asyncio
 
 # Create blueprint
 host_remote_bp = Blueprint('host_remote', __name__, url_prefix='/host/remote')
@@ -102,11 +101,7 @@ def screenshot_and_dump():
         
         ui_success, elements, ui_error = False, [], None
         if hasattr(remote_controller, 'dump_elements'):
-            # Call async dump_elements using asyncio.run
-            result = asyncio.run(remote_controller.dump_elements())
-            ui_success = result.get('success', False)
-            elements = result.get('elements', [])
-            ui_error = result.get('error', '')
+            ui_success, elements, ui_error = remote_controller.dump_elements()
             
             # Store elements in controller for subsequent click operations
             if ui_success and elements:
@@ -407,11 +402,7 @@ def dump_ui():
                 'error': 'UI dump not supported by this remote controller'
             }), 400
         
-        # Call async dump_elements using asyncio.run
-        result = asyncio.run(remote_controller.dump_elements())
-        ui_success = result.get('success', False)
-        elements = result.get('elements', [])
-        ui_error = result.get('error', '')
+        ui_success, elements, ui_error = remote_controller.dump_elements()
         
         if ui_success:
             # Store elements in controller for subsequent click operations

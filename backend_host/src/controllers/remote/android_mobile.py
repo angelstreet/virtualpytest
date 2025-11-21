@@ -231,26 +231,18 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             print(f"Remote[{self.device_type.upper()}]: Error getting apps: {e}")
             return []
             
-    async def dump_elements(self, **kwargs) -> Dict[str, Any]:
+    def dump_elements(self) -> Tuple[bool, List[AndroidElement], str]:
         """
         Dump UI elements from the current screen.
         
-        Args:
-            **kwargs: Additional arguments (for interface compatibility)
-        
         Returns:
-            Dict with keys: success (bool), elements (list), error (str)
+            Tuple of (success, elements_list, error_message)
         """
             
         try:
             print(f"Remote[{self.device_type.upper()}]: Dumping UI elements")
             
-            # Run blocking ADB operation in thread pool
-            import asyncio
-            success, elements, error = await asyncio.to_thread(
-                self.adb_utils.dump_elements, 
-                self.android_device_id
-            )
+            success, elements, error = self.adb_utils.dump_elements(self.android_device_id)
             
             if success:
                 self.last_ui_elements = elements
@@ -295,21 +287,12 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             else:
                 print(f"Remote[{self.device_type.upper()}]: UI dump failed: {error}")
                 
-            # Return unified dict format
-            return {
-                'success': success,
-                'elements': elements,
-                'error': error
-            }
+            return success, elements, error
             
         except Exception as e:
             error_msg = f"Error dumping UI elements: {e}"
             print(f"Remote[{self.device_type.upper()}]: {error_msg}")
-            return {
-                'success': False,
-                'elements': [],
-                'error': error_msg
-            }
+            return False, [], error_msg
             
     def click_element_by_id(self, element: AndroidElement) -> bool:
         """
