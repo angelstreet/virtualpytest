@@ -73,6 +73,13 @@ def validate_startup_requirements():
     print(f"[@backend_server:validate] 🗄️  Database Configuration:")
     print(f"[@backend_server:validate]    NEXT_PUBLIC_SUPABASE_URL: {supabase_url}")
     
+    # Print API_KEY status for verification
+    api_key = os.getenv('API_KEY')
+    if api_key:
+        print(f"[@backend_server:validate] 🔑 API_KEY: SET (length={len(api_key)})")
+    else:
+        print(f"[@backend_server:validate] ⚠️  API_KEY: NOT SET - host requests will fail!")
+    
     print("✅ Startup requirements validated")
 
 def setup_and_cleanup():

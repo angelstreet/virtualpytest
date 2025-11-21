@@ -18,6 +18,7 @@ import {
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { NodeVerificationModal } from './NodeVerificationModal';
+import { useExplorationValidation } from '../../hooks/exploration';
 
 interface ValidationModalProps {
   isOpen: boolean;
@@ -34,23 +35,6 @@ interface ValidationModalProps {
   onValidationComplete?: () => void;
 }
 
-interface ValidationResult {
-  step: number;
-  itemName: string;
-  sourceNode: string;
-  targetNode: string;
-  forward: {
-    action: string;
-    result: 'success' | 'failure';
-    message?: string;
-  };
-  backward: {
-    action: string;
-    result: 'success' | 'warning' | 'skipped' | 'failure';
-    message?: string;
-  };
-}
-
 export const ValidationModal: React.FC<ValidationModalProps> = ({
   isOpen,
   onClose,
@@ -61,14 +45,24 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
   onValidationStarted,
   onValidationComplete
 }) => {
-  const [isValidating, setIsValidating] = useState(false);
-  const [isValidationComplete, setIsValidationComplete] = useState(false);
-  const [validationProgress, setValidationProgress] = useState({ current: 0, total: 0 });
-  const [validationResults, setValidationResults] = useState<ValidationResult[]>([]);
-  const [currentStep, setCurrentStep] = useState('');
-  const [error, setError] = useState<string | null>(null);
-  
-  // Node verification state
+  // ✅ USE HOOK INSTEAD OF COMPONENT STATE
+  const {
+    isValidating,
+    isComplete,
+    progress,
+    results: validationResults,
+    currentStep,
+    error,
+    startValidation: hookStartValidation,
+    validateNextItem: hookValidateNextItem
+  } = useExplorationValidation({
+    explorationId,
+    explorationHostName,
+    treeId,
+    selectedDeviceId
+  });
+
+  // Node verification state (still component-specific)
   const [showNodeVerificationModal, setShowNodeVerificationModal] = useState(false);
   const [nodeVerificationSuggestions, setNodeVerificationSuggestions] = useState<any[]>([]);
   const [isAnalyzingVerifications, setIsAnalyzingVerifications] = useState(false);
@@ -77,137 +71,31 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
 
   // Start validation when modal opens
   useEffect(() => {
-    if (isOpen && explorationId && !isValidating && !isValidationComplete) {
-      startValidation();
+    if (isOpen && explorationId && !isValidating && !isComplete) {
+      handleStartValidation();
     }
   }, [isOpen, explorationId]);
 
-  const startValidation = useCallback(async () => {
-    try {
-      console.log('[@ValidationModal] Starting validation for exploration:', explorationId);
-      
-      const response = await fetch(
-        buildServerUrl(`/server/ai-generation/start-validation`),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            exploration_id: explorationId,
-            host_name: explorationHostName,
-            tree_id: treeId
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to start validation: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('[@ValidationModal] Validation started:', data);
-      
-      setIsValidating(true);
+  // Wrapper to start validation and begin polling
+  const handleStartValidation = useCallback(async () => {
+    const result = await hookStartValidation();
+    
+    if (result.success) {
       onValidationStarted?.();
-      
       // Start validating first item
-      validateNextItem();
-      
-    } catch (err) {
-      console.error('[@ValidationModal] Error starting validation:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
+      pollValidation();
     }
-  }, [explorationId, explorationHostName, treeId, onValidationStarted]);
+  }, [hookStartValidation, onValidationStarted]);
 
-  const validateNextItem = useCallback(async () => {
-    try {
-      console.log('[@ValidationModal] Validating next item...');
-      setCurrentStep(''); // Clear previous step name
-      
-      const response = await fetch(
-        buildServerUrl(`/server/ai-generation/validate-next-item`),
-        {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            exploration_id: explorationId,
-            host_name: explorationHostName
-          })
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`Failed to validate item: ${response.status}`);
-      }
-
-      const data = await response.json();
-      console.log('[@ValidationModal] Validation result:', data);
-      
-      // Update progress
-      if (data.progress) {
-        setValidationProgress({
-          current: data.progress.current_item,
-          total: data.progress.total_items
-        });
-      }
-      
-      // Update current step
-      setCurrentStep(data.item || '');
-      
-      // Add result
-      if (data.action_sets) {
-        // Helper to format action with parameters
-        const formatAction = (actionSet: any) => {
-          if (!actionSet) return '';
-          const action = actionSet.action || '';
-          return action;
-        };
-        
-        const result: ValidationResult = {
-          step: data.progress?.current_item || validationResults.length + 1,
-          itemName: data.item,
-          sourceNode: data.action_sets.forward?.source || 'home',
-          targetNode: data.action_sets.forward?.target || data.node_name || '',
-          forward: {
-            action: formatAction(data.action_sets.forward),
-            result: data.click_result === 'success' ? 'success' : 'failure',
-            message: data.click_result === 'failed' ? 'Click failed' : undefined
-          },
-          backward: {
-            action: formatAction(data.action_sets.reverse),
-            result: data.back_result === 'success' ? 'success' : 
-                   data.back_result === 'warning' ? 'warning' : 
-                   data.back_result === 'skipped' ? 'skipped' : 'failure',
-            message: data.back_result !== 'success' ? data.back_result : undefined
-          }
-        };
-        
-        setValidationResults(prev => [...prev, result]);
-      }
-      
-      // Check if done
-      if (!data.has_more_items) {
-        console.log('[@ValidationModal] Validation complete!');
-        setIsValidating(false);
-        setIsValidationComplete(true);
-        
-        // Force progress to 100%
-        setValidationProgress(prev => ({
-          ...prev,
-          current: prev.total
-        }));
-        
-        // Don't call onValidationComplete yet - wait for node verification approval
-      } else {
-        // Continue with next item
-        setTimeout(() => validateNextItem(), 500);
-      }
-      
-    } catch (err) {
-      console.error('[@ValidationModal] Error validating item:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
-      setIsValidating(false);
+  // Poll validation progress
+  const pollValidation = useCallback(async () => {
+    const result = await hookValidateNextItem();
+    
+    if (result.success && result.has_more_items) {
+      // Continue with next item after delay
+      setTimeout(() => pollValidation(), 500);
     }
-  }, [explorationId, explorationHostName, validationResults.length]);
+  }, [hookValidateNextItem]);
 
   // Helper function to truncate long text
   const truncate = (text: string, maxLength: number = 50) => {
@@ -219,7 +107,6 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
   const handleStartNodeVerification = useCallback(async () => {
     try {
       setIsAnalyzingVerifications(true);
-      setError(null);
       
       console.log('[@ValidationModal] Starting node verification analysis');
       
@@ -247,17 +134,15 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
       }
     } catch (err) {
       console.error('[@ValidationModal] Error starting node verification:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
     } finally {
       setIsAnalyzingVerifications(false);
     }
-  }, []);
+  }, [selectedDeviceId, explorationHostName]);
   
   // Approve node verifications
   const handleApproveNodeVerifications = useCallback(async (approvedVerifications: any[]) => {
     try {
       setIsUpdatingNodes(true);
-      setError(null);
       
       console.log('[@ValidationModal] Approving node verifications:', approvedVerifications);
       
@@ -288,12 +173,11 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
       return data;
     } catch (err) {
       console.error('[@ValidationModal] Error approving verifications:', err);
-      setError(err instanceof Error ? err.message : 'Unknown error');
       return null;
     } finally {
       setIsUpdatingNodes(false);
     }
-  }, []);
+  }, [selectedDeviceId, explorationHostName]);
 
   // Cancel exploration
   const handleCancelExploration = useCallback(async () => {
@@ -339,7 +223,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           maxHeight: 'calc(100vh - 40px)',
           boxShadow: 3,
           border: '3px solid',
-          borderColor: isValidating ? 'info.main' : isValidationComplete ? 'success.main' : error ? 'error.main' : 'divider',
+          borderColor: isValidating ? 'info.main' : isComplete ? 'success.main' : error ? 'error.main' : 'divider',
           borderRadius: 2,
           overflow: 'hidden'
         }
@@ -348,7 +232,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
       {/* Header */}
       <DialogTitle>
         {isValidating && '🔄 TESTING NAVIGATION'}
-        {isValidationComplete && '✅ TESTING COMPLETE'}
+        {isComplete && '✅ TESTING COMPLETE'}
         {error && '❌ TEST ERROR'}
       </DialogTitle>
 
@@ -376,20 +260,20 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         )}
 
         {/* Progress Bar */}
-        {validationProgress.total > 0 && (
+        {progress.total > 0 && (
           <Box sx={{ mb: 0.5, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pb: 1 }}>
             <Typography variant="body2" color="text.secondary" sx={{ mb: 1, pl: 1.5 }}>
-              Progress: {validationProgress.current}/{validationProgress.total}
+              Progress: {progress.current}/{progress.total}
             </Typography>
             <LinearProgress 
               variant="determinate" 
-              value={(validationProgress.current / validationProgress.total) * 100}
+              value={(progress.current / progress.total) * 100}
             />
           </Box>
         )}
 
         {/* Summary - MOVED UP */}
-        {isValidationComplete && validationResults.length > 0 && (
+        {isComplete && validationResults.length > 0 && (
           <Box sx={{ 
             mb: 2,  // Margin bottom instead of top
             p: 1, 
@@ -434,7 +318,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                 <CircularProgress size={16} sx={{ color: 'info.light' }} />
                 <Typography variant="body2" sx={{ fontWeight: 'bold' }}>
-                  Step {Math.max(1, (validationProgress.current || 0) + 1)} - IN PROGRESS
+                  Step {Math.max(1, (progress.current || 0) + 1)} - IN PROGRESS
                 </Typography>
               </Box>
               <Typography variant="caption" sx={{ fontFamily: 'monospace', display: 'block', color: 'info.light', ml: 3 }}>
@@ -508,8 +392,8 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           ))}
           
           {/* Pending steps */}
-          {validationProgress.total > 0 && 
-           [...Array(Math.max(0, validationProgress.total - (validationProgress.current || 0) - 1))].map((_, index) => (
+          {progress.total > 0 && 
+           [...Array(Math.max(0, progress.total - (progress.current || 0) - 1))].map((_, index) => (
             <Paper 
               key={`pending-${index}`}
               sx={{ 
@@ -522,7 +406,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               }}
             >
               <Typography variant="body2" color="text.secondary">
-                ⏳ Step {(validationProgress.current || 0) + index + 2} - PENDING
+                ⏳ Step {(progress.current || 0) + index + 2} - PENDING
               </Typography>
             </Paper>
           ))}
@@ -545,7 +429,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         )}
         
         {/* After validation complete - show Review Node Verifications or Confirm & Save */}
-        {isValidationComplete && !nodeVerificationComplete && (
+        {isComplete && !nodeVerificationComplete && (
           <>
             <Button
               onClick={handleCancelExploration}

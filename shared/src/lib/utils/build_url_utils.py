@@ -94,6 +94,14 @@ def call_host(
         if headers:
             kwargs['headers'] = headers
         
+        # DEBUG: Log headers being sent (especially for cache/populate endpoint)
+        if 'cache/populate' in endpoint:
+            print(f"[@call_host] DEBUG for {endpoint}:")
+            print(f"[@call_host]   - headers dict: {headers}")
+            print(f"[@call_host]   - kwargs['headers']: {kwargs.get('headers', 'NOT SET')}")
+            print(f"[@call_host]   - kwargs keys: {list(kwargs.keys())}")
+            print(f"[@call_host]   - API_KEY in env: {bool(os.getenv('API_KEY'))}")
+        
         # Execute request
         method_upper = method.upper()
         if method_upper == 'GET':
