@@ -113,7 +113,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ p: 0, overflow: selectedNodeId ? 'hidden' : 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
+      <DialogContent sx={{ p: 0, overflow: 'auto', flex: 1, display: 'flex', flexDirection: 'column' }}>
         {/* GRID VIEW */}
         {!selectedNodeId && (
           <Box sx={{ p: 3 }}>
@@ -179,7 +179,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
 
         {/* DETAIL VIEW */}
         {selectedNodeId && selectedSuggestion && (
-          <Box sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 3, overflow: 'auto', flex: 1 }}>
+          <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
             <Grid container spacing={3}>
               {/* LEFT: Screenshot */}
               <Grid item xs={12} md={6}>
@@ -216,7 +216,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                 </Typography>
                 
                 {selectedSuggestion.suggested_verification?.found ? (
-                  <Box sx={{ mb: 3, p: 2, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
+                  <Box sx={{ mb: 1.5, p: 1.5, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
                     <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
                       <strong>Method:</strong> {selectedSuggestion.suggested_verification.method}
                     </Typography>
@@ -234,7 +234,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                     />
                   </Box>
                 ) : (
-                  <Alert severity="error" sx={{ mb: 3 }}>
+                  <Alert severity="error" sx={{ mb: 1.5 }}>
                     <Typography variant="body2">
                       No unique element found for this node.
                     </Typography>
@@ -251,14 +251,14 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                       XML Dump
                     </Typography>
                   </AccordionSummary>
-                  <AccordionDetails>
+                  <AccordionDetails sx={{ p: 0 }}>
                     {selectedSuggestion.dump ? (
                       <Box 
                         sx={{ 
                           maxHeight: 300, 
                           overflow: 'auto', 
                           bgcolor: 'background.default',
-                          p: 2,
+                          p: 1,
                           borderRadius: 1,
                           border: '1px solid',
                           borderColor: 'divider'
@@ -290,7 +290,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
         )}
       </DialogContent>
 
-      <DialogActions sx={{ p: 2, gap: 1, borderTop: '1px solid', borderColor: 'divider', justifyContent: 'space-between' }}>
+      <DialogActions sx={{ p: 1, gap: 1, borderTop: '1px solid', borderColor: 'divider', justifyContent: 'space-between' }}>
         <Typography variant="caption" color="text.secondary">
           {totalNodesToSave} / {suggestions.length} nodes
         </Typography>
