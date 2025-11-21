@@ -214,16 +214,45 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
 
         {/* Screenshot URL Field - only show for non-entry nodes */}
         {(nodeForm?.type as string) !== 'entry' && (
-          <TextField
-            label="Screenshot URL"
-            value={nodeForm?.screenshot || ''}
-            onChange={(e) => setNodeForm({ ...nodeForm, screenshot: e.target.value })}
-            fullWidth
-            margin="dense"
-            size="small"
-            autoComplete="off"
-            sx={{ mb: 1 }}
-          />
+          <Box sx={{ position: 'relative' }}>
+            <TextField
+              label="Screenshot URL"
+              value={nodeForm?.screenshot || ''}
+              onChange={(e) => setNodeForm({ ...nodeForm, screenshot: e.target.value })}
+              fullWidth
+              margin="dense"
+              size="small"
+              autoComplete="off"
+              sx={{ mb: 1 }}
+              InputProps={{
+                endAdornment: nodeForm?.screenshot && (
+                  <IconButton
+                    size="small"
+                    onClick={async () => {
+                      if (window.confirm('Are you sure you want to delete this screenshot from R2 storage?')) {
+                        try {
+                          await nodeEdit.handleDeleteScreenshot();
+                        } catch (error) {
+                          alert('Failed to delete screenshot: ' + error);
+                        }
+                      }
+                    }}
+                    sx={{
+                      position: 'absolute',
+                      right: 8,
+                      color: 'error.main',
+                      '&:hover': {
+                        backgroundColor: 'error.light',
+                        color: 'error.contrastText',
+                      },
+                    }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                ),
+              }}
+            />
+          </Box>
         )}
 
         {/* Show linear progress when verification test is running */}

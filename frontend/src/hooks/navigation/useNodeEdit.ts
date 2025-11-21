@@ -285,6 +285,56 @@ export const useNodeEdit = ({
     };
   }, [isControlActive, selectedHost, verification.verifications.length]);
 
+  // Handle screenshot deletion from R2
+  const handleDeleteScreenshot = useCallback(async () => {
+    if (!nodeForm?.screenshot) {
+      console.log('[useNodeEdit] No screenshot to delete');
+      return;
+    }
+
+    try {
+      console.log('[useNodeEdit] Deleting screenshot:', nodeForm.screenshot);
+      
+      const { buildServerUrl } = await import('../../utils/buildUrlUtils');
+      
+      // Call delete endpoint
+      const response = await fetch(buildServerUrl('/server/navigation/screenshot/delete'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          screenshot_url: nodeForm.screenshot
+        })
+      });
+      
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error('[useNodeEdit] Failed to delete screenshot:', errorData);
+        throw new Error(errorData.error || 'Failed to delete screenshot');
+      }
+      
+      const result = await response.json();
+      console.log('[useNodeEdit] ✅ Screenshot deleted:', result);
+      
+      // Clear screenshot field in form
+      setNodeForm({
+        ...nodeForm,
+        screenshot: ''
+      });
+      
+      // Auto-save the node with empty screenshot
+      await saveNodeWithStateUpdate({
+        ...nodeForm,
+        screenshot: ''
+      });
+      
+      console.log('[useNodeEdit] ✅ Node updated with empty screenshot');
+      
+    } catch (error) {
+      console.error('[useNodeEdit] Error deleting screenshot:', error);
+      throw error;
+    }
+  }, [nodeForm, setNodeForm, saveNodeWithStateUpdate]);
+
   return {
     // Verification
     verification,
@@ -298,7 +348,9 @@ export const useNodeEdit = ({
     handleSave,
     isFormValid,
     saveSuccess,
-
+    
+    // Screenshot management
+    handleDeleteScreenshot,
 
     // Utilities
     getParentNames,

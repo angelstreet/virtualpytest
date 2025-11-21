@@ -603,4 +603,76 @@ def refresh_navigation_cache():
             'success': False,
             'error': str(e)
         }), 500
+
+# =====================================================
+# SCREENSHOT MANAGEMENT ENDPOINTS
+# =====================================================
+
+@server_navigation_bp.route('/screenshot/delete', methods=['POST'])
+def delete_screenshot():
+    """Delete a screenshot from R2 storage"""
+    try:
+        data = request.get_json() or {}
+        screenshot_url = data.get('screenshot_url')
+        team_id = request.args.get('team_id')
+        
+        if not screenshot_url:
+            return jsonify({
+                'success': False,
+                'error': 'screenshot_url is required'
+            }), 400
+        
+        if not team_id:
+            return jsonify({
+                'success': False,
+                'error': 'team_id is required'
+            }), 400
+        
+        print(f"[@route:server_navigation:delete_screenshot] Deleting screenshot: {screenshot_url}")
+        
+        # Extract the R2 path from the URL
+        # URL format: https://pub-xxx.r2.dev/path/to/file.jpg
+        # We need: path/to/file.jpg
+        from urllib.parse import urlparse
+        parsed_url = urlparse(screenshot_url)
+        r2_path = parsed_url.path.lstrip('/')  # Remove leading slash
+        
+        if not r2_path:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid screenshot URL format'
+            }), 400
+        
+        # Delete from R2
+        from shared.src.lib.utils.cloudflare_utils import get_cloudflare_utils
+        cloudflare_utils = get_cloudflare_utils()
+        
+        if not cloudflare_utils:
+            return jsonify({
+                'success': False,
+                'error': 'R2 storage not configured'
+            }), 500
+        
+        # Delete the file
+        delete_success = cloudflare_utils.delete_file(r2_path)
+        
+        if delete_success:
+            print(f"[@route:server_navigation:delete_screenshot] ✅ Deleted screenshot from R2: {r2_path}")
+            return jsonify({
+                'success': True,
+                'message': f'Screenshot deleted successfully: {r2_path}'
+            })
+        else:
+            print(f"[@route:server_navigation:delete_screenshot] ❌ Failed to delete screenshot from R2: {r2_path}")
+            return jsonify({
+                'success': False,
+                'error': 'Failed to delete screenshot from R2'
+            }), 500
+        
+    except Exception as e:
+        print(f"[@route:server_navigation:delete_screenshot] ERROR: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
         
