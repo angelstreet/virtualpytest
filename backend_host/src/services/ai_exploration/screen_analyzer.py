@@ -138,8 +138,8 @@ class ScreenAnalyzer:
                     else:
                         # Fallback to asyncio.run (may cause issues but better than crashing)
                         print(f"[@screen_analyzer] Fallback to asyncio.run()")
-                        result = asyncio.run(result)
-                        print(f"[@screen_analyzer] Async result type: {type(result)}")
+                result = asyncio.run(result)
+                print(f"[@screen_analyzer] Async result type: {type(result)}")
             
         except Exception as e:
             print(f"❌ [@screen_analyzer:_analyze_from_dump] dump_elements() FAILED")
@@ -469,16 +469,16 @@ class ScreenAnalyzer:
                 attributes = elem.get('attributes', {})
                 if not (attributes.get('onclick') or attributes.get('role') == 'button'):
                     print(f"[@screen_analyzer:_extract_web] Filtered NON-INTERACTIVE CONTAINER: {selector}")
-                    continue
-            
-            # ═══════════════════════════════════════════════════════════════
+                continue
+        
+        # ═══════════════════════════════════════════════════════════════
             # FILTER: Skip text input fields (not navigation targets)
-            # ═══════════════════════════════════════════════════════════════
+        # ═══════════════════════════════════════════════════════════════
             if tag == 'input':
                 input_type = elem.get('attributes', {}).get('type', 'text')
                 if input_type in ['text', 'email', 'password', 'number', 'tel', 'url']:
                     print(f"[@screen_analyzer:_extract_web] Filtered TEXT INPUT: {selector}")
-                    continue
+                continue
                 # Keep submit buttons and other clickable inputs
             
             # ═══════════════════════════════════════════════════════════════
@@ -669,9 +669,9 @@ class ScreenAnalyzer:
                 
                 clean_label = unique_label
             
-            interactive_elements.append(clean_label)
-            seen_selectors.add(selector)
-            print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
+                interactive_elements.append(clean_label)
+                seen_selectors.add(selector)
+                print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
         
         print(f"[@screen_analyzer:_extract_web] Final count: {len(interactive_elements)} navigation targets")
         
