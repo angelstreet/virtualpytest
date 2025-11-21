@@ -290,13 +290,14 @@ Live Monitor (15.6" on rack top):
 | **HDMI Cables** | 2m, 4K@60Hz, certified | 16 | $8 | $128 |
 | **HDMI Cables (Short)** | 1m for splitter→matrix | 16 | $5 | $80 |
 | **HDMI Cables (Short)** | 0.5m for splitter→capture | 16 | $5 | $80 |
-| **USB 3.0 Cables** | 1.5m, shielded | 4 | $6 | $24 |
-| USB-C to HDMI Adapters** | 4K@60Hz, DP alt mode | 4 | $15 | $60 |
+| **USB 3.0 Cables** | 1.5m, shielded (for ADB) | 4 | $6 | $24 |
+| **USB-C to HDMI Adapters** | With USB-C PD passthrough | 4 | $30 | $120 |
+| **Note:** Mobile adapters have built-in USB-C passthrough for charging while outputting HDMI | | | | |
 | **IR Extension Cables** | 2m, 3.5mm | 16 | $10 | $160 |
 | **Ethernet Cables** | Cat6a, 2m | 2 | $8 | $16 |
 | **Cable Management** | Breakout panels + organizers | 1 | $120 | $120 |
 | **Rack Labels** | Device labels (DEV-001-016) | 1 | $40 | $40 |
-| **Subtotal Cables** | | | | **$684** |
+| **Subtotal Cables** | | | | **$704** |
 
 ### Physical Devices (Optional - Customer Provided)
 
@@ -315,19 +316,19 @@ Live Monitor (15.6" on rack top):
 | Category | Cost |
 |----------|------|
 | Server + Capture + Network + Cable Mgmt | $12,627 |
-| Cables & Accessories | $684 |
+| Cables & Accessories | $704 |
 | Live Monitor System (Splitters + Matrix + Screen) | $707 |
-| **Total Infrastructure** | **$14,018** |
-| **Cost per device slot** | **$876** (16 slots) |
+| **Total Infrastructure** | **$14,038** |
+| **Cost per device slot** | **$877** (16 slots) |
 
 ### With Devices (Turnkey Demo)
 
 | Category | Cost |
 |----------|------|
-| Infrastructure | $14,018 |
+| Infrastructure | $14,038 |
 | 4 STBs | $516 |
 | 4 Mobile Devices | $2,396 |
-| **Total Complete** | **$16,930** |
+| **Total Complete** | **$16,950** |
 
 ---
 
@@ -431,15 +432,18 @@ FRONT VIEW                                    REAR VIEW (Cable Side)
 
 External Equipment (On desk near rack):
 ├── 📱 4× STBs (HDMI out → Breakout U4 → Splitter U3)
-├── 📱 4× Mobiles (HDMI out → Breakout U4 → Splitter U3)
+├── 📱 4× Mobiles (USB-C → HDMI adapter → Breakout U4 → Splitter U3)
 └── 🌐 8× Web devices (no physical hardware)
 
 ON TOP OF RACK:
 📺 15.6" Monitor (shows selected device, 0ms latency from matrix U8)
 
-SIGNAL FLOW (each device):
-Device → Breakout (U4) → Splitter (U3) → ┬→ Capture Card (U10-U11) → Recording
-                                          └→ Matrix (U8) → Monitor → Live View
+SIGNAL FLOW:
+┌─ STBs:    Device HDMI → Breakout (U4) → Splitter (U3) → ┬→ Capture (U10-U11)
+│                                                           └→ Matrix (U8) → Monitor
+│
+└─ Mobiles: Device USB-C → Adapter (USB-C input, HDMI out) → Breakout (U4) → Splitter (U3) → Same split
+            └─ USB-C passthrough on adapter → USB Hub (U7) for charging + ADB
 
 CRITICAL: This is NOT a "demo-only" setup.
 This is Production Server #1 that will become part of 5-server production!
@@ -534,70 +538,5 @@ Power & Network (U12 - Top Rear):
 - **Desk/Table:** 1500mm × 800mm (for devices + rack)
 - **Ventilation:** 200mm clearance on all sides
 - **Height:** 610mm (rack) + devices on desk
-
----
-
-## Scaling Path (Demo → Production)
-
-### Phase 1: Demo (1 Server = 16 Devices) - **$14,018**
-
-This demo server **becomes Production Server #1**
-
-```
-1× Proxmox Server → 16 devices
-```
-
-### Phase 2: Add Servers 2-5 (80 Devices) - **+$54k**
-
-Add 4 identical servers (same model, same config):
-- Server #2: $12,000 (server + 4 capture cards)
-- Server #3: $12,000
-- Server #4: $12,000
-- Server #5: $12,000
-
-```
-5× Proxmox Servers (Rack A - Compute)
-1× Device Rack (Rack B - Shelves)
-Total: 80 devices
-```
-
-**Your demo server is now Server #1 in production!**
-
-### Phase 3: Scale to 160 Devices - **+$67k**
-
-Add 1 more server rack + 1 device rack:
-- Rack C (5 servers): $60k
-- Rack D (device shelves): $7k
-
-```
-10× Proxmox Servers (2 compute racks)
-2× Device Racks
-Total: 160 devices
-```
-
----
-
-## Comparison to Production Deployment
-
-### Demo (1 Server) vs Production (5 Servers)
-
-| Metric | Demo | Production (Rack A) |
-|--------|------|---------------------|
-| **Servers** | 1 | 5 |
-| **Devices** | 16 | 80 |
-| **Capture Cards** | 4 | 20 |
-| **Power** | 675W | 2,650W |
-| **Space** | 12U rack | 42U rack |
-| **Cost** | $14,018 | $67k |
-| **Scalability** | Becomes Server #1 | Linear to 320+ |
-
-**Hardware is Identical:**
-- ✅ Same CPU/RAM
-- ✅ Same capture cards
-- ✅ Same USB/IR controllers
-- ✅ Same network interfaces
-- ✅ Same BIOS/firmware
-
-**Only Difference is Quantity!**
 
 ---
