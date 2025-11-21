@@ -460,6 +460,14 @@ class ExplorationExecutor:
             nodes_to_save = []
             edges_to_save = []
             
+            # Get strategy from exploration plan
+            exploration_plan = self.exploration_state.get('exploration_plan', {})
+            strategy = exploration_plan.get('strategy', 'click')
+            all_predicted_items = exploration_plan.get('items', [])
+            menu_type = exploration_plan.get('menu_type', 'horizontal')
+            
+            print(f"[@ExplorationExecutor:continue_exploration] Strategy: {strategy}, Menu Type: {menu_type}")
+            
             # Create child nodes and edges
             for idx, item in enumerate(items):
                 node_name_clean = node_gen.target_to_node_name(item)
@@ -492,18 +500,48 @@ class ExplorationExecutor:
                 # Store mapping
                 self.exploration_state['target_to_node_map'][item] = node_name
                 
-                # ✅ Create edge with predicted actions (use element_id for frontend compatibility)
-                forward_actions = [{
-                    "command": "click_element",
-                    "params": {"element_id": item},  # Frontend expects "element_id", not "text"
-                    "delay": 2000
-                }]
-                
-                reverse_actions = [{
-                    "command": "press_key",
-                    "params": {"key": "BACK"},
-                    "delay": 2000
-                }]
+                # ✅ STRATEGY-AWARE: Create D-pad or click actions based on strategy
+                if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+                    # D-pad navigation for TV/STB
+                    item_index = all_predicted_items.index(item) if item in all_predicted_items else idx
+                    dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
+                    
+                    print(f"  🎮 Creating D-pad edge for '{item}': {item_index} x {dpad_key} + OK")
+                    
+                    # Forward: Multiple D-pad presses + OK
+                    forward_actions = []
+                    for i in range(item_index):
+                        forward_actions.append({
+                            "command": "press_key",
+                            "params": {"key": dpad_key},
+                            "delay": 500
+                        })
+                    forward_actions.append({
+                        "command": "press_key",
+                        "params": {"key": "OK"},
+                        "delay": 2000
+                    })
+                    
+                    reverse_actions = [{
+                        "command": "press_key",
+                        "params": {"key": "BACK"},
+                        "delay": 2000
+                    }]
+                else:
+                    # Click navigation for mobile/web
+                    print(f"  📱 Creating click edge for '{item}'")
+                    
+                    forward_actions = [{
+                        "command": "click_element",
+                        "params": {"element_id": item},
+                        "delay": 2000
+                    }]
+                    
+                    reverse_actions = [{
+                        "command": "press_key",
+                        "params": {"key": "BACK"},
+                        "delay": 2000
+                    }]
                 
                 edge_data = node_gen.create_edge_data(
                     source=home_id,
