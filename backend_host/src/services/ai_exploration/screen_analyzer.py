@@ -744,10 +744,16 @@ search, settings, profile
             )
             
             # Use analyze_full_image_with_ai which exists
-            response = ai_helpers.analyze_full_image_with_ai(
-                image_path=screenshot_path,
-                user_question=prompt
-            )
+            # Note: We need to call the underlying AI directly with higher max_tokens
+            # because analyze_full_image_with_ai() limits to 200 tokens
+            from shared.src.lib.utils.ai_utils import call_vision_ai
+            
+            result = call_vision_ai(prompt, screenshot_path, max_tokens=800, temperature=0.0)
+            
+            if not result['success']:
+                raise Exception(f"AI vision call failed: {result.get('error', 'Unknown error')}")
+            
+            response = result['content'].strip()
             
             print(f"\n{'='*80}")
             print(f"[@screen_analyzer:_analyze_from_ai_vision] 🤖 RAW AI RESPONSE:")
@@ -765,6 +771,29 @@ search, settings, profile
                 reasoning_part = parts[0].split("REASONING:")[1].strip() if "REASONING:" in parts[0] else ""
                 elements_text = parts[1].strip() if len(parts) > 1 else ""
                 reasoning = reasoning_part
+                print(f"[@screen_analyzer:_analyze_from_ai_vision] ✅ Found structured response (REASONING + ELEMENTS)")
+            elif "REASONING:" in response:
+                # AI provided reasoning but no ELEMENTS section - try to extract from reasoning
+                print(f"[@screen_analyzer:_analyze_from_ai_vision] ⚠️ AI provided REASONING but no ELEMENTS section")
+                reasoning_part = response.split("REASONING:")[1].strip()
+                reasoning = reasoning_part
+                
+                # Intelligent extraction: Look for lists of navigation items
+                # Pattern: "tabs for X, Y, Z" or "menu items: X, Y, Z"
+                import re
+                
+                # Try to find comma-separated lists of UI elements
+                # Look for patterns like "Home, TV Guide, Apps, Replay"
+                matches = re.findall(r'(?:tabs|items|buttons|elements|menu)(?:\s+for|\s+containing|\s*:)\s*([^.]+)', reasoning, re.IGNORECASE)
+                
+                if matches:
+                    # Found a list - extract it
+                    potential_list = matches[0]
+                    print(f"[@screen_analyzer:_analyze_from_ai_vision] 🔍 Extracted potential list: '{potential_list}'")
+                    elements_text = potential_list
+                else:
+                    print(f"[@screen_analyzer:_analyze_from_ai_vision] ❌ Could not extract element list from reasoning")
+                    elements_text = ""
             else:
                 # Fallback: treat entire response as elements
                 print(f"[@screen_analyzer:_analyze_from_ai_vision] ⚠️ No structured response - treating as elements only")
@@ -800,17 +829,50 @@ search, settings, profile
                 
                 if line and not line.startswith('#') and not line.startswith('Example') and not line.startswith('line'):
                     # Remove "lineX:" prefix if present
-                    if ':' in line:
+                    if ':' in line and line.split(':')[0].strip().lower().startswith('line'):
                         line = line.split(':', 1)[1].strip()
                     
                     # Extract items from this line
                     items_in_line = [item.strip() for item in line.split(',') if item.strip()]
-                    if items_in_line:
-                        lines.append(items_in_line)
-                        all_items.extend(items_in_line)
-                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ✅ Extracted {len(items_in_line)} items: {items_in_line}")
+                    
+                    # Clean items: remove common garbage patterns
+                    cleaned_items = []
+                    for item in items_in_line:
+                        # Remove items that are clearly not navigation elements
+                        item_lower = item.lower()
+                        
+                        # Skip long descriptive text (likely parsing error)
+                        if len(item) > 50:
+                            print(f"[@screen_analyzer:_analyze_from_ai_vision]     ⏭️ Skipped (too long): '{item[:50]}...'")
+                            continue
+                        
+                        # Skip items with sentence-like patterns
+                        skip_patterns = [
+                            'the screenshot', 'below the', 'there are', 'each with',
+                            'navigation bar at', 'sections for', 'containing tabs for',
+                            'and tv shop. below'
+                        ]
+                        if any(pattern in item_lower for pattern in skip_patterns):
+                            print(f"[@screen_analyzer:_analyze_from_ai_vision]     ⏭️ Skipped (description): '{item}'")
+                            continue
+                        
+                        # Remove leading/trailing "and" or quotes
+                        item = item.strip('"\'')
+                        if item.lower().startswith('and '):
+                            item = item[4:].strip()
+                        
+                        # Skip if empty after cleaning
+                        if not item:
+                            continue
+                        
+                        cleaned_items.append(item)
+                    
+                    if cleaned_items:
+                        lines.append(cleaned_items)
+                        all_items.extend(cleaned_items)
+                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ✅ Extracted {len(cleaned_items)} items: {cleaned_items}")
                     else:
-                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (no items)")
+                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (no valid items after cleaning)")
                 else:
                     print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (comment/example/header)")
             
