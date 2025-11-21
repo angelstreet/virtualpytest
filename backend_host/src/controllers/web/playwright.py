@@ -834,12 +834,12 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 display_text = clean_text[:50] + '...' if len(clean_text) > 50 else clean_text
                 
                 aria = el.get('attributes', {}).get('aria-label', '').strip()
-                selector = el.get('selector', '')
+                element_selector = el.get('selector', '')
                 href = el.get('attributes', {}).get('href', '')
                 
                 # Include href in output for debugging
                 href_display = f" - href: '{href}'" if href else ""
-                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{display_text}' - aria: '{aria}' - selector: '{selector}'{href_display}")
+                print(f"[PLAYWRIGHT]:   {i+1}. {el.get('tagName', 'unknown')} - text: '{display_text}' - aria: '{aria}' - selector: '{element_selector}'{href_display}")
             print(f"[PLAYWRIGHT]: === END DUMPED ELEMENTS ===")
             
             # Step 2: Search within dumped elements (same logic as Android mobile)
