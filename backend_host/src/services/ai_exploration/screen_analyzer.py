@@ -472,9 +472,15 @@ class ScreenAnalyzer:
                     continue
             
             # Filter elements with NO identifiers (no ID, no text)
+            # BUT: If we have a valid href (and it's a link), we should keep it even without text
+            # (The href itself describes the destination)
             if not has_id and not has_text:
-                print(f"[@screen_analyzer:_extract_web] Filtered WEAK IDENTIFIER: {selector}")
-                continue
+                if tag == 'a' and href and len(href) > 2:
+                    # Use href as fallback label
+                    print(f"[@screen_analyzer:_extract_web] Weak identifier but valid href: {href} -> Keeping")
+                else:
+                    print(f"[@screen_analyzer:_extract_web] Filtered WEAK IDENTIFIER: {selector} (tag: {tag}, text: '{text_content}')")
+                    continue
             
             # Get label for this element
             label = None
@@ -491,7 +497,13 @@ class ScreenAnalyzer:
             # Priority 4: aria-label
             elif attributes.get('aria-label'):
                 label = attributes['aria-label'].strip()
-            # Priority 5: class name (last resort)
+            # Priority 5: Derive from href (Fallback for links with empty text)
+            elif tag == 'a' and href:
+                # /collections/all -> collections/all
+                clean_href = href.strip('/').split('/')[-1]
+                if clean_href:
+                    label = clean_href.replace('-', ' ').replace('_', ' ').title()
+            # Priority 6: class name (last resort)
             elif '.' in selector:
                 label = selector.split('.')[-1].strip()
             
