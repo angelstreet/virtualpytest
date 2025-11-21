@@ -681,27 +681,59 @@ class ScreenAnalyzer:
         """
         Use AI vision to analyze screenshot (TV/STB only)
         """
-        # Unified prompt for TV/STB
-        prompt = """You are a UI-automation engineer.
+        print(f"\n{'='*80}")
+        print(f"[@screen_analyzer:_analyze_from_ai_vision] AI VISION ANALYSIS")
+        print(f"{'='*80}")
+        print(f"📸 Screenshot: {screenshot_path}")
+        print(f"🎮 Device Type: TV/STB (vision-based)")
+        print(f"📱 Device Model: {self.device_model_name}")
+        print(f"\n🤖 USING AI VISION ANALYSIS")
+        print(f"{'-'*80}\n")
+        
+        # Unified prompt for TV/STB - now requests reasoning
+        prompt = """You are a UI-automation engineer analyzing a streaming/TV app screenshot.
 
-From the screenshot of a streaming/TV app (Netflix, YouTube, Android TV, Apple TV, set-top-box, etc.), list every visible item or clickable elements (tabs). Avoid none interactive content: asset, program card, program name, duration or time. Provide the list in the order left to right on same line.
+**Task**: Identify ALL visible interactive elements (clickable items, tabs, buttons) that a user can navigate to.
 
-Example output:
+**Rules**:
+- Include: Navigation tabs, menu items, buttons, clickable text
+- Exclude: Program cards, asset names, durations, timestamps, decorative elements
+- Order: Left to right on the same line
 
-profile, sunrise, cast, airplay, search
-popular_on_tv, show all
-home, tvguide, replay, movies_and_series, saved, debug
+**Format your response as**:
 
-Return ONLY the lines of comma-separated items, nothing else."""
+```
+REASONING:
+[Explain what you see in the UI - menu structure, layout, element types]
 
-        print(f"\n📝 AI VISION ANALYSIS")
-        print(f"{'-'*80}")
-        print(f"PROMPT SENT TO AI:")
+ELEMENTS:
+line1: item1, item2, item3
+line2: item4, item5
+line3: item6
+```
+
+**Example**:
+
+```
+REASONING:
+I see a horizontal navigation menu at the top with 5 tabs. Below that is a content section with a "Popular on TV" heading and a "Show all" link. At the bottom right are utility icons for search, settings, and profile.
+
+ELEMENTS:
+home, tv guide, replay, movies & series, saved
+popular on tv, show all
+search, settings, profile
+```
+
+**Now analyze the screenshot and provide your response:**"""
+
+        print(f"📝 PROMPT SENT TO AI:")
         print(f"{'-'*80}")
         print(prompt)
         print(f"{'-'*80}\n")
 
         try:
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 🤖 Calling VideoAIHelpers.analyze_full_image_with_ai()...")
+            
             # Use existing VideoAIHelpers for AI analysis
             # VideoAIHelpers needs av_controller, but we'll pass None and use direct file path
             from backend_host.src.controllers.verification.video_ai_helpers import VideoAIHelpers
@@ -717,12 +749,38 @@ Return ONLY the lines of comma-separated items, nothing else."""
                 user_question=prompt
             )
             
-            print(f"🤖 RAW AI RESPONSE:")
-            print(f"{'-'*80}")
+            print(f"\n{'='*80}")
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 🤖 RAW AI RESPONSE:")
+            print(f"{'='*80}")
             print(response)
-            print(f"{'-'*80}\n")
+            print(f"{'='*80}\n")
             
-            # Parse line-by-line response
+            # Parse response: Extract REASONING and ELEMENTS sections
+            reasoning = ""
+            elements_text = ""
+            
+            # Try to parse structured response
+            if "REASONING:" in response and "ELEMENTS:" in response:
+                parts = response.split("ELEMENTS:")
+                reasoning_part = parts[0].split("REASONING:")[1].strip() if "REASONING:" in parts[0] else ""
+                elements_text = parts[1].strip() if len(parts) > 1 else ""
+                reasoning = reasoning_part
+            else:
+                # Fallback: treat entire response as elements
+                print(f"[@screen_analyzer:_analyze_from_ai_vision] ⚠️ No structured response - treating as elements only")
+                elements_text = response
+            
+            # Log reasoning if present
+            if reasoning:
+                print(f"\n{'='*80}")
+                print(f"[@screen_analyzer:_analyze_from_ai_vision] 🧠 AI REASONING:")
+                print(f"{'='*80}")
+                print(reasoning)
+                print(f"{'='*80}\n")
+            
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Parsing elements...")
+            
+            # Parse line-by-line elements
             # Expected format:
             # profile, sunrise, cast, airplay, search
             # popular_on_tv, show all
@@ -731,15 +789,33 @@ Return ONLY the lines of comma-separated items, nothing else."""
             lines = []
             all_items = []
             
-            # Split response into lines and parse each
-            for line in response.strip().split('\n'):
+            # Split elements_text into lines and parse each
+            for line_num, line in enumerate(elements_text.strip().split('\n'), 1):
                 line = line.strip()
-                if line and not line.startswith('#') and not line.startswith('Example'):
+                # Remove markdown code block markers if present
+                if line.startswith('```'):
+                    continue
+                
+                print(f"[@screen_analyzer:_analyze_from_ai_vision] Line {line_num}: '{line}'")
+                
+                if line and not line.startswith('#') and not line.startswith('Example') and not line.startswith('line'):
+                    # Remove "lineX:" prefix if present
+                    if ':' in line:
+                        line = line.split(':', 1)[1].strip()
+                    
                     # Extract items from this line
                     items_in_line = [item.strip() for item in line.split(',') if item.strip()]
                     if items_in_line:
                         lines.append(items_in_line)
                         all_items.extend(items_in_line)
+                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ✅ Extracted {len(items_in_line)} items: {items_in_line}")
+                    else:
+                        print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (no items)")
+                else:
+                    print(f"[@screen_analyzer:_analyze_from_ai_vision]   ⏭️ Skipped (comment/example/header)")
+            
+            print(f"\n[@screen_analyzer:_analyze_from_ai_vision] 📊 Total items extracted: {len(all_items)}")
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Total lines: {len(lines)}")
             
             # Determine menu structure from lines
             if len(lines) == 1:
@@ -753,35 +829,55 @@ Return ONLY the lines of comma-separated items, nothing else."""
             else:
                 menu_type = 'unknown'
             
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 🎯 Detected menu type: {menu_type}")
+            
             # Strategy for TV/STB is always DPAD
             strategy = 'test_dpad_directions'
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] 🎮 Navigation strategy: {strategy}")
             
             result = {
                 'menu_type': menu_type,
                 'items': all_items,
                 'lines': lines,  # Keep line structure for navigation logic
                 'predicted_depth': 2,
-                'strategy': strategy
+                'strategy': strategy,
+                'reasoning': reasoning  # Add reasoning to result
             }
             
-            print(f"✅ PARSED RESULT:")
-            print(f"{'-'*80}")
-            print(f"Items ({len(all_items)}):")
+            print(f"\n{'='*80}")
+            print(f"[@screen_analyzer:_analyze_from_ai_vision] ✅ ANALYSIS COMPLETE")
+            print(f"{'='*80}")
+            if reasoning:
+                print(f"🧠 Reasoning: {reasoning[:100]}..." if len(reasoning) > 100 else f"🧠 Reasoning: {reasoning}")
+            print(f"📊 Menu Type: {menu_type}")
+            print(f"📊 Strategy: {strategy}")
+            print(f"📊 Items ({len(all_items)}):")
             for i, line in enumerate(lines, 1):
-                print(f"Line {i}: {', '.join(line)}")
-            print(f"{'-'*80}\n")
+                print(f"   Line {i}: {', '.join(line)}")
+            print(f"{'='*80}\n")
+            
+            if not all_items:
+                print(f"⚠️  [@screen_analyzer:_analyze_from_ai_vision] WARNING: No items extracted from AI response")
+                print(f"   Screenshot: {screenshot_path}")
+                print(f"   Device: {self.device_model_name}")
+                print(f"   Suggestion: Check if AI vision model is working or screenshot is valid")
+                raise ValueError("No interactive elements found in AI vision analysis")
             
             return result
             
         except Exception as e:
-            print(f"[@screen_analyzer:anticipate_tree] Error: {e}")
-            # Return safe defaults on error
-            return {
-                'menu_type': 'mixed',
-                'items': [],
-                'predicted_depth': 3,
-                'strategy': 'test_all_directions'
-            }
+            print(f"\n❌ [@screen_analyzer:_analyze_from_ai_vision] ANALYSIS FAILED")
+            print(f"   Screenshot: {screenshot_path}")
+            print(f"   Device: {self.device_model_name}")
+            print(f"   Error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Re-raise ValueError for consistent error handling
+            if isinstance(e, ValueError):
+                raise
+            else:
+                raise Exception(f"AI vision analysis failed for {self.device_model_name}: {e}")
     
     def is_new_screen(
         self,
