@@ -67,6 +67,89 @@ Demonstration setup using **identical hardware** as production deployment, scale
 - ✅ Linux native (Proxmox compatible)
 - ✅ Proven at scale (used in broadcast industry)
 
+**Note:** This card does NOT have HDMI loop-through, so we use HDMI splitters for live monitoring.
+
+---
+
+### HDMI Splitters (For Live Monitor View)
+
+**Model:** OREI HD-102 (1-in-2-out HDMI Splitter)
+
+| Specification | Value |
+|---------------|-------|
+| **Inputs** | 1× HDMI 2.0 |
+| **Outputs** | 2× HDMI 2.0 (identical copies) |
+| **Max Resolution** | 4K@60Hz |
+| **Power** | Passive (no power needed) |
+| **Latency** | 0ms (pure signal split) |
+| **Dimensions** | 100mm × 60mm × 20mm (tiny!) |
+| **Mounting** | In cable management tray |
+| **Price** | $18 per splitter |
+
+**For Demo:** 16 splitters (one per device, hidden in cable tray)
+
+**Signal Flow:**
+```
+Device HDMI Out → Splitter Input
+                   ↓         ↓
+              Output A   Output B
+                   ↓         ↓
+             Capture Card  Matrix Switch
+             (recording)   (live monitor)
+```
+
+**Why Splitters:**
+- ✅ Each device signal goes to 2 places simultaneously
+- ✅ Zero latency (passive hardware)
+- ✅ Capture card records for automation
+- ✅ Matrix shows live on physical monitor (0ms delay for demos)
+
+---
+
+### HDMI Matrix Switch (For Demo Live View)
+
+**Model:** OREI HMA-161 (16×1 HDMI Matrix)
+
+| Specification | Value |
+|---------------|-------|
+| **Inputs** | 16× HDMI (from splitters) |
+| **Outputs** | 1× HDMI (to monitor) |
+| **Max Resolution** | 4K@60Hz |
+| **Control** | Front panel buttons + IR remote |
+| **Switching Speed** | <1 second |
+| **Mounting** | 1U rackmount |
+| **Dimensions** | 482mm × 200mm × 44mm (1U) |
+| **Power** | 12V DC adapter (included) |
+| **Price** | $299 |
+
+**Purpose:** Press button 1-16 to instantly view any device on monitor (0ms latency)
+
+**Why This is Critical:**
+- ✅ Web UI has 4-6s latency (not good for live demos)
+- ✅ Physical monitor shows real-time device output
+- ✅ Clients see actual device = trust + wow factor
+- ✅ Troubleshooting: instant visual feedback
+
+---
+
+### Demo Monitor (Live Device View)
+
+**Model:** UPERFECT 15.6" Portable Monitor
+
+| Specification | Value |
+|---------------|-------|
+| **Screen Size** | 15.6" diagonal |
+| **Resolution** | 1920×1080 (Full HD) |
+| **Input** | HDMI (from matrix switch) |
+| **Power** | USB-C (5V/2A) |
+| **Mounting** | Sits on top of rack |
+| **Weight** | 800g (lightweight) |
+| **Price** | $120 |
+
+**Purpose:** Shows selected device in real-time (0ms delay via HDMI)
+
+**Placement:** On top of 12U rack, connected to matrix output
+
 ---
 
 ### USB 3.0 Controller (Same as Production)
@@ -166,10 +249,15 @@ Demonstration setup using **identical hardware** as production deployment, scale
 ├── 1× USB Controller (4 ports)
 ├── 1× IR Controller (16 outputs)
 ├── 1× Powered USB Hub (10 ports)
+├── 16× HDMI Splitters (signal split for capture + live view)
+├── 1× HDMI Matrix (16×1 switch for monitor)
 └── Devices:
-    ├── 4× STBs (HDMI + IR control)
-    ├── 4× Mobiles (HDMI + USB/ADB)
+    ├── 4× STBs (HDMI → Splitter → Capture + Matrix)
+    ├── 4× Mobiles (HDMI → Splitter → Capture + Matrix)
     └── 8× Web hosts (no physical hardware)
+
+Live Monitor (15.6" on rack top):
+└── Shows selected device in real-time (0ms delay)
 ```
 
 **Total Capacity:** 16 testing units (expandable to 80 by adding 4 more servers)
@@ -184,26 +272,31 @@ Demonstration setup using **identical hardware** as production deployment, scale
 |------|-------|-----|------------|-------|-------|
 | **Proxmox Server** | Supermicro AS-1114S-WN10RT | 1 | $6,000 | $6,000 | 400W |
 | **HDMI Capture Card** | Magewell Quad HDMI | 4 | $1,295 | $5,180 | 100W |
+| **HDMI Splitters** | OREI HD-102 (1×2) | 16 | $18 | $288 | 0W |
+| **HDMI Matrix** | OREI HMA-161 (16×1) | 1 | $299 | $299 | 15W |
+| **Demo Monitor** | UPERFECT 15.6" Portable | 1 | $120 | $120 | 10W |
 | **Network Switch** | Netgear GS108 (8-port 1GbE) | 1 | $29 | $29 | 5W |
 | **Powered USB Hub** | Anker PowerPort 10 | 1 | $50 | $50 | 60W |
 | **IR Controller** | Global Caché iTach IP2IR | 1 | $299 | $299 | 5W |
 | **Cable Mgmt Kit** | Rack cable managers (3U) | 1 | $120 | $120 | 0W |
 | **PDU (Metered)** | Tripp Lite PDUMH15ATNET | 1 | $299 | $299 | 0W |
 | **UPS** | CyberPower OR1500LCDRM1U | 1 | $450 | $450 | 0W |
-| **Subtotal Infrastructure** | | | | **$12,627** | **580W** |
+| **Subtotal Infrastructure** | | | | **$13,342** | **610W** |
 
 ### Cables & Accessories
 
 | Item | Specs | Qty | Unit Price | Total |
 |------|-------|-----|------------|-------|
 | **HDMI Cables** | 2m, 4K@60Hz, certified | 16 | $8 | $128 |
+| **HDMI Cables (Short)** | 1m for splitter→matrix | 16 | $5 | $80 |
+| **HDMI Cables (Short)** | 0.5m for splitter→capture | 16 | $5 | $80 |
 | **USB 3.0 Cables** | 1.5m, shielded | 4 | $6 | $24 |
 | USB-C to HDMI Adapters** | 4K@60Hz, DP alt mode | 4 | $15 | $60 |
 | **IR Extension Cables** | 2m, 3.5mm | 16 | $10 | $160 |
 | **Ethernet Cables** | Cat6a, 2m | 2 | $8 | $16 |
 | **Cable Management** | Breakout panels + organizers | 1 | $120 | $120 |
 | **Rack Labels** | Device labels (DEV-001-016) | 1 | $40 | $40 |
-| **Subtotal Cables** | | | | **$524** |
+| **Subtotal Cables** | | | | **$684** |
 
 ### Physical Devices (Optional - Customer Provided)
 
@@ -222,18 +315,19 @@ Demonstration setup using **identical hardware** as production deployment, scale
 | Category | Cost |
 |----------|------|
 | Server + Capture + Network + Cable Mgmt | $12,627 |
-| Cables & Accessories | $524 |
-| **Total Infrastructure** | **$13,151** |
-| **Cost per device slot** | **$822** (16 slots) |
+| Cables & Accessories | $684 |
+| Live Monitor System (Splitters + Matrix + Screen) | $707 |
+| **Total Infrastructure** | **$14,018** |
+| **Cost per device slot** | **$876** (16 slots) |
 
 ### With Devices (Turnkey Demo)
 
 | Category | Cost |
 |----------|------|
-| Infrastructure | $13,151 |
+| Infrastructure | $14,018 |
 | 4 STBs | $516 |
 | 4 Mobile Devices | $2,396 |
-| **Total Complete** | **$16,063** |
+| **Total Complete** | **$16,930** |
 
 ---
 
@@ -312,11 +406,11 @@ FRONT VIEW                                    REAR VIEW (Cable Side)
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U11│🖥️ SERVER (4U continued)          │    │ U11│[PCIe Breakout Panel]             │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U10│🖥️ SERVER (continued)             │    │ U10│ HDMI: [1][2][3][4]              │
+│ U10│🖥️ SERVER (continued)             │    │ U10│ HDMI IN: [1-4] ← from splitters │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U9 │🖥️ SERVER (continued)             │    │ U9 │ HDMI: [5][6][7][8]              │
+│ U9 │🖥️ SERVER (continued)             │    │ U9 │ HDMI IN: [5-8] ← from splitters │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U8 │📡 NETWORK SWITCH (8-port 1GbE)   │    │ U8 │[8× RJ45] [Uplink] [Power]       │
+│ U8 │📡 NETWORK + 🎬 MATRIX (1U)      │    │ U8 │[8× RJ45] [Matrix: 16×1 HDMI]   │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U7 │🔌 USB HUB + IR CONTROLLER        │    │ U7 │[10× USB3.0] [IR: 16 outputs]    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
@@ -324,9 +418,10 @@ FRONT VIEW                                    REAR VIEW (Cable Side)
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U5 │🔋 UPS (continued)                │    │ U5 │[AC Outlets: Server + Network]    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U4 │📦 CABLE MANAGEMENT (Breakout)    │    │ U4 │[16× HDMI Female] [Cable Routing] │
+│ U4 │📦 CABLE BREAKOUT (16× HDMI)      │    │ U4 │[16× HDMI] → To devices on desk │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
-│ U3 │📦 CABLE MANAGEMENT (Vertical)    │    │ U3 │[Cable Channels] [Velcro Straps] │
+│ U3 │📦 CABLE MGMT + 🔀 SPLITTERS      │    │ U3 │[16× HDMI Splitters] ┬→Capture  │
+│    │   (16× splitters mounted here)    │    │    │ Device→Split       └→Matrix    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
 │ U2 │📦 CABLE MANAGEMENT (Routing)     │    │ U2 │[D-Ring Organizers] [Airflow]    │
 ├────┼──────────────────────────────────┤    ├────┼──────────────────────────────────┤
@@ -335,9 +430,16 @@ FRONT VIEW                                    REAR VIEW (Cable Side)
   ↑ Bottom (Floor Level)                       ↑ Bottom
 
 External Equipment (On desk near rack):
-├── 📱 4× STBs (shelves with power/HDMI/IR)
-├── 📱 4× Mobiles (charging stands with HDMI/USB)
+├── 📱 4× STBs (HDMI out → Breakout U4 → Splitter U3)
+├── 📱 4× Mobiles (HDMI out → Breakout U4 → Splitter U3)
 └── 🌐 8× Web devices (no physical hardware)
+
+ON TOP OF RACK:
+📺 15.6" Monitor (shows selected device, 0ms latency from matrix U8)
+
+SIGNAL FLOW (each device):
+Device → Breakout (U4) → Splitter (U3) → ┬→ Capture Card (U10-U11) → Recording
+                                          └→ Matrix (U8) → Monitor → Live View
 
 CRITICAL: This is NOT a "demo-only" setup.
 This is Production Server #1 that will become part of 5-server production!
@@ -437,7 +539,7 @@ Power & Network (U12 - Top Rear):
 
 ## Scaling Path (Demo → Production)
 
-### Phase 1: Demo (1 Server = 16 Devices) - **$13,151**
+### Phase 1: Demo (1 Server = 16 Devices) - **$14,018**
 
 This demo server **becomes Production Server #1**
 
@@ -486,7 +588,7 @@ Total: 160 devices
 | **Capture Cards** | 4 | 20 |
 | **Power** | 675W | 2,650W |
 | **Space** | 12U rack | 42U rack |
-| **Cost** | $13,151 | $67k |
+| **Cost** | $14,018 | $67k |
 | **Scalability** | Becomes Server #1 | Linear to 320+ |
 
 **Hardware is Identical:**
