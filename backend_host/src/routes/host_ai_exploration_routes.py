@@ -163,18 +163,31 @@ def start_exploration():
         userinterface_name = data.get('userinterface_name')
         original_prompt = data.get('original_prompt', '')
         
+        # 🔍 DEBUG LOG: Show what's being started
+        print(f"[@route:ai_generation:start_exploration] Starting exploration:")
+        print(f"  tree_id: {tree_id}")
+        print(f"  device_id: {device_id}")
+        print(f"  userinterface_name: {userinterface_name}")
+        print(f"  available devices: {list(current_app.host_devices.keys())}")
+        
         if not team_id:
+            print(f"[@route:ai_generation:start_exploration] ❌ Missing team_id")
             return jsonify({'success': False, 'error': 'team_id required'}), 400
         if not tree_id:
+            print(f"[@route:ai_generation:start_exploration] ❌ Missing tree_id")
             return jsonify({'success': False, 'error': 'tree_id required'}), 400
         if not userinterface_name:
+            print(f"[@route:ai_generation:start_exploration] ❌ Missing userinterface_name")
             return jsonify({'success': False, 'error': 'userinterface_name required'}), 400
         
         # Get device
         if device_id not in current_app.host_devices:
+            print(f"[@route:ai_generation:start_exploration] ❌ Device '{device_id}' not found")
             return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
         
         device = current_app.host_devices[device_id]
+        
+        print(f"[@route:ai_generation:start_exploration] ✅ Starting exploration on device '{device_id}'")
         
         # Delegate to exploration executor (depth is fixed at 2 levels)
         result = device.exploration_executor.start_exploration(
@@ -183,6 +196,8 @@ def start_exploration():
             team_id=team_id,
             original_prompt=original_prompt
         )
+        
+        print(f"[@route:ai_generation:start_exploration] Result: success={result.get('success', False)}, exploration_id={result.get('exploration_id', 'N/A')}")
         
         return jsonify(result)
         
@@ -274,15 +289,33 @@ def exploration_status(exploration_id):
     """
     try:
         # Get device_id from query params (frontend should send this)
-        device_id = request.args.get('device_id', 'device1')
+        device_id_requested = request.args.get('device_id')
+        device_id = device_id_requested or 'device1'
+        
+        # 🔍 DEBUG LOG: Show what's being checked
+        print(f"[@route:ai_generation:exploration_status] Checking exploration status:")
+        print(f"  exploration_id: {exploration_id}")
+        print(f"  device_id requested: {device_id_requested}")
+        print(f"  device_id used: {device_id}")
+        print(f"  available devices: {list(current_app.host_devices.keys())}")
         
         if device_id not in current_app.host_devices:
+            print(f"[@route:ai_generation:exploration_status] ❌ Device '{device_id}' not found")
             return jsonify({'success': False, 'error': f'Device {device_id} not found'}), 404
         
         device = current_app.host_devices[device_id]
         
+        # 🔍 DEBUG LOG: Show if device has active exploration
+        has_exploration = device.exploration_executor.current_exploration_id is not None
+        print(f"[@route:ai_generation:exploration_status] Device '{device_id}' has active exploration: {has_exploration}")
+        if has_exploration:
+            print(f"  Active exploration ID: {device.exploration_executor.current_exploration_id}")
+        
         # Delegate to exploration executor
         result = device.exploration_executor.get_exploration_status()
+        
+        # 🔍 DEBUG LOG: Show result
+        print(f"[@route:ai_generation:exploration_status] Result: {result.get('status', 'unknown')} (success={result.get('success', False)})")
         
         return jsonify(result)
         
