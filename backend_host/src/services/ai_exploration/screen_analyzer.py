@@ -337,92 +337,186 @@ class ScreenAnalyzer:
     def _extract_interactive_elements_web(self, elements: list) -> list:
         """
         Parse web UI dump elements (dict objects from Playwright)
-        Extract both static navigation + dynamic content
+        Extract NAVIGATION targets only - filter out layout, external links, and grouped components
         
         Args:
             elements: List of dict objects from dump_elements()
                      Each dict has: text, tag, selector, visible, clickable, etc.
         
         Returns:
-            List of element names (strings)
+            List of element names (strings) - navigation targets only
         """
         interactive_elements = []
+        seen_selectors = set()  # Track duplicates
         
-        # Filter out common non-interactive keywords
-        ignore_keywords = ['image', 'icon', 'loading', 'placeholder', 'decoration', 'logo']
+        # ═══════════════════════════════════════════════════════════════
+        # FILTER PATTERNS
+        # ═══════════════════════════════════════════════════════════════
         
-        # UI accessibility hints to strip (before dynamic content detection)
-        # ONLY strip instructions/state, NOT element types (Tab, Button, etc.)
-        accessibility_patterns = [
-            ', Double-tap to Open',
-            ', Double-tap to activate',
-            ', Double-tap to select',
-            ' currently selected',
+        # Layout containers (structural, not clickable destinations)
+        layout_keywords = [
+            'container', 'wrapper', 'columns', 'row', 'grid', 'sidebar',
+            'header', 'footer', 'upper', 'lower', 'table-cell', 'layout',
+            'section', 'main', 'content', 'aside', 'nav'  # nav is container, not link
         ]
         
-        # Dynamic content indicators (same as mobile)
-        dynamic_indicators = [
-            'available for replay', 'watch now', 'continue watching',
-            'chf', 'usd', 'eur', 'gbp', '$', '€', '£',  # Price indicators
-            ' from ', ' to ',  # Time/price ranges
-            'season ', 'episode ', 's0', 'e0',  # TV series
-            ','  # Titles often have commas (e.g., "Show Name, Description")
+        # Non-interactive decorations
+        decoration_keywords = [
+            'image', 'icon', 'loading', 'placeholder', 'decoration', 
+            'logo', 'banner', 'badge', 'divider', 'spacer'
         ]
+        
+        # External/social links (navigate AWAY from app)
+        external_keywords = [
+            'social', 'facebook', 'twitter', 'instagram', 'youtube',
+            'linkedin', 'pinterest', 'tiktok', 'share', 'external'
+        ]
+        
+        # Search components (should be grouped as one)
+        search_group = {
+            'ids': set(),
+            'found': False,
+            'label': 'search'
+        }
+        
+        # Cart components (should be grouped as one)
+        cart_group = {
+            'ids': set(),
+            'found': False,
+            'label': 'cart'
+        }
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PASS 1: Identify groups and collect elements
+        # ═══════════════════════════════════════════════════════════════
         
         for elem in elements:
-            # Web elements are already filtered to 'interactive' type
-            # Get the best label
+            selector = elem.get('selector', '') or elem.get('id', '')
+            if not selector:
+                continue
+            
+            selector_lower = selector.lower()
+            
+            # Group search components
+            if any(word in selector_lower for word in ['search', 'product-search']):
+                search_group['ids'].add(selector)
+                search_group['found'] = True
+                continue
+            
+            # Group cart components
+            if any(word in selector_lower for word in ['cart', 'minicart']):
+                cart_group['ids'].add(selector)
+                cart_group['found'] = True
+                continue
+        
+        # ═══════════════════════════════════════════════════════════════
+        # PASS 2: Extract navigation targets with filtering
+        # ═══════════════════════════════════════════════════════════════
+        
+        for elem in elements:
+            selector = elem.get('selector', '') or elem.get('id', '')
+            if not selector:
+                continue
+            
+            # Skip if already processed in a group
+            if selector in search_group['ids'] or selector in cart_group['ids']:
+                continue
+            
+            # Skip duplicates
+            if selector in seen_selectors:
+                continue
+            
+            # Get label for this element
             label = None
             
-            # Priority 1: text content
-            if elem.get('text') and elem['text'].strip():
+            # Priority 1: ID from selector (most reliable for web)
+            if '#' in selector:
+                label = selector.split('#')[-1].strip()
+            # Priority 2: text content
+            elif elem.get('text') and elem['text'].strip():
                 label = elem['text'].strip()
-            # Priority 2: aria-label
+            # Priority 3: aria-label
             elif elem.get('aria_label') and elem['aria_label'].strip():
                 label = elem['aria_label'].strip()
-            # Priority 3: placeholder
-            elif elem.get('placeholder') and elem['placeholder'].strip():
-                label = elem['placeholder'].strip()
-            # Priority 4: Extract from selector (last part)
-            elif elem.get('selector'):
-                selector = elem['selector']
-                if '#' in selector:
-                    label = selector.split('#')[-1]
-                elif '.' in selector:
-                    label = selector.split('.')[-1]
+            # Priority 4: class name (last resort)
+            elif '.' in selector:
+                label = selector.split('.')[-1].strip()
             
-            # Skip if no useful label
             if not label:
                 continue
             
-            # Filter out non-interactive keywords
-            if any(keyword in label.lower() for keyword in ignore_keywords):
+            label_lower = label.lower()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FILTERS: Exclude non-navigation elements
+            # ═══════════════════════════════════════════════════════════════
+            
+            # Filter 1: Layout containers
+            if any(kw in label_lower for kw in layout_keywords):
+                print(f"[@screen_analyzer:_extract_web] Filtered LAYOUT: {label}")
                 continue
             
-            # ✅ CLEAN: Strip accessibility hints BEFORE dynamic content detection
-            import re
-            for pattern in accessibility_patterns:
-                if pattern.lower() in label.lower():
-                    # Case-insensitive removal
-                    label = re.sub(re.escape(pattern), '', label, flags=re.IGNORECASE).strip()
-            
-            # Clean up extra commas/spaces after stripping
-            label = label.rstrip(',').strip()
-            
-            # Skip if label became empty after cleaning
-            if not label:
+            # Filter 2: Decorations
+            if any(kw in label_lower for kw in decoration_keywords):
+                print(f"[@screen_analyzer:_extract_web] Filtered DECORATION: {label}")
                 continue
             
-            # ✅ Detect and SKIP dynamic content (AFTER cleaning accessibility text)
-            # 1. Very long labels (> 30 chars) = likely program description
-            # 2. Contains price, time, or content indicators
-            # We SKIP these because we can't click on "dynamic_1" - it's not a real element
-            if len(label) > 30 or any(indicator in label.lower() for indicator in dynamic_indicators):
-                continue  # Skip dynamic content entirely
+            # Filter 3: External/social links
+            if any(kw in label_lower for kw in external_keywords):
+                print(f"[@screen_analyzer:_extract_web] Filtered EXTERNAL: {label}")
+                continue
             
-            # Add to list (avoid duplicates)
-            if label not in interactive_elements:
-                interactive_elements.append(label)
+            # Filter 4: Very short (< 2 chars) or very long (> 40 chars)
+            if len(label) < 2 or len(label) > 40:
+                print(f"[@screen_analyzer:_extract_web] Filtered LENGTH: {label} ({len(label)} chars)")
+                continue
+            
+            # Filter 5: Check if clickable/has href
+            tag = elem.get('tag', '').lower()
+            href = elem.get('href', '')
+            
+            # External URL check (for <a> tags)
+            if href and tag == 'a':
+                # Skip external URLs
+                if any(ext in href for ext in ['facebook.com', 'twitter.com', 'instagram.com', 'youtube.com', 'mailto:']):
+                    print(f"[@screen_analyzer:_extract_web] Filtered EXTERNAL URL: {label} ({href})")
+                    continue
+                
+                # Skip anchors (#)
+                if href.startswith('#') and len(href) < 3:
+                    print(f"[@screen_analyzer:_extract_web] Filtered ANCHOR: {label} ({href})")
+                    continue
+            
+            # Filter 6: Dynamic content patterns
+            dynamic_indicators = ['$', '€', '£', 'chf', 'usd', 'eur', 'season ', 'episode ']
+            if any(ind in label_lower for ind in dynamic_indicators):
+                print(f"[@screen_analyzer:_extract_web] Filtered DYNAMIC: {label}")
+                continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # PASSED ALL FILTERS - Add to results
+            # ═══════════════════════════════════════════════════════════════
+            
+            clean_label = label.replace('_', ' ').replace('-', ' ').title()
+            
+            if clean_label not in interactive_elements:
+                interactive_elements.append(clean_label)
+                seen_selectors.add(selector)
+                print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
+        
+        # ═══════════════════════════════════════════════════════════════
+        # Add grouped components
+        # ═══════════════════════════════════════════════════════════════
+        
+        if search_group['found']:
+            interactive_elements.insert(0, 'Search')  # Add at beginning (high priority)
+            print(f"[@screen_analyzer:_extract_web] ✅ GROUPED: Search (from {len(search_group['ids'])} elements)")
+        
+        if cart_group['found']:
+            interactive_elements.append('Cart')
+            print(f"[@screen_analyzer:_extract_web] ✅ GROUPED: Cart (from {len(cart_group['ids'])} elements)")
+        
+        print(f"[@screen_analyzer:_extract_web] Final count: {len(interactive_elements)} navigation targets")
         
         return interactive_elements[:20]  # Limit to top 20 elements
     
