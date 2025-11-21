@@ -503,29 +503,6 @@ class ExplorationEngine:
             )
     
     def _extract_edge_id_from_response(self, response_text: str) -> str:
-                {
-                    'id': f'home_to_{item}',
-                    'label': f'home → {item}',
-                    'actions': [{
-                        'command': 'click_element',
-                        'params': {'element_id': item}
-                    }],
-                    'retry_actions': [],
-                    'failure_actions': []
-                },
-                {
-                    'id': f'{item}_to_home',
-                    'label': f'{item} → home',
-                    'actions': [{
-                        'command': 'press_key',
-                        'params': {'key': 'BACK'}
-                    }],
-                    'retry_actions': [],
-                    'failure_actions': []
-                }
-            ]
-    
-    def _extract_edge_id_from_response(self, response_text: str) -> str:
         """
         Extract edge_id from MCP response text
         
