@@ -429,32 +429,69 @@ class ScreenAnalyzer:
                 continue
             
             # ═══════════════════════════════════════════════════════════════
-            # PRIORITY FILTER: Only keep elements with strong identifiers
+            # PRIORITY FILTER: Navigation elements need (ID OR text) AND href
             # ═══════════════════════════════════════════════════════════════
             
-            has_id = '#' in selector
-            has_href = elem.get('href') and not elem['href'].startswith('#')
-            has_meaningful_text = elem.get('text') and len(elem.get('text', '').strip()) > 2
+            # Extract fields from Playwright element structure
+            text_content = elem.get('textContent', '').strip()
+            attributes = elem.get('attributes', {})
+            href = attributes.get('href', '')
+            tag = elem.get('tagName', '').lower()
+            element_id = elem.get('id', '')
             
-            # Skip elements that ONLY have class/src (weak identifiers)
-            # These are typically images, decorations, or child elements
-            if not has_id and not has_href and not has_meaningful_text:
+            # Detect Flutter semantic elements
+            is_flutter = tag == 'flt-semantics' or element_id.startswith('flt-semantic-node')
+            
+            # For Flutter elements, REQUIRE text (IDs are dynamic and unstable)
+            if is_flutter:
+                if not text_content or len(text_content) < 2:
+                    print(f"[@screen_analyzer:_extract_web] Filtered FLUTTER NO TEXT: {selector}")
+                    continue
+                # Check for tappable attribute
+                is_tappable = 'flt-tappable' in str(attributes) or elem.get('flt-tappable') is not None
+                if not is_tappable:
+                    print(f"[@screen_analyzer:_extract_web] Filtered FLUTTER NOT TAPPABLE: {text_content[:30]}")
+                    continue
+                
+                # CRITICAL: Replace unstable ID selector with text-based selector
+                # Flutter IDs change on refresh (flt-semantic-node-6 → flt-semantic-node-7)
+                selector = text_content  # Use text as selector
+                print(f"[@screen_analyzer:_extract_web] Flutter element: using text selector '{text_content}' instead of dynamic ID")
+            
+            # Check identifiers (skip ID check for Flutter)
+            has_id = '#' in selector and not is_flutter
+            has_text = len(text_content) > 2
+            
+            # Check if clickable/navigable
+            # For <a> tags: MUST have href (otherwise it's not a link)
+            # For other tags: href not required (buttons, inputs, Flutter elements, etc.)
+            if tag == 'a':
+                # Links without href are not navigation targets
+                if not href or href.startswith('#'):
+                    print(f"[@screen_analyzer:_extract_web] Filtered NO HREF: {selector} (text: {text_content[:20]})")
+                    continue
+            
+            # Filter elements with NO identifiers (no ID, no text)
+            if not has_id and not has_text:
                 print(f"[@screen_analyzer:_extract_web] Filtered WEAK IDENTIFIER: {selector}")
                 continue
             
             # Get label for this element
             label = None
             
-            # Priority 1: ID from selector (most reliable for web)
-            if has_id:
+            # Priority 1: For Flutter, ALWAYS use text (IDs are dynamic)
+            if is_flutter and text_content:
+                label = text_content
+            # Priority 2: ID from selector (most reliable for regular web)
+            elif has_id:
                 label = selector.split('#')[-1].strip()
-            # Priority 2: text content
-            elif elem.get('text') and elem['text'].strip():
-                label = elem['text'].strip()
-            # Priority 3: aria-label
-            elif elem.get('aria_label') and elem['aria_label'].strip():
-                label = elem['aria_label'].strip()
-            # Priority 4: class name (last resort - only if we passed the filter above)
+            # Priority 3: text content
+            elif text_content:
+                label = text_content
+            # Priority 4: aria-label
+            elif attributes.get('aria-label'):
+                label = attributes['aria-label'].strip()
+            # Priority 5: class name (last resort)
             elif '.' in selector:
                 label = selector.split('.')[-1].strip()
             
@@ -487,12 +524,9 @@ class ScreenAnalyzer:
                 print(f"[@screen_analyzer:_extract_web] Filtered LENGTH: {label} ({len(label)} chars)")
                 continue
             
-            # Filter 5: URL and link quality checks
-            tag = elem.get('tag', '').lower()
-            href = elem.get('href', '')
-            
+            # Filter 5: URL quality checks
             # External URL check (for <a> tags)
-            if href and tag == 'a':
+            if tag == 'a' and href:
                 # Skip external URLs
                 if any(ext in href for ext in ['facebook.com', 'twitter.com', 'instagram.com', 'youtube.com', 'mailto:']):
                     print(f"[@screen_analyzer:_extract_web] Filtered EXTERNAL URL: {label} ({href})")
