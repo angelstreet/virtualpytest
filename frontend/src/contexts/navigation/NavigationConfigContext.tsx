@@ -359,7 +359,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     
     // Update backend unified cache for live editing (memory-only, but needs updates)
     try {
-      const cacheUpdateResponse = await fetch(buildServerUrl(`/host/navigation/cache/update-node`), {
+      const cacheUpdateResponse = await fetch(buildServerUrl(`/server/navigation/cache/update-node`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -393,7 +393,7 @@ export const NavigationConfigProvider: React.FC<{ children: React.ReactNode }> =
     
     // Update backend unified cache for live editing (memory-only, but needs updates)
     try {
-      const cacheUpdateResponse = await fetch(buildServerUrl(`/host/navigation/cache/update-edge`), {
+      const cacheUpdateResponse = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
