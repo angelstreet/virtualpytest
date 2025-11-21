@@ -203,7 +203,23 @@ class ExplorationEngine:
             screenshot_path = None  # Continue with None
         
         # Analyze and predict
-        prediction = self._phase1_anticipation(screenshot_path)
+        try:
+            prediction = self._phase1_anticipation(screenshot_path)
+        except Exception as e:
+            print(f"❌ [@exploration_engine:phase1_analyze_and_plan] ANALYSIS FAILED")
+            print(f"   Screenshot: {screenshot_path}")
+            print(f"   Device: {self.device_model_name}")
+            print(f"   Error: {e}")
+            import traceback
+            traceback.print_exc()
+            
+            # Store error in context
+            context.add_step_result('phase1_analysis', {
+                'success': False,
+                'error': str(e),
+                'screenshot': screenshot_path
+            })
+            return context
         
         # Get raw items from prediction
         raw_items = prediction.get('items', [])
@@ -545,7 +561,20 @@ class ExplorationEngine:
             print(f"[@exploration_engine:analyze_and_plan] About to call _phase1_anticipation with screenshot: {self.initial_screenshot}")
             
             # AI analyzes and predicts structure
-            self.prediction = self._phase1_anticipation(self.initial_screenshot)
+            try:
+                self.prediction = self._phase1_anticipation(self.initial_screenshot)
+            except Exception as e:
+                print(f"❌ [@exploration_engine:analyze_and_plan] ANALYSIS FAILED")
+                print(f"   Screenshot: {self.initial_screenshot}")
+                print(f"   Device: {self.device_model_name}")
+                print(f"   Error: {e}")
+                import traceback
+                traceback.print_exc()
+                
+                return {
+                    'success': False,
+                    'error': f"Screen analysis failed: {str(e)}"
+                }
             
             print(f"[@exploration_engine:analyze_and_plan] _phase1_anticipation completed, prediction: {self.prediction}")
             
@@ -838,8 +867,19 @@ Exploration will navigate through these items using {self.prediction.get('strate
             Prediction dict from AI
         """
         print(f"\n[@exploration_engine] === PHASE 1: ANTICIPATION ===")
+        print(f"[@exploration_engine] Screenshot: {screenshot_path}")
+        print(f"[@exploration_engine] Device: {self.device_model_name}")
         
-        prediction = self.screen_analyzer.anticipate_tree(screenshot_path)
+        try:
+            prediction = self.screen_analyzer.anticipate_tree(screenshot_path)
+        except Exception as e:
+            print(f"❌ [@exploration_engine:_phase1_anticipation] ANTICIPATION FAILED")
+            print(f"   Screenshot: {screenshot_path}")
+            print(f"   Device: {self.device_model_name}")
+            print(f"   Error: {e}")
+            import traceback
+            traceback.print_exc()
+            raise  # Re-raise to be caught by caller
         
         print(f"Menu Type: {prediction.get('menu_type')}")
         print(f"Predicted Items: {prediction.get('items')}")

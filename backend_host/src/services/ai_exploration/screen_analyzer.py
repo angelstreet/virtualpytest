@@ -46,17 +46,32 @@ class ScreenAnalyzer:
             }
         """
         # Determine if device uses click (mobile/web) or DPAD (TV/STB)
-        is_mobile_or_web = self.device_model_name and ('mobile' in self.device_model_name.lower() or 'web' in self.device_model_name.lower())
+        # ✅ FIX: Include 'host' in detection (host = web browser)
+        is_mobile_or_web = self.device_model_name and (
+            'mobile' in self.device_model_name.lower() or 
+            'web' in self.device_model_name.lower() or 
+            'host' in self.device_model_name.lower()
+        )
         
         print(f"\n{'='*80}")
         print(f"[@screen_analyzer:anticipate_tree] PHASE 1 ANALYSIS")
         print(f"{'='*80}")
         print(f"📸 Screenshot Path: {screenshot_path or 'None (not required for dump-based analysis)'}")
         print(f"🎮 Device Type: {'MOBILE/WEB (dump-based)' if is_mobile_or_web else 'TV/STB (AI vision-based)'}")
+        print(f"📱 Device Model: {self.device_model_name}")
         
         if is_mobile_or_web:
             # Use UI dump for mobile/web (screenshot not needed)
-            return self._analyze_from_dump(screenshot_path)
+            try:
+                return self._analyze_from_dump(screenshot_path)
+            except Exception as e:
+                print(f"❌ [@screen_analyzer:anticipate_tree] DUMP ANALYSIS FAILED")
+                print(f"   Device: {self.device_model_name}")
+                print(f"   Error: {e}")
+                import traceback
+                traceback.print_exc()
+                # ❌ DO NOT SILENTLY FALL BACK - re-raise the error
+                raise Exception(f"UI dump analysis failed for {self.device_model_name}: {e}")
         else:
             # Use AI vision for TV/STB (screenshot required)
             if not screenshot_path:
@@ -70,7 +85,16 @@ class ScreenAnalyzer:
                     'strategy': 'test_dpad_directions',
                     'item_selectors': {}
                 }
-            return self._analyze_from_ai_vision(screenshot_path)
+            try:
+                return self._analyze_from_ai_vision(screenshot_path)
+            except Exception as e:
+                print(f"❌ [@screen_analyzer:anticipate_tree] AI VISION ANALYSIS FAILED")
+                print(f"   Device: {self.device_model_name}")
+                print(f"   Screenshot: {screenshot_path}")
+                print(f"   Error: {e}")
+                import traceback
+                traceback.print_exc()
+                raise Exception(f"AI vision analysis failed for {self.device_model_name}: {e}")
     
     def _analyze_from_dump(self, screenshot_path: str) -> Dict:
         """
@@ -82,34 +106,65 @@ class ScreenAnalyzer:
         
         # Both mobile and web now use unified dump_elements()
         print(f"[@screen_analyzer] Using unified dump_elements() method")
+        print(f"[@screen_analyzer] Device model: {self.device_model_name}")
+        print(f"[@screen_analyzer] Controller type: {type(self.controller).__name__}")
         
         # Try calling dump_elements - signature varies by controller type
-        result = self.controller.dump_elements()
+        try:
+            result = self.controller.dump_elements()
+            print(f"[@screen_analyzer] dump_elements() returned type: {type(result)}")
+        except Exception as e:
+            print(f"❌ [@screen_analyzer:_analyze_from_dump] dump_elements() FAILED")
+            print(f"   Controller: {type(self.controller).__name__}")
+            print(f"   Error: {e}")
+            import traceback
+            traceback.print_exc()
+            raise Exception(f"dump_elements() call failed: {e}")
         
         # Handle different return types
         if isinstance(result, dict):
             # Web returns dict: {success: bool, elements: list, ...}
+            print(f"[@screen_analyzer] Web format detected - keys: {result.keys()}")
+            
             if not result.get('success'):
                 error = result.get('error', 'Unknown error')
+                print(f"❌ [@screen_analyzer:_analyze_from_dump] UI dump indicated failure")
+                print(f"   Success: {result.get('success')}")
+                print(f"   Error: {error}")
+                print(f"   Full result: {result}")
                 raise Exception(f"Failed to get UI dump - cannot proceed: {error}")
             
             elements = result.get('elements', [])
+            print(f"[@screen_analyzer] Elements retrieved: {len(elements)}")
+            
             if not elements:
+                print(f"❌ [@screen_analyzer:_analyze_from_dump] No elements in dump")
+                print(f"   Result: {result}")
                 raise Exception("No elements found in UI dump")
             
             # Parse web elements (dict format)
+            print(f"[@screen_analyzer] Parsing web elements...")
             interactive_elements = self._extract_interactive_elements_web(elements)
         else:
             # Mobile returns tuple: (success, elements, error)
+            print(f"[@screen_analyzer] Mobile format detected - tuple with {len(result)} items")
             success, elements, error = result
+            print(f"[@screen_analyzer] Success: {success}, Elements: {len(elements) if elements else 0}, Error: {error}")
             
             if not success:
+                print(f"❌ [@screen_analyzer:_analyze_from_dump] Mobile dump failed")
+                print(f"   Success: {success}")
+                print(f"   Error: {error}")
+                print(f"   Elements: {elements}")
                 raise Exception(f"Failed to get UI dump - cannot proceed: {error}")
             
             # Parse mobile elements (AndroidElement objects)
+            print(f"[@screen_analyzer] Parsing mobile elements...")
             interactive_elements = self._extract_interactive_elements_mobile(elements)
         
         if not interactive_elements:
+            print(f"❌ [@screen_analyzer:_analyze_from_dump] No interactive elements after parsing")
+            print(f"   Raw element count: {len(elements)}")
             raise Exception("No interactive elements found in UI dump")
         
         print(f"✅ EXTRACTED FROM DUMP:")
