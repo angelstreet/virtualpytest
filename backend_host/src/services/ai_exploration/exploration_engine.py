@@ -196,14 +196,11 @@ class ExplorationEngine:
         """
         print(f"\n[@exploration_engine] === PHASE 1: Analysis & Planning ===")
         
-        # Capture screenshot
+        # Capture screenshot (optional - continue even if it fails)
         screenshot_path = self.screen_analyzer.capture_screenshot()
         if not screenshot_path:
-            context.add_step_result('phase1_analysis', {
-                'success': False,
-                'error': 'Failed to capture screenshot'
-            })
-            return context
+            print(f"  ⚠️ Screenshot capture failed - continuing without screenshot")
+            screenshot_path = None  # Continue with None
         
         # Analyze and predict
         prediction = self._phase1_anticipation(screenshot_path)
@@ -529,13 +526,11 @@ class ExplorationEngine:
             print(f"Device: {self.device_model_name} ({self.device_id})")
             print(f"{'='*60}\n")
             
-            # Capture initial screenshot
+            # Capture initial screenshot (optional - continue even if it fails)
             self.initial_screenshot = self.screen_analyzer.capture_screenshot()
             if not self.initial_screenshot:
-                return {
-                    'success': False,
-                    'error': 'Failed to capture initial screenshot'
-                }
+                print(f"[@exploration_engine:analyze_and_plan] ⚠️ Screenshot capture failed - continuing without screenshot")
+                self.initial_screenshot = None  # Continue with None
             
             # Notify callbacks
             if self.screenshot_callback:

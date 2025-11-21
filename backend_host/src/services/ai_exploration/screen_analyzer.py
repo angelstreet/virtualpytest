@@ -26,15 +26,15 @@ class ScreenAnalyzer:
         self.controller = controller
         self.ai_model = ai_model
         
-    def anticipate_tree(self, screenshot_path: str) -> Dict:
+    def anticipate_tree(self, screenshot_path: str = None) -> Dict:
         """
         Phase 1: Analyze first screenshot and identify all interactive elements
         
-        For mobile/web: Use UI dump to extract interactive elements
-        For TV/STB: Use AI vision to identify menu items
+        For mobile/web: Use UI dump to extract interactive elements (screenshot optional)
+        For TV/STB: Use AI vision to identify menu items (screenshot required)
         
         Args:
-            screenshot_path: Path to screenshot image
+            screenshot_path: Path to screenshot image (optional for mobile/web)
             
         Returns:
             {
@@ -51,14 +51,25 @@ class ScreenAnalyzer:
         print(f"\n{'='*80}")
         print(f"[@screen_analyzer:anticipate_tree] PHASE 1 ANALYSIS")
         print(f"{'='*80}")
-        print(f"📸 Screenshot Path: {screenshot_path}")
+        print(f"📸 Screenshot Path: {screenshot_path or 'None (not required for dump-based analysis)'}")
         print(f"🎮 Device Type: {'MOBILE/WEB (dump-based)' if is_mobile_or_web else 'TV/STB (AI vision-based)'}")
         
         if is_mobile_or_web:
-            # Use UI dump for mobile/web
+            # Use UI dump for mobile/web (screenshot not needed)
             return self._analyze_from_dump(screenshot_path)
         else:
-            # Use AI vision for TV/STB
+            # Use AI vision for TV/STB (screenshot required)
+            if not screenshot_path:
+                # Fallback for TV/STB without screenshot
+                print(f"  ⚠️ No screenshot available for TV/STB device - using basic fallback")
+                return {
+                    'menu_type': 'horizontal',
+                    'items': ['search', 'home', 'settings', 'profile'],  # Generic fallback
+                    'lines': [['search', 'home', 'settings', 'profile']],
+                    'predicted_depth': 1,
+                    'strategy': 'test_dpad_directions',
+                    'item_selectors': {}
+                }
             return self._analyze_from_ai_vision(screenshot_path)
     
     def _analyze_from_dump(self, screenshot_path: str) -> Dict:
