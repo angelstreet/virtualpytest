@@ -415,42 +415,33 @@ class ScreenAnalyzer:
             'rss', 'feed', 'subscribe', 'newsletter'
         ]
         
-        # Search components (should be grouped as one)
-        search_group = {
-            'ids': set(),
-            'found': False,
-            'label': 'search'
-        }
-        
-        # Cart components (should be grouped as one)
-        cart_group = {
-            'ids': set(),
-            'found': False,
-            'label': 'cart'
-        }
-        
         # ═══════════════════════════════════════════════════════════════
-        # PASS 1: Identify groups and collect elements
+        # PASS 1: Build map of container relationships
         # ═══════════════════════════════════════════════════════════════
+        # Track which containers have interactive children to skip them later
+        containers_with_children = set()
         
         for elem in elements:
-            selector = elem.get('selector', '') or elem.get('id', '')
-            if not selector:
-                continue
+            tag = elem.get('tagName', '').lower()
+            selector = elem.get('selector', '')
             
-            selector_lower = selector.lower()
-            
-            # Group search components
-            if any(word in selector_lower for word in ['search', 'product-search']):
-                search_group['ids'].add(selector)
-                search_group['found'] = True
-                continue
-            
-            # Group cart components
-            if any(word in selector_lower for word in ['cart', 'minicart']):
-                cart_group['ids'].add(selector)
-                cart_group['found'] = True
-                continue
+            # If this is an interactive element (a, button, input[type=submit])
+            if tag == 'a' or tag == 'button' or (tag == 'input' and elem.get('attributes', {}).get('type') == 'submit'):
+                # Mark potential parent containers as "has interactive children"
+                # Simple heuristic: any div/span with similar position is likely a container
+                elem_pos = elem.get('position', {})
+                for potential_container in elements:
+                    container_tag = potential_container.get('tagName', '').lower()
+                    if container_tag in ['div', 'span']:
+                        container_pos = potential_container.get('position', {})
+                        # If container fully contains this interactive element
+                        if (container_pos.get('x', 0) <= elem_pos.get('x', 0) and
+                            container_pos.get('y', 0) <= elem_pos.get('y', 0) and
+                            container_pos.get('x', 0) + container_pos.get('width', 0) >= elem_pos.get('x', 0) + elem_pos.get('width', 0) and
+                            container_pos.get('y', 0) + container_pos.get('height', 0) >= elem_pos.get('y', 0) + elem_pos.get('height', 0)):
+                            containers_with_children.add(potential_container.get('selector', ''))
+        
+        print(f"[@screen_analyzer:_extract_web] 🗂️  Identified {len(containers_with_children)} containers with interactive children (will skip)")
         
         # ═══════════════════════════════════════════════════════════════
         # PASS 2: Extract navigation targets with filtering
@@ -461,9 +452,34 @@ class ScreenAnalyzer:
             if not selector:
                 continue
             
-            # Skip if already processed in a group
-            if selector in search_group['ids'] or selector in cart_group['ids']:
+            tag = elem.get('tagName', '').lower()
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FILTER: Skip containers that have interactive children
+            # ═══════════════════════════════════════════════════════════════
+            if selector in containers_with_children:
+                print(f"[@screen_analyzer:_extract_web] Filtered CONTAINER WITH CHILDREN: {selector}")
                 continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FILTER: Skip non-interactive containers (div/span without href)
+            # ═══════════════════════════════════════════════════════════════
+            if tag in ['div', 'span']:
+                # Only keep if it has special interactive attributes
+                attributes = elem.get('attributes', {})
+                if not (attributes.get('onclick') or attributes.get('role') == 'button'):
+                    print(f"[@screen_analyzer:_extract_web] Filtered NON-INTERACTIVE CONTAINER: {selector}")
+                    continue
+            
+            # ═══════════════════════════════════════════════════════════════
+            # FILTER: Skip text input fields (not navigation targets)
+            # ═══════════════════════════════════════════════════════════════
+            if tag == 'input':
+                input_type = elem.get('attributes', {}).get('type', 'text')
+                if input_type in ['text', 'email', 'password', 'number', 'tel', 'url']:
+                    print(f"[@screen_analyzer:_extract_web] Filtered TEXT INPUT: {selector}")
+                    continue
+                # Keep submit buttons and other clickable inputs
             
             # ═══════════════════════════════════════════════════════════════
             # SMART DUPLICATE CHECK
@@ -547,6 +563,7 @@ class ScreenAnalyzer:
             
             # Get label for this element
             label = None
+            label_suffix = None  # For disambiguating same-text elements
             
             # Priority 1: For Flutter, ALWAYS use text (IDs are dynamic)
             if is_flutter and text_content:
@@ -554,19 +571,29 @@ class ScreenAnalyzer:
             # Priority 2: Text content (More human-readable than ID for web)
             elif text_content:
                 label = text_content
+                
+                # Add suffix for input[type=submit] to differentiate from links
+                if tag == 'input' and attributes.get('type') == 'submit':
+                    label_suffix = "Submit"
+                    print(f"[@screen_analyzer:_extract_web] 🔘 Submit button detected: '{label}' -> will add suffix if needed")
+                    
             # Priority 3: ID from selector (Reliable fallback if text is missing)
             elif has_id:
                 label = selector.split('#')[-1].strip()
             # Priority 4: aria-label
             elif attributes.get('aria-label'):
                 label = attributes['aria-label'].strip()
-            # Priority 5: Derive from href (Fallback for links with empty text)
+            # Priority 5: Placeholder for inputs
+            elif tag == 'input' and attributes.get('placeholder'):
+                label = attributes['placeholder'].strip()
+                label_suffix = "Submit"  # Inputs are usually submit buttons
+            # Priority 6: Derive from href (Fallback for links with empty text)
             elif tag == 'a' and href:
                 # /collections/all -> collections/all
                 clean_href = href.strip('/').split('/')[-1]
                 if clean_href:
                     label = clean_href.replace('-', ' ').replace('_', ' ').title()
-            # Priority 6: class name (last resort)
+            # Priority 7: class name (last resort)
             elif '.' in selector:
                 label = selector.split('.')[-1].strip()
             
@@ -624,22 +651,27 @@ class ScreenAnalyzer:
             
             clean_label = label.replace('_', ' ').replace('-', ' ').title()
             
-            if clean_label not in interactive_elements:
-                interactive_elements.append(clean_label)
-                seen_selectors.add(selector)
-                print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
-        
-        # ═══════════════════════════════════════════════════════════════
-        # Add grouped components
-        # ═══════════════════════════════════════════════════════════════
-        
-        if search_group['found']:
-            interactive_elements.insert(0, 'Search')  # Add at beginning (high priority)
-            print(f"[@screen_analyzer:_extract_web] ✅ GROUPED: Search (from {len(search_group['ids'])} elements)")
-        
-        if cart_group['found']:
-            interactive_elements.append('Cart')
-            print(f"[@screen_analyzer:_extract_web] ✅ GROUPED: Cart (from {len(cart_group['ids'])} elements)")
+            # Handle duplicates: use suffix if available, otherwise append counter
+            if clean_label in interactive_elements:
+                if label_suffix:
+                    # Use the suffix we identified earlier (e.g., "Submit")
+                    unique_label = f"{clean_label} {label_suffix}"
+                    print(f"[@screen_analyzer:_extract_web] 🔀 DUPLICATE DETECTED: '{clean_label}' -> '{unique_label}' (using suffix)")
+                else:
+                    # Find a unique name by appending counter
+                    counter = 2
+                    unique_label = f"{clean_label} {counter}"
+                    while unique_label in interactive_elements:
+                        counter += 1
+                        unique_label = f"{clean_label} {counter}"
+                    
+                    print(f"[@screen_analyzer:_extract_web] 🔀 DUPLICATE DETECTED: '{clean_label}' -> '{unique_label}' (using counter)")
+                
+                clean_label = unique_label
+            
+            interactive_elements.append(clean_label)
+            seen_selectors.add(selector)
+            print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
         
         print(f"[@screen_analyzer:_extract_web] Final count: {len(interactive_elements)} navigation targets")
         
