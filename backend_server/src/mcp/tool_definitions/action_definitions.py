@@ -53,16 +53,56 @@ Returns execution_id for async operations - polls automatically until completion
 
 ELEMENT SELECTION (selector MUST be unique on page):
 
-1. #id (always unique)
+1. #id (always unique) - PREFERRED
 2. //xpath (e.g., //button[@name='login'])
 3. [attr] or .class (verify uniqueness first)
-4. plain text (fallback, slower)
+4. plain text (fallback, slower, AVOID if text appears multiple times)
 
-Use dump_ui_elements() to verify selector appears only once on page.
+⚠️ UNIQUENESS-FIRST PATTERN (Critical for Reliable Automation):
+The AI exploration system demonstrates best practice - ALWAYS verify uniqueness:
 
-IMPORTANT - INPUT FIELDS:
-Before using input_text, click the input field first to focus it.
-Example: click_element("Search") then input_text("Search", "text")
+1. dump_ui_elements() BEFORE any click action
+2. Call analyze_screen_for_action(elements, intent, platform) to get best selector
+3. Use returned action params in create_edge
+
+Example workflow:
+```
+elements = dump_ui_elements(device_id='device1')
+action = analyze_screen_for_action(
+  elements=elements['elements'],
+  intent='search field',
+  platform='web'
+)
+# Returns: {command: 'click_element_by_id', params: {element_id: 'search-field'}, unique: true}
+
+create_edge(actions=[{command: action['command'], params: action['action_params']}])
+```
+
+🎯 Platform-Specific Priority (shared/src/selector_scoring.py):
+- Mobile: ID (resource_id) > CONTENT_DESC > XPATH > TEXT
+- Web: ID (#id) > XPATH > TEXT
+
+This pattern prevents ambiguous clicks and ensures automation reliability.
+Without analyze_screen_for_action, you risk clicking the WRONG element.
+
+DEVICE-SPECIFIC COMMANDS & PARAMETERS:
+
+📱 MOBILE/ADB (android_mobile/android_tv):
+- Commands: launch_app, swipe_up, click_element_by_id (preferred), click_element, input_text, press_key
+- input_text: Sends text to focused element (no selector needed)
+- Example: {"command": "input_text", "params": {"text": "Hello", "wait_time": 1000}}
+
+🌐 WEB (host_vnc/web):
+- Commands: click_element, click_element_by_id, input_text, web_navigate
+- ⚠️ CRITICAL: Web uses DIFFERENT parameter names:
+  • click_element_by_id: Use 'element_id' NOT 'text'
+  • input_text: Use 'selector' NOT 'element_text'
+- Example: {"command": "input_text", "params": {"selector": "#search-field", "text": "Hello", "wait_time": 1000}}
+
+INPUT PATTERN (both platforms):
+1. Click field to focus
+2. Then input text with appropriate params
+See examples below for correct syntax per platform.
 
 ⏱️ CRITICAL - ACTION WAIT TIMES:
 Each action MUST include a 'wait_time' field (milliseconds) INSIDE params to wait AFTER execution.
@@ -78,12 +118,6 @@ Standard Wait Times (milliseconds) - INSIDE params:
 - press_key (other): 1000  (key response)
 - type_text:      1000  (input processing)
 - video playback: 5000  (player initialization)
-
-Device Model Specific:
-- android_mobile/android_tv: Use ADB/Remote commands
-  Examples: launch_app, swipe_up, swipe_down, click_element_by_id (⭐ PREFERRED), click_element, type_text, press_key
-- web/desktop: Use web automation commands
-  Examples: web_click, web_type, web_navigate
 
 Common Examples:
 
@@ -117,7 +151,17 @@ Common Examples:
     }]
   })
 
-⌨️ Type Text (click input field first to focus):
+⌨️ Type Text:
+  
+  WEB (host_vnc/web):
+  execute_device_action({
+    "actions": [
+      {"command": "click_element_by_id", "params": {"element_id": "search-field", "wait_time": 500}},
+      {"command": "input_text", "params": {"selector": "#search-field", "text": "Hello", "wait_time": 1000}}
+    ]
+  })
+  
+  MOBILE (android_mobile/android_tv):
   execute_device_action({
     "actions": [
       {"command": "click_element", "params": {"text": "Search", "wait_time": 500}},

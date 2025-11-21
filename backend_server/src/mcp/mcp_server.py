@@ -41,6 +41,7 @@ from .tools.script_tools import ScriptTools
 from .tools.tree_tools import TreeTools
 from .tools.userinterface_tools import UserInterfaceTools
 from .tools.requirements_tools import RequirementsTools
+from .tools.screen_analysis_tools import ScreenAnalysisTools  # NEW - Unified selector analysis
 
 # Import tool definitions
 from .tool_definitions import (
@@ -58,6 +59,7 @@ from .tool_definitions import (
     get_tree_tools,
     get_userinterface_tools,
     get_requirements_tools,
+    get_screen_analysis_tools,  # NEW - Unified selector analysis
 )
 
 # Import utilities
@@ -93,6 +95,7 @@ class VirtualPyTestMCPServer:
         self.tree_tools = TreeTools(self.api_client)
         self.userinterface_tools = UserInterfaceTools(self.api_client)
         self.requirements_tools = RequirementsTools(self.api_client)
+        self.screen_analysis_tools = ScreenAnalysisTools()  # NEW - No API client needed (local analysis)
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -181,6 +184,10 @@ class VirtualPyTestMCPServer:
             'get_requirement_coverage': self.requirements_tools.get_requirement_coverage,
             'get_coverage_summary': self.requirements_tools.get_coverage_summary,
             'get_uncovered_requirements': self.requirements_tools.get_uncovered_requirements,
+            
+            # Screen Analysis tools (NEW - Unified selector scoring)
+            'analyze_screen_for_action': self.screen_analysis_tools.analyze_screen_for_action,
+            'analyze_screen_for_verification': self.screen_analysis_tools.analyze_screen_for_verification,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -288,6 +295,7 @@ class VirtualPyTestMCPServer:
         tools.extend(get_tree_tools())
         tools.extend(get_userinterface_tools())
         tools.extend(get_requirements_tools())
+        tools.extend(get_screen_analysis_tools())  # NEW - Unified selector analysis
         
         return tools
 

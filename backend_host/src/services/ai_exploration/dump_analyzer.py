@@ -1,10 +1,21 @@
 """
 Dump Analyzer - Find unique elements across multiple UI dumps
+Now uses shared/src/selector_scoring.py for unified priority and scoring logic
 """
 
 from typing import List, Dict, Optional, Set, Tuple
 import json
 import re
+
+# Import unified scoring from shared module
+from shared.src.selector_scoring import (
+    WEAK_VERIFICATION_WORDS,
+    is_weak_word as _is_weak_word,
+    score_text_candidate as _score_text_candidate,
+    extract_texts_from_dump as _extract_texts_from_dump,
+    extract_xpaths_from_dump as _extract_xpaths_from_dump,
+    PLATFORM_PRIORITY_ORDER
+)
 
 
 def _get_verification_command_and_type(device_model: str) -> Tuple[str, str, str]:
@@ -37,58 +48,6 @@ def _get_verification_command_and_type(device_model: str) -> Tuple[str, str, str
     
     # Default: Text/OCR verification (fallback)
     return 'waitForTextToAppear', 'text', 'text'
-
-
-# ============================================================================
-# WEAK WORDS: Can be used as secondary verification only (not strong enough alone)
-# ============================================================================
-WEAK_VERIFICATION_WORDS = {
-    # Navigation/Actions (too common alone, but OK as secondary)
-    'back', 'next', 'previous', 'prev', 'forward', 'close', 'exit',
-    'cancel', 'ok', 'confirm', 'yes', 'no', 'done', 'finish',
-    
-    # Search/Filter (appear everywhere)
-    'search', 'filter', 'sort', 'order', 'show all', 'view all',
-    
-    # Media controls
-    'play', 'pause', 'stop', 'watch', 'listen',
-    
-    # Generic content words
-    'more', 'less', 'info', 'details', 'description',
-    'title', 'name', 'delete', 'remove', 'add', 'edit',
-    
-    # Time/Date (dynamic but can be used as secondary)
-    'today', 'yesterday', 'tomorrow', 'now',
-    
-    # Generic UI elements
-    'menu', 'options', 'settings',  # Settings as standalone word
-    'button', 'tab', 'icon', 'image',
-    
-    # Content-specific weak words
-    'popular', 'trending', 'new', 'featured', 'recommended',
-    'movies', 'shows', 'series', 'videos', 'channels'
-}
-
-
-def _is_weak_word(text: str) -> bool:
-    """
-    Check if text is a weak verification candidate.
-    Weak = Can be used as secondary/complementary verification only.
-    Returns True if the text should not be used as primary verification.
-    """
-    text_lower = text.lower().strip()
-    
-    # Check if text is ONLY a weak word (single word)
-    words = text_lower.split()
-    if len(words) == 1 and words[0] in WEAK_VERIFICATION_WORDS:
-        return True
-    
-    # Also check if it's a simple 2-word phrase with weak words
-    # e.g., "Popular Movies" = weak + weak
-    if len(words) == 2 and all(w in WEAK_VERIFICATION_WORDS for w in words):
-        return True
-    
-    return False
 
 
 def _dump_to_string(dump: Dict) -> str:
@@ -249,64 +208,7 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
     return results
 
 
-def _score_text_candidate(text: str, node_label: str) -> Tuple[int, bool]:
-    """
-    Score a text candidate for how good it is as a verification point.
-    
-    Returns:
-        (score, is_weak): 
-            - score: Higher = better candidate
-            - is_weak: True if this should only be used as secondary verification
-    """
-    score = 0
-    text_lower = text.lower()
-    label_lower = node_label.lower()
-    
-    # 0. CHECK IF WEAK (can only be secondary verification)
-    is_weak = _is_weak_word(text)
-    
-    # 1. EXACT MATCH to Node Label (Highest Priority)
-    # If node is "Settings" and text is "Settings", this is the gold standard
-    if text_lower == label_lower:
-        return (1000, False)  # Always strong if exact match
-    
-    # 2. Partial Match to Node Label
-    if label_lower in text_lower:
-        score += 100
-    
-    # 3. Length Heuristics
-    length = len(text)
-    if length < 3:
-        score -= 50  # Too short (e.g., "ok", "en")
-    elif 4 <= length <= 25:
-        score += 20  # Sweet spot for titles/labels
-    elif length > 40:
-        score -= 20  # Likely a description/paragraph
-        
-    # 4. Content Analysis
-    
-    # Boost "Selected/Active" state (Strongest indicator of current screen)
-    if 'selected' in text_lower or 'focused' in text_lower or 'current' in text_lower:
-        score += 500
-
-    # Penalize potential dynamic content (digits, time, prices)
-    if re.search(r'\d', text): 
-        score -= 30  # Contains numbers (risk of dynamic ID/Time)
-    if re.search(r'\d{1,2}:\d{2}', text):
-        score -= 100 # Looks like time
-    if re.search(r'[\$\€\£]', text):
-        score -= 100 # Looks like price
-        
-    # Penalize common low-value words
-    bad_words = {'ok', 'cancel', 'back', 'next', 'done', 'yes', 'no', 'on', 'off'}
-    if text_lower in bad_words:
-        score -= 50
-        
-    # Boost Title Case (likely a proper UI label)
-    if text[0].isupper() and ' ' in text:
-        score += 10
-        
-    return (score, is_weak)
+# _score_text_candidate now imported from shared.src.selector_scoring
 
 
 def _find_unique_text_for_node(target_node_id: str, target_node_label: str, target_dump: Dict, all_dumps: Dict[str, Dict]) -> Optional[Dict]:
@@ -432,61 +334,4 @@ def _find_unique_xpath_for_node(target_node_id: str, target_dump: Dict, all_dump
     return shortest
 
 
-def _extract_texts_from_dump(dump: Dict) -> set:
-    """Extract all text values from dump (mobile or web)"""
-    texts = set()
-    
-    if not dump or not isinstance(dump, dict):
-        return texts
-    
-    elements = dump.get('elements', [])
-    
-    for elem in elements:
-        # Mobile dump (AndroidElement)
-        if hasattr(elem, 'text') or hasattr(elem, 'content_desc'):
-            text = getattr(elem, 'text', '')
-            content_desc = getattr(elem, 'content_desc', '')
-            
-            # Clean up placeholder values often found in Android dumps
-            if str(text) == '<no text>': text = ''
-            if str(content_desc) == '<no content-desc>': content_desc = ''
-            
-            # Use text if available, otherwise content_desc
-            # This allows us to find "en" which is often in content_desc only
-            val = str(text).strip() or str(content_desc).strip()
-            
-            if val:
-                texts.add(val)
-        
-        # Web dump (dict)
-        elif isinstance(elem, dict):
-            text = elem.get('text', '') or elem.get('content_desc', '')
-            if text and str(text).strip():
-                texts.add(str(text).strip())
-    
-    return texts
-
-
-def _extract_xpaths_from_dump(dump: Dict) -> set:
-    """Extract all xpath values from dump (mobile or web)"""
-    xpaths = set()
-    
-    if not dump or not isinstance(dump, dict):
-        return xpaths
-    
-    elements = dump.get('elements', [])
-    
-    for elem in elements:
-        # Mobile dump (AndroidElement)
-        if hasattr(elem, 'xpath'):
-            xpath = elem.xpath
-            if xpath and xpath.strip():
-                xpaths.add(xpath.strip())
-        
-        # Web dump (dict)
-        elif isinstance(elem, dict):
-            xpath = elem.get('xpath', '') or elem.get('selector', '')
-            if xpath and xpath.strip():
-                xpaths.add(xpath.strip())
-    
-    return xpaths
+# _extract_texts_from_dump and _extract_xpaths_from_dump now imported from shared.src.selector_scoring

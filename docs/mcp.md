@@ -1,8 +1,8 @@
 # VirtualPyTest MCP Server Documentation
 
-**Version**: 4.5.0  
-**Last Updated**: 2025-11-18  
-**Total Tools**: 54
+**Version**: 4.6.0  
+**Last Updated**: 2025-11-21  
+**Total Tools**: 56
 
 This documentation has been modularized for easier navigation and maintenance.
 
@@ -20,6 +20,7 @@ This documentation has been modularized for easier navigation and maintenance.
 - **[Action Tools](mcp/mcp_tools_action.md)** (2 tools) - `execute_device_action`, `list_actions` ⏱️ **[Wait Time Guidelines](mcp/mcp_tools_action.md#⏱️-action-wait-time-guidelines)**
 - **[Navigation Tools](mcp/mcp_tools_navigation.md)** (3 tools) - `navigate_to_node`, `list_navigation_nodes`, `preview_userinterface` 🆕
 - **[Verification Tools](mcp/mcp_tools_verification.md)** (4 tools) - `verify_device_state`, `verify_node`, `list_verifications`, `dump_ui_elements`
+- **[Screen Analysis Tools](mcp/mcp_tools_screen_analysis.md)** (2 tools) - `analyze_screen_for_action`, `analyze_screen_for_verification` 🆕 **Unified Selector Scoring**
 
 #### 🔧 Tree Building (Primitives)
 - **[Tree Tools](mcp/mcp_tools_tree.md)** (11 tools) - Create/update/delete nodes/edges, subtrees, execute_edge, get_node, get_edge, save_node_screenshot
@@ -154,8 +155,8 @@ This documentation has been modularized for easier navigation and maintenance.
 
 ### By Functionality
 
-**Discovery & Inspection** (5 tools)
-- `list_actions`, `list_verifications`, `list_navigation_nodes`, `dump_ui_elements`, `preview_userinterface` 🆕
+**Discovery & Inspection** (7 tools)
+- `list_actions`, `list_verifications`, `list_navigation_nodes`, `dump_ui_elements`, `preview_userinterface` 🆕, `analyze_screen_for_action` 🆕, `analyze_screen_for_verification` 🆕
 
 **Execution** (5 tools)
 - `execute_device_action`, `navigate_to_node`, `verify_device_state`, `execute_edge`, `verify_node`
@@ -212,12 +213,12 @@ Most tools support optional parameters with sensible defaults:
 
 ## 📊 Statistics
 
-- **Total Tools**: 54
-- **Tool Categories**: 12
-- **Documentation Pages**: 13
+- **Total Tools**: 56
+- **Tool Categories**: 13
+- **Documentation Pages**: 14
 - **Supported Integrations**: 3 (Cursor, Claude Desktop, MCP Playground)
-- **Lines of Documentation**: 3,400+
-- **MCP Server Code**: 327 lines (refactored from 2,028 lines)
+- **Lines of Documentation**: 3,600+
+- **MCP Server Code**: 330 lines (refactored from 2,028 lines)
 
 ---
 
@@ -262,6 +263,7 @@ For issues or questions:
 
 ## 📈 Version History
 
+- **v4.6.0** (2025-11-21): 56 tools (+ analyze_screen_for_action, analyze_screen_for_verification - unified selector scoring + shared/src/selector_scoring.py)
 - **v4.5.0** (2025-11-18): 54 tools (+ generate_and_save_testcase, rename_testcase, get_compatible_hosts + MCP server refactor: 327 lines)
 - **v4.4.0** (2025-11): 51 tools (+ preview_userinterface - "What do we test?")
 - **v4.3.0** (2025-11): 49 tools (+ requirements management)
