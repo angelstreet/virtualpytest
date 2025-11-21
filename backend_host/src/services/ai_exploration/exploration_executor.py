@@ -708,7 +708,8 @@ class ExplorationExecutor:
                 try:
                     controller = self.exploration_engine.controller
                     print(f"[@ExplorationExecutor:validate_next_item] 🏠 Capturing HOME dump for uniqueness baseline...")
-                    dump_result = await controller.dump_elements()
+                    import asyncio
+                    dump_result = asyncio.run(controller.dump_elements())
                     home_dump_data = None
                     
                     if isinstance(dump_result, tuple):
@@ -765,7 +766,8 @@ class ExplorationExecutor:
                 # A. Capture Dump (Critical for node verification - do this first/independently)
                 dump_data = None
                 try:
-                    dump_result = await controller.dump_elements()
+                    import asyncio
+                    dump_result = asyncio.run(controller.dump_elements())
                     
                     # Normalize dump format (mobile returns tuple, web returns dict)
                     if isinstance(dump_result, tuple):
