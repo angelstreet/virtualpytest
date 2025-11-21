@@ -110,9 +110,19 @@ class ScreenAnalyzer:
         print(f"[@screen_analyzer] Controller type: {type(self.controller).__name__}")
         
         # Try calling dump_elements - signature varies by controller type
+        # ✅ Handle both sync (mobile) and async (web) controllers
         try:
             result = self.controller.dump_elements()
             print(f"[@screen_analyzer] dump_elements() returned type: {type(result)}")
+            
+            # ✅ Check if result is a coroutine (async method)
+            import inspect
+            if inspect.iscoroutine(result):
+                print(f"[@screen_analyzer] Detected async method - running with asyncio")
+                import asyncio
+                result = asyncio.run(result)
+                print(f"[@screen_analyzer] Async result type: {type(result)}")
+            
         except Exception as e:
             print(f"❌ [@screen_analyzer:_analyze_from_dump] dump_elements() FAILED")
             print(f"   Controller: {type(self.controller).__name__}")
