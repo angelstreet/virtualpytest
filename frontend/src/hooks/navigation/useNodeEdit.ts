@@ -14,6 +14,7 @@ export interface UseNodeEditProps {
   setNodeForm: (form: NodeForm) => void;
   selectedHost?: Host;
   isControlActive?: boolean;
+  onUpdateNode?: (nodeId: string, updatedData: any) => void;
 }
 
 export const useNodeEdit = ({
@@ -22,6 +23,7 @@ export const useNodeEdit = ({
   setNodeForm,
   selectedHost,
   isControlActive = false,
+  onUpdateNode,
 }: UseNodeEditProps) => {
   // Get device data context for model references
   const { getModelReferences, referencesLoading, references } = useDeviceData();
@@ -320,6 +322,11 @@ export const useNodeEdit = ({
         ...nodeForm,
         screenshot: ''
       });
+      
+      // Update visual node immediately
+      if (onUpdateNode && nodeForm.id) {
+        onUpdateNode(nodeForm.id, { screenshot: '' });
+      }
       
       // Auto-save the node with empty screenshot
       await saveNodeWithStateUpdate({

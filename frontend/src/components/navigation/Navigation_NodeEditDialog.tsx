@@ -32,6 +32,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   onSubmit: _onSubmit,
   onClose,
   onResetNode,
+  onUpdateNode,
   selectedHost,
   isControlActive = false,
   model,
@@ -58,6 +59,7 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
     setNodeForm,
     selectedHost,
     isControlActive,
+    onUpdateNode,
   });
 
   // Initialize confirmation dialog

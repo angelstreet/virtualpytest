@@ -443,6 +443,7 @@ export interface NodeEditDialogProps {
   onSubmit: () => void;
   onClose: () => void;
   onResetNode?: () => void;
+  onUpdateNode?: (nodeId: string, updatedData: any) => void;
   selectedHost?: any; // Host object for verification/navigation
   selectedDeviceId?: string; // Device ID for getting model references
   isControlActive?: boolean;

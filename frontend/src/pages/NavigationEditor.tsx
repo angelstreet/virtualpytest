@@ -1489,6 +1489,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             onSubmit={handleNodeFormSubmitWrapper}
             onClose={cancelNodeChanges}
             onResetNode={() => selectedNode && resetNode(selectedNode.id)}
+            onUpdateNode={handleUpdateNode}
             model={userInterface?.models?.[0] || 'android_mobile'}
             isControlActive={isControlActive}
             selectedHost={selectedHost}
