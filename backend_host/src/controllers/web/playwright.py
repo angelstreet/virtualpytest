@@ -105,8 +105,9 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         self.current_url = ""
         self.page_title = ""
         
-        # Flutter semantics tracking (activate once per page)
-        self._flutter_semantics_activated = False
+        # Flutter semantics tracking (lazy activation on first dump)
+        self._flutter_app_detected = None  # None = unknown, True = Flutter, False = not Flutter
+        self._flutter_semantics_ready = False  # True = semantic nodes confirmed working
 
     # =============================================================
     # Controller loop management (single long-lived asyncio loop)
@@ -499,44 +500,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             
             self.current_url = page.url
             self.page_title = await page.title()
-            
-            # -------------------------------------------------------
-            # FLUTTER SEMANTICS AUTO-ACTIVATION (once per page)
-            # -------------------------------------------------------
-            if not self._flutter_semantics_activated:
-                try:
-                    # Try activating Flutter semantics (handles both standard and shadow DOM)
-                    flutter_check_js = """
-                    () => {
-                        // Method 1: Standard DOM (most common)
-                        let placeholder = document.querySelector('flt-semantics-placeholder');
-                        if (placeholder) {
-                            placeholder.click();
-                            return 'standard';
-                        }
-                        
-                        // Method 2: Shadow DOM (less common)
-                        const flutterView = document.querySelector('body>flutter-view > flt-glass-pane');
-                        if (flutterView && flutterView.shadowRoot) {
-                            placeholder = flutterView.shadowRoot.querySelector('flt-semantics-placeholder');
-                            if (placeholder) {
-                                placeholder.click();
-                                return 'shadow-dom';
-                            }
-                        }
-                        
-                        return null; // Not a Flutter app
-                    }
-                    """
-                    flutter_type = await page.evaluate(flutter_check_js)
-                    if flutter_type:
-                        print(f"[PLAYWRIGHT]: 🦋 Flutter app detected ({flutter_type}) - activating semantics...")
-                        await asyncio.sleep(1.0)  # Wait for semantics tree to populate
-                        self._flutter_semantics_activated = True
-                        print(f"[PLAYWRIGHT]: ✅ Flutter semantics activated ({flutter_type})")
-                except Exception as flutter_error:
-                    print(f"[PLAYWRIGHT]: Flutter check warning (non-fatal): {flutter_error}")
-            # -------------------------------------------------------
             
             execution_time = int((time.time() - start_time) * 1000)
             
@@ -1814,6 +1777,47 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
                 'execution_time': 0
             }
     
+    async def _try_activate_flutter_semantics(self) -> bool:
+        """
+        Helper method to try activating Flutter semantics (both standard and shadow DOM).
+        
+        Returns:
+            True if activation attempted, False if not a Flutter app
+        """
+        try:
+            page = await self._get_persistent_page()
+            
+            flutter_check_js = """
+            () => {
+                // Method 1: Standard DOM (most common)
+                let placeholder = document.querySelector('flt-semantics-placeholder');
+                if (placeholder) {
+                    placeholder.click();
+                    return 'standard';
+                }
+                
+                // Method 2: Shadow DOM (less common)
+                const flutterView = document.querySelector('body>flutter-view > flt-glass-pane');
+                if (flutterView && flutterView.shadowRoot) {
+                    placeholder = flutterView.shadowRoot.querySelector('flt-semantics-placeholder');
+                    if (placeholder) {
+                        placeholder.click();
+                        return 'shadow-dom';
+                    }
+                }
+                
+                return null; // Not a Flutter app
+            }
+            """
+            flutter_type = await page.evaluate(flutter_check_js)
+            if flutter_type:
+                print(f"[PLAYWRIGHT]: 🦋 Flutter semantics activation attempted ({flutter_type})")
+                return True
+            return False
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Flutter activation error (non-fatal): {e}")
+            return False
+    
     @ensure_controller_loop
     async def dump_elements(self, element_types: str = "all", include_hidden: bool = False) -> Dict[str, Any]:
         """
@@ -2000,6 +2004,63 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             execution_time = int((time.time() - start_time) * 1000)
             
             print(f"[PLAYWRIGHT]: Found {result['totalCount']} elements ({result['visibleCount']} visible)")
+            
+            # -------------------------------------------------------
+            # FLUTTER SEMANTICS SMART DETECTION (lazy activation)
+            # -------------------------------------------------------
+            # OPTIMIZATION: Skip all checks if we already verified semantics work
+            if not self._flutter_semantics_ready:
+                # OPTIMIZATION: Skip if we already know it's NOT a Flutter app
+                if self._flutter_app_detected != False:
+                    # Check if this is a Flutter app (only if we haven't determined yet)
+                    if self._flutter_app_detected is None:
+                        has_flutter_view = any(
+                            el.get('tagName') == 'flutter-view' 
+                            for el in result['elements']
+                        )
+                        self._flutter_app_detected = has_flutter_view
+                        
+                        if not has_flutter_view:
+                            # Not a Flutter app - we're done, never check again
+                            print(f"[PLAYWRIGHT]: Not a Flutter app - skipping semantics checks")
+                        else:
+                            print(f"[PLAYWRIGHT]: Flutter app detected")
+                    
+                    # At this point: self._flutter_app_detected == True (if we're still here)
+                    if self._flutter_app_detected:
+                        # Check if semantics are ready
+                        has_semantic_nodes = any(
+                            'flt-semantic-node' in el.get('id', '') 
+                            for el in result['elements']
+                        )
+                        
+                        if has_semantic_nodes:
+                            # Semantics working! Mark as ready, never check again
+                            print(f"[PLAYWRIGHT]: ✅ Flutter semantics confirmed working")
+                            self._flutter_semantics_ready = True
+                        else:
+                            # Flutter app but semantics NOT ready - retry activation ONCE
+                            print(f"[PLAYWRIGHT]: ⚠️ Flutter detected but semantics not ready - retrying activation...")
+                            await self._try_activate_flutter_semantics()
+                            await _asyncio.sleep(2.0)  # Wait for semantics tree to populate
+                            
+                            # Re-dump to get semantic nodes
+                            print(f"[PLAYWRIGHT]: Re-dumping elements after Flutter activation...")
+                            result = await _asyncio.wait_for(page.evaluate(js_code), timeout=5.0)
+                            execution_time = int((time.time() - start_time) * 1000)
+                            print(f"[PLAYWRIGHT]: Re-dump found {result['totalCount']} elements ({result['visibleCount']} visible)")
+                            
+                            # Check if retry worked
+                            has_semantic_nodes = any(
+                                'flt-semantic-node' in el.get('id', '') 
+                                for el in result['elements']
+                            )
+                            if has_semantic_nodes:
+                                print(f"[PLAYWRIGHT]: ✅ Flutter semantics now working after retry")
+                                self._flutter_semantics_ready = True
+                            else:
+                                print(f"[PLAYWRIGHT]: ⚠️ Flutter semantics still not ready - may need manual intervention")
+            # -------------------------------------------------------
             
             return {
                 'success': True,
