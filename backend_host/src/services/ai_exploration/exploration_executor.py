@@ -335,6 +335,17 @@ class ExplorationExecutor:
                     
                     self.exploration_state['completed_at'] = datetime.now(timezone.utc).isoformat()
                 
+            except ValueError as ve:
+                # Clean ValueError (no stack trace) - user-friendly message
+                error_msg = str(ve)
+                print(f"[@ExplorationExecutor:run_exploration] ⚠️ EXPLORATION STOPPED: {error_msg}")
+                
+                with self._lock:
+                    self.exploration_state['status'] = 'failed'
+                    self.exploration_state['error'] = error_msg
+                    self.exploration_state['current_step'] = f"⚠️ {error_msg}"
+                    self.exploration_state['completed_at'] = datetime.now(timezone.utc).isoformat()
+                
             except Exception as e:
                 print(f"[@ExplorationExecutor:run_exploration] Error: {e}")
                 import traceback

@@ -872,6 +872,25 @@ Exploration will navigate through these items using {self.prediction.get('strate
         
         try:
             prediction = self.screen_analyzer.anticipate_tree(screenshot_path)
+            
+            # Check if screen analysis returned empty results (no interactive elements)
+            if prediction.get('error') or not prediction.get('items'):
+                error_msg = prediction.get('error', 'No interactive elements detected')
+                suggestion = prediction.get('suggestion', '')
+                
+                print(f"⚠️  [@exploration_engine:_phase1_anticipation] SCREEN ANALYSIS EMPTY")
+                print(f"   Screenshot: {screenshot_path}")
+                print(f"   Device: {self.device_model_name}")
+                print(f"   Issue: {error_msg}")
+                if suggestion:
+                    print(f"   Suggestion: {suggestion}")
+                
+                # Raise clean error without stack trace
+                raise ValueError(f"Screen analysis empty: {error_msg}")
+                
+        except ValueError as ve:
+            # Clean error message (already logged above)
+            raise
         except Exception as e:
             print(f"❌ [@exploration_engine:_phase1_anticipation] ANTICIPATION FAILED")
             print(f"   Screenshot: {screenshot_path}")

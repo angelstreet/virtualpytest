@@ -505,15 +505,35 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             # -------------------------------------------------------
             if not self._flutter_semantics_activated:
                 try:
-                    # Check if this is a Flutter app
-                    has_flutter = await page.evaluate("() => !!document.querySelector('flt-semantics-placeholder')")
-                    if has_flutter:
-                        print(f"[PLAYWRIGHT]: 🦋 Flutter app detected - activating semantics...")
-                        # Activate semantics once
-                        await page.evaluate("() => document.querySelector('flt-semantics-placeholder')?.click()")
+                    # Try activating Flutter semantics (handles both standard and shadow DOM)
+                    flutter_check_js = """
+                    () => {
+                        // Method 1: Standard DOM (most common)
+                        let placeholder = document.querySelector('flt-semantics-placeholder');
+                        if (placeholder) {
+                            placeholder.click();
+                            return 'standard';
+                        }
+                        
+                        // Method 2: Shadow DOM (less common)
+                        const flutterView = document.querySelector('body>flutter-view > flt-glass-pane');
+                        if (flutterView && flutterView.shadowRoot) {
+                            placeholder = flutterView.shadowRoot.querySelector('flt-semantics-placeholder');
+                            if (placeholder) {
+                                placeholder.click();
+                                return 'shadow-dom';
+                            }
+                        }
+                        
+                        return null; // Not a Flutter app
+                    }
+                    """
+                    flutter_type = await page.evaluate(flutter_check_js)
+                    if flutter_type:
+                        print(f"[PLAYWRIGHT]: 🦋 Flutter app detected ({flutter_type}) - activating semantics...")
                         await asyncio.sleep(1.0)  # Wait for semantics tree to populate
                         self._flutter_semantics_activated = True
-                        print(f"[PLAYWRIGHT]: ✅ Flutter semantics activated for this page")
+                        print(f"[PLAYWRIGHT]: ✅ Flutter semantics activated ({flutter_type})")
                 except Exception as flutter_error:
                     print(f"[PLAYWRIGHT]: Flutter check warning (non-fatal): {flutter_error}")
             # -------------------------------------------------------

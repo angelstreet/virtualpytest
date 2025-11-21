@@ -173,9 +173,24 @@ class ScreenAnalyzer:
             interactive_elements = self._extract_interactive_elements_mobile(elements)
         
         if not interactive_elements:
-            print(f"❌ [@screen_analyzer:_analyze_from_dump] No interactive elements after parsing")
+            print(f"⚠️  [@screen_analyzer:_analyze_from_dump] No interactive elements after parsing")
             print(f"   Raw element count: {len(elements)}")
-            raise Exception("No interactive elements found in UI dump")
+            print(f"   This may indicate:")
+            print(f"   - Flutter app without activated semantics")
+            print(f"   - Page still loading")
+            print(f"   - Dynamic content not yet rendered")
+            
+            # Return empty result instead of raising exception
+            # Let the caller (exploration engine) handle this gracefully
+            return {
+                'menu_type': 'click_based',
+                'items': [],
+                'lines': [],
+                'predicted_depth': 0,
+                'strategy': 'click_elements',
+                'error': 'No interactive elements found in UI dump',
+                'suggestion': 'Check if page is fully loaded or if Flutter semantics need manual activation'
+            }
         
         print(f"✅ EXTRACTED FROM DUMP:")
         print(f"{'-'*80}")
