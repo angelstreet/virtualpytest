@@ -104,6 +104,9 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         self.last_command_error = ""
         self.current_url = ""
         self.page_title = ""
+        
+        # Flutter semantics tracking (activate once per page)
+        self._flutter_semantics_activated = False
 
     # =============================================================
     # Controller loop management (single long-lived asyncio loop)
@@ -496,6 +499,24 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             
             self.current_url = page.url
             self.page_title = await page.title()
+            
+            # -------------------------------------------------------
+            # FLUTTER SEMANTICS AUTO-ACTIVATION (once per page)
+            # -------------------------------------------------------
+            if not self._flutter_semantics_activated:
+                try:
+                    # Check if this is a Flutter app
+                    has_flutter = await page.evaluate("() => !!document.querySelector('flt-semantics-placeholder')")
+                    if has_flutter:
+                        print(f"[PLAYWRIGHT]: 🦋 Flutter app detected - activating semantics...")
+                        # Activate semantics once
+                        await page.evaluate("() => document.querySelector('flt-semantics-placeholder')?.click()")
+                        await asyncio.sleep(1.0)  # Wait for semantics tree to populate
+                        self._flutter_semantics_activated = True
+                        print(f"[PLAYWRIGHT]: ✅ Flutter semantics activated for this page")
+                except Exception as flutter_error:
+                    print(f"[PLAYWRIGHT]: Flutter check warning (non-fatal): {flutter_error}")
+            # -------------------------------------------------------
             
             execution_time = int((time.time() - start_time) * 1000)
             
