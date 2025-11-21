@@ -77,9 +77,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
     _loop = None
     _loop_thread = None
     
-    # Async lock for concurrent request isolation  
-    _operation_lock = None
-    
     def __init__(self, browser_engine: str = None, **kwargs):
         """
         Initialize the Playwright web controller.
@@ -124,13 +121,6 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
         t = threading.Thread(target=_loop_worker, name="PlaywrightControllerLoop", daemon=True)
         t.start()
         self.__class__._loop_thread = t
-        
-        # Initialize async operation lock (shared across all instances)
-        # This prevents concurrent requests from interfering with each other
-        if self.__class__._operation_lock is None:
-            import asyncio
-            self.__class__._operation_lock = asyncio.Lock()
-        
         # Give the loop a brief moment to start
         import time as _time
         start = _time.time()
@@ -639,15 +629,13 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             element_id: CSS selector (#id, .class, [attr]) OR plain text to search for
                         Can use pipe "|" to specify multiple options (tries each until one succeeds)
         """
-        # Acquire lock to prevent concurrent requests from interfering
-        async with self.__class__._operation_lock:
-            try:
-                start_time = time.time()
-                
-                # Parse pipe-separated terms for fallback support
-                terms = [t.strip() for t in element_id.split('|')] if '|' in element_id else [element_id]
-                
-                if len(terms) > 1:
+        try:
+            start_time = time.time()
+            
+            # Parse pipe-separated terms for fallback support
+            terms = [t.strip() for t in element_id.split('|')] if '|' in element_id else [element_id]
+            
+            if len(terms) > 1:
                 print(f"[PLAYWRIGHT]: Using fallback strategy with {len(terms)} terms: {terms}")
             
             # Try each term until one succeeds

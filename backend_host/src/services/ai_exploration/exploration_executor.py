@@ -741,7 +741,7 @@ class ExplorationExecutor:
                     # Handle async controllers (web) - run coroutine if needed
                     import inspect
                     if inspect.iscoroutine(dump_result):
-                        import asyncio
+                    import asyncio
                         dump_result = asyncio.run(dump_result)
                     
                     home_dump_data = None
@@ -812,7 +812,7 @@ class ExplorationExecutor:
                     # Handle async controllers (web) - run coroutine if needed
                     import inspect
                     if inspect.iscoroutine(dump_result):
-                        import asyncio
+                    import asyncio
                         dump_result = asyncio.run(dump_result)
                     
                     # Normalize dump format (mobile returns tuple, web returns dict)
@@ -941,20 +941,20 @@ class ExplorationExecutor:
                             print(f"    ❌ Back (1st) failed: {e}")
                     else:
                         # Mobile: Use waitForElementToAppear
-                        import inspect
-                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                            import asyncio
-                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=3.0
-                            ))
-                        else:
-                            success, message, details = verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=3.0
-                            )
-                        back_success = success
-                        print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
+                    import inspect
+                    if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                        import asyncio
+                        success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                            search_term=home_indicator,
+                            timeout=3.0
+                        ))
+                    else:
+                        success, message, details = verifier.waitForElementToAppear(
+                            search_term=home_indicator,
+                            timeout=3.0
+                        )
+                    back_success = success
+                    print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
                 else:
                     # Fallback if no verifier available
                     print(f"    ⚠️ No verifier available for device model '{device_model}'")
@@ -999,20 +999,20 @@ class ExplorationExecutor:
                                 print(f"    ❌ Back (2nd) failed: {e}")
                         else:
                             # Mobile: Use waitForElementToAppear
-                            import inspect
-                            if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                                import asyncio
-                                success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                    search_term=home_indicator,
-                                    timeout=5.0
-                                ))
-                            else:
-                                success, message, details = verifier.waitForElementToAppear(
-                                    search_term=home_indicator,
-                                    timeout=5.0
-                                )
-                            back_success = success
-                            print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
+                        import inspect
+                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                            import asyncio
+                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                                search_term=home_indicator,
+                                timeout=5.0
+                            ))
+                        else:
+                            success, message, details = verifier.waitForElementToAppear(
+                                search_term=home_indicator,
+                                timeout=5.0
+                            )
+                        back_success = success
+                        print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
                     else:
                         back_success = False
                 
