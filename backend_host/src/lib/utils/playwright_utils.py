@@ -85,6 +85,38 @@ class ChromeManager:
                 chrome_process.wait()
     
     @staticmethod
+    def _fix_preferences(user_data_dir: str):
+        """
+        Fix Chrome preferences to prevent 'Restore pages' popup by resetting exit_type.
+        This modifies the 'Preferences' file directly to set exit_type to 'Normal'.
+        """
+        try:
+            # Try Default profile first, then root
+            paths_to_check = [
+                os.path.join(user_data_dir, 'Default', 'Preferences'),
+                os.path.join(user_data_dir, 'Preferences')
+            ]
+            
+            for pref_path in paths_to_check:
+                if os.path.exists(pref_path):
+                    try:
+                        with open(pref_path, 'r', encoding='utf-8') as f:
+                            content = f.read()
+                        
+                        # Replace exit_type "Crashed" with "Normal" to suppress restore bubble
+                        if '"exit_type":"Crashed"' in content:
+                            print(f'[ChromeManager] Fixing crashed exit_type in {pref_path}')
+                            content = content.replace('"exit_type":"Crashed"', '"exit_type":"Normal"')
+                            with open(pref_path, 'w', encoding='utf-8') as f:
+                                f.write(content)
+                                
+                    except Exception as e:
+                        print(f'[ChromeManager] Warning: Failed to fix Preferences file {pref_path}: {e}')
+                        
+        except Exception as e:
+            print(f'[ChromeManager] Warning: Error during preferences fix: {e}')
+
+    @staticmethod
     def is_port_in_use(port: int) -> bool:
         """Check if a port is in use."""
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as s:
@@ -202,19 +234,24 @@ class ChromeManager:
         # Prepare Chrome flags and user data directory (path should already be resolved)
         os.makedirs(user_data_dir, exist_ok=True)
         
-        # Clean up crash detection files only (keep session data for passwords/cookies)
-        crash_files = ['Crash Reports', 'chrome_debug.log', 'Singleton*']
-        for crash_file in crash_files:
-            crash_path = os.path.join(user_data_dir, crash_file)
-            if os.path.exists(crash_path):
+        # Clean up crash detection files and locks
+        import glob
+        import shutil
+        
+        crash_patterns = ['Crash Reports', 'chrome_debug.log', 'Singleton*', 'Singelton*']  # Handle both spellings just in case
+        for pattern in crash_patterns:
+            full_pattern = os.path.join(user_data_dir, pattern)
+            for crash_path in glob.glob(full_pattern):
                 try:
-                    if os.path.isfile(crash_path):
+                    if os.path.isfile(crash_path) or os.path.islink(crash_path):
                         os.remove(crash_path)
                     elif os.path.isdir(crash_path):
-                        import shutil
                         shutil.rmtree(crash_path)
                 except Exception as e:
                     pass  # Ignore cleanup errors
+
+        # Fix preferences to prevent "Restore pages" popup
+        cls._fix_preferences(user_data_dir)
         
         print(f'[ChromeManager] Using persistent profile: {user_data_dir}')
         
