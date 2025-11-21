@@ -4,15 +4,38 @@ Deploy VirtualPyTest as a single VM on Proxmox with Docker inside.
 
 ## Overview
 
+### Simple Deployment: Use Existing VM
+
+**If you already have a VM on Proxmox**, just use your Hetzner setup unchanged:
+
+```bash
+ssh ubuntu@your-vm-ip
+cd virtualpytest/setup/docker/hetzner_custom
+./setup.sh
+./launch.sh
 ```
-Proxmox Host (Bare Metal)
-└── VM: virtualpytest
-    ├── Ubuntu 22.04 Server (minimal cloud image)
-    ├── Docker Engine
-    ├── docker-compose
-    ├── Your Hetzner setup works unchanged
-    └── Resources: 4GB RAM, 2 vCPU, 40GB disk (CX23 equivalent)
+
+No Proxmox-specific scripts needed! ✅
+
+### Scalable Deployment: Multi-VM with Physical Devices
+
+For production environments with physical devices (STBs, phones) and scaling beyond 8 hosts, see:
+
+**📖 [DEPLOYMENT_GUIDE.md](DEPLOYMENT_GUIDE.md)** - Complete scalable architecture guide
+
 ```
+Proxmox Host
+├── VM 101: Server + Grafana (2GB RAM, 2 cores, 20GB)
+├── VM 102: Hosts 1-4 + USB + HDMI (4GB RAM, 2 cores, 40GB)
+├── VM 103: Hosts 5-8 + USB + HDMI (4GB RAM, 2 cores, 40GB)
+└── VM 10N: Scale infinitely...
+```
+
+Includes:
+- Physical device passthrough (USB for ADB, HDMI capture cards)
+- Horizontal scaling (add VMs as needed)
+- High availability setup
+- Complete deployment automation
 
 ## Why VM + Docker?
 
