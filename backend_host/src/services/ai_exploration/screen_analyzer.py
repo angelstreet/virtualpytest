@@ -424,18 +424,37 @@ class ScreenAnalyzer:
             if selector in search_group['ids'] or selector in cart_group['ids']:
                 continue
             
+            # ═══════════════════════════════════════════════════════════════
+            # SMART DUPLICATE CHECK
+            # ═══════════════════════════════════════════════════════════════
+            # Generic selectors (a, div, button) are not unique.
+            # Use text+href as the uniqueness key for generic selectors.
+            # For specific selectors (#id, .class), the selector itself is unique enough.
+            
+            text_content = elem.get('textContent', '').strip()
+            attributes = elem.get('attributes', {})
+            href = attributes.get('href', '')
+            
+            # Generic selectors (single tag name without #id or .class)
+            is_generic = not ('#' in selector or '.' in selector or ':' in selector)
+            
+            if is_generic:
+                # Use text+href as uniqueness key for generic selectors
+                unique_key = f"{selector}|{text_content}|{href}"
+            else:
+                # Use selector for specific ones
+                unique_key = selector
+            
             # Skip duplicates
-            if selector in seen_selectors:
+            if unique_key in seen_selectors:
                 continue
+            
+            seen_selectors.add(unique_key)
             
             # ═══════════════════════════════════════════════════════════════
             # PRIORITY FILTER: Navigation elements need (ID OR text) AND href
             # ═══════════════════════════════════════════════════════════════
             
-            # Extract fields from Playwright element structure
-            text_content = elem.get('textContent', '').strip()
-            attributes = elem.get('attributes', {})
-            href = attributes.get('href', '')
             tag = elem.get('tagName', '').lower()
             element_id = elem.get('id', '') or ''  # Handle None
             
