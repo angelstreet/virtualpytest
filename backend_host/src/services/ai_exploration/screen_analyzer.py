@@ -437,10 +437,10 @@ class ScreenAnalyzer:
             attributes = elem.get('attributes', {})
             href = attributes.get('href', '')
             tag = elem.get('tagName', '').lower()
-            element_id = elem.get('id', '')
+            element_id = elem.get('id', '') or ''  # Handle None
             
             # Detect Flutter semantic elements
-            is_flutter = tag == 'flt-semantics' or element_id.startswith('flt-semantic-node')
+            is_flutter = tag == 'flt-semantics' or (element_id and element_id.startswith('flt-semantic-node'))
             
             # For Flutter elements, REQUIRE text (IDs are dynamic and unstable)
             if is_flutter:
