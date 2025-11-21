@@ -737,6 +737,13 @@ class ExplorationExecutor:
                     controller = self.exploration_engine.controller
                     print(f"[@ExplorationExecutor:validate_next_item] 🏠 Capturing HOME dump for uniqueness baseline...")
                     dump_result = controller.dump_elements()
+                    
+                    # Handle async controllers (web) - run coroutine if needed
+                    import inspect
+                    if inspect.iscoroutine(dump_result):
+                        import asyncio
+                        dump_result = asyncio.run(dump_result)
+                    
                     home_dump_data = None
                     
                     if isinstance(dump_result, tuple):
@@ -783,6 +790,13 @@ class ExplorationExecutor:
         # 1. Click element
         try:
             result = controller.click_element(current_item)
+            
+            # Handle async controllers (web) - run coroutine if needed
+            import inspect
+            if inspect.iscoroutine(result):
+                import asyncio
+                result = asyncio.run(result)
+            
             click_success = result if isinstance(result, bool) else result.get('success', False)
             click_result = 'success' if click_success else 'failed'
             print(f"    {'✅' if click_success else '❌'} Click {click_result}")
@@ -794,6 +808,12 @@ class ExplorationExecutor:
                 dump_data = None
                 try:
                     dump_result = controller.dump_elements()
+                    
+                    # Handle async controllers (web) - run coroutine if needed
+                    import inspect
+                    if inspect.iscoroutine(dump_result):
+                        import asyncio
+                        dump_result = asyncio.run(dump_result)
                     
                     # Normalize dump format (mobile returns tuple, web returns dict)
                     if isinstance(dump_result, tuple):
@@ -885,7 +905,12 @@ class ExplorationExecutor:
                     # TV/STB: Image verification (not supported in AI exploration)
                     print(f"    ⚠️ Device model '{device_model}' requires image verification - not supported in AI exploration")
                 
-                controller.press_key('BACK')
+                press_result = controller.press_key('BACK')
+                # Handle async controllers (web)
+                import inspect
+                if inspect.iscoroutine(press_result):
+                    import asyncio
+                    asyncio.run(press_result)
                 time.sleep(5)
                 
                 print(f"    🔍 Verifying return to home: {home_indicator}")
@@ -915,7 +940,12 @@ class ExplorationExecutor:
                 # Double-back fallback
                 if not back_success:
                     print(f"    🔄 Trying second BACK...")
-                    controller.press_key('BACK')
+                    press_result = controller.press_key('BACK')
+                    # Handle async controllers (web)
+                    import inspect
+                    if inspect.iscoroutine(press_result):
+                        import asyncio
+                        asyncio.run(press_result)
                     time.sleep(5)
                     
                     if verifier:
