@@ -311,15 +311,26 @@ class ExplorationEngine:
         
         print(f"  ✅ Node created: {sanitized_label}")
         
-        # 2. Create Edge via MCP
+        # 2. Create Edge via MCP  
         print(f"  Step 2/4: Creating edge...")
-        action_sets = self._build_action_sets_for_context(item, context)
+        
+        # Determine source node: for D-pad, use previous item; for click, use 'home'
+        if context.strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+            # Sequential navigation: source is previous item in list
+            current_index = context.predicted_items.index(item)
+            source_node_id = context.predicted_items[current_index - 1] if current_index > 0 else 'home'
+            source_node_id = source_node_id.lower().replace(' ', '_')
+        else:
+            # Click navigation: always from home
+            source_node_id = 'home'
+        
+        action_sets = self._build_action_sets_for_context(item, source_node_id, context)
         
         edge_result = self.mcp_server.call_tool('create_edge', {
             'tree_id': context.tree_id,
-            'source_node_id': 'home',
+            'source_node_id': source_node_id,
             'target_node_id': sanitized_label,  # Use sanitized label
-            'source_label': 'home',
+            'source_label': source_node_id,
             'target_label': sanitized_label,    # Use sanitized label
             'action_sets': action_sets,
             'team_id': context.team_id
@@ -387,12 +398,13 @@ class ExplorationEngine:
             'screenshot_url': screenshot_url
         }
     
-    def _build_action_sets_for_context(self, item: str, context: ExplorationContext) -> List[Dict]:
+    def _build_action_sets_for_context(self, item: str, source_item: str, context: ExplorationContext) -> List[Dict]:
         """
         Build device-aware action_sets based on context strategy
         
         Args:
-            item: Item name
+            item: Target item name
+            source_item: Source item name (for sequential D-pad navigation)
             context: Exploration context with strategy
             
         Returns:
@@ -423,8 +435,8 @@ class ExplorationEngine:
             
             return [
                 {
-                    'id': f'home_to_{item}',
-                    'label': f'home → {item}',
+                    'id': f'{source_item}_to_{item}',
+                    'label': f'{source_item} → {item}',
                     'actions': [{
                         'command': 'click_element',
                         'params': {'element_id': selector}
@@ -433,8 +445,8 @@ class ExplorationEngine:
                     'failure_actions': []
                 },
                 {
-                    'id': f'{item}_to_home',
-                    'label': f'{item} → home',
+                    'id': f'{item}_to_{source_item}',
+                    'label': f'{item} → {source_item}',
                     'actions': [{
                         'command': 'press_key',
                         'params': {'key': 'BACK'}
@@ -444,52 +456,50 @@ class ExplorationEngine:
                 }
             ]
         
-        # D-PAD STRATEGIES (TV/STB)
+        # D-PAD STRATEGIES (TV/STB) - SEQUENTIAL NAVIGATION
         elif context.strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-            # Get item index to calculate D-pad presses
-            if item not in context.predicted_items:
-                raise ValueError(f"Item '{item}' not in predicted_items: {context.predicted_items}")
-            
-            item_index = context.predicted_items.index(item)
-            
             # Determine D-pad direction from menu_type
             menu_type = getattr(context, 'menu_type', 'horizontal')
             dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
+            reverse_dpad_key = 'LEFT' if menu_type == 'horizontal' else 'UP'
             
-            print(f"  [@_build_action_sets] D-pad navigation: {item_index} x {dpad_key} + OK")
+            print(f"  [@_build_action_sets] Sequential D-pad: {source_item} → {item} (1x {dpad_key} + OK)")
             
-            # Build forward actions: Navigate to item
-            actions = []
-            for i in range(item_index):
-                actions.append({
-                    'command': 'press_key',
-                    'action_type': action_type,  # ✅ Device-specific!
-                    'params': {'key': dpad_key, 'wait_time': 500}
-                })
-            
-            # Press OK to select
-            actions.append({
-                'command': 'press_key',
-                'action_type': action_type,  # ✅ Device-specific!
-                'params': {'key': 'OK', 'wait_time': 1000}
-            })
-            
+            # ✅ SEQUENTIAL: Always 1x direction key + OK (not cumulative from home)
             return [
                 {
-                    'id': f'home_to_{item}',
-                    'label': f'home → {item}',
-                    'actions': actions,
+                    'id': f'{source_item}_to_{item}',
+                    'label': f'{source_item} → {item}',
+                    'actions': [
+                        {
+                            'command': 'press_key',
+                            'action_type': action_type,
+                            'params': {'key': dpad_key, 'wait_time': 500}
+                        },
+                        {
+                            'command': 'press_key',
+                            'action_type': action_type,
+                            'params': {'key': 'OK', 'wait_time': 1000}
+                        }
+                    ],
                     'retry_actions': [],
                     'failure_actions': []
                 },
                 {
-                    'id': f'{item}_to_home',
-                    'label': f'{item} → home',
-                    'actions': [{
-                        'command': 'press_key',
-                        'action_type': action_type,  # ✅ Device-specific!
-                        'params': {'key': 'BACK', 'wait_time': 1000}
-                    }],
+                    'id': f'{item}_to_{source_item}',
+                    'label': f'{item} → {source_item}',
+                    'actions': [
+                        {
+                            'command': 'press_key',
+                            'action_type': action_type,
+                            'params': {'key': 'BACK', 'wait_time': 500}
+                        },
+                        {
+                            'command': 'press_key',
+                            'action_type': action_type,
+                            'params': {'key': reverse_dpad_key, 'wait_time': 500}
+                        }
+                    ],
                     'retry_actions': [],
                     'failure_actions': []
                 }

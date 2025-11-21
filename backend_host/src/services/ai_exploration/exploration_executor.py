@@ -789,8 +789,9 @@ class ExplorationExecutor:
             self.exploration_state['status'] = 'validating'
             self.exploration_state['current_step'] = f"Validating {current_index + 1}/{len(items_to_validate)}: {current_item}"
         
-        # Get controller from engine
+        # Get controller and context from engine
         controller = self.exploration_engine.controller
+        context = self.exploration_engine.context
         home_indicator = self.exploration_state['exploration_plan']['items'][0]
         
         # Perform validation
@@ -798,9 +799,27 @@ class ExplorationExecutor:
         back_result = 'failed'
         screenshot_url = None
         
-        # 1. Click element
+        # 1. Execute navigation action (D-pad or click based on strategy)
         try:
-            result = controller.click_element(current_item)
+            # Use strategy-aware action from context
+            if context and context.strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+                # D-pad navigation for TV/STB
+                item_index = context.predicted_items.index(current_item) if current_item in context.predicted_items else 0
+                menu_type = getattr(context, 'menu_type', 'horizontal')
+                dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
+                
+                print(f"    🎮 D-pad navigation: {item_index} x {dpad_key} + OK")
+                
+                # Navigate to item
+                for i in range(item_index):
+                    controller.press_key(dpad_key)
+                    time.sleep(0.5)
+                
+                # Select item
+                result = controller.press_key('OK')
+            else:
+                # Click navigation for mobile/web
+                result = controller.click_element(current_item)
             
             # Handle async controllers (web) - run coroutine if needed
             import inspect
