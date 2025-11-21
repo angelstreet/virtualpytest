@@ -113,7 +113,6 @@ def auto_proxy(endpoint):
         # DEBUG: Check API key before proxying
         import os
         api_key_check = os.getenv('API_KEY')
-        print(f"[@auto_proxy] 🔑 DEBUG: API_KEY available: {('YES (len=' + str(len(api_key_check)) + ')') if api_key_check else 'NO - WILL FAIL!'}")
         
         # Proxy to host
         response_data, status_code = proxy_to_host_with_params(
