@@ -999,20 +999,20 @@ class ExplorationExecutor:
                                 print(f"    ❌ Back (2nd) failed: {e}")
                         else:
                             # Mobile: Use waitForElementToAppear
-                        import inspect
-                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                            import asyncio
-                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=5.0
-                            ))
-                        else:
-                            success, message, details = verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=5.0
-                            )
-                        back_success = success
-                        print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
+                            import inspect
+                            if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
+                                import asyncio
+                                success, message, details = asyncio.run(verifier.waitForElementToAppear(
+                                    search_term=home_indicator,
+                                    timeout=5.0
+                                ))
+                            else:
+                                success, message, details = verifier.waitForElementToAppear(
+                                    search_term=home_indicator,
+                                    timeout=5.0
+                                )
+                            back_success = success
+                            print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
                     else:
                         back_success = False
                 
@@ -1410,7 +1410,7 @@ class ExplorationExecutor:
                     nodes_updated = len(nodes_to_save)
                     print(f"  ✅ Successfully updated {nodes_updated} nodes (batch)")
                     for n in nodes_to_save:
-                         print(f"    • {n.get('node_id')}")
+                        print(f"    • {n.get('node_id')}")
                 else:
                     print(f"  ❌ Failed to batch update nodes: {save_result.get('error')}")
             
