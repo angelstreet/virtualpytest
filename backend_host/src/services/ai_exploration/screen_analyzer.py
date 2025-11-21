@@ -693,6 +693,9 @@ class ScreenAnalyzer:
         # Simple prompt for TV/STB - just ask for a table
         prompt = """List ALL clickable/focusable elements from this TV app screenshot.
 
+⚠️ CRITICAL: Group elements by VERTICAL POSITION (Y-coordinate), NOT by visual appearance.
+Elements at the same HEIGHT = SAME ROW, even if separated by space or different types.
+
 Output one row per line, elements separated by commas (left to right):
 
 Row 1: element1, element2, element3
@@ -700,15 +703,33 @@ Row 2: element4, element5
 Row 3: element6
 
 Rules:
-- Row 1 = topmost row of interactive elements
-- Left to right order
-- Include buttons, tabs, menu items
-- Skip: program cards, images, timestamps
+- Row 1 = topmost row of interactive elements (same Y-coordinate)
+- Include ALL elements at the same height in the same row (text + icons)
+- Left to right order within each row
+- Include: buttons, tabs, menu items, icons (search, settings, profile, etc.)
+- Skip: program cards, background images, timestamps, decorative elements
 
-Example:
-Row 1: home, tv guide, apps, replay, movies & series
-Row 2: search, settings, profile
-Row 3: watch, continue watching"""
+Common Layout Patterns:
+1. Top navigation bar (Row 1): May have text items on left AND icons on right - ALL same row!
+   Example: "home, tv guide, apps, recordings, tv shop, search icon, settings icon, profile icon"
+   
+2. Content area (Row 2+): Action buttons like "watch", "play", "record"
+
+3. Content tiles (Row 3+): "continue watching", recommendations, etc.
+
+Examples:
+
+✅ CORRECT - Icons and text at same height in same row:
+Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop, search, settings, profile
+Row 2: watch
+Row 3: continue watching
+
+❌ WRONG - Don't split by visual grouping:
+Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop
+Row 2: search, settings, profile  <-- WRONG! These are at same height as Row 1
+Row 3: watch
+
+Focus on: Are elements at the SAME vertical position? → Same row!"""
 
         print(f"📝 PROMPT SENT TO AI:")
         print(f"{'-'*80}")
