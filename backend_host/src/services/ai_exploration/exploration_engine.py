@@ -55,10 +55,23 @@ class ExplorationEngine:
         self.screenshot_callback = screenshot_callback
         self.progress_callback = progress_callback
         
-        # Use existing remote controller (already initialized with correct device_ip)
-        self.controller = self.device._get_controller('remote')
+        # ✅ FIX: Device-aware controller selection
+        # Web/Host devices use 'web' controller, others use 'remote'
+        device_model_lower = self.device_model_name.lower()
+        
+        if 'host' in device_model_lower or 'web' in device_model_lower:
+            # Web device: Use web/playwright controller
+            self.controller = self.device._get_controller('web')
+            controller_type = 'web'
+        else:
+            # Mobile/TV/STB: Use remote controller (ADB or infrared)
+            self.controller = self.device._get_controller('remote')
+            controller_type = 'remote'
+        
         if not self.controller:
-            raise ValueError(f"No remote controller found for device {self.device_id}")
+            raise ValueError(f"No {controller_type} controller found for device {self.device_id} (model: {self.device_model_name})")
+        
+        print(f"[@exploration_engine] Using {controller_type} controller for {self.device_model_name}")
         
         # Initialize components with existing controller
         self.screen_analyzer = ScreenAnalyzer(
