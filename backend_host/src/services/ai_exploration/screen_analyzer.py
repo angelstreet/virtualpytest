@@ -363,13 +363,15 @@ class ScreenAnalyzer:
         # Non-interactive decorations
         decoration_keywords = [
             'image', 'icon', 'loading', 'placeholder', 'decoration', 
-            'logo', 'banner', 'badge', 'divider', 'spacer'
+            'logo', 'banner', 'badge', 'divider', 'spacer', 'tagline',
+            'slogan', 'motto', 'caption'
         ]
         
         # External/social links (navigate AWAY from app)
         external_keywords = [
             'social', 'facebook', 'twitter', 'instagram', 'youtube',
-            'linkedin', 'pinterest', 'tiktok', 'share', 'external'
+            'linkedin', 'pinterest', 'tiktok', 'share', 'external',
+            'rss', 'feed', 'subscribe', 'newsletter'
         ]
         
         # Search components (should be grouped as one)
@@ -426,11 +428,25 @@ class ScreenAnalyzer:
             if selector in seen_selectors:
                 continue
             
+            # ═══════════════════════════════════════════════════════════════
+            # PRIORITY FILTER: Only keep elements with strong identifiers
+            # ═══════════════════════════════════════════════════════════════
+            
+            has_id = '#' in selector
+            has_href = elem.get('href') and not elem['href'].startswith('#')
+            has_meaningful_text = elem.get('text') and len(elem.get('text', '').strip()) > 2
+            
+            # Skip elements that ONLY have class/src (weak identifiers)
+            # These are typically images, decorations, or child elements
+            if not has_id and not has_href and not has_meaningful_text:
+                print(f"[@screen_analyzer:_extract_web] Filtered WEAK IDENTIFIER: {selector}")
+                continue
+            
             # Get label for this element
             label = None
             
             # Priority 1: ID from selector (most reliable for web)
-            if '#' in selector:
+            if has_id:
                 label = selector.split('#')[-1].strip()
             # Priority 2: text content
             elif elem.get('text') and elem['text'].strip():
@@ -438,7 +454,7 @@ class ScreenAnalyzer:
             # Priority 3: aria-label
             elif elem.get('aria_label') and elem['aria_label'].strip():
                 label = elem['aria_label'].strip()
-            # Priority 4: class name (last resort)
+            # Priority 4: class name (last resort - only if we passed the filter above)
             elif '.' in selector:
                 label = selector.split('.')[-1].strip()
             
@@ -471,7 +487,7 @@ class ScreenAnalyzer:
                 print(f"[@screen_analyzer:_extract_web] Filtered LENGTH: {label} ({len(label)} chars)")
                 continue
             
-            # Filter 5: Check if clickable/has href
+            # Filter 5: URL and link quality checks
             tag = elem.get('tag', '').lower()
             href = elem.get('href', '')
             
