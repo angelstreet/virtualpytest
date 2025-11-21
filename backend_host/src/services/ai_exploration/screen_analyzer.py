@@ -165,6 +165,22 @@ class ScreenAnalyzer:
             elements = result.get('elements', [])
             print(f"[@screen_analyzer] Elements retrieved: {len(elements)}")
             
+            # Debug: Log full raw dump for exploration debugging
+            print(f"\n{'='*80}")
+            print(f"[@screen_analyzer:DEBUG] FULL RAW DUMP ({len(elements)} elements)")
+            print(f"{'='*80}")
+            for i, elem in enumerate(elements, 1):
+                print(f"\n[Element {i}/{len(elements)}]")
+                print(f"  tagName: {elem.get('tagName')}")
+                print(f"  id: {elem.get('id')}")
+                print(f"  selector: {elem.get('selector')}")
+                print(f"  textContent: {elem.get('textContent', '')[:100]}")  # First 100 chars
+                print(f"  className: {elem.get('className', '')[:50]}")  # First 50 chars
+                print(f"  attributes: {elem.get('attributes', {})}")
+                print(f"  position: {elem.get('position')}")
+                print(f"  isVisible: {elem.get('isVisible')}")
+            print(f"{'='*80}\n")
+            
             if not elements:
                 print(f"❌ [@screen_analyzer:_analyze_from_dump] No elements in dump")
                 print(f"   Result: {result}")
