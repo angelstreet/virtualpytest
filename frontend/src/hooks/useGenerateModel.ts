@@ -233,7 +233,7 @@ export const useGenerateModel = ({
 
     try {
       const response = await fetch(
-        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}?host_name=${encodeURIComponent(explorationHostName)}`)
+        buildServerUrl(`/server/ai-generation/exploration-status/${explorationId}?host_name=${encodeURIComponent(explorationHostName)}&device_id=${encodeURIComponent(selectedDeviceId)}`)
       );
 
       if (!response.ok) {
@@ -276,7 +276,7 @@ export const useGenerateModel = ({
       setError(err.message || 'Failed to fetch exploration status');
       setIsExploring(false);
     }
-  }, [explorationId, explorationHostName, progress, currentAnalysis]);
+  }, [explorationId, explorationHostName, selectedDeviceId, progress, currentAnalysis]);
 
   // Polling effect - polls every 5 seconds when exploring
   useEffect(() => {
@@ -379,6 +379,7 @@ export const useGenerateModel = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           exploration_id: explorationId,
+          device_id: selectedDeviceId,  // ← ADDED
           selected_items: Array.from(selectedNodes) // ✅ Only create selected nodes
         })
       });
@@ -442,7 +443,8 @@ export const useGenerateModel = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId
+          exploration_id: explorationId,
+          device_id: selectedDeviceId  // ← ADDED
         })
       });
 
@@ -481,7 +483,8 @@ export const useGenerateModel = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId
+          exploration_id: explorationId,
+          device_id: selectedDeviceId  // ← ADDED
         })
       });
 
@@ -654,7 +657,8 @@ export const useGenerateModel = ({
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          exploration_id: explorationId
+          exploration_id: explorationId,
+          device_id: selectedDeviceId  // ← ADDED
         })
       });
 
@@ -689,6 +693,7 @@ export const useGenerateModel = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           exploration_id: explorationId,
+          device_id: selectedDeviceId,  // ← ADDED
           tree_id: treeId,
           approved_nodes: nodeIds,
           approved_edges: edgeIds
