@@ -263,9 +263,9 @@ def register_host_with_server(max_retries: int = 3, retry_delay: int = 5):
             registration_url = buildServerUrl('/server/system/register')
             
             if attempt > 1:
-                print(f"\n🔄 [HOST] Registration attempt {attempt}/{max_retries}...")
+                print(f"\n🔄 [HOST:{host.host_name}] Registration attempt {attempt}/{max_retries}...")
             
-            print(f"📡 [HOST] Sending registration to: {registration_url}")
+            print(f"📡 [HOST:{host.host_name}] Sending registration to: {registration_url}")
             
             # Send registration request
             response = requests.post(
@@ -297,52 +297,60 @@ def register_host_with_server(max_retries: int = 3, retry_delay: int = 5):
                 return True
                 
             else:
-                print(f"❌ [HOST] Registration failed: {response.status_code}")
+                print(f"❌ [HOST:{host.host_name}] Registration failed: {response.status_code}")
+                print(f"   Host: {host.host_name} ({host.host_ip}:{host.host_port})")
+                print(f"   URL: {registration_url}")
                 print(f"   Response: {response.text}")
                 
                 # Retry on server errors (5xx) or service unavailable
                 if response.status_code >= 500 and attempt < max_retries:
-                    print(f"⏳ [HOST] Retrying in {retry_delay} seconds...")
+                    print(f"⏳ [HOST:{host.host_name}] Retrying in {retry_delay} seconds...")
                     time.sleep(retry_delay)
                     continue
                 
                 return False
             
         except requests.exceptions.ConnectionError as e:
-            print(f"❌ [HOST] Connection error: {str(e)}")
+            host = get_host()
+            print(f"❌ [HOST:{host.host_name}] Connection error: {str(e)}")
+            print(f"   Host: {host.host_name} ({host.host_ip}:{host.host_port})")
             
             if attempt < max_retries:
-                print(f"⏳ [HOST] Server may be starting up. Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
+                print(f"⏳ [HOST:{host.host_name}] Server may be starting up. Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
                 time.sleep(retry_delay)
                 continue
             else:
-                print(f"❌ [HOST] Registration failed after {max_retries} attempts, will retry next ping cycle")
+                print(f"❌ [HOST:{host.host_name}] Registration failed after {max_retries} attempts, will retry next ping cycle")
                 import traceback
                 traceback.print_exc()
                 return False
                 
         except requests.exceptions.Timeout as e:
-            print(f"❌ [HOST] Request timeout: {str(e)}")
+            host = get_host()
+            print(f"❌ [HOST:{host.host_name}] Request timeout: {str(e)}")
+            print(f"   Host: {host.host_name} ({host.host_ip}:{host.host_port})")
             
             if attempt < max_retries:
-                print(f"⏳ [HOST] Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
+                print(f"⏳ [HOST:{host.host_name}] Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
                 time.sleep(retry_delay)
                 continue
             else:
-                print(f"❌ [HOST] Registration failed after {max_retries} attempts, will retry next ping cycle")
+                print(f"❌ [HOST:{host.host_name}] Registration failed after {max_retries} attempts, will retry next ping cycle")
                 return False
                 
         except Exception as e:
-            print(f"❌ [HOST] Registration error: {str(e)}")
+            host = get_host()
+            print(f"❌ [HOST:{host.host_name}] Registration error: {str(e)}")
+            print(f"   Host: {host.host_name} ({host.host_ip}:{host.host_port})")
             import traceback
             traceback.print_exc()
             
             if attempt < max_retries:
-                print(f"⏳ [HOST] Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
+                print(f"⏳ [HOST:{host.host_name}] Retrying in {retry_delay} seconds... (attempt {attempt}/{max_retries})")
                 time.sleep(retry_delay)
                 continue
             else:
-                print(f"❌ [HOST] Registration failed after {max_retries} attempts, will retry next ping cycle")
+                print(f"❌ [HOST:{host.host_name}] Registration failed after {max_retries} attempts, will retry next ping cycle")
                 return False
     
     return False
