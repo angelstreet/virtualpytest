@@ -398,6 +398,24 @@ class ExplorationEngine:
         Returns:
             List of action_sets (bidirectional)
         """
+        # Determine action_type from device_model
+        # STB/Infrared → 'remote' (IR commands)
+        # android_tv → 'adb' (ADB keyevents)
+        # web → 'web' (Playwright)
+        device_model = getattr(context, 'device_model', 'stb')
+        
+        if device_model in ['stb', 'fire_tv']:
+            action_type = 'remote'
+        elif device_model in ['android_mobile', 'android_tv']:
+            action_type = 'adb'
+        elif device_model == 'web':
+            action_type = 'web'
+        else:
+            action_type = 'remote'  # Default fallback
+        
+        print(f"  [@_build_action_sets] device_model={device_model}, action_type={action_type}, strategy={context.strategy}")
+        
+        # CLICK-BASED STRATEGIES (Mobile/Web)
         if context.strategy == 'click_with_selectors':
             # Use exact selector from Phase 1
             selector_info = context.item_selectors.get(item, {})
@@ -426,21 +444,33 @@ class ExplorationEngine:
                 }
             ]
         
-        elif context.strategy == 'dpad_with_screenshot':
-            # Calculate DPAD sequence
-            item_index = context.predicted_items.index(item)
-            dpad_key = 'RIGHT' if context.menu_type == 'horizontal' else 'DOWN'
+        # D-PAD STRATEGIES (TV/STB)
+        elif context.strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+            # Get item index to calculate D-pad presses
+            if item not in context.predicted_items:
+                raise ValueError(f"Item '{item}' not in predicted_items: {context.predicted_items}")
             
+            item_index = context.predicted_items.index(item)
+            
+            # Determine D-pad direction from menu_type
+            menu_type = getattr(context, 'menu_type', 'horizontal')
+            dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
+            
+            print(f"  [@_build_action_sets] D-pad navigation: {item_index} x {dpad_key} + OK")
+            
+            # Build forward actions: Navigate to item
             actions = []
-            for _ in range(item_index):
+            for i in range(item_index):
                 actions.append({
                     'command': 'press_key',
-                    'action_type': 'remote',
+                    'action_type': action_type,  # ✅ Device-specific!
                     'params': {'key': dpad_key, 'wait_time': 500}
                 })
+            
+            # Press OK to select
             actions.append({
                 'command': 'press_key',
-                'action_type': 'remote',
+                'action_type': action_type,  # ✅ Device-specific!
                 'params': {'key': 'OK', 'wait_time': 1000}
             })
             
@@ -457,7 +487,7 @@ class ExplorationEngine:
                     'label': f'{item} → home',
                     'actions': [{
                         'command': 'press_key',
-                        'action_type': 'remote',
+                        'action_type': action_type,  # ✅ Device-specific!
                         'params': {'key': 'BACK', 'wait_time': 1000}
                     }],
                     'retry_actions': [],
@@ -465,9 +495,14 @@ class ExplorationEngine:
                 }
             ]
         
+        # UNSUPPORTED STRATEGY - FAIL EARLY!
         else:
-            # Fallback: click_with_text
-            return [
+            raise ValueError(
+                f"❌ Unsupported strategy '{context.strategy}' for device_model '{device_model}'. "
+                f"Cannot fallback to click - device doesn't support it!"
+            )
+    
+    def _extract_edge_id_from_response(self, response_text: str) -> str:
                 {
                     'id': f'home_to_{item}',
                     'label': f'home → {item}',
