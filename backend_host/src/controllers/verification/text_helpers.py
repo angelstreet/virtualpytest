@@ -386,20 +386,29 @@ class TextHelpers:
         """
         try:
             print(f"[@text_helpers:extract_full_ocr_dump] Extracting OCR dump from: {image_path}")
+            print(f"  🐛 DEBUG: confidence_threshold = {confidence_threshold}")
             
             if not os.path.exists(image_path):
-                print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Image not found")
+                print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Image not found at {image_path}")
                 return []
+            
+            # Get file info
+            file_size = os.path.getsize(image_path)
+            print(f"  🐛 DEBUG: Image file size = {file_size} bytes")
             
             # Load image
             img = cv2.imread(image_path)
             if img is None:
-                print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Failed to load image")
+                print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Failed to load image with cv2.imread")
                 return []
+            
+            img_height, img_width = img.shape[:2]
+            print(f"  🐛 DEBUG: Image dimensions = {img_width}x{img_height}")
             
             # Preprocess: Convert to grayscale and apply binary threshold
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            print(f"  🐛 DEBUG: Preprocessed image (grayscale + binary threshold)")
             
             # Save preprocessed image temporarily for pytesseract
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
@@ -416,20 +425,31 @@ class TextHelpers:
                     timeout=30
                 )
                 
+                print(f"  🐛 DEBUG: Tesseract returncode = {result.returncode}")
+                
                 if result.returncode != 0:
                     print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Tesseract failed")
+                    print(f"  🐛 DEBUG: stderr = {result.stderr}")
                     return []
                 
                 # Parse TSV output
                 lines = result.stdout.strip().split('\n')
+                print(f"  🐛 DEBUG: Tesseract output lines = {len(lines)} (including header)")
+                
                 if len(lines) < 2:  # Need header + at least 1 data row
-                    print(f"[@text_helpers:extract_full_ocr_dump] No text detected")
+                    print(f"[@text_helpers:extract_full_ocr_dump] No text detected by Tesseract")
+                    print(f"  🐛 DEBUG: Output was: {result.stdout[:500]}")  # First 500 chars
                     return []
                 
                 # Parse header to get column indices
                 header = lines[0].split('\t')
+                print(f"  🐛 DEBUG: TSV header columns = {header}")
                 
                 elements = []
+                total_detected = 0
+                filtered_by_empty = 0
+                filtered_by_confidence = 0
+                filtered_by_invalid_box = 0
                 
                 # Process each line (skip header)
                 for line in lines[1:]:
@@ -443,15 +463,22 @@ class TextHelpers:
                     text = data.get('text', '').strip()
                     conf = data.get('conf', '-1')
                     
+                    total_detected += 1
+                    
                     # Skip empty text or low confidence
                     if not text or conf == '-1':
+                        filtered_by_empty += 1
                         continue
                     
                     try:
                         confidence = int(conf)
                         if confidence < confidence_threshold:
+                            filtered_by_confidence += 1
+                            if len(elements) < 10:  # Log first 10 filtered for debugging
+                                print(f"    🐛 DEBUG: Filtered (conf={confidence}): '{text}'")
                             continue
                     except ValueError:
+                        filtered_by_confidence += 1
                         continue
                     
                     # Get bounding box
@@ -465,6 +492,7 @@ class TextHelpers:
                     
                     # Skip invalid boxes
                     if width <= 0 or height <= 0:
+                        filtered_by_invalid_box += 1
                         continue
                     
                     elements.append({
@@ -478,14 +506,32 @@ class TextHelpers:
                         'confidence': confidence
                     })
                 
+                print(f"\n  🐛 DEBUG: OCR Processing Summary")
+                print(f"     Total detected by Tesseract: {total_detected}")
+                print(f"     Filtered (empty/no-conf): {filtered_by_empty}")
+                print(f"     Filtered (confidence < {confidence_threshold}): {filtered_by_confidence}")
+                print(f"     Filtered (invalid box): {filtered_by_invalid_box}")
+                print(f"     ✅ Valid elements: {len(elements)}")
+                
                 print(f"[@text_helpers:extract_full_ocr_dump] Extracted {len(elements)} text elements (confidence >= {confidence_threshold})")
+                
+                # Show first few valid elements
+                if elements:
+                    print(f"  🐛 DEBUG: Sample elements (showing first {min(5, len(elements))}):")
+                    for elem in elements[:5]:
+                        print(f"    - '{elem['text']}' (conf={elem['confidence']}) at ({elem['area']['x']}, {elem['area']['y']})")
                 
                 # Group nearby words into phrases (combine words on same line)
                 if elements:
                     grouped_elements = self._group_text_elements(elements)
                     print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases")
+                    if grouped_elements:
+                        print(f"  🐛 DEBUG: Sample grouped phrases (showing first {min(3, len(grouped_elements))}):")
+                        for phrase in grouped_elements[:3]:
+                            print(f"    - '{phrase['text']}' (conf={phrase['confidence']})")
                     return grouped_elements
                 
+                print(f"  🐛 DEBUG: ⚠️ No valid elements passed all filters!")
                 return elements
                 
             finally:
