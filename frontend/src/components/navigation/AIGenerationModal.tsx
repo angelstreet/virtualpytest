@@ -348,10 +348,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       Row {lineIdx + 1}:
                                     </Typography>
                                     <Typography variant="body2" sx={{ pl: 2 }}>
-                                      Focus Nodes: {focusNodes.join(', ')}
+                                      Focus : {focusNodes.join(', ')}
                                     </Typography>
                                     <Typography variant="body2" sx={{ pl: 2 }}>
-                                      Screen Nodes: {screenNodes.join(', ')}
+                                      Screen : {screenNodes.join(', ')}
                                     </Typography>
                                   </Box>
                                 );
