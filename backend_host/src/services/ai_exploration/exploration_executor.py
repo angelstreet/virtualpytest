@@ -1216,39 +1216,37 @@ class ExplorationExecutor:
             print(f"     Exit (BACK): {edge_results['exit']}")
             print(f"     Progress: {current_index + 1}/{len(items_to_validate)}")
             
-            # ✅ MATCH MOBILE FORMAT: Frontend expects node_name, node_id, action_sets
-            # Map TV's 3-edge cycle to action_sets format
-            combined_result = 'success' if all(r == 'success' for r in edge_results.values()) else 'failed'
+            # ✅ RESTORE ORIGINAL FORMAT: Same as mobile/web (commit ac02193)
+            # For TV: horizontal_result = RIGHT test, vertical_result = OK+BACK test
+            horizontal_result = edge_results['horizontal']
+            vertical_result = 'success' if edge_results['enter'] == 'success' and edge_results['exit'] == 'success' else 'failed'
             
             return {
                 'success': True,
                 'item': current_item,
-                'node_name': screen_node_name,  # ✅ Add missing field
-                'node_id': f"{screen_node_name}_temp",  # ✅ Add missing field
-                'edge_results': edge_results,  # Keep for debugging
-                'screenshot_url': screenshot_url,
+                'node_name': focus_node_name,
+                'node_id': f"{focus_node_name}_temp",
+                'click_result': horizontal_result,
+                'back_result': vertical_result,
                 'has_more_items': has_more,
-                # ✅ Add action_sets for frontend compatibility
+                'screenshot_url': screenshot_url,
                 'action_sets': {
                     'forward': {
                         'source': prev_focus_name,
-                        'target': screen_node_name,
-                        'action': f'RIGHT → OK (3-edge cycle: {prev_focus_name}→{focus_node_name}→{screen_node_name})',
-                        'result': combined_result
+                        'target': focus_node_name,
+                        'action': 'RIGHT',
+                        'result': horizontal_result
                     },
                     'reverse': {
-                        'source': screen_node_name,
+                        'source': focus_node_name,
                         'target': prev_focus_name,
-                        'action': f'BACK → LEFT (return to {prev_focus_name})',
-                        'result': edge_results['exit']  # BACK result
+                        'action': 'LEFT',
+                        'result': horizontal_result
                     }
                 },
                 'progress': {
-                    'current': current_index + 1,
-                    'total': len(items_to_validate),
-                    'current_item': current_index + 1,  # ✅ Add for frontend compatibility
-                    'total_items': len(items_to_validate),  # ✅ Add for frontend compatibility
-                    'percentage': ((current_index + 1) / len(items_to_validate)) * 100
+                    'current_item': current_index + 1,
+                    'total_items': len(items_to_validate)
                 }
             }
         
