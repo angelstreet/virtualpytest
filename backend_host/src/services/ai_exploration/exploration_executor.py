@@ -1874,7 +1874,11 @@ class ExplorationExecutor:
             approved_verifications: [
                 {
                     'node_id': 'search',
-                    'verification': {...},
+                    'verification': {
+                        'text': 'TV Guide',  # For TV: text found by OCR
+                        'area': {...},       # For TV: area where text was found
+                        'command': 'waitForTextToAppear'  # Or from mobile/web analysis
+                    },
                     'screenshot_url': '...'
                 }
             ]
@@ -1882,7 +1886,8 @@ class ExplorationExecutor:
         Returns:
             {
                 'success': True,
-                'nodes_updated': 5
+                'nodes_updated': 5,
+                'references_created': 3  # TV only
             }
         """
         with self._lock:
@@ -1893,10 +1898,12 @@ class ExplorationExecutor:
                 }
             
             tree_id = self.exploration_state['tree_id']
+            userinterface_name = self.exploration_state.get('userinterface_name')
             
             print(f"[@ExplorationExecutor:approve_node_verifications] Updating {len(approved_verifications)} nodes")
             
             nodes_updated = 0
+            references_created = 0
             nodes_to_save = []
             
             for item in approved_verifications:
@@ -1923,50 +1930,108 @@ class ExplorationExecutor:
                     node_data['data']['screenshot_timestamp'] = int(time.time() * 1000)
                 
                 # 🛡️ VALIDATION: Only save valid verifications (same logic as useNodeEdit.ts)
-                if verification and verification.get('params'):
-                    # Validate: params must not be empty dict
-                    params = verification['params']
-                    if not params or not isinstance(params, dict):
-                        print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
-                        continue
+                if verification:
+                    # ✅ TV/TEXT: Check if this is a text verification that needs reference creation
+                    is_text_verification = verification.get('text') and verification.get('area')
                     
-                    # Validate: at least one param key must have a non-empty value
-                    has_valid_param = any(
-                        v and str(v).strip() != '' 
-                        for v in params.values()
-                    )
+                    if is_text_verification:
+                        # 📝 CREATE TEXT REFERENCE FIRST (TV workflow)
+                        print(f"  📝 Creating text reference for node {node_id}")
+                        
+                        # Get node label (remove _temp suffix)
+                        node_label = node_data.get('label', node_id).replace('_temp', '')
+                        
+                        # Create reference name: {userinterface_name}_{node_label}
+                        reference_name = f"{userinterface_name}_{node_label}"
+                        
+                        # Save text reference to database
+                        from shared.src.lib.database.verifications_references_db import save_reference
+                        
+                        # Merge text with area data
+                        area_with_text = {
+                            **(verification['area'] or {}),
+                            'text': verification['text']
+                        }
+                        
+                        reference_result = save_reference(
+                            name=reference_name,
+                            userinterface_name=userinterface_name,
+                            reference_type='reference_text',
+                            team_id=team_id,
+                            r2_path=f'text-references/{userinterface_name}/{reference_name}',
+                            r2_url='',  # Text references don't have URLs
+                            area=area_with_text
+                        )
+                        
+                        if reference_result.get('success'):
+                            references_created += 1
+                            print(f"    ✅ Text reference created: {reference_name}")
+                            
+                            # Create verification that uses the reference
+                            if 'verifications' not in node_data:
+                                node_data['verifications'] = []
+                            
+                            # Add text verification with reference_name
+                            node_data['verifications'].append({
+                                'command': 'waitForTextToAppear',
+                                'verification_type': 'text',
+                                'params': {
+                                    'reference_name': reference_name  # ← Points to DB entry
+                                },
+                                'expected': True
+                            })
+                            
+                            print(f"    ✅ Verification added with reference: {reference_name}")
+                        else:
+                            print(f"    ❌ Failed to create text reference: {reference_result.get('error')}")
+                            continue
                     
-                    if not has_valid_param:
-                        print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
-                        continue
-                    
-                    # Validate: command must exist and not be empty
-                    command = verification.get('method', '')
-                    if not command or command.strip() == '':
-                        print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
-                        continue
-                    
-                    # Add verification to node
-                    if 'verifications' not in node_data:
-                        node_data['verifications'] = []
-                    
-                    # Check if verification already exists to avoid duplicates
-                    verification_exists = False
-                    new_params = verification['params']
-                    
-                    for v in node_data['verifications']:
-                        if v.get('command') == verification.get('method') and v.get('params') == new_params:
-                            verification_exists = True
-                            break
-                    
-                    if not verification_exists:
-                        # Map 'method' to 'command' for standard verification format
-                        node_data['verifications'].append({
-                            'command': command,  # Use validated command
-                            'verification_type': verification.get('type', 'text'),
-                            'params': verification['params'],
-                            'expected': True
-                        })
+                    elif verification.get('params'):
+                        # 📱 MOBILE/WEB: Direct params (no reference needed)
+                        # Validate: params must not be empty dict
+                        params = verification['params']
+                        if not params or not isinstance(params, dict):
+                            print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
+                            continue
+                        
+                        # Validate: at least one param key must have a non-empty value
+                        has_valid_param = any(
+                            v and str(v).strip() != '' 
+                            for v in params.values()
+                        )
+                        
+                        if not has_valid_param:
+                            print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
+                            continue
+                        
+                        # Validate: command must exist and not be empty
+                        command = verification.get('method', '')
+                        if not command or command.strip() == '':
+                            print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
+                            continue
+                        
+                        # Add verification to node
+                        if 'verifications' not in node_data:
+                            node_data['verifications'] = []
+                        
+                        # Check if verification already exists to avoid duplicates
+                        verification_exists = False
+                        new_params = verification['params']
+                        
+                        for v in node_data['verifications']:
+                            if v.get('command') == verification.get('method') and v.get('params') == new_params:
+                                verification_exists = True
+                                break
+                        
+                        if not verification_exists:
+                            # Map 'method' to 'command' for standard verification format
+                            node_data['verifications'].append({
+                                'command': command,  # Use validated command
+                                'verification_type': verification.get('type', 'adb'),
+                                'params': verification['params'],
+                                'expected': True
+                            })
+                            print(f"    ✅ Verification added (direct params)")
                 
                 nodes_to_save.append(node_data)
             
@@ -1984,12 +2049,17 @@ class ExplorationExecutor:
             
             # Update state
             self.exploration_state['status'] = 'node_verification_complete'
-            self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
+            
+            if references_created > 0:
+                self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes ({references_created} text references created) - ready to finalize'
+            else:
+                self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
             
             return {
                 'success': True,
                 'nodes_updated': nodes_updated,
-                'message': f'Updated {nodes_updated} nodes with verifications'
+                'references_created': references_created,
+                'message': f'Updated {nodes_updated} nodes with verifications' + (f' ({references_created} text references created)' if references_created > 0 else '')
             }
     
     # ========== NEW v2.0: MCP-FIRST INCREMENTAL METHODS ==========
