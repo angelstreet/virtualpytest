@@ -290,13 +290,23 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
             </Typography>
             <Typography variant="body2" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
               <span>✅ {
-                validationResults.filter(r => r.forward.result === 'success').length +
-                validationResults.filter(r => r.backward.result === 'success').length
+                // Count successes (forward + backward for vertical only)
+                validationResults.reduce((count, r) => {
+                  let stepCount = r.forward.result === 'success' ? 1 : 0;
+                  // Add backward only for non-horizontal (vertical edges)
+                  const isHorizontal = r.forward.action === 'RIGHT' || r.forward.action === 'DOWN';
+                  if (!isHorizontal && r.backward.result === 'success') stepCount++;
+                  return count + stepCount;
+                }, 0)
               } Success</span>
               <span>•</span>
               <span>❌ {
-                validationResults.filter(r => r.forward.result === 'failure').length +
-                validationResults.filter(r => r.backward.result === 'failure').length
+                validationResults.reduce((count, r) => {
+                  let stepCount = r.forward.result === 'failure' ? 1 : 0;
+                  const isHorizontal = r.forward.action === 'RIGHT' || r.forward.action === 'DOWN';
+                  if (!isHorizontal && r.backward.result === 'failure') stepCount++;
+                  return count + stepCount;
+                }, 0)
               } Failed</span>
               <span>•</span>
               <span>⚠️ {validationResults.filter(r => r.backward.result === 'warning').length} Warnings</span>
@@ -328,68 +338,103 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           )}
           
           {/* Completed steps - Reverse chronological order (newest first) */}
-          {[...validationResults].reverse().map((result, index) => (
-            <Paper 
-              key={validationResults.length - 1 - index}
-              sx={{ 
-                p: 1.5,
-                bgcolor: 'background.default',
-                border: '2px solid',
-                borderColor: result.forward.result === 'failure' || result.backward.result === 'failure' ? 'error.main' : 'success.main',
-                borderRadius: 1
-              }}
-            >
-              {/* Step X.1 (Forward) - One Line */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
-                  Step {result.step}.1
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                  {truncate(`${result.sourceNode} → ${result.targetNode}`, 30)}
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                  {truncate(result.forward.action, 40)}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontWeight: 'bold',
-                    ml: 'auto',
-                    color: result.forward.result === 'success' ? 'success.main' : 'error.main'
-                  }}
-                >
-                  {result.forward.result === 'success' ? '✅ SUCCESS' : '❌ FAILED'}
-                </Typography>
-              </Box>
+          {(() => {
+            // Group results by item for TV dual-layer display
+            const groupedResults: ValidationResult[][] = [];
+            let currentGroup: ValidationResult[] = [];
+            
+            validationResults.forEach((result, idx) => {
+              // Check if this is the start of a new item (horizontal edge)
+              const isHorizontalEdge = result.forward.action === 'RIGHT' || result.forward.action === 'DOWN';
               
-              {/* Step X.2 (Backward) - One Line */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
-                  Step {result.step}.2
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                  {truncate(`${result.targetNode} → ${result.sourceNode}`, 30)}
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                  {truncate(result.backward.action, 40)}
-                </Typography>
-                <Typography 
-                  variant="body2" 
-                  sx={{ 
-                    fontWeight: 'bold',
-                    ml: 'auto',
-                    color: result.backward.result === 'success' ? 'success.main' : 
-                           result.backward.result === 'warning' ? 'warning.main' :
-                           result.backward.result === 'skipped' ? 'text.secondary' : 'error.main'
-                  }}
-                >
-                  {result.backward.result === 'success' ? '✅ SUCCESS' :
-                   result.backward.result === 'warning' ? '⚠️ WARNING' :
-                   result.backward.result === 'skipped' ? '⏭️ SKIPPED' : '❌ FAILED'}
-                </Typography>
-              </Box>
-            </Paper>
-          ))}
+              if (isHorizontalEdge && currentGroup.length > 0) {
+                // Save previous group and start new one
+                groupedResults.push(currentGroup);
+                currentGroup = [result];
+              } else {
+                currentGroup.push(result);
+              }
+              
+              // Last result - save group
+              if (idx === validationResults.length - 1 && currentGroup.length > 0) {
+                groupedResults.push(currentGroup);
+              }
+            });
+            
+            return groupedResults.reverse().map((group, groupIndex) => (
+              <Paper 
+                key={groupedResults.length - 1 - groupIndex}
+                sx={{ 
+                  p: 1.5,
+                  bgcolor: 'background.default',
+                  border: '2px solid',
+                  borderColor: group.some(r => r.forward.result === 'failure' || r.backward.result === 'failure') ? 'error.main' : 'success.main',
+                  borderRadius: 1
+                }}
+              >
+                {group.map((result, resultIndex) => {
+                  const isHorizontal = result.forward.action === 'RIGHT' || result.forward.action === 'DOWN';
+                  const stepOffset = resultIndex === 0 ? 1 : 2; // .1 for first (horizontal), .2/.3 for second (vertical)
+                  
+                  return (
+                    <React.Fragment key={resultIndex}>
+                      {/* Forward action */}
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                        <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
+                          Step {result.step}.{stepOffset}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
+                          {truncate(`${result.sourceNode} → ${result.targetNode}`, 30)}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
+                          {truncate(result.forward.action, 40)}
+                        </Typography>
+                        <Typography 
+                          variant="body2" 
+                          sx={{ 
+                            fontWeight: 'bold',
+                            ml: 'auto',
+                            color: result.forward.result === 'success' ? 'success.main' : 'error.main'
+                          }}
+                        >
+                          {result.forward.result === 'success' ? '✅ SUCCESS' : '❌ FAILED'}
+                        </Typography>
+                      </Box>
+                      
+                      {/* Backward action - only for vertical (OK/BACK) */}
+                      {!isHorizontal && (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: resultIndex < group.length - 1 ? 0.5 : 0, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
+                            Step {result.step}.{stepOffset + 1}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
+                            {truncate(`${result.targetNode} → ${result.sourceNode}`, 30)}
+                          </Typography>
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
+                            {truncate(result.backward.action, 40)}
+                          </Typography>
+                          <Typography 
+                            variant="body2" 
+                            sx={{ 
+                              fontWeight: 'bold',
+                              ml: 'auto',
+                              color: result.backward.result === 'success' ? 'success.main' : 
+                                     result.backward.result === 'warning' ? 'warning.main' :
+                                     result.backward.result === 'skipped' ? 'text.secondary' : 'error.main'
+                            }}
+                          >
+                            {result.backward.result === 'success' ? '✅ SUCCESS' :
+                             result.backward.result === 'warning' ? '⚠️ WARNING' :
+                             result.backward.result === 'skipped' ? '⏭️ SKIPPED' : '❌ FAILED'}
+                          </Typography>
+                        </Box>
+                      )}
+                    </React.Fragment>
+                  );
+                })}
+              </Paper>
+            ));
+          })()}
           
           {/* Pending steps */}
           {progress.total > 0 && 

@@ -1216,34 +1216,55 @@ class ExplorationExecutor:
             print(f"     Exit (BACK): {edge_results['exit']}")
             print(f"     Progress: {current_index + 1}/{len(items_to_validate)}")
             
-            # ✅ RESTORE ORIGINAL FORMAT: Same as mobile/web (commit ac02193)
-            # For TV: horizontal_result = RIGHT test, vertical_result = OK+BACK test
+            # ✅ TV DUAL-LAYER: Return BOTH edges (horizontal + vertical)
             horizontal_result = edge_results['horizontal']
-            vertical_result = 'success' if edge_results['enter'] == 'success' and edge_results['exit'] == 'success' else 'failed'
+            vertical_enter_result = edge_results['enter']
+            vertical_exit_result = edge_results['exit']
             
             return {
                 'success': True,
                 'item': current_item,
                 'node_name': focus_node_name,
                 'node_id': f"{focus_node_name}_temp",
-                'click_result': horizontal_result,
-                'back_result': vertical_result,
                 'has_more_items': has_more,
                 'screenshot_url': screenshot_url,
-                'action_sets': {
-                    'forward': {
-                        'source': prev_focus_name,
-                        'target': focus_node_name,
-                        'action': 'RIGHT',
-                        'result': horizontal_result
+                # ✅ TV: Return BOTH edges with their action_sets
+                'edges': [
+                    {
+                        'edge_type': 'horizontal',
+                        'action_sets': {
+                            'forward': {
+                                'source': prev_focus_name,
+                                'target': focus_node_name,
+                                'action': 'RIGHT',
+                                'result': horizontal_result
+                            },
+                            'reverse': {
+                                'source': focus_node_name,
+                                'target': prev_focus_name,
+                                'action': 'LEFT',
+                                'result': horizontal_result
+                            }
+                        }
                     },
-                    'reverse': {
-                        'source': focus_node_name,
-                        'target': prev_focus_name,
-                        'action': 'LEFT',
-                        'result': horizontal_result
+                    {
+                        'edge_type': 'vertical',
+                        'action_sets': {
+                            'forward': {
+                                'source': focus_node_name,
+                                'target': screen_node_name,
+                                'action': 'OK',
+                                'result': vertical_enter_result
+                            },
+                            'reverse': {
+                                'source': screen_node_name,
+                                'target': focus_node_name,
+                                'action': 'BACK',
+                                'result': vertical_exit_result
+                            }
+                        }
                     }
-                },
+                ],
                 'progress': {
                     'current_item': current_index + 1,
                     'total_items': len(items_to_validate)

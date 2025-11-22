@@ -183,13 +183,66 @@ export const useExplorationValidation = ({
         currentStep: data.item || ''
       }));
 
-      // Add result
-      if (data.action_sets) {
-        const formatAction = (actionSet: any) => {
-          if (!actionSet) return '';
-          return actionSet.action || '';
-        };
+      // Add result(s)
+      const formatAction = (actionSet: any) => {
+        if (!actionSet) return '';
+        return actionSet.action || '';
+      };
 
+      // ✅ TV DUAL-LAYER: Handle edges array (horizontal + vertical)
+      if (data.edges && Array.isArray(data.edges)) {
+        console.log('[@useExplorationValidation] Processing TV dual-layer edges:', data.edges.length);
+        
+        const newResults: ValidationResult[] = [];
+        const baseStep = data.progress?.current_item || state.results.length + 1;
+        
+        // Edge 1: Horizontal (only show forward - RIGHT)
+        const horizontalEdge = data.edges.find((e: any) => e.edge_type === 'horizontal');
+        if (horizontalEdge) {
+          newResults.push({
+            step: baseStep,
+            itemName: data.item,
+            sourceNode: horizontalEdge.action_sets.forward?.source || 'home',
+            targetNode: horizontalEdge.action_sets.forward?.target || '',
+            forward: {
+              action: formatAction(horizontalEdge.action_sets.forward),
+              result: horizontalEdge.action_sets.forward?.result === 'success' ? 'success' : 'failure'
+            },
+            backward: {
+              action: formatAction(horizontalEdge.action_sets.reverse),
+              result: horizontalEdge.action_sets.reverse?.result === 'success' ? 'success' : 'failure'
+            }
+          });
+        }
+        
+        // Edge 2: Vertical - forward (OK) 
+        const verticalEdge = data.edges.find((e: any) => e.edge_type === 'vertical');
+        if (verticalEdge) {
+          newResults.push({
+            step: baseStep,
+            itemName: data.item,
+            sourceNode: verticalEdge.action_sets.forward?.source || '',
+            targetNode: verticalEdge.action_sets.forward?.target || '',
+            forward: {
+              action: formatAction(verticalEdge.action_sets.forward),
+              result: verticalEdge.action_sets.forward?.result === 'success' ? 'success' : 'failure'
+            },
+            backward: {
+              action: formatAction(verticalEdge.action_sets.reverse),
+              result: verticalEdge.action_sets.reverse?.result === 'success' ? 'success' : 'failure'
+            }
+          });
+        }
+        
+        setState(prev => ({
+          ...prev,
+          results: [...prev.results, ...newResults]
+        }));
+        
+        console.log('[@useExplorationValidation] Added', newResults.length, 'TV edge results');
+      }
+      // ✅ MOBILE/WEB: Single action_sets
+      else if (data.action_sets) {
         const result: ValidationResult = {
           step: data.progress?.current_item || state.results.length + 1,
           itemName: data.item,
