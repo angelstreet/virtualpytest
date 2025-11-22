@@ -1127,42 +1127,77 @@ class ExplorationExecutor:
                 
                 # 📸 Capture screenshot + dump (ONLY for screen nodes)
                 dump_data = None
-                try:
-                    dump_result = controller.dump_elements()
-                    import inspect
-                    if inspect.iscoroutine(dump_result):
-                        import asyncio
-                        dump_result = asyncio.run(dump_result)
-                    
-                    if isinstance(dump_result, tuple):
-                        success, elements, error = dump_result
-                        if success and elements:
-                            dump_data = {'elements': elements}
-                            print(f"    📊 Dump: {len(elements)} elements")
-                    elif isinstance(dump_result, dict):
-                        dump_data = dump_result
-                        print(f"    📊 Dump: {len(dump_result.get('elements', []))} elements")
-                except Exception as e:
-                    print(f"    ⚠️ Dump failed: {e}")
+                screenshot_path = None
                 
-                # Screenshot
+                # First take screenshot (needed for both ADB dump and OCR dump)
                 try:
                     av_controller = self.device._get_controller('av')
                     if av_controller:
-                        sanitized_name = screen_node_name.replace(' ', '_')
-                        local_path = av_controller.save_screenshot(sanitized_name)
-                        
-                        if local_path:
-                            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
-                            r2_filename = f"{sanitized_name}.jpg"
-                            userinterface_name = self.exploration_state['userinterface_name']
-                            upload_result = upload_navigation_screenshot(local_path, userinterface_name, r2_filename)
-                            
-                            if upload_result.get('success'):
-                                screenshot_url = upload_result.get('url')
-                                print(f"    📸 Screenshot: {screenshot_url}")
+                        screenshot_path = av_controller.take_screenshot()
+                        if screenshot_path:
+                            print(f"    📸 Screenshot captured: {screenshot_path}")
                 except Exception as e:
-                    print(f"    ⚠️ Screenshot failed: {e}")
+                    print(f"    ⚠️ Screenshot capture failed: {e}")
+                
+                # Try to get dump (method depends on device type)
+                try:
+                    # Check if controller has dump_elements (mobile/web)
+                    if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
+                        print(f"    📊 Using ADB/Web dump_elements()")
+                        dump_result = controller.dump_elements()
+                        import inspect
+                        if inspect.iscoroutine(dump_result):
+                            import asyncio
+                            dump_result = asyncio.run(dump_result)
+                        
+                        if isinstance(dump_result, tuple):
+                            success, elements, error = dump_result
+                            if success and elements:
+                                dump_data = {'elements': elements}
+                                print(f"    📊 ADB Dump: {len(elements)} elements")
+                        elif isinstance(dump_result, dict):
+                            dump_data = dump_result
+                            print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
+                    else:
+                        # TV/IR device - use OCR dump extraction
+                        print(f"    📊 Controller has no dump_elements → Using OCR dump for TV")
+                        if screenshot_path:
+                            # Get text verification controller for OCR dump
+                            text_controller = self.device._get_controller('text')
+                            if text_controller:
+                                print(f"    📊 Extracting OCR dump from screenshot...")
+                                ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
+                                
+                                if ocr_result.get('success') and ocr_result.get('elements'):
+                                    dump_data = {'elements': ocr_result['elements']}
+                                    print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
+                                else:
+                                    print(f"    ⚠️ OCR dump extraction failed or no text found")
+                            else:
+                                print(f"    ⚠️ Text controller not available for OCR dump")
+                        else:
+                            print(f"    ⚠️ No screenshot available for OCR dump")
+                except Exception as e:
+                    print(f"    ⚠️ Dump failed: {e}")
+                    import traceback
+                    traceback.print_exc()
+                
+                # Upload screenshot to R2
+                if screenshot_path:
+                    try:
+                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+                        sanitized_name = screen_node_name.replace(' ', '_')
+                        r2_filename = f"{sanitized_name}.jpg"
+                        userinterface_name = self.exploration_state['userinterface_name']
+                        upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
+                        
+                        if upload_result.get('success'):
+                            screenshot_url = upload_result.get('url')
+                            print(f"    📸 Screenshot uploaded: {screenshot_url}")
+                    except Exception as e:
+                        print(f"    ⚠️ Screenshot upload failed: {e}")
+                else:
+                    print(f"    ⚠️ No screenshot to upload")
                 
                 # Store verification data (screenshot and/or dump)
                 # ✅ TV FIX: Store even without dump (IR remote has no dump_elements)
@@ -1313,64 +1348,87 @@ class ExplorationExecutor:
             
             # 1.5. Capture screenshot + dump
             if click_success:
-                # A. Capture Dump (Critical for node verification - do this first/independently)
+                # A. Capture Screenshot first (needed for OCR dump fallback)
+                screenshot_path = None
+                try:
+                    av_controller = self.device._get_controller('av')
+                    if av_controller:
+                        screenshot_path = av_controller.take_screenshot()
+                        if screenshot_path:
+                            print(f"    📸 Screenshot captured: {screenshot_path}")
+                except Exception as e:
+                    print(f"    ⚠️ Screenshot capture failed: {e}")
+                
+                # B. Capture Dump (Critical for node verification)
                 dump_data = None
                 try:
-                    dump_result = controller.dump_elements()
-                    
-                    # Handle async controllers (web) - run coroutine if needed
-                    import inspect
-                    if inspect.iscoroutine(dump_result):
-                        import asyncio
-                        dump_result = asyncio.run(dump_result)
-                    
-                    # Normalize dump format (mobile returns tuple, web returns dict)
-                    if isinstance(dump_result, tuple):
-                        # Mobile: (success, elements, error)
-                        success, elements, error = dump_result
-                        if success and elements:
-                            dump_data = {'elements': elements}
-                            print(f"    📱 Dump captured: {len(elements)} elements")
+                    # Try ADB/Web dump first
+                    if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
+                        dump_result = controller.dump_elements()
+                        
+                        # Handle async controllers (web) - run coroutine if needed
+                        import inspect
+                        if inspect.iscoroutine(dump_result):
+                            import asyncio
+                            dump_result = asyncio.run(dump_result)
+                        
+                        # Normalize dump format (mobile returns tuple, web returns dict)
+                        if isinstance(dump_result, tuple):
+                            # Mobile: (success, elements, error)
+                            success, elements, error = dump_result
+                            if success and elements:
+                                dump_data = {'elements': elements}
+                                print(f"    📱 ADB Dump captured: {len(elements)} elements")
+                            else:
+                                print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
+                        elif isinstance(dump_result, dict):
+                            # Web: already dict format
+                            dump_data = dump_result
+                            element_count = len(dump_result.get('elements', []))
+                            print(f"    🌐 Web Dump captured: {element_count} elements")
                         else:
-                            print(f"    ⚠️ Dump failed: {error or 'no elements'}")
-                    elif isinstance(dump_result, dict):
-                        # Web: already dict format
-                        dump_data = dump_result
-                        element_count = len(dump_result.get('elements', []))
-                        print(f"    🌐 Dump captured: {element_count} elements")
-                    else:
-                        print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
+                            print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
+                    
+                    # Fallback to OCR dump if ADB/Web dump failed or not available
+                    if not dump_data and screenshot_path:
+                        print(f"    📊 ADB/Web dump not available → Trying OCR dump fallback")
+                        text_controller = self.device._get_controller('text')
+                        if text_controller:
+                            print(f"    📊 Extracting OCR dump from screenshot...")
+                            ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
+                            
+                            if ocr_result.get('success') and ocr_result.get('elements'):
+                                dump_data = {'elements': ocr_result['elements']}
+                                print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
+                            else:
+                                print(f"    ⚠️ OCR dump extraction failed or no text found")
+                        else:
+                            print(f"    ⚠️ Text controller not available for OCR dump")
                         
                 except Exception as dump_err:
                     print(f"    ⚠️ Dump capture failed: {dump_err}")
                 
-                # B. Capture Screenshot (Visual aid)
-                try:
-                    av_controller = self.device._get_controller('av')
-                    if av_controller:
+                # C. Upload Screenshot to R2
+                if screenshot_path:
+                    try:
+                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         node_name_clean = node_name.replace('_temp', '')
                         sanitized_name = node_name_clean.replace(' ', '_')
-                        local_path = av_controller.save_screenshot(sanitized_name)
+                        r2_filename = f"{sanitized_name}.jpg"
+                        userinterface_name = self.exploration_state['userinterface_name']
+                        upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
                         
-                        if local_path:
-                            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
-                            r2_filename = f"{sanitized_name}.jpg"
-                            userinterface_name = self.exploration_state['userinterface_name']
-                            upload_result = upload_navigation_screenshot(local_path, userinterface_name, r2_filename)
-                            
-                            if upload_result.get('success'):
-                                screenshot_url = upload_result.get('url')
-                                print(f"    📸 Screenshot: {screenshot_url}")
-                            else:
-                                print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
+                        if upload_result.get('success'):
+                            screenshot_url = upload_result.get('url')
+                            print(f"    📸 Screenshot uploaded: {screenshot_url}")
                         else:
-                            print(f"    ⚠️ Screenshot capture returned no path")
-                    else:
-                        print(f"    ⚠️ No AV controller found for screenshot")
-                except Exception as e:
-                    print(f"    ⚠️ Screenshot process failed: {e}")
+                            print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
+                    except Exception as e:
+                        print(f"    ⚠️ Screenshot upload process failed: {e}")
+                else:
+                    print(f"    ⚠️ No screenshot to upload")
                 
-                # C. Store Data (screenshot and/or dump)
+                # D. Store Data (screenshot and/or dump)
                 # ✅ MOBILE/WEB: Store if we have either screenshot or dump
                 if screenshot_url or dump_data:
                     with self._lock:

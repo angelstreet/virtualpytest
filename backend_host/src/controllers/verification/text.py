@@ -716,6 +716,63 @@ class TextVerificationController:
         num = int(match.group(1)) + offset
         return filepath.replace(match.group(0), f'capture_{num:09d}')
     
+    def extract_ocr_dump(self, screenshot_path: str, confidence_threshold: int = 30) -> Dict[str, Any]:
+        """
+        Extract full OCR dump with bounding boxes (TV exploration).
+        
+        This is the TV equivalent of ADB dump - discovers all text elements with their areas.
+        Used by exploration_executor for TV node verification.
+        
+        Args:
+            screenshot_path: Path to screenshot
+            confidence_threshold: Minimum OCR confidence (0-100)
+            
+        Returns:
+            {
+                'success': True,
+                'elements': [
+                    {'text': 'TV Guide', 'area': {...}, 'confidence': 85},
+                    ...
+                ]
+            }
+        """
+        try:
+            print(f"[@controller:TextVerification:extract_ocr_dump] Extracting OCR dump from: {screenshot_path}")
+            
+            if not os.path.exists(screenshot_path):
+                return {
+                    'success': False,
+                    'elements': [],
+                    'message': f'Screenshot not found: {screenshot_path}'
+                }
+            
+            # Use helper to extract OCR dump
+            elements = self.helpers.extract_full_ocr_dump(screenshot_path, confidence_threshold)
+            
+            print(f"[@controller:TextVerification:extract_ocr_dump] Extracted {len(elements)} elements")
+            
+            # Log sample elements
+            if elements:
+                print(f"[@controller:TextVerification:extract_ocr_dump] Sample elements:")
+                for elem in elements[:5]:  # Show first 5
+                    print(f"  • '{elem['text']}' at ({elem['area']['x']}, {elem['area']['y']}) conf={elem['confidence']}")
+            
+            return {
+                'success': True,
+                'elements': elements,
+                'message': f'Extracted {len(elements)} text elements'
+            }
+            
+        except Exception as e:
+            print(f"[@controller:TextVerification:extract_ocr_dump] ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            return {
+                'success': False,
+                'elements': [],
+                'message': f'OCR dump extraction failed: {str(e)}'
+            }
+    
     def getMenuInfo(self, area: dict = None, context = None, source_path: str = None) -> Dict[str, Any]:
         """
         Extract menu information from screen using OCR, parse key-value pairs, and auto-store to metadata.

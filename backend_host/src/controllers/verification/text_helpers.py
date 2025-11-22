@@ -365,4 +365,224 @@ class TextHelpers:
         
         return parsed_data
 
+    def extract_full_ocr_dump(self, image_path: str, confidence_threshold: int = 30) -> list:
+        """
+        Extract ALL text from image with bounding boxes (like ADB dump for TV).
+        
+        Uses pytesseract.image_to_data() to get text with coordinates for each word/line.
+        This is the TV equivalent of ADB dump - discovers all text elements with their areas.
+        
+        Args:
+            image_path: Path to screenshot
+            confidence_threshold: Minimum OCR confidence (0-100), default 30
+            
+        Returns:
+            List of text elements with areas:
+            [
+                {'text': 'TV Guide', 'area': {'x': 50, 'y': 30, 'width': 300, 'height': 60}, 'confidence': 85},
+                {'text': 'GOLF+', 'area': {'x': 100, 'y': 200, 'width': 150, 'height': 40}, 'confidence': 92},
+                ...
+            ]
+        """
+        try:
+            print(f"[@text_helpers:extract_full_ocr_dump] Extracting OCR dump from: {image_path}")
+            
+            if not os.path.exists(image_path):
+                print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Image not found")
+                return []
+            
+            # Load image
+            img = cv2.imread(image_path)
+            if img is None:
+                print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Failed to load image")
+                return []
+            
+            # Preprocess: Convert to grayscale and apply binary threshold
+            gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
+            
+            # Save preprocessed image temporarily for pytesseract
+            with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
+                cv2.imwrite(tmp.name, binary)
+                temp_path = tmp.name
+            
+            try:
+                # Use pytesseract.image_to_data to get bounding boxes
+                # This returns a TSV string with columns: level, page_num, block_num, par_num, line_num, word_num, left, top, width, height, conf, text
+                result = subprocess.run(
+                    ['tesseract', temp_path, 'stdout', '--psm', '11', 'tsv'],
+                    capture_output=True,
+                    text=True,
+                    timeout=30
+                )
+                
+                if result.returncode != 0:
+                    print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Tesseract failed")
+                    return []
+                
+                # Parse TSV output
+                lines = result.stdout.strip().split('\n')
+                if len(lines) < 2:  # Need header + at least 1 data row
+                    print(f"[@text_helpers:extract_full_ocr_dump] No text detected")
+                    return []
+                
+                # Parse header to get column indices
+                header = lines[0].split('\t')
+                
+                elements = []
+                
+                # Process each line (skip header)
+                for line in lines[1:]:
+                    cols = line.split('\t')
+                    if len(cols) < len(header):
+                        continue
+                    
+                    # Extract values by column name
+                    data = dict(zip(header, cols))
+                    
+                    text = data.get('text', '').strip()
+                    conf = data.get('conf', '-1')
+                    
+                    # Skip empty text or low confidence
+                    if not text or conf == '-1':
+                        continue
+                    
+                    try:
+                        confidence = int(conf)
+                        if confidence < confidence_threshold:
+                            continue
+                    except ValueError:
+                        continue
+                    
+                    # Get bounding box
+                    try:
+                        left = int(data.get('left', 0))
+                        top = int(data.get('top', 0))
+                        width = int(data.get('width', 0))
+                        height = int(data.get('height', 0))
+                    except ValueError:
+                        continue
+                    
+                    # Skip invalid boxes
+                    if width <= 0 or height <= 0:
+                        continue
+                    
+                    elements.append({
+                        'text': text,
+                        'area': {
+                            'x': left,
+                            'y': top,
+                            'width': width,
+                            'height': height
+                        },
+                        'confidence': confidence
+                    })
+                
+                print(f"[@text_helpers:extract_full_ocr_dump] Extracted {len(elements)} text elements (confidence >= {confidence_threshold})")
+                
+                # Group nearby words into phrases (combine words on same line)
+                if elements:
+                    grouped_elements = self._group_text_elements(elements)
+                    print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases")
+                    return grouped_elements
+                
+                return elements
+                
+            finally:
+                # Cleanup temp file
+                try:
+                    os.unlink(temp_path)
+                except:
+                    pass
+                    
+        except Exception as e:
+            print(f"[@text_helpers:extract_full_ocr_dump] ERROR: {e}")
+            import traceback
+            traceback.print_exc()
+            return []
+    
+    def _group_text_elements(self, elements: list) -> list:
+        """
+        Group nearby text elements into phrases (combine words on same line).
+        
+        Args:
+            elements: List of individual word elements
+            
+        Returns:
+            List of grouped phrase elements
+        """
+        if not elements:
+            return []
+        
+        # Sort by vertical position (top), then horizontal (left)
+        sorted_elements = sorted(elements, key=lambda e: (e['area']['y'], e['area']['x']))
+        
+        grouped = []
+        current_group = None
+        
+        for elem in sorted_elements:
+            if current_group is None:
+                # Start new group
+                current_group = {
+                    'text': elem['text'],
+                    'area': elem['area'].copy(),
+                    'confidence': elem['confidence'],
+                    'word_count': 1
+                }
+            else:
+                # Check if this element is on the same line (similar y position)
+                y_diff = abs(elem['area']['y'] - current_group['area']['y'])
+                height_avg = (elem['area']['height'] + current_group['area']['height']) / 2
+                
+                # Also check horizontal proximity
+                current_right = current_group['area']['x'] + current_group['area']['width']
+                elem_left = elem['area']['x']
+                x_gap = elem_left - current_right
+                
+                # If on same line (y_diff < half height) and close horizontally (gap < 2x height)
+                if y_diff < height_avg * 0.5 and x_gap < height_avg * 2:
+                    # Merge into current group
+                    current_group['text'] += ' ' + elem['text']
+                    
+                    # Expand bounding box to include new element
+                    new_right = elem['area']['x'] + elem['area']['width']
+                    current_right = current_group['area']['x'] + current_group['area']['width']
+                    
+                    current_group['area']['width'] = max(new_right, current_right) - current_group['area']['x']
+                    current_group['area']['height'] = max(
+                        current_group['area']['height'],
+                        elem['area']['y'] + elem['area']['height'] - current_group['area']['y']
+                    )
+                    
+                    # Average confidence
+                    current_group['confidence'] = int(
+                        (current_group['confidence'] * current_group['word_count'] + elem['confidence']) / 
+                        (current_group['word_count'] + 1)
+                    )
+                    current_group['word_count'] += 1
+                else:
+                    # Save current group and start new one
+                    grouped.append({
+                        'text': current_group['text'],
+                        'area': current_group['area'],
+                        'confidence': current_group['confidence']
+                    })
+                    
+                    current_group = {
+                        'text': elem['text'],
+                        'area': elem['area'].copy(),
+                        'confidence': elem['confidence'],
+                        'word_count': 1
+                    }
+        
+        # Don't forget the last group
+        if current_group:
+            grouped.append({
+                'text': current_group['text'],
+                'area': current_group['area'],
+                'confidence': current_group['confidence']
+            })
+        
+        return grouped
+
  
