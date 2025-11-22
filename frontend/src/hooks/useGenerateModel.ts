@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import type { ExplorationContext, ExplorationPhase, ExplorationStrategy } from '../types/exploration';
+import { useNavigation } from '../contexts/navigation/NavigationContext';
 
 interface UseGenerateModelProps {
   treeId: string;
@@ -81,6 +82,9 @@ export const useGenerateModel = ({
   onStructureCreated,
   onClose
 }: UseGenerateModelProps) => {
+  // ✅ AUTO-DETECT: Use current position from NavigationContext
+  const { currentNodeLabel } = useNavigation();
+  
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
   const [explorationHostName, setExplorationHostName] = useState<string | null>(null);
@@ -319,7 +323,8 @@ export const useGenerateModel = ({
         treeId,
         host_name: selectedHost.host_name,
         device_id: selectedDeviceId,
-        userinterface_name: userinterfaceName
+        userinterface_name: userinterfaceName,
+        start_node: currentNodeLabel || 'home'
       });
 
       // Start new exploration (depth is fixed at 2 levels)
@@ -330,7 +335,8 @@ export const useGenerateModel = ({
           tree_id: treeId,
           host_name: selectedHost.host_name,  // ← Just the name!
           device_id: selectedDeviceId,
-          userinterface_name: userinterfaceName
+          userinterface_name: userinterfaceName,
+          start_node: currentNodeLabel || 'home'  // ✅ AUTO-DETECT: Use context position
         })
       });
 
