@@ -302,101 +302,59 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                       <details open>
                         <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
                           <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                            Nodes found ({explorationPlan.items.filter((item: string) => {
-                              const lower = item.toLowerCase();
-                              return !['home', 'accueil'].includes(lower);
-                            }).length})
+                            Nodes found ({(() => {
+                              // Calculate actual node count based on strategy
+                              const strategy = explorationPlan.strategy || 'click';
+                              const items = explorationPlan.items || [];
+                              const nonHomeItems = items.filter((item: string) => {
+                                const lower = item.toLowerCase();
+                                return !['home', 'accueil'].includes(lower);
+                              });
+                              
+                              if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
+                                // Dual-layer: each item gets focus + screen node
+                                return nonHomeItems.length * 2;
+                              } else {
+                                // Mobile/web: one node per item
+                                return nonHomeItems.length;
+                              }
+                            })()})
                           </Typography>
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
                           {explorationPlan.lines && explorationPlan.lines.length > 0 ? (
-                            // DPAD navigation (TV/STB) - show dual-layer structure with arrows
-                            <Box sx={{ fontFamily: 'monospace', fontSize: '0.70rem' }}>
+                            // DPAD navigation (TV/STB) - show dual-layer structure as simple text
+                            <Box sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                               {explorationPlan.lines.map((line: string[], lineIdx: number) => {
-                                // Only show dual-layer for Row 1 (horizontal menu)
-                                if (lineIdx === 0 && line.length > 1) {
-                                  return (
-                                    <Box key={lineIdx}>
-                                      {/* Focus Layer */}
-                                      <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                                        Focus Layer (Menu Positions):
-                                      </Typography>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
-                                        {line.map((item, idx) => {
-                                          const isHome = item.toLowerCase() === 'home';
-                                          const focusName = isHome ? 'home' : `home_${item.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
-                                          return (
-                                            <React.Fragment key={idx}>
-                                              <Box 
-                                                sx={{ 
-                                                  px: 1, 
-                                                  py: 0.5, 
-                                                  bgcolor: 'rgba(33, 150, 243, 0.2)', 
-                                                  borderRadius: 0.5,
-                                                  border: '1px solid rgba(33, 150, 243, 0.5)',
-                                                  fontSize: '0.65rem'
-                                                }}
-                                              >
-                                                {focusName}
-                                              </Box>
-                                              {idx < line.length - 1 && (
-                                                <Typography sx={{ color: 'primary.light', mx: 0.5 }}>⟷</Typography>
-                                              )}
-                                            </React.Fragment>
-                                          );
-                                        })}
-                                      </Box>
-                                      
-                                      {/* Arrows Down */}
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, pl: 3 }}>
-                                        {line.slice(1).map((item, idx) => (
-                                          <React.Fragment key={idx}>
-                                            <Typography sx={{ color: 'success.light', fontSize: '1rem' }}>↓</Typography>
-                                            {idx < line.length - 2 && <Box sx={{ width: '80px' }} />}
-                                          </React.Fragment>
-                                        ))}
-                                      </Box>
-                                      
-                                      {/* Screen Layer */}
-                                      <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'bold', display: 'block', mb: 0.5 }}>
-                                        Screen Layer (Actual Screens):
-                                      </Typography>
-                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 6 }}>
-                                        {line.slice(1).map((item, idx) => {
-                                          const screenName = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
-                                          return (
-                                            <Box 
-                                              key={idx}
-                                              sx={{ 
-                                                px: 1, 
-                                                py: 0.5, 
-                                                bgcolor: 'rgba(76, 175, 80, 0.2)', 
-                                                borderRadius: 0.5,
-                                                border: '1px solid rgba(76, 175, 80, 0.5)',
-                                                fontSize: '0.65rem',
-                                                mr: 1
-                                              }}
-                                            >
-                                              {screenName}
-                                            </Box>
-                                          );
-                                        })}
-                                      </Box>
-                                    </Box>
-                                  );
-                                } else if (lineIdx > 0) {
-                                  // Other rows (vertical) - show as simple list
-                                  return (
-                                    <Typography 
-                                      key={lineIdx}
-                                      variant="body2" 
-                                      sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary', mt: 1 }}
-                                    >
-                                      Row {lineIdx + 1}: {line.join(', ')}
+                                // Generate focus and screen node names
+                                const focusNodes: string[] = [];
+                                const screenNodes: string[] = [];
+                                
+                                line.forEach((item) => {
+                                  const isHome = item.toLowerCase() === 'home';
+                                  const cleanName = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                                  
+                                  if (!isHome) {
+                                    focusNodes.push(`home_${cleanName}`);
+                                    screenNodes.push(cleanName);
+                                  }
+                                });
+                                
+                                if (focusNodes.length === 0) return null;
+                                
+                                return (
+                                  <Box key={lineIdx} sx={{ mb: 1.5 }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                      Row {lineIdx + 1}:
                                     </Typography>
-                                  );
-                                }
-                                return null;
+                                    <Typography variant="body2" sx={{ pl: 2 }}>
+                                      Focus Nodes: {focusNodes.join(', ')}
+                                    </Typography>
+                                    <Typography variant="body2" sx={{ pl: 2 }}>
+                                      Screen Nodes: {screenNodes.join(', ')}
+                                    </Typography>
+                                  </Box>
+                                );
                               })}
                             </Box>
                           ) : (
@@ -451,11 +409,28 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                           const lower = item.toLowerCase();
                           return !['home', 'accueil'].includes(lower);
                         });
+                        
+                        const strategy = explorationPlan.strategy || 'click';
+                        const lines = explorationPlan.lines || [];
+                        
+                        // Calculate edge count
+                        let edgeCount = validEdges.length;
+                        if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
+                          // Dual-layer: horizontal edges + vertical edges
+                          // For Row 1 with N items: (N-1) horizontal edges × 2 directions + N vertical edges × 2 directions
+                          const row1Items = lines.length > 0 ? lines[0].length : 0;
+                          if (row1Items > 1) {
+                            const horizontalEdges = (row1Items - 1) * 2; // LEFT/RIGHT pairs
+                            const verticalEdges = (row1Items - 1) * 2;   // OK/BACK pairs (excluding home)
+                            edgeCount = horizontalEdges + verticalEdges;
+                          }
+                        }
+                        
                         return (
                           <details open>
                             <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
                               <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                                Edge found ({validEdges.length})
+                                Edge found ({edgeCount})
                               </Typography>
                             </summary>
                             <Box sx={{ mt: 1, pl: 2, pr:2, maxHeight: 200, overflow: 'auto' }}>
@@ -468,82 +443,88 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                   .replace(/_+/g, '_')
                                   .replace(/^_|_$/g, '');
                                 
+                                const focusNodeName = `home_${cleanNodeName}`;
                                 const isSelected = selectedEdges.has(item);
                                 
-                                // Get strategy and structure from exploration plan
-                                const strategy = explorationPlan.strategy || 'click';
-                                const menuType = explorationPlan.menu_type || 'horizontal';
-                                const lines = explorationPlan.lines || [];
-                                
-                                // Calculate action preview based on strategy
-                                let forwardActionPreview = '';
                                 if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
-                                  // D-pad navigation for TV/STB - ROW-AWARE
-                                  
-                                  // Find which row the item is in
-                                  let itemRowIdx = -1;
-                                  let itemColIdx = -1;
-                                  for (let rowIdx = 0; rowIdx < lines.length; rowIdx++) {
-                                    const rowItems = lines[rowIdx];
-                                    if (rowItems.includes(item)) {
-                                      itemRowIdx = rowIdx;
-                                      itemColIdx = rowItems.indexOf(item);
-                                      break;
-                                    }
-                                  }
-                                  
-                                  // Fallback if not found
-                                  if (itemRowIdx === -1) {
-                                    itemRowIdx = 0;
-                                    itemColIdx = explorationPlan.items?.indexOf(item) || idx;
-                                  }
-                                  
-                                  // Determine D-pad direction based on row
-                                  if (itemRowIdx === 0 && lines.length > 0 && lines[0].length > 1) {
-                                    // Row 1 (horizontal) - use RIGHT
-                                    forwardActionPreview = `${itemColIdx}x RIGHT + OK`;
-                                  } else {
-                                    // Other rows (vertical) - use DOWN
-                                    forwardActionPreview = `${itemRowIdx}x DOWN + OK`;
-                                  }
+                                  // Dual-layer edges
+                                  return (
+                                    <Box 
+                                      key={idx} 
+                                      sx={{ 
+                                        mb: 0.5, 
+                                        p: 1, 
+                                        bgcolor: isSelected ? 'rgba(25,118,210,0.08)' : 'rgba(255,255,255,0.02)', 
+                                        borderRadius: 1, 
+                                        border: '1px solid', 
+                                        borderColor: isSelected ? 'primary.main' : 'rgba(255,255,255,0.05)',
+                                        opacity: isSelected ? 1 : 0.4,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': {
+                                          opacity: 0.8,
+                                          bgcolor: isSelected ? 'rgba(25,118,210,0.12)' : 'rgba(255,255,255,0.05)'
+                                        }
+                                      }}
+                                      onClick={() => toggleEdgeSelection(item)}
+                                    >
+                                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                                        Item {idx + 1}: {item} {!isSelected && '(skipped)'}
+                                      </Typography>
+                                      {/* Horizontal edge (if not first item) */}
+                                      {idx > 0 && (
+                                        <>
+                                          <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'primary.light' }}>
+                                            → Horizontal: ... → {focusNodeName}: RIGHT
+                                          </Typography>
+                                          <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'primary.light' }}>
+                                            ← Horizontal: {focusNodeName} → ...: LEFT
+                                          </Typography>
+                                        </>
+                                      )}
+                                      {/* Vertical edges */}
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'success.light' }}>
+                                        ↓ Vertical: {focusNodeName} → {cleanNodeName}: OK
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'success.light' }}>
+                                        ↑ Vertical: {cleanNodeName} → {focusNodeName}: BACK
+                                      </Typography>
+                                    </Box>
+                                  );
                                 } else {
-                                  // Click navigation for mobile/web
-                                  forwardActionPreview = `click("${item}")`;
+                                  // Mobile/web: single click edge
+                                  return (
+                                    <Box 
+                                      key={idx} 
+                                      sx={{ 
+                                        mb: 0.5, 
+                                        p: 1, 
+                                        bgcolor: isSelected ? 'rgba(25,118,210,0.08)' : 'rgba(255,255,255,0.02)', 
+                                        borderRadius: 1, 
+                                        border: '1px solid', 
+                                        borderColor: isSelected ? 'primary.main' : 'rgba(255,255,255,0.05)',
+                                        opacity: isSelected ? 1 : 0.4,
+                                        cursor: 'pointer',
+                                        transition: 'all 0.2s',
+                                        '&:hover': {
+                                          opacity: 0.8,
+                                          bgcolor: isSelected ? 'rgba(25,118,210,0.12)' : 'rgba(255,255,255,0.05)'
+                                        }
+                                      }}
+                                      onClick={() => toggleEdgeSelection(item)}
+                                    >
+                                      <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
+                                        Step {idx + 1} {!isSelected && '(skipped)'}
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
+                                        → home → {cleanNodeName}: click("{item}")
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
+                                        ← {cleanNodeName} → home: BACK
+                                      </Typography>
+                                    </Box>
+                                  );
                                 }
-                                
-                                return (
-                                  <Box 
-                                    key={idx} 
-                                    sx={{ 
-                                      mb: 0.5, 
-                                      p: 1, 
-                                      bgcolor: isSelected ? 'rgba(25,118,210,0.08)' : 'rgba(255,255,255,0.02)', 
-                                      borderRadius: 1, 
-                                      border: '1px solid', 
-                                      borderColor: isSelected ? 'primary.main' : 'rgba(255,255,255,0.05)',
-                                      opacity: isSelected ? 1 : 0.4,
-                                      cursor: 'pointer',
-                                      transition: 'all 0.2s',
-                                      '&:hover': {
-                                        opacity: 0.8,
-                                        bgcolor: isSelected ? 'rgba(25,118,210,0.12)' : 'rgba(255,255,255,0.05)'
-                                      }
-                                    }}
-                                    onClick={() => toggleEdgeSelection(item)}
-                                  >
-                                    <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                      Step {idx + 1} {!isSelected && '(skipped)'}
-                                    </Typography>
-                                    {/* Forward action */}
-                                    <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                      → home → {cleanNodeName}: {forwardActionPreview}
-                                    </Typography>
-                                    {/* Reverse action */}
-                                    <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                      ← {cleanNodeName} → home: BACK
-                                    </Typography>
-                                  </Box>
-                                );
                               })}
                             </Box>
                           </details>
