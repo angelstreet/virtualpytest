@@ -1131,7 +1131,8 @@ class ExplorationExecutor:
                 
                 # First take screenshot (needed for both ADB dump and OCR dump)
                 try:
-                    av_controller = self.device._get_controller('av')
+                    av_controllers = self.device.get_controllers('av')
+                    av_controller = av_controllers[0] if av_controllers else None
                     if av_controller:
                         screenshot_path = av_controller.take_screenshot()
                         if screenshot_path:
@@ -1163,7 +1164,12 @@ class ExplorationExecutor:
                         print(f"    📊 Controller has no dump_elements → Using OCR dump for TV")
                         if screenshot_path:
                             # Get text verification controller for OCR dump
-                            text_controller = self.device._get_controller('text')
+                            text_controller = None
+                            for v in self.device.get_controllers('verification'):
+                                if getattr(v, 'verification_type', None) == 'text':
+                                    text_controller = v
+                                    break
+                            
                             if text_controller:
                                 print(f"    📊 Extracting OCR dump from screenshot...")
                                 ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
@@ -1351,7 +1357,8 @@ class ExplorationExecutor:
                 # A. Capture Screenshot first (needed for OCR dump fallback)
                 screenshot_path = None
                 try:
-                    av_controller = self.device._get_controller('av')
+                    av_controllers = self.device.get_controllers('av')
+                    av_controller = av_controllers[0] if av_controllers else None
                     if av_controller:
                         screenshot_path = av_controller.take_screenshot()
                         if screenshot_path:
@@ -1392,7 +1399,12 @@ class ExplorationExecutor:
                     # Fallback to OCR dump if ADB/Web dump failed or not available
                     if not dump_data and screenshot_path:
                         print(f"    📊 ADB/Web dump not available → Trying OCR dump fallback")
-                        text_controller = self.device._get_controller('text')
+                        text_controller = None
+                        for v in self.device.get_controllers('verification'):
+                            if getattr(v, 'verification_type', None) == 'text':
+                                text_controller = v
+                                break
+                        
                         if text_controller:
                             print(f"    📊 Extracting OCR dump from screenshot...")
                             ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)

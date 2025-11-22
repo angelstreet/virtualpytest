@@ -244,11 +244,11 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                   </Alert>
                 )}
 
-                {/* XML Dump */}
+                {/* Dump (OCR for TV, XML for Mobile/Web) */}
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      XML Dump
+                      {typeof selectedSuggestion.dump === 'object' && selectedSuggestion.dump?.elements ? 'OCR Dump' : 'XML Dump'}
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails sx={{ p: 0 }}>
@@ -264,18 +264,47 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                           borderColor: 'divider'
                         }}
                       >
-                        <Typography 
-                          variant="caption" 
-                          component="pre" 
-                          sx={{ 
-                            fontFamily: 'monospace',
-                            whiteSpace: 'pre-wrap',
-                            wordBreak: 'break-word',
-                            fontSize: '0.7rem'
-                          }}
-                        >
-                          {selectedSuggestion.dump}
-                        </Typography>
+                        {/* OCR Dump (TV) - Show formatted list */}
+                        {typeof selectedSuggestion.dump === 'object' && selectedSuggestion.dump?.elements ? (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                            {selectedSuggestion.dump.elements.map((elem: any, idx: number) => (
+                              <Box 
+                                key={idx}
+                                sx={{ 
+                                  p: 0.5, 
+                                  borderBottom: '1px solid',
+                                  borderColor: 'divider',
+                                  '&:last-child': { borderBottom: 'none' }
+                                }}
+                              >
+                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
+                                  <strong>"{elem.text}"</strong> @ ({elem.area?.x || 0}, {elem.area?.y || 0}) 
+                                  {elem.confidence && ` - ${elem.confidence}%`}
+                                </Typography>
+                              </Box>
+                            ))}
+                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.65rem' }}>
+                              Total: {selectedSuggestion.dump.elements.length} text elements
+                            </Typography>
+                          </Box>
+                        ) : (
+                          /* XML Dump (Mobile/Web) - Show as text */
+                          <Typography 
+                            variant="caption" 
+                            component="pre" 
+                            sx={{ 
+                              fontFamily: 'monospace',
+                              whiteSpace: 'pre-wrap',
+                              wordBreak: 'break-word',
+                              fontSize: '0.7rem'
+                            }}
+                          >
+                            {typeof selectedSuggestion.dump === 'string' 
+                              ? selectedSuggestion.dump 
+                              : JSON.stringify(selectedSuggestion.dump, null, 2)
+                            }
+                          </Typography>
+                        )}
                       </Box>
                     ) : (
                       <Alert severity="info">
