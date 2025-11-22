@@ -245,12 +245,13 @@ class ExplorationExecutor:
         # ✅ Load navigation tree for the navigation executor
         # This ensures the graph is loaded before any navigation attempts (critical for start_node != 'home')
         try:
-            import asyncio
             print(f"\n[@ExplorationExecutor:start_exploration] 📥 Loading navigation tree...")
-            asyncio.run(self.device.navigation_executor.load_navigation_tree(
-                tree_id=tree_id,
+            result = self.device.navigation_executor.load_navigation_tree(
+                userinterface_name=userinterface_name,
                 team_id=team_id
-            ))
+            )
+            if not result.get('success'):
+                raise Exception(result.get('error', 'Unknown error'))
             print(f"[@ExplorationExecutor:start_exploration] ✅ Navigation tree loaded successfully")
         except Exception as e:
             error_msg = f"Failed to load navigation tree: {e}"
