@@ -59,18 +59,11 @@ class ExplorationExecutor:
     
     def __init__(self, device, _from_device_init: bool = False):
         """Initialize ExplorationExecutor (should only be called during device init)"""
-        # Validate required parameters
-        if not device:
-            raise ValueError("Device instance is required")
-        if not device.host_name:
-            raise ValueError("Device must have host_name")
-        if not device.device_id:
-            raise ValueError("Device must have device_id")
-        
         # Warn if creating instance outside of device initialization
         if not _from_device_init:
             import traceback
-            print(f"⚠️ [ExplorationExecutor] WARNING: Creating new ExplorationExecutor for {device.device_id}")
+            device_id = getattr(device, 'device_id', 'unknown')
+            print(f"⚠️ [ExplorationExecutor] WARNING: Creating new ExplorationExecutor for {device_id}")
             print(f"⚠️ [ExplorationExecutor] This may cause state loss! Use device.exploration_executor instead.")
             print(f"⚠️ [ExplorationExecutor] Call stack:")
             for line in traceback.format_stack()[-3:-1]:
@@ -78,9 +71,9 @@ class ExplorationExecutor:
         
         # Store device reference
         self.device = device
-        self.host_name = device.host_name
-        self.device_id = device.device_id
-        self.device_model = device.device_model
+        self.host_name = getattr(device, 'host_name', None)
+        self.device_id = getattr(device, 'device_id', None)
+        self.device_model = getattr(device, 'device_model', None)
         
         # Persistent exploration state (replaces global _exploration_sessions dict)
         self.current_exploration_id: Optional[str] = None
