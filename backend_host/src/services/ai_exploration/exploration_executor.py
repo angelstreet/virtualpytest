@@ -1299,21 +1299,22 @@ class ExplorationExecutor:
                 try:
                     # Check if controller has dump_elements (mobile/web)
                     if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
+                        # Mobile/Web: Use ADB/XML dump
                         print(f"    📊 Using ADB/Web dump_elements()")
-                    dump_result = controller.dump_elements()
-                    import inspect
-                    if inspect.iscoroutine(dump_result):
-                        import asyncio
-                        dump_result = asyncio.run(dump_result)
-                    
-                    if isinstance(dump_result, tuple):
-                        success, elements, error = dump_result
-                        if success and elements:
-                            dump_data = {'elements': elements}
-                            print(f"    📊 ADB Dump: {len(elements)} elements")
-                    elif isinstance(dump_result, dict):
-                        dump_data = dump_result
-                        print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
+                        dump_result = controller.dump_elements()
+                        import inspect
+                        if inspect.iscoroutine(dump_result):
+                            import asyncio
+                            dump_result = asyncio.run(dump_result)
+                        
+                        if isinstance(dump_result, tuple):
+                            success, elements, error = dump_result
+                            if success and elements:
+                                dump_data = {'elements': elements}
+                                print(f"    📊 ADB Dump: {len(elements)} elements")
+                        elif isinstance(dump_result, dict):
+                            dump_data = dump_result
+                            print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
                     else:
                         # TV/IR device - use OCR dump extraction
                         print(f"    📊 Controller has no dump_elements → Using OCR dump for TV")
