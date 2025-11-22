@@ -509,16 +509,16 @@ class ExplorationExecutor:
                     
                     # Step 1: Create focus nodes and screen nodes
                     for idx, original_item in enumerate(row1_items):
-                        # Only process selected items
-                        if original_item not in items:
-                            continue
-                            
                         node_name_clean = node_gen.target_to_node_name(original_item)
                         
-                        # Skip 'home' - it already exists
+                        # ✅ ALWAYS include 'home' - it's the anchor for the menu structure
                         if node_name_clean.lower() in ['home', 'accueil']:
                             focus_nodes.append('home')
-                            print(f"    ♻️  Using existing 'home' node (focus layer)")
+                            print(f"    ♻️  Using existing 'home' node (focus layer - anchor)")
+                            continue
+                        
+                        # Only process OTHER selected items (home is always included)
+                        if original_item not in items:
                             continue
                         
                         # Create FOCUS node (menu position): home_tvguide, home_apps, etc.
