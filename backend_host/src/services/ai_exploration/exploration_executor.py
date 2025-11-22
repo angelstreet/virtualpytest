@@ -532,10 +532,10 @@ class ExplorationExecutor:
                             position={'x': focus_position_x, 'y': focus_position_y},
                             ai_analysis={
                                 'suggested_name': focus_node_name,
-                                'screen_type': 'Screen',
+                                'screen_type': 'screen',
                                 'reasoning': f'Menu focus position for: {original_item}'
                             },
-                            node_type='Screen'
+                            node_type='screen'
                         )
                         nodes_to_save.append(focus_node_data)
                         focus_nodes.append(focus_node_name)
@@ -574,13 +574,14 @@ class ExplorationExecutor:
                     print(f"\n  📊 Created {len(focus_nodes)} focus nodes, {len(focus_screen_pairs)} screen nodes")
                     
                     # Step 2: Create HORIZONTAL edges (LEFT/RIGHT between adjacent focus nodes)
+                    # Note: focus_nodes includes 'home' at index 0, so loop creates home→first_focus automatically
                     print(f"\n  ➡️  Creating HORIZONTAL edges (menu navigation):")
                     for idx in range(len(focus_nodes) - 1):
                         source_focus = focus_nodes[idx]
                         target_focus = focus_nodes[idx + 1]
                         
-                        # Forward: RIGHT
-                        edge_right = node_gen.create_edge_data(
+                        # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=RIGHT, action_sets[1]=LEFT
+                        edge_horizontal = node_gen.create_edge_data(
                             source=source_focus,
                             target=target_focus,
                             actions=[{
@@ -588,32 +589,21 @@ class ExplorationExecutor:
                                 "params": {"key": "RIGHT"},
                                 "delay": 500
                             }],
-                            reverse_actions=[],
-                            label=f"{source_focus}_to_{target_focus}_temp"
-                        )
-                        edges_to_save.append(edge_right)
-                        print(f"    → {source_focus} → {target_focus}: RIGHT")
-                        
-                        # Reverse: LEFT
-                        edge_left = node_gen.create_edge_data(
-                            source=target_focus,
-                            target=source_focus,
-                            actions=[{
+                            reverse_actions=[{
                                 "command": "press_key",
                                 "params": {"key": "LEFT"},
                                 "delay": 500
                             }],
-                            reverse_actions=[],
-                            label=f"{target_focus}_to_{source_focus}_temp"
+                            label=f"{source_focus}_to_{target_focus}_temp"
                         )
-                        edges_to_save.append(edge_left)
-                        print(f"    ← {target_focus} → {source_focus}: LEFT")
+                        edges_to_save.append(edge_horizontal)
+                        print(f"    ↔ {source_focus} ↔ {target_focus}: RIGHT/LEFT (bidirectional)")
                     
                     # Step 3: Create VERTICAL edges (OK/BACK between focus and screen)
                     print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens):")
                     for focus_node, screen_node in focus_screen_pairs:
-                        # Forward: OK (enter screen)
-                        edge_enter = node_gen.create_edge_data(
+                        # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=OK, action_sets[1]=BACK
+                        edge_vertical = node_gen.create_edge_data(
                             source=focus_node,
                             target=screen_node,
                             actions=[{
@@ -621,26 +611,15 @@ class ExplorationExecutor:
                                 "params": {"key": "OK"},
                                 "delay": 2000
                             }],
-                            reverse_actions=[],
-                            label=f"{focus_node}_enter_{screen_node}_temp"
-                        )
-                        edges_to_save.append(edge_enter)
-                        print(f"    {focus_node} ↓ {screen_node}: OK")
-                        
-                        # Reverse: BACK (exit screen)
-                        edge_exit = node_gen.create_edge_data(
-                            source=screen_node,
-                            target=focus_node,
-                            actions=[{
+                            reverse_actions=[{
                                 "command": "press_key",
                                 "params": {"key": "BACK"},
                                 "delay": 2000
                             }],
-                            reverse_actions=[],
-                            label=f"{screen_node}_exit_{focus_node}_temp"
+                            label=f"{focus_node}_to_{screen_node}_temp"
                         )
-                        edges_to_save.append(edge_exit)
-                        print(f"    {screen_node} ↑ {focus_node}: BACK")
+                        edges_to_save.append(edge_vertical)
+                        print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
                     
                     print(f"\n  ✅ Created {len(edges_to_save)} edges total")
                 

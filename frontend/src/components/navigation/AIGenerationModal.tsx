@@ -109,8 +109,19 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
   // ✅ TV DUAL-LAYER: Independent focus/screen selection
   const [selectedScreenNodes, setSelectedScreenNodes] = React.useState<Set<string>>(
-    () => new Set(explorationPlan?.items || [])
+    () => new Set()
   );
+
+  // ✅ Initialize screen selection when exploration plan loads (default: all selected)
+  useEffect(() => {
+    if (explorationPlan && explorationPlan.items && explorationPlan.items.length > 0) {
+      // Filter out 'home' and select all other items by default
+      const nonHomeItems = explorationPlan.items.filter(
+        (item: string) => item.toLowerCase() !== 'home' && item.toLowerCase() !== 'accueil'
+      );
+      setSelectedScreenNodes(new Set(nonHomeItems));
+    }
+  }, [explorationPlan]);
 
   const toggleFocusNode = (item: string) => {
     toggleNodeSelection(item);  // Toggle focus
