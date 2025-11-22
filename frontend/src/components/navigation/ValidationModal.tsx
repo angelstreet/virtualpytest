@@ -18,7 +18,7 @@ import {
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { NodeVerificationModal } from './NodeVerificationModal';
-import { useExplorationValidation } from '../../hooks/exploration';
+import { useExplorationValidation, ValidationResult } from '../../hooks/exploration';
 
 interface ValidationModalProps {
   isOpen: boolean;

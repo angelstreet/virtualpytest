@@ -708,23 +708,23 @@ class ExplorationExecutor:
                 
                 # ========== VERTICAL EDGES: OK/BACK (Focus ↔ Screen for ALL rows) ==========
                 print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens for all rows):")
-                    for focus_node, screen_node in focus_screen_pairs:
+                for focus_node, screen_node in focus_screen_pairs:
                     # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=OK, action_sets[1]=BACK
                     edge_vertical = node_gen.create_edge_data(
-                            source=focus_node,
-                            target=screen_node,
-                            actions=[{
-                                "command": "press_key",
-                                "params": {"key": "OK"},
+                        source=focus_node,
+                        target=screen_node,
+                        actions=[{
+                            "command": "press_key",
+                            "params": {"key": "OK"},
                             "delay": 5000
-                            }],
+                        }],
                         reverse_actions=[{
-                                "command": "press_key",
-                                "params": {"key": "BACK"},
+                            "command": "press_key",
+                            "params": {"key": "BACK"},
                             "delay": 5000
-                            }],
+                        }],
                         label=f"{focus_node}_to_{screen_node}_temp"
-                        )
+                    )
                     edges_to_save.append(edge_vertical)
                     print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
                 
@@ -1310,10 +1310,10 @@ class ExplorationExecutor:
                         success, elements, error = dump_result
                         if success and elements:
                             dump_data = {'elements': elements}
-                                print(f"    📊 ADB Dump: {len(elements)} elements")
+                            print(f"    📊 ADB Dump: {len(elements)} elements")
                     elif isinstance(dump_result, dict):
                         dump_data = dump_result
-                            print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
+                        print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
                     else:
                         # TV/IR device - use OCR dump extraction
                         print(f"    📊 Controller has no dump_elements → Using OCR dump for TV")
@@ -1346,16 +1346,16 @@ class ExplorationExecutor:
                 # Upload screenshot to R2
                 if screenshot_path:
                     try:
-                            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         sanitized_name = screen_node_name.replace(' ', '_')
-                            r2_filename = f"{sanitized_name}.jpg"
-                            userinterface_name = self.exploration_state['userinterface_name']
+                        r2_filename = f"{sanitized_name}.jpg"
+                        userinterface_name = self.exploration_state['userinterface_name']
                         upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
-                            
-                            if upload_result.get('success'):
-                                screenshot_url = upload_result.get('url')
+                        
+                        if upload_result.get('success'):
+                            screenshot_url = upload_result.get('url')
                             print(f"    📸 Screenshot uploaded: {screenshot_url}")
-                except Exception as e:
+                    except Exception as e:
                         print(f"    ⚠️ Screenshot upload failed: {e}")
                 else:
                     print(f"    ⚠️ No screenshot to upload")
@@ -1529,30 +1529,30 @@ class ExplorationExecutor:
                 try:
                     # Try ADB/Web dump first
                     if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
-                    dump_result = controller.dump_elements()
-                    
-                    # Handle async controllers (web) - run coroutine if needed
-                    import inspect
-                    if inspect.iscoroutine(dump_result):
-                        import asyncio
-                        dump_result = asyncio.run(dump_result)
-                    
-                    # Normalize dump format (mobile returns tuple, web returns dict)
-                    if isinstance(dump_result, tuple):
-                        # Mobile: (success, elements, error)
-                        success, elements, error = dump_result
-                        if success and elements:
-                            dump_data = {'elements': elements}
+                        dump_result = controller.dump_elements()
+                        
+                        # Handle async controllers (web) - run coroutine if needed
+                        import inspect
+                        if inspect.iscoroutine(dump_result):
+                            import asyncio
+                            dump_result = asyncio.run(dump_result)
+                        
+                        # Normalize dump format (mobile returns tuple, web returns dict)
+                        if isinstance(dump_result, tuple):
+                            # Mobile: (success, elements, error)
+                            success, elements, error = dump_result
+                            if success and elements:
+                                dump_data = {'elements': elements}
                                 print(f"    📱 ADB Dump captured: {len(elements)} elements")
-                        else:
+                            else:
                                 print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
-                    elif isinstance(dump_result, dict):
-                        # Web: already dict format
-                        dump_data = dump_result
-                        element_count = len(dump_result.get('elements', []))
+                        elif isinstance(dump_result, dict):
+                            # Web: already dict format
+                            dump_data = dump_result
+                            element_count = len(dump_result.get('elements', []))
                             print(f"    🌐 Web Dump captured: {element_count} elements")
-                    else:
-                        print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
+                        else:
+                            print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
                     
                     # Fallback to OCR dump if ADB/Web dump failed or not available
                     if not dump_data and screenshot_path:
@@ -1580,20 +1580,20 @@ class ExplorationExecutor:
                 
                 # C. Upload Screenshot to R2
                 if screenshot_path:
-                try:
+                    try:
                         from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         node_name_clean = node_name.replace('_temp', '')
                         sanitized_name = node_name_clean.replace(' ', '_')
-                            r2_filename = f"{sanitized_name}.jpg"
-                            userinterface_name = self.exploration_state['userinterface_name']
+                        r2_filename = f"{sanitized_name}.jpg"
+                        userinterface_name = self.exploration_state['userinterface_name']
                         upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
-                            
-                            if upload_result.get('success'):
-                                screenshot_url = upload_result.get('url')
+                        
+                        if upload_result.get('success'):
+                            screenshot_url = upload_result.get('url')
                             print(f"    📸 Screenshot uploaded: {screenshot_url}")
-                            else:
-                                print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
-                except Exception as e:
+                        else:
+                            print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
+                    except Exception as e:
                         print(f"    ⚠️ Screenshot upload process failed: {e}")
                 else:
                     print(f"    ⚠️ No screenshot to upload")
@@ -2158,49 +2158,49 @@ class ExplorationExecutor:
                     
                     elif verification.get('params'):
                         # 📱 MOBILE/WEB: Direct params (no reference needed)
-                    # Validate: params must not be empty dict
-                    params = verification['params']
-                    if not params or not isinstance(params, dict):
-                        print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
-                        continue
-                    
-                    # Validate: at least one param key must have a non-empty value
-                    has_valid_param = any(
-                        v and str(v).strip() != '' 
-                        for v in params.values()
-                    )
-                    
-                    if not has_valid_param:
-                        print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
-                        continue
-                    
-                    # Validate: command must exist and not be empty
-                    command = verification.get('method', '')
-                    if not command or command.strip() == '':
-                        print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
-                        continue
-                    
-                    # Add verification to node
-                    if 'verifications' not in node_data:
-                        node_data['verifications'] = []
-                    
-                    # Check if verification already exists to avoid duplicates
-                    verification_exists = False
-                    new_params = verification['params']
-                    
-                    for v in node_data['verifications']:
-                        if v.get('command') == verification.get('method') and v.get('params') == new_params:
-                            verification_exists = True
-                            break
-                    
-                    if not verification_exists:
-                        # Map 'method' to 'command' for standard verification format
-                        node_data['verifications'].append({
-                            'command': command,  # Use validated command
+                        # Validate: params must not be empty dict
+                        params = verification['params']
+                        if not params or not isinstance(params, dict):
+                            print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
+                            continue
+                        
+                        # Validate: at least one param key must have a non-empty value
+                        has_valid_param = any(
+                            v and str(v).strip() != '' 
+                            for v in params.values()
+                        )
+                        
+                        if not has_valid_param:
+                            print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
+                            continue
+                        
+                        # Validate: command must exist and not be empty
+                        command = verification.get('method', '')
+                        if not command or command.strip() == '':
+                            print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
+                            continue
+                        
+                        # Add verification to node
+                        if 'verifications' not in node_data:
+                            node_data['verifications'] = []
+                        
+                        # Check if verification already exists to avoid duplicates
+                        verification_exists = False
+                        new_params = verification['params']
+                        
+                        for v in node_data['verifications']:
+                            if v.get('command') == verification.get('method') and v.get('params') == new_params:
+                                verification_exists = True
+                                break
+                        
+                        if not verification_exists:
+                            # Map 'method' to 'command' for standard verification format
+                            node_data['verifications'].append({
+                                'command': command,  # Use validated command
                                 'verification_type': verification.get('type', 'adb'),
-                            'params': verification['params'],
-                            'expected': True
-                        })
+                                'params': verification['params'],
+                                'expected': True
+                            })
                             print(f"    ✅ Verification added (direct params)")
                 
                 nodes_to_save.append(node_data)
@@ -2223,7 +2223,7 @@ class ExplorationExecutor:
             if references_created > 0:
                 self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes ({references_created} text references created) - ready to finalize'
             else:
-            self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
+                self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
             
             return {
                 'success': True,
