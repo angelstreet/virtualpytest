@@ -503,7 +503,7 @@ class ExplorationExecutor:
                 if len(lines) > 0 and len(lines[0]) > 1:
                     row1_items = lines[0]
                     focus_nodes = []
-                    screen_nodes = []
+                    focus_screen_pairs = []  # Store (focus, screen) pairs for vertical edges
                     
                     print(f"  📊 Processing Row 1: {len(row1_items)} items")
                     
@@ -559,14 +559,16 @@ class ExplorationExecutor:
                             node_type='screen'
                         )
                         nodes_to_save.append(screen_node_data)
-                        screen_nodes.append(screen_node_name)
                         nodes_created.append(screen_node_name)
+                        
+                        # ✅ Store focus-screen pair for vertical edges
+                        focus_screen_pairs.append((focus_node_name, screen_node_name))
                         
                         # Store mapping (map item to screen node)
                         self.exploration_state['target_to_node_map'][original_item] = screen_node_name
                         print(f"    ✅ Created SCREEN node: {screen_node_name}_temp")
                     
-                    print(f"\n  📊 Created {len(focus_nodes)} focus nodes, {len(screen_nodes)} screen nodes")
+                    print(f"\n  📊 Created {len(focus_nodes)} focus nodes, {len(focus_screen_pairs)} screen nodes")
                     
                     # Step 2: Create HORIZONTAL edges (LEFT/RIGHT between adjacent focus nodes)
                     print(f"\n  ➡️  Creating HORIZONTAL edges (menu navigation):")
@@ -606,10 +608,7 @@ class ExplorationExecutor:
                     
                     # Step 3: Create VERTICAL edges (OK/BACK between focus and screen)
                     print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens):")
-                    for idx in range(len(screen_nodes)):
-                        focus_node = focus_nodes[idx + 1]  # +1 because focus_nodes includes 'home' at [0]
-                        screen_node = screen_nodes[idx]
-                        
+                    for focus_node, screen_node in focus_screen_pairs:
                         # Forward: OK (enter screen)
                         edge_enter = node_gen.create_edge_data(
                             source=focus_node,
@@ -623,7 +622,7 @@ class ExplorationExecutor:
                             label=f"{focus_node}_enter_{screen_node}_temp"
                         )
                         edges_to_save.append(edge_enter)
-                        print(f"    ↓ {focus_node} → {screen_node}: OK")
+                        print(f"    {focus_node} ↓ {screen_node}: OK")
                         
                         # Reverse: BACK (exit screen)
                         edge_exit = node_gen.create_edge_data(
@@ -638,7 +637,7 @@ class ExplorationExecutor:
                             label=f"{screen_node}_exit_{focus_node}_temp"
                         )
                         edges_to_save.append(edge_exit)
-                        print(f"    ↑ {screen_node} → {focus_node}: BACK")
+                        print(f"    {screen_node} ↑ {focus_node}: BACK")
                     
                     print(f"\n  ✅ Created {len(edges_to_save)} edges total")
                 
