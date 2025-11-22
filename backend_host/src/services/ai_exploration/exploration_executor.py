@@ -202,49 +202,67 @@ class ExplorationExecutor:
             print(f"  UI: {userinterface_name}")
             print(f"  Start node: {start_node}")
         
-        # ✅ PRE-FLIGHT CHECK: Test navigation to start_node BEFORE starting exploration
-        print(f"\n[@ExplorationExecutor:start_exploration] 🔍 Pre-flight check: Testing navigation to '{start_node}'...")
-        try:
-            import asyncio
-            test_result = asyncio.run(self.device.navigation_executor.execute_navigation(
-                tree_id=tree_id,
-                userinterface_name=userinterface_name,
-                target_node_label=start_node,
-                team_id=team_id
-            ))
-            
-            if not test_result.get('success'):
-                error_msg = test_result.get('error', f'Navigation to {start_node} failed')
-                print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
-                
-                with self._lock:
-                    self.exploration_state['status'] = 'failed'
-                    self.exploration_state['error'] = f"Pre-flight check failed: {error_msg}"
-                
-                return {
-                    'success': False,
-                    'error': f"Cannot start AI exploration: Navigation to '{start_node}' failed.\n\n"
-                            f"Reason: {error_msg}\n\n"
-                            f"Action required: Please ensure navigation to '{start_node}' works. "
-                            f"Test 'goto {start_node}' manually before retrying AI exploration.",
-                    'exploration_id': exploration_id
-                }
-            
-            print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: Navigation to '{start_node}' works")
-            
-        except Exception as e:
-            error_msg = str(e)
-            print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check EXCEPTION: {error_msg}")
+        # ✅ PRE-FLIGHT CHECK: Test navigation to start_node BEFORE starting exploration        
+        # ✅ Pre-flight check: Verify start node exists (don't navigate - graph not loaded yet)
+        print(f"\n[@ExplorationExecutor:start_exploration] 🔍 Pre-flight check: Verifying '{start_node}' node exists...")
+        from shared.src.lib.database.navigation_trees_db import get_tree_nodes
+        
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        if not nodes_result.get('success'):
+            error_msg = f"Failed to load tree nodes: {nodes_result.get('error')}"
+            print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
             
             with self._lock:
                 self.exploration_state['status'] = 'failed'
-                self.exploration_state['error'] = f"Pre-flight check exception: {error_msg}"
+                self.exploration_state['error'] = error_msg
             
             return {
                 'success': False,
-                'error': f"Cannot start AI exploration: Pre-flight check failed with exception.\n\n"
-                        f"Exception: {error_msg}\n\n"
-                        f"Action required: Ensure the navigation tree is properly configured with entry → home edge.",
+                'error': f"Cannot start AI exploration: {error_msg}",
+                'exploration_id': exploration_id
+            }
+        
+        nodes = nodes_result.get('nodes', [])
+        start_node_exists = any(n.get('label') == start_node for n in nodes)
+        
+        if not start_node_exists:
+            error_msg = f"Start node '{start_node}' not found in tree"
+            print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
+            
+            with self._lock:
+                self.exploration_state['status'] = 'failed'
+                self.exploration_state['error'] = error_msg
+            
+            return {
+                'success': False,
+                'error': f"Cannot start AI exploration: {error_msg}.\n\n"
+                        f"Action required: Ensure '{start_node}' node exists in the navigation tree.",
+                'exploration_id': exploration_id
+            }
+        
+        print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: '{start_node}' node exists")
+        
+        # ✅ Load navigation tree for the navigation executor
+        # This ensures the graph is loaded before any navigation attempts (critical for start_node != 'home')
+        try:
+            import asyncio
+            print(f"\n[@ExplorationExecutor:start_exploration] 📥 Loading navigation tree...")
+            asyncio.run(self.device.navigation_executor.load_navigation_tree(
+                tree_id=tree_id,
+                team_id=team_id
+            ))
+            print(f"[@ExplorationExecutor:start_exploration] ✅ Navigation tree loaded successfully")
+        except Exception as e:
+            error_msg = f"Failed to load navigation tree: {e}"
+            print(f"[@ExplorationExecutor:start_exploration] ❌ {error_msg}")
+            
+            with self._lock:
+                self.exploration_state['status'] = 'failed'
+                self.exploration_state['error'] = error_msg
+            
+            return {
+                'success': False,
+                'error': f"Cannot start AI exploration: {error_msg}",
                 'exploration_id': exploration_id
             }
         
@@ -1074,18 +1092,70 @@ class ExplorationExecutor:
         
         # ✅ TV DUAL-LAYER: Use depth-first sequential edge validation
         if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-            # ✅ DUAL-LAYER TV VALIDATION (Depth-first)
+            # ✅ DUAL-LAYER TV VALIDATION (Depth-first) with multi-row support
             print(f"\n  🎮 TV DUAL-LAYER VALIDATION (depth-first)")
             print(f"     Item {current_index + 1}/{len(items_to_validate)}: {current_item}")
+            
+            # Get row structure from exploration plan
+            lines = self.exploration_state.get('exploration_plan', {}).get('lines', [])
             
             # Calculate node names
             node_gen = NodeGenerator(tree_id, team_id)
             screen_node_name = node_gen.target_to_node_name(current_item)
             focus_node_name = f"home_{screen_node_name}"
-            prev_focus_name = 'home' if current_index == 0 else f"home_{node_gen.target_to_node_name(items_to_validate[current_index - 1])}"
             
+            # ✅ FIX: TV menu structure
+            # Row 0: home (starting point)
+            # Row 1: home_tv_guide → home_apps → home_watch (lines[0])
+            # Row 2: home_continue_watching → ... (lines[1])
+            # Navigation: DOWN from row to row, RIGHT within row
+            
+            current_row_index = -1
+            current_position_in_row = -1
+            prev_row_index = -1
+            prev_position_in_row = -1
+            
+            # Find current item's position in row structure
+            for row_idx, row_items in enumerate(lines):
+                if current_item in row_items:
+                    current_row_index = row_idx
+                    current_position_in_row = row_items.index(current_item)
+                    break
+            
+            # Find previous item's position (if exists)
+            if current_index > 0:
+                prev_item = items_to_validate[current_index - 1]
+                for row_idx, row_items in enumerate(lines):
+                    if prev_item in row_items:
+                        prev_row_index = row_idx
+                        prev_position_in_row = row_items.index(prev_item)
+                        break
+            
+            # Determine navigation type
+            is_first_in_row = (current_position_in_row == 0)
+            is_first_item_overall = (current_index == 0)
+            
+            if is_first_item_overall:
+                # First item ever: Row 0 (home) → Row 1 first item (DOWN)
+                prev_focus_name = 'home'
+                nav_direction = 'DOWN'  # home is Row 0, first item is Row 1
+            elif is_first_in_row:
+                # First item in a new row: vertical navigation from previous row's last item
+                prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
+                prev_focus_name = f"home_{prev_item_name}"
+                nav_direction = 'DOWN'  # Moving to new row vertically
+            else:
+                # Not first in row: horizontal navigation within same row
+                prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
+                prev_focus_name = f"home_{prev_item_name}"
+                nav_direction = 'RIGHT'  # Moving within same row horizontally
+            
+            # Row numbering: home is Row 0, lines[0] is Row 1, lines[1] is Row 2, etc.
+            display_row = current_row_index + 1  # lines[0] = Row 1
+            print(f"     📍 Row {display_row}, Position {current_position_in_row + 1}")
+            print(f"     {'🔽 VERTICAL to new row' if nav_direction == 'DOWN' else '➡️ HORIZONTAL within row'}")
             print(f"     Edges to test:")
-            print(f"       1. {prev_focus_name} → {focus_node_name}: RIGHT")
+            print(f"       1. {prev_focus_name} → {focus_node_name}: {nav_direction}")
             print(f"       2. {focus_node_name} ↓ {screen_node_name}: OK")
             print(f"       3. {screen_node_name} ↑ {focus_node_name}: BACK")
             
@@ -1096,21 +1166,48 @@ class ExplorationExecutor:
             }
             screenshot_url = None
             
-            # Edge 1: Horizontal navigation (RIGHT)
+            # ✅ ROW 1 RECOVERY: Navigate to home before starting Row 1 validation
+            if is_first_item_overall:
+                print(f"\n    🔄 ROW 1 START: Ensuring we're at home (Row 0)...")
+                try:
+                    import asyncio
+                    nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
+                        tree_id=tree_id,
+                        userinterface_name=self.exploration_state['userinterface_name'],
+                        target_node_label='home',
+                        team_id=team_id
+                    ))
+                    
+                    if nav_result.get('success'):
+                        print(f"    ✅ At home (Row 0) - ready for DOWN navigation to Row 1")
+                    else:
+                        error_msg = nav_result.get('error', 'Unknown error')
+                        print(f"    ❌ Navigation to home failed: {error_msg}")
+                        print(f"    ⚠️ Continuing anyway - validation may fail")
+                except Exception as e:
+                    print(f"    ❌ Recovery exception: {e}")
+                    print(f"    ⚠️ Continuing anyway - validation may fail")
+            
+            # ✅ ROW 2+ TRANSITION: Navigate DOWN from previous row's last position (no recovery)
+            elif is_first_in_row:
+                print(f"\n    🔽 ROW {display_row} TRANSITION: From Row {prev_row_index + 1} via DOWN")
+                # No recovery needed - we're already positioned at previous row's last item
+            
+            # Edge 1: Focus navigation (RIGHT for horizontal, DOWN for new row)
             try:
                 print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
-                result = controller.press_key('RIGHT')
+                result = controller.press_key(nav_direction)
                 import inspect
                 if inspect.iscoroutine(result):
                     import asyncio
                     result = asyncio.run(result)
                 
                 edge_results['horizontal'] = 'success'
-                print(f"    ✅ Horizontal edge: RIGHT")
-                time.sleep(1)
+                print(f"    ✅ Focus navigation: {nav_direction}")
+                time.sleep(1.5)  # 1500ms for D-PAD navigation
             except Exception as e:
                 edge_results['horizontal'] = 'failed'
-                print(f"    ❌ Horizontal edge failed: {e}")
+                print(f"    ❌ Focus navigation failed: {e}")
             
             # Edge 2: Vertical enter (OK) - with screenshot + dump
             try:
@@ -1263,6 +1360,9 @@ class ExplorationExecutor:
             vertical_enter_result = edge_results['enter']
             vertical_exit_result = edge_results['exit']
             
+            # Determine reverse direction for horizontal edge
+            reverse_direction = 'LEFT' if nav_direction == 'RIGHT' else 'UP'
+            
             return {
                 'success': True,
                 'item': current_item,
@@ -1270,7 +1370,7 @@ class ExplorationExecutor:
                 'node_id': f"{focus_node_name}_temp",
                 'has_more_items': has_more,
                 'screenshot_url': screenshot_url,
-                # ✅ TV: Return BOTH edges with their action_sets
+                # ✅ TV: Return BOTH edges with their action_sets (dynamic direction for multi-row)
                 'edges': [
                     {
                         'edge_type': 'horizontal',
@@ -1278,13 +1378,13 @@ class ExplorationExecutor:
                             'forward': {
                                 'source': prev_focus_name,
                                 'target': focus_node_name,
-                                'action': 'RIGHT',
+                                'action': nav_direction,  # RIGHT for same row, DOWN for new row
                                 'result': horizontal_result
                             },
                             'reverse': {
                                 'source': focus_node_name,
                                 'target': prev_focus_name,
-                                'action': 'LEFT',
+                                'action': reverse_direction,  # LEFT for same row, UP for new row
                                 'result': horizontal_result
                             }
                         }
