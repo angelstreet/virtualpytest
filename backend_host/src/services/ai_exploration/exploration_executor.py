@@ -813,18 +813,18 @@ class ExplorationExecutor:
                             edge_vertical_nav = node_gen.create_edge_data(
                                 source=prev_vertical_focus,
                                 target=focus_node_name,
-                            actions=[{
-                                "command": "press_key",
+                                actions=[{
+                                    "command": "press_key",
                                     "params": {"key": "DOWN"},
                                     "delay": 1500
-                            }],
+                                }],
                                 reverse_actions=[{
                                     "command": "press_key",
                                     "params": {"key": "UP"},
                                     "delay": 1500
                                 }],
                                 label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
-                        )
+                            )
                             edges_to_save.append(edge_vertical_nav)
                             print(f"    ↕ {prev_vertical_focus} ↔ {focus_node_name}: DOWN/UP (bidirectional)")
                             
