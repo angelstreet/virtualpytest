@@ -884,13 +884,13 @@ class ExplorationExecutor:
                     edges_to_save.append(edge_vertical)
                     print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
                 
-            print(f"\n{'='*80}")
-            print(f"  ✅ TV NAVIGATION COMPLETE")
-            print(f"     Row 1 (horizontal): {len(all_focus_nodes_row1)} focus nodes")
-            print(f"     Rows 2+ (vertical): {len(all_vertical_focus_nodes)} focus nodes")
-            print(f"     Screen nodes: {len(focus_screen_pairs)} total")
-            print(f"     Edges created: {len(edges_to_save)} bidirectional edges")
-            print(f"{'='*80}\n")
+                print(f"\n{'='*80}")
+                print(f"  ✅ TV NAVIGATION COMPLETE")
+                print(f"     Row 1 (horizontal): {len(all_focus_nodes_row1)} focus nodes")
+                print(f"     Rows 2+ (vertical): {len(all_vertical_focus_nodes)} vertical focus nodes")
+                print(f"     Screen nodes: {len(focus_screen_pairs)} total")
+                print(f"     Edges created: {len(edges_to_save)} bidirectional edges")
+                print(f"{'='*80}\n")
         
         # Save nodes and edges
         return self._save_structure(tree_id, team_id, nodes_to_save, edges_to_save, nodes_created, items)
