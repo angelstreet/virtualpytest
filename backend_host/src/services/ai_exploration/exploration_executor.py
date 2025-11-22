@@ -499,22 +499,25 @@ class ExplorationExecutor:
                 print(f"     Layer 2: Screen nodes (actual screens)")
                 print(f"{'='*80}\n")
                 
-                # Process Row 1 (horizontal menu) with dual-layer structure
+                # Track all focus nodes and pairs across ALL rows
+                all_focus_nodes_row1 = []  # Horizontal menu focus nodes
+                all_vertical_focus_nodes = []  # Vertical menu focus nodes (Row 2+)
+                focus_screen_pairs = []  # Store (focus, screen) pairs for vertical edges
+                
+                # ========== ROW 1: HORIZONTAL MENU ==========
                 if len(lines) > 0 and len(lines[0]) > 1:
                     row1_items = lines[0]
-                    focus_nodes = []
-                    focus_screen_pairs = []  # Store (focus, screen) pairs for vertical edges
                     
-                    print(f"  📊 Processing Row 1: {len(row1_items)} items")
+                    print(f"  📊 Processing Row 1 (horizontal menu): {len(row1_items)} items")
                     
-                    # Step 1: Create focus nodes and screen nodes
+                    # Step 1a: Create Row 1 focus nodes and screen nodes
                     for idx, original_item in enumerate(row1_items):
                         node_name_clean = node_gen.target_to_node_name(original_item)
                         
                         # ✅ ALWAYS include 'home' - it's the anchor for the menu structure
                         if node_name_clean.lower() in ['home', 'accueil']:
-                            focus_nodes.append('home')
-                            print(f"    ♻️  Using existing 'home' node (focus layer - anchor)")
+                            all_focus_nodes_row1.append('home')
+                            print(f"    ♻️  Using existing 'home' node (Row 1 anchor)")
                             continue
                         
                         # Only process OTHER selected items (home is always included)
@@ -533,12 +536,12 @@ class ExplorationExecutor:
                             ai_analysis={
                                 'suggested_name': focus_node_name,
                                 'screen_type': 'screen',
-                                'reasoning': f'Menu focus position for: {original_item}'
+                                'reasoning': f'Row 1 menu focus position for: {original_item}'
                             },
                             node_type='screen'
                         )
                         nodes_to_save.append(focus_node_data)
-                        focus_nodes.append(focus_node_name)
+                        all_focus_nodes_row1.append(focus_node_name)
                         nodes_created.append(focus_node_name)
                         print(f"    ✅ Created FOCUS node: {focus_node_name}_temp")
                         
@@ -571,14 +574,13 @@ class ExplorationExecutor:
                         else:
                             print(f"    ⏭️  Skipped SCREEN node: {node_name_clean} (not selected)")
                     
-                    print(f"\n  📊 Created {len(focus_nodes)} focus nodes, {len(focus_screen_pairs)} screen nodes")
+                    print(f"\n  📊 Row 1 complete: {len(all_focus_nodes_row1)} focus nodes")
                     
-                    # Step 2: Create HORIZONTAL edges (LEFT/RIGHT between adjacent focus nodes)
-                    # Note: focus_nodes includes 'home' at index 0, so loop creates home→first_focus automatically
-                    print(f"\n  ➡️  Creating HORIZONTAL edges (menu navigation):")
-                    for idx in range(len(focus_nodes) - 1):
-                        source_focus = focus_nodes[idx]
-                        target_focus = focus_nodes[idx + 1]
+                    # Step 1b: Create HORIZONTAL edges for Row 1 (LEFT/RIGHT between adjacent focus nodes)
+                    print(f"\n  ➡️  Creating HORIZONTAL edges (Row 1 menu navigation):")
+                    for idx in range(len(all_focus_nodes_row1) - 1):
+                        source_focus = all_focus_nodes_row1[idx]
+                        target_focus = all_focus_nodes_row1[idx + 1]
                         
                         # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=RIGHT, action_sets[1]=LEFT
                         edge_horizontal = node_gen.create_edge_data(
@@ -598,30 +600,127 @@ class ExplorationExecutor:
                         )
                         edges_to_save.append(edge_horizontal)
                         print(f"    ↔ {source_focus} ↔ {target_focus}: RIGHT/LEFT (bidirectional)")
+                
+                # ========== ROW 2+: VERTICAL MENU (DOWN/UP from home) ==========
+                if len(lines) > 1:
+                    print(f"\n  📊 Processing Rows 2-{len(lines)} (vertical menu): {len(lines) - 1} rows")
                     
-                    # Step 3: Create VERTICAL edges (OK/BACK between focus and screen)
-                    print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens):")
-                    for focus_node, screen_node in focus_screen_pairs:
-                        # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=OK, action_sets[1]=BACK
-                        edge_vertical = node_gen.create_edge_data(
-                            source=focus_node,
-                            target=screen_node,
-                            actions=[{
-                                "command": "press_key",
-                                "params": {"key": "OK"},
-                                "delay": 2000
-                            }],
-                            reverse_actions=[{
-                                "command": "press_key",
-                                "params": {"key": "BACK"},
-                                "delay": 2000
-                            }],
-                            label=f"{focus_node}_to_{screen_node}_temp"
-                        )
-                        edges_to_save.append(edge_vertical)
-                        print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
+                    prev_vertical_focus = 'home'  # Start from home for vertical navigation
                     
-                    print(f"\n  ✅ Created {len(edges_to_save)} edges total")
+                    for row_idx in range(1, len(lines)):
+                        row_items = lines[row_idx]
+                        print(f"\n  📊 Processing Row {row_idx + 1}: {len(row_items)} items")
+                        
+                        for idx, original_item in enumerate(row_items):
+                            # Only process selected items
+                            if original_item not in items:
+                                continue
+                            
+                            node_name_clean = node_gen.target_to_node_name(original_item)
+                            
+                            # Create FOCUS node for vertical position
+                            focus_node_name = f"home_{node_name_clean}"
+                            focus_position_x = 50  # Left aligned for vertical menu
+                            focus_position_y = 100 + (row_idx * 150)
+                            
+                            focus_node_data = node_gen.create_node_data(
+                                node_name=focus_node_name,
+                                label=f"{focus_node_name}_temp",
+                                position={'x': focus_position_x, 'y': focus_position_y},
+                                ai_analysis={
+                                    'suggested_name': focus_node_name,
+                                    'screen_type': 'screen',
+                                    'reasoning': f'Row {row_idx + 1} vertical menu focus position for: {original_item}'
+                                },
+                                node_type='screen'
+                            )
+                            nodes_to_save.append(focus_node_data)
+                            all_vertical_focus_nodes.append(focus_node_name)
+                            nodes_created.append(focus_node_name)
+                            print(f"    ✅ Created FOCUS node: {focus_node_name}_temp")
+                            
+                            # Create DOWN/UP edge from previous vertical focus
+                            edge_vertical_nav = node_gen.create_edge_data(
+                                source=prev_vertical_focus,
+                                target=focus_node_name,
+                                actions=[{
+                                    "command": "press_key",
+                                    "params": {"key": "DOWN"},
+                                    "delay": 500
+                                }],
+                                reverse_actions=[{
+                                    "command": "press_key",
+                                    "params": {"key": "UP"},
+                                    "delay": 500
+                                }],
+                                label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
+                            )
+                            edges_to_save.append(edge_vertical_nav)
+                            print(f"    ↕ {prev_vertical_focus} ↔ {focus_node_name}: DOWN/UP (bidirectional)")
+                            
+                            # Create SCREEN node if selected
+                            if selected_screen_items is None or original_item in selected_screen_items:
+                                screen_node_name = node_name_clean
+                                screen_position_x = 250
+                                screen_position_y = 100 + (row_idx * 150)
+                                
+                                screen_node_data = node_gen.create_node_data(
+                                    node_name=screen_node_name,
+                                    label=f"{screen_node_name}_temp",
+                                    position={'x': screen_position_x, 'y': screen_position_y},
+                                    ai_analysis={
+                                        'suggested_name': screen_node_name,
+                                        'screen_type': 'screen',
+                                        'reasoning': f'Screen for: {original_item}'
+                                    },
+                                    node_type='screen'
+                                )
+                                nodes_to_save.append(screen_node_data)
+                                nodes_created.append(screen_node_name)
+                                
+                                # Store focus-screen pair for vertical edges
+                                focus_screen_pairs.append((focus_node_name, screen_node_name))
+                                
+                                # Store mapping
+                                self.exploration_state['target_to_node_map'][original_item] = screen_node_name
+                                print(f"    ✅ Created SCREEN node: {screen_node_name}_temp")
+                            else:
+                                print(f"    ⏭️  Skipped SCREEN node: {node_name_clean} (not selected)")
+                            
+                            # Update previous vertical focus for next row
+                            prev_vertical_focus = focus_node_name
+                    
+                    print(f"\n  📊 Rows 2+ complete: {len(all_vertical_focus_nodes)} vertical focus nodes")
+                
+                # ========== VERTICAL EDGES: OK/BACK (Focus ↔ Screen for ALL rows) ==========
+                print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens for all rows):")
+                for focus_node, screen_node in focus_screen_pairs:
+                    # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=OK, action_sets[1]=BACK
+                    edge_vertical = node_gen.create_edge_data(
+                        source=focus_node,
+                        target=screen_node,
+                        actions=[{
+                            "command": "press_key",
+                            "params": {"key": "OK"},
+                            "delay": 2000
+                        }],
+                        reverse_actions=[{
+                            "command": "press_key",
+                            "params": {"key": "BACK"},
+                            "delay": 2000
+                        }],
+                        label=f"{focus_node}_to_{screen_node}_temp"
+                    )
+                    edges_to_save.append(edge_vertical)
+                    print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
+                
+                print(f"\n{'='*80}")
+                print(f"  ✅ TV NAVIGATION COMPLETE")
+                print(f"     Row 1 (horizontal): {len(all_focus_nodes_row1)} focus nodes")
+                print(f"     Rows 2+ (vertical): {len(all_vertical_focus_nodes)} focus nodes")
+                print(f"     Screen nodes: {len(focus_screen_pairs)} total")
+                print(f"     Edges created: {len(edges_to_save)} bidirectional edges")
+                print(f"{'='*80}\n")
                 
             else:
                 # MOBILE/WEB: Original click-based navigation
