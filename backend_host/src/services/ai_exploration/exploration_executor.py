@@ -532,10 +532,10 @@ class ExplorationExecutor:
                             position={'x': focus_position_x, 'y': focus_position_y},
                             ai_analysis={
                                 'suggested_name': focus_node_name,
-                                'screen_type': 'focus',
+                                'screen_type': 'Screen',
                                 'reasoning': f'Menu focus position for: {original_item}'
                             },
-                            node_type='focus'
+                            node_type='Screen'
                         )
                         nodes_to_save.append(focus_node_data)
                         focus_nodes.append(focus_node_name)
