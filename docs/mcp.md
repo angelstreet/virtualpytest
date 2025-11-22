@@ -1,8 +1,8 @@
 # VirtualPyTest MCP Server Documentation
 
-**Version**: 4.6.0  
-**Last Updated**: 2025-11-21  
-**Total Tools**: 56
+**Version**: 4.7.0  
+**Last Updated**: 2025-11-22  
+**Total Tools**: 63
 
 This documentation has been modularized for easier navigation and maintenance.
 
@@ -22,8 +22,9 @@ This documentation has been modularized for easier navigation and maintenance.
 - **[Verification Tools](mcp/mcp_tools_verification.md)** (4 tools) - `verify_device_state`, `verify_node`, `list_verifications`, `dump_ui_elements`
 - **[Screen Analysis Tools](mcp/mcp_tools_screen_analysis.md)** (2 tools) - `analyze_screen_for_action`, `analyze_screen_for_verification` 🆕 **Unified Selector Scoring**
 
-#### 🔧 Tree Building (Primitives)
-- **[Tree Tools](mcp/mcp_tools_tree.md)** (11 tools) - Create/update/delete nodes/edges, subtrees, execute_edge, get_node, get_edge, save_node_screenshot
+#### 🔧 Tree Building
+- **[🤖 AI Exploration Tools](mcp/mcp_tools_exploration.md)** (7 tools) - **RECOMMENDED** ⭐ Automated tree building (start_ai_exploration, approve_exploration_plan, validate_exploration_edges)
+- **[Tree Tools](mcp/mcp_tools_tree.md)** (11 tools) - Manual primitives (create/update/delete nodes/edges, subtrees, execute_edge)
 
 #### 🧪 Test Management
 - **[TestCase Tools](mcp/mcp_tools_testcase.md)** (6 tools) - Save, load, list, execute, rename testcases
@@ -75,7 +76,17 @@ This documentation has been modularized for easier navigation and maintenance.
 ```
 → See: [Control](mcp/mcp_tools_control.md) | [Navigation](mcp/mcp_tools_navigation.md) | [Screenshot](mcp/mcp_tools_screenshot.md)
 
-### Build Navigation Tree
+### Build Navigation Tree (Automated - RECOMMENDED)
+```
+1. create_userinterface (create app model)
+2. start_ai_exploration (AI analyzes screen)
+3. approve_exploration_plan (creates all nodes/edges)
+4. validate_exploration_edges (tests all edges)
+5. finalize_exploration (makes permanent)
+```
+→ See: [AI Exploration](mcp/mcp_tools_exploration.md) | [UserInterface](mcp/mcp_tools_userinterface.md)
+
+### Build Navigation Tree (Manual - Advanced)
 ```
 1. create_userinterface (create app model)
 2. dump_ui_elements (see what's on screen)
@@ -83,7 +94,7 @@ This documentation has been modularized for easier navigation and maintenance.
 4. create_edge (navigation between screens)
 5. save_node_screenshot (visual documentation)
 ```
-→ See: [UserInterface](mcp/mcp_tools_userinterface.md) | [Tree Tools](mcp/mcp_tools_tree.md)
+→ See: [Tree Tools](mcp/mcp_tools_tree.md) | [Screen Analysis](mcp/mcp_tools_screen_analysis.md)
 
 ### Automated Testing
 ```
@@ -213,12 +224,13 @@ Most tools support optional parameters with sensible defaults:
 
 ## 📊 Statistics
 
-- **Total Tools**: 56
-- **Tool Categories**: 13
-- **Documentation Pages**: 14
+- **Total Tools**: 63
+- **Tool Categories**: 15
+- **Documentation Pages**: 15+
 - **Supported Integrations**: 3 (Cursor, Claude Desktop, MCP Playground)
-- **Lines of Documentation**: 3,600+
-- **MCP Server Code**: 330 lines (refactored from 2,028 lines)
+- **Lines of Documentation**: 5,000+
+- **MCP Server Code**: 351 lines (refactored from 2,028 lines)
+- **Platform-Specific Prompts**: 4 (Generic, Web, Mobile, TV/STB)
 
 ---
 
@@ -261,8 +273,23 @@ For issues or questions:
 
 ---
 
+## 📝 Quick Start Templates
+
+Platform-specific automation prompts with AI Exploration:
+
+- **[Generic Automation Prompt](../docs_new/automate-prompt.md)** - Universal template
+- **[Web Automation Prompt](../docs_new/automate-prompt-web.md)** - CSS selectors, click patterns, form handling
+- **[Mobile Automation Prompt](../docs_new/automate-prompt-mobile.md)** - Touch, swipe, resource-id, deep navigation
+- **[TV/STB Automation Prompt](../docs_new/automate-prompt-tv.md)** - D-pad, dual-layer, subtrees, IR devices
+
+**Example use cases:**
+- [Sauce Demo (E-commerce)](../docs_new/demo/sauce-demo-optimal-prompt.md) - Complete web automation example
+
+---
+
 ## 📈 Version History
 
+- **v4.7.0** (2025-11-22): 63 tools (+ AI Exploration: start_ai_exploration, approve_exploration_plan, validate_exploration_edges, get_node_verification_suggestions, approve_node_verifications, finalize_exploration, get_exploration_status)
 - **v4.6.0** (2025-11-21): 56 tools (+ analyze_screen_for_action, analyze_screen_for_verification - unified selector scoring + shared/src/selector_scoring.py)
 - **v4.5.0** (2025-11-18): 54 tools (+ generate_and_save_testcase, rename_testcase, get_compatible_hosts + MCP server refactor: 327 lines)
 - **v4.4.0** (2025-11): 51 tools (+ preview_userinterface - "What do we test?")
@@ -288,18 +315,28 @@ For issues or questions:
 ```
 docs/
 ├── mcp.md (this file)                # Main index & navigation
-└── mcp/
-    ├── mcp_core.md                   # Core: Overview, architecture, setup
-    ├── mcp_tools_control.md          # take_control (CRITICAL FIRST)
-    ├── mcp_tools_action.md           # execute_device_action, list_actions
-    ├── mcp_tools_navigation.md       # navigate_to_node, list_navigation_nodes
-    ├── mcp_tools_verification.md     # verify_device_state, verify_node, list_verifications
-    ├── mcp_tools_tree.md             # 12 primitive tools (create/update/delete node/edge)
-    ├── mcp_tools_testcase.md         # save/load/list/execute testcases
-    ├── mcp_tools_script.md           # execute_script, list_scripts
-    ├── mcp_tools_ai.md               # generate_test_graph
-    ├── mcp_tools_screenshot.md       # capture_screenshot, save_node_screenshot
-    ├── mcp_tools_userinterface.md    # create/list/delete userinterfaces
-    ├── mcp_tools_requirements.md     # 10 requirements management tools
-    └── mcp_playground.md             # Web interface documentation
+├── mcp/
+│   ├── mcp_core.md                   # Core: Overview, architecture, setup
+│   ├── mcp_tools_control.md          # take_control (CRITICAL FIRST)
+│   ├── mcp_tools_action.md           # execute_device_action, list_actions
+│   ├── mcp_tools_navigation.md       # navigate_to_node, list_navigation_nodes
+│   ├── mcp_tools_verification.md     # verify_device_state, verify_node, list_verifications
+│   ├── mcp_tools_exploration.md      # 7 AI exploration tools (RECOMMENDED) ⭐
+│   ├── mcp_tools_screen_analysis.md  # analyze_screen_for_action, analyze_screen_for_verification
+│   ├── mcp_tools_tree.md             # 11 primitive tools (create/update/delete node/edge)
+│   ├── mcp_tools_testcase.md         # save/load/list/execute testcases
+│   ├── mcp_tools_script.md           # execute_script, list_scripts
+│   ├── mcp_tools_ai.md               # generate_test_graph, generate_and_save_testcase
+│   ├── mcp_tools_screenshot.md       # capture_screenshot, save_node_screenshot
+│   ├── mcp_tools_userinterface.md    # create/list/delete userinterfaces
+│   ├── mcp_tools_requirements.md     # 10 requirements management tools
+│   └── mcp_playground.md             # Web interface documentation
+└── docs_new/
+    ├── automate-prompt.md            # Generic automation template
+    ├── automate-prompt-web.md        # Web-specific template
+    ├── automate-prompt-mobile.md     # Mobile-specific template
+    ├── automate-prompt-tv.md         # TV/STB-specific template
+    └── demo/
+        ├── sauce-demo-optimal-prompt.md   # Complete e-commerce example
+        └── sauce-demo-clean-prompt.md     # Manual approach (legacy)
 ```

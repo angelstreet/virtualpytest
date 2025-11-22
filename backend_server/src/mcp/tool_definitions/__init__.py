@@ -19,7 +19,8 @@ from .logs_definitions import get_tools as get_logs_tools
 from .tree_definitions import get_tools as get_tree_tools
 from .userinterface_definitions import get_tools as get_userinterface_tools
 from .requirements_definitions import get_tools as get_requirements_tools
-from .screen_analysis_definitions import get_tools as get_screen_analysis_tools  # NEW
+from .screen_analysis_definitions import get_tools as get_screen_analysis_tools
+from .exploration_definitions import get_tools as get_exploration_tools  # NEW - AI-powered tree building
 
 __all__ = [
     'get_control_tools',
@@ -36,6 +37,7 @@ __all__ = [
     'get_tree_tools',
     'get_userinterface_tools',
     'get_requirements_tools',
-    'get_screen_analysis_tools',  # NEW
+    'get_screen_analysis_tools',
+    'get_exploration_tools',  # NEW - AI-powered tree building
 ]
 

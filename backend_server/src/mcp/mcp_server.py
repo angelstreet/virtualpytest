@@ -5,7 +5,7 @@ MCP Server for VirtualPyTest
 Model Context Protocol server that exposes VirtualPyTest device control
 functionality to external LLMs (Claude, ChatGPT, etc.)
 
-This server provides 53 core tools for device automation organized into domains:
+This server provides 63 core tools for device automation organized into domains:
 - Control: device locking and session management
 - Actions: device command execution
 - Navigation: UI tree navigation and pathfinding
@@ -19,6 +19,8 @@ This server provides 53 core tools for device automation organized into domains:
 - Tree: navigation tree CRUD operations
 - UserInterface: app model management
 - Requirements: requirements and coverage tracking
+- Screen Analysis: unified selector scoring
+- Exploration: AI-powered tree building (NEW - RECOMMENDED)
 """
 
 import logging
@@ -41,7 +43,8 @@ from .tools.script_tools import ScriptTools
 from .tools.tree_tools import TreeTools
 from .tools.userinterface_tools import UserInterfaceTools
 from .tools.requirements_tools import RequirementsTools
-from .tools.screen_analysis_tools import ScreenAnalysisTools  # NEW - Unified selector analysis
+from .tools.screen_analysis_tools import ScreenAnalysisTools
+from .tools.exploration_tools import ExplorationTools  # NEW - AI-powered tree building
 
 # Import tool definitions
 from .tool_definitions import (
@@ -59,7 +62,8 @@ from .tool_definitions import (
     get_tree_tools,
     get_userinterface_tools,
     get_requirements_tools,
-    get_screen_analysis_tools,  # NEW - Unified selector analysis
+    get_screen_analysis_tools,
+    get_exploration_tools,  # NEW - AI-powered tree building
 )
 
 # Import utilities
@@ -95,7 +99,8 @@ class VirtualPyTestMCPServer:
         self.tree_tools = TreeTools(self.api_client)
         self.userinterface_tools = UserInterfaceTools(self.api_client)
         self.requirements_tools = RequirementsTools(self.api_client)
-        self.screen_analysis_tools = ScreenAnalysisTools()  # NEW - No API client needed (local analysis)
+        self.screen_analysis_tools = ScreenAnalysisTools()
+        self.exploration_tools = ExplorationTools(self.api_client)  # NEW - AI-powered tree building
         
         # Tool registry mapping
         self.tool_handlers = {
@@ -188,6 +193,15 @@ class VirtualPyTestMCPServer:
             # Screen Analysis tools (NEW - Unified selector scoring)
             'analyze_screen_for_action': self.screen_analysis_tools.analyze_screen_for_action,
             'analyze_screen_for_verification': self.screen_analysis_tools.analyze_screen_for_verification,
+            
+            # AI Exploration tools (NEW - Automated tree building)
+            'start_ai_exploration': self.exploration_tools.start_ai_exploration,
+            'get_exploration_status': self.exploration_tools.get_exploration_status,
+            'approve_exploration_plan': self.exploration_tools.approve_exploration_plan,
+            'validate_exploration_edges': self.exploration_tools.validate_exploration_edges,
+            'get_node_verification_suggestions': self.exploration_tools.get_node_verification_suggestions,
+            'approve_node_verifications': self.exploration_tools.approve_node_verifications,
+            'finalize_exploration': self.exploration_tools.finalize_exploration,
         }
         
         self.logger.info(f"VirtualPyTest MCP Server initialized with {len(self.tool_handlers)} tools")
@@ -295,7 +309,8 @@ class VirtualPyTestMCPServer:
         tools.extend(get_tree_tools())
         tools.extend(get_userinterface_tools())
         tools.extend(get_requirements_tools())
-        tools.extend(get_screen_analysis_tools())  # NEW - Unified selector analysis
+        tools.extend(get_screen_analysis_tools())
+        tools.extend(get_exploration_tools())  # NEW - AI-powered tree building
         
         return tools
 
