@@ -491,113 +491,193 @@ class ExplorationExecutor:
             nodes_to_save = []
             edges_to_save = []
             
-            # Get strategy from exploration plan
-            exploration_plan = self.exploration_state.get('exploration_plan', {})
-            strategy = exploration_plan.get('strategy', 'click')
-            all_predicted_items = exploration_plan.get('items', [])
-            menu_type = exploration_plan.get('menu_type', 'horizontal')
-            
-            print(f"[@ExplorationExecutor:continue_exploration] Strategy: {strategy}, Menu Type: {menu_type}")
-            
-            # Create child nodes and edges
-            for idx, item in enumerate(items):
-                node_name_clean = node_gen.target_to_node_name(item)
+            # ✅ NEW: DUAL-LAYER ARCHITECTURE for TV navigation
+            if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+                print(f"\n{'='*80}")
+                print(f"  🎮 TV NAVIGATION MODE: Creating dual-layer structure")
+                print(f"     Layer 1: Focus nodes (menu positions)")
+                print(f"     Layer 2: Screen nodes (actual screens)")
+                print(f"{'='*80}\n")
                 
-                # Skip home nodes - they already exist by default
-                if node_name_clean == 'home' or 'home' in node_name_clean or node_name_clean.lower() in ['home', 'accueil']:
-                    print(f"  ⏭️  Skipping '{node_name_clean}' (home node already exists)")
-                    continue
-                
-                # ✅ Use clean node_id, add _temp to label for visual distinction
-                node_name = node_name_clean
-                position_x = 250 + (idx % 5) * 200
-                position_y = 300 + (idx // 5) * 150
-                
-                # Create node data
-                node_data = node_gen.create_node_data(
-                    node_name=node_name,
-                    label=f"{node_name}_temp",  # Add _temp to label only
-                    position={'x': position_x, 'y': position_y},
-                    ai_analysis={
-                        'suggested_name': node_name_clean,
-                        'screen_type': 'screen',
-                        'reasoning': f'Navigation target: {item}'
-                    },
-                    node_type='screen'
-                )
-                nodes_to_save.append(node_data)
-                nodes_created.append(node_name)
-                
-                # Store mapping
-                self.exploration_state['target_to_node_map'][item] = node_name
-                
-                # ✅ STRATEGY-AWARE: Create D-pad or click actions based on strategy
-                if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-                    # D-pad navigation for TV/STB - ROW-AWARE
+                # Process Row 1 (horizontal menu) with dual-layer structure
+                if len(lines) > 0 and len(lines[0]) > 1:
+                    row1_items = lines[0]
+                    focus_nodes = []
+                    screen_nodes = []
                     
-                    # Find which row the item is in
-                    item_row_idx = -1
-                    item_col_idx = -1
-                    for row_idx, row_items in enumerate(lines):
-                        if item in row_items:
-                            item_row_idx = row_idx
-                            item_col_idx = row_items.index(item)
-                            break
+                    print(f"  📊 Processing Row 1: {len(row1_items)} items")
                     
-                    # Fallback if item not found in lines structure
-                    if item_row_idx == -1:
-                        item_row_idx = 0
-                        item_col_idx = all_items.index(item) if item in all_items else idx
-                        print(f"  ⚠️  Item '{item}' not found in lines structure - using fallback")
-                    
-                    print(f"  🎮 Creating D-PAD edge for '{item}':")
-                    print(f"     Row: {item_row_idx + 1}, Column: {item_col_idx}")
-                    
-                    # Determine navigation strategy based on row structure
-                    forward_actions = []
-                    
-                    if item_row_idx == 0 and len(lines) > 0 and len(lines[0]) > 1:
-                        # Item is in Row 1 (horizontal row) - use RIGHT navigation
-                        dpad_key = 'RIGHT'
-                        presses_needed = item_col_idx
-                        print(f"     Navigation: {presses_needed}x {dpad_key} + OK (Row 1 - horizontal)")
+                    # Step 1: Create focus nodes and screen nodes
+                    for idx, original_item in enumerate(row1_items):
+                        # Only process selected items
+                        if original_item not in items:
+                            continue
+                            
+                        node_name_clean = node_gen.target_to_node_name(original_item)
                         
-                        for i in range(presses_needed):
-                            forward_actions.append({
-                                "command": "press_key",
-                                "params": {"key": dpad_key},
-                                "delay": 500
-                            })
-                    else:
-                        # Item is in a different row (vertical navigation) - use DOWN
-                        dpad_key = 'DOWN'
-                        presses_needed = item_row_idx
-                        print(f"     Navigation: {presses_needed}x {dpad_key} + OK (Row {item_row_idx + 1} - vertical)")
+                        # Skip 'home' - it already exists
+                        if node_name_clean.lower() in ['home', 'accueil']:
+                            focus_nodes.append('home')
+                            print(f"    ♻️  Using existing 'home' node (focus layer)")
+                            continue
                         
-                        for i in range(presses_needed):
-                            forward_actions.append({
+                        # Create FOCUS node (menu position): home_tvguide, home_apps, etc.
+                        focus_node_name = f"home_{node_name_clean}"
+                        focus_position_x = 250 + (idx % 5) * 200
+                        focus_position_y = 100 + (idx // 5) * 100
+                        
+                        focus_node_data = node_gen.create_node_data(
+                            node_name=focus_node_name,
+                            label=f"{focus_node_name}_temp",
+                            position={'x': focus_position_x, 'y': focus_position_y},
+                            ai_analysis={
+                                'suggested_name': focus_node_name,
+                                'screen_type': 'focus',
+                                'reasoning': f'Menu focus position for: {original_item}'
+                            },
+                            node_type='focus'
+                        )
+                        nodes_to_save.append(focus_node_data)
+                        focus_nodes.append(focus_node_name)
+                        nodes_created.append(focus_node_name)
+                        print(f"    ✅ Created FOCUS node: {focus_node_name}_temp")
+                        
+                        # Create SCREEN node (actual screen): tvguide, apps, etc.
+                        screen_node_name = node_name_clean
+                        screen_position_x = 250 + (idx % 5) * 200
+                        screen_position_y = 300 + (idx // 5) * 150
+                        
+                        screen_node_data = node_gen.create_node_data(
+                            node_name=screen_node_name,
+                            label=f"{screen_node_name}_temp",
+                            position={'x': screen_position_x, 'y': screen_position_y},
+                            ai_analysis={
+                                'suggested_name': screen_node_name,
+                                'screen_type': 'screen',
+                                'reasoning': f'Screen for: {original_item}'
+                            },
+                            node_type='screen'
+                        )
+                        nodes_to_save.append(screen_node_data)
+                        screen_nodes.append(screen_node_name)
+                        nodes_created.append(screen_node_name)
+                        
+                        # Store mapping (map item to screen node)
+                        self.exploration_state['target_to_node_map'][original_item] = screen_node_name
+                        print(f"    ✅ Created SCREEN node: {screen_node_name}_temp")
+                    
+                    print(f"\n  📊 Created {len(focus_nodes)} focus nodes, {len(screen_nodes)} screen nodes")
+                    
+                    # Step 2: Create HORIZONTAL edges (LEFT/RIGHT between adjacent focus nodes)
+                    print(f"\n  ➡️  Creating HORIZONTAL edges (menu navigation):")
+                    for idx in range(len(focus_nodes) - 1):
+                        source_focus = focus_nodes[idx]
+                        target_focus = focus_nodes[idx + 1]
+                        
+                        # Forward: RIGHT
+                        edge_right = node_gen.create_edge_data(
+                            source=source_focus,
+                            target=target_focus,
+                            actions=[{
                                 "command": "press_key",
-                                "params": {"key": dpad_key},
+                                "params": {"key": "RIGHT"},
                                 "delay": 500
-                            })
+                            }],
+                            reverse_actions=[],
+                            label=f"{source_focus}_to_{target_focus}_temp"
+                        )
+                        edges_to_save.append(edge_right)
+                        print(f"    → {source_focus} → {target_focus}: RIGHT")
+                        
+                        # Reverse: LEFT
+                        edge_left = node_gen.create_edge_data(
+                            source=target_focus,
+                            target=source_focus,
+                            actions=[{
+                                "command": "press_key",
+                                "params": {"key": "LEFT"},
+                                "delay": 500
+                            }],
+                            reverse_actions=[],
+                            label=f"{target_focus}_to_{source_focus}_temp"
+                        )
+                        edges_to_save.append(edge_left)
+                        print(f"    ← {target_focus} → {source_focus}: LEFT")
                     
-                    # Add final OK press
-                    forward_actions.append({
-                        "command": "press_key",
-                        "params": {"key": "OK"},
-                        "delay": 2000
-                    })
+                    # Step 3: Create VERTICAL edges (OK/BACK between focus and screen)
+                    print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens):")
+                    for idx in range(len(screen_nodes)):
+                        focus_node = focus_nodes[idx + 1]  # +1 because focus_nodes includes 'home' at [0]
+                        screen_node = screen_nodes[idx]
+                        
+                        # Forward: OK (enter screen)
+                        edge_enter = node_gen.create_edge_data(
+                            source=focus_node,
+                            target=screen_node,
+                            actions=[{
+                                "command": "press_key",
+                                "params": {"key": "OK"},
+                                "delay": 2000
+                            }],
+                            reverse_actions=[],
+                            label=f"{focus_node}_enter_{screen_node}_temp"
+                        )
+                        edges_to_save.append(edge_enter)
+                        print(f"    ↓ {focus_node} → {screen_node}: OK")
+                        
+                        # Reverse: BACK (exit screen)
+                        edge_exit = node_gen.create_edge_data(
+                            source=screen_node,
+                            target=focus_node,
+                            actions=[{
+                                "command": "press_key",
+                                "params": {"key": "BACK"},
+                                "delay": 2000
+                            }],
+                            reverse_actions=[],
+                            label=f"{screen_node}_exit_{focus_node}_temp"
+                        )
+                        edges_to_save.append(edge_exit)
+                        print(f"    ↑ {screen_node} → {focus_node}: BACK")
                     
-                    print(f"     Forward actions: {len(forward_actions)} total ({presses_needed} x {dpad_key}, 1 x OK)")
+                    print(f"\n  ✅ Created {len(edges_to_save)} edges total")
+                
+            else:
+                # MOBILE/WEB: Original click-based navigation
+                print(f"\n  📱 MOBILE/WEB MODE: Creating click-based structure")
+                
+                # Create child nodes and edges
+                for idx, item in enumerate(items):
+                    node_name_clean = node_gen.target_to_node_name(item)
                     
-                    reverse_actions = [{
-                        "command": "press_key",
-                        "params": {"key": "BACK"},
-                        "delay": 2000
-                    }]
+                    # Skip home nodes - they already exist by default
+                    if node_name_clean == 'home' or 'home' in node_name_clean or node_name_clean.lower() in ['home', 'accueil']:
+                        print(f"  ⏭️  Skipping '{node_name_clean}' (home node already exists)")
+                        continue
                     
-                    print(f"     Reverse actions: press_key(BACK)")
-                else:
+                    # ✅ Use clean node_id, add _temp to label for visual distinction
+                    node_name = node_name_clean
+                    position_x = 250 + (idx % 5) * 200
+                    position_y = 300 + (idx // 5) * 150
+                    
+                    # Create node data
+                    node_data = node_gen.create_node_data(
+                        node_name=node_name,
+                        label=f"{node_name}_temp",  # Add _temp to label only
+                        position={'x': position_x, 'y': position_y},
+                        ai_analysis={
+                            'suggested_name': node_name_clean,
+                            'screen_type': 'screen',
+                            'reasoning': f'Navigation target: {item}'
+                        },
+                        node_type='screen'
+                    )
+                    nodes_to_save.append(node_data)
+                    nodes_created.append(node_name)
+                    
+                    # Store mapping
+                    self.exploration_state['target_to_node_map'][item] = node_name
+                    
                     # Click navigation for mobile/web
                     print(f"  📱 Creating CLICK edge for '{item}': click_element(\"{item}\")")
                     
@@ -612,15 +692,15 @@ class ExplorationExecutor:
                         "params": {"key": "BACK"},
                         "delay": 2000
                     }]
-                
-                edge_data = node_gen.create_edge_data(
-                    source=home_id,
-                    target=node_name,
-                    actions=forward_actions,
-                    reverse_actions=reverse_actions,
-                    label=f"{item}_temp"  # Add _temp to label for visual distinction
-                )
-                edges_to_save.append(edge_data)
+                    
+                    edge_data = node_gen.create_edge_data(
+                        source=home_id,
+                        target=node_name,
+                        actions=forward_actions,
+                        reverse_actions=reverse_actions,
+                        label=f"{item}_temp"  # Add _temp to label for visual distinction
+                    )
+                    edges_to_save.append(edge_data)
             
             # ✅ BATCH SAVE: Save all nodes at once
             print(f"  💾 Batch saving {len(nodes_to_save)} nodes...")
