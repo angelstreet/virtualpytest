@@ -310,16 +310,95 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
                           {explorationPlan.lines && explorationPlan.lines.length > 0 ? (
-                            // DPAD navigation (TV/STB) - show line structure
-                            explorationPlan.lines.map((line: string[], idx: number) => (
-                              <Typography 
-                                key={idx} 
-                                variant="body2" 
-                                sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}
-                              >
-                                Line {idx + 1}: {line.join(', ')}
-                              </Typography>
-                            ))
+                            // DPAD navigation (TV/STB) - show dual-layer structure with arrows
+                            <Box sx={{ fontFamily: 'monospace', fontSize: '0.70rem' }}>
+                              {explorationPlan.lines.map((line: string[], lineIdx: number) => {
+                                // Only show dual-layer for Row 1 (horizontal menu)
+                                if (lineIdx === 0 && line.length > 1) {
+                                  return (
+                                    <Box key={lineIdx}>
+                                      {/* Focus Layer */}
+                                      <Typography variant="caption" sx={{ color: 'primary.main', fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                        Focus Layer (Menu Positions):
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.5, mb: 1 }}>
+                                        {line.map((item, idx) => {
+                                          const isHome = item.toLowerCase() === 'home';
+                                          const focusName = isHome ? 'home' : `home_${item.toLowerCase().replace(/[^a-z0-9]+/g, '_')}`;
+                                          return (
+                                            <React.Fragment key={idx}>
+                                              <Box 
+                                                sx={{ 
+                                                  px: 1, 
+                                                  py: 0.5, 
+                                                  bgcolor: 'rgba(33, 150, 243, 0.2)', 
+                                                  borderRadius: 0.5,
+                                                  border: '1px solid rgba(33, 150, 243, 0.5)',
+                                                  fontSize: '0.65rem'
+                                                }}
+                                              >
+                                                {focusName}
+                                              </Box>
+                                              {idx < line.length - 1 && (
+                                                <Typography sx={{ color: 'primary.light', mx: 0.5 }}>⟷</Typography>
+                                              )}
+                                            </React.Fragment>
+                                          );
+                                        })}
+                                      </Box>
+                                      
+                                      {/* Arrows Down */}
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5, pl: 3 }}>
+                                        {line.slice(1).map((item, idx) => (
+                                          <React.Fragment key={idx}>
+                                            <Typography sx={{ color: 'success.light', fontSize: '1rem' }}>↓</Typography>
+                                            {idx < line.length - 2 && <Box sx={{ width: '80px' }} />}
+                                          </React.Fragment>
+                                        ))}
+                                      </Box>
+                                      
+                                      {/* Screen Layer */}
+                                      <Typography variant="caption" sx={{ color: 'success.main', fontWeight: 'bold', display: 'block', mb: 0.5 }}>
+                                        Screen Layer (Actual Screens):
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, pl: 6 }}>
+                                        {line.slice(1).map((item, idx) => {
+                                          const screenName = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                                          return (
+                                            <Box 
+                                              key={idx}
+                                              sx={{ 
+                                                px: 1, 
+                                                py: 0.5, 
+                                                bgcolor: 'rgba(76, 175, 80, 0.2)', 
+                                                borderRadius: 0.5,
+                                                border: '1px solid rgba(76, 175, 80, 0.5)',
+                                                fontSize: '0.65rem',
+                                                mr: 1
+                                              }}
+                                            >
+                                              {screenName}
+                                            </Box>
+                                          );
+                                        })}
+                                      </Box>
+                                    </Box>
+                                  );
+                                } else if (lineIdx > 0) {
+                                  // Other rows (vertical) - show as simple list
+                                  return (
+                                    <Typography 
+                                      key={lineIdx}
+                                      variant="body2" 
+                                      sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary', mt: 1 }}
+                                    >
+                                      Row {lineIdx + 1}: {line.join(', ')}
+                                    </Typography>
+                                  );
+                                }
+                                return null;
+                              })}
+                            </Box>
                           ) : (
                             // Click-based navigation (mobile/web) - show cleaned node names as chips
                             // ✅ Filter out home nodes (home, Home, Accueil, etc.)
