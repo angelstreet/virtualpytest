@@ -451,6 +451,23 @@ class TextHelpers:
                 filtered_by_confidence = 0
                 filtered_by_invalid_box = 0
                 
+                # 🐛 DEBUG: Log ALL raw OCR results before filtering
+                print(f"\n  🐛 DEBUG: ===== RAW OCR RESULTS (BEFORE FILTERING) =====")
+                print(f"  🐛 Total raw results: {len(lines)-1}")
+                for idx, line in enumerate(lines[1:], start=1):
+                    cols = line.split('\t')
+                    if len(cols) >= len(header):
+                        data = dict(zip(header, cols))
+                        text = data.get('text', '').strip()
+                        conf = data.get('conf', '-1')
+                        left = data.get('left', '?')
+                        top = data.get('top', '?')
+                        width = data.get('width', '?')
+                        height = data.get('height', '?')
+                        # Show full text, not truncated
+                        print(f"  🐛 [{idx:3d}] text='{text}' conf={conf:>3s} box=({left},{top},{width}x{height})")
+                print(f"  🐛 DEBUG: ===== END RAW OCR RESULTS ({len(lines)-1} total) =====\n")
+                
                 # Process each line (skip header)
                 for line in lines[1:]:
                     cols = line.split('\t')
@@ -468,17 +485,18 @@ class TextHelpers:
                     # Skip empty text or low confidence
                     if not text or conf == '-1':
                         filtered_by_empty += 1
+                        print(f"    🐛 DEBUG: Filtered (empty/no-conf): text='{text}', conf={conf}")
                         continue
                     
                     try:
                         confidence = int(conf)
                         if confidence < confidence_threshold:
                             filtered_by_confidence += 1
-                            if len(elements) < 10:  # Log first 10 filtered for debugging
-                                print(f"    🐛 DEBUG: Filtered (conf={confidence}): '{text}'")
+                            print(f"    🐛 DEBUG: Filtered (conf={confidence} < {confidence_threshold}): '{text}'")
                             continue
                     except ValueError:
                         filtered_by_confidence += 1
+                        print(f"    🐛 DEBUG: Filtered (ValueError on conf='{conf}'): '{text}'")
                         continue
                     
                     # Get bounding box
@@ -515,10 +533,10 @@ class TextHelpers:
                 
                 print(f"[@text_helpers:extract_full_ocr_dump] Extracted {len(elements)} text elements (confidence >= {confidence_threshold})")
                 
-                # Show first few valid elements
+                # Show ALL valid elements
                 if elements:
-                    print(f"  🐛 DEBUG: Sample elements (showing first {min(5, len(elements))}):")
-                    for elem in elements[:5]:
+                    print(f"  🐛 DEBUG: All valid elements ({len(elements)} total):")
+                    for elem in elements:
                         print(f"    - '{elem['text']}' (conf={elem['confidence']}) at ({elem['area']['x']}, {elem['area']['y']})")
                 
                 # Group nearby words into phrases (combine words on same line)
@@ -526,9 +544,9 @@ class TextHelpers:
                     grouped_elements = self._group_text_elements(elements)
                     print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases")
                     if grouped_elements:
-                        print(f"  🐛 DEBUG: Sample grouped phrases (showing first {min(3, len(grouped_elements))}):")
-                        for phrase in grouped_elements[:3]:
-                            print(f"    - '{phrase['text']}' (conf={phrase['confidence']})")
+                        print(f"  🐛 DEBUG: All grouped phrases ({len(grouped_elements)} total):")
+                        for phrase in grouped_elements:
+                            print(f"    - '{phrase['text']}' (conf={phrase['confidence']}) at ({phrase['area']['x']}, {phrase['area']['y']})")
                     return grouped_elements
                 
                 print(f"  🐛 DEBUG: ⚠️ No valid elements passed all filters!")
