@@ -1195,12 +1195,34 @@ class ExplorationExecutor:
                 print(f"     prev_focus_name = {prev_focus_name}")
             else:
                 # Different rows: vertical navigation
-                prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
-                prev_focus_name = f"home_{prev_item_name}"
+                # Navigate back to FIRST ITEM of PREVIOUS ROW, then DOWN to current row
+                # Row 0 → Row 1: back to home, then DOWN
+                # Row 1 → Row 2: back to watch (first item of Row 1), then DOWN
+                if prev_row_index == 0:
+                    # Previous row was Row 0 (top menu) → return to home
+                    prev_focus_name = 'home'
+                    first_item_of_prev_row = 'home'
+                elif prev_row_index > 0:
+                    # Previous row was Row 1+ → return to first item of that row
+                    # lines[0] = Row 0, lines[1] = Row 1, lines[2] = Row 2, etc.
+                    if prev_row_index < len(lines):
+                        prev_row_items = lines[prev_row_index]
+                        first_item_label = prev_row_items[0] if prev_row_items else 'home'
+                        first_item_name = node_gen.target_to_node_name(first_item_label)
+                        prev_focus_name = f"home_{first_item_name}"
+                        first_item_of_prev_row = first_item_label
+                    else:
+                        prev_focus_name = 'home'
+                        first_item_of_prev_row = 'home'
+                else:
+                    prev_focus_name = 'home'
+                    first_item_of_prev_row = 'home'
+                
                 nav_direction = 'DOWN'  # Moving to new row vertically
-                print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → DOWN to new row")
+                print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → Return to first item of Row {prev_row_index + 1}, then DOWN")
                 print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
-                print(f"     prev_focus_name = {prev_focus_name}")
+                print(f"     First item of prev row: '{first_item_of_prev_row}'")
+                print(f"     prev_focus_name = {prev_focus_name} (after return)")
             
             print(f"\n  🐛 DEBUG: Final Navigation Plan")
             print(f"     {prev_focus_name} → {focus_node_name}: {nav_direction}")
@@ -1234,7 +1256,26 @@ class ExplorationExecutor:
             # ✅ ROW TRANSITION: For different rows (DOWN navigation)
             elif not is_same_row and not is_first_item_overall:
                 print(f"\n    🔽 ROW {display_row} TRANSITION: From Row {prev_row_index + 1} via DOWN")
-                # No recovery needed - we're already positioned at previous row's last item
+                # Return to first item of PREVIOUS row before going DOWN to next row
+                print(f"    🔄 Returning to '{first_item_of_prev_row}' (first item of Row {prev_row_index + 1}) before navigating to Row {display_row}...")
+                try:
+                    import asyncio
+                    nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
+                        tree_id=tree_id,
+                        userinterface_name=self.exploration_state['userinterface_name'],
+                        target_node_label=first_item_of_prev_row,
+                        team_id=team_id
+                    ))
+                    
+                    if nav_result.get('success'):
+                        print(f"    ✅ Back at '{first_item_of_prev_row}' (Row {prev_row_index + 1}) - ready for DOWN navigation to Row {display_row}")
+                    else:
+                        error_msg = nav_result.get('error', 'Unknown error')
+                        print(f"    ❌ Navigation to '{first_item_of_prev_row}' failed: {error_msg}")
+                        print(f"    ⚠️ Continuing anyway - validation may fail")
+                except Exception as e:
+                    print(f"    ❌ Navigation exception: {e}")
+                    print(f"    ⚠️ Continuing anyway - validation may fail")
             
             # Print validation info
             print(f"     📍 Row {display_row}, Position {current_position_in_row + 1}")
