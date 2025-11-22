@@ -403,14 +403,14 @@ class ExplorationExecutor:
                 'error': state.get('error')
             }
     
-    def continue_exploration(self, team_id: str, selected_items: List[str] = None) -> Dict[str, Any]:
+    def continue_exploration(self, team_id: str, selected_items: List[str] = None, selected_screen_items: List[str] = None) -> Dict[str, Any]:
         """
-        Phase 2a: Create nodes and edges structure for selected items only
-        Uses BATCH SAVE for efficiency.
+        Phase 2a: Create nodes and edges structure for selected items
         
         Args:
             team_id: Team ID
-            selected_items: Optional list of items to create (if None, creates all)
+            selected_items: List of focus nodes to create
+            selected_screen_items: List of screen nodes to create (TV only)
         
         Returns:
             {
@@ -542,31 +542,34 @@ class ExplorationExecutor:
                         nodes_created.append(focus_node_name)
                         print(f"    ✅ Created FOCUS node: {focus_node_name}_temp")
                         
-                        # Create SCREEN node (actual screen): tvguide, apps, etc.
-                        screen_node_name = node_name_clean
-                        screen_position_x = 250 + (idx % 5) * 200
-                        screen_position_y = 300 + (idx // 5) * 150
-                        
-                        screen_node_data = node_gen.create_node_data(
-                            node_name=screen_node_name,
-                            label=f"{screen_node_name}_temp",
-                            position={'x': screen_position_x, 'y': screen_position_y},
-                            ai_analysis={
-                                'suggested_name': screen_node_name,
-                                'screen_type': 'screen',
-                                'reasoning': f'Screen for: {original_item}'
-                            },
-                            node_type='screen'
-                        )
-                        nodes_to_save.append(screen_node_data)
-                        nodes_created.append(screen_node_name)
-                        
-                        # ✅ Store focus-screen pair for vertical edges
-                        focus_screen_pairs.append((focus_node_name, screen_node_name))
-                        
-                        # Store mapping (map item to screen node)
-                        self.exploration_state['target_to_node_map'][original_item] = screen_node_name
-                        print(f"    ✅ Created SCREEN node: {screen_node_name}_temp")
+                        # Create SCREEN node ONLY if selected
+                        if selected_screen_items is None or original_item in selected_screen_items:
+                            screen_node_name = node_name_clean
+                            screen_position_x = 250 + (idx % 5) * 200
+                            screen_position_y = 300 + (idx // 5) * 150
+                            
+                            screen_node_data = node_gen.create_node_data(
+                                node_name=screen_node_name,
+                                label=f"{screen_node_name}_temp",
+                                position={'x': screen_position_x, 'y': screen_position_y},
+                                ai_analysis={
+                                    'suggested_name': screen_node_name,
+                                    'screen_type': 'screen',
+                                    'reasoning': f'Screen for: {original_item}'
+                                },
+                                node_type='screen'
+                            )
+                            nodes_to_save.append(screen_node_data)
+                            nodes_created.append(screen_node_name)
+                            
+                            # Store focus-screen pair for vertical edges
+                            focus_screen_pairs.append((focus_node_name, screen_node_name))
+                            
+                            # Store mapping
+                            self.exploration_state['target_to_node_map'][original_item] = screen_node_name
+                            print(f"    ✅ Created SCREEN node: {screen_node_name}_temp")
+                        else:
+                            print(f"    ⏭️  Skipped SCREEN node: {node_name_clean} (not selected)")
                     
                     print(f"\n  📊 Created {len(focus_nodes)} focus nodes, {len(focus_screen_pairs)} screen nodes")
                     

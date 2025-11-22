@@ -107,6 +107,41 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     }
   });
 
+  // ✅ TV DUAL-LAYER: Independent focus/screen selection
+  const [selectedScreenNodes, setSelectedScreenNodes] = React.useState<Set<string>>(
+    () => new Set(explorationPlan?.items || [])
+  );
+
+  const toggleFocusNode = (item: string) => {
+    toggleNodeSelection(item);  // Toggle focus
+    
+    // If deselecting focus, also deselect screen (can't reach screen without focus)
+    if (selectedNodes.has(item)) {
+      setSelectedScreenNodes(prev => {
+        const newSet = new Set(prev);
+        newSet.delete(item);
+        return newSet;
+      });
+    }
+  };
+
+  const toggleScreenNode = (item: string) => {
+    // Only allow toggling if focus is selected
+    if (!selectedNodes.has(item)) {
+      return; // Can't select screen without focus
+    }
+    
+    setSelectedScreenNodes(prev => {
+      const newSet = new Set(prev);
+      if (newSet.has(item)) {
+        newSet.delete(item);
+      } else {
+        newSet.add(item);
+      }
+      return newSet;
+    });
+  };
+
   // Use custom hook for modal logic
   const {
     hasTempNodes,
@@ -157,7 +192,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   
   const handleCreateStructure = async () => {
     console.log('[@AIGenerationModal:Phase1] Creating structure...');
-    await continueExploration(); // Phase 2a: Create nodes/edges
+    await continueExploration(selectedScreenNodes); // Phase 2a: Create nodes/edges with screen selection
     // onStructureCreated callback will be triggered by hook, which closes this modal
   };
 
@@ -357,23 +392,23 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       </Typography>
                                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                         {nodePairs.map((pair, idx) => {
-                                          const isSelected = selectedNodes.has(pair.item);
+                                          const isFocusSelected = selectedNodes.has(pair.item);
                                           return (
                                             <Chip 
                                               key={idx}
                                               label={pair.focusNode}
                                               size="small"
                                               variant="outlined"
-                                              onClick={() => toggleNodeSelection(pair.item)}
+                                              onClick={() => toggleFocusNode(pair.item)}
                                               sx={{
                                                 cursor: 'pointer',
-                                                opacity: isSelected ? 1 : 0.4,
-                                                bgcolor: isSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent',
-                                                borderColor: isSelected ? 'primary.main' : 'grey.600',
+                                                opacity: isFocusSelected ? 1 : 0.4,
+                                                bgcolor: isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent',
+                                                borderColor: isFocusSelected ? 'primary.main' : 'grey.600',
                                                 fontSize: '0.65rem',
                                                 '&:hover': {
                                                   opacity: 0.8,
-                                                  bgcolor: isSelected ? 'rgba(33, 150, 243, 0.3)' : 'action.hover'
+                                                  bgcolor: isFocusSelected ? 'rgba(33, 150, 243, 0.3)' : 'action.hover'
                                                 }
                                               }}
                                             />
@@ -389,20 +424,25 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       </Typography>
                                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                         {nodePairs.map((pair, idx) => {
-                                          const isSelected = selectedNodes.has(pair.item);
+                                          const isFocusSelected = selectedNodes.has(pair.item);
+                                          const isScreenSelected = selectedScreenNodes.has(pair.item);
                                           return (
                                             <Chip 
                                               key={idx}
                                               label={pair.screenNode}
                                               size="small"
                                               variant="outlined"
-                                              disabled={!isSelected}
+                                              onClick={() => toggleScreenNode(pair.item)}
                                               sx={{
-                                                cursor: isSelected ? 'default' : 'not-allowed',
-                                                opacity: isSelected ? 1 : 0.3,
-                                                bgcolor: isSelected ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
-                                                borderColor: isSelected ? 'success.main' : 'grey.700',
-                                                fontSize: '0.65rem'
+                                                cursor: isFocusSelected ? 'pointer' : 'not-allowed',
+                                                opacity: (isFocusSelected && isScreenSelected) ? 1 : 0.3,
+                                                bgcolor: (isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
+                                                borderColor: (isFocusSelected && isScreenSelected) ? 'success.main' : 'grey.700',
+                                                fontSize: '0.65rem',
+                                                '&:hover': isFocusSelected ? {
+                                                  opacity: 0.8,
+                                                  bgcolor: isScreenSelected ? 'rgba(76, 175, 80, 0.3)' : 'action.hover'
+                                                } : undefined
                                               }}
                                             />
                                           );

@@ -358,7 +358,7 @@ export const useGenerateModel = ({
     }
   }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName]);
 
-  const continueExploration = useCallback(async () => {
+  const continueExploration = useCallback(async (selectedScreenNodes?: Set<string>) => {
     if (!explorationId || !explorationHostName) {
       setError('No exploration session to continue');
       return;
@@ -371,16 +371,17 @@ export const useGenerateModel = ({
       setPhase('structure');
       setCurrentStep('Creating navigation structure...');
       
-      console.log('[@useGenerateModel:continueExploration] Creating structure (Phase 2a):', explorationId);
-      console.log('[@useGenerateModel:continueExploration] Selected nodes:', Array.from(selectedNodes));
+      console.log('[@useGenerateModel:continueExploration] Selected focus:', Array.from(selectedNodes));
+      console.log('[@useGenerateModel:continueExploration] Selected screen:', selectedScreenNodes ? Array.from(selectedScreenNodes) : 'same as focus');
 
       const response = await fetch(buildServerUrl(`/server/ai-generation/continue-exploration?host_name=${encodeURIComponent(explorationHostName)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           exploration_id: explorationId,
-          device_id: selectedDeviceId,  // ← ADDED
-          selected_items: Array.from(selectedNodes) // ✅ Only create selected nodes
+          device_id: selectedDeviceId,
+          selected_items: Array.from(selectedNodes),
+          selected_screen_items: selectedScreenNodes ? Array.from(selectedScreenNodes) : Array.from(selectedNodes)
         })
       });
 
