@@ -16,6 +16,8 @@ from typing import Dict, Optional, Any
 from backend_host.src.services.ai_exploration.exploration_engine import ExplorationEngine
 from backend_host.src.services.ai_exploration.exploration_context import ExplorationContext, create_exploration_context
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
+from backend_host.src.services.ai_exploration.tv_validation import TVValidationStrategy
+from backend_host.src.services.ai_exploration.mobile_validation import MobileValidationStrategy
 from shared.src.lib.database.navigation_trees_db import (
     save_node,
     save_nodes_batch,
@@ -119,6 +121,183 @@ class ExplorationExecutor:
         self._lock = threading.Lock()
         
         print(f"[@ExplorationExecutor] Initialized for device {device.device_id}")
+    
+    # ========== HELPER METHODS (Eliminate Code Duplication) ==========
+    
+    def _capture_and_upload_screenshot(self, node_name: str) -> Optional[str]:
+        """
+        Capture screenshot and upload to R2
+        
+        Used by: TV validation, Mobile validation, verification approval
+        Returns: screenshot URL or None
+        """
+        try:
+            # Capture screenshot
+            av_controllers = self.device.get_controllers('av')
+            av_controller = av_controllers[0] if av_controllers else None
+            if not av_controller:
+                print(f"    ⚠️ No AV controller available")
+                return None
+            
+            screenshot_path = av_controller.take_screenshot()
+            if not screenshot_path:
+                print(f"    ⚠️ Screenshot capture failed")
+                return None
+            
+            print(f"    📸 Screenshot captured: {screenshot_path}")
+            
+            # Upload to R2
+            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+            sanitized_name = node_name.replace(' ', '_').replace('_temp', '')
+            r2_filename = f"{sanitized_name}.jpg"
+            userinterface_name = self.exploration_state['userinterface_name']
+            upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
+            
+            if upload_result.get('success'):
+                screenshot_url = upload_result.get('url')
+                print(f"    📸 Screenshot uploaded: {screenshot_url}")
+                return screenshot_url
+            else:
+                print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
+                return None
+                
+        except Exception as e:
+            print(f"    ⚠️ Screenshot process failed: {e}")
+            return None
+    
+    def _extract_dump(self, controller, screenshot_path: Optional[str] = None) -> Optional[Dict]:
+        """
+        Extract UI dump (auto-detects ADB/Web/OCR based on device)
+        
+        Used by: TV validation, Mobile validation
+        Returns: {'elements': [...]} or None
+        """
+        try:
+            # Try ADB/Web dump first
+            if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
+                dump_result = controller.dump_elements()
+                
+                # Handle async controllers (web)
+                import inspect
+                if inspect.iscoroutine(dump_result):
+                    import asyncio
+                    dump_result = asyncio.run(dump_result)
+                
+                # Normalize dump format (mobile returns tuple, web returns dict)
+                if isinstance(dump_result, tuple):
+                    # Mobile: (success, elements, error)
+                    success, elements, error = dump_result
+                    if success and elements:
+                        print(f"    📱 ADB Dump: {len(elements)} elements")
+                        return {'elements': elements}
+                    else:
+                        print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
+                elif isinstance(dump_result, dict):
+                    # Web: already dict format
+                    element_count = len(dump_result.get('elements', []))
+                    print(f"    🌐 Web Dump: {element_count} elements")
+                    return dump_result
+            
+            # Fallback to OCR dump if ADB/Web dump failed AND screenshot available
+            if screenshot_path:
+                print(f"    📊 Using OCR dump fallback")
+                text_controller = None
+                for v in self.device.get_controllers('verification'):
+                    if getattr(v, 'verification_type', None) == 'text':
+                        text_controller = v
+                        break
+                
+                if text_controller:
+                    ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
+                    
+                    if ocr_result.get('success') and ocr_result.get('elements'):
+                        print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
+                        return {'elements': ocr_result['elements']}
+                    else:
+                        print(f"    ⚠️ OCR dump failed or no text found")
+                else:
+                    print(f"    ⚠️ Text controller not available for OCR")
+            
+            return None
+            
+        except Exception as e:
+            print(f"    ⚠️ Dump extraction failed: {e}")
+            return None
+    
+    def _capture_screen_data(self, node_name: str, node_label: str, controller) -> tuple[Optional[str], Optional[Dict]]:
+        """
+        Capture screenshot + dump and store verification data
+        
+        Combines _capture_and_upload_screenshot + _extract_dump + storage
+        Used by: TV validation, Mobile validation
+        
+        Returns: (screenshot_url, dump_data)
+        """
+        # Capture and upload screenshot
+        screenshot_url = self._capture_and_upload_screenshot(node_name)
+        screenshot_path = None
+        
+        # Get local screenshot path for dump extraction
+        if screenshot_url:
+            try:
+                av_controllers = self.device.get_controllers('av')
+                av_controller = av_controllers[0] if av_controllers else None
+                if av_controller and hasattr(av_controller, 'last_screenshot_path'):
+                    screenshot_path = av_controller.last_screenshot_path
+            except:
+                pass
+        
+        # Extract dump
+        dump_data = self._extract_dump(controller, screenshot_path)
+        
+        # Store verification data
+        if screenshot_url or dump_data:
+            with self._lock:
+                if 'node_verification_data' not in self.exploration_state:
+                    self.exploration_state['node_verification_data'] = []
+                
+                self.exploration_state['node_verification_data'].append({
+                    'node_id': node_name,
+                    'node_label': node_label,
+                    'dump': dump_data,
+                    'screenshot_url': screenshot_url
+                })
+            print(f"    ✅ Verification data stored (dump: {dump_data is not None}, screenshot: {screenshot_url is not None})")
+        
+        return screenshot_url, dump_data
+    
+    def _navigate_to_home(self) -> Dict[str, Any]:
+        """
+        Recovery navigation to home node
+        
+        Used by: Mobile validation recovery
+        Returns: Navigation result
+        """
+        try:
+            import asyncio
+            tree_id = self.exploration_state['tree_id']
+            team_id = self.exploration_state['team_id']
+            userinterface_name = self.exploration_state['userinterface_name']
+            
+            nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                target_node_label='home',
+                team_id=team_id
+            ))
+            
+            if nav_result.get('success'):
+                print(f"    ✅ Navigation to home successful")
+            else:
+                print(f"    ❌ Navigation to home failed: {nav_result.get('error')}")
+            
+            return nav_result
+            
+        except Exception as e:
+            print(f"    ❌ Navigation exception: {e}")
+            return {'success': False, 'error': str(e)}
+    
+    # ========== END HELPER METHODS ==========
     
     def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str, original_prompt: str = "", start_node: str = 'home') -> Dict[str, Any]:
         """
@@ -421,17 +600,7 @@ class ExplorationExecutor:
         """
         Phase 2a: Create nodes and edges structure for selected items
         
-        Args:
-            team_id: Team ID
-            selected_items: List of focus nodes to create
-            selected_screen_items: List of screen nodes to create (TV only)
-        
-        Returns:
-            {
-                'success': True,
-                'nodes_created': 11,
-                'edges_created': 10
-            }
+        Dispatcher method - delegates to device-specific implementation
         """
         print(f"\n{'='*80}")
         print(f"[@ExplorationExecutor:continue_exploration] 🚀 PHASE 2: STRUCTURE CREATION STARTED")
@@ -447,66 +616,53 @@ class ExplorationExecutor:
                     'error': f"Cannot continue: status is {self.exploration_state['status']}"
                 }
             
-            tree_id = self.exploration_state['tree_id']
             exploration_plan = self.exploration_state.get('exploration_plan', {})
-            all_items = exploration_plan.get('items', [])
-            
-            print(f"[@ExplorationExecutor:continue_exploration] All items from plan: {all_items}")
-            print(f"[@ExplorationExecutor:continue_exploration] Received selected_items: {selected_items}")
-            print(f"[@ExplorationExecutor:continue_exploration] 🔍 Exploration Plan Keys: {list(exploration_plan.keys())}")
-            print(f"[@ExplorationExecutor:continue_exploration] 📊 Strategy from plan: {exploration_plan.get('strategy', 'NOT_FOUND')}")
-            print(f"[@ExplorationExecutor:continue_exploration] 📊 Menu Type from plan: {exploration_plan.get('menu_type', 'NOT_FOUND')}")
-            
-            # ✅ Filter items based on user selection
-            if selected_items is not None and len(selected_items) > 0:
-                items = [item for item in all_items if item in selected_items]
-                print(f"[@ExplorationExecutor:continue_exploration] ✅ User selected {len(items)}/{len(all_items)} items: {items}")
-            else:
-                items = all_items
-                print(f"[@ExplorationExecutor:continue_exploration] ⚠️ No selection provided - creating all {len(items)} items")
-            
-            print(f"\n{'='*80}")
-            print(f"[@ExplorationExecutor:continue_exploration] 📋 EDGE CREATION STRATEGY")
-            print(f"{'='*80}")
-            
-            # Get strategy from exploration plan
             strategy = exploration_plan.get('strategy', 'click')
-            menu_type = exploration_plan.get('menu_type', 'horizontal')
-            lines = exploration_plan.get('lines', [])  # Row structure: [['home', 'tv guide', ...], ['watch'], ...]
             
-            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Strategy: {strategy}")
-            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Menu Type: {menu_type}")
-            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Device Model: {self.device_model}")
-            print(f"[@ExplorationExecutor:continue_exploration] 🎯 Row Structure: {len(lines)} rows")
-            for row_idx, row_items in enumerate(lines):
-                print(f"[@ExplorationExecutor:continue_exploration]    Row {row_idx + 1}: {len(row_items)} items - {row_items[:3]}{'...' if len(row_items) > 3 else ''}")
-            
+            # Dispatch to device-specific implementation
             if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-                print(f"[@ExplorationExecutor:continue_exploration] ✅ Will create D-PAD edges (press_key)")
+                return self._create_tv_structure(team_id, selected_items, selected_screen_items)
             else:
-                print(f"[@ExplorationExecutor:continue_exploration] ✅ Will create CLICK edges (click_element)")
-            
-            print(f"{'='*80}\n")
-            
-            print(f"[@ExplorationExecutor:continue_exploration] Creating structure for {self.current_exploration_id}")
-            
-            node_gen = NodeGenerator(tree_id, team_id)
-            
-            # Home node should already exist - userinterfaces have home by default
-            home_node_result = get_node_by_id(tree_id, 'home', team_id)
-            if not (home_node_result.get('success') and home_node_result.get('node')):
-                return {'success': False, 'error': 'Home node does not exist. Userinterface should have home node by default.'}
-            
-            home_id = home_node_result['node']['node_id']
-            nodes_created = []
-            print(f"  ♻️  Using existing '{home_id}' node")
-            
-            # ✅ BATCH COLLECTION: Collect all nodes and edges before saving
-            nodes_to_save = []
-            edges_to_save = []
-            
-            # ✅ NEW: DUAL-LAYER ARCHITECTURE for TV navigation
-            if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+                return self._create_mobile_structure(team_id, selected_items, selected_screen_items)
+    
+    def _create_tv_structure(self, team_id: str, selected_items: List[str] = None, selected_screen_items: List[str] = None) -> Dict[str, Any]:
+        """TV dual-layer structure creation: Focus nodes + Screen nodes"""
+        tree_id = self.exploration_state['tree_id']
+        exploration_plan = self.exploration_state.get('exploration_plan', {})
+        all_items = exploration_plan.get('items', [])
+        strategy = exploration_plan.get('strategy', 'dpad_with_screenshot')
+        menu_type = exploration_plan.get('menu_type', 'horizontal')
+        lines = exploration_plan.get('lines', [])
+        
+        print(f"[@ExplorationExecutor:_create_tv_structure] All items from plan: {all_items}")
+        print(f"[@ExplorationExecutor:_create_tv_structure] Received selected_items: {selected_items}")
+        print(f"[@ExplorationExecutor:_create_tv_structure] 🎯 Strategy: {strategy}")
+        print(f"[@ExplorationExecutor:_create_tv_structure] 🎯 Menu Type: {menu_type}")
+        print(f"[@ExplorationExecutor:_create_tv_structure] 🎯 Row Structure: {len(lines)} rows")
+        
+        # Filter items based on user selection
+        if selected_items is not None and len(selected_items) > 0:
+            items = [item for item in all_items if item in selected_items]
+            print(f"[@ExplorationExecutor:_create_tv_structure] ✅ User selected {len(items)}/{len(all_items)} items: {items}")
+        else:
+            items = all_items
+            print(f"[@ExplorationExecutor:_create_tv_structure] ⚠️ No selection - creating all {len(items)} items")
+        
+        node_gen = NodeGenerator(tree_id, team_id)
+        
+        # Get home node
+        home_node_result = get_node_by_id(tree_id, 'home', team_id)
+        if not (home_node_result.get('success') and home_node_result.get('node')):
+            return {'success': False, 'error': 'Home node does not exist'}
+        
+        home_id = home_node_result['node']['node_id']
+        nodes_created = []
+        nodes_to_save = []
+        edges_to_save = []
+        
+        print(f"  ♻️  Using existing '{home_id}' node")
+        
+        with self._lock:
                 print(f"\n{'='*80}")
                 print(f"  🎮 TV NAVIGATION MODE: Creating dual-layer structure")
                 print(f"     Layer 1: Focus nodes (menu positions)")
@@ -728,99 +884,140 @@ class ExplorationExecutor:
                     edges_to_save.append(edge_vertical)
                     print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
                 
-                print(f"\n{'='*80}")
-                print(f"  ✅ TV NAVIGATION COMPLETE")
-                print(f"     Row 1 (horizontal): {len(all_focus_nodes_row1)} focus nodes")
-                print(f"     Rows 2+ (vertical): {len(all_vertical_focus_nodes)} focus nodes")
-                print(f"     Screen nodes: {len(focus_screen_pairs)} total")
-                print(f"     Edges created: {len(edges_to_save)} bidirectional edges")
-                print(f"{'='*80}\n")
+            print(f"\n{'='*80}")
+            print(f"  ✅ TV NAVIGATION COMPLETE")
+            print(f"     Row 1 (horizontal): {len(all_focus_nodes_row1)} focus nodes")
+            print(f"     Rows 2+ (vertical): {len(all_vertical_focus_nodes)} focus nodes")
+            print(f"     Screen nodes: {len(focus_screen_pairs)} total")
+            print(f"     Edges created: {len(edges_to_save)} bidirectional edges")
+            print(f"{'='*80}\n")
+        
+        # Save nodes and edges
+        return self._save_structure(tree_id, team_id, nodes_to_save, edges_to_save, nodes_created, items)
+    
+    def _create_mobile_structure(self, team_id: str, selected_items: List[str] = None, selected_screen_items: List[str] = None) -> Dict[str, Any]:
+        """Mobile/Web click-based structure creation"""
+        tree_id = self.exploration_state['tree_id']
+        exploration_plan = self.exploration_state.get('exploration_plan', {})
+        all_items = exploration_plan.get('items', [])
+        
+        print(f"\n  📱 MOBILE/WEB MODE: Creating click-based structure")
+        print(f"[@ExplorationExecutor:_create_mobile_structure] All items: {all_items}")
+        print(f"[@ExplorationExecutor:_create_mobile_structure] Selected: {selected_items}")
+        
+        # Filter items based on user selection
+        if selected_items is not None and len(selected_items) > 0:
+            items = [item for item in all_items if item in selected_items]
+            print(f"[@ExplorationExecutor:_create_mobile_structure] ✅ User selected {len(items)}/{len(all_items)} items")
+        else:
+            items = all_items
+            print(f"[@ExplorationExecutor:_create_mobile_structure] ⚠️ No selection - creating all {len(items)} items")
+        
+        node_gen = NodeGenerator(tree_id, team_id)
+        
+        # Get home node
+        home_node_result = get_node_by_id(tree_id, 'home', team_id)
+        if not (home_node_result.get('success') and home_node_result.get('node')):
+            return {'success': False, 'error': 'Home node does not exist'}
+        
+        home_id = home_node_result['node']['node_id']
+        nodes_created = []
+        nodes_to_save = []
+        edges_to_save = []
+        
+        print(f"  ♻️  Using existing '{home_id}' node")
+        
+        with self._lock:
+            # Create child nodes and edges
+            for idx, item in enumerate(items):
+                node_name_clean = node_gen.target_to_node_name(item)
                 
+                # Skip home nodes - they already exist by default
+                if node_name_clean == 'home' or 'home' in node_name_clean or node_name_clean.lower() in ['home', 'accueil']:
+                    print(f"  ⏭️  Skipping '{node_name_clean}' (home node already exists)")
+                    continue
+                
+                # ✅ Use clean node_id, add _temp to label for visual distinction
+                node_name = node_name_clean
+                position_x = 250 + (idx % 5) * 200
+                position_y = 300 + (idx // 5) * 150
+                
+                # Create node data
+                node_data = node_gen.create_node_data(
+                    node_name=node_name,
+                    label=f"{node_name}_temp",
+                    position={'x': position_x, 'y': position_y},
+                    ai_analysis={
+                        'suggested_name': node_name_clean,
+                        'screen_type': 'screen',
+                        'reasoning': f'Navigation target: {item}'
+                    },
+                    node_type='screen'
+                )
+                nodes_to_save.append(node_data)
+                nodes_created.append(node_name)
+                
+                # Store mapping
+                self.exploration_state['target_to_node_map'][item] = node_name
+                
+                # Click navigation for mobile/web
+                print(f"  📱 Creating CLICK edge for '{item}': click_element(\"{item}\")")
+                
+                forward_actions = [{
+                    "command": "click_element",
+                    "params": {"element_id": item},
+                    "delay": 2000
+                }]
+                
+                reverse_actions = [{
+                    "command": "press_key",
+                    "params": {"key": "BACK"},
+                    "delay": 2000
+                }]
+                
+                edge_data = node_gen.create_edge_data(
+                    source=home_id,
+                    target=node_name,
+                    actions=forward_actions,
+                    reverse_actions=reverse_actions,
+                    label=f"{item}_temp"
+                )
+                edges_to_save.append(edge_data)
+        
+        # Save nodes and edges
+        return self._save_structure(tree_id, team_id, nodes_to_save, edges_to_save, nodes_created, items)
+    
+    def _save_structure(self, tree_id: str, team_id: str, nodes_to_save: list, edges_to_save: list, nodes_created: list, items: list) -> Dict[str, Any]:
+        """Common method to save nodes and edges (used by TV and Mobile)"""
+        # Get home_id from state
+        home_id = self.exploration_state.get('home_id')
+        if not home_id:
+            home_node_result = get_node_by_id(tree_id, 'home', team_id)
+            if home_node_result.get('success') and home_node_result.get('node'):
+                home_id = home_node_result['node']['node_id']
+        
+        # Save nodes
+        print(f"  💾 Batch saving {len(nodes_to_save)} nodes...")
+        for node_data in nodes_to_save:
+            node_result = save_node(tree_id, node_data, team_id)
+            if node_result['success']:
+                print(f"  ✅ Created node: {node_data['node_id']}")
             else:
-                # MOBILE/WEB: Original click-based navigation
-                print(f"\n  📱 MOBILE/WEB MODE: Creating click-based structure")
-                
-                # Create child nodes and edges
-                for idx, item in enumerate(items):
-                    node_name_clean = node_gen.target_to_node_name(item)
-                    
-                    # Skip home nodes - they already exist by default
-                    if node_name_clean == 'home' or 'home' in node_name_clean or node_name_clean.lower() in ['home', 'accueil']:
-                        print(f"  ⏭️  Skipping '{node_name_clean}' (home node already exists)")
-                        continue
-                    
-                    # ✅ Use clean node_id, add _temp to label for visual distinction
-                    node_name = node_name_clean
-                    position_x = 250 + (idx % 5) * 200
-                    position_y = 300 + (idx // 5) * 150
-                    
-                    # Create node data
-                    node_data = node_gen.create_node_data(
-                        node_name=node_name,
-                        label=f"{node_name}_temp",  # Add _temp to label only
-                        position={'x': position_x, 'y': position_y},
-                        ai_analysis={
-                            'suggested_name': node_name_clean,
-                            'screen_type': 'screen',
-                            'reasoning': f'Navigation target: {item}'
-                        },
-                        node_type='screen'
-                    )
-                    nodes_to_save.append(node_data)
-                    nodes_created.append(node_name)
-                    
-                    # Store mapping
-                    self.exploration_state['target_to_node_map'][item] = node_name
-                    
-                    # Click navigation for mobile/web
-                    print(f"  📱 Creating CLICK edge for '{item}': click_element(\"{item}\")")
-                    
-                    forward_actions = [{
-                        "command": "click_element",
-                        "params": {"element_id": item},
-                        "delay": 2000
-                    }]
-                    
-                    reverse_actions = [{
-                        "command": "press_key",
-                        "params": {"key": "BACK"},
-                        "delay": 2000
-                    }]
-                    
-                    edge_data = node_gen.create_edge_data(
-                        source=home_id,
-                        target=node_name,
-                        actions=forward_actions,
-                        reverse_actions=reverse_actions,
-                        label=f"{item}_temp"  # Add _temp to label for visual distinction
-                    )
-                    edges_to_save.append(edge_data)
-            
-            # ✅ BATCH SAVE: Save all nodes at once
-            print(f"  💾 Batch saving {len(nodes_to_save)} nodes...")
-            for node_data in nodes_to_save:
-                node_result = save_node(tree_id, node_data, team_id)
-                if node_result['success']:
-                    print(f"  ✅ Created node: {node_data['node_id']}")
-                else:
-                    print(f"  ❌ Failed to create node {node_data['node_id']}: {node_result.get('error')}")
-            
-            # ✅ BATCH SAVE: Save all edges at once
-            print(f"  💾 Batch saving {len(edges_to_save)} edges...")
-            edges_created = []
-            for edge_data in edges_to_save:
-                edge_result = save_edge(tree_id, edge_data, team_id)
-                if edge_result['success']:
-                    edges_created.append(edge_data['edge_id'])
-                    print(f"  ✅ Created edge: {edge_data['source_node_id']} → {edge_data['target_node_id']}")
-                else:
-                    print(f"  ❌ Failed to create edge {edge_data['edge_id']}: {edge_result.get('error')}")
-            
-            # ✅ CRITICAL: Wait for DB commits and cache clearing
-            # print(f"  ⏳ Waiting 1s for database commits and cache invalidation...")
-            # time.sleep(1.0)
-            
-            # Update state
+                print(f"  ❌ Failed to create node {node_data['node_id']}: {node_result.get('error')}")
+        
+        # Save edges
+        print(f"  💾 Batch saving {len(edges_to_save)} edges...")
+        edges_created = []
+        for edge_data in edges_to_save:
+            edge_result = save_edge(tree_id, edge_data, team_id)
+            if edge_result['success']:
+                edges_created.append(edge_data['edge_id'])
+                print(f"  ✅ Created edge: {edge_data['source_node_id']} → {edge_data['target_node_id']}")
+            else:
+                print(f"  ❌ Failed to create edge {edge_data['edge_id']}: {edge_result.get('error')}")
+        
+        # Update state
+        with self._lock:
             self.exploration_state['status'] = 'structure_created'
             self.exploration_state['nodes_created'] = nodes_created
             self.exploration_state['edges_created'] = edges_created
@@ -828,15 +1025,15 @@ class ExplorationExecutor:
             self.exploration_state['current_step'] = f'Created {len(nodes_created)} nodes and {len(edges_created)} edges. Ready to validate.'
             self.exploration_state['items_to_validate'] = items
             self.exploration_state['current_validation_index'] = 0
-            
-            return {
-                'success': True,
-                'nodes_created': len(nodes_created),
-                'edges_created': len(edges_created),
-                'message': 'Structure created successfully',
-                'node_ids': nodes_created,
-                'edge_ids': edges_created
-            }
+        
+        return {
+            'success': True,
+            'nodes_created': len(nodes_created),
+            'edges_created': len(edges_created),
+            'message': 'Structure created successfully',
+            'node_ids': nodes_created,
+            'edge_ids': edges_created
+        }
     
     def start_validation(self) -> Dict[str, Any]:
         """
@@ -961,24 +1158,9 @@ class ExplorationExecutor:
     
     def validate_next_item(self) -> Dict[str, Any]:
         """
-        Phase 2b: Validate edges sequentially (depth-first for TV dual-layer)
+        Phase 2b: Validate edges sequentially
         
-        TV Dual-Layer (depth-first):
-          1. home → home_tvguide: RIGHT
-          2. home_tvguide ↓ tvguide: OK (screenshot + dump)
-          3. tvguide ↑ home_tvguide: BACK
-          4. home_tvguide → home_apps: RIGHT
-          5. home_apps ↓ apps: OK (screenshot + dump)
-          6. apps ↑ home_apps: BACK
-          ... (test complete cycle per item)
-        
-        Mobile/Web (single-layer):
-          1. home → search: click (screenshot + dump)
-          2. search → home: BACK
-        
-        Returns:
-            TV: {'success': True, 'item': 'tvguide', 'edge_results': {...}, ...}
-            Mobile/Web: {'success': True, 'item': 'Search', 'click_result': 'success', ...}
+        Dispatcher method - delegates to device-specific validation
         """
         with self._lock:
             print(f"\n{'='*80}")
@@ -993,14 +1175,10 @@ class ExplorationExecutor:
                     'error': error_msg
                 }
             
-            tree_id = self.exploration_state['tree_id']
-            team_id = self.exploration_state['team_id']
             current_index = self.exploration_state['current_validation_index']
             items_to_validate = self.exploration_state['items_to_validate']
             
-            print(f"[@ExplorationExecutor:validate_next_item] Current index: {current_index}")
-            print(f"[@ExplorationExecutor:validate_next_item] Total items: {len(items_to_validate)}")
-            print(f"[@ExplorationExecutor:validate_next_item] Items to validate: {items_to_validate}")
+            print(f"[@ExplorationExecutor:validate_next_item] Progress: {current_index + 1}/{len(items_to_validate)}")
             
             if current_index >= len(items_to_validate):
                 print(f"[@ExplorationExecutor:validate_next_item] ✅ All items validated!")
@@ -1011,939 +1189,23 @@ class ExplorationExecutor:
                     'has_more_items': False
                 }
             
-            current_item = items_to_validate[current_index]
-            target_to_node_map = self.exploration_state['target_to_node_map']
-            node_name = target_to_node_map.get(current_item)
+            strategy = self.exploration_state.get('exploration_plan', {}).get('strategy', 'click')
             
-            print(f"[@ExplorationExecutor:validate_next_item] Validating item: {current_item}")
-            print(f"[@ExplorationExecutor:validate_next_item] Node name: {node_name}")
-            
-            if not node_name:
-                # Fallback
-                node_gen = NodeGenerator(tree_id, team_id)
-                node_name_clean = node_gen.target_to_node_name(current_item)
-                node_name = f"{node_name_clean}_temp"
-                print(f"[@ExplorationExecutor:validate_next_item] Using fallback node name: {node_name}")
-            
-            # Skip home
-            if 'home' in node_name.lower() and node_name != 'home_temp':
-                print(f"[@ExplorationExecutor:validate_next_item] ⏭️  Skipping home node: {node_name}")
-                self.exploration_state['current_validation_index'] = current_index + 1
-                return self.validate_next_item()
-            
-            # ✅ NEW: Capture HOME dump before first navigation (Critical for Uniqueness)
-            if current_index == 0:
-                try:
-                    controller = self.exploration_engine.controller
-                    print(f"[@ExplorationExecutor:validate_next_item] 🏠 Capturing HOME dump for uniqueness baseline...")
-                    
-                    home_dump_data = None
-                    home_screenshot_url = self.exploration_state.get('current_analysis', {}).get('screenshot')
-                    
-                    # Try to get dump based on device type
-                    if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
-                        # Mobile/Web: Use dump_elements
-                        dump_result = controller.dump_elements()
-                        
-                        # Handle async controllers (web) - run coroutine if needed
-                        import inspect
-                        if inspect.iscoroutine(dump_result):
-                            import asyncio
-                            dump_result = asyncio.run(dump_result)
-                        
-                        if isinstance(dump_result, tuple):
-                            success, elements, error = dump_result
-                            if success and elements:
-                                home_dump_data = {'elements': elements}
-                        elif isinstance(dump_result, dict):
-                            home_dump_data = dump_result
-                    else:
-                        # TV: Use OCR dump from home screenshot
-                        print(f"    📊 TV device - using OCR for home dump")
-                        if home_screenshot_url:
-                            # We need to get the local screenshot path from the URL
-                            # For now, we'll skip the home dump for TV (OCR already run during analysis)
-                            # TODO: Store OCR results from analysis phase
-                            print(f"    ⚠️ TV home dump skipped - OCR data not available from analysis phase")
-                        
-                    if home_dump_data or home_screenshot_url:
-                        # Ensure list exists
-                        if 'node_verification_data' not in self.exploration_state:
-                            self.exploration_state['node_verification_data'] = []
-                        
-                        # Store Home data (dump and/or screenshot)
-                        self.exploration_state['node_verification_data'].append({
-                            'node_id': self.exploration_state.get('home_id', 'home'),
-                            'node_label': 'home',
-                            'dump': home_dump_data,
-                            'screenshot_url': home_screenshot_url
-                        })
-                        print(f"    ✅ Home data stored (dump: {home_dump_data is not None}, screenshot: {home_screenshot_url is not None})")
-                except Exception as e:
-                    print(f"    ⚠️ Failed to capture Home dump: {e}")
-
-            print(f"[@ExplorationExecutor:validate_next_item] Validating {current_index + 1}/{len(items_to_validate)}")
-            print(f"  Target: {current_item} → {node_name}")
-            
-            self.exploration_state['status'] = 'validating'
-            self.exploration_state['current_step'] = f"Validating {current_index + 1}/{len(items_to_validate)}: {current_item}"
-        
-        # Get controller and context from engine
-        controller = self.exploration_engine.controller
-        context = self.exploration_engine.context
-        strategy = self.exploration_state.get('exploration_plan', {}).get('strategy', 'click')
-        home_indicator = self.exploration_state['exploration_plan']['items'][0]
-        
-        # ✅ TV DUAL-LAYER: Use depth-first sequential edge validation
-        if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-            # ✅ DUAL-LAYER TV VALIDATION (Depth-first) with multi-row support
-            print(f"\n  🎮 TV DUAL-LAYER VALIDATION (depth-first)")
-            print(f"     Item {current_index + 1}/{len(items_to_validate)}: {current_item}")
-            
-            # Get row structure from exploration plan
-            lines = self.exploration_state.get('exploration_plan', {}).get('lines', [])
-            
-            print(f"\n  🐛 DEBUG: Row Structure Analysis")
-            print(f"     lines = {lines}")
-            print(f"     Total rows: {len(lines)}")
-            for idx, row in enumerate(lines):
-                print(f"     Row {idx}: {len(row)} items = {row}")
-            
-            # Calculate node names
-            node_gen = NodeGenerator(tree_id, team_id)
-            screen_node_name = node_gen.target_to_node_name(current_item)
-            focus_node_name = f"home_{screen_node_name}"
-            
-            print(f"\n  🐛 DEBUG: Current Item Analysis")
-            print(f"     current_item = '{current_item}'")
-            print(f"     current_index = {current_index}")
-            print(f"     screen_node_name = '{screen_node_name}'")
-            print(f"     focus_node_name = '{focus_node_name}'")
-            
-            # ✅ FIX: TV menu structure
-            # Row 0: home (starting point)
-            # Row 1: home_tv_guide → home_apps → home_watch (lines[0])
-            # Row 2: home_continue_watching → ... (lines[1])
-            # Navigation: DOWN from row to row, RIGHT within row
-            
-            current_row_index = -1
-            current_position_in_row = -1
-            prev_row_index = -1
-            prev_position_in_row = -1
-            
-            # Find current item's position in row structure
-            for row_idx, row_items in enumerate(lines):
-                if current_item in row_items:
-                    current_row_index = row_idx
-                    current_position_in_row = row_items.index(current_item)
-                    print(f"  🐛 DEBUG: Found current_item '{current_item}' in Row {row_idx}, Position {current_position_in_row}")
-                    break
-            
-            if current_row_index == -1:
-                print(f"  🐛 DEBUG: ⚠️ current_item '{current_item}' NOT FOUND in any row!")
-            
-            # Find previous item's position (if exists)
-            if current_index > 0:
-                prev_item = items_to_validate[current_index - 1]
-                print(f"\n  🐛 DEBUG: Previous Item Analysis")
-                print(f"     prev_item = '{prev_item}'")
-                for row_idx, row_items in enumerate(lines):
-                    if prev_item in row_items:
-                        prev_row_index = row_idx
-                        prev_position_in_row = row_items.index(prev_item)
-                        print(f"  🐛 DEBUG: Found prev_item '{prev_item}' in Row {row_idx}, Position {prev_position_in_row}")
-                        break
-                
-                if prev_row_index == -1:
-                    print(f"  🐛 DEBUG: ⚠️ prev_item '{prev_item}' NOT FOUND in any row!")
-            
-            # Determine navigation type
-            # Key insight: Check if we're in the SAME row or DIFFERENT row
-            is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
-            is_first_item_overall = (current_index == 0)
-            
-            print(f"\n  🐛 DEBUG: Navigation Decision Logic")
-            print(f"     is_first_item_overall = {is_first_item_overall}")
-            print(f"     current_row_index = {current_row_index}")
-            print(f"     prev_row_index = {prev_row_index}")
-            print(f"     is_same_row = {is_same_row}")
-            
-            if is_first_item_overall:
-                # First item ever: check if 'home' is in the same row
-                # If 'home' is in lines[0], it's horizontal navigation (RIGHT)
-                # If 'home' is NOT in any row, it's vertical navigation (DOWN)
-                home_in_current_row = False
-                if current_row_index >= 0 and current_row_index < len(lines):
-                    home_in_current_row = 'home' in [item.lower() for item in lines[current_row_index]]
-                
-                prev_focus_name = 'home'
-                if home_in_current_row:
-                    nav_direction = 'RIGHT'  # home is IN this row, horizontal navigation
-                    print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, home IN Row {current_row_index + 1} → RIGHT")
-                    print(f"     Reason: 'home' is part of Row {current_row_index + 1}, horizontal navigation")
-                else:
-                    nav_direction = 'DOWN'  # home is NOT in this row, vertical navigation
-                    print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, home NOT in rows → DOWN")
-                    print(f"     Reason: 'home' is Row 0, navigating down to Row {current_row_index + 1}")
-            elif is_same_row:
-                # Same row: horizontal navigation
-                prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
-                prev_focus_name = f"home_{prev_item_name}"
-                nav_direction = 'RIGHT'  # Moving within same row horizontally
-                print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → RIGHT within row")
-                print(f"     Reason: Both items in Row {current_row_index + 1}")
-                print(f"     prev_focus_name = {prev_focus_name}")
+            # Dispatch to device-specific validation
+            if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+                return self._validate_tv_item()
             else:
-                # Different rows: vertical navigation
-                # Navigate back to FIRST ITEM of PREVIOUS ROW, then DOWN to current row
-                # Row 0 → Row 1: back to home, then DOWN
-                # Row 1 → Row 2: back to watch (first item of Row 1), then DOWN
-                if prev_row_index == 0:
-                    # Previous row was Row 0 (top menu) → return to home
-                    prev_focus_name = 'home'
-                    first_item_of_prev_row = 'home'
-                elif prev_row_index > 0:
-                    # Previous row was Row 1+ → return to first item of that row
-                    # lines[0] = Row 0, lines[1] = Row 1, lines[2] = Row 2, etc.
-                    if prev_row_index < len(lines):
-                        prev_row_items = lines[prev_row_index]
-                        first_item_label = prev_row_items[0] if prev_row_items else 'home'
-                        first_item_name = node_gen.target_to_node_name(first_item_label)
-                        prev_focus_name = f"home_{first_item_name}"
-                        first_item_of_prev_row = first_item_label
-                    else:
-                        prev_focus_name = 'home'
-                        first_item_of_prev_row = 'home'
-                else:
-                    prev_focus_name = 'home'
-                    first_item_of_prev_row = 'home'
-                
-                nav_direction = 'DOWN'  # Moving to new row vertically
-                print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → Return to first item of Row {prev_row_index + 1}, then DOWN")
-                print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
-                print(f"     First item of prev row: '{first_item_of_prev_row}'")
-                print(f"     prev_focus_name = {prev_focus_name} (after return)")
-            
-            print(f"\n  🐛 DEBUG: Final Navigation Plan")
-            print(f"     {prev_focus_name} → {focus_node_name}: {nav_direction}")
-            print(f"     {'⬇️ VERTICAL' if nav_direction == 'DOWN' else '➡️ HORIZONTAL'}\n")
-            
-            # Row numbering: home is Row 0, lines[0] is Row 1, lines[1] is Row 2, etc.
-            display_row = current_row_index + 1  # lines[0] = Row 1
-            
-            # ✅ RECOVERY: Only navigate to home if we're doing DOWN navigation (home not in same row)
-            if is_first_item_overall and nav_direction == 'DOWN':
-                print(f"\n    🔄 ROW {display_row} START: Ensuring we're at home (Row 0)...")
-                try:
-                    import asyncio
-                    nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
-                        tree_id=tree_id,
-                        userinterface_name=self.exploration_state['userinterface_name'],
-                        target_node_label='home',
-                        team_id=team_id
-                    ))
-                    
-                    if nav_result.get('success'):
-                        print(f"    ✅ At home (Row 0) - ready for DOWN navigation to Row {display_row}")
-                    else:
-                        error_msg = nav_result.get('error', 'Unknown error')
-                        print(f"    ❌ Navigation to home failed: {error_msg}")
-                        print(f"    ⚠️ Continuing anyway - validation may fail")
-                except Exception as e:
-                    print(f"    ❌ Recovery exception: {e}")
-                    print(f"    ⚠️ Continuing anyway - validation may fail")
-            
-            # ✅ ROW TRANSITION: For different rows (DOWN navigation)
-            elif not is_same_row and not is_first_item_overall:
-                print(f"\n    🔽 ROW {display_row} TRANSITION: From Row {prev_row_index + 1} via DOWN")
-                # Return to first item of PREVIOUS row before going DOWN to next row
-                print(f"    🔄 Returning to '{first_item_of_prev_row}' (first item of Row {prev_row_index + 1}) before navigating to Row {display_row}...")
-                try:
-                    import asyncio
-                    nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
-                        tree_id=tree_id,
-                        userinterface_name=self.exploration_state['userinterface_name'],
-                        target_node_label=first_item_of_prev_row,
-                        team_id=team_id
-                    ))
-                    
-                    if nav_result.get('success'):
-                        print(f"    ✅ Back at '{first_item_of_prev_row}' (Row {prev_row_index + 1}) - ready for DOWN navigation to Row {display_row}")
-                    else:
-                        error_msg = nav_result.get('error', 'Unknown error')
-                        print(f"    ❌ Navigation to '{first_item_of_prev_row}' failed: {error_msg}")
-                        print(f"    ⚠️ Continuing anyway - validation may fail")
-                except Exception as e:
-                    print(f"    ❌ Navigation exception: {e}")
-                    print(f"    ⚠️ Continuing anyway - validation may fail")
-            
-            # Print validation info
-            print(f"     📍 Row {display_row}, Position {current_position_in_row + 1}")
-            print(f"     {'🔽 VERTICAL to new row' if nav_direction == 'DOWN' else '➡️ HORIZONTAL within row'}")
-            print(f"     Edges to test:")
-            print(f"       1. {prev_focus_name} → {focus_node_name}: {nav_direction}")
-            print(f"       2. {focus_node_name} ↓ {screen_node_name}: OK")
-            print(f"       3. {screen_node_name} ↑ {focus_node_name}: BACK")
-            
-            edge_results = {
-                'horizontal': 'pending',
-                'enter': 'pending',
-                'exit': 'pending'
-            }
-            screenshot_url = None
-            
-            # Edge 1: Focus navigation (RIGHT for horizontal, DOWN for new row)
-            try:
-                print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
-                result = controller.press_key(nav_direction)
-                import inspect
-                if inspect.iscoroutine(result):
-                    import asyncio
-                    result = asyncio.run(result)
-                
-                edge_results['horizontal'] = 'success'
-                print(f"    ✅ Focus navigation: {nav_direction}")
-                time.sleep(1.5)  # 1500ms for D-PAD navigation
-            except Exception as e:
-                edge_results['horizontal'] = 'failed'
-                print(f"    ❌ Focus navigation failed: {e}")
-            
-            # Edge 2: Vertical enter (OK) - with screenshot + dump
-            try:
-                print(f"\n    Edge 2/3: {focus_node_name} ↓ {screen_node_name}")
-                result = controller.press_key('OK')
-                import inspect
-                if inspect.iscoroutine(result):
-                    import asyncio
-                    result = asyncio.run(result)
-                
-                edge_results['enter'] = 'success'
-                print(f"    ✅ Vertical enter: OK")
-                time.sleep(3)
-                
-                # 📸 Capture screenshot + dump (ONLY for screen nodes)
-                dump_data = None
-                screenshot_path = None
-                
-                # First take screenshot (needed for both ADB dump and OCR dump)
-                try:
-                    av_controllers = self.device.get_controllers('av')
-                    av_controller = av_controllers[0] if av_controllers else None
-                    if av_controller:
-                        screenshot_path = av_controller.take_screenshot()
-                        if screenshot_path:
-                            print(f"    📸 Screenshot captured: {screenshot_path}")
-                except Exception as e:
-                    print(f"    ⚠️ Screenshot capture failed: {e}")
-                
-                # Try to get dump (method depends on device type)
-                try:
-                    # Check if controller has dump_elements (mobile/web)
-                    if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
-                        # Mobile/Web: Use ADB/XML dump
-                        print(f"    📊 Using ADB/Web dump_elements()")
-                        dump_result = controller.dump_elements()
-                        import inspect
-                        if inspect.iscoroutine(dump_result):
-                            import asyncio
-                            dump_result = asyncio.run(dump_result)
-                        
-                        if isinstance(dump_result, tuple):
-                            success, elements, error = dump_result
-                            if success and elements:
-                                dump_data = {'elements': elements}
-                                print(f"    📊 ADB Dump: {len(elements)} elements")
-                        elif isinstance(dump_result, dict):
-                            dump_data = dump_result
-                            print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
-                    else:
-                        # TV/IR device - use OCR dump extraction
-                        print(f"    📊 Controller has no dump_elements → Using OCR dump for TV")
-                        if screenshot_path:
-                            # Get text verification controller for OCR dump
-                            text_controller = None
-                            for v in self.device.get_controllers('verification'):
-                                if getattr(v, 'verification_type', None) == 'text':
-                                    text_controller = v
-                                    break
-                            
-                            if text_controller:
-                                print(f"    📊 Extracting OCR dump from screenshot...")
-                                ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
-                                
-                                if ocr_result.get('success') and ocr_result.get('elements'):
-                                    dump_data = {'elements': ocr_result['elements']}
-                                    print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
-                                else:
-                                    # Even if empty, set structure so UI knows it's an OCR dump
-                                    dump_data = {'elements': []}
-                                    print(f"    ⚠️ OCR dump extraction failed or no text found")
-                            else:
-                                print(f"    ⚠️ Text controller not available for OCR dump")
-                        else:
-                            print(f"    ⚠️ No screenshot available for OCR dump")
-                except Exception as e:
-                    print(f"    ⚠️ Dump failed: {e}")
-                    import traceback
-                    traceback.print_exc()
-                
-                # Upload screenshot to R2
-                if screenshot_path:
-                    try:
-                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
-                        sanitized_name = screen_node_name.replace(' ', '_')
-                        r2_filename = f"{sanitized_name}.jpg"
-                        userinterface_name = self.exploration_state['userinterface_name']
-                        upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
-                        
-                        if upload_result.get('success'):
-                            screenshot_url = upload_result.get('url')
-                            print(f"    📸 Screenshot uploaded: {screenshot_url}")
-                    except Exception as e:
-                        print(f"    ⚠️ Screenshot upload failed: {e}")
-                else:
-                    print(f"    ⚠️ No screenshot to upload")
-                
-                # Store verification data (screenshot and/or dump)
-                # ✅ TV FIX: Store even without dump (IR remote has no dump_elements)
-                if screenshot_url or dump_data:
-                    with self._lock:
-                        if 'node_verification_data' not in self.exploration_state:
-                            self.exploration_state['node_verification_data'] = []
-                        
-                        self.exploration_state['node_verification_data'].append({
-                            'node_id': f"{screen_node_name}_temp",
-                            'node_label': screen_node_name,
-                            'dump': dump_data,  # None for TV, that's OK
-                            'screenshot_url': screenshot_url
-                        })
-                    print(f"    ✅ Verification data stored (dump: {dump_data is not None}, screenshot: {screenshot_url is not None})")
-                    
-            except Exception as e:
-                edge_results['enter'] = 'failed'
-                print(f"    ❌ Vertical enter failed: {e}")
-            
-            # Edge 3: Vertical exit (BACK)
-            try:
-                print(f"\n    Edge 3/3: {screen_node_name} ↑ {focus_node_name}")
-                result = controller.press_key('BACK')
-                import inspect
-                if inspect.iscoroutine(result):
-                    import asyncio
-                    asyncio.run(result)
-                
-                edge_results['exit'] = 'success'
-                print(f"    ✅ Vertical exit: BACK")
-                time.sleep(2)
-            except Exception as e:
-                edge_results['exit'] = 'failed'
-                print(f"    ❌ Vertical exit failed: {e}")
-            
-            # Update state and return
-            with self._lock:
-                self.exploration_state['current_validation_index'] = current_index + 1
-                has_more = (current_index + 1) < len(items_to_validate)
-                
-                # ✅ Set status to validation_complete when done
-                if not has_more:
-                    self.exploration_state['status'] = 'validation_complete'
-                    self.exploration_state['current_step'] = 'Edge validation complete - ready for node verification'
-                else:
-                    self.exploration_state['status'] = 'awaiting_validation'
-            
-            print(f"\n  📊 Depth-first cycle complete:")
-            print(f"     Horizontal: {edge_results['horizontal']}")
-            print(f"     Enter (OK): {edge_results['enter']}")
-            print(f"     Exit (BACK): {edge_results['exit']}")
-            print(f"     Progress: {current_index + 1}/{len(items_to_validate)}")
-            
-            # ✅ TV DUAL-LAYER: Return BOTH edges (horizontal + vertical)
-            horizontal_result = edge_results['horizontal']
-            vertical_enter_result = edge_results['enter']
-            vertical_exit_result = edge_results['exit']
-            
-            # Determine reverse direction for horizontal edge
-            reverse_direction = 'LEFT' if nav_direction == 'RIGHT' else 'UP'
-            
-            return {
-                'success': True,
-                'item': current_item,
-                'node_name': focus_node_name,
-                'node_id': f"{focus_node_name}_temp",
-                'has_more_items': has_more,
-                'screenshot_url': screenshot_url,
-                # ✅ TV: Return BOTH edges with their action_sets (dynamic direction for multi-row)
-                'edges': [
-                    {
-                        'edge_type': 'horizontal',
-                        'action_sets': {
-                            'forward': {
-                                'source': prev_focus_name,
-                                'target': focus_node_name,
-                                'action': nav_direction,  # RIGHT for same row, DOWN for new row
-                                'result': horizontal_result
-                            },
-                            'reverse': {
-                                'source': focus_node_name,
-                                'target': prev_focus_name,
-                                'action': reverse_direction,  # LEFT for same row, UP for new row
-                                'result': horizontal_result
-                            }
-                        }
-                    },
-                    {
-                        'edge_type': 'vertical',
-                        'action_sets': {
-                            'forward': {
-                                'source': focus_node_name,
-                                'target': screen_node_name,
-                                'action': 'OK',
-                                'result': vertical_enter_result
-                            },
-                            'reverse': {
-                                'source': screen_node_name,
-                                'target': focus_node_name,
-                                'action': 'BACK',
-                                'result': vertical_exit_result
-                            }
-                        }
-                    }
-                ],
-                'progress': {
-                    'current_item': current_index + 1,
-                    'total_items': len(items_to_validate)
-                }
-            }
-        
-        # ✅ MOBILE/WEB: PRESERVE EXISTING VALIDATION (DO NOT MODIFY BELOW)
-        # Perform validation
-        click_result = 'failed'
-        back_result = 'failed'
-        screenshot_url = None
-        
-        # 1. Execute navigation action (D-pad or click based on strategy)
-        try:
-            # Use strategy-aware action from context
-            if context and context.strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-                # D-pad navigation for TV/STB
-                item_index = context.predicted_items.index(current_item) if current_item in context.predicted_items else 0
-                menu_type = getattr(context, 'menu_type', 'horizontal')
-                dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
-                
-                print(f"    🎮 D-pad navigation: {item_index} x {dpad_key} + OK")
-                
-                # Navigate to item
-                for i in range(item_index):
-                    controller.press_key(dpad_key)
-                    time.sleep(0.5)
-                
-                # Select item
-                result = controller.press_key('OK')
-            else:
-                # Click navigation for mobile/web
-                result = controller.click_element(current_item)
-            
-            # Handle async controllers (web) - run coroutine if needed
-            import inspect
-            if inspect.iscoroutine(result):
-                import asyncio
-                result = asyncio.run(result)
-            
-            click_success = result if isinstance(result, bool) else result.get('success', False)
-            click_result = 'success' if click_success else 'failed'
-            print(f"    {'✅' if click_success else '❌'} Click {click_result}")
-            time.sleep(5)
-            
-            # 1.5. Capture screenshot + dump
-            if click_success:
-                # A. Capture Screenshot first (needed for OCR dump fallback)
-                screenshot_path = None
-                try:
-                    av_controllers = self.device.get_controllers('av')
-                    av_controller = av_controllers[0] if av_controllers else None
-                    if av_controller:
-                        screenshot_path = av_controller.take_screenshot()
-                        if screenshot_path:
-                            print(f"    📸 Screenshot captured: {screenshot_path}")
-                except Exception as e:
-                    print(f"    ⚠️ Screenshot capture failed: {e}")
-                
-                # B. Capture Dump (Critical for node verification)
-                dump_data = None
-                try:
-                    # Try ADB/Web dump first
-                    if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
-                        dump_result = controller.dump_elements()
-                        
-                        # Handle async controllers (web) - run coroutine if needed
-                        import inspect
-                        if inspect.iscoroutine(dump_result):
-                            import asyncio
-                            dump_result = asyncio.run(dump_result)
-                        
-                        # Normalize dump format (mobile returns tuple, web returns dict)
-                        if isinstance(dump_result, tuple):
-                            # Mobile: (success, elements, error)
-                            success, elements, error = dump_result
-                            if success and elements:
-                                dump_data = {'elements': elements}
-                                print(f"    📱 ADB Dump captured: {len(elements)} elements")
-                            else:
-                                print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
-                        elif isinstance(dump_result, dict):
-                            # Web: already dict format
-                            dump_data = dump_result
-                            element_count = len(dump_result.get('elements', []))
-                            print(f"    🌐 Web Dump captured: {element_count} elements")
-                        else:
-                            print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
-                    
-                    # Fallback to OCR dump if ADB/Web dump failed or not available
-                    if not dump_data and screenshot_path:
-                        print(f"    📊 ADB/Web dump not available → Trying OCR dump fallback")
-                        text_controller = None
-                        for v in self.device.get_controllers('verification'):
-                            if getattr(v, 'verification_type', None) == 'text':
-                                text_controller = v
-                                break
-                        
-                        if text_controller:
-                            print(f"    📊 Extracting OCR dump from screenshot...")
-                            ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
-                            
-                            if ocr_result.get('success') and ocr_result.get('elements'):
-                                dump_data = {'elements': ocr_result['elements']}
-                                print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
-                            else:
-                                print(f"    ⚠️ OCR dump extraction failed or no text found")
-                        else:
-                            print(f"    ⚠️ Text controller not available for OCR dump")
-                        
-                except Exception as dump_err:
-                    print(f"    ⚠️ Dump capture failed: {dump_err}")
-                
-                # C. Upload Screenshot to R2
-                if screenshot_path:
-                    try:
-                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
-                        node_name_clean = node_name.replace('_temp', '')
-                        sanitized_name = node_name_clean.replace(' ', '_')
-                        r2_filename = f"{sanitized_name}.jpg"
-                        userinterface_name = self.exploration_state['userinterface_name']
-                        upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
-                        
-                        if upload_result.get('success'):
-                            screenshot_url = upload_result.get('url')
-                            print(f"    📸 Screenshot uploaded: {screenshot_url}")
-                        else:
-                            print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
-                    except Exception as e:
-                        print(f"    ⚠️ Screenshot upload process failed: {e}")
-                else:
-                    print(f"    ⚠️ No screenshot to upload")
-                
-                # D. Store Data (screenshot and/or dump)
-                # ✅ MOBILE/WEB: Store if we have either screenshot or dump
-                if screenshot_url or dump_data:
-                    with self._lock:
-                        # Ensure list exists
-                        if 'node_verification_data' not in self.exploration_state:
-                            self.exploration_state['node_verification_data'] = []
-                            
-                        self.exploration_state['node_verification_data'].append({
-                            'node_id': node_name,
-                            'node_label': node_name.replace('_temp', ''),
-                            'dump': dump_data,
-                            'screenshot_url': screenshot_url
-                        })
-                    print(f"    ✅ Node verification data stored (dump: {dump_data is not None}, screenshot: {screenshot_url is not None})")
-                else:
-                    print(f"    ❌ Skipping node verification data storage (no dump or screenshot captured)")
-        except Exception as e:
-            print(f"    ❌ Click failed: {e}")
-        
-        # 2. Press BACK (with double-back fallback)
-        if click_result == 'success':
-            try:
-                # Select verification controller based on device model
-                device_model = self.device_model.lower()
-                verifier = None
-                
-                if 'mobile' in device_model:
-                    # Mobile: Use ADB verification
-                    for v in self.device.get_controllers('verification'):
-                        if getattr(v, 'verification_type', None) == 'adb':
-                            verifier = v
-                            print(f"    📱 Using ADB verification for mobile device")
-                            break
-                elif 'host' in device_model:
-                    # Web (host): Use Playwright controller itself (has dump_elements for verification)
-                    verifier = controller  # The Playwright controller can verify elements
-                    print(f"    🌐 Using Playwright controller for web verification")
-                else:
-                    # TV/STB: Image verification (not supported in AI exploration)
-                    print(f"    ⚠️ Device model '{device_model}' requires image verification - not supported in AI exploration")
-                
-                press_result = controller.press_key('BACK')
-                # Handle async controllers (web)
-                import inspect
-                if inspect.iscoroutine(press_result):
-                    import asyncio
-                    asyncio.run(press_result)
-                time.sleep(5)
-                
-                print(f"    🔍 Verifying return to home: {home_indicator}")
-                
-                back_success = False
-                if verifier:
-                    if 'host' in device_model:
-                        # Web: Check if home element exists by dumping and searching
-                        try:
-                            dump_result = verifier.dump_elements()
-                            # Handle async
-                            import inspect
-                            if inspect.iscoroutine(dump_result):
-                                import asyncio
-                                dump_result = asyncio.run(dump_result)
-                            
-                            if isinstance(dump_result, dict) and dump_result.get('success'):
-                                elements = dump_result.get('elements', [])
-                                # Search for home indicator in elements
-                                found = any(
-                                    home_indicator.lower() in str(elem.get('text', '')).lower() or
-                                    home_indicator.lower() in str(elem.get('selector', '')).lower()
-                                    for elem in elements
-                                )
-                                back_success = found
-                                message = f"Element '{home_indicator}' {'found' if found else 'not found'} in page"
-                                print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
-                            else:
-                                print(f"    ❌ Back (1st) failed: Could not dump elements")
-                        except Exception as e:
-                            print(f"    ❌ Back (1st) failed: {e}")
-                    else:
-                        # Mobile: Use waitForElementToAppear
-                        import inspect
-                        if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                            import asyncio
-                            success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=3.0
-                            ))
-                        else:
-                            success, message, details = verifier.waitForElementToAppear(
-                                search_term=home_indicator,
-                                timeout=3.0
-                            )
-                        back_success = success
-                        print(f"    {'✅' if back_success else '❌'} Back (1st) {('success' if back_success else 'failed')}: {message}")
-                else:
-                    # Fallback if no verifier available
-                    print(f"    ⚠️ No verifier available for device model '{device_model}'")
-                    back_success = False
-                
-                # Double-back fallback
-                if not back_success:
-                    print(f"    🔄 Trying second BACK...")
-                    press_result = controller.press_key('BACK')
-                    # Handle async controllers (web)
-                    import inspect
-                    if inspect.iscoroutine(press_result):
-                        import asyncio
-                        asyncio.run(press_result)
-                    time.sleep(5)
-                    
-                    if verifier:
-                        if 'host' in device_model:
-                            # Web: Check if home element exists by dumping and searching
-                            try:
-                                dump_result = verifier.dump_elements()
-                                # Handle async
-                                import inspect
-                                if inspect.iscoroutine(dump_result):
-                                    import asyncio
-                                    dump_result = asyncio.run(dump_result)
-                                
-                                if isinstance(dump_result, dict) and dump_result.get('success'):
-                                    elements = dump_result.get('elements', [])
-                                    # Search for home indicator in elements
-                                    found = any(
-                                        home_indicator.lower() in str(elem.get('text', '')).lower() or
-                                        home_indicator.lower() in str(elem.get('selector', '')).lower()
-                                        for elem in elements
-                                    )
-                                    back_success = found
-                                    message = f"Element '{home_indicator}' {'found' if found else 'not found'} in page"
-                                    print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
-                                else:
-                                    print(f"    ❌ Back (2nd) failed: Could not dump elements")
-                            except Exception as e:
-                                print(f"    ❌ Back (2nd) failed: {e}")
-                        else:
-                            # Mobile: Use waitForElementToAppear
-                            import inspect
-                            if inspect.iscoroutinefunction(verifier.waitForElementToAppear):
-                                import asyncio
-                                success, message, details = asyncio.run(verifier.waitForElementToAppear(
-                                    search_term=home_indicator,
-                                    timeout=5.0
-                                ))
-                            else:
-                                success, message, details = verifier.waitForElementToAppear(
-                                    search_term=home_indicator,
-                                    timeout=5.0
-                                )
-                            back_success = success
-                            print(f"    {'✅' if back_success else '❌'} Back (2nd) {('success' if back_success else 'failed')}: {message}")
-                    else:
-                        back_success = False
-                
-                back_result = 'success' if back_success else 'failed'
-                
-            except Exception as e:
-                print(f"    ⚠️ Back failed: {e}")
-        
-        # ✅ PROACTIVE RECOVERY: If click OR back failed, go home to ensure clean state for next step
-        if click_result == 'failed' or back_result == 'failed':
-            print(f"    🔄 Validation failed (click={click_result}, back={back_result}) - going home for next step...")
-            try:
-                import asyncio
-                home_id = self.exploration_state['home_id']
-                userinterface_name = self.exploration_state['userinterface_name']
-                
-                # ✅ Use execute_navigation with target_node_label='home' (correct method)
-                nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
-                    tree_id=tree_id,
-                    userinterface_name=userinterface_name,
-                    target_node_label='home',
-                    team_id=team_id
-                ))
-                
-                if nav_result.get('success'):
-                    print(f"    ✅ Recovery successful - ready for next validation")
-                    if back_result == 'failed':
-                        back_result = 'failed_recovered'
-                else:
-                    error_msg = nav_result.get('error', 'Unknown error')
-                    print(f"    ❌ Recovery failed: {error_msg}")
-                    
-                    # ✅ STOP VALIDATION: Recovery failed, no point continuing
-                    print(f"    🛑 STOPPING validation - recovery failed, cannot continue")
-                    with self._lock:
-                        self.exploration_state['status'] = 'validation_failed'
-                        self.exploration_state['error'] = f"Validation recovery failed: {error_msg}. Cannot navigate to home."
-                        self.exploration_state['current_step'] = 'Validation stopped - recovery failed'
-                    
-                    return {
-                        'success': False,
-                        'error': f"Validation stopped: Cannot recover to home after failed validation.\n\n"
-                                f"Reason: {error_msg}\n\n"
-                                f"Current item: {current_item} (step {current_index + 1}/{len(items_to_validate)})\n\n"
-                                f"Action required: Fix navigation to home before continuing validation.",
-                        'validation_stopped': True,
-                        'failed_at_item': current_item,
-                        'failed_at_index': current_index
-                    }
-                    
-            except Exception as recovery_error:
-                print(f"    ❌ Recovery exception: {recovery_error}")
-                
-                # ✅ STOP VALIDATION: Recovery exception, no point continuing
-                print(f"    🛑 STOPPING validation - recovery exception")
-                with self._lock:
-                    self.exploration_state['status'] = 'validation_failed'
-                    self.exploration_state['error'] = f"Validation recovery exception: {recovery_error}"
-                    self.exploration_state['current_step'] = 'Validation stopped - recovery exception'
-                
-                return {
-                    'success': False,
-                    'error': f"Validation stopped: Recovery exception occurred.\n\n"
-                            f"Exception: {recovery_error}\n\n"
-                            f"Current item: {current_item} (step {current_index + 1}/{len(items_to_validate)})\n\n"
-                            f"Action required: Check navigation configuration.",
-                    'validation_stopped': True,
-                    'failed_at_item': current_item,
-                    'failed_at_index': current_index
-                }
-        
-        # 3. Update edge with validation results (using action_sets like frontend)
-        with self._lock:
-            home_id = self.exploration_state['home_id']
-            edge_id = f"edge_{home_id}_to_{node_name}_temp"
-            
-            edge_result = get_edge_by_id(tree_id, edge_id, team_id)
-            edge_updated = False
-            
-            if edge_result['success']:
-                edge = edge_result['edge']
-                
-                # ✅ CORRECT: action_sets[0] = forward (with actions), action_sets[1] = reverse (with actions)
-                # NOT: action_sets[0] with reverse_actions - that's wrong!
-                action_sets = edge.get('action_sets', [])
-                if len(action_sets) >= 2:
-                    # Update forward direction (action_sets[0])
-                    if action_sets[0].get('actions') and len(action_sets[0]['actions']) > 0:
-                        action_sets[0]['actions'][0]['validation_status'] = click_result
-                        action_sets[0]['actions'][0]['validated_at'] = time.time()
-                        action_sets[0]['actions'][0]['actual_result'] = click_result
-                    
-                    # ✅ FIX: Update reverse direction (action_sets[1].actions, NOT action_sets[0].reverse_actions)
-                    if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
-                        action_sets[1]['actions'][0]['validation_status'] = back_result
-                        action_sets[1]['actions'][0]['validated_at'] = time.time()
-                        action_sets[1]['actions'][0]['actual_result'] = back_result
-                    
-                    # Save updated edge with correct action_sets structure
-                    update_result = save_edge(tree_id, edge, team_id)
-                    edge_updated = update_result.get('success', False)
-            
-            # Move to next
-            self.exploration_state['current_validation_index'] = current_index + 1
-            has_more = self.exploration_state['current_validation_index'] < len(items_to_validate)
-            
-            if not has_more:
-                self.exploration_state['status'] = 'validation_complete'
-                self.exploration_state['current_step'] = 'Edge validation complete - ready for node verification'
-            else:
-                self.exploration_state['status'] = 'awaiting_validation'
-                # ✅ FIX: Update current_step to show NEXT item that will be validated
-                next_index = self.exploration_state['current_validation_index']
-                next_item = items_to_validate[next_index]
-                next_node_name = target_to_node_map.get(next_item, f"{next_item}_temp")
-                next_node_display = next_node_name.replace('_temp', '')
-                self.exploration_state['current_step'] = f"Ready: Step {next_index + 1}/{len(items_to_validate)} - home → {next_node_display}: click_element(\"{next_item}\")"
-            
-            node_name_display = node_name.replace('_temp', '')
-            
-            return {
-                'success': True,
-                'item': current_item,
-                'node_name': node_name_display,
-                'node_id': node_name,
-                'click_result': click_result,
-                'back_result': back_result,
-                'edge_updated': edge_updated,
-                'has_more_items': has_more,
-                'screenshot_url': screenshot_url,
-                'action_sets': {
-                    'forward': {
-                        'source': home_id,
-                        'target': node_name_display,
-                        'action': f'click_element("{current_item}")',
-                        'result': click_result
-                    },
-                    'reverse': {
-                        'source': node_name_display,
-                        'target': home_id,
-                        'action': 'press_key(BACK)',
-                        'result': back_result
-                    }
-                },
-                'progress': {
-                    'current_item': self.exploration_state['current_validation_index'],
-                    'total_items': len(items_to_validate)
-                }
-            }
+                return self._validate_mobile_item()
+    
+    def _validate_tv_item(self) -> Dict[str, Any]:
+        """TV validation - delegates to TVValidationStrategy"""
+        strategy = TVValidationStrategy(self)
+        return strategy.validate_item()
+    
+    def _validate_mobile_item(self) -> Dict[str, Any]:
+        """Mobile validation - delegates to MobileValidationStrategy"""
+        strategy = MobileValidationStrategy(self)
+        return strategy.validate_item()
     
     def approve_generation(self, tree_id: str, approved_nodes: list, approved_edges: list, team_id: str) -> Dict[str, Any]:
         """
