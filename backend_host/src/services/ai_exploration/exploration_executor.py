@@ -127,17 +127,19 @@ class ExplorationExecutor:
         
         print(f"[@ExplorationExecutor] Initialized for device {device.device_id}")
     
-    def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str, original_prompt: str = "") -> Dict[str, Any]:
+    def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str, original_prompt: str = "", start_node: str = 'home') -> Dict[str, Any]:
         """
         Start AI exploration (Phase 0+1: Strategy Detection + Analysis)
         
         v2.0: Now accepts original_prompt for context-aware execution
+        v2.1: Now accepts start_node for recursive exploration (depth 0, 1, 2...)
         
         Args:
             tree_id: Navigation tree ID
             userinterface_name: User interface name
             team_id: Team ID
             original_prompt: User's goal (NEW in v2.0)
+            start_node: Node to start exploration from (NEW in v2.1, defaults to 'home')
             
         Returns:
             {
@@ -198,21 +200,21 @@ class ExplorationExecutor:
             print(f"  Tree: {tree_id}")
             print(f"  Device: {self.device_model} ({self.device_id})")
             print(f"  UI: {userinterface_name}")
-            print(f"  Depth: FIXED at 2 levels")
+            print(f"  Start node: {start_node}")
         
-        # ✅ PRE-FLIGHT CHECK: Test navigation to home BEFORE starting exploration
-        print(f"\n[@ExplorationExecutor:start_exploration] 🔍 Pre-flight check: Testing navigation to home...")
+        # ✅ PRE-FLIGHT CHECK: Test navigation to start_node BEFORE starting exploration
+        print(f"\n[@ExplorationExecutor:start_exploration] 🔍 Pre-flight check: Testing navigation to '{start_node}'...")
         try:
             import asyncio
             test_result = asyncio.run(self.device.navigation_executor.execute_navigation(
                 tree_id=tree_id,
                 userinterface_name=userinterface_name,
-                target_node_label='home',
+                target_node_label=start_node,
                 team_id=team_id
             ))
             
             if not test_result.get('success'):
-                error_msg = test_result.get('error', 'Navigation to home failed')
+                error_msg = test_result.get('error', f'Navigation to {start_node} failed')
                 print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
                 
                 with self._lock:
@@ -221,14 +223,14 @@ class ExplorationExecutor:
                 
                 return {
                     'success': False,
-                    'error': f"Cannot start AI exploration: Navigation to 'home' failed.\n\n"
+                    'error': f"Cannot start AI exploration: Navigation to '{start_node}' failed.\n\n"
                             f"Reason: {error_msg}\n\n"
-                            f"Action required: Please ensure the entry → home edge has proper actions configured "
-                            f"(click or navigation steps). Test 'goto home' manually before retrying AI exploration.",
+                            f"Action required: Please ensure navigation to '{start_node}' works. "
+                            f"Test 'goto {start_node}' manually before retrying AI exploration.",
                     'exploration_id': exploration_id
                 }
             
-            print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: Navigation to home works")
+            print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: Navigation to '{start_node}' works")
             
         except Exception as e:
             error_msg = str(e)

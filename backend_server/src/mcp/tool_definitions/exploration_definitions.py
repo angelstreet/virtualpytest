@@ -65,6 +65,10 @@ Example:
                     "original_prompt": {
                         "type": "string",
                         "description": "Your goal/intent (optional - helps AI context)"
+                    },
+                    "start_node": {
+                        "type": "string",
+                        "description": "Node to start exploration from (optional - defaults to 'home'). Use for depth 1+: start_node='login', start_node='tvguide', etc."
                     }
                 },
                 "required": ["userinterface_name"]

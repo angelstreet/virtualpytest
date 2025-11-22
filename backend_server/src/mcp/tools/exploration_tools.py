@@ -28,6 +28,7 @@ class ExplorationTools:
         tree_id = params.get('tree_id')
         team_id = params.get('team_id', 'team_1')
         original_prompt = params.get('original_prompt', '')
+        start_node = params.get('start_node', 'home')
         
         if not userinterface_name:
             return self.formatter.error("userinterface_name is required")
@@ -83,6 +84,7 @@ class ExplorationTools:
                     'userinterface_name': userinterface_name,
                     'team_id': team_id,
                     'original_prompt': original_prompt,
+                    'start_node': start_node,
                     'host_name': host_name,
                     'device_id': device_id
                 }

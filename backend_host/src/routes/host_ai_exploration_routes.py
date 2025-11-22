@@ -162,12 +162,14 @@ def start_exploration():
         device_id = data.get('device_id', 'device1')
         userinterface_name = data.get('userinterface_name')
         original_prompt = data.get('original_prompt', '')
+        start_node = data.get('start_node', 'home')  # NEW: Defaults to 'home'
         
         # 🔍 DEBUG LOG: Show what's being started
         print(f"[@route:ai_generation:start_exploration] Starting exploration:")
         print(f"  tree_id: {tree_id}")
         print(f"  device_id: {device_id}")
         print(f"  userinterface_name: {userinterface_name}")
+        print(f"  start_node: {start_node}")
         print(f"  available devices: {list(current_app.host_devices.keys())}")
         
         if not team_id:
@@ -189,12 +191,13 @@ def start_exploration():
         
         print(f"[@route:ai_generation:start_exploration] ✅ Starting exploration on device '{device_id}'")
         
-        # Delegate to exploration executor (depth is fixed at 2 levels)
+        # Delegate to exploration executor
         result = device.exploration_executor.start_exploration(
             tree_id=tree_id,
             userinterface_name=userinterface_name,
             team_id=team_id,
-            original_prompt=original_prompt
+            original_prompt=original_prompt,
+            start_node=start_node  # NEW: Pass start_node
         )
         
         print(f"[@route:ai_generation:start_exploration] Result: success={result.get('success', False)}, exploration_id={result.get('exploration_id', 'N/A')}")
