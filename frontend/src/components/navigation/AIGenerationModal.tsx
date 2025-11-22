@@ -147,7 +147,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       } else {
         // ❌ Only allow selection if focus is selected
         if (selectedNodes.has(item)) {
-          newSet.add(item);
+        newSet.add(item);
         }
         // If focus not selected, do nothing (can't select screen without focus)
       }

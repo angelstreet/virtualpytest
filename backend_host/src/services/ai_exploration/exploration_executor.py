@@ -210,18 +210,18 @@ class ExplorationExecutor:
         nodes_result = get_tree_nodes(tree_id, team_id)
         if not nodes_result.get('success'):
             error_msg = f"Failed to load tree nodes: {nodes_result.get('error')}"
-            print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
-            
-            with self._lock:
-                self.exploration_state['status'] = 'failed'
+                print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
+                
+                with self._lock:
+                    self.exploration_state['status'] = 'failed'
                 self.exploration_state['error'] = error_msg
-            
-            return {
-                'success': False,
+                
+                return {
+                    'success': False,
                 'error': f"Cannot start AI exploration: {error_msg}",
-                'exploration_id': exploration_id
-            }
-        
+                    'exploration_id': exploration_id
+                }
+            
         nodes = nodes_result.get('nodes', [])
         start_node_exists = any(n.get('label') == start_node for n in nodes)
         
@@ -621,7 +621,7 @@ class ExplorationExecutor:
                         )
                         edges_to_save.append(edge_horizontal)
                         print(f"    ↔ {source_focus} ↔ {target_focus}: RIGHT/LEFT (bidirectional)")
-                
+                        
                 # ========== ROW 2+: VERTICAL MENU (DOWN/UP from home) ==========
                 if len(lines) > 1:
                     print(f"\n  📊 Processing Rows 2-{len(lines)} (vertical menu): {len(lines) - 1} rows")
@@ -664,18 +664,18 @@ class ExplorationExecutor:
                             edge_vertical_nav = node_gen.create_edge_data(
                                 source=prev_vertical_focus,
                                 target=focus_node_name,
-                                actions=[{
-                                    "command": "press_key",
+                            actions=[{
+                                "command": "press_key",
                                     "params": {"key": "DOWN"},
                                     "delay": 1500
-                                }],
+                            }],
                                 reverse_actions=[{
                                     "command": "press_key",
                                     "params": {"key": "UP"},
                                     "delay": 1500
                                 }],
                                 label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
-                            )
+                        )
                             edges_to_save.append(edge_vertical_nav)
                             print(f"    ↕ {prev_vertical_focus} ↔ {focus_node_name}: DOWN/UP (bidirectional)")
                             
@@ -701,7 +701,7 @@ class ExplorationExecutor:
                                 
                                 # Store focus-screen pair for vertical edges
                                 focus_screen_pairs.append((focus_node_name, screen_node_name))
-                                
+                    
                                 # Store mapping
                                 self.exploration_state['target_to_node_map'][original_item] = screen_node_name
                                 print(f"    ✅ Created SCREEN node: {screen_node_name}_temp")
@@ -715,23 +715,23 @@ class ExplorationExecutor:
                 
                 # ========== VERTICAL EDGES: OK/BACK (Focus ↔ Screen for ALL rows) ==========
                 print(f"\n  ⬇️  Creating VERTICAL edges (enter/exit screens for all rows):")
-                for focus_node, screen_node in focus_screen_pairs:
+                    for focus_node, screen_node in focus_screen_pairs:
                     # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=OK, action_sets[1]=BACK
                     edge_vertical = node_gen.create_edge_data(
-                        source=focus_node,
-                        target=screen_node,
-                        actions=[{
-                            "command": "press_key",
-                            "params": {"key": "OK"},
+                            source=focus_node,
+                            target=screen_node,
+                            actions=[{
+                                "command": "press_key",
+                                "params": {"key": "OK"},
                             "delay": 5000
-                        }],
+                            }],
                         reverse_actions=[{
-                            "command": "press_key",
-                            "params": {"key": "BACK"},
+                                "command": "press_key",
+                                "params": {"key": "BACK"},
                             "delay": 5000
-                        }],
+                            }],
                         label=f"{focus_node}_to_{screen_node}_temp"
-                    )
+                        )
                     edges_to_save.append(edge_vertical)
                     print(f"    ↕ {focus_node} ↔ {screen_node}: OK/BACK (bidirectional)")
                 
@@ -1043,39 +1043,49 @@ class ExplorationExecutor:
                 try:
                     controller = self.exploration_engine.controller
                     print(f"[@ExplorationExecutor:validate_next_item] 🏠 Capturing HOME dump for uniqueness baseline...")
-                    dump_result = controller.dump_elements()
-                    
-                    # Handle async controllers (web) - run coroutine if needed
-                    import inspect
-                    if inspect.iscoroutine(dump_result):
-                        import asyncio
-                        dump_result = asyncio.run(dump_result)
                     
                     home_dump_data = None
+                    home_screenshot_url = self.exploration_state.get('current_analysis', {}).get('screenshot')
                     
-                    if isinstance(dump_result, tuple):
-                        success, elements, error = dump_result
-                        if success and elements:
-                            home_dump_data = {'elements': elements}
-                    elif isinstance(dump_result, dict):
-                        home_dump_data = dump_result
+                    # Try to get dump based on device type
+                    if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
+                        # Mobile/Web: Use dump_elements
+                        dump_result = controller.dump_elements()
                         
-                    if home_dump_data:
+                        # Handle async controllers (web) - run coroutine if needed
+                        import inspect
+                        if inspect.iscoroutine(dump_result):
+                            import asyncio
+                            dump_result = asyncio.run(dump_result)
+                        
+                        if isinstance(dump_result, tuple):
+                            success, elements, error = dump_result
+                            if success and elements:
+                                home_dump_data = {'elements': elements}
+                        elif isinstance(dump_result, dict):
+                            home_dump_data = dump_result
+                    else:
+                        # TV: Use OCR dump from home screenshot
+                        print(f"    📊 TV device - using OCR for home dump")
+                        if home_screenshot_url:
+                            # We need to get the local screenshot path from the URL
+                            # For now, we'll skip the home dump for TV (OCR already run during analysis)
+                            # TODO: Store OCR results from analysis phase
+                            print(f"    ⚠️ TV home dump skipped - OCR data not available from analysis phase")
+                        
+                    if home_dump_data or home_screenshot_url:
                         # Ensure list exists
                         if 'node_verification_data' not in self.exploration_state:
                             self.exploration_state['node_verification_data'] = []
                         
-                        # ✅ REUSE: Get home screenshot from current_analysis (already captured during analysis phase)
-                        home_screenshot_url = self.exploration_state.get('current_analysis', {}).get('screenshot')
-                        
-                        # Store Home Dump with screenshot
+                        # Store Home data (dump and/or screenshot)
                         self.exploration_state['node_verification_data'].append({
                             'node_id': self.exploration_state.get('home_id', 'home'),
                             'node_label': 'home',
                             'dump': home_dump_data,
-                            'screenshot_url': home_screenshot_url  # Reuse analysis screenshot
+                            'screenshot_url': home_screenshot_url
                         })
-                        print(f"    ✅ Home dump stored for baseline comparison (reusing analysis screenshot: {home_screenshot_url is not None})")
+                        print(f"    ✅ Home data stored (dump: {home_dump_data is not None}, screenshot: {home_screenshot_url is not None})")
                 except Exception as e:
                     print(f"    ⚠️ Failed to capture Home dump: {e}")
 
@@ -1155,37 +1165,48 @@ class ExplorationExecutor:
                     print(f"  🐛 DEBUG: ⚠️ prev_item '{prev_item}' NOT FOUND in any row!")
             
             # Determine navigation type
-            is_first_in_row = (current_position_in_row == 0)
+            # Key insight: Check if we're in the SAME row or DIFFERENT row
+            is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
             is_first_item_overall = (current_index == 0)
             
             print(f"\n  🐛 DEBUG: Navigation Decision Logic")
             print(f"     is_first_item_overall = {is_first_item_overall}")
-            print(f"     is_first_in_row = {is_first_in_row} (current_position_in_row == 0)")
             print(f"     current_row_index = {current_row_index}")
             print(f"     prev_row_index = {prev_row_index}")
-            print(f"     Row changed? {current_row_index != prev_row_index}")
+            print(f"     is_same_row = {is_same_row}")
             
             if is_first_item_overall:
-                # First item ever: Row 0 (home) → Row 1 first item (DOWN)
+                # First item ever: check if 'home' is in the same row
+                # If 'home' is in lines[0], it's horizontal navigation (RIGHT)
+                # If 'home' is NOT in any row, it's vertical navigation (DOWN)
+                home_in_current_row = False
+                if current_row_index >= 0 and current_row_index < len(lines):
+                    home_in_current_row = 'home' in [item.lower() for item in lines[current_row_index]]
+                
                 prev_focus_name = 'home'
-                nav_direction = 'DOWN'  # home is Row 0, first item is Row 1
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM OVERALL → DOWN from home")
-                print(f"     Reason: This is the very first item, navigate from Row 0 (home) to Row {current_row_index + 1}")
-            elif is_first_in_row:
-                # First item in a new row: vertical navigation from previous row's last item
-                prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
-                prev_focus_name = f"home_{prev_item_name}"
-                nav_direction = 'DOWN'  # Moving to new row vertically
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST IN ROW → DOWN to new row")
-                print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
-                print(f"     prev_focus_name = {prev_focus_name}")
-            else:
-                # Not first in row: horizontal navigation within same row
+                if home_in_current_row:
+                    nav_direction = 'RIGHT'  # home is IN this row, horizontal navigation
+                    print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, home IN Row {current_row_index + 1} → RIGHT")
+                    print(f"     Reason: 'home' is part of Row {current_row_index + 1}, horizontal navigation")
+                else:
+                    nav_direction = 'DOWN'  # home is NOT in this row, vertical navigation
+                    print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, home NOT in rows → DOWN")
+                    print(f"     Reason: 'home' is Row 0, navigating down to Row {current_row_index + 1}")
+            elif is_same_row:
+                # Same row: horizontal navigation
                 prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
                 prev_focus_name = f"home_{prev_item_name}"
                 nav_direction = 'RIGHT'  # Moving within same row horizontally
                 print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → RIGHT within row")
                 print(f"     Reason: Both items in Row {current_row_index + 1}")
+                print(f"     prev_focus_name = {prev_focus_name}")
+            else:
+                # Different rows: vertical navigation
+                prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
+                prev_focus_name = f"home_{prev_item_name}"
+                nav_direction = 'DOWN'  # Moving to new row vertically
+                print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → DOWN to new row")
+                print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
                 print(f"     prev_focus_name = {prev_focus_name}")
             
             print(f"\n  🐛 DEBUG: Final Navigation Plan")
@@ -1194,6 +1215,35 @@ class ExplorationExecutor:
             
             # Row numbering: home is Row 0, lines[0] is Row 1, lines[1] is Row 2, etc.
             display_row = current_row_index + 1  # lines[0] = Row 1
+            
+            # ✅ RECOVERY: Only navigate to home if we're doing DOWN navigation (home not in same row)
+            if is_first_item_overall and nav_direction == 'DOWN':
+                print(f"\n    🔄 ROW {display_row} START: Ensuring we're at home (Row 0)...")
+                try:
+                    import asyncio
+                    nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
+                        tree_id=tree_id,
+                        userinterface_name=self.exploration_state['userinterface_name'],
+                        target_node_label='home',
+                        team_id=team_id
+                    ))
+                    
+                    if nav_result.get('success'):
+                        print(f"    ✅ At home (Row 0) - ready for DOWN navigation to Row {display_row}")
+                    else:
+                        error_msg = nav_result.get('error', 'Unknown error')
+                        print(f"    ❌ Navigation to home failed: {error_msg}")
+                        print(f"    ⚠️ Continuing anyway - validation may fail")
+                except Exception as e:
+                    print(f"    ❌ Recovery exception: {e}")
+                    print(f"    ⚠️ Continuing anyway - validation may fail")
+            
+            # ✅ ROW TRANSITION: For different rows (DOWN navigation)
+            elif not is_same_row and not is_first_item_overall:
+                print(f"\n    🔽 ROW {display_row} TRANSITION: From Row {prev_row_index + 1} via DOWN")
+                # No recovery needed - we're already positioned at previous row's last item
+            
+            # Print validation info
             print(f"     📍 Row {display_row}, Position {current_position_in_row + 1}")
             print(f"     {'🔽 VERTICAL to new row' if nav_direction == 'DOWN' else '➡️ HORIZONTAL within row'}")
             print(f"     Edges to test:")
@@ -1207,33 +1257,6 @@ class ExplorationExecutor:
                 'exit': 'pending'
             }
             screenshot_url = None
-            
-            # ✅ ROW 1 RECOVERY: Navigate to home before starting Row 1 validation
-            if is_first_item_overall:
-                print(f"\n    🔄 ROW 1 START: Ensuring we're at home (Row 0)...")
-                try:
-                    import asyncio
-                    nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
-                        tree_id=tree_id,
-                        userinterface_name=self.exploration_state['userinterface_name'],
-                        target_node_label='home',
-                        team_id=team_id
-                    ))
-                    
-                    if nav_result.get('success'):
-                        print(f"    ✅ At home (Row 0) - ready for DOWN navigation to Row 1")
-                    else:
-                        error_msg = nav_result.get('error', 'Unknown error')
-                        print(f"    ❌ Navigation to home failed: {error_msg}")
-                        print(f"    ⚠️ Continuing anyway - validation may fail")
-                except Exception as e:
-                    print(f"    ❌ Recovery exception: {e}")
-                    print(f"    ⚠️ Continuing anyway - validation may fail")
-            
-            # ✅ ROW 2+ TRANSITION: Navigate DOWN from previous row's last position (no recovery)
-            elif is_first_in_row:
-                print(f"\n    🔽 ROW {display_row} TRANSITION: From Row {prev_row_index + 1} via DOWN")
-                # No recovery needed - we're already positioned at previous row's last item
             
             # Edge 1: Focus navigation (RIGHT for horizontal, DOWN for new row)
             try:
@@ -1284,19 +1307,19 @@ class ExplorationExecutor:
                     # Check if controller has dump_elements (mobile/web)
                     if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
                         print(f"    📊 Using ADB/Web dump_elements()")
-                        dump_result = controller.dump_elements()
-                        import inspect
-                        if inspect.iscoroutine(dump_result):
-                            import asyncio
-                            dump_result = asyncio.run(dump_result)
-                        
-                        if isinstance(dump_result, tuple):
-                            success, elements, error = dump_result
-                            if success and elements:
-                                dump_data = {'elements': elements}
+                    dump_result = controller.dump_elements()
+                    import inspect
+                    if inspect.iscoroutine(dump_result):
+                        import asyncio
+                        dump_result = asyncio.run(dump_result)
+                    
+                    if isinstance(dump_result, tuple):
+                        success, elements, error = dump_result
+                        if success and elements:
+                            dump_data = {'elements': elements}
                                 print(f"    📊 ADB Dump: {len(elements)} elements")
-                        elif isinstance(dump_result, dict):
-                            dump_data = dump_result
+                    elif isinstance(dump_result, dict):
+                        dump_data = dump_result
                             print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
                     else:
                         # TV/IR device - use OCR dump extraction
@@ -1330,16 +1353,16 @@ class ExplorationExecutor:
                 # Upload screenshot to R2
                 if screenshot_path:
                     try:
-                        from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+                            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         sanitized_name = screen_node_name.replace(' ', '_')
-                        r2_filename = f"{sanitized_name}.jpg"
-                        userinterface_name = self.exploration_state['userinterface_name']
+                            r2_filename = f"{sanitized_name}.jpg"
+                            userinterface_name = self.exploration_state['userinterface_name']
                         upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
-                        
-                        if upload_result.get('success'):
-                            screenshot_url = upload_result.get('url')
+                            
+                            if upload_result.get('success'):
+                                screenshot_url = upload_result.get('url')
                             print(f"    📸 Screenshot uploaded: {screenshot_url}")
-                    except Exception as e:
+                except Exception as e:
                         print(f"    ⚠️ Screenshot upload failed: {e}")
                 else:
                     print(f"    ⚠️ No screenshot to upload")
@@ -1513,30 +1536,30 @@ class ExplorationExecutor:
                 try:
                     # Try ADB/Web dump first
                     if hasattr(controller, 'dump_elements') and callable(getattr(controller, 'dump_elements')):
-                        dump_result = controller.dump_elements()
-                        
-                        # Handle async controllers (web) - run coroutine if needed
-                        import inspect
-                        if inspect.iscoroutine(dump_result):
-                            import asyncio
-                            dump_result = asyncio.run(dump_result)
-                        
-                        # Normalize dump format (mobile returns tuple, web returns dict)
-                        if isinstance(dump_result, tuple):
-                            # Mobile: (success, elements, error)
-                            success, elements, error = dump_result
-                            if success and elements:
-                                dump_data = {'elements': elements}
+                    dump_result = controller.dump_elements()
+                    
+                    # Handle async controllers (web) - run coroutine if needed
+                    import inspect
+                    if inspect.iscoroutine(dump_result):
+                        import asyncio
+                        dump_result = asyncio.run(dump_result)
+                    
+                    # Normalize dump format (mobile returns tuple, web returns dict)
+                    if isinstance(dump_result, tuple):
+                        # Mobile: (success, elements, error)
+                        success, elements, error = dump_result
+                        if success and elements:
+                            dump_data = {'elements': elements}
                                 print(f"    📱 ADB Dump captured: {len(elements)} elements")
-                            else:
-                                print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
-                        elif isinstance(dump_result, dict):
-                            # Web: already dict format
-                            dump_data = dump_result
-                            element_count = len(dump_result.get('elements', []))
-                            print(f"    🌐 Web Dump captured: {element_count} elements")
                         else:
-                            print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
+                                print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
+                    elif isinstance(dump_result, dict):
+                        # Web: already dict format
+                        dump_data = dump_result
+                        element_count = len(dump_result.get('elements', []))
+                            print(f"    🌐 Web Dump captured: {element_count} elements")
+                    else:
+                        print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
                     
                     # Fallback to OCR dump if ADB/Web dump failed or not available
                     if not dump_data and screenshot_path:
@@ -1564,20 +1587,20 @@ class ExplorationExecutor:
                 
                 # C. Upload Screenshot to R2
                 if screenshot_path:
-                    try:
+                try:
                         from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         node_name_clean = node_name.replace('_temp', '')
                         sanitized_name = node_name_clean.replace(' ', '_')
-                        r2_filename = f"{sanitized_name}.jpg"
-                        userinterface_name = self.exploration_state['userinterface_name']
+                            r2_filename = f"{sanitized_name}.jpg"
+                            userinterface_name = self.exploration_state['userinterface_name']
                         upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
-                        
-                        if upload_result.get('success'):
-                            screenshot_url = upload_result.get('url')
+                            
+                            if upload_result.get('success'):
+                                screenshot_url = upload_result.get('url')
                             print(f"    📸 Screenshot uploaded: {screenshot_url}")
-                        else:
-                            print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
-                    except Exception as e:
+                            else:
+                                print(f"    ⚠️ Screenshot upload failed: {upload_result.get('error')}")
+                except Exception as e:
                         print(f"    ⚠️ Screenshot upload process failed: {e}")
                 else:
                     print(f"    ⚠️ No screenshot to upload")
@@ -2142,49 +2165,49 @@ class ExplorationExecutor:
                     
                     elif verification.get('params'):
                         # 📱 MOBILE/WEB: Direct params (no reference needed)
-                        # Validate: params must not be empty dict
-                        params = verification['params']
-                        if not params or not isinstance(params, dict):
-                            print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
-                            continue
-                        
-                        # Validate: at least one param key must have a non-empty value
-                        has_valid_param = any(
-                            v and str(v).strip() != '' 
-                            for v in params.values()
-                        )
-                        
-                        if not has_valid_param:
-                            print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
-                            continue
-                        
-                        # Validate: command must exist and not be empty
-                        command = verification.get('method', '')
-                        if not command or command.strip() == '':
-                            print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
-                            continue
-                        
-                        # Add verification to node
-                        if 'verifications' not in node_data:
-                            node_data['verifications'] = []
-                        
-                        # Check if verification already exists to avoid duplicates
-                        verification_exists = False
-                        new_params = verification['params']
-                        
-                        for v in node_data['verifications']:
-                            if v.get('command') == verification.get('method') and v.get('params') == new_params:
-                                verification_exists = True
-                                break
-                        
-                        if not verification_exists:
-                            # Map 'method' to 'command' for standard verification format
-                            node_data['verifications'].append({
-                                'command': command,  # Use validated command
+                    # Validate: params must not be empty dict
+                    params = verification['params']
+                    if not params or not isinstance(params, dict):
+                        print(f"  ⚠️ Skipping verification for node {node_id}: empty or invalid params")
+                        continue
+                    
+                    # Validate: at least one param key must have a non-empty value
+                    has_valid_param = any(
+                        v and str(v).strip() != '' 
+                        for v in params.values()
+                    )
+                    
+                    if not has_valid_param:
+                        print(f"  ⚠️ Skipping verification for node {node_id}: all param values are empty")
+                        continue
+                    
+                    # Validate: command must exist and not be empty
+                    command = verification.get('method', '')
+                    if not command or command.strip() == '':
+                        print(f"  ⚠️ Skipping verification for node {node_id}: missing command")
+                        continue
+                    
+                    # Add verification to node
+                    if 'verifications' not in node_data:
+                        node_data['verifications'] = []
+                    
+                    # Check if verification already exists to avoid duplicates
+                    verification_exists = False
+                    new_params = verification['params']
+                    
+                    for v in node_data['verifications']:
+                        if v.get('command') == verification.get('method') and v.get('params') == new_params:
+                            verification_exists = True
+                            break
+                    
+                    if not verification_exists:
+                        # Map 'method' to 'command' for standard verification format
+                        node_data['verifications'].append({
+                            'command': command,  # Use validated command
                                 'verification_type': verification.get('type', 'adb'),
-                                'params': verification['params'],
-                                'expected': True
-                            })
+                            'params': verification['params'],
+                            'expected': True
+                        })
                             print(f"    ✅ Verification added (direct params)")
                 
                 nodes_to_save.append(node_data)
@@ -2207,7 +2230,7 @@ class ExplorationExecutor:
             if references_created > 0:
                 self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes ({references_created} text references created) - ready to finalize'
             else:
-                self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
+            self.exploration_state['current_step'] = f'Updated {nodes_updated} nodes - ready to finalize'
             
             return {
                 'success': True,

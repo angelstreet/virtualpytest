@@ -289,21 +289,21 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                           </Box>
                         ) : (
                           /* XML Dump (Mobile/Web) - Show as text */
-                          <Typography 
-                            variant="caption" 
-                            component="pre" 
-                            sx={{ 
-                              fontFamily: 'monospace',
-                              whiteSpace: 'pre-wrap',
-                              wordBreak: 'break-word',
-                              fontSize: '0.7rem'
-                            }}
-                          >
+                        <Typography 
+                          variant="caption" 
+                          component="pre" 
+                          sx={{ 
+                            fontFamily: 'monospace',
+                            whiteSpace: 'pre-wrap',
+                            wordBreak: 'break-word',
+                            fontSize: '0.7rem'
+                          }}
+                        >
                             {typeof selectedSuggestion.dump === 'string' 
                               ? selectedSuggestion.dump 
                               : JSON.stringify(selectedSuggestion.dump, null, 2)
                             }
-                          </Typography>
+                        </Typography>
                         )}
                       </Box>
                     ) : (

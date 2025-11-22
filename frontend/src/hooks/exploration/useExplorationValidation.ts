@@ -184,10 +184,10 @@ export const useExplorationValidation = ({
       }));
 
       // Add result(s)
-      const formatAction = (actionSet: any) => {
-        if (!actionSet) return '';
-        return actionSet.action || '';
-      };
+        const formatAction = (actionSet: any) => {
+          if (!actionSet) return '';
+          return actionSet.action || '';
+        };
 
       // ✅ TV DUAL-LAYER: Handle edges array (horizontal + vertical)
       if (data.edges && Array.isArray(data.edges)) {

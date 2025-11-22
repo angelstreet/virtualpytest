@@ -362,16 +362,16 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
             });
             
             return groupedResults.reverse().map((group, groupIndex) => (
-              <Paper 
+            <Paper 
                 key={groupedResults.length - 1 - groupIndex}
-                sx={{ 
-                  p: 1.5,
-                  bgcolor: 'background.default',
-                  border: '2px solid',
+              sx={{ 
+                p: 1.5,
+                bgcolor: 'background.default',
+                border: '2px solid',
                   borderColor: group.some(r => r.forward.result === 'failure' || r.backward.result === 'failure') ? 'error.main' : 'success.main',
-                  borderRadius: 1
-                }}
-              >
+                borderRadius: 1
+              }}
+            >
                 {group.map((result, resultIndex) => {
                   const isHorizontal = result.forward.action === 'RIGHT' || result.forward.action === 'DOWN';
                   const stepOffset = resultIndex === 0 ? 1 : 2; // .1 for first (horizontal), .2/.3 for second (vertical)
@@ -379,60 +379,60 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                   return (
                     <React.Fragment key={resultIndex}>
                       {/* Forward action */}
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                        <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
                           Step {result.step}.{stepOffset}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                          {truncate(`${result.sourceNode} → ${result.targetNode}`, 30)}
-                        </Typography>
-                        <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                          {truncate(result.forward.action, 40)}
-                        </Typography>
-                        <Typography 
-                          variant="body2" 
-                          sx={{ 
-                            fontWeight: 'bold',
-                            ml: 'auto',
-                            color: result.forward.result === 'success' ? 'success.main' : 'error.main'
-                          }}
-                        >
-                          {result.forward.result === 'success' ? '✅ SUCCESS' : '❌ FAILED'}
-                        </Typography>
-                      </Box>
-                      
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
+                  {truncate(`${result.sourceNode} → ${result.targetNode}`, 30)}
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
+                  {truncate(result.forward.action, 40)}
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 'bold',
+                    ml: 'auto',
+                    color: result.forward.result === 'success' ? 'success.main' : 'error.main'
+                  }}
+                >
+                  {result.forward.result === 'success' ? '✅ SUCCESS' : '❌ FAILED'}
+                </Typography>
+              </Box>
+              
                       {/* Backward action - only for vertical (OK/BACK) */}
                       {!isHorizontal && (
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: resultIndex < group.length - 1 ? 0.5 : 0, flexWrap: 'wrap' }}>
-                          <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
                             Step {result.step}.{stepOffset + 1}
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                            {truncate(`${result.targetNode} → ${result.sourceNode}`, 30)}
-                          </Typography>
-                          <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                            {truncate(result.backward.action, 40)}
-                          </Typography>
-                          <Typography 
-                            variant="body2" 
-                            sx={{ 
-                              fontWeight: 'bold',
-                              ml: 'auto',
-                              color: result.backward.result === 'success' ? 'success.main' : 
-                                     result.backward.result === 'warning' ? 'warning.main' :
-                                     result.backward.result === 'skipped' ? 'text.secondary' : 'error.main'
-                            }}
-                          >
-                            {result.backward.result === 'success' ? '✅ SUCCESS' :
-                             result.backward.result === 'warning' ? '⚠️ WARNING' :
-                             result.backward.result === 'skipped' ? '⏭️ SKIPPED' : '❌ FAILED'}
-                          </Typography>
-                        </Box>
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
+                  {truncate(`${result.targetNode} → ${result.sourceNode}`, 30)}
+                </Typography>
+                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
+                  {truncate(result.backward.action, 40)}
+                </Typography>
+                <Typography 
+                  variant="body2" 
+                  sx={{ 
+                    fontWeight: 'bold',
+                    ml: 'auto',
+                    color: result.backward.result === 'success' ? 'success.main' : 
+                           result.backward.result === 'warning' ? 'warning.main' :
+                           result.backward.result === 'skipped' ? 'text.secondary' : 'error.main'
+                  }}
+                >
+                  {result.backward.result === 'success' ? '✅ SUCCESS' :
+                   result.backward.result === 'warning' ? '⚠️ WARNING' :
+                   result.backward.result === 'skipped' ? '⏭️ SKIPPED' : '❌ FAILED'}
+                </Typography>
+              </Box>
                       )}
                     </React.Fragment>
                   );
                 })}
-              </Paper>
+            </Paper>
             ));
           })()}
           
