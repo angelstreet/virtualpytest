@@ -323,36 +323,92 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
                           {explorationPlan.lines && explorationPlan.lines.length > 0 ? (
-                            // DPAD navigation (TV/STB) - show dual-layer structure as simple text
+                            // DPAD navigation (TV/STB) - show dual-layer chips
                             <Box sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                               {explorationPlan.lines.map((line: string[], lineIdx: number) => {
-                                // Generate focus and screen node names
-                                const focusNodes: string[] = [];
-                                const screenNodes: string[] = [];
+                                // Generate focus and screen node data
+                                const nodePairs: Array<{item: string, focusNode: string, screenNode: string}> = [];
                                 
                                 line.forEach((item) => {
                                   const isHome = item.toLowerCase() === 'home';
                                   const cleanName = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
                                   
                                   if (!isHome) {
-                                    focusNodes.push(`home_${cleanName}`);
-                                    screenNodes.push(cleanName);
+                                    nodePairs.push({
+                                      item: item,
+                                      focusNode: `home_${cleanName}`,
+                                      screenNode: cleanName
+                                    });
                                   }
                                 });
                                 
-                                if (focusNodes.length === 0) return null;
+                                if (nodePairs.length === 0) return null;
                                 
                                 return (
                                   <Box key={lineIdx} sx={{ mb: 1.5 }}>
-                                    <Typography variant="body2" sx={{ color: 'text.secondary' }}>
+                                    <Typography variant="body2" sx={{ color: 'text.secondary', mb: 0.5 }}>
                                       Row {lineIdx + 1}:
                                     </Typography>
-                                    <Typography variant="body2" sx={{ pl: 2 }}>
-                                      Focus : {focusNodes.join(', ')}
-                                    </Typography>
-                                    <Typography variant="body2" sx={{ pl: 2 }}>
-                                      Screen : {screenNodes.join(', ')}
-                                    </Typography>
+                                    
+                                    {/* Focus Layer Chips */}
+                                    <Box sx={{ pl: 1, mb: 0.5 }}>
+                                      <Typography variant="caption" sx={{ color: 'primary.light', fontSize: '0.65rem' }}>
+                                        Focus:
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                                        {nodePairs.map((pair, idx) => {
+                                          const isSelected = selectedNodes.has(pair.item);
+                                          return (
+                                            <Chip 
+                                              key={idx}
+                                              label={pair.focusNode}
+                                              size="small"
+                                              variant="outlined"
+                                              onClick={() => toggleNodeSelection(pair.item)}
+                                              sx={{
+                                                cursor: 'pointer',
+                                                opacity: isSelected ? 1 : 0.4,
+                                                bgcolor: isSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent',
+                                                borderColor: isSelected ? 'primary.main' : 'grey.600',
+                                                fontSize: '0.65rem',
+                                                '&:hover': {
+                                                  opacity: 0.8,
+                                                  bgcolor: isSelected ? 'rgba(33, 150, 243, 0.3)' : 'action.hover'
+                                                }
+                                              }}
+                                            />
+                                          );
+                                        })}
+                                      </Box>
+                                    </Box>
+                                    
+                                    {/* Screen Layer Chips */}
+                                    <Box sx={{ pl: 1 }}>
+                                      <Typography variant="caption" sx={{ color: 'success.light', fontSize: '0.65rem' }}>
+                                        Screen:
+                                      </Typography>
+                                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
+                                        {nodePairs.map((pair, idx) => {
+                                          const isSelected = selectedNodes.has(pair.item);
+                                          return (
+                                            <Chip 
+                                              key={idx}
+                                              label={pair.screenNode}
+                                              size="small"
+                                              variant="outlined"
+                                              disabled={!isSelected}
+                                              sx={{
+                                                cursor: isSelected ? 'default' : 'not-allowed',
+                                                opacity: isSelected ? 1 : 0.3,
+                                                bgcolor: isSelected ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
+                                                borderColor: isSelected ? 'success.main' : 'grey.700',
+                                                fontSize: '0.65rem'
+                                              }}
+                                            />
+                                          );
+                                        })}
+                                      </Box>
+                                    </Box>
                                   </Box>
                                 );
                               })}

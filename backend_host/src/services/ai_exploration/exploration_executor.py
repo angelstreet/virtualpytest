@@ -866,17 +866,24 @@ class ExplorationExecutor:
     
     def validate_next_item(self) -> Dict[str, Any]:
         """
-        Phase 2b: Validate ONE edge by testing click → back
+        Phase 2b: Validate edges sequentially (depth-first for TV dual-layer)
+        
+        TV Dual-Layer (depth-first):
+          1. home → home_tvguide: RIGHT
+          2. home_tvguide ↓ tvguide: OK (screenshot + dump)
+          3. tvguide ↑ home_tvguide: BACK
+          4. home_tvguide → home_apps: RIGHT
+          5. home_apps ↓ apps: OK (screenshot + dump)
+          6. apps ↑ home_apps: BACK
+          ... (test complete cycle per item)
+        
+        Mobile/Web (single-layer):
+          1. home → search: click (screenshot + dump)
+          2. search → home: BACK
         
         Returns:
-            {
-                'success': True,
-                'item': 'Search',
-                'click_result': 'success',
-                'back_result': 'success',
-                'has_more_items': True,
-                'progress': {...}
-            }
+            TV: {'success': True, 'item': 'tvguide', 'edge_results': {...}, ...}
+            Mobile/Web: {'success': True, 'item': 'Search', 'click_result': 'success', ...}
         """
         with self._lock:
             print(f"\n{'='*80}")
@@ -979,8 +986,160 @@ class ExplorationExecutor:
         # Get controller and context from engine
         controller = self.exploration_engine.controller
         context = self.exploration_engine.context
+        strategy = self.exploration_state.get('exploration_plan', {}).get('strategy', 'click')
         home_indicator = self.exploration_state['exploration_plan']['items'][0]
         
+        # ✅ TV DUAL-LAYER: Use depth-first sequential edge validation
+        if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+            # ✅ DUAL-LAYER TV VALIDATION (Depth-first)
+            print(f"\n  🎮 TV DUAL-LAYER VALIDATION (depth-first)")
+            print(f"     Item {current_index + 1}/{len(items_to_validate)}: {current_item}")
+            
+            # Calculate node names
+            node_gen = NodeGenerator(tree_id, team_id)
+            screen_node_name = node_gen.target_to_node_name(current_item)
+            focus_node_name = f"home_{screen_node_name}"
+            prev_focus_name = 'home' if current_index == 0 else f"home_{node_gen.target_to_node_name(items_to_validate[current_index - 1])}"
+            
+            print(f"     Edges to test:")
+            print(f"       1. {prev_focus_name} → {focus_node_name}: RIGHT")
+            print(f"       2. {focus_node_name} ↓ {screen_node_name}: OK")
+            print(f"       3. {screen_node_name} ↑ {focus_node_name}: BACK")
+            
+            edge_results = {
+                'horizontal': 'pending',
+                'enter': 'pending',
+                'exit': 'pending'
+            }
+            screenshot_url = None
+            
+            # Edge 1: Horizontal navigation (RIGHT)
+            try:
+                print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
+                result = controller.press_key('RIGHT')
+                import inspect
+                if inspect.iscoroutine(result):
+                    import asyncio
+                    result = asyncio.run(result)
+                
+                edge_results['horizontal'] = 'success'
+                print(f"    ✅ Horizontal edge: RIGHT")
+                time.sleep(1)
+            except Exception as e:
+                edge_results['horizontal'] = 'failed'
+                print(f"    ❌ Horizontal edge failed: {e}")
+            
+            # Edge 2: Vertical enter (OK) - with screenshot + dump
+            try:
+                print(f"\n    Edge 2/3: {focus_node_name} ↓ {screen_node_name}")
+                result = controller.press_key('OK')
+                import inspect
+                if inspect.iscoroutine(result):
+                    import asyncio
+                    result = asyncio.run(result)
+                
+                edge_results['enter'] = 'success'
+                print(f"    ✅ Vertical enter: OK")
+                time.sleep(3)
+                
+                # 📸 Capture screenshot + dump (ONLY for screen nodes)
+                dump_data = None
+                try:
+                    dump_result = controller.dump_elements()
+                    import inspect
+                    if inspect.iscoroutine(dump_result):
+                        import asyncio
+                        dump_result = asyncio.run(dump_result)
+                    
+                    if isinstance(dump_result, tuple):
+                        success, elements, error = dump_result
+                        if success and elements:
+                            dump_data = {'elements': elements}
+                            print(f"    📊 Dump: {len(elements)} elements")
+                    elif isinstance(dump_result, dict):
+                        dump_data = dump_result
+                        print(f"    📊 Dump: {len(dump_result.get('elements', []))} elements")
+                except Exception as e:
+                    print(f"    ⚠️ Dump failed: {e}")
+                
+                # Screenshot
+                try:
+                    av_controller = self.device._get_controller('av')
+                    if av_controller:
+                        sanitized_name = screen_node_name.replace(' ', '_')
+                        local_path = av_controller.save_screenshot(sanitized_name)
+                        
+                        if local_path:
+                            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+                            r2_filename = f"{sanitized_name}.jpg"
+                            userinterface_name = self.exploration_state['userinterface_name']
+                            upload_result = upload_navigation_screenshot(local_path, userinterface_name, r2_filename)
+                            
+                            if upload_result.get('success'):
+                                screenshot_url = upload_result.get('url')
+                                print(f"    📸 Screenshot: {screenshot_url}")
+                except Exception as e:
+                    print(f"    ⚠️ Screenshot failed: {e}")
+                
+                # Store verification data
+                if dump_data:
+                    with self._lock:
+                        if 'node_verification_data' not in self.exploration_state:
+                            self.exploration_state['node_verification_data'] = []
+                        
+                        self.exploration_state['node_verification_data'].append({
+                            'node_id': f"{screen_node_name}_temp",
+                            'node_label': screen_node_name,
+                            'dump': dump_data,
+                            'screenshot_url': screenshot_url
+                        })
+                    print(f"    ✅ Verification data stored")
+                    
+            except Exception as e:
+                edge_results['enter'] = 'failed'
+                print(f"    ❌ Vertical enter failed: {e}")
+            
+            # Edge 3: Vertical exit (BACK)
+            try:
+                print(f"\n    Edge 3/3: {screen_node_name} ↑ {focus_node_name}")
+                result = controller.press_key('BACK')
+                import inspect
+                if inspect.iscoroutine(result):
+                    import asyncio
+                    asyncio.run(result)
+                
+                edge_results['exit'] = 'success'
+                print(f"    ✅ Vertical exit: BACK")
+                time.sleep(2)
+            except Exception as e:
+                edge_results['exit'] = 'failed'
+                print(f"    ❌ Vertical exit failed: {e}")
+            
+            # Update state and return
+            with self._lock:
+                self.exploration_state['current_validation_index'] = current_index + 1
+                has_more = (current_index + 1) < len(items_to_validate)
+            
+            print(f"\n  📊 Depth-first cycle complete:")
+            print(f"     Horizontal: {edge_results['horizontal']}")
+            print(f"     Enter (OK): {edge_results['enter']}")
+            print(f"     Exit (BACK): {edge_results['exit']}")
+            print(f"     Progress: {current_index + 1}/{len(items_to_validate)}")
+            
+            return {
+                'success': True,
+                'item': current_item,
+                'edge_results': edge_results,
+                'screenshot_url': screenshot_url,
+                'has_more_items': has_more,
+                'progress': {
+                    'current': current_index + 1,
+                    'total': len(items_to_validate),
+                    'percentage': ((current_index + 1) / len(items_to_validate)) * 100
+                }
+            }
+        
+        # ✅ MOBILE/WEB: PRESERVE EXISTING VALIDATION (DO NOT MODIFY BELOW)
         # Perform validation
         click_result = 'failed'
         back_result = 'failed'
