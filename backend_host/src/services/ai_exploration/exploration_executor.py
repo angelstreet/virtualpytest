@@ -1334,6 +1334,8 @@ class ExplorationExecutor:
                                     dump_data = {'elements': ocr_result['elements']}
                                     print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
                                 else:
+                                    # Even if empty, set structure so UI knows it's an OCR dump
+                                    dump_data = {'elements': []}
                                     print(f"    ⚠️ OCR dump extraction failed or no text found")
                             else:
                                 print(f"    ⚠️ Text controller not available for OCR dump")
