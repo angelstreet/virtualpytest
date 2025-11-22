@@ -447,6 +447,19 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                 const isSelected = selectedEdges.has(item);
                                 
                                 if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
+                                  // Calculate previous focus node for horizontal navigation
+                                  let prevFocusNode = 'home';
+                                  if (idx > 0) {
+                                    const prevItem = validEdges[idx - 1];
+                                    const prevCleanName = prevItem.toLowerCase()
+                                      .replace(/&amp;/g, ' ')
+                                      .replace(/tab|register|button|screen|menu|page|currently selected/gi, ' ')
+                                      .replace(/[^a-z0-9]+/g, '_')
+                                      .replace(/_+/g, '_')
+                                      .replace(/^_|_$/g, '');
+                                    prevFocusNode = `home_${prevCleanName}`;
+                                  }
+                                  
                                   // Dual-layer edges
                                   return (
                                     <Box 
@@ -469,25 +482,21 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       onClick={() => toggleEdgeSelection(item)}
                                     >
                                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                        Item {idx + 1}: {item} {!isSelected && '(skipped)'}
+                                        {item} {!isSelected && '(skipped)'}
                                       </Typography>
-                                      {/* Horizontal edge (if not first item) */}
-                                      {idx > 0 && (
-                                        <>
-                                          <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'primary.light' }}>
-                                            → Horizontal: ... → {focusNodeName}: RIGHT
-                                          </Typography>
-                                          <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'primary.light' }}>
-                                            ← Horizontal: {focusNodeName} → ...: LEFT
-                                          </Typography>
-                                        </>
-                                      )}
+                                      {/* Horizontal edges */}
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
+                                        {prevFocusNode} → {focusNodeName}: RIGHT
+                                      </Typography>
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
+                                        {focusNodeName} ← {prevFocusNode}: LEFT
+                                      </Typography>
                                       {/* Vertical edges */}
-                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'success.light' }}>
-                                        ↓ Vertical: {focusNodeName} → {cleanNodeName}: OK
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
+                                        {focusNodeName} ↓ {cleanNodeName}: OK
                                       </Typography>
-                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1, color: 'success.light' }}>
-                                        ↑ Vertical: {cleanNodeName} → {focusNodeName}: BACK
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
+                                        {cleanNodeName} ↑ {focusNodeName}: BACK
                                       </Typography>
                                     </Box>
                                   );
@@ -514,13 +523,13 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       onClick={() => toggleEdgeSelection(item)}
                                     >
                                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
-                                        Step {idx + 1} {!isSelected && '(skipped)'}
+                                        {item} {!isSelected && '(skipped)'}
                                       </Typography>
-                                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                        → home → {cleanNodeName}: click("{item}")
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
+                                        home → {cleanNodeName}: click("{item}")
                                       </Typography>
-                                      <Typography variant="body2" sx={{ fontSize: '0.75rem', fontFamily: 'monospace', pl: 1 }}>
-                                        ← {cleanNodeName} → home: BACK
+                                      <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
+                                        {cleanNodeName} ← home: BACK
                                       </Typography>
                                     </Box>
                                   );
