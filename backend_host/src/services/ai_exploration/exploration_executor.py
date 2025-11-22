@@ -203,17 +203,17 @@ class ExplorationExecutor:
         nodes_result = get_tree_nodes(tree_id, team_id)
         if not nodes_result.get('success'):
             error_msg = f"Failed to load tree nodes: {nodes_result.get('error')}"
-                print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
-                
-                with self._lock:
-                    self.exploration_state['status'] = 'failed'
+            print(f"[@ExplorationExecutor:start_exploration] ❌ Pre-flight check FAILED: {error_msg}")
+            
+            with self._lock:
+                self.exploration_state['status'] = 'failed'
                 self.exploration_state['error'] = error_msg
-                
-                return {
-                    'success': False,
+            
+            return {
+                'success': False,
                 'error': f"Cannot start AI exploration: {error_msg}",
-                    'exploration_id': exploration_id
-                }
+                'exploration_id': exploration_id
+            }
             
         nodes = nodes_result.get('nodes', [])
         start_node_exists = any(n.get('label') == start_node for n in nodes)
