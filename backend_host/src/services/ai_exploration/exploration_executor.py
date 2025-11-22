@@ -589,12 +589,12 @@ class ExplorationExecutor:
                             actions=[{
                                 "command": "press_key",
                                 "params": {"key": "RIGHT"},
-                                "delay": 500
+                                "delay": 1500
                             }],
                             reverse_actions=[{
                                 "command": "press_key",
                                 "params": {"key": "LEFT"},
-                                "delay": 500
+                                "delay": 1500
                             }],
                             label=f"{source_focus}_to_{target_focus}_temp"
                         )
@@ -646,12 +646,12 @@ class ExplorationExecutor:
                                 actions=[{
                                     "command": "press_key",
                                     "params": {"key": "DOWN"},
-                                    "delay": 500
+                                    "delay": 1500
                                 }],
                                 reverse_actions=[{
                                     "command": "press_key",
                                     "params": {"key": "UP"},
-                                    "delay": 500
+                                    "delay": 1500
                                 }],
                                 label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
                             )
@@ -702,12 +702,12 @@ class ExplorationExecutor:
                         actions=[{
                             "command": "press_key",
                             "params": {"key": "OK"},
-                            "delay": 2000
+                            "delay": 5000
                         }],
                         reverse_actions=[{
                             "command": "press_key",
                             "params": {"key": "BACK"},
-                            "delay": 2000
+                            "delay": 5000
                         }],
                         label=f"{focus_node}_to_{screen_node}_temp"
                     )
