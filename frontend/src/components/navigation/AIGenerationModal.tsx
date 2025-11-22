@@ -126,17 +126,19 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   };
 
   const toggleScreenNode = (item: string) => {
-    // Only allow toggling if focus is selected
-    if (!selectedNodes.has(item)) {
-      return; // Can't select screen without focus
-    }
-    
     setSelectedScreenNodes(prev => {
       const newSet = new Set(prev);
-      if (newSet.has(item)) {
+      const isCurrentlySelected = newSet.has(item);
+      
+      if (isCurrentlySelected) {
+        // ✅ Always allow deselection
         newSet.delete(item);
       } else {
-        newSet.add(item);
+        // ❌ Only allow selection if focus is selected
+        if (selectedNodes.has(item)) {
+          newSet.add(item);
+        }
+        // If focus not selected, do nothing (can't select screen without focus)
       }
       return newSet;
     });
