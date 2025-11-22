@@ -1164,8 +1164,9 @@ class ExplorationExecutor:
                 except Exception as e:
                     print(f"    ⚠️ Screenshot failed: {e}")
                 
-                # Store verification data
-                if dump_data:
+                # Store verification data (screenshot and/or dump)
+                # ✅ TV FIX: Store even without dump (IR remote has no dump_elements)
+                if screenshot_url or dump_data:
                     with self._lock:
                         if 'node_verification_data' not in self.exploration_state:
                             self.exploration_state['node_verification_data'] = []
@@ -1173,10 +1174,10 @@ class ExplorationExecutor:
                         self.exploration_state['node_verification_data'].append({
                             'node_id': f"{screen_node_name}_temp",
                             'node_label': screen_node_name,
-                            'dump': dump_data,
+                            'dump': dump_data,  # None for TV, that's OK
                             'screenshot_url': screenshot_url
                         })
-                    print(f"    ✅ Verification data stored")
+                    print(f"    ✅ Verification data stored (dump: {dump_data is not None}, screenshot: {screenshot_url is not None})")
                     
             except Exception as e:
                 edge_results['enter'] = 'failed'
@@ -1369,8 +1370,9 @@ class ExplorationExecutor:
                 except Exception as e:
                     print(f"    ⚠️ Screenshot process failed: {e}")
                 
-                # C. Store Data (if dump was captured)
-                if dump_data:
+                # C. Store Data (screenshot and/or dump)
+                # ✅ MOBILE/WEB: Store if we have either screenshot or dump
+                if screenshot_url or dump_data:
                     with self._lock:
                         # Ensure list exists
                         if 'node_verification_data' not in self.exploration_state:
@@ -1380,11 +1382,11 @@ class ExplorationExecutor:
                             'node_id': node_name,
                             'node_label': node_name.replace('_temp', ''),
                             'dump': dump_data,
-                            'screenshot_url': screenshot_url  # Might be None, that's fine
+                            'screenshot_url': screenshot_url
                         })
-                    print(f"    ✅ Node verification data stored (with screenshot: {screenshot_url is not None})")
+                    print(f"    ✅ Node verification data stored (dump: {dump_data is not None}, screenshot: {screenshot_url is not None})")
                 else:
-                    print(f"    ❌ Skipping node verification data storage (no dump captured)")
+                    print(f"    ❌ Skipping node verification data storage (no dump or screenshot captured)")
         except Exception as e:
             print(f"    ❌ Click failed: {e}")
         
