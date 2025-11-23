@@ -29,7 +29,7 @@ Designed to **replace $15k+ commercial tools**, VirtualPyTest provides a free, f
 
 <div align="center">
   <a href="https://www.virtualpytest.com/">
-    <img src="docs_new/images/dashboard.png" alt="VirtualPyTest Dashboard" width="100%">
+    <img src="/frontend/screenshot/dashboard.png" alt="VirtualPyTest Dashboard" width="100%">
   </a>
   <p><i><a href="https://www.virtualpytest.com/">Try the Live Sandbox</a></i></p>
 </div>
