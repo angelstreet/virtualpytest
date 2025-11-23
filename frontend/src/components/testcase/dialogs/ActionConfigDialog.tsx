@@ -1,7 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import React, { useState } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -13,6 +12,7 @@ import {
 import { ActionBlockData } from '../../../types/testcase/TestCase_Types';
 import { ActionsList } from '../../actions';
 import { getZIndex } from '../../../utils/zIndexUtils';
+import { StyledDialog } from '../../common/StyledDialog';
 
 interface ActionConfigDialogProps {
   open: boolean;
@@ -42,18 +42,12 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
   const isValid = actions.length > 0 && Boolean(actions[0].command);
 
   return (
-    <Dialog 
+    <StyledDialog 
       open={open} 
       onClose={onCancel} 
       maxWidth="md" 
       fullWidth
       sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
-      PaperProps={{
-        sx: {
-          border: 2,
-          borderColor: 'divider',
-        }
-      }}
     >
       <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -93,6 +87,6 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
           Save
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };

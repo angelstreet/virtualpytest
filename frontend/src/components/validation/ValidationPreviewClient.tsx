@@ -2,7 +2,6 @@
 
 import { PlayArrow as PlayArrowIcon, Visibility as VisibilityIcon } from '@mui/icons-material';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -22,6 +21,7 @@ import {
 import { useState, useEffect } from 'react';
 
 import { useValidation } from '../../hooks/validation';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface ValidationPreviewClientProps {
   treeId: string;
@@ -96,7 +96,7 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
   // Show error dialog if there's a persistent error
   if (validation.validationError && !validation.isLoadingPreview) {
     return (
-      <Dialog open={true} maxWidth="md" fullWidth>
+      <StyledDialog open={true} maxWidth="md" fullWidth>
         <DialogTitle>Validation Preview Error</DialogTitle>
         <DialogContent>
           <Box py={1}>
@@ -119,7 +119,7 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
             Retry
           </Button>
         </DialogActions>
-      </Dialog>
+      </StyledDialog>
     );
   }
 
@@ -131,7 +131,7 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
   // Show loading dialog
   if (!validation.preview && validation.isLoadingPreview) {
     return (
-      <Dialog open={true} maxWidth="md" fullWidth>
+      <StyledDialog open={true} maxWidth="md" fullWidth>
         <DialogTitle>Validation Preview</DialogTitle>
         <DialogContent>
           <Box display="flex" justifyContent="center" alignItems="center" py={1}>
@@ -139,7 +139,7 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
             <Typography>Loading validation preview...</Typography>
           </Box>
         </DialogContent>
-      </Dialog>
+      </StyledDialog>
     );
   }
 
@@ -147,7 +147,7 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
   const totalCount = validation.preview?.edges?.length || 0;
 
   return (
-    <Dialog open={true} maxWidth="md" fullWidth>
+    <StyledDialog open={true} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" gap={1}>
           <VisibilityIcon />
@@ -234,6 +234,6 @@ export default function ValidationPreviewClient({ treeId, onClose, selectedHost,
           Run
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 }

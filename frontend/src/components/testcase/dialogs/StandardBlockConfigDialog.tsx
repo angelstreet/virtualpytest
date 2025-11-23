@@ -7,7 +7,6 @@
 
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -26,6 +25,8 @@ import {
   InputAdornment,
 } from '@mui/material';
 import AddCircleOutlineIcon from '@mui/icons-material/AddCircleOutline';
+
+import { StyledDialog } from '../../common/StyledDialog';
 
 // Available variable for insertion
 interface AvailableVariable {
@@ -323,17 +324,11 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
 
   return (
     <>
-      <Dialog 
+      <StyledDialog 
         open={open} 
         onClose={onCancel} 
         maxWidth="sm" 
         fullWidth
-        PaperProps={{
-          sx: {
-            border: 2,
-            borderColor: 'divider',
-          }
-        }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -362,7 +357,7 @@ export const StandardBlockConfigDialog: React.FC<StandardBlockConfigDialogProps>
           Save
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
       
       {/* Variable Selection Menu */}
       <Menu

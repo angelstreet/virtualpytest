@@ -1,7 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -12,6 +11,7 @@ import {
   IconButton,
 } from '@mui/material';
 import { LoopBlockData, LoopForm } from '../../../types/testcase/TestCase_Types';
+import { StyledDialog } from '../../common/StyledDialog';
 
 interface LoopConfigDialogProps {
   open: boolean;
@@ -44,17 +44,11 @@ export const LoopConfigDialog: React.FC<LoopConfigDialogProps> = ({
   };
 
   return (
-    <Dialog 
+    <StyledDialog 
       open={open} 
       onClose={onCancel} 
       maxWidth="sm" 
       fullWidth
-      PaperProps={{
-        sx: {
-          border: 2,
-          borderColor: 'divider',
-        }
-      }}
     >
       <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -103,7 +97,7 @@ export const LoopConfigDialog: React.FC<LoopConfigDialogProps> = ({
           Save
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 

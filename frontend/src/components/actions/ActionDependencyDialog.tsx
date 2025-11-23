@@ -1,5 +1,4 @@
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -7,6 +6,8 @@ import {
   Typography,
 } from '@mui/material';
 import React from 'react';
+
+import { StyledDialog } from '../common/StyledDialog';
 
 interface EdgeInfo {
   tree_name: string;
@@ -30,7 +31,7 @@ export const ActionDependencyDialog: React.FC<ActionDependencyDialogProps> = ({
   const hasMore = edges.length > 3;
 
   return (
-    <Dialog open={isOpen} onClose={onCancel}>
+    <StyledDialog open={isOpen} onClose={onCancel}>
       <DialogTitle>Action Used by {edgeCount} Edges</DialogTitle>
       <DialogContent>
         <Typography>
@@ -42,6 +43,6 @@ export const ActionDependencyDialog: React.FC<ActionDependencyDialogProps> = ({
         <Button onClick={onCancel}>Cancel</Button>
         <Button onClick={onConfirm}>Continue</Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };

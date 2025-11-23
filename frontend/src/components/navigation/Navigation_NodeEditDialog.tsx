@@ -1,6 +1,5 @@
 import { Close as CloseIcon } from '@mui/icons-material';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -23,6 +22,7 @@ import { getZIndex } from '../../utils/zIndexUtils';
 import { VerificationsList } from '../verification/VerificationsList';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { StyledDialog } from '../common/StyledDialog';
 
 export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   isOpen,
@@ -120,16 +120,13 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
   };
 
   return (
-    <Dialog
+    <StyledDialog
       open={isOpen}
       onClose={onClose}
       maxWidth="md"
       fullWidth
       sx={{ 
         zIndex: getZIndex('NAVIGATION_DIALOGS'),
-        '& .MuiDialog-paper': {
-          border: '1px solid white',
-        }
       }}
     >
       <DialogTitle sx={{ pb: 0.5 }}>
@@ -380,6 +377,6 @@ export const NodeEditDialog: React.FC<NodeEditDialogProps> = ({
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
-    </Dialog>
+    </StyledDialog>
   );
 };

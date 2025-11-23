@@ -1,6 +1,5 @@
 import CloseIcon from '@mui/icons-material/Close';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -28,6 +27,7 @@ import { getZIndex } from '../../utils/zIndexUtils';
 import { ActionsList } from '../actions';
 import { ActionDependencyDialog } from '../actions/ActionDependencyDialog';
 import { VerificationsList } from '../verification/VerificationsList';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface EdgeEditDialogProps {
   isOpen: boolean;
@@ -198,16 +198,13 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
 
   return (
     <>
-      <Dialog
+      <StyledDialog
         open={isOpen}
         onClose={onClose}
         maxWidth="md"
         fullWidth
         sx={{ 
           zIndex: getZIndex('NAVIGATION_DIALOGS'),
-          '& .MuiDialog-paper': {
-            border: '1px solid white',
-          }
         }}
       >
         <DialogTitle sx={{ pb: 0.5 }}>
@@ -634,7 +631,7 @@ export const EdgeEditDialog: React.FC<EdgeEditDialogProps> = ({
             </Button>
           )}
         </DialogActions>
-      </Dialog>
+      </StyledDialog>
 
       {/* Dependency Warning Dialog */}
       <ActionDependencyDialog

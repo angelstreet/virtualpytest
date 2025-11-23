@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -15,6 +14,7 @@ import {
 } from '@mui/material';
 import { NavigationBlockData, NavigationForm } from '../../../types/testcase/TestCase_Types';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
+import { StyledDialog } from '../../common/StyledDialog';
 
 interface NavigationConfigDialogProps {
   open: boolean;
@@ -72,7 +72,7 @@ export const NavigationConfigDialog: React.FC<NavigationConfigDialogProps> = ({
   };
 
   return (
-    <Dialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
+    <StyledDialog open={open} onClose={onCancel} maxWidth="sm" fullWidth>
       <DialogTitle>Configure Navigation Block</DialogTitle>
       <DialogContent>
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mt: 2 }}>
@@ -108,7 +108,7 @@ export const NavigationConfigDialog: React.FC<NavigationConfigDialogProps> = ({
           Save
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 

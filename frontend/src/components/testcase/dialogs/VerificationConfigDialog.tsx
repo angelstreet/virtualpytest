@@ -1,7 +1,6 @@
 import CloseIcon from '@mui/icons-material/Close';
 import React, { useState, useMemo } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -14,6 +13,7 @@ import { VerificationBlockData } from '../../../types/testcase/TestCase_Types';
 import { VerificationsList } from '../../verification/VerificationsList';
 import { getZIndex } from '../../../utils/zIndexUtils';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
+import { StyledDialog } from '../../common/StyledDialog';
 
 interface VerificationConfigDialogProps {
   open: boolean;
@@ -89,18 +89,12 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
   const hasExecutionValue = outputValue !== undefined;
 
   return (
-    <Dialog 
+    <StyledDialog 
       open={open} 
       onClose={onCancel} 
       maxWidth={mode === 'viewValue' ? 'sm' : 'md'} 
       fullWidth
       sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
-      PaperProps={{
-        sx: {
-          border: 2,
-          borderColor: 'divider',
-        }
-      }}
     >
       <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
@@ -206,6 +200,6 @@ export const VerificationConfigDialog: React.FC<VerificationConfigDialogProps> =
           </>
         )}
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };

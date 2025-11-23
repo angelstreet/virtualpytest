@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import { 
-  Dialog, 
   DialogTitle, 
   DialogContent, 
   DialogActions, 
@@ -23,6 +22,7 @@ import ErrorIcon from '@mui/icons-material/Error';
 import CloseIcon from '@mui/icons-material/Close';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
 import { TestCaseSelector } from '../TestCaseSelector';
+import { StyledDialog } from '../../common/StyledDialog';
 
 interface Folder {
   folder_id: number;
@@ -183,17 +183,11 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
   return (
     <>
       {/* Save Dialog */}
-      <Dialog 
+      <StyledDialog 
         open={saveDialogOpen} 
         onClose={() => setSaveDialogOpen(false)} 
         maxWidth="sm" 
         fullWidth
-        PaperProps={{
-          sx: {
-            border: 2,
-            borderColor: 'divider',
-          }
-        }}
       >
         <DialogTitle sx={{ 
           borderBottom: 1, 
@@ -368,20 +362,14 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             }
           </Button>
         </DialogActions>
-      </Dialog>
+      </StyledDialog>
       
       {/* Load Dialog - Compact with Filters */}
-      <Dialog 
+      <StyledDialog 
         open={loadDialogOpen} 
         onClose={() => setLoadDialogOpen(false)} 
         maxWidth="md"  // Wider dialog for single-line layout
         fullWidth
-        PaperProps={{
-          sx: {
-            border: 2,
-            borderColor: 'divider',
-          }
-        }}
       >
         <DialogTitle sx={{ 
           borderBottom: 1, 
@@ -416,20 +404,14 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             testCasesOnly={testCasesOnly}
           />
         </DialogContent>
-      </Dialog>
+      </StyledDialog>
       
       {/* Edit Node Dialog */}
-      <Dialog 
+      <StyledDialog 
         open={editDialogOpen} 
         onClose={() => setEditDialogOpen(false)} 
         maxWidth="sm" 
         fullWidth
-        PaperProps={{
-          sx: {
-            border: 2,
-            borderColor: 'divider',
-          }
-        }}
       >
         <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
           Edit {editingNode?.type || 'Node'}
@@ -459,18 +441,17 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
             Save
           </Button>
         </DialogActions>
-      </Dialog>
+      </StyledDialog>
       
       {/* AI Generate Confirmation Dialog */}
       {aiGenerateConfirmOpen !== undefined && setAiGenerateConfirmOpen && handleConfirmAIGenerate && (
-        <Dialog 
+        <StyledDialog 
           open={aiGenerateConfirmOpen} 
           onClose={() => setAiGenerateConfirmOpen(false)}
           maxWidth="sm"
           fullWidth
-          PaperProps={{
-            sx: {
-              border: 2,
+          sx={{
+            '& .MuiDialog-paper': {
               borderColor: 'warning.main',
             }
           }}
@@ -515,7 +496,7 @@ export const TestCaseBuilderDialogs: React.FC<TestCaseBuilderDialogsProps> = ({
               Continue & Replace
             </Button>
           </DialogActions>
-        </Dialog>
+        </StyledDialog>
       )}
     </>
   );

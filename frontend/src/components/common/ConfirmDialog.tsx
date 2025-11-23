@@ -1,5 +1,7 @@
-import { Dialog, DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material';
+import { DialogTitle, DialogContent, DialogActions, Button, Typography } from '@mui/material';
 import React from 'react';
+
+import { StyledDialog } from './StyledDialog';
 
 interface ConfirmDialogProps {
   open: boolean;
@@ -27,16 +29,11 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   onCancel,
 }) => {
   return (
-    <Dialog
+    <StyledDialog
       open={open}
       onClose={onCancel}
       maxWidth="xs"
       fullWidth
-      sx={{
-        '& .MuiDialog-paper': {
-          borderRadius: 2,
-        },
-      }}
     >
       <DialogTitle sx={{ pb: 1 }}>{title}</DialogTitle>
       <DialogContent>
@@ -50,7 +47,7 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
           {confirmText}
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 

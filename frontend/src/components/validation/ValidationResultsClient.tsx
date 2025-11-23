@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -11,6 +10,8 @@ import {
   Chip,
 } from '@mui/material';
 import React from 'react';
+
+import { StyledDialog } from '../common/StyledDialog';
 
 interface ValidationResultsClientProps {
   open: boolean;
@@ -34,17 +35,11 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
   reportUrl,
 }) => {
   return (
-    <Dialog 
+    <StyledDialog 
       open={open} 
       onClose={onClose} 
       maxWidth="xs" 
       fullWidth
-      PaperProps={{
-        sx: {
-          border: 2,
-          borderColor: 'divider',
-        }
-      }}
     >
       <DialogTitle>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -83,7 +78,7 @@ export const ValidationResultsClient: React.FC<ValidationResultsClientProps> = (
           Close
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 
