@@ -1081,7 +1081,7 @@ class ExplorationExecutor:
                 # Fallback
                 node_gen = NodeGenerator(tree_id, team_id)
                 node_name_clean = node_gen.target_to_node_name(current_item)
-                node_name = f"{node_name_clean}_temp"
+                node_name = node_name_clean  # ← Fixed: ID doesn't have _temp, only label does
                 print(f"[@ExplorationExecutor:validate_next_item] Using fallback node name: {node_name}")
             
             # Skip home
@@ -1461,7 +1461,7 @@ class ExplorationExecutor:
                             self.exploration_state['node_verification_data'] = []
                         
                         self.exploration_state['node_verification_data'].append({
-                            'node_id': f"{screen_node_name}_temp",
+                            'node_id': screen_node_name,  # ← Fixed: ID doesn't have _temp, only label does
                             'node_label': screen_node_name,
                             'dump': dump_data,  # None for TV, that's OK
                             'screenshot_url': screenshot_url
@@ -1700,8 +1700,8 @@ class ExplorationExecutor:
                             self.exploration_state['node_verification_data'] = []
                             
                         self.exploration_state['node_verification_data'].append({
-                            'node_id': node_name,
-                            'node_label': node_name.replace('_temp', ''),
+                            'node_id': node_name,  # ← Already clean (no _temp)
+                            'node_label': node_name,  # ← Already clean (no _temp)
                             'dump': dump_data,
                             'screenshot_url': screenshot_url
                         })
