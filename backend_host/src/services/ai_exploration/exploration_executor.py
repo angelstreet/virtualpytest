@@ -239,46 +239,46 @@ class ExplorationExecutor:
         print(f"\n[@ExplorationExecutor:start_exploration] 🗑️ PHASE 0a: Clearing verifications from '{start_node}'...")
         try:
             from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_node
+            from shared.src.lib.utils.navigation_cache import clear_unified_cache
             
             # Get start node directly from database (don't use navigation_executor yet - tree not loaded)
             start_node_result = get_node_by_id(tree_id, start_node, team_id)
             
             if start_node_result.get('success') and start_node_result.get('node'):
                 node = start_node_result['node']
-                existing_count = len(node.get('data', {}).get('verifications', []))
                 
-                if existing_count > 0:
-                    print(f"[@ExplorationExecutor:start_exploration] 🗑️ Found {existing_count} existing verifications - clearing...")
-                else:
-                    print(f"[@ExplorationExecutor:start_exploration] No existing verifications on '{start_node}'")
+                # Check BOTH locations where verifications might exist
+                data_verifs = node.get('data', {}).get('verifications', []) if node.get('data') else []
+                root_verifs = node.get('verifications', [])
+                total_verifs = len(data_verifs) + len(root_verifs)
                 
-                # Ensure data field exists
-                if 'data' not in node or node['data'] is None:
-                    node['data'] = {}
+                print(f"[@ExplorationExecutor:start_exploration] Found verifications: data={len(data_verifs)}, root={len(root_verifs)}")
                 
-                # Always clear verifications (even if empty) to ensure DB consistency
-                node['data']['verifications'] = []
+                # Clear BOTH locations (database has 'verifications' JSONB column)
+                if 'verifications' in node:
+                    node['verifications'] = []
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cleared root-level verifications")
+                
+                if 'data' in node and node['data'] and 'verifications' in node['data']:
+                    node['data']['verifications'] = []
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cleared data.verifications")
+                
+                # Save cleaned node
                 save_result = save_node(tree_id, node, team_id)
                 
                 if save_result.get('success'):
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Verifications cleared and saved")
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Node saved with empty verifications")
                     
-                    # ✅ CRITICAL: Clear cache BEFORE loading tree
-                    try:
-                        from shared.src.lib.utils.navigation_cache import clear_unified_cache
-                        clear_unified_cache(tree_id, team_id)
-                        print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared - next tree load will use clean node")
-                    except Exception as cache_err:
-                        print(f"[@ExplorationExecutor:start_exploration] ⚠️ Cache clear failed: {cache_err}")
-                        import traceback
-                        traceback.print_exc()
+                    # Clear cache so it rebuilds with clean node
+                    clear_unified_cache(tree_id, team_id)
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared")
                 else:
-                    print(f"[@ExplorationExecutor:start_exploration] ⚠️ Failed to save: {save_result.get('error')}")
+                    print(f"[@ExplorationExecutor:start_exploration] ❌ Save failed: {save_result.get('error')}")
             else:
-                print(f"[@ExplorationExecutor:start_exploration] ⚠️ Start node not found in database")
+                print(f"[@ExplorationExecutor:start_exploration] ❌ Node not found: {start_node}")
                 
         except Exception as e:
-            print(f"[@ExplorationExecutor:start_exploration] ⚠️ Verification clearing failed: {e}")
+            print(f"[@ExplorationExecutor:start_exploration] ❌ Verification clearing failed: {e}")
             import traceback
             traceback.print_exc()
         
