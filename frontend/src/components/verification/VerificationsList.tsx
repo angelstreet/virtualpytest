@@ -75,8 +75,15 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
         }
         
         // If verification has a reference name but potentially wrong area, auto-resolve it
-        if (referenceName && modelReferences[referenceName]) {
-          const selectedRef = modelReferences[referenceName];
+        // Try with _text suffix first, then without (backward compatibility)
+        let selectedRef = null;
+        if (referenceName) {
+          selectedRef = modelReferences[referenceName] || 
+                       modelReferences[`${referenceName}_text`] || 
+                       modelReferences[referenceName.replace('_text', '')];
+        }
+        
+        if (selectedRef) {
           const currentArea = (params as any).area;
           const dbArea = selectedRef.area;
           

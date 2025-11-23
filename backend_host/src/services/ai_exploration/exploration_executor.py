@@ -2231,16 +2231,18 @@ class ExplorationExecutor:
                         # Get node label (remove _temp suffix)
                         node_label = node_data.get('label', node_id).replace('_temp', '')
                         
-                        # Create reference name: {userinterface_name}_{node_label}
-                        reference_name = f"{userinterface_name}_{node_label}"
+                        # Create reference name with _text suffix to match frontend convention
+                        reference_name = f"{userinterface_name}_{node_label}_text"
                         
                         # Save text reference to database
                         from shared.src.lib.database.verifications_references_db import save_reference
                         
-                        # Merge text with area data
+                        # Merge text with area data (match text_helpers.py format)
                         area_with_text = {
                             **(verification['area'] or {}),
-                            'text': verification['text']
+                            'text': verification['text'],
+                            'confidence': verification.get('confidence', 95),  # OCR confidence from dump_analyzer
+                            'font_size': 12  # Default font size for TV OCR
                         }
                         
                         reference_result = save_reference(
