@@ -217,15 +217,32 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                 
                 {selectedSuggestion.suggested_verification?.found ? (
                   <Box sx={{ mb: 1.5, p: 1.5, bgcolor: 'background.default', borderRadius: 1, border: '1px solid', borderColor: 'divider' }}>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
-                      <strong>Method:</strong> {selectedSuggestion.suggested_verification.method}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
-                      <strong>Type:</strong> {selectedSuggestion.suggested_verification.type}
-                    </Typography>
-                    <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
-                      <strong>Value:</strong> {JSON.stringify(selectedSuggestion.suggested_verification.params, null, 2)}
-                    </Typography>
+                    {/* TV/OCR Format: {text, area} */}
+                    {selectedSuggestion.suggested_verification.text !== undefined ? (
+                      <>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
+                          <strong>Text:</strong> {selectedSuggestion.suggested_verification.text}
+                        </Typography>
+                        {selectedSuggestion.suggested_verification.area && (
+                          <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                            <strong>Area:</strong> {JSON.stringify(selectedSuggestion.suggested_verification.area, null, 2)}
+                          </Typography>
+                        )}
+                      </>
+                    ) : (
+                      /* Mobile/Web Format: {method, type, params} */
+                      <>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
+                          <strong>Method:</strong> {selectedSuggestion.suggested_verification.method}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', mb: 1 }}>
+                          <strong>Type:</strong> {selectedSuggestion.suggested_verification.type}
+                        </Typography>
+                        <Typography variant="body2" sx={{ fontFamily: 'monospace', wordBreak: 'break-all' }}>
+                          <strong>Value:</strong> {JSON.stringify(selectedSuggestion.suggested_verification.params, null, 2)}
+                        </Typography>
+                      </>
+                    )}
                     <Chip 
                       label="Will be saved" 
                       size="small" 
