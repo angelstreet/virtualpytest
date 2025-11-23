@@ -489,7 +489,7 @@ class TextHelpers:
                         continue
                     
                     try:
-                        confidence = int(conf)
+                        confidence = int(float(conf))
                         if confidence < confidence_threshold:
                             filtered_by_confidence += 1
                             print(f"    🐛 DEBUG: Filtered (conf={confidence} < {confidence_threshold}): '{text}'")

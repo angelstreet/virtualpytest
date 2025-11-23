@@ -11,7 +11,7 @@ import time
 import threading
 from uuid import uuid4
 from datetime import datetime, timezone
-from typing import Dict, Optional, Any
+from typing import Dict, Optional, Any, List
 
 from backend_host.src.services.ai_exploration.exploration_engine import ExplorationEngine
 from backend_host.src.services.ai_exploration.exploration_context import ExplorationContext, create_exploration_context
@@ -1054,9 +1054,9 @@ class ExplorationExecutor:
                         if isinstance(dump_result, tuple):
                             success, elements, error = dump_result
                             if success and elements:
-                                home_dump_data = {'elements': elements}
+                                home_dump_data = {'elements': elements, 'dump_type': 'xml'}
                         elif isinstance(dump_result, dict):
-                            home_dump_data = dump_result
+                            home_dump_data = {**dump_result, 'dump_type': 'xml'}
                     else:
                         # TV: Use OCR dump from home screenshot
                         print(f"    📊 TV device - using OCR for home dump")
@@ -1310,11 +1310,11 @@ class ExplorationExecutor:
                         if isinstance(dump_result, tuple):
                             success, elements, error = dump_result
                             if success and elements:
-                                dump_data = {'elements': elements}
-                                print(f"    📊 ADB Dump: {len(elements)} elements")
+                                dump_data = {'elements': elements, 'dump_type': 'xml'}
+                                print(f"    📊 XML Dump: {len(elements)} elements")
                         elif isinstance(dump_result, dict):
-                            dump_data = dump_result
-                            print(f"    📊 ADB Dump: {len(dump_result.get('elements', []))} elements")
+                            dump_data = {**dump_result, 'dump_type': 'xml'}
+                            print(f"    📊 XML Dump: {len(dump_result.get('elements', []))} elements")
                     else:
                         # TV/IR device - use OCR dump extraction
                         print(f"    📊 Controller has no dump_elements → Using OCR dump for TV")
@@ -1331,11 +1331,11 @@ class ExplorationExecutor:
                                 ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
                                 
                                 if ocr_result.get('success') and ocr_result.get('elements'):
-                                    dump_data = {'elements': ocr_result['elements']}
+                                    dump_data = {'elements': ocr_result['elements'], 'dump_type': 'ocr'}
                                     print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
                                 else:
                                     # Even if empty, set structure so UI knows it's an OCR dump
-                                    dump_data = {'elements': []}
+                                    dump_data = {'elements': [], 'dump_type': 'ocr'}
                                     print(f"    ⚠️ OCR dump extraction failed or no text found")
                             else:
                                 print(f"    ⚠️ Text controller not available for OCR dump")
@@ -1545,21 +1545,21 @@ class ExplorationExecutor:
                             # Mobile: (success, elements, error)
                             success, elements, error = dump_result
                             if success and elements:
-                                dump_data = {'elements': elements}
-                                print(f"    📱 ADB Dump captured: {len(elements)} elements")
+                                dump_data = {'elements': elements, 'dump_type': 'xml'}
+                                print(f"    📱 XML Dump captured: {len(elements)} elements")
                             else:
-                                print(f"    ⚠️ ADB Dump failed: {error or 'no elements'}")
+                                print(f"    ⚠️ XML Dump failed: {error or 'no elements'}")
                         elif isinstance(dump_result, dict):
                             # Web: already dict format
-                            dump_data = dump_result
+                            dump_data = {**dump_result, 'dump_type': 'xml'}
                             element_count = len(dump_result.get('elements', []))
-                            print(f"    🌐 Web Dump captured: {element_count} elements")
+                            print(f"    🌐 XML Dump captured: {element_count} elements")
                         else:
                             print(f"    ⚠️ Unknown dump format: {type(dump_result)}")
                     
                     # Fallback to OCR dump if ADB/Web dump failed or not available
                     if not dump_data and screenshot_path:
-                        print(f"    📊 ADB/Web dump not available → Trying OCR dump fallback")
+                        print(f"    📊 XML dump not available → Trying OCR dump fallback")
                         text_controller = None
                         for v in self.device.get_controllers('verification'):
                             if getattr(v, 'verification_type', None) == 'text':
@@ -1571,7 +1571,7 @@ class ExplorationExecutor:
                             ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
                             
                             if ocr_result.get('success') and ocr_result.get('elements'):
-                                dump_data = {'elements': ocr_result['elements']}
+                                dump_data = {'elements': ocr_result['elements'], 'dump_type': 'ocr'}
                                 print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
                             else:
                                 print(f"    ⚠️ OCR dump extraction failed or no text found")
