@@ -273,16 +273,26 @@ class ExplorationExecutor:
             
             if node_data.get('success') and node_data.get('node'):
                 node = node_data['node']
-                if node.get('data', {}).get('verifications'):
-                    print(f"[@ExplorationExecutor:start_exploration] 🗑️ Clearing {len(node['data']['verifications'])} existing verifications from '{start_node}'")
-                    node['data']['verifications'] = []
-                    save_result = save_node(tree_id, node, team_id)
-                    if save_result.get('success'):
-                        print(f"[@ExplorationExecutor:start_exploration] ✅ Home node verifications cleared and saved")
-                    else:
-                        print(f"[@ExplorationExecutor:start_exploration] ⚠️ Failed to save cleared verifications: {save_result.get('error')}")
+                existing_count = len(node.get('data', {}).get('verifications', []))
+                
+                if existing_count > 0:
+                    print(f"[@ExplorationExecutor:start_exploration] 🗑️ Clearing {existing_count} existing verifications from '{start_node}'")
                 else:
-                    print(f"[@ExplorationExecutor:start_exploration] No existing verifications on '{start_node}'")
+                    print(f"[@ExplorationExecutor:start_exploration] No existing verifications in DB on '{start_node}'")
+                
+                # Always clear verifications and save (even if empty, to ensure cache sync)
+                node['data']['verifications'] = []
+                save_result = save_node(tree_id, node, team_id)
+                
+                if save_result.get('success'):
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Home node verifications cleared and saved")
+                    
+                    # ✅ CRITICAL: Clear cache so pathfinding uses updated node (cache may have old verifications)
+                    from shared.src.lib.utils.unified_graph import clear_cached_unified_graph
+                    clear_cached_unified_graph(tree_id, team_id)
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared - graph will be rebuilt with empty verifications")
+                else:
+                    print(f"[@ExplorationExecutor:start_exploration] ⚠️ Failed to save cleared verifications: {save_result.get('error')}")
         except Exception as e:
             print(f"[@ExplorationExecutor:start_exploration] ⚠️ Could not clear home node verifications: {e}")
             # Continue anyway - not critical
