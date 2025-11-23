@@ -113,15 +113,29 @@ def score_text_candidate(text: str, node_label: str) -> Tuple[int, bool]:
     # 0. CHECK IF WEAK (can only be secondary verification)
     is_weak = is_weak_word(text)
     
+    # ✅ Normalize both for comparison (remove _, spaces)
+    text_normalized = text_lower.replace('_', '').replace(' ', '')
+    label_normalized = label_lower.replace('_', '').replace(' ', '')
+    
     # 1. EXACT MATCH to Node Label (Highest Priority)
-    # If node is "Settings" and text is "Settings", this is the gold standard
-    if text_lower == label_lower:
+    # "Settings" == "Settings" → 1000
+    # "TV Guide" == "tv_guide" → 1000 (after normalization)
+    # "Guide TV" == "tv_guide" → NO (word order matters for exact)
+    if text_lower == label_lower or text_normalized == label_normalized:
         return (1000, False)  # Always strong if exact match
     
-    # 2. Partial Match to Node Label (case-insensitive)
-    # If node is "tv_guide" and text is "TV Guide", this should score very high
-    if label_lower in text_lower or text_lower in label_lower:
-        score += 500  # ✅ Increased from 100 - "Guide" matching "tv_guide" is obvious
+    # 2. Partial Match to Node Label (case-insensitive, normalized)
+    # "TV Guide" vs "tv_guide" → "tvguide" in "tvguide" → 500 ✅
+    # "Guide TV" vs "tv_guide" → "guidetv" has all words ["tv","guide"] → 500 ✅
+    # "Guide" vs "tv_guide" → "guide" in "tvguide" → 500 ✅
+    if label_normalized in text_normalized or text_normalized in label_normalized:
+        score += 500
+    # Also check if all words from label are in text (handles "Guide TV" vs "tv_guide")
+    # Split label by underscore/space to get words: "tv_guide" → ["tv", "guide"]
+    else:
+        label_words = [w for w in label_lower.replace('_', ' ').split() if w]
+        if label_words and all(word in text_normalized for word in label_words):
+            score += 500  # All label words present in text (any order)
     
     # 3. Length Heuristics
     length = len(text)

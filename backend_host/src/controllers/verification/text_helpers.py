@@ -452,22 +452,30 @@ class TextHelpers:
                 filtered_by_invalid_box = 0
                 filtered_by_quality = 0  # Layer 1: OCR quality filter
                 
-                # 🐛 DEBUG: Log ALL raw OCR results before filtering
+                # 🐛 DEBUG: Log meaningful raw OCR results (skip empty text)
                 print(f"\n  🐛 DEBUG: ===== RAW OCR RESULTS (BEFORE FILTERING) =====")
                 print(f"  🐛 Total raw results: {len(lines)-1}")
+                shown_count = 0
                 for idx, line in enumerate(lines[1:], start=1):
                     cols = line.split('\t')
                     if len(cols) >= len(header):
                         data = dict(zip(header, cols))
                         text = data.get('text', '').strip()
                         conf = data.get('conf', '-1')
-                        left = data.get('left', '?')
-                        top = data.get('top', '?')
-                        width = data.get('width', '?')
-                        height = data.get('height', '?')
-                        # Show full text, not truncated
-                        print(f"  🐛 [{idx:3d}] text='{text}' conf={conf:>3s} box=({left},{top},{width}x{height})")
-                print(f"  🐛 DEBUG: ===== END RAW OCR RESULTS ({len(lines)-1} total) =====\n")
+                        
+                        # ✅ Only show non-empty text entries
+                        if text:
+                            left = data.get('left', '?')
+                            top = data.get('top', '?')
+                            width = data.get('width', '?')
+                            height = data.get('height', '?')
+                            print(f"  🐛 [{idx:3d}] text='{text}' conf={conf:>3s} box=({left},{top},{width}x{height})")
+                            shown_count += 1
+                
+                empty_count = len(lines) - 1 - shown_count
+                if empty_count > 0:
+                    print(f"  🐛 (Skipped {empty_count} empty text entries)")
+                print(f"  🐛 DEBUG: ===== END RAW OCR RESULTS ({shown_count} shown, {empty_count} empty) =====\n")
                 
                 # Process each line (skip header)
                 for line in lines[1:]:
@@ -623,20 +631,48 @@ class TextHelpers:
         
         return True
     
+    def _clean_grouped_text(self, text: str) -> str:
+        """
+        Clean special characters from grouped text.
+        
+        Removes special characters from start/end of each word:
+        - 'Store) FEATURED (New Staging' → 'FEATURED New Staging'
+        - '(New' → 'New'
+        - 'Store)' → 'Store'
+        - 'store"' → 'store'
+        
+        Args:
+            text: Text to clean
+            
+        Returns:
+            Cleaned text with special chars removed, or empty string if nothing remains
+        """
+        words = text.split()
+        cleaned_words = []
+        
+        for word in words:
+            # Strip special chars from start/end: '(New' → 'New', 'Store)' → 'Store'
+            cleaned = word.strip('()[]{}"\',.:;!?@#$%^&*_-+=~`|\\/<>')
+            
+            # Skip if nothing left after cleaning, or single letter
+            if cleaned and len(cleaned) > 1:
+                cleaned_words.append(cleaned)
+        
+        return ' '.join(cleaned_words)
+    
     def _is_valid_grouped_phrase(self, text: str) -> bool:
         """
         Filter grouped phrases for verification quality (Layer 2).
         
-        Catches grouping errors where OCR combines garbage with valid text:
-        - 'E Shared' → Invalid (starts with single letter)
-        - 'De It' → Invalid (single letter + short word)
-        - '@) Shared Profiles' → Invalid (starts with symbol)
-        - 'Shared Profiles' → Valid
-        - 'TV' → Invalid (too short, standalone)
-        - 'TV Guide' → Valid (grouped phrase >= 3 chars)
+        NOTE: Text should already be cleaned by _clean_grouped_text() before calling this.
+        
+        Filters:
+        - Single letters: 'Q', 'E' → Invalid
+        - Too short: 'TV', 'be' → Invalid (but 'TV Guide' → Valid)
+        - Orphan letters: 'E Shared', 'Apps De' → Invalid
         
         Args:
-            text: Grouped phrase to validate
+            text: Cleaned grouped phrase to validate
             
         Returns:
             True if phrase is valid, False if likely grouping error
@@ -646,13 +682,19 @@ class TextHelpers:
             return False
         
         text_clean = text.strip()
-        words = text_clean.split()
         
-        # ✅ CRITICAL: Minimum 3 characters (moved from Layer 1)
-        # Filters standalone short words: 'TV', 'Er', 'It', 'De', 'E'
-        # But allows them in grouped phrases: 'TV Guide' ✅
+        # ✅ Single letter (moved from Layer 1)
+        # Filters: 'Q', 'E', 'T', 'A' - even with high confidence
+        if len(text_clean) == 1:
+            return False
+        
+        # ✅ Minimum 3 characters (moved from Layer 1)
+        # Filters standalone short words: 'TV', 'Er', 'It', 'De', 'be'
+        # But allows them in grouped phrases: 'TV Guide' ✅, 'Apple TV' ✅
         if len(text_clean) < 3:
             return False
+        
+        words = text_clean.split()
         
         # Single word: Already validated by min length above
         if len(words) == 1:
@@ -665,17 +707,10 @@ class TextHelpers:
         
         # Orphan single letter at start
         if len(first_word) == 1 and first_word.isalpha():
-            print(f"    🐛 DEBUG: Filtered grouped phrase (orphan start): '{text_clean}'")
             return False
         
         # Orphan single letter at end
         if len(last_word) == 1 and last_word.isalpha():
-            print(f"    🐛 DEBUG: Filtered grouped phrase (orphan end): '{text_clean}'")
-            return False
-        
-        # Symbol at start (like '@) Shared Profiles')
-        if not first_word[0].isalnum():
-            print(f"    🐛 DEBUG: Filtered grouped phrase (symbol start): '{text_clean}'")
             return False
         
         return True
@@ -740,13 +775,15 @@ class TextHelpers:
                     )
                     current_group['word_count'] += 1
                 else:
-                    # ✅ LAYER 2: Save current group only if it passes quality check
-                    if current_group and self._is_valid_grouped_phrase(current_group['text']):
-                        grouped.append({
-                            'text': current_group['text'],
-                            'area': current_group['area'],
-                            'confidence': current_group['confidence']
-                        })
+                    # ✅ LAYER 2: Save current group with cleaned text if it passes quality check
+                    if current_group:
+                        cleaned_text = self._clean_grouped_text(current_group['text'])
+                        if cleaned_text and self._is_valid_grouped_phrase(cleaned_text):
+                            grouped.append({
+                                'text': cleaned_text,
+                                'area': current_group['area'],
+                                'confidence': current_group['confidence']
+                            })
                     
                     current_group = {
                         'text': elem['text'],
@@ -755,13 +792,15 @@ class TextHelpers:
                         'word_count': 1
                     }
         
-        # ✅ LAYER 2: Don't forget the last group (with quality check)
-        if current_group and self._is_valid_grouped_phrase(current_group['text']):
-            grouped.append({
-                'text': current_group['text'],
-                'area': current_group['area'],
-                'confidence': current_group['confidence']
-            })
+        # ✅ LAYER 2: Don't forget the last group (with cleaned text and quality check)
+        if current_group:
+            cleaned_text = self._clean_grouped_text(current_group['text'])
+            if cleaned_text and self._is_valid_grouped_phrase(cleaned_text):
+                grouped.append({
+                    'text': cleaned_text,
+                    'area': current_group['area'],
+                    'confidence': current_group['confidence']
+                })
         
         return grouped
 
