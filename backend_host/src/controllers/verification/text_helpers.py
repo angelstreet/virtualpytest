@@ -520,13 +520,19 @@ class TextHelpers:
                         print(f"    🐛 DEBUG: Filtered (quality): '{text}'")
                         continue
                     
+                    # Expand area for better verification matching (-5 x/y, +10 width/height)
+                    expanded_x = max(0, left - 5)
+                    expanded_y = max(0, top - 5)
+                    expanded_width = width + 10
+                    expanded_height = height + 10
+                    
                     elements.append({
                         'text': text,
                         'area': {
-                            'x': left,
-                            'y': top,
-                            'width': width,
-                            'height': height
+                            'x': expanded_x,
+                            'y': expanded_y,
+                            'width': expanded_width,
+                            'height': expanded_height
                         },
                         'confidence': confidence
                     })
