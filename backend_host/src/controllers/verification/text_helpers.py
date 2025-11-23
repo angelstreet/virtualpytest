@@ -268,12 +268,32 @@ class TextHelpers:
             return 'en'
     
     def text_matches(self, extracted_text: str, target_text: str) -> bool:
-        """Check if extracted text matches target text."""
+        """
+        Check if extracted text matches target text.
+        
+        Normalizes both strings by:
+        - Removing special characters (keeping only alphanumeric + spaces)
+        - Normalizing whitespace
+        - Converting to lowercase
+        
+        Examples:
+        - "Movies Series" matches "Movies & Series" ✅
+        - "Settings" matches "Settings!" ✅
+        - "TV Guide" matches "TV - Guide" ✅
+        """
         if not extracted_text or not target_text:
             return False
         
-        extracted_clean = ' '.join(extracted_text.split()).lower()
-        target_clean = ' '.join(target_text.split()).lower()
+        import re
+        
+        # Remove all non-alphanumeric characters (except spaces)
+        # This removes: &, @, !, ?, -, etc.
+        extracted_clean = re.sub(r'[^a-zA-Z0-9\s]', ' ', extracted_text)
+        target_clean = re.sub(r'[^a-zA-Z0-9\s]', ' ', target_text)
+        
+        # Normalize multiple spaces to single space and lowercase
+        extracted_clean = ' '.join(extracted_clean.split()).lower()
+        target_clean = ' '.join(target_clean.split()).lower()
         
         return target_clean in extracted_clean
     
