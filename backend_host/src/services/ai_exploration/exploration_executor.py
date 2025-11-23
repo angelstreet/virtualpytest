@@ -262,6 +262,31 @@ class ExplorationExecutor:
         
         # ✅ PHASE 0: Navigate to start_node BEFORE taking screenshot
         print(f"\n[@ExplorationExecutor:start_exploration] 📍 PHASE 0: Navigating to start node '{start_node}'...")
+        
+        # Clear existing verifications from home node before navigating
+        try:
+            home_node_id = self.device.navigation_executor.get_node_id(start_node, tree_id, team_id)
+            print(f"[@ExplorationExecutor:start_exploration] Resolved '{start_node}' to node_id: {home_node_id}")
+            
+            from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_node
+            node_data = get_node_by_id(tree_id, home_node_id, team_id)
+            
+            if node_data.get('success') and node_data.get('node'):
+                node = node_data['node']
+                if node.get('data', {}).get('verifications'):
+                    print(f"[@ExplorationExecutor:start_exploration] 🗑️ Clearing {len(node['data']['verifications'])} existing verifications from '{start_node}'")
+                    node['data']['verifications'] = []
+                    save_result = save_node(tree_id, node, team_id)
+                    if save_result.get('success'):
+                        print(f"[@ExplorationExecutor:start_exploration] ✅ Home node verifications cleared and saved")
+                    else:
+                        print(f"[@ExplorationExecutor:start_exploration] ⚠️ Failed to save cleared verifications: {save_result.get('error')}")
+                else:
+                    print(f"[@ExplorationExecutor:start_exploration] No existing verifications on '{start_node}'")
+        except Exception as e:
+            print(f"[@ExplorationExecutor:start_exploration] ⚠️ Could not clear home node verifications: {e}")
+            # Continue anyway - not critical
+        
         try:
             import asyncio
             nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
