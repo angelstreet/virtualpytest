@@ -136,6 +136,9 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
         print(f"[@dump_analyzer] 🎯 ANALYZING NODE: '{node_label}' ({node_id})")
         print(f"{'='*100}")
         
+        # ✅ Detect OCR dump (TV)
+        is_ocr_dump = current_dump and current_dump.get('dump_type') == 'ocr'
+        
         # Try text first (using smart scoring with primary/secondary support)
         unique_text_result = _find_unique_text_for_node(node_id, node_label, current_dump, all_dumps)
         if unique_text_result:
@@ -147,7 +150,37 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
             else:
                 print(f"[@dump_analyzer] ✅ SUCCESS: Primary='{primary}' (no secondary needed)")
             
-            # Store verifications
+            # ✅ TV OCR: Return in format that approve_node_verifications expects
+            if is_ocr_dump:
+                print(f"[@dump_analyzer] 📺 OCR dump detected - extracting area data for TV verification")
+                
+                # Find the area for the primary text in OCR elements
+                primary_area = None
+                elements = current_dump.get('elements', [])
+                for elem in elements:
+                    if elem.get('text') == primary:
+                        primary_area = elem.get('area')
+                        print(f"[@dump_analyzer]    Found area for '{primary}': {primary_area}")
+                        break
+                
+                if primary_area:
+                    # Return TV format: {text: '...', area: {...}}
+                    results.append({
+                        'node_id': node_id,
+                        'node_label': node_label,
+                        'screenshot_url': screenshot_url,
+                        'dump': dump_string,
+                        'suggested_verification': {
+                            'text': primary,  # ← Root level for TV path
+                            'area': primary_area,  # ← Root level for TV path
+                            'found': True
+                        }
+                    })
+                    continue
+                else:
+                    print(f"[@dump_analyzer]    ⚠️ Area not found for primary text - falling back to mobile format")
+            
+            # Mobile/Web: Store verifications in params format
             verifications = []
             verifications.append({param_name: primary})
             if secondary:

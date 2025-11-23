@@ -450,6 +450,7 @@ class TextHelpers:
                 filtered_by_empty = 0
                 filtered_by_confidence = 0
                 filtered_by_invalid_box = 0
+                filtered_by_quality = 0  # Layer 1: OCR quality filter
                 
                 # 🐛 DEBUG: Log ALL raw OCR results before filtering
                 print(f"\n  🐛 DEBUG: ===== RAW OCR RESULTS (BEFORE FILTERING) =====")
@@ -513,6 +514,12 @@ class TextHelpers:
                         filtered_by_invalid_box += 1
                         continue
                     
+                    # ✅ LAYER 1: Filter garbage OCR text (TV-optimized)
+                    if not self._is_valid_ocr_text_for_verification(text):
+                        filtered_by_quality += 1
+                        print(f"    🐛 DEBUG: Filtered (quality): '{text}'")
+                        continue
+                    
                     elements.append({
                         'text': text,
                         'area': {
@@ -529,6 +536,7 @@ class TextHelpers:
                 print(f"     Filtered (empty/no-conf): {filtered_by_empty}")
                 print(f"     Filtered (confidence < {confidence_threshold}): {filtered_by_confidence}")
                 print(f"     Filtered (invalid box): {filtered_by_invalid_box}")
+                print(f"     Filtered (quality - Layer 1): {filtered_by_quality}")
                 print(f"     ✅ Valid elements: {len(elements)}")
                 
                 print(f"[@text_helpers:extract_full_ocr_dump] Extracted {len(elements)} text elements (confidence >= {confidence_threshold})")
@@ -564,6 +572,105 @@ class TextHelpers:
             import traceback
             traceback.print_exc()
             return []
+    
+    def _is_valid_ocr_text_for_verification(self, text: str) -> bool:
+        """
+        Filter garbage OCR text for verification quality (TV-optimized).
+        
+        Applies strict quality rules to ensure only meaningful text is used:
+        - Minimum 3 characters (filters 'Er', 'It', 'De', 'E')
+        - Not all numeric (filters times like '12:20')
+        - Not symbol-only (filters '@)', '®', '-~\.')
+        - Not common UI indicators (filters 'HD', 'SD', 'OK', '4K')
+        - Not single letter + punctuation (filters 'E.', 'H!')
+        
+        Args:
+            text: Text to validate
+            
+        Returns:
+            True if text is valid for verification, False if garbage
+        """
+        text_clean = text.strip()
+        
+        # 1. CRITICAL: Minimum 3 characters
+        #    Filters: 'Er', 'It', 'De', 'Ne', 'E', '@)'
+        if len(text_clean) < 3:
+            return False
+        
+        # 2. All numeric (times, channel numbers)
+        #    Filters: '12:20', '1:55', '123'
+        if text_clean.replace(':', '').replace('.', '').replace(' ', '').isdigit():
+            return False
+        
+        # 3. Symbol-only (UI icons misread as text)
+        #    Filters: '@)', '-~\.', '®', '©'
+        if not any(c.isalnum() for c in text_clean):
+            return False
+        
+        # 4. Common UI indicators (too generic for verification)
+        #    Filters: 'HD', 'SD', 'OK', '4K', 'UHD'
+        common_ui = {'hd', 'sd', 'ok', '4k', 'uhd'}
+        if text_clean.lower() in common_ui:
+            return False
+        
+        # 5. Single letter + punctuation/symbol (OCR artifacts)
+        #    Filters: 'E.', 'H!', 'A?', '@)'
+        if len(text_clean) == 2:
+            if text_clean[0].isalpha() and not text_clean[1].isalnum():
+                return False
+            if not text_clean[0].isalnum() and text_clean[1].isalpha():
+                return False
+        
+        return True
+    
+    def _is_valid_grouped_phrase(self, text: str) -> bool:
+        """
+        Filter grouped phrases for verification quality (Layer 2).
+        
+        Catches grouping errors where OCR combines garbage with valid text:
+        - 'E Shared' → Invalid (starts with single letter)
+        - 'De It' → Invalid (single letter + short word)
+        - '@) Shared Profiles' → Invalid (starts with symbol)
+        - 'Shared Profiles' → Valid
+        
+        Args:
+            text: Grouped phrase to validate
+            
+        Returns:
+            True if phrase is valid, False if likely grouping error
+        """
+        # First apply base quality check
+        if not self._is_valid_ocr_text_for_verification(text):
+            return False
+        
+        text_clean = text.strip()
+        words = text_clean.split()
+        
+        # Single word: Already validated by base check
+        if len(words) == 1:
+            return True
+        
+        # Multi-word phrase: Check for orphan single letters at start/end
+        # Filters: 'E Shared', 'It Now', 'Settings E', 'Apps De'
+        first_word = words[0]
+        last_word = words[-1]
+        
+        # Orphan single letter at start
+        if len(first_word) == 1 and first_word.isalpha():
+            print(f"    🐛 DEBUG: Filtered grouped phrase (orphan start): '{text_clean}'")
+            return False
+        
+        # Orphan single letter at end
+        if len(last_word) == 1 and last_word.isalpha():
+            print(f"    🐛 DEBUG: Filtered grouped phrase (orphan end): '{text_clean}'")
+            return False
+        
+        # Symbol at start (like '@) Shared Profiles')
+        if not first_word[0].isalnum():
+            print(f"    🐛 DEBUG: Filtered grouped phrase (symbol start): '{text_clean}'")
+            return False
+        
+        return True
     
     def _group_text_elements(self, elements: list) -> list:
         """
@@ -625,12 +732,13 @@ class TextHelpers:
                     )
                     current_group['word_count'] += 1
                 else:
-                    # Save current group and start new one
-                    grouped.append({
-                        'text': current_group['text'],
-                        'area': current_group['area'],
-                        'confidence': current_group['confidence']
-                    })
+                    # ✅ LAYER 2: Save current group only if it passes quality check
+                    if current_group and self._is_valid_grouped_phrase(current_group['text']):
+                        grouped.append({
+                            'text': current_group['text'],
+                            'area': current_group['area'],
+                            'confidence': current_group['confidence']
+                        })
                     
                     current_group = {
                         'text': elem['text'],
@@ -639,8 +747,8 @@ class TextHelpers:
                         'word_count': 1
                     }
         
-        # Don't forget the last group
-        if current_group:
+        # ✅ LAYER 2: Don't forget the last group (with quality check)
+        if current_group and self._is_valid_grouped_phrase(current_group['text']):
             grouped.append({
                 'text': current_group['text'],
                 'area': current_group['area'],

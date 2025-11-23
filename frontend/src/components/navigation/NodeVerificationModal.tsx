@@ -248,7 +248,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {typeof selectedSuggestion.dump === 'object' && selectedSuggestion.dump?.elements ? 'OCR Dump' : 'XML Dump'}
+                      {selectedSuggestion.dump?.dump_type === 'ocr' ? 'OCR Dump' : 'XML Dump'}
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails sx={{ p: 0 }}>
@@ -265,27 +265,33 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                         }}
                       >
                         {/* OCR Dump (TV) - Show formatted list */}
-                        {typeof selectedSuggestion.dump === 'object' && selectedSuggestion.dump?.elements ? (
-                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                            {selectedSuggestion.dump.elements.map((elem: any, idx: number) => (
-                              <Box 
-                                key={idx}
-                                sx={{ 
-                                  p: 0.5, 
-                                  borderBottom: '1px solid',
-                                  borderColor: 'divider',
-                                  '&:last-child': { borderBottom: 'none' }
-                                }}
-                              >
-                                <Typography variant="caption" sx={{ fontFamily: 'monospace', fontSize: '0.7rem' }}>
-                                  <strong>"{elem.text}"</strong> @ ({elem.area?.x || 0}, {elem.area?.y || 0}) 
-                                  {elem.confidence && ` - ${elem.confidence}%`}
+                        {selectedSuggestion.dump?.dump_type === 'ocr' ? (
+                          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
+                            {selectedSuggestion.dump.elements && selectedSuggestion.dump.elements.length > 0 ? (
+                              <>
+                                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, fontSize: '0.7rem', fontWeight: 600 }}>
+                                  Total Elements: {selectedSuggestion.dump.elements.length}
                                 </Typography>
-                              </Box>
-                            ))}
-                            <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, fontSize: '0.65rem' }}>
-                              Total: {selectedSuggestion.dump.elements.length} text elements
-                            </Typography>
+                                <Box 
+                                  component="pre" 
+                                  sx={{ 
+                                    fontFamily: 'monospace',
+                                    fontSize: '0.7rem',
+                                    margin: 0,
+                                    whiteSpace: 'pre-wrap',
+                                    lineHeight: 1.4
+                                  }}
+                                >
+                                  {selectedSuggestion.dump.elements.map((elem: any, idx: number) => 
+                                    `[${idx + 1}] ${elem.text} @ (${elem.area?.x || 0}, ${elem.area?.y || 0})${elem.confidence ? ` - ${elem.confidence}%` : ''}`
+                                  ).join('\n')}
+                                </Box>
+                              </>
+                            ) : (
+                              <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
+                                &lt;empty dump&gt;
+                              </Typography>
+                            )}
                           </Box>
                         ) : (
                           /* XML Dump (Mobile/Web) - Show as text */

@@ -1058,13 +1058,44 @@ class ExplorationExecutor:
                         elif isinstance(dump_result, dict):
                             home_dump_data = {**dump_result, 'dump_type': 'xml'}
                     else:
-                        # TV: Use OCR dump from home screenshot
+                        # TV: Use OCR dump - take fresh screenshot and extract OCR
                         print(f"    📊 TV device - using OCR for home dump")
-                        if home_screenshot_url:
-                            # We need to get the local screenshot path from the URL
-                            # For now, we'll skip the home dump for TV (OCR already run during analysis)
-                            # TODO: Store OCR results from analysis phase
-                            print(f"    ⚠️ TV home dump skipped - OCR data not available from analysis phase")
+                        
+                        # Take fresh screenshot for OCR extraction
+                        screenshot_path = None
+                        try:
+                            av_controllers = self.device.get_controllers('av')
+                            av_controller = av_controllers[0] if av_controllers else None
+                            if av_controller:
+                                screenshot_path = av_controller.take_screenshot()
+                                if screenshot_path:
+                                    print(f"    📸 Fresh screenshot captured for OCR: {screenshot_path}")
+                        except Exception as e:
+                            print(f"    ⚠️ Failed to capture screenshot: {e}")
+                        
+                        # Extract OCR dump from screenshot
+                        if screenshot_path:
+                            text_controller = None
+                            for v in self.device.get_controllers('verification'):
+                                if getattr(v, 'verification_type', None) == 'text':
+                                    text_controller = v
+                                    break
+                            
+                            if text_controller:
+                                print(f"    📊 Extracting OCR dump from home screenshot...")
+                                ocr_result = text_controller.extract_ocr_dump(screenshot_path, confidence_threshold=30)
+                                
+                                if ocr_result.get('success') and ocr_result.get('elements'):
+                                    home_dump_data = {'elements': ocr_result['elements'], 'dump_type': 'ocr'}
+                                    print(f"    📊 OCR Dump: {len(ocr_result['elements'])} text elements")
+                                else:
+                                    # Even if empty, set structure so UI knows it's an OCR dump
+                                    home_dump_data = {'elements': [], 'dump_type': 'ocr'}
+                                    print(f"    ⚠️ OCR dump extraction found no text (empty)")
+                            else:
+                                print(f"    ⚠️ Text controller not available for OCR dump")
+                        else:
+                            print(f"    ⚠️ No screenshot available for OCR dump")
                         
                     if home_dump_data or home_screenshot_url:
                         # Ensure list exists
