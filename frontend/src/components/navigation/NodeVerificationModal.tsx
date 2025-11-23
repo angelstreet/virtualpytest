@@ -268,25 +268,26 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                         {selectedSuggestion.dump?.dump_type?.toLowerCase() === 'ocr' ? (
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                             {selectedSuggestion.dump.elements && selectedSuggestion.dump.elements.length > 0 ? (
-                              <>
-                                <Typography variant="caption" color="text.secondary" sx={{ mb: 1, fontSize: '0.7rem', fontWeight: 600 }}>
-                                  Total Elements: {selectedSuggestion.dump.elements.length}
-                                </Typography>
-                                <Box 
-                                  component="pre" 
-                                  sx={{ 
-                                    fontFamily: 'monospace',
-                                    fontSize: '0.7rem',
-                                    margin: 0,
-                                    whiteSpace: 'pre-wrap',
-                                    lineHeight: 1.4
-                                  }}
-                                >
-                                  {selectedSuggestion.dump.elements.map((elem: any, idx: number) => 
-                                    `[${idx + 1}] ${elem.text} @ (${elem.area?.x || 0}, ${elem.area?.y || 0})${elem.confidence ? ` - ${elem.confidence}%` : ''}`
-                                  ).join('\n')}
-                                </Box>
-                              </>
+                              <Box 
+                                component="pre" 
+                                sx={{ 
+                                  fontFamily: 'monospace',
+                                  fontSize: '0.7rem',
+                                  margin: 0,
+                                  whiteSpace: 'pre-wrap',
+                                  lineHeight: 1.6
+                                }}
+                              >
+                                {`Total Elements: ${selectedSuggestion.dump.elements.length}\n${selectedSuggestion.dump.elements.map((elem: any, idx: number) => {
+                                  const area = elem.area || {};
+                                  const parts = [`[${idx + 1}] text: ${elem.text}`];
+                                  parts.push(`area: x=${area.x || 0}, y=${area.y || 0}, w=${area.w || 0}, h=${area.h || 0}`);
+                                  if (elem.confidence) {
+                                    parts.push(`confidence: ${elem.confidence}`);
+                                  }
+                                  return parts.join(', ');
+                                }).join('\n')}`}
+                              </Box>
                             ) : (
                               <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', fontStyle: 'italic' }}>
                                 &lt;empty dump&gt;

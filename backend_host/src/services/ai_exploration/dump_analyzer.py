@@ -73,18 +73,10 @@ def _dump_to_string(dump: Dict) -> str:
     
     # Build formatted string
     lines = []
-    lines.append(f"Total Elements: {len(elements)}\n")
-    
-    # ✅ Add dump type indicator
-    if dump_type == 'ocr':
-        lines.append(f"Dump Type: OCR (Text Recognition)\n")
-    else:
-        lines.append(f"Dump Type: {dump_type.upper()}\n")
-    
-    lines.append("=" * 80)
+    lines.append(f"Total Elements: {len(elements)}")
     
     for i, elem in enumerate(elements, 1):
-        lines.append(f"\n[{i}] Element:")
+        lines.append(f"[{i}]")
         
         # Handle both object attributes and dict keys
         if hasattr(elem, '__dict__'):
