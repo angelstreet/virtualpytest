@@ -150,6 +150,22 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
         print(f"[@dump_analyzer] 🎯 ANALYZING NODE: '{node_label}' ({node_id})")
         print(f"{'='*100}")
         
+        # Skip nodes without dumps (focus nodes with only screenshots)
+        if not current_dump or not current_dump.get('elements'):
+            print(f"[@dump_analyzer] ⏭️  SKIPPED: No dump available (screenshot-only node)")
+            results.append({
+                'node_id': node_id,
+                'node_label': node_label,
+                'screenshot_url': screenshot_url,
+                'dump': dump_string,
+                'suggested_verification': {
+                    'found': False,
+                    'skipped': True,  # ← Flag to distinguish from "analyzed but not found"
+                    'reason': 'No dump available'
+                }
+            })
+            continue
+        
         # ✅ Detect OCR dump (TV)
         is_ocr_dump = current_dump and current_dump.get('dump_type') == 'ocr'
         

@@ -117,6 +117,8 @@ export const VerificationsList: React.FC<VerificationsListProps> = React.memo(
                   ...(dbArea.fwidth !== undefined && { fwidth: dbArea.fwidth }),
                   ...(dbArea.fheight !== undefined && { fheight: dbArea.fheight }),
                 },
+                // ✅ FIX: Add text field for text verifications
+                ...(selectedRef.type === 'text' && selectedRef.text && { text: selectedRef.text }),
               },
             };
           }

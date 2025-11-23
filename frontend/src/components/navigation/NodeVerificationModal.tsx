@@ -160,11 +160,17 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             {hasVerification ? (
                               <CheckIcon fontSize="small" sx={{ fontSize: 14, color: 'success.main' }} />
+                            ) : suggestion.suggested_verification?.skipped ? (
+                              <CheckIcon fontSize="small" sx={{ fontSize: 14, color: 'action.disabled' }} />
                             ) : (
                               <ErrorIcon fontSize="small" sx={{ fontSize: 14, color: 'error.main' }} />
                             )}
-                            <Typography variant="caption" color={hasVerification ? 'text.primary' : 'error.main'} noWrap>
-                              {hasVerification ? 'Found' : 'Not found'}
+                            <Typography 
+                              variant="caption" 
+                              color={hasVerification ? 'text.primary' : suggestion.suggested_verification?.skipped ? 'text.disabled' : 'error.main'} 
+                              noWrap
+                            >
+                              {hasVerification ? 'Found' : suggestion.suggested_verification?.skipped ? 'Skipped' : 'Not found'}
                             </Typography>
                           </Box>
                         </Box>
@@ -250,6 +256,15 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                       sx={{ mt: 1 }}
                     />
                   </Box>
+                ) : selectedSuggestion.suggested_verification?.skipped ? (
+                  <Alert severity="info" sx={{ mb: 1.5 }}>
+                    <Typography variant="body2">
+                      Verification skipped - {selectedSuggestion.suggested_verification.reason || 'screenshot-only node'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      This node only has a screenshot, no UI dump was captured.
+                    </Typography>
+                  </Alert>
                 ) : (
                   <Alert severity="error" sx={{ mb: 1.5 }}>
                     <Typography variant="body2">

@@ -2238,11 +2238,10 @@ class ExplorationExecutor:
                         from shared.src.lib.database.verifications_references_db import save_reference
                         
                         # Merge text with area data (match text_helpers.py format)
+                        # Only store text + area coordinates (no confidence/font_size needed)
                         area_with_text = {
                             **(verification['area'] or {}),
-                            'text': verification['text'],
-                            'confidence': verification.get('confidence', 95),  # OCR confidence from dump_analyzer
-                            'font_size': 12  # Default font size for TV OCR
+                            'text': verification['text']  # ✅ Only text - confidence not needed in DB
                         }
                         
                         reference_result = save_reference(
@@ -2263,12 +2262,14 @@ class ExplorationExecutor:
                             if 'verifications' not in node_data:
                                 node_data['verifications'] = []
                             
-                            # Add text verification with reference_name
+                            # Add text verification with reference_name AND text (match manual flow)
                             node_data['verifications'].append({
                                 'command': 'waitForTextToAppear',
                                 'verification_type': 'text',
                                 'params': {
-                                    'reference_name': reference_name  # ← Points to DB entry
+                                    'reference_name': reference_name,  # ← Points to DB entry
+                                    'text': verification['text'],  # ✅ Add text field like manual flow
+                                    'area': verification['area']  # ✅ Add area for completeness
                                 },
                                 'expected': True
                             })
