@@ -235,17 +235,63 @@ class ExplorationExecutor:
         
         print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: '{start_node}' node exists")
         
-        # ✅ Load navigation tree for the navigation executor
-        # This ensures the graph is loaded before any navigation attempts (critical for start_node != 'home')
+        # ✅ PHASE 0a: Clear verifications from start node BEFORE loading tree
+        print(f"\n[@ExplorationExecutor:start_exploration] 🗑️ PHASE 0a: Clearing verifications from '{start_node}'...")
         try:
-            print(f"\n[@ExplorationExecutor:start_exploration] 📥 Loading navigation tree...")
+            from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_node
+            
+            # Get start node directly from database (don't use navigation_executor yet - tree not loaded)
+            start_node_result = get_node_by_id(tree_id, start_node, team_id)
+            
+            if start_node_result.get('success') and start_node_result.get('node'):
+                node = start_node_result['node']
+                existing_count = len(node.get('data', {}).get('verifications', []))
+                
+                if existing_count > 0:
+                    print(f"[@ExplorationExecutor:start_exploration] 🗑️ Found {existing_count} existing verifications - clearing...")
+                else:
+                    print(f"[@ExplorationExecutor:start_exploration] No existing verifications on '{start_node}'")
+                
+                # Ensure data field exists
+                if 'data' not in node or node['data'] is None:
+                    node['data'] = {}
+                
+                # Always clear verifications (even if empty) to ensure DB consistency
+                node['data']['verifications'] = []
+                save_result = save_node(tree_id, node, team_id)
+                
+                if save_result.get('success'):
+                    print(f"[@ExplorationExecutor:start_exploration] ✅ Verifications cleared and saved")
+                    
+                    # ✅ CRITICAL: Clear cache BEFORE loading tree
+                    try:
+                        from shared.src.lib.utils.navigation_cache import clear_unified_cache
+                        clear_unified_cache(tree_id, team_id)
+                        print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared - next tree load will use clean node")
+                    except Exception as cache_err:
+                        print(f"[@ExplorationExecutor:start_exploration] ⚠️ Cache clear failed: {cache_err}")
+                        import traceback
+                        traceback.print_exc()
+                else:
+                    print(f"[@ExplorationExecutor:start_exploration] ⚠️ Failed to save: {save_result.get('error')}")
+            else:
+                print(f"[@ExplorationExecutor:start_exploration] ⚠️ Start node not found in database")
+                
+        except Exception as e:
+            print(f"[@ExplorationExecutor:start_exploration] ⚠️ Verification clearing failed: {e}")
+            import traceback
+            traceback.print_exc()
+        
+        # ✅ PHASE 0b: Load navigation tree (now with clean node)
+        print(f"\n[@ExplorationExecutor:start_exploration] 📥 PHASE 0b: Loading navigation tree...")
+        try:
             result = self.device.navigation_executor.load_navigation_tree(
                 userinterface_name=userinterface_name,
                 team_id=team_id
             )
             if not result.get('success'):
                 raise Exception(result.get('error', 'Unknown error'))
-            print(f"[@ExplorationExecutor:start_exploration] ✅ Navigation tree loaded successfully")
+            print(f"[@ExplorationExecutor:start_exploration] ✅ Navigation tree loaded (with clean '{start_node}' node)")
         except Exception as e:
             error_msg = f"Failed to load navigation tree: {e}"
             print(f"[@ExplorationExecutor:start_exploration] ❌ {error_msg}")
@@ -260,42 +306,8 @@ class ExplorationExecutor:
                 'exploration_id': exploration_id
             }
         
-        # ✅ PHASE 0: Navigate to start_node BEFORE taking screenshot
-        print(f"\n[@ExplorationExecutor:start_exploration] 📍 PHASE 0: Navigating to start node '{start_node}'...")
-        
-        # Clear existing verifications from home node before navigating
-        try:
-            home_node_id = self.device.navigation_executor.get_node_id(start_node, tree_id, team_id)
-            print(f"[@ExplorationExecutor:start_exploration] Resolved '{start_node}' to node_id: {home_node_id}")
-            
-            from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_node
-            node_data = get_node_by_id(tree_id, home_node_id, team_id)
-            
-            if node_data.get('success') and node_data.get('node'):
-                node = node_data['node']
-                existing_count = len(node.get('data', {}).get('verifications', []))
-                
-                if existing_count > 0:
-                    print(f"[@ExplorationExecutor:start_exploration] 🗑️ Clearing {existing_count} existing verifications from '{start_node}'")
-                else:
-                    print(f"[@ExplorationExecutor:start_exploration] No existing verifications in DB on '{start_node}'")
-                
-                # Always clear verifications and save (even if empty, to ensure cache sync)
-                node['data']['verifications'] = []
-                save_result = save_node(tree_id, node, team_id)
-                
-                if save_result.get('success'):
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Home node verifications cleared and saved")
-                    
-                    # ✅ CRITICAL: Clear cache so pathfinding uses updated node (cache may have old verifications)
-                    from shared.src.lib.utils.unified_graph import clear_cached_unified_graph
-                    clear_cached_unified_graph(tree_id, team_id)
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared - graph will be rebuilt with empty verifications")
-                else:
-                    print(f"[@ExplorationExecutor:start_exploration] ⚠️ Failed to save cleared verifications: {save_result.get('error')}")
-        except Exception as e:
-            print(f"[@ExplorationExecutor:start_exploration] ⚠️ Could not clear home node verifications: {e}")
-            # Continue anyway - not critical
+        # ✅ PHASE 0c: Navigate to start_node BEFORE taking screenshot
+        print(f"\n[@ExplorationExecutor:start_exploration] 📍 PHASE 0c: Navigating to start node '{start_node}'...")
         
         try:
             import asyncio
