@@ -1,4 +1,4 @@
-import { Dialog, DialogProps, styled } from '@mui/material';
+import { Dialog, styled } from '@mui/material';
 
 /**
  * Consistent styled Dialog component with border and white button borders
