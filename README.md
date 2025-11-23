@@ -53,21 +53,19 @@ Python-based automation with intuitive navigation trees. Designed for QA teams t
 
 Get up and running in minutes using Docker.
 
-### **1. One-Click Deployment (Docker)**
+### **One-Click Installation**
 
 ```bash
-# Clone the repository
-git clone https://github.com/your-repo/virtualpytest
-cd virtualpytest
-
-# Start the platform
-docker compose up -d
-
-# Access the dashboard
-open http://localhost:3000
+git clone https://github.com/angelstreet/virtualpytest.git
+cd virtualpytest && ./quickstart.sh
 ```
 
-### **2. Manual Setup**
+This script will automatically:
+1. Install Docker & Docker Compose (if missing)
+2. Launch the full stack (Frontend + Backend + Database)
+3. Open the dashboard at `http://localhost:3000`
+
+### **Manual Setup**
 For developers who want to contribute or run locally without Docker, see our [Developer Guide](docs_new/technical/setup.md).
 
 ---
