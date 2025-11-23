@@ -260,6 +260,47 @@ class ExplorationExecutor:
                 'exploration_id': exploration_id
             }
         
+        # ✅ PHASE 0: Navigate to start_node BEFORE taking screenshot
+        print(f"\n[@ExplorationExecutor:start_exploration] 📍 PHASE 0: Navigating to start node '{start_node}'...")
+        try:
+            import asyncio
+            nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
+                tree_id=tree_id,
+                userinterface_name=userinterface_name,
+                target_node_label=start_node,
+                team_id=team_id
+            ))
+            
+            if not nav_result.get('success'):
+                error_msg = nav_result.get('error', 'Unknown error')
+                print(f"[@ExplorationExecutor:start_exploration] ❌ PHASE 0 FAILED: Cannot navigate to '{start_node}': {error_msg}")
+                
+                with self._lock:
+                    self.exploration_state['status'] = 'failed'
+                    self.exploration_state['error'] = f"Cannot navigate to start node '{start_node}': {error_msg}"
+                
+                return {
+                    'success': False,
+                    'error': f"Cannot start exploration: Failed to navigate to '{start_node}'.\n\n{error_msg}",
+                    'exploration_id': exploration_id
+                }
+            
+            print(f"[@ExplorationExecutor:start_exploration] ✅ PHASE 0 COMPLETE: At '{start_node}' - ready for screenshot")
+            
+        except Exception as e:
+            error_msg = f"Navigation to '{start_node}' exception: {e}"
+            print(f"[@ExplorationExecutor:start_exploration] ❌ {error_msg}")
+            
+            with self._lock:
+                self.exploration_state['status'] = 'failed'
+                self.exploration_state['error'] = error_msg
+            
+            return {
+                'success': False,
+                'error': f"Cannot start exploration: {error_msg}",
+                'exploration_id': exploration_id
+            }
+        
         # Start exploration in background thread
         def run_exploration():
             try:
