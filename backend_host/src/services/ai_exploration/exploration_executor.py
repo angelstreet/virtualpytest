@@ -602,13 +602,19 @@ class ExplorationExecutor:
                             target=target_focus,
                             actions=[{
                                 "command": "press_key",
-                                "params": {"key": "RIGHT"},
-                                "delay": 1500
+                                "action_type": "remote",
+                                "params": {
+                                    "key": "RIGHT",
+                                    "wait_time": 1500
+                                }
                             }],
                             reverse_actions=[{
                                 "command": "press_key",
-                                "params": {"key": "LEFT"},
-                                "delay": 1500
+                                "action_type": "remote",
+                                "params": {
+                                    "key": "LEFT",
+                                    "wait_time": 1500
+                                }
                             }],
                             label=f"{source_focus}_to_{target_focus}_temp"
                         )
@@ -657,18 +663,24 @@ class ExplorationExecutor:
                             edge_vertical_nav = node_gen.create_edge_data(
                                 source=prev_vertical_focus,
                                 target=focus_node_name,
-                            actions=[{
-                                "command": "press_key",
-                                    "params": {"key": "DOWN"},
-                                    "delay": 1500
-                            }],
+                                actions=[{
+                                    "command": "press_key",
+                                    "action_type": "remote",
+                                    "params": {
+                                        "key": "DOWN",
+                                        "wait_time": 1500
+                                    }
+                                }],
                                 reverse_actions=[{
                                     "command": "press_key",
-                                    "params": {"key": "UP"},
-                                    "delay": 1500
+                                    "action_type": "remote",
+                                    "params": {
+                                        "key": "UP",
+                                        "wait_time": 1500
+                                    }
                                 }],
                                 label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
-                        )
+                            )
                             edges_to_save.append(edge_vertical_nav)
                             print(f"    ↕ {prev_vertical_focus} ↔ {focus_node_name}: DOWN/UP (bidirectional)")
                             
@@ -715,13 +727,19 @@ class ExplorationExecutor:
                         target=screen_node,
                         actions=[{
                             "command": "press_key",
-                            "params": {"key": "OK"},
-                            "delay": 5000
+                            "action_type": "remote",
+                            "params": {
+                                "key": "OK",
+                                "wait_time": 5000
+                            }
                         }],
                         reverse_actions=[{
                             "command": "press_key",
-                            "params": {"key": "BACK"},
-                            "delay": 5000
+                            "action_type": "remote",
+                            "params": {
+                                "key": "BACK",
+                                "wait_time": 5000
+                            }
                         }],
                         label=f"{focus_node}_to_{screen_node}_temp"
                     )
