@@ -870,6 +870,12 @@ class NavigationExecutor:
                         'step_category': 'navigation'
                     }
                     
+                    # Add verification screenshots to main screenshot collection for R2 upload
+                    # This ensures cropped verification result images get uploaded to R2
+                    for verif_screenshot in verification_result.get('verification_screenshots', []):
+                        if verif_screenshot and context and hasattr(context, 'add_screenshot'):
+                            context.add_screenshot(verif_screenshot)
+                    
                     # Record step immediately - step number shown in table
                     context.record_step_immediately(step_result)
                     # Auto-write to running.log for frontend overlay
