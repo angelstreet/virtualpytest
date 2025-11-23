@@ -63,7 +63,7 @@ Get up and running in minutes using Docker.
 
 ```bash
 git clone https://github.com/angelstreet/virtualpytest.git
-cd virtualpytest && ./quickstart.sh
+cd virtualpytest && ./setup/quickstart.sh
 ```
 
 This script will automatically:
