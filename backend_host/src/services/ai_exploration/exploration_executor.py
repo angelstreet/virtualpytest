@@ -771,7 +771,7 @@ class ExplorationExecutor:
                             "action_type": "remote",
                             "params": {
                                 "key": "OK",
-                                "wait_time": 5000
+                                "wait_time": 7000
                             }
                         }],
                         reverse_actions=[{
