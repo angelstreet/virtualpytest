@@ -68,9 +68,19 @@ def _dump_to_string(dump: Dict) -> str:
     if not elements:
         return "<no elements found>"
     
+    # ✅ Detect dump type
+    dump_type = dump.get('dump_type', 'xml')  # Default to xml for backward compatibility
+    
     # Build formatted string
     lines = []
     lines.append(f"Total Elements: {len(elements)}\n")
+    
+    # ✅ Add dump type indicator
+    if dump_type == 'ocr':
+        lines.append(f"Dump Type: OCR (Text Recognition)\n")
+    else:
+        lines.append(f"Dump Type: {dump_type.upper()}\n")
+    
     lines.append("=" * 80)
     
     for i, elem in enumerate(elements, 1):
@@ -81,17 +91,29 @@ def _dump_to_string(dump: Dict) -> str:
             # Object (AndroidElement, AppiumElement)
             elem_dict = elem.__dict__
         elif isinstance(elem, dict):
-            # Dict (Web elements)
+            # Dict (Web elements, OCR elements)
             elem_dict = elem
         else:
             lines.append(f"  <unknown format: {type(elem)}>")
             continue
         
-        # Display key attributes
-        for key in ['text', 'content_desc', 'class', 'resource_id', 'xpath', 'bounds']:
-            value = elem_dict.get(key)
-            if value:
-                lines.append(f"  {key}: {value}")
+        # ✅ OCR: Show text and area
+        if dump_type == 'ocr':
+            text = elem_dict.get('text', '')
+            area = elem_dict.get('area', {})
+            confidence = elem_dict.get('confidence', 0)
+            
+            lines.append(f"  text: {text}")
+            if area:
+                lines.append(f"  area: x={area.get('x', 0)}, y={area.get('y', 0)}, w={area.get('width', 0)}, h={area.get('height', 0)}")
+            if confidence:
+                lines.append(f"  confidence: {confidence}")
+        else:
+            # XML/ADB: Display key attributes
+            for key in ['text', 'content_desc', 'class', 'resource_id', 'xpath', 'bounds']:
+                value = elem_dict.get(key)
+                if value:
+                    lines.append(f"  {key}: {value}")
     
     return "\n".join(lines)
 
@@ -204,10 +226,45 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
         
         print(f"[@dump_analyzer] ⚠️  No unique text found, trying xpath...")
         
-        # Fallback to xpath
-        unique_xpath = _find_unique_xpath_for_node(node_id, current_dump, all_dumps)
-        if unique_xpath:
-            print(f"[@dump_analyzer] ✅ SUCCESS: Found unique xpath: '{unique_xpath}'")
+        # Fallback to xpath (only for non-OCR dumps - OCR has no xpath)
+        if not is_ocr_dump:
+            unique_xpath = _find_unique_xpath_for_node(node_id, current_dump, all_dumps)
+            if unique_xpath:
+                print(f"[@dump_analyzer] ✅ SUCCESS: Found unique xpath: '{unique_xpath}'")
+                results.append({
+                    'node_id': node_id,
+                    'node_label': node_label,
+                    'screenshot_url': screenshot_url,
+                    'dump': dump_string,
+                    'suggested_verification': {
+                        'method': verification_command,
+                        'params': {'xpath': unique_xpath},
+                        'found': True,
+                        'type': verification_type
+                    }
+                })
+                continue
+        
+        # No unique element found
+        print(f"[@dump_analyzer] ❌ FAILURE: No unique element found for '{node_label}'")
+        print(f"[@dump_analyzer]    → This node has no text or xpath that's unique to it")
+        
+        # ✅ TV OCR: Return TV format even when no unique element found
+        if is_ocr_dump:
+            print(f"[@dump_analyzer] 📺 OCR dump - returning TV format with found=False")
+            results.append({
+                'node_id': node_id,
+                'node_label': node_label,
+                'screenshot_url': screenshot_url,
+                'dump': dump_string,
+                'suggested_verification': {
+                    'text': None,  # ← TV format: no unique text found
+                    'area': None,  # ← TV format: no area
+                    'found': False
+                }
+            })
+        else:
+            # Mobile/Web: Return params format
             results.append({
                 'node_id': node_id,
                 'node_label': node_label,
@@ -215,28 +272,11 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
                 'dump': dump_string,
                 'suggested_verification': {
                     'method': verification_command,
-                    'params': {'xpath': unique_xpath},
-                    'found': True,
+                    'params': {},
+                    'found': False,
                     'type': verification_type
                 }
             })
-            continue
-        
-        # No unique element found
-        print(f"[@dump_analyzer] ❌ FAILURE: No unique element found for '{node_label}'")
-        print(f"[@dump_analyzer]    → This node has no text or xpath that's unique to it")
-        results.append({
-            'node_id': node_id,
-            'node_label': node_label,
-            'screenshot_url': screenshot_url,
-            'dump': dump_string,
-            'suggested_verification': {
-                'method': verification_command,
-                'params': {},
-                'found': False,
-                'type': verification_type
-            }
-        })
     
     return results
 
