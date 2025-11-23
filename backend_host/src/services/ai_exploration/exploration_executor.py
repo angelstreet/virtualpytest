@@ -693,7 +693,7 @@ class ExplorationExecutor:
                                 "action_type": "remote",
                                 "params": {
                                     "key": "RIGHT",
-                                    "wait_time": 1500
+                                    "wait_time": 2000
                                 }
                             }],
                             reverse_actions=[{
@@ -701,7 +701,7 @@ class ExplorationExecutor:
                                 "action_type": "remote",
                                 "params": {
                                     "key": "LEFT",
-                                    "wait_time": 1500
+                                    "wait_time": 2000
                                 }
                             }],
                             label=f"{source_focus}_to_{target_focus}_temp"
@@ -756,7 +756,7 @@ class ExplorationExecutor:
                                     "action_type": "remote",
                                     "params": {
                                         "key": "DOWN",
-                                        "wait_time": 1500
+                                        "wait_time": 2000
                                     }
                                 }],
                                 reverse_actions=[{
@@ -764,7 +764,7 @@ class ExplorationExecutor:
                                     "action_type": "remote",
                                     "params": {
                                         "key": "UP",
-                                        "wait_time": 1500
+                                        "wait_time": 2000
                                     }
                                 }],
                                 label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
@@ -818,7 +818,7 @@ class ExplorationExecutor:
                             "action_type": "remote",
                             "params": {
                                 "key": "OK",
-                                "wait_time": 7000
+                                "wait_time": 8000
                             }
                         }],
                         reverse_actions=[{
@@ -826,7 +826,7 @@ class ExplorationExecutor:
                             "action_type": "remote",
                             "params": {
                                 "key": "BACK",
-                                "wait_time": 5000
+                                "wait_time": 6000
                             }
                         }],
                         label=f"{focus_node}_to_{screen_node}_temp"
