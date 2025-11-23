@@ -1353,6 +1353,33 @@ class ExplorationExecutor:
                 edge_results['horizontal'] = 'success'
                 print(f"    ✅ Focus navigation: {nav_direction}")
                 time.sleep(1.5)  # 1500ms for D-PAD navigation
+                
+                # 📸 Capture screenshot for focus node (no dump needed)
+                try:
+                    av_controllers = self.device.get_controllers('av')
+                    av_controller = av_controllers[0] if av_controllers else None
+                    if av_controller:
+                        focus_screenshot_path = av_controller.take_screenshot()
+                        if focus_screenshot_path:
+                            from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
+                            sanitized_name = focus_node_name.replace(' ', '_')
+                            r2_filename = f"{sanitized_name}.jpg"
+                            userinterface_name = self.exploration_state['userinterface_name']
+                            upload_result = upload_navigation_screenshot(focus_screenshot_path, userinterface_name, r2_filename)
+                            if upload_result.get('success'):
+                                focus_screenshot_url = upload_result.get('url')
+                                with self._lock:
+                                    if 'node_verification_data' not in self.exploration_state:
+                                        self.exploration_state['node_verification_data'] = []
+                                    self.exploration_state['node_verification_data'].append({
+                                        'node_id': focus_node_name,
+                                        'node_label': focus_node_name,
+                                        'dump': None,
+                                        'screenshot_url': focus_screenshot_url
+                                    })
+                                print(f"    📸 Focus screenshot saved: {focus_screenshot_url}")
+                except Exception as e:
+                    print(f"    ⚠️ Focus screenshot failed: {e}")
             except Exception as e:
                 edge_results['horizontal'] = 'failed'
                 print(f"    ❌ Focus navigation failed: {e}")
