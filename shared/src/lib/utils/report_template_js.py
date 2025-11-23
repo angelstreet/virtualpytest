@@ -259,9 +259,25 @@ function updateModalContent() {{
     if (current.command) {{
         const cmd = current.command;
         const params = current.params || {{}};
-        const paramsStr = Object.keys(params).length > 0 ? 
-            ' ' + Object.entries(params).map(([k,v]) => k + '="' + v + '"').join(' ') : '';
-        actionInfo.textContent = current.label + ': ' + cmd + paramsStr;
+        
+        // Format parameters intelligently based on type
+        let paramsStr = '';
+        if (Object.keys(params).length > 0) {{
+            paramsStr = Object.entries(params).map(([k, v]) => {{
+                if (typeof v === 'object' && v !== null) {{
+                    // For objects (like area), show compact JSON representation
+                    return k + '=' + JSON.stringify(v);
+                }} else if (typeof v === 'string') {{
+                    // For strings, wrap in quotes
+                    return k + "='" + v + "'";
+                }} else {{
+                    // For numbers/booleans, show as-is
+                    return k + '=' + v;
+                }}
+            }}).join(', ');
+        }}
+        
+        actionInfo.textContent = current.label + ': ' + cmd + '(' + paramsStr + ')';
         actionInfo.style.display = 'block';
     }} else {{
         actionInfo.textContent = current.label;

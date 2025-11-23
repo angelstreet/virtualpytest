@@ -254,6 +254,18 @@ def format_step_error(step: Dict) -> str:
         
         error_html += f'</div>'
     
+    # Add debug report link if available (verification failure reports)
+    # Check both direct step field and error_details (different code paths may use either)
+    debug_report_url = step.get('debug_report_url') or step.get('error_details', {}).get('debug_report_url')
+    if debug_report_url:
+        error_html += '<div class="debug-report-link" style="margin-top: 12px; padding: 8px; background-color: #e8f4fd; border-left: 4px solid #3182ce; border-radius: 4px;">'
+        error_html += '<div style="font-weight: bold; color: #2c5282; margin-bottom: 4px;">🔍 Verification Failure Report</div>'
+        error_html += f'<a href="{debug_report_url}" target="_blank" style="color: #3182ce; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; gap: 4px;">'
+        error_html += '📊 View Detailed Comparison Report'
+        error_html += '<span style="font-size: 12px;">↗</span>'
+        error_html += '</a>'
+        error_html += '</div>'
+    
     error_html += '</div>'
     return error_html
 
@@ -287,9 +299,8 @@ def format_step_actions(step: Dict) -> str:
             command = action.get('command', 'unknown')
             params = action.get('params', {})
             
-            # Format params as key=value pairs, excluding wait_time for cleaner display
-            filtered_params = {k: v for k, v in params.items() if k != 'wait_time'}
-            params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
+            # Format params as key=value pairs
+            params_str = ", ".join([f"{k}='{v}'" for k, v in params.items()]) if params else ""
             
             action_line = f"{action_index}. {command}({params_str})" if params_str else f"{action_index}. {command}"
             
@@ -315,8 +326,8 @@ def format_step_actions(step: Dict) -> str:
             command = retry_action.get('command', 'unknown')
             params = retry_action.get('params', {})
             
-            filtered_params = {k: v for k, v in params.items() if k != 'wait_time'}
-            params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
+            # Format params as key=value pairs
+            params_str = ", ".join([f"{k}='{v}'" for k, v in params.items()]) if params else ""
             
             retry_line = f"{retry_index}. {command}({params_str})" if params_str else f"{retry_index}. {command}"
             
@@ -342,8 +353,8 @@ def format_step_actions(step: Dict) -> str:
             command = failure_action.get('command', 'unknown')
             params = failure_action.get('params', {})
             
-            filtered_params = {k: v for k, v in params.items() if k != 'wait_time'}
-            params_str = ", ".join([f"{k}='{v}'" for k, v in filtered_params.items()]) if filtered_params else ""
+            # Format params as key=value pairs
+            params_str = ", ".join([f"{k}='{v}'" for k, v in params.items()]) if params else ""
             
             failure_line = f"{failure_index}. {command}({params_str})" if params_str else f"{failure_index}. {command}"
             
@@ -1018,10 +1029,13 @@ def format_step_screenshots(step: Dict, step_index: int) -> str:
             if i < len(verification_results):
                 result = verification_results[i]
                 verification_cmd = result.get('verification_type', 'unknown')
+                verification_params = {}
+                
                 if i < len(verifications):
                     verification = verifications[i]
                     verification_cmd = verification.get('command', verification_cmd)
-                verification_params = {}
+                    # Extract verification parameters
+                    verification_params = verification.get('params', {})
                 
                 # Use enhanced formatting for verification screenshots
                 verification_formatted_display = format_screenshot_display_name(screenshot_path)
