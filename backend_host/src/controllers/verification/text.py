@@ -126,6 +126,10 @@ class TextVerificationController:
                 if not os.path.exists(source_path):
                     print(f"[@controller:TextVerification] Skip: {os.path.basename(source_path)}")
                     continue
+                
+                # Always track first valid image as fallback (for debug reports even when OCR extracts nothing)
+                if best_source_path is None:
+                    best_source_path = source_path
                     
                 # Extract text from area (use simple OCR for regular text verification)
                 extracted_text = self._extract_text_from_area(source_path, area, image_filter)
@@ -151,6 +155,9 @@ class TextVerificationController:
                             cropped_source_path = self._save_cropped_source_image(source_path, area, verification_index)
                             if cropped_source_path:
                                 additional_data["source_image_path"] = cropped_source_path
+                            else:
+                                # Fallback to original if cropping failed
+                                additional_data["source_image_path"] = source_path
                         else:
                             # No area - use original source image
                             additional_data["source_image_path"] = source_path
@@ -177,6 +184,9 @@ class TextVerificationController:
                     cropped_source_path = self._save_cropped_source_image(best_source_path, area, verification_index)
                     if cropped_source_path:
                         additional_data["source_image_path"] = cropped_source_path
+                    else:
+                        # Fallback to original if cropping failed
+                        additional_data["source_image_path"] = best_source_path
                 else:
                     # No area - use original source image
                     additional_data["source_image_path"] = best_source_path
@@ -205,6 +215,9 @@ class TextVerificationController:
                     cropped_source_path = self._save_cropped_source_image(capture_path, area, verification_index)
                     if cropped_source_path:
                         additional_data["source_image_path"] = cropped_source_path
+                    else:
+                        # Fallback to original if cropping failed
+                        additional_data["source_image_path"] = capture_path
                 else:
                     # No area - use original source image
                     additional_data["source_image_path"] = capture_path
@@ -217,6 +230,9 @@ class TextVerificationController:
                     cropped_source_path = self._save_cropped_source_image(capture_path, area, verification_index)
                     if cropped_source_path:
                         additional_data["source_image_path"] = cropped_source_path
+                    else:
+                        # Fallback to original if cropping failed
+                        additional_data["source_image_path"] = capture_path
                 else:
                     # No area - use original source image
                     additional_data["source_image_path"] = capture_path

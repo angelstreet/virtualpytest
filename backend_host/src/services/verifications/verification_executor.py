@@ -9,6 +9,7 @@ This module provides a standardized way to execute verifications that can be use
 The core logic is the same as /server/verification/executeBatch but available as a reusable class.
 """
 
+import os
 import time
 from typing import Dict, List, Optional, Any, Tuple
 from shared.src.lib.database.execution_results_db import record_node_execution
