@@ -9,7 +9,6 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -38,6 +37,7 @@ import {
 } from '@mui/icons-material';
 import { RequirementCoverage } from '../../hooks/pages/useRequirements';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
+import { StyledDialog } from '../common/StyledDialog';
 import { ConfirmDialog } from '../common/ConfirmDialog';
 
 interface RequirementCoverageModalProps {
@@ -166,7 +166,7 @@ export const RequirementCoverageModal: React.FC<RequirementCoverageModalProps> =
   };
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <StyledDialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
@@ -324,7 +324,7 @@ export const RequirementCoverageModal: React.FC<RequirementCoverageModalProps> =
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
-    </Dialog>
+    </StyledDialog>
   );
 };
 

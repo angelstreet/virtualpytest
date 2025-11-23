@@ -1,6 +1,5 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -19,6 +18,7 @@ import {
 import { buildServerUrl } from '../../utils/buildUrlUtils';
 import { NodeVerificationModal } from './NodeVerificationModal';
 import { useExplorationValidation, ValidationResult } from '../../hooks/exploration';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface ValidationModalProps {
   isOpen: boolean;
@@ -208,7 +208,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
 
   return (
     <>
-    <Dialog
+    <StyledDialog
       open={isOpen}
       onClose={onClose}
       maxWidth="md"
@@ -222,7 +222,6 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           maxWidth: '800px',
           maxHeight: 'calc(100vh - 40px)',
           boxShadow: 3,
-          border: '3px solid',
           borderColor: isValidating ? 'info.main' : isComplete ? 'success.main' : error ? 'error.main' : 'divider',
           borderRadius: 2,
           overflow: 'hidden'
@@ -531,7 +530,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
     
     {/* Node Verification Modal */}
     <NodeVerificationModal

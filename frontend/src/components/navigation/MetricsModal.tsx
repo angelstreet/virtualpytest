@@ -5,7 +5,6 @@
 
 import React, { useState, useMemo } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   Typography,
@@ -36,6 +35,7 @@ import {
 } from '@mui/icons-material';
 
 import { LowConfidenceItems, LowConfidenceItem } from '../../types/navigation/Metrics_Types';
+import { StyledDialog } from '../common/StyledDialog';
 import { 
   formatExecutionTime, 
   formatSuccessRate, 
@@ -188,7 +188,7 @@ export const MetricsModal: React.FC<MetricsModalProps> = ({
   }, [lowConfidenceItems]);
 
   return (
-    <Dialog
+    <StyledDialog
       open={open}
       onClose={onClose}
       maxWidth="lg"
@@ -289,6 +289,6 @@ export const MetricsModal: React.FC<MetricsModalProps> = ({
         </TabPanel>
       </DialogContent>
 
-    </Dialog>
+    </StyledDialog>
   );
 };

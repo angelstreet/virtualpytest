@@ -1,6 +1,5 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -26,6 +25,7 @@ import {
   ImageNotSupported as NoImageIcon,
   ArrowBack as BackIcon,
 } from '@mui/icons-material';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface NodeVerificationModalProps {
   isOpen: boolean;
@@ -75,7 +75,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
   const selectedSuggestion = suggestions.find(s => s.node_id === selectedNodeId);
 
   return (
-    <Dialog
+    <StyledDialog
       open={isOpen}
       onClose={onClose}
       maxWidth="xl"
@@ -84,9 +84,6 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
         sx: {
           maxHeight: '90vh',
           height: '90vh',
-          border: '2px solid',
-          borderColor: 'divider',
-          borderRadius: 2,
           bgcolor: 'background.paper'
         }
       }}
@@ -388,6 +385,6 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
           </Button>
         </Box>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };

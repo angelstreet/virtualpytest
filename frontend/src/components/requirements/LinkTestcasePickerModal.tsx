@@ -11,7 +11,6 @@
 
 import React, { useState, useEffect } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -38,6 +37,7 @@ import {
 import { TestcaseWithLink } from '../../hooks/pages/useRequirements';
 import { useConfirmDialog } from '../../hooks/useConfirmDialog';
 import { ConfirmDialog } from '../common/ConfirmDialog';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface LinkTestcasePickerModalProps {
   open: boolean;
@@ -178,7 +178,7 @@ export const LinkTestcasePickerModal: React.FC<LinkTestcasePickerModalProps> = (
   ).length;
 
   return (
-    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+    <StyledDialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>
         <Box display="flex" alignItems="center" justifyContent="space-between">
           <Box>
@@ -344,7 +344,7 @@ export const LinkTestcasePickerModal: React.FC<LinkTestcasePickerModalProps> = (
         onConfirm={handleConfirm}
         onCancel={handleCancel}
       />
-    </Dialog>
+    </StyledDialog>
   );
 };
 

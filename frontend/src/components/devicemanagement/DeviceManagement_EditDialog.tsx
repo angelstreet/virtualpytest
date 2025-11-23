@@ -4,7 +4,6 @@ import {
   Save as SaveIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -34,6 +33,7 @@ import { ModelSelectionStep } from './wizard/DeviceManagement_ModelSelectionStep
 import { ReviewStep } from './wizard/DeviceManagement_ReviewStep';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { StyledDialog } from '../common/StyledDialog';
 interface EditDeviceDialogProps {
   open: boolean;
   device: Device | null;
@@ -320,7 +320,7 @@ const EditDeviceDialog: React.FC<EditDeviceDialogProps> = ({
   const canProceed = isStepComplete(activeStep);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth fullScreen={isMobile}>
+    <StyledDialog open={open} onClose={handleClose} maxWidth="lg" fullWidth fullScreen={isMobile}>
       <DialogTitle sx={{ pb: 1 }}>
         <Typography variant="h5">Edit Device: {device?.device_name || 'Unknown Device'}</Typography>
       </DialogTitle>
@@ -404,7 +404,7 @@ const EditDeviceDialog: React.FC<EditDeviceDialogProps> = ({
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 

@@ -4,7 +4,6 @@ import {
   Check as CheckIcon,
 } from '@mui/icons-material';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -30,6 +29,7 @@ import { BasicInfoStep } from './wizard/DeviceManagement_BasicInfoStep';
 import { ControllerConfigurationStep } from './wizard/DeviceManagement_ControllerConfigStep';
 import { ModelSelectionStep } from './wizard/DeviceManagement_ModelSelectionStep';
 import { ReviewStep } from './wizard/DeviceManagement_ReviewStep';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface DeviceFormData {
   name: string;
@@ -271,7 +271,7 @@ const CreateDeviceDialog: React.FC<CreateDeviceDialogProps> = ({
   const canProceed = isStepComplete(activeStep);
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="lg" fullWidth fullScreen={isMobile}>
+    <StyledDialog open={open} onClose={handleClose} maxWidth="lg" fullWidth fullScreen={isMobile}>
       <DialogTitle sx={{ pb: 1 }}>
         <Typography variant="h5">Add New Device</Typography>
       </DialogTitle>
@@ -355,7 +355,7 @@ const CreateDeviceDialog: React.FC<CreateDeviceDialogProps> = ({
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 

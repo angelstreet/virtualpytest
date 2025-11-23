@@ -1,5 +1,4 @@
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -20,6 +19,7 @@ import React, { useState } from 'react';
 
 // Import the simplified interface from Models.tsx
 import { ModelCreatePayload as ModelCreateData } from '../../types/pages/Models_Types';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface CreateModelDialogProps {
   open: boolean;
@@ -106,7 +106,7 @@ const CreateModelDialog: React.FC<CreateModelDialogProps> = ({ open, onClose, on
     };
 
   return (
-    <Dialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
+    <StyledDialog open={open} onClose={handleClose} maxWidth="md" fullWidth>
       <DialogTitle sx={{ pb: 1 }}>Add New Device Model</DialogTitle>
       <DialogContent sx={{ pt: 1 }}>
         <Box sx={{ pt: 0.5 }}>
@@ -182,7 +182,7 @@ const CreateModelDialog: React.FC<CreateModelDialogProps> = ({ open, onClose, on
           Add Model
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };
 

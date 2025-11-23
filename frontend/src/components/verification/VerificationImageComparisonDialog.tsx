@@ -1,5 +1,4 @@
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -8,6 +7,8 @@ import {
   Typography,
 } from '@mui/material';
 import React from 'react';
+
+import { StyledDialog } from '../common/StyledDialog';
 
 interface VerificationImageComparisonDialogProps {
   open: boolean;
@@ -80,7 +81,7 @@ export const VerificationImageComparisonDialog: React.FC<
   }
 
   return (
-    <Dialog
+    <StyledDialog
       open={open}
       onClose={onClose}
       maxWidth="lg"
@@ -307,6 +308,6 @@ export const VerificationImageComparisonDialog: React.FC<
           Close
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };

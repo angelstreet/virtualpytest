@@ -1,5 +1,4 @@
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -11,6 +10,7 @@ import React from 'react';
 
 import { useHostManager } from '../../hooks/useHostManager';
 import { buildVerificationResultUrl } from '../../utils/buildUrlUtils';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface VerificationTextComparisonDialogProps {
   open: boolean;
@@ -145,7 +145,7 @@ export const VerificationTextComparisonDialog: React.FC<VerificationTextComparis
   }
 
   return (
-    <Dialog
+    <StyledDialog
       open={open}
       onClose={onClose}
       maxWidth="lg"
@@ -347,6 +347,6 @@ export const VerificationTextComparisonDialog: React.FC<VerificationTextComparis
           Close
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
   );
 };

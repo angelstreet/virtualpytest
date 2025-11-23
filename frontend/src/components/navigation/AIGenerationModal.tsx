@@ -1,6 +1,5 @@
 import React, { useEffect } from 'react';
 import {
-  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -28,6 +27,7 @@ import { useAIGenerationModal } from '../../hooks/navigation/useAIGenerationModa
 import { AIGenerationPhaseIndicator } from './AIGenerationPhaseIndicator';
 import { Phase2IncrementalView } from './Phase2IncrementalView';
 import { ContextSummary } from './ContextSummary';
+import { StyledDialog } from '../common/StyledDialog';
 
 interface AIGenerationModalProps {
   isOpen: boolean;
@@ -243,7 +243,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
   return (
     <>
-      <Dialog
+      <StyledDialog
         open={isOpen}
         onClose={onClose}
         maxWidth="md"
@@ -251,8 +251,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         PaperProps={{
           sx: { 
             maxHeight: '90vh',
-            border: '2px solid white',
-            borderRadius: 2
         }
       }}
     >
@@ -832,7 +830,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           {isCheckingTree ? 'Deleting...' : 'Delete'}
         </Button>
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
     </>
   );
 };
