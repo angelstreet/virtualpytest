@@ -260,9 +260,9 @@ class NodeGenerator:
             'target_node_id': target,
             'action_sets': action_sets,
             'default_action_set_id': forward_action_set_id,
-            'final_wait_time': 1000,
             'label': label,  # Can have _temp for visual distinction
             'data': {
+                'final_wait_time': 1000,  # ✅ MOVED: Inside data to match frontend
                 'ai_generated': True,
                 'discovered_at': datetime.now(timezone.utc).isoformat(),
                 'sourceHandle': 'bottom-right-menu-source',  # ✅ Vertical edges: source at bottom
