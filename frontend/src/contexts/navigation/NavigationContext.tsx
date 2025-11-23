@@ -1363,11 +1363,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 ...currentSelectedEdge,
                 data: {
                   // Map server response to frontend data structure
-                action_sets: serverEdge.action_sets || [],
-                default_action_set_id: serverEdge.default_action_set_id || '',
-                final_wait_time: serverEdge.data?.final_wait_time || 2000,  // ✅ Read from data object
-                priority: serverEdge.data?.priority || 'p3',
-                // Preserve ReactFlow properties
+                  action_sets: serverEdge.action_sets || [],
+                  default_action_set_id: serverEdge.default_action_set_id || '',
+                  final_wait_time: serverEdge.final_wait_time || 2000,
+                  priority: serverEdge.data?.priority || 'p3',
+                  // Preserve ReactFlow properties
                   sourceHandle: currentSourceHandle || undefined,
                   targetHandle: currentTargetHandle || undefined,
                   // Preserve conditional flags
@@ -1758,11 +1758,11 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                              const updatedEdgeFromServer: UINavigationEdge = {
                 ...edge,
                 data: {
-                action_sets: serverEdge.action_sets || [],
-                default_action_set_id: serverEdge.default_action_set_id || '',
-                final_wait_time: serverEdge.data?.final_wait_time || 2000,  // ✅ Read from data object
-                priority: serverEdge.data?.priority || 'p3',
-                sourceHandle: edge.sourceHandle || undefined,
+                  action_sets: serverEdge.action_sets || [],
+                  default_action_set_id: serverEdge.default_action_set_id || '',
+                  final_wait_time: serverEdge.final_wait_time || 2000,
+                  priority: serverEdge.data?.priority || 'p3',
+                  sourceHandle: edge.sourceHandle || undefined,
                   targetHandle: edge.targetHandle || undefined,
                 },
                 type: edge.type || 'smoothstep', // Ensure type is never undefined

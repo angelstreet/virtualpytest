@@ -172,18 +172,14 @@ def update_edge_in_cache(root_tree_id: str, team_id: str, edge_data: Dict) -> bo
             return False
         
         # Update or add edge with all attributes
-        # ✅ Extract final_wait_time from data object (matches frontend structure)
-        edge_data_obj = edge_data.get('data', {})
-        final_wait_time = edge_data_obj.get('final_wait_time', 2000)
-        
         graph.add_edge(source_id, target_id, **{
             'edge_id': edge_data.get('edge_id'),
             'action_sets': edge_data.get('action_sets', []),
             'default_action_set_id': edge_data.get('default_action_set_id'),
-            'final_wait_time': final_wait_time,  # ✅ Read from data object
+            'final_wait_time': edge_data.get('final_wait_time', 2000),
             'label': edge_data.get('label', ''),
             'tree_id': edge_data.get('tree_id'),
-            'data': edge_data_obj,
+            'data': edge_data.get('data', {}),
         })
         
         # Save updated graph back to cache
