@@ -486,18 +486,15 @@ class TextHelpers:
                     # Skip empty text or low confidence
                     if not text or conf == '-1':
                         filtered_by_empty += 1
-                        print(f"    🐛 DEBUG: Filtered (empty/no-conf): text='{text}', conf={conf}")
                         continue
                     
                     try:
                         confidence = int(float(conf))
                         if confidence < confidence_threshold:
                             filtered_by_confidence += 1
-                            print(f"    🐛 DEBUG: Filtered (conf={confidence} < {confidence_threshold}): '{text}'")
                             continue
                     except ValueError:
                         filtered_by_confidence += 1
-                        print(f"    🐛 DEBUG: Filtered (ValueError on conf='{conf}'): '{text}'")
                         continue
                     
                     # Get bounding box
@@ -517,7 +514,6 @@ class TextHelpers:
                     # ✅ LAYER 1: Filter garbage OCR text (TV-optimized)
                     if not self._is_valid_ocr_text_for_verification(text):
                         filtered_by_quality += 1
-                        print(f"    🐛 DEBUG: Filtered (quality): '{text}'")
                         continue
                     
                     # Expand area for better verification matching (-5 x/y, +10 width/height)
@@ -584,7 +580,7 @@ class TextHelpers:
         Filter garbage OCR text for verification quality (TV-optimized).
         
         Applies strict quality rules to ensure only meaningful text is used:
-        - Minimum 3 characters (filters 'Er', 'It', 'De', 'E')
+        - NOT checking min length here (done in Layer 2 after grouping)
         - Not all numeric (filters times like '12:20')
         - Not symbol-only (filters '@)', '®', '-~\.')
         - Not common UI indicators (filters 'HD', 'SD', 'OK', '4K')
@@ -598,10 +594,8 @@ class TextHelpers:
         """
         text_clean = text.strip()
         
-        # 1. CRITICAL: Minimum 3 characters
-        #    Filters: 'Er', 'It', 'De', 'Ne', 'E', '@)'
-        if len(text_clean) < 3:
-            return False
+        # 1. ✅ NO MINIMUM LENGTH CHECK - Let "TV" pass for grouping with "Guide"
+        #    Layer 2 will filter standalone short words AFTER grouping
         
         # 2. All numeric (times, channel numbers)
         #    Filters: '12:20', '1:55', '123'
@@ -638,6 +632,8 @@ class TextHelpers:
         - 'De It' → Invalid (single letter + short word)
         - '@) Shared Profiles' → Invalid (starts with symbol)
         - 'Shared Profiles' → Valid
+        - 'TV' → Invalid (too short, standalone)
+        - 'TV Guide' → Valid (grouped phrase >= 3 chars)
         
         Args:
             text: Grouped phrase to validate
@@ -645,14 +641,20 @@ class TextHelpers:
         Returns:
             True if phrase is valid, False if likely grouping error
         """
-        # First apply base quality check
+        # First apply base quality check (no min length check there now)
         if not self._is_valid_ocr_text_for_verification(text):
             return False
         
         text_clean = text.strip()
         words = text_clean.split()
         
-        # Single word: Already validated by base check
+        # ✅ CRITICAL: Minimum 3 characters (moved from Layer 1)
+        # Filters standalone short words: 'TV', 'Er', 'It', 'De', 'E'
+        # But allows them in grouped phrases: 'TV Guide' ✅
+        if len(text_clean) < 3:
+            return False
+        
+        # Single word: Already validated by min length above
         if len(words) == 1:
             return True
         

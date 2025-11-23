@@ -118,9 +118,10 @@ def score_text_candidate(text: str, node_label: str) -> Tuple[int, bool]:
     if text_lower == label_lower:
         return (1000, False)  # Always strong if exact match
     
-    # 2. Partial Match to Node Label
-    if label_lower in text_lower:
-        score += 100
+    # 2. Partial Match to Node Label (case-insensitive)
+    # If node is "tv_guide" and text is "TV Guide", this should score very high
+    if label_lower in text_lower or text_lower in label_lower:
+        score += 500  # ✅ Increased from 100 - "Guide" matching "tv_guide" is obvious
     
     # 3. Length Heuristics
     length = len(text)
