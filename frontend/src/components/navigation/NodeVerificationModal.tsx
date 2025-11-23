@@ -248,7 +248,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                 <Accordion>
                   <AccordionSummary expandIcon={<ExpandMoreIcon />}>
                     <Typography variant="subtitle2" sx={{ fontWeight: 600 }}>
-                      {selectedSuggestion.dump?.dump_type === 'ocr' ? 'OCR Dump' : 'XML Dump'}
+                      {selectedSuggestion.dump?.dump_type?.toLowerCase() === 'ocr' ? 'OCR Dump' : 'XML Dump'}
                     </Typography>
                   </AccordionSummary>
                   <AccordionDetails sx={{ p: 0 }}>
@@ -265,7 +265,7 @@ export const NodeVerificationModal: React.FC<NodeVerificationModalProps> = ({
                         }}
                       >
                         {/* OCR Dump (TV) - Show formatted list */}
-                        {selectedSuggestion.dump?.dump_type === 'ocr' ? (
+                        {selectedSuggestion.dump?.dump_type?.toLowerCase() === 'ocr' ? (
                           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0 }}>
                             {selectedSuggestion.dump.elements && selectedSuggestion.dump.elements.length > 0 ? (
                               <>
