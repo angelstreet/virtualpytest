@@ -680,19 +680,23 @@ class ExplorationExecutor:
                     
                     # Step 1b: Create HORIZONTAL edges for Row 1 (LEFT/RIGHT between adjacent focus nodes)
                     print(f"\n  ➡️  Creating HORIZONTAL edges (Row 1 menu navigation):")
+                    try: home_idx = all_focus_nodes_row1.index('home')
+                    except: home_idx = 0
+
                     for idx in range(len(all_focus_nodes_row1) - 1):
-                        source_focus = all_focus_nodes_row1[idx]
-                        target_focus = all_focus_nodes_row1[idx + 1]
+                        is_left = idx < home_idx
+                        source = all_focus_nodes_row1[idx + 1] if is_left else all_focus_nodes_row1[idx]
+                        target = all_focus_nodes_row1[idx] if is_left else all_focus_nodes_row1[idx + 1]
                         
-                        # ✅ BIDIRECTIONAL: Single edge with action_sets[0]=RIGHT, action_sets[1]=LEFT
+                        # ✅ BIDIRECTIONAL: Outward from home (LEFT for left items, RIGHT for right items)
                         edge_horizontal = node_gen.create_edge_data(
-                            source=source_focus,
-                            target=target_focus,
+                            source=source,
+                            target=target,
                             actions=[{
                                 "command": "press_key",
                                 "action_type": "remote",
                                 "params": {
-                                    "key": "RIGHT",
+                                    "key": "LEFT" if is_left else "RIGHT",
                                     "wait_time": 2000
                                 }
                             }],
@@ -700,14 +704,14 @@ class ExplorationExecutor:
                                 "command": "press_key",
                                 "action_type": "remote",
                                 "params": {
-                                    "key": "LEFT",
+                                    "key": "RIGHT" if is_left else "LEFT",
                                     "wait_time": 2000
                                 }
                             }],
-                            label=f"{source_focus}_to_{target_focus}_temp"
+                            label=f"{source}_to_{target}_temp"
                         )
                         edges_to_save.append(edge_horizontal)
-                        print(f"    ↔ {source_focus} ↔ {target_focus}: RIGHT/LEFT (bidirectional)")
+                        print(f"    ↔ {source} → {target}: {'LEFT' if is_left else 'RIGHT'}/{'RIGHT' if is_left else 'LEFT'}")
                         
                 # ========== ROW 2+: VERTICAL MENU (DOWN/UP from home) ==========
                 if len(lines) > 1:
