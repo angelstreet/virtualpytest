@@ -350,32 +350,28 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 print(f"    ❌ LEFT transition exception: {e}")
                 print(f"    ⚠️ Continuing anyway - validation may fail")
         
-        # ✅ RECOVERY: Only navigate to home if we're doing DOWN navigation (home not in same row)
-        elif is_first_item_overall and nav_direction == 'DOWN':
-            print(f"\n    🔄 ROW {display_row} START: Ensuring we're at home (Row 0)...")
+        # ✅ RECOVERY: Navigate to home before DOWN navigation (new row)
+        elif nav_direction == 'DOWN':
+            print(f"\n    🔄 ROW {display_row} TRANSITION: Navigating to '{start_node_label}' before DOWN...")
+            print(f"      Transitioning from Row {prev_row_index + 1 if prev_row_index >= 0 else 0} → Row {display_row}")
             try:
                 import asyncio
                 nav_result = asyncio.run(executor.device.navigation_executor.execute_navigation(
                     tree_id=tree_id,
                     userinterface_name=executor.exploration_state['userinterface_name'],
-                    target_node_label='home',
+                    target_node_label=start_node_label,
                     team_id=team_id
                 ))
                 
                 if nav_result.get('success'):
-                    print(f"    ✅ At home (Row 0) - ready for DOWN navigation to Row {display_row}")
+                    print(f"    ✅ At '{start_node_label}' - ready for DOWN navigation to Row {display_row}")
                 else:
                     error_msg = nav_result.get('error', 'Unknown error')
-                    print(f"    ❌ Navigation to home failed: {error_msg}")
+                    print(f"    ❌ Navigation to '{start_node_label}' failed: {error_msg}")
                     print(f"    ⚠️ Continuing anyway - validation may fail")
             except Exception as e:
                 print(f"    ❌ Recovery exception: {e}")
                 print(f"    ⚠️ Continuing anyway - validation may fail")
-        
-        # ✅ ROW TRANSITION: For different rows (DOWN navigation)
-        elif not is_same_row and not is_first_item_overall:
-            print(f"\n    🔽 ROW {display_row} TRANSITION: From Row {prev_row_index + 1} via DOWN")
-            # No recovery needed - we're already positioned at previous row's last item
         
         # Print validation info
         print(f"     📍 Row {display_row}, Position {current_position_in_row + 1}")
