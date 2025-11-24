@@ -30,12 +30,26 @@ def start_node_verification(executor) -> Dict[str, Any]:
                 'error': 'No node verification data available'
             }
         
+        print(f"\n{'='*100}")
+        print(f"🔍 [VERIFICATION MANAGER] Received {len(node_verification_data)} nodes from validation")
+        print(f"{'='*100}")
+        for idx, item in enumerate(node_verification_data):
+            print(f"  [{idx}] {item.get('node_id'):20} -> {item.get('screenshot_url', 'NO SCREENSHOT')}")
+        print(f"{'='*100}\n")
+        
         # Filter out start_node if it already has verification
         if executor.exploration_state.get('start_node_has_verification', False):
             start_node_id = executor.exploration_state.get('home_id')
             node_verification_data = [n for n in node_verification_data if n.get('node_id') != start_node_id]
             start_node_label = executor.exploration_state.get('start_node', start_node_id)
             print(f"[@ExplorationExecutor:start_node_verification] Filtered out '{start_node_label}' (already has verification)")
+            
+            print(f"\n{'='*100}")
+            print(f"🔍 [VERIFICATION MANAGER] After filtering: {len(node_verification_data)} nodes")
+            print(f"{'='*100}")
+            for idx, item in enumerate(node_verification_data):
+                print(f"  [{idx}] {item.get('node_id'):20} -> {item.get('screenshot_url', 'NO SCREENSHOT')}")
+            print(f"{'='*100}\n")
         
         print(f"[@ExplorationExecutor:start_node_verification] Analyzing {len(node_verification_data)} nodes")
         
@@ -48,6 +62,17 @@ def start_node_verification(executor) -> Dict[str, Any]:
         executor.exploration_state['current_step'] = 'Node verification suggestions ready - review and approve'
         
         print(f"[@ExplorationExecutor:start_node_verification] Generated {len(suggestions)} suggestions")
+        
+        print(f"\n{'='*100}")
+        print(f"📨 [VERIFICATION MANAGER] Sending suggestions to frontend")
+        print(f"{'='*100}")
+        for idx, suggestion in enumerate(suggestions):
+            node_id = suggestion.get('node_id')
+            node_label = suggestion.get('node_label')
+            screenshot_url = suggestion.get('screenshot_url', 'NO SCREENSHOT')
+            has_verification = suggestion.get('suggested_verification', {}).get('found', False)
+            print(f"  [{idx}] {node_label:20} (id: {node_id:20}) -> {screenshot_url[:80]}... | Verification: {'✅' if has_verification else '❌'}")
+        print(f"{'='*100}\n")
         
         return {
             'success': True,

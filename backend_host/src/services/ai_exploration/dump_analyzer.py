@@ -126,6 +126,13 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
     print(f"[@dump_analyzer] 🎮 Device model: {device_model}")
     print(f"{'='*100}")
     
+    print(f"\n{'='*100}")
+    print(f"📥 [DUMP ANALYZER] Input mapping (node_id -> screenshot)")
+    print(f"{'='*100}")
+    for idx, item in enumerate(node_verification_data):
+        print(f"  IN[{idx}] {item.get('node_id'):20} -> {item.get('screenshot_url', 'NO SCREENSHOT')}")
+    print(f"{'='*100}\n")
+    
     # Determine verification command, type, and param name based on device type
     verification_command, verification_type, param_name = _get_verification_command_and_type(device_model)
     print(f"[@dump_analyzer] ✅ Using verification command: {verification_command}")
@@ -285,6 +292,13 @@ def analyze_unique_elements(node_verification_data: List[Dict], device_model: st
                     'type': verification_type
                 }
             })
+    
+    print(f"\n{'='*100}")
+    print(f"📤 [DUMP ANALYZER] Output suggestions (node_id -> screenshot)")
+    print(f"{'='*100}")
+    for idx, suggestion in enumerate(results):
+        print(f"  OUT[{idx}] {suggestion.get('node_id'):20} -> {suggestion.get('screenshot_url', 'NO SCREENSHOT')}")
+    print(f"{'='*100}\n")
     
     return results
 

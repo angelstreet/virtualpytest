@@ -35,6 +35,14 @@ def start_validation(executor) -> Dict[str, Any]:
         executor.exploration_state['current_validation_index'] = 0
         executor.exploration_state['node_verification_data'] = []  # Initialize for collecting dumps during validation
         
+        print(f"\n{'='*100}")
+        print(f"🚀 [VALIDATION START] Validation order for {len(items_to_validate)} items")
+        print(f"{'='*100}")
+        for idx, item in enumerate(items_to_validate):
+            node_name = target_to_node_map.get(item, 'UNKNOWN')
+            print(f"  [{idx}] {item:20} -> will create nodes: {node_name} (focus), {item} (screen)")
+        print(f"{'='*100}\n")
+        
         print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
         
         return {
@@ -169,9 +177,19 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     if 'node_verification_data' not in executor.exploration_state:
                         executor.exploration_state['node_verification_data'] = []
                     
+                    home_node_id = executor.exploration_state.get('home_id', 'home')
+                    
+                    print(f"\n{'='*80}")
+                    print(f"📸 [SCREENSHOT CAPTURE] Adding HOME to verification data")
+                    print(f"   Node ID: {home_node_id}")
+                    print(f"   Node Label: home")
+                    print(f"   Screenshot URL: {home_screenshot_url}")
+                    print(f"   Array Index: {len(executor.exploration_state['node_verification_data'])}")
+                    print(f"{'='*80}\n")
+                    
                     # Store Home data (dump and/or screenshot)
                     executor.exploration_state['node_verification_data'].append({
-                        'node_id': executor.exploration_state.get('home_id', 'home'),
+                        'node_id': home_node_id,
                         'node_label': 'home',
                         'dump': home_dump_data,
                         'screenshot_url': home_screenshot_url
@@ -464,6 +482,16 @@ def validate_next_item(executor) -> Dict[str, Any]:
                             with executor._lock:
                                 if 'node_verification_data' not in executor.exploration_state:
                                     executor.exploration_state['node_verification_data'] = []
+                                
+                                print(f"\n{'='*80}")
+                                print(f"📸 [SCREENSHOT CAPTURE] Adding FOCUS node to verification data")
+                                print(f"   Current Item: {current_item}")
+                                print(f"   Node ID: {focus_node_name}")
+                                print(f"   Node Label: {focus_node_name}")
+                                print(f"   Screenshot URL: {focus_screenshot_url}")
+                                print(f"   Array Index: {len(executor.exploration_state['node_verification_data'])}")
+                                print(f"{'='*80}\n")
+                                
                                 executor.exploration_state['node_verification_data'].append({
                                     'node_id': focus_node_name,
                                     'node_label': focus_node_name,
@@ -578,6 +606,15 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 with executor._lock:
                     if 'node_verification_data' not in executor.exploration_state:
                         executor.exploration_state['node_verification_data'] = []
+                    
+                    print(f"\n{'='*80}")
+                    print(f"📸 [SCREENSHOT CAPTURE] Adding SCREEN node to verification data")
+                    print(f"   Current Item: {current_item}")
+                    print(f"   Node ID: {screen_node_name}")
+                    print(f"   Node Label: {screen_node_name}")
+                    print(f"   Screenshot URL: {screenshot_url}")
+                    print(f"   Array Index: {len(executor.exploration_state['node_verification_data'])}")
+                    print(f"{'='*80}\n")
                     
                     executor.exploration_state['node_verification_data'].append({
                         'node_id': screen_node_name,  # ← Fixed: ID doesn't have _temp, only label does
