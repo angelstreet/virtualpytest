@@ -355,17 +355,18 @@ $$;
 CREATE OR REPLACE FUNCTION update_node_subtree_counts()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
 SET search_path TO public, pg_temp
 AS $$
 BEGIN
     IF TG_OP = 'INSERT' THEN
         -- Update parent node's subtree information
-        UPDATE navigation_nodes 
+        UPDATE public.navigation_nodes 
         SET 
             has_subtree = true,
             subtree_count = (
                 SELECT COUNT(*) 
-                FROM navigation_trees 
+                FROM public.navigation_trees 
                 WHERE parent_tree_id = NEW.parent_tree_id 
                 AND parent_node_id = NEW.parent_node_id
             )
@@ -377,11 +378,11 @@ BEGIN
     
     IF TG_OP = 'DELETE' THEN
         -- Update parent node's subtree information
-        UPDATE navigation_nodes 
+        UPDATE public.navigation_nodes 
         SET 
             subtree_count = (
                 SELECT COUNT(*) 
-                FROM navigation_trees 
+                FROM public.navigation_trees 
                 WHERE parent_tree_id = OLD.parent_tree_id 
                 AND parent_node_id = OLD.parent_node_id
             )
@@ -389,7 +390,7 @@ BEGIN
         AND node_id = OLD.parent_node_id;
         
         -- If no more subtrees, set has_subtree to false
-        UPDATE navigation_nodes 
+        UPDATE public.navigation_nodes 
         SET has_subtree = false
         WHERE tree_id = OLD.parent_tree_id 
         AND node_id = OLD.parent_node_id
@@ -448,16 +449,20 @@ USING ((auth.uid() IS NULL) OR (auth.role() = 'service_role'::text) OR true);
 
 -- Function to sync parent node label and screenshot to subtrees
 CREATE OR REPLACE FUNCTION sync_parent_label_screenshot()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
+SET search_path TO public, pg_temp
+AS $$
 BEGIN
     -- Only sync if this node is referenced as a parent by subtrees
     IF EXISTS(
-        SELECT 1 FROM navigation_trees 
+        SELECT 1 FROM public.navigation_trees 
         WHERE parent_node_id = NEW.node_id 
         AND team_id = NEW.team_id
     ) THEN
         -- Update label and screenshot in all subtree duplicates
-        UPDATE navigation_nodes 
+        UPDATE public.navigation_nodes 
         SET 
             label = NEW.label,
             data = jsonb_set(
@@ -470,7 +475,7 @@ BEGIN
             node_id = NEW.node_id
             AND team_id = NEW.team_id
             AND tree_id IN (
-                SELECT id FROM navigation_trees 
+                SELECT id FROM public.navigation_trees 
                 WHERE parent_node_id = NEW.node_id 
                 AND team_id = NEW.team_id
             );
@@ -478,20 +483,24 @@ BEGIN
     
     RETURN NEW;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Function to cascade delete subtrees when parent node is deleted
 CREATE OR REPLACE FUNCTION cascade_delete_subtrees()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
+SET search_path TO public, pg_temp
+AS $$
 BEGIN
     -- When a parent node is deleted, delete all its subtrees
-    DELETE FROM navigation_trees 
+    DELETE FROM public.navigation_trees 
     WHERE parent_node_id = OLD.node_id 
     AND team_id = OLD.team_id;
     
     RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Sync trigger (only fires on label or screenshot changes)
 CREATE TRIGGER sync_parent_label_screenshot_trigger
@@ -660,13 +669,14 @@ Performance: ~10ms reads vs ~500ms function calls (50x faster!)';
 CREATE OR REPLACE FUNCTION auto_set_edge_label_on_insert()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
 SET search_path TO public, pg_temp
 AS $$
 BEGIN
     -- Set the label for the new edge if it's not already set
     IF NEW.label IS NULL OR NEW.label = '' THEN
         SELECT source_node.label || '→' || target_node.label INTO NEW.label
-        FROM navigation_nodes source_node, navigation_nodes target_node
+        FROM public.navigation_nodes source_node, public.navigation_nodes target_node
         WHERE NEW.tree_id = source_node.tree_id 
           AND NEW.source_node_id = source_node.node_id
           AND NEW.tree_id = target_node.tree_id 
@@ -687,24 +697,25 @@ CREATE TRIGGER trigger_auto_set_edge_label_on_insert
 CREATE OR REPLACE FUNCTION auto_update_edge_labels_on_node_change()
 RETURNS TRIGGER
 LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
 SET search_path TO public, pg_temp
 AS $$
 BEGIN
     -- Update all edges where this node is the source
-    UPDATE navigation_edges 
+    UPDATE public.navigation_edges 
     SET label = NEW.label || '→' || target_node.label,
         updated_at = now()
-    FROM navigation_nodes target_node
+    FROM public.navigation_nodes target_node
     WHERE navigation_edges.tree_id = NEW.tree_id 
       AND navigation_edges.source_node_id = NEW.node_id
       AND navigation_edges.tree_id = target_node.tree_id 
       AND navigation_edges.target_node_id = target_node.node_id;
     
     -- Update all edges where this node is the target
-    UPDATE navigation_edges 
+    UPDATE public.navigation_edges 
     SET label = source_node.label || '→' || NEW.label,
         updated_at = now()
-    FROM navigation_nodes source_node
+    FROM public.navigation_nodes source_node
     WHERE navigation_edges.tree_id = NEW.tree_id 
       AND navigation_edges.target_node_id = NEW.node_id
       AND navigation_edges.tree_id = source_node.tree_id 
@@ -723,7 +734,11 @@ CREATE TRIGGER trigger_auto_update_edge_labels_on_node_change
 
 -- Function to refresh materialized view for a specific tree
 CREATE OR REPLACE FUNCTION refresh_tree_materialized_view()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
+SET search_path TO public, pg_temp
+AS $$
 BEGIN
     -- Refresh only the affected tree (CONCURRENTLY for non-blocking updates)
     -- Note: REFRESH MATERIALIZED VIEW CONCURRENTLY requires unique index
@@ -732,12 +747,12 @@ BEGIN
         REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_full_navigation_trees;
         RETURN OLD;
     ELSE
-        -- For INSERT/UPDATE operations, use NEW
+        -- FOR INSERT/UPDATE operations, use NEW
         REFRESH MATERIALIZED VIEW CONCURRENTLY public.mv_full_navigation_trees;
         RETURN NEW;
     END IF;
 END;
-$$ LANGUAGE plpgsql SET search_path TO public, pg_temp;
+$$;
 
 -- Trigger on navigation_trees changes
 CREATE TRIGGER trigger_refresh_mv_on_tree_change
