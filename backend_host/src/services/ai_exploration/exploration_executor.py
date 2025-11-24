@@ -2488,6 +2488,42 @@ class ExplorationExecutor:
         
         item = items[current_idx]
         
+        # ✅ SPECIAL HANDLING: First LEFT item - navigate to home first
+        # For horizontal D-pad navigation, after exploring RIGHT items,
+        # we need to physically move cursor back to home before exploring LEFT items
+        items_left = getattr(self.context, 'items_left_of_home', [])
+        if items_left and item == items_left[0]:
+            # This is the first left item - navigate to home node first
+            print(f"\n[@exploration_executor] TRANSITION: Navigating to HOME before exploring LEFT items")
+            print(f"  First left item: {item}")
+            print(f"  All left items: {items_left}")
+            
+            try:
+                # Use MCP navigate_to_node tool to physically move to home
+                if hasattr(self.exploration_engine, 'mcp_server') and self.exploration_engine.mcp_server:
+                    nav_result = self.exploration_engine.mcp_server.call_tool('navigate_to_node', {
+                        'tree_id': self.context.tree_id,
+                        'target_node_label': 'home',
+                        'device_id': self.context.device_id,
+                        'host_name': self.context.host_name,
+                        'userinterface_name': self.context.userinterface_name,
+                        'team_id': self.context.team_id
+                    })
+                    
+                    if nav_result and not nav_result.get('isError', False):
+                        print(f"  ✅ Successfully navigated to home")
+                    else:
+                        print(f"  ⚠️ Navigation to home failed: {nav_result}")
+                        # Continue anyway - edge creation will handle it
+                else:
+                    print(f"  ⚠️ MCP server not available - skipping navigation")
+                    
+            except Exception as e:
+                print(f"  ⚠️ Navigation to home error: {e}")
+                import traceback
+                traceback.print_exc()
+                # Continue anyway
+        
         # Create and test single edge via MCP
         result = self.exploration_engine.phase2_create_single_edge_mcp(item, self.context)
         

@@ -508,13 +508,6 @@ class ExplorationEngine:
             
             # Determine which side this item is on
             is_left_item = item in items_left
-            is_right_item = item in items_right
-            
-            # Check if this is the FIRST left item (transition from right to left)
-            is_first_left_item = False
-            if is_left_item and items_left:
-                first_left = items_left[0]
-                is_first_left_item = (item == first_left)
             
             # Choose direction key
             direction_key = left_key if is_left_item else right_key
@@ -524,46 +517,23 @@ class ExplorationEngine:
             print(f"    Left items: {items_left}")
             print(f"    Right items: {items_right}")
             print(f"    Item '{item}' side: {'LEFT' if is_left_item else 'RIGHT'}")
-            print(f"    First left item: {is_first_left_item}")
             print(f"    Direction: {direction_key}")
             
             # Build forward actions
-            forward_actions = []
-            
-            if is_first_left_item:
-                # Special: First left item needs HOME to reset position
-                print(f"    ⚠️ TRANSITION: Adding HOME press before LEFT navigation")
-                forward_actions = [
-                    {
-                        'command': 'press_key',
-                        'action_type': action_type,
-                        'params': {'key': 'HOME', 'wait_time': 500}
-                    },
-                    {
-                        'command': 'press_key',
-                        'action_type': action_type,
-                        'params': {'key': direction_key, 'wait_time': 500}
-                    },
-                    {
-                        'command': 'press_key',
-                        'action_type': action_type,
-                        'params': {'key': 'OK', 'wait_time': 1000}
-                    }
-                ]
-            else:
-                # Normal: Sequential navigation (direction + OK)
-                forward_actions = [
-                    {
-                        'command': 'press_key',
-                        'action_type': action_type,
-                        'params': {'key': direction_key, 'wait_time': 500}
-                    },
-                    {
-                        'command': 'press_key',
-                        'action_type': action_type,
-                        'params': {'key': 'OK', 'wait_time': 1000}
-                    }
-                ]
+            # Sequential navigation: direction + OK
+            # Note: For first LEFT item, executor will navigate to home before calling this
+            forward_actions = [
+                {
+                    'command': 'press_key',
+                    'action_type': action_type,
+                    'params': {'key': direction_key, 'wait_time': 500}
+                },
+                {
+                    'command': 'press_key',
+                    'action_type': action_type,
+                    'params': {'key': 'OK', 'wait_time': 1000}
+                }
+            ]
             
             # Build reverse actions (BACK + reverse direction)
             reverse_actions = [
