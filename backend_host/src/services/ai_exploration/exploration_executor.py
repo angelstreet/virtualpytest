@@ -902,29 +902,34 @@ class ExplorationExecutor:
                     )
                     edges_to_save.append(edge_data)
             
-            # ✅ BATCH SAVE: Save all nodes at once
+            # ✅ REAL BATCH SAVE: Save all nodes in ONE database call
             print(f"  💾 Batch saving {len(nodes_to_save)} nodes...")
-            for node_data in nodes_to_save:
-                node_result = save_node(tree_id, node_data, team_id)
-                if node_result['success']:
-                    print(f"  ✅ Created node: {node_data['node_id']}")
+            if nodes_to_save:
+                from shared.src.lib.database.navigation_trees_db import save_nodes_batch
+                nodes_result = save_nodes_batch(tree_id, nodes_to_save, team_id)
+                if nodes_result['success']:
+                    print(f"  ✅ Batch created {len(nodes_to_save)} nodes")
                 else:
-                    print(f"  ❌ Failed to create node {node_data['node_id']}: {node_result.get('error')}")
+                    print(f"  ❌ Failed to batch create nodes: {nodes_result.get('error')}")
             
-            # ✅ BATCH SAVE: Save all edges at once
+            # ✅ REAL BATCH SAVE: Save all edges in ONE database call
             print(f"  💾 Batch saving {len(edges_to_save)} edges...")
             edges_created = []
-            for edge_data in edges_to_save:
-                edge_result = save_edge(tree_id, edge_data, team_id)
-                if edge_result['success']:
-                    edges_created.append(edge_data['edge_id'])
-                    print(f"  ✅ Created edge: {edge_data['source_node_id']} → {edge_data['target_node_id']}")
+            if edges_to_save:
+                from shared.src.lib.database.navigation_trees_db import save_edges_batch
+                edges_result = save_edges_batch(tree_id, edges_to_save, team_id)
+                if edges_result['success']:
+                    edges_created = [e['edge_id'] for e in edges_result['edges']]
+                    print(f"  ✅ Batch created {len(edges_to_save)} edges")
                 else:
-                    print(f"  ❌ Failed to create edge {edge_data['edge_id']}: {edge_result.get('error')}")
+                    print(f"  ❌ Failed to batch create edges: {edges_result.get('error')}")
             
-            # ✅ CRITICAL: Wait for DB commits and cache clearing
-            # print(f"  ⏳ Waiting 1s for database commits and cache invalidation...")
-            # time.sleep(1.0)
+            # ✅ CRITICAL: Invalidate cache IMMEDIATELY after batch saves
+            # This prevents race condition where frontend gets stale cached data
+            if nodes_to_save or edges_to_save:
+                from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree
+                invalidate_navigation_cache_for_tree(tree_id, team_id)
+                print(f"  🔄 Cache invalidated immediately for tree {tree_id}")
             
             # Update state
             self.exploration_state['status'] = 'structure_created'
