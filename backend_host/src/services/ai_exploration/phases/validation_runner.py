@@ -176,6 +176,10 @@ def validate_next_item(executor) -> Dict[str, Any]:
                         'dump': home_dump_data,
                         'screenshot_url': home_screenshot_url
                     })
+                    
+                    # Track if start_node has verification for smart BACK validation
+                    executor.exploration_state['start_node_has_verification'] = (home_dump_data is not None)
+                    
                     print(f"    ✅ Home data stored (dump: {home_dump_data is not None}, screenshot: {home_screenshot_url is not None})")
             except Exception as e:
                 print(f"    ⚠️ Failed to capture Home dump: {e}")
@@ -515,6 +519,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
             print(f"    ❌ Vertical enter failed: {e}")
         
         # Edge 3: Vertical exit (BACK)
+        backs_needed = 1  # Default: 1 BACK
+        
         try:
             print(f"\n    Edge 3/3: {screen_node_name} ↑ {focus_node_name}")
             result = controller.press_key('BACK')
@@ -522,10 +528,49 @@ def validate_next_item(executor) -> Dict[str, Any]:
             if inspect.iscoroutine(result):
                 import asyncio
                 asyncio.run(result)
+            time.sleep(2)
+            
+            # Verify if start_node has verification
+            if executor.exploration_state.get('start_node_has_verification', False):
+                start_node_id = executor.exploration_state.get('home_id', 'home')
+                start_node_label = executor.exploration_state.get('start_node', 'home')
+                
+                import asyncio
+                verify = asyncio.run(executor.device.verification_executor.verify_node(
+                    node_id=start_node_id, 
+                    userinterface_name=executor.exploration_state['userinterface_name'],
+                    team_id=team_id, 
+                    tree_id=tree_id
+                ))
+                
+                if not verify.get('success'):
+                    print(f"    🔄 Trying second BACK...")
+                    result = controller.press_key('BACK')
+                    if inspect.iscoroutine(result):
+                        asyncio.run(result)
+                    time.sleep(2)
+                    
+                    verify = asyncio.run(executor.device.verification_executor.verify_node(
+                        node_id=start_node_id, 
+                        userinterface_name=executor.exploration_state['userinterface_name'],
+                        team_id=team_id, 
+                        tree_id=tree_id
+                    ))
+                    
+                    if verify.get('success'):
+                        backs_needed = 2
+                        print(f"    ✅ Double BACK worked")
+                    else:
+                        print(f"    🔄 Recovery to '{start_node_label}'...")
+                        asyncio.run(executor.device.navigation_executor.execute_navigation(
+                            tree_id=tree_id, 
+                            userinterface_name=executor.exploration_state['userinterface_name'],
+                            target_node_label=start_node_label, 
+                            team_id=team_id
+                        ))
             
             edge_results['exit'] = 'success'
             print(f"    ✅ Vertical exit: BACK")
-            time.sleep(2)
         except Exception as e:
             edge_results['exit'] = 'failed'
             print(f"    ❌ Vertical exit failed: {e}")
@@ -594,8 +639,9 @@ def validate_next_item(executor) -> Dict[str, Any]:
                         'reverse': {
                             'source': screen_node_name,
                             'target': focus_node_name,
-                            'action': 'BACK',
-                            'result': vertical_exit_result
+                            'action': 'BACK' if backs_needed == 1 else 'BACK x2',
+                            'result': vertical_exit_result,
+                            'backs_needed': backs_needed
                         }
                     }
                 }
