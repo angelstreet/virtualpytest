@@ -102,6 +102,14 @@ def approve_node_verifications(executor, approved_verifications: List[Dict], tea
             
             node_data = node_result['node']
             
+            # ✅ Skip start_node if it already has verification
+            start_node_id = executor.exploration_state.get('home_id', 'home')
+            existing_verifications = node_data.get('verifications', [])
+            
+            if node_id == start_node_id and len(existing_verifications) > 0:
+                print(f"  ⏭️  Skipping {node_id}: already has {len(existing_verifications)} verification(s)")
+                continue
+            
             # Update node with screenshot + verification
             if screenshot_url:
                 # Ensure data field exists

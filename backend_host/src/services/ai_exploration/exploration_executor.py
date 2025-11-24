@@ -253,62 +253,7 @@ class ExplorationExecutor:
         
         print(f"[@ExplorationExecutor:start_exploration] ✅ Pre-flight check PASSED: '{start_node}' node exists")
         
-        # ✅ PHASE 0a: Clear verifications from start node BEFORE loading tree
-        print(f"\n[@ExplorationExecutor:start_exploration] 🗑️ PHASE 0a: Clearing verifications from '{start_node}'...")
-        try:
-            from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_nodes_batch
-            from shared.src.lib.utils.navigation_cache import clear_unified_cache
-            
-            # Get start node directly from database (don't use navigation_executor yet - tree not loaded)
-            start_node_result = get_node_by_id(tree_id, start_node, team_id)
-            
-            if start_node_result.get('success') and start_node_result.get('node'):
-                node = start_node_result['node']
-                
-                # Check BOTH locations where verifications might exist
-                data_verifs = node.get('data', {}).get('verifications', []) if node.get('data') else []
-                root_verifs = node.get('verifications', [])
-                total_verifs = len(data_verifs) + len(root_verifs)
-                
-                print(f"[@ExplorationExecutor:start_exploration] Found verifications: data={len(data_verifs)}, root={len(root_verifs)}")
-                
-                # Clear BOTH locations (database has 'verifications' JSONB column)
-                if 'verifications' in node:
-                    node['verifications'] = []
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cleared root-level verifications")
-                
-                if 'data' in node and node['data'] and 'verifications' in node['data']:
-                    node['data']['verifications'] = []
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cleared data.verifications")
-                
-                # SKIP saving for read-only nodes (e.g. entry-node)
-                if node.get('type') == 'entry' or node.get('node_id') == 'entry-node':
-                    print(f"[@ExplorationExecutor:start_exploration] ⚠️ Skipping save for read-only node: {node.get('node_id')}")
-                    save_result = {'success': True, 'message': 'Skipped read-only node'}
-                else:
-                    # Save cleaned node using batch (upsert) for reliability
-                    save_result = save_nodes_batch(tree_id, [node], team_id)
-                
-                if save_result.get('success'):
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Node saved with empty verifications")
-                    
-                    # Clear cache so it rebuilds with clean node
-                    clear_unified_cache(tree_id, team_id)
-                    print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared")
-                    
-                    # DELAY: Wait 2s to let view refresh/propagate before frontend fetch
-                    time.sleep(2)
-                else:
-                    print(f"[@ExplorationExecutor:start_exploration] ❌ Save failed: {save_result.get('error')}")
-            else:
-                print(f"[@ExplorationExecutor:start_exploration] ❌ Node not found: {start_node}")
-                
-        except Exception as e:
-            print(f"[@ExplorationExecutor:start_exploration] ❌ Verification clearing failed: {e}")
-            import traceback
-            traceback.print_exc()
-        
-        # ✅ PHASE 0b: Load navigation tree (now with clean node)
+        # ✅ PHASE 0b: Load navigation tree
         print(f"\n[@ExplorationExecutor:start_exploration] 📥 PHASE 0b: Loading navigation tree...")
         try:
             result = self.device.navigation_executor.load_navigation_tree(
