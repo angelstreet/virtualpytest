@@ -8,14 +8,14 @@ const Footer: React.FC = () => {
       elevation={1}
       sx={{
         mt: 'auto',
-        py: 1,
+        py: 0,
         px: 2,
         backgroundColor: 'background.paper',
         borderTop: 1,
         borderColor: 'divider',
       }}
     >
-      <Box display="flex" justifyContent="space-between" alignItems="center" minHeight={24}>
+      <Box display="flex" justifyContent="space-between" alignItems="center" minHeight={16}>
         <Typography variant="body2" color="text.secondary">
           © 2024 VirtualPyTest - Automated Testing Platform
         </Typography>

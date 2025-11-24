@@ -233,7 +233,46 @@ class ExplorationEngine:
             print(f"    '{item}' → '{sanitized}'")
             sanitized_items.append(sanitized)
         
-        # Populate context with SANITIZED items
+        # ✅ SPLIT AND REORDER for horizontal D-pad navigation
+        # For TV/STB horizontal menus, we explore: RIGHT items first, then LEFT items
+        if context.strategy in ['dpad_with_screenshot', 'test_dpad_directions'] and prediction.get('menu_type') == 'horizontal':
+            print(f"\n  🔄 SPLITTING items around HOME for D-pad navigation...")
+            
+            # Find home index in original left-to-right order
+            home_index = -1
+            for i, item in enumerate(sanitized_items):
+                if item.lower() == 'home':
+                    home_index = i
+                    break
+            
+            if home_index > 0:
+                # Home found with items on both sides
+                left_items = sanitized_items[:home_index]  # Items LEFT of home
+                right_items = sanitized_items[home_index + 1:]  # Items RIGHT of home
+                
+                # Store metadata (will be used in action_sets)
+                context.items_left_of_home = left_items
+                context.items_right_of_home = right_items
+                
+                # Reorder: [home, right items, left items]
+                # We'll explore right first, then left
+                reordered_items = ['home'] + right_items + left_items
+                
+                print(f"    Original L→R order: {sanitized_items}")
+                print(f"    Home at index: {home_index}")
+                print(f"    Left items ({len(left_items)}): {left_items}")
+                print(f"    Right items ({len(right_items)}): {right_items}")
+                print(f"    Reordered: {reordered_items}")
+                print(f"    Exploration: home → RIGHT items ({right_items}) → HOME → LEFT items ({left_items})")
+                
+                sanitized_items = reordered_items
+            else:
+                # Home at start or not found
+                print(f"    Home at start or not found - no left items to explore")
+                context.items_left_of_home = []
+                context.items_right_of_home = sanitized_items[1:] if len(sanitized_items) > 1 else []
+        
+        # Populate context with SANITIZED (and possibly REORDERED) items
         context.predicted_items = sanitized_items
         context.menu_type = prediction.get('menu_type')
         context.screenshot_url = screenshot_path
@@ -458,48 +497,100 @@ class ExplorationEngine:
         
         # D-PAD STRATEGIES (TV/STB) - SEQUENTIAL NAVIGATION
         elif context.strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
-            # Determine D-pad direction from menu_type
+            # Determine base D-pad direction from menu_type
             menu_type = getattr(context, 'menu_type', 'horizontal')
-            dpad_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
-            reverse_dpad_key = 'LEFT' if menu_type == 'horizontal' else 'UP'
+            right_key = 'RIGHT' if menu_type == 'horizontal' else 'DOWN'
+            left_key = 'LEFT' if menu_type == 'horizontal' else 'UP'
             
-            print(f"  [@_build_action_sets] Sequential D-pad: {source_item} → {item} (1x {dpad_key} + OK)")
+            # Get left/right metadata from context
+            items_left = getattr(context, 'items_left_of_home', [])
+            items_right = getattr(context, 'items_right_of_home', [])
             
-            # ✅ SEQUENTIAL: Always 1x direction key + OK (not cumulative from home)
+            # Determine which side this item is on
+            is_left_item = item in items_left
+            is_right_item = item in items_right
+            
+            # Check if this is the FIRST left item (transition from right to left)
+            is_first_left_item = False
+            if is_left_item and items_left:
+                first_left = items_left[0]
+                is_first_left_item = (item == first_left)
+            
+            # Choose direction key
+            direction_key = left_key if is_left_item else right_key
+            reverse_direction_key = right_key if is_left_item else left_key
+            
+            print(f"  [@_build_action_sets] D-pad: {source_item} → {item}")
+            print(f"    Left items: {items_left}")
+            print(f"    Right items: {items_right}")
+            print(f"    Item '{item}' side: {'LEFT' if is_left_item else 'RIGHT'}")
+            print(f"    First left item: {is_first_left_item}")
+            print(f"    Direction: {direction_key}")
+            
+            # Build forward actions
+            forward_actions = []
+            
+            if is_first_left_item:
+                # Special: First left item needs HOME to reset position
+                print(f"    ⚠️ TRANSITION: Adding HOME press before LEFT navigation")
+                forward_actions = [
+                    {
+                        'command': 'press_key',
+                        'action_type': action_type,
+                        'params': {'key': 'HOME', 'wait_time': 500}
+                    },
+                    {
+                        'command': 'press_key',
+                        'action_type': action_type,
+                        'params': {'key': direction_key, 'wait_time': 500}
+                    },
+                    {
+                        'command': 'press_key',
+                        'action_type': action_type,
+                        'params': {'key': 'OK', 'wait_time': 1000}
+                    }
+                ]
+            else:
+                # Normal: Sequential navigation (direction + OK)
+                forward_actions = [
+                    {
+                        'command': 'press_key',
+                        'action_type': action_type,
+                        'params': {'key': direction_key, 'wait_time': 500}
+                    },
+                    {
+                        'command': 'press_key',
+                        'action_type': action_type,
+                        'params': {'key': 'OK', 'wait_time': 1000}
+                    }
+                ]
+            
+            # Build reverse actions (BACK + reverse direction)
+            reverse_actions = [
+                {
+                    'command': 'press_key',
+                    'action_type': action_type,
+                    'params': {'key': 'BACK', 'wait_time': 500}
+                },
+                {
+                    'command': 'press_key',
+                    'action_type': action_type,
+                    'params': {'key': reverse_direction_key, 'wait_time': 500}
+                }
+            ]
+            
             return [
                 {
                     'id': f'{source_item}_to_{item}',
                     'label': f'{source_item} → {item}',
-                    'actions': [
-                        {
-                            'command': 'press_key',
-                            'action_type': action_type,
-                            'params': {'key': dpad_key, 'wait_time': 500}
-                        },
-                        {
-                            'command': 'press_key',
-                            'action_type': action_type,
-                            'params': {'key': 'OK', 'wait_time': 1000}
-                        }
-                    ],
+                    'actions': forward_actions,
                     'retry_actions': [],
                     'failure_actions': []
                 },
                 {
                     'id': f'{item}_to_{source_item}',
                     'label': f'{item} → {source_item}',
-                    'actions': [
-                        {
-                            'command': 'press_key',
-                            'action_type': action_type,
-                            'params': {'key': 'BACK', 'wait_time': 500}
-                        },
-                        {
-                            'command': 'press_key',
-                            'action_type': action_type,
-                            'params': {'key': reverse_dpad_key, 'wait_time': 500}
-                        }
-                    ],
+                    'actions': reverse_actions,
                     'retry_actions': [],
                     'failure_actions': []
                 }

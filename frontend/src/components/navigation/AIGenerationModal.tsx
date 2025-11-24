@@ -1,5 +1,6 @@
 import React, { useEffect } from 'react';
 import {
+  Dialog,
   DialogTitle,
   DialogContent,
   DialogActions,
@@ -785,7 +786,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </Button>
         )}
       </DialogActions>
-    </Dialog>
+    </StyledDialog>
     
     {/* Confirmation Dialog: Delete existing nodes/edges */}
     <Dialog 
@@ -830,7 +831,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           {isCheckingTree ? 'Deleting...' : 'Delete'}
         </Button>
       </DialogActions>
-    </StyledDialog>
+    </Dialog>
     </>
   );
 };
