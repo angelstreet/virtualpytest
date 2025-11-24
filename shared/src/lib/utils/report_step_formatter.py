@@ -259,7 +259,6 @@ def format_step_error(step: Dict) -> str:
     debug_report_url = step.get('debug_report_url') or step.get('error_details', {}).get('debug_report_url')
     if debug_report_url:
         error_html += '<div class="debug-report-link" style="margin-top: 12px; padding: 8px; background-color: #e8f4fd; border-left: 4px solid #3182ce; border-radius: 4px;">'
-        error_html += '<div style="font-weight: bold; color: #2c5282; margin-bottom: 4px;">🔍 Verification Failure Report</div>'
         error_html += f'<a href="{debug_report_url}" target="_blank" style="color: #3182ce; text-decoration: none; font-size: 14px; display: inline-flex; align-items: center; gap: 4px;">'
         error_html += '📊 View Detailed Comparison Report'
         error_html += '<span style="font-size: 12px;">↗</span>'
