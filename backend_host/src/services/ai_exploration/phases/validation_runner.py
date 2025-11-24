@@ -680,6 +680,71 @@ def validate_next_item(executor) -> Dict[str, Any]:
                             target_node_label=start_node_label, 
                             team_id=team_id
                         ))
+                        
+                        # ✅ RE-POSITIONING: After recovery, device is at 'home' but prev_focus_name might be elsewhere
+                        # We need to re-position from home to prev_focus_name for next navigation to work correctly
+                        if prev_focus_name != start_node_id and current_index < len(items_to_validate) - 1:
+                            print(f"\n    🔧 RE-POSITIONING: Device at home, need to navigate to '{prev_focus_name}' for next item")
+                            
+                            # Extract the item name from prev_focus_name (e.g., 'home_tv_guide' -> 'tv guide')
+                            prev_item_raw = prev_focus_name.replace(f"{start_node_id}_", '').replace('_', ' ')
+                            
+                            # Find prev_focus_name in row structure to determine navigation
+                            repositioned = False
+                            for row_idx, row_items in enumerate(lines):
+                                if prev_item_raw in row_items:
+                                    if row_idx == 0:  # Row 0 - horizontal (RIGHT or LEFT)
+                                        # Find home position and target position
+                                        try:
+                                            home_pos = None
+                                            # Try to find home/start_node in this row
+                                            for i, item in enumerate(row_items):
+                                                if item.lower() in [start_node_label.lower(), 'home', 'accueil']:
+                                                    home_pos = i
+                                                    break
+                                            
+                                            if home_pos is not None:
+                                                target_pos = row_items.index(prev_item_raw)
+                                                
+                                                if target_pos > home_pos:
+                                                    direction = 'RIGHT'
+                                                    num_presses = target_pos - home_pos
+                                                else:
+                                                    direction = 'LEFT'
+                                                    num_presses = home_pos - target_pos
+                                                
+                                                print(f"    🔧 RE-POSITION: Sending {direction} {num_presses}x to reach '{prev_focus_name}'")
+                                                for i in range(num_presses):
+                                                    result = controller.press_key(direction)
+                                                    if inspect.iscoroutine(result):
+                                                        asyncio.run(result)
+                                                    time.sleep(0.5)
+                                                
+                                                time.sleep(1.0)  # Final wait for UI to settle
+                                                print(f"    ✅ RE-POSITIONED to '{prev_focus_name}'")
+                                                repositioned = True
+                                        except (ValueError, IndexError) as e:
+                                            print(f"    ⚠️ RE-POSITION failed to calculate horizontal nav: {e}")
+                                    
+                                    else:  # Row 1+ - vertical (DOWN)
+                                        direction = 'DOWN'
+                                        num_presses = row_idx + 1  # Row 1 needs 1 DOWN, Row 2 needs 2 DOWN, etc.
+                                        
+                                        print(f"    🔧 RE-POSITION: Sending DOWN {num_presses}x to reach '{prev_focus_name}' (Row {row_idx + 1})")
+                                        for i in range(num_presses):
+                                            result = controller.press_key('DOWN')
+                                            if inspect.iscoroutine(result):
+                                                asyncio.run(result)
+                                            time.sleep(0.5)
+                                        
+                                        time.sleep(1.0)  # Final wait for UI to settle
+                                        print(f"    ✅ RE-POSITIONED to '{prev_focus_name}'")
+                                        repositioned = True
+                                    
+                                    break  # Found the row, exit loop
+                            
+                            if not repositioned:
+                                print(f"    ⚠️ RE-POSITION: Could not find '{prev_item_raw}' in row structure, skipping re-positioning")
             
             edge_results['exit'] = 'success'
             print(f"    ✅ Vertical exit: BACK")
