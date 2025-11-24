@@ -466,7 +466,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
             
             edge_results['horizontal'] = 'success'
             print(f"    ✅ Focus navigation: {nav_direction}")
-            time.sleep(1.5)  # 1500ms for D-PAD navigation
+            time.sleep(2.0)  # 2000ms for D-PAD navigation (matches structure_creator.py)
             
             # 📸 Capture screenshot for focus node (no dump needed)
             try:
@@ -518,7 +518,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
             
             edge_results['enter'] = 'success'
             print(f"    ✅ Vertical enter: OK")
-            time.sleep(3)
+            time.sleep(8.0)  # 8000ms for OK (matches structure_creator.py)
             
             # 📸 Capture screenshot + dump (ONLY for screen nodes)
             dump_data = None
@@ -640,7 +640,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
             if inspect.iscoroutine(result):
                 import asyncio
                 asyncio.run(result)
-            time.sleep(2)
+            time.sleep(6.0)  # 6000ms for BACK (matches structure_creator.py)
             
             # Verify if start_node has verification
             if executor.exploration_state.get('start_node_has_verification', False):
@@ -660,7 +660,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     result = controller.press_key('BACK')
                     if inspect.iscoroutine(result):
                         asyncio.run(result)
-                    time.sleep(2)
+                    time.sleep(6.0)  # 6000ms for BACK (matches structure_creator.py)
                     
                     verify = asyncio.run(executor.device.verification_executor.verify_node(
                         node_id=start_node_id, 
