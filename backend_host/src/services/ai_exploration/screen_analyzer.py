@@ -693,10 +693,14 @@ class ScreenAnalyzer:
         # Simple prompt for TV/STB - just ask for a table
         prompt = """List ALL clickable/focusable elements from this TV app screenshot.
 
-⚠️ CRITICAL: Group elements by VERTICAL POSITION (Y-coordinate), NOT by visual appearance.
+⚠️ CRITICAL RULE #1: Group elements by VERTICAL POSITION (Y-coordinate), NOT by visual appearance.
 Elements at the same HEIGHT = SAME ROW, even if separated by space or different types.
 
-Output one row per line, elements separated by commas (left to right):
+⚠️ CRITICAL RULE #2: Within each row, use STRICT LEFT-TO-RIGHT PIXEL ORDER (X-coordinate).
+Imagine a ruler measuring from left edge to right edge. List elements in the order the ruler encounters them.
+DO NOT reorder by importance! A search icon on the far left comes BEFORE "home" text in the middle.
+
+Output format (one row per line, elements separated by commas):
 
 Row 1: element1, element2, element3
 Row 2: element4, element5
@@ -705,31 +709,37 @@ Row 3: element6
 Rules:
 - Row 1 = topmost row of interactive elements (same Y-coordinate)
 - Include ALL elements at the same height in the same row (text + icons)
-- Left to right order within each row
+- STRICT left-to-right pixel order: leftmost X-coordinate first, rightmost last
 - Include: buttons, tabs, menu items, icons (search, settings, profile, etc.)
 - Skip: program cards, background images, timestamps, decorative elements
 
-Common Layout Patterns:
-1. Top navigation bar (Row 1): May have text items on left AND icons on right - ALL same row!
-   Example: "home, tv guide, apps, recordings, tv shop, search icon, settings icon, profile icon"
-   
-2. Content area (Row 2+): Action buttons like "watch", "play", "record"
-
-3. Content tiles (Row 3+): "continue watching", recommendations, etc.
+Common Layout Pattern - Top Navigation Bar:
+- Left side: Often has a search icon (magnifying glass)
+- Middle: Text navigation items (home, tv guide, apps, etc.)  
+- Right side: Utility icons (settings, profile)
+- ALL are at the SAME HEIGHT → ALL in Row 1, in left-to-right pixel order
 
 Examples:
 
-✅ CORRECT - Icons and text at same height in same row:
-Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop, search, settings, profile
+✅ CORRECT - Strict pixel order (search icon is leftmost, so it comes first):
+Row 1: search, home, tv guide, apps, replay, movies & series, recordings, tv shop, settings, profile
 Row 2: watch
 Row 3: continue watching
 
-❌ WRONG - Don't split by visual grouping:
+❌ WRONG - "Home" placed first even though search icon is to its left:
+Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop, search, settings, profile
+      ^^^^  <-- WRONG! Search icon is to the LEFT of home, should be first!
+Row 2: watch
+Row 3: continue watching
+
+❌ WRONG - Split by visual grouping instead of pixel position:
 Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop
-Row 2: search, settings, profile  <-- WRONG! These are at same height as Row 1
+Row 2: search, settings, profile  <-- WRONG! These are at same Y-coordinate as Row 1
 Row 3: watch
 
-Focus on: Are elements at the SAME vertical position? → Same row!"""
+Focus on TWO things:
+1. Same Y-coordinate (vertical position)? → Same row!
+2. Left-to-right X-coordinate order → Like reading a ruler from 0 to 100!"""
 
         print(f"📝 PROMPT SENT TO AI:")
         print(f"{'-'*80}")
