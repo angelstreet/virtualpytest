@@ -121,6 +121,27 @@ export interface ExplorationPlan {
   selectors: Record<string, SelectorInfo>;
   screenshot: string;
   reasoning?: string;
+  edges_preview?: Array<{
+    item: string;
+    horizontal?: {
+      source: string;
+      target: string;
+      forward_action: string;
+      reverse_action: string;
+    };
+    vertical?: {
+      source: string;
+      target: string;
+      forward_action: string;
+      reverse_action: string;
+    };
+    click?: {
+      source: string;
+      target: string;
+      forward_action: string;
+      reverse_action: string;
+    };
+  }>;
 }
 
 /**

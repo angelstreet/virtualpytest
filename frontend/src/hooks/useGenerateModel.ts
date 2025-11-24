@@ -36,6 +36,27 @@ interface ExplorationPlan {
   reasoning: string;
   screenshot?: string;
   screen_name: string;
+  edges_preview?: Array<{
+    item: string;
+    horizontal?: {
+      source: string;
+      target: string;
+      forward_action: string;
+      reverse_action: string;
+    };
+    vertical?: {
+      source: string;
+      target: string;
+      forward_action: string;
+      reverse_action: string;
+    };
+    click?: {
+      source: string;
+      target: string;
+      forward_action: string;
+      reverse_action: string;
+    };
+  }>;
 }
 
 interface ProposedNode {
