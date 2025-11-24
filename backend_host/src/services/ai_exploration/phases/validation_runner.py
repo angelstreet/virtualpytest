@@ -1,7 +1,7 @@
 import time
 from typing import Dict, Any
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
-from shared.src.lib.database.navigation_trees_db import get_edge_by_id, save_edge
+from shared.src.lib.database.navigation_trees_db import get_edge_by_id, save_edges_batch
 from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
 
 def start_validation(executor) -> Dict[str, Any]:
@@ -209,14 +209,19 @@ def validate_next_item(executor) -> Dict[str, Any]:
         
         # Calculate node names
         node_gen = NodeGenerator(tree_id, team_id)
+        # Use start_node_id from state
+        start_node_id = executor.exploration_state.get('home_id', 'home')
+        start_node_label = executor.exploration_state.get('start_node', 'home')
+        
         screen_node_name = node_gen.target_to_node_name(current_item)
-        focus_node_name = f"home_{screen_node_name}"
+        focus_node_name = f"{start_node_id}_{screen_node_name}"
         
         print(f"\n  🐛 DEBUG: Current Item Analysis")
         print(f"     current_item = '{current_item}'")
         print(f"     current_index = {current_index}")
         print(f"     screen_node_name = '{screen_node_name}'")
         print(f"     focus_node_name = '{focus_node_name}'")
+        print(f"     start_node_id = '{start_node_id}'")
         
         # ✅ FIX: TV menu structure
         # Row 0: home (starting point)
@@ -267,26 +272,30 @@ def validate_next_item(executor) -> Dict[str, Any]:
         print(f"     is_same_row = {is_same_row}")
         
         if is_first_item_overall:
-            # First item ever: check if 'home' is in the same row
-            # If 'home' is in lines[0], it's horizontal navigation (RIGHT)
-            # If 'home' is NOT in any row, it's vertical navigation (DOWN)
+            # First item ever: check if 'home' (start_node) is in the same row
+            # If start_node is in lines[0], it's horizontal navigation (RIGHT)
+            # If start_node is NOT in any row, it's vertical navigation (DOWN)
             home_in_current_row = False
             if current_row_index >= 0 and current_row_index < len(lines):
-                home_in_current_row = 'home' in [item.lower() for item in lines[current_row_index]]
+                row_items_lower = [item.lower() for item in lines[current_row_index]]
+                # Check for start_node_label or 'home' as fallback/alias
+                home_in_current_row = (start_node_label.lower() in row_items_lower or 
+                                     'home' in row_items_lower or 
+                                     'accueil' in row_items_lower)
             
-            prev_focus_name = 'home'
+            prev_focus_name = start_node_id
             if home_in_current_row:
-                nav_direction = 'RIGHT'  # home is IN this row, horizontal navigation
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, home IN Row {current_row_index + 1} → RIGHT")
-                print(f"     Reason: 'home' is part of Row {current_row_index + 1}, horizontal navigation")
+                nav_direction = 'RIGHT'  # start_node is IN this row, horizontal navigation
+                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node IN Row {current_row_index + 1} → RIGHT")
+                print(f"     Reason: '{start_node_label}' is part of Row {current_row_index + 1}, horizontal navigation")
             else:
-                nav_direction = 'DOWN'  # home is NOT in this row, vertical navigation
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, home NOT in rows → DOWN")
-                print(f"     Reason: 'home' is Row 0, navigating down to Row {current_row_index + 1}")
+                nav_direction = 'DOWN'  # start_node is NOT in this row, vertical navigation
+                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node NOT in rows → DOWN")
+                print(f"     Reason: '{start_node_label}' is Row 0, navigating down to Row {current_row_index + 1}")
         elif is_same_row:
             # Same row: horizontal navigation
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
-            prev_focus_name = f"home_{prev_item_name}"
+            prev_focus_name = f"{start_node_id}_{prev_item_name}"
             nav_direction = 'RIGHT'  # Moving within same row horizontally
             print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → RIGHT within row")
             print(f"     Reason: Both items in Row {current_row_index + 1}")
@@ -294,7 +303,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
         else:
             # Different rows: vertical navigation
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
-            prev_focus_name = f"home_{prev_item_name}"
+            prev_focus_name = f"{start_node_id}_{prev_item_name}"
             nav_direction = 'DOWN'  # Moving to new row vertically
             print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → DOWN to new row")
             print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
@@ -974,8 +983,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     action_sets[1]['actions'][0]['validated_at'] = time.time()
                     action_sets[1]['actions'][0]['actual_result'] = back_result
                 
-                # Save updated edge with correct action_sets structure
-                update_result = save_edge(tree_id, edge, team_id)
+                # Save updated edge with correct action_sets structure using batch (upsert)
+                update_result = save_edges_batch(tree_id, [edge], team_id)
                 edge_updated = update_result.get('success', False)
         
         # Move to next

@@ -1,4 +1,5 @@
 from typing import Dict, Any, List
+import time
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
 from shared.src.lib.database.navigation_trees_db import (
     get_node_by_id,
@@ -83,14 +84,19 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
         
         node_gen = NodeGenerator(tree_id, team_id)
         
-        # Home node should already exist - userinterfaces have home by default
-        home_node_result = get_node_by_id(tree_id, 'home', team_id)
-        if not (home_node_result.get('success') and home_node_result.get('node')):
-            return {'success': False, 'error': 'Home node does not exist. Userinterface should have home node by default.'}
+        # Get start node from state, default to 'home'
+        start_node_label = executor.exploration_state.get('start_node', 'home')
+        print(f"[@ExplorationExecutor:continue_exploration] 🏁 Start Node Label: {start_node_label}")
         
-        home_id = home_node_result['node']['node_id']
+        # Start node should already exist
+        start_node_result = get_node_by_id(tree_id, start_node_label, team_id)
+        if not (start_node_result.get('success') and start_node_result.get('node')):
+            return {'success': False, 'error': f"Start node '{start_node_label}' does not exist."}
+        
+        start_node_id = start_node_result['node']['node_id']
         nodes_created = []
-        print(f"  ♻️  Using existing '{home_id}' node")
+        print(f"  ♻️  Using existing '{start_node_id}' node as START NODE")
+        print(f"  🔍 Start Node ID: {start_node_id}")
         
         # ✅ BATCH COLLECTION: Collect all nodes and edges before saving
         nodes_to_save = []
@@ -119,18 +125,18 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 for idx, original_item in enumerate(row1_items):
                     node_name_clean = node_gen.target_to_node_name(original_item)
                     
-                    # ✅ ALWAYS include 'home' - it's the anchor for the menu structure
-                    if node_name_clean.lower() in ['home', 'accueil']:
-                        all_focus_nodes_row1.append('home')
-                        print(f"    ♻️  Using existing 'home' node (Row 1 anchor)")
-                        continue
-                    
-                    # Only process OTHER selected items (home is always included)
+                # ✅ ALWAYS include start_node - it's the anchor for the menu structure
+                if node_name_clean.lower() == start_node_label.lower() or node_name_clean.lower() in ['home', 'accueil'] and start_node_label == 'home':
+                    all_focus_nodes_row1.append(start_node_id)
+                    print(f"    ♻️  Using existing '{start_node_id}' node (Row 1 anchor)")
+                    continue
+                
+                # Only process OTHER selected items (start_node is always included)
                     if original_item not in items:
                         continue
                     
-                    # Create FOCUS node (menu position): home_tvguide, home_apps, etc.
-                    focus_node_name = f"home_{node_name_clean}"
+                    # Create FOCUS node (menu position): start_node_tvguide, start_node_apps, etc.
+                    focus_node_name = f"{start_node_id}_{node_name_clean}"
                     focus_position_x = 250 + (idx % 5) * 200
                     focus_position_y = 100 + (idx // 5) * 100
                     
@@ -185,13 +191,13 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 print(f"\n  ➡️  Creating HORIZONTAL edges (Row 1 menu navigation):")
                 
                 try:
-                    home_idx = all_focus_nodes_row1.index('home')
+                    start_idx = all_focus_nodes_row1.index(start_node_id)
                 except ValueError:
-                    home_idx = 0
-                    print("  ⚠️ 'home' node not found in row 1, defaulting to index 0")
+                    start_idx = 0
+                    print(f"  ⚠️ '{start_node_id}' node not found in row 1, defaulting to index 0")
 
-                # 1. Right side: Home -> Right (Action: RIGHT)
-                for idx in range(home_idx, len(all_focus_nodes_row1) - 1):
+                # 1. Right side: Start Node -> Right (Action: RIGHT)
+                for idx in range(start_idx, len(all_focus_nodes_row1) - 1):
                     source_focus = all_focus_nodes_row1[idx]
                     target_focus = all_focus_nodes_row1[idx + 1]
                     
@@ -220,9 +226,9 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     edges_to_save.append(edge_horizontal)
                     print(f"    ↔ {source_focus} → {target_focus}: RIGHT/LEFT")
 
-                # 2. Left side: Home -> Left (Action: LEFT)
-                # Iterate backwards from home to start
-                for idx in range(home_idx, 0, -1):
+                # 2. Left side: Start Node -> Left (Action: LEFT)
+                # Iterate backwards from start node to start of list
+                for idx in range(start_idx, 0, -1):
                     source_focus = all_focus_nodes_row1[idx]
                     target_focus = all_focus_nodes_row1[idx - 1]
                     
@@ -251,11 +257,11 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     edges_to_save.append(edge_horizontal)
                     print(f"    ↔ {source_focus} → {target_focus}: LEFT/RIGHT")
                     
-            # ========== ROW 2+: VERTICAL MENU (DOWN/UP from home) ==========
+            # ========== ROW 2+: VERTICAL MENU (DOWN/UP from start node) ==========
             if len(lines) > 1:
                 print(f"\n  📊 Processing Rows 2-{len(lines)} (vertical menu): {len(lines) - 1} rows")
                 
-                prev_vertical_focus = 'home'  # Start from home for vertical navigation
+                prev_vertical_focus = start_node_id  # Start from start_node for vertical navigation
                 
                 for row_idx in range(1, len(lines)):
                     row_items = lines[row_idx]
@@ -269,7 +275,7 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         node_name_clean = node_gen.target_to_node_name(original_item)
                         
                         # Create FOCUS node for vertical position
-                        focus_node_name = f"home_{node_name_clean}"
+                        focus_node_name = f"{start_node_id}_{node_name_clean}"
                         focus_position_x = 50  # Left aligned for vertical menu
                         focus_position_y = 100 + (row_idx * 150)
                         
@@ -392,9 +398,9 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             for idx, item in enumerate(items):
                 node_name_clean = node_gen.target_to_node_name(item)
                 
-                # Skip home nodes - they already exist by default
-                if node_name_clean == 'home' or 'home' in node_name_clean or node_name_clean.lower() in ['home', 'accueil']:
-                    print(f"  ⏭️  Skipping '{node_name_clean}' (home node already exists)")
+                # Skip start nodes - they already exist
+                if node_name_clean == start_node_label or node_name_clean == start_node_id:
+                    print(f"  ⏭️  Skipping '{node_name_clean}' (start node already exists)")
                     continue
                 
                 # ✅ Use clean node_id, add _temp to label for visual distinction
@@ -422,6 +428,10 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 
                 # Click navigation for mobile/web
                 print(f"  📱 Creating CLICK edge for '{item}': click_element(\"{item}\")")
+                print(f"  🔍 Edge Details:")
+                print(f"     - Source (Start): {start_node_id}")
+                print(f"     - Target (New):   {node_name}")
+                print(f"     - Action:         click_element('{item}')")
                 
                 forward_actions = [{
                     "command": "click_element",
@@ -436,7 +446,7 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 }]
                 
                 edge_data = node_gen.create_edge_data(
-                    source=home_id,
+                    source=start_node_id,
                     target=node_name,
                     actions=forward_actions,
                     reverse_actions=reverse_actions,
@@ -469,12 +479,15 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
         if nodes_to_save or edges_to_save:
             invalidate_navigation_cache_for_tree(tree_id, team_id)
             print(f"  🔄 Cache invalidated immediately for tree {tree_id}")
+            
+            # DELAY: Wait 2s to let view refresh/propagate before frontend fetch
+            time.sleep(2)
         
         # Update state
         executor.exploration_state['status'] = 'structure_created'
         executor.exploration_state['nodes_created'] = nodes_created
         executor.exploration_state['edges_created'] = edges_created
-        executor.exploration_state['home_id'] = home_id
+        executor.exploration_state['home_id'] = start_node_id  # Legacy name in state, but holds current start node
         executor.exploration_state['current_step'] = f'Created {len(nodes_created)} nodes and {len(edges_created)} edges. Ready to validate.'
         executor.exploration_state['items_to_validate'] = items
         executor.exploration_state['current_validation_index'] = 0

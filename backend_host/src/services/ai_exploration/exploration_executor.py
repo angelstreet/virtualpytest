@@ -199,6 +199,7 @@ class ExplorationExecutor:
                 'current_validation_index': 0,
                 'target_to_node_map': {},
                 'home_id': None,
+                'start_node': start_node,
                 'nodes_created': [],
                 'edges_created': [],
                 'started_at': datetime.now(timezone.utc).isoformat(),
@@ -255,7 +256,7 @@ class ExplorationExecutor:
         # ✅ PHASE 0a: Clear verifications from start node BEFORE loading tree
         print(f"\n[@ExplorationExecutor:start_exploration] 🗑️ PHASE 0a: Clearing verifications from '{start_node}'...")
         try:
-            from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_node
+            from shared.src.lib.database.navigation_trees_db import get_node_by_id, save_nodes_batch
             from shared.src.lib.utils.navigation_cache import clear_unified_cache
             
             # Get start node directly from database (don't use navigation_executor yet - tree not loaded)
@@ -280,8 +281,13 @@ class ExplorationExecutor:
                     node['data']['verifications'] = []
                     print(f"[@ExplorationExecutor:start_exploration] ✅ Cleared data.verifications")
                 
-                # Save cleaned node
-                save_result = save_node(tree_id, node, team_id)
+                # SKIP saving for read-only nodes (e.g. entry-node)
+                if node.get('type') == 'entry' or node.get('node_id') == 'entry-node':
+                    print(f"[@ExplorationExecutor:start_exploration] ⚠️ Skipping save for read-only node: {node.get('node_id')}")
+                    save_result = {'success': True, 'message': 'Skipped read-only node'}
+                else:
+                    # Save cleaned node using batch (upsert) for reliability
+                    save_result = save_nodes_batch(tree_id, [node], team_id)
                 
                 if save_result.get('success'):
                     print(f"[@ExplorationExecutor:start_exploration] ✅ Node saved with empty verifications")
@@ -289,6 +295,9 @@ class ExplorationExecutor:
                     # Clear cache so it rebuilds with clean node
                     clear_unified_cache(tree_id, team_id)
                     print(f"[@ExplorationExecutor:start_exploration] ✅ Cache cleared")
+                    
+                    # DELAY: Wait 2s to let view refresh/propagate before frontend fetch
+                    time.sleep(2)
                 else:
                     print(f"[@ExplorationExecutor:start_exploration] ❌ Save failed: {save_result.get('error')}")
             else:

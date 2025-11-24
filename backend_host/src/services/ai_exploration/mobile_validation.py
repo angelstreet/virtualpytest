@@ -61,8 +61,8 @@ class MobileValidationStrategy:
                 node_name = f"{node_name_clean}_temp"
             
             # Skip home
-            if 'home' in node_name.lower() and node_name != 'home_temp':
-                print(f"[@MobileValidation] ⏭️  Skipping home node: {node_name}")
+            if 'home' in node_name.lower() and node_name != 'home_temp' and node_name != self.executor.exploration_state.get('home_id', 'home'):
+                print(f"[@MobileValidation] ⏭️  Skipping home/start node: {node_name}")
                 self.executor.exploration_state['current_validation_index'] = current_index + 1
                 return self.executor.validate_next_item()
         
@@ -339,8 +339,11 @@ class MobileValidationStrategy:
     def _update_edge_validation(self, tree_id: str, team_id: str, node_name: str, click_result: str, back_result: str):
         """Update edge with validation results"""
         try:
-            home_id = self.executor.exploration_state['home_id']
-            edge_id = f"edge_{home_id}_to_{node_name}_temp"
+            start_node_id = self.executor.exploration_state.get('home_id', 'home')
+            
+            # Edge ID is clean (no _temp)
+            node_name_clean = node_name.replace('_temp', '')
+            edge_id = f"edge_{start_node_id}_to_{node_name_clean}"
             
             edge_result = get_edge_by_id(tree_id, edge_id, team_id)
             
