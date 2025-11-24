@@ -275,6 +275,17 @@ def validate_next_item(executor) -> Dict[str, Any]:
         print(f"     prev_row_index = {prev_row_index}")
         print(f"     is_same_row = {is_same_row}")
         
+        # ✅ Check if this is a Row 0 LEFT item (horizontal menu, left of home)
+        items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+        is_row0_left_item = current_item in items_left and current_row_index == 0
+        is_first_left_item = is_row0_left_item and (len(items_left) == 0 or current_item == items_left[0])
+        
+        # Check if previous item was also a LEFT item (for chaining LEFT items)
+        prev_was_left_item = False
+        if current_index > 0:
+            prev_item = items_to_validate[current_index - 1]
+            prev_was_left_item = prev_item in items_left
+        
         if is_first_item_overall:
             # First item ever: check if 'home' (start_node) is in the same row
             # If start_node is in lines[0], it's horizontal navigation (RIGHT)
@@ -290,7 +301,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
             prev_focus_name = start_node_id
             if home_in_current_row:
                 # Check if item is LEFT or RIGHT of home
-                items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
                 is_left_item = current_item in items_left
                 nav_direction = 'LEFT' if is_left_item else 'RIGHT'
                 print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node IN Row {current_row_index + 1} → {nav_direction}")
@@ -299,18 +309,24 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 nav_direction = 'DOWN'  # start_node is NOT in this row, vertical navigation
                 print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node NOT in rows → DOWN")
                 print(f"     Reason: '{start_node_label}' is Row 0, navigating down to Row {current_row_index + 1}")
+        elif is_first_left_item and not prev_was_left_item:
+            # ✅ FIX: FIRST Row 0 LEFT item (coming from vertical rows) - navigate from HOME
+            prev_focus_name = start_node_id  # Start from home, not from previous vertical item
+            nav_direction = 'LEFT'
+            print(f"  🐛 DEBUG: ✅ Decision: FIRST LEFT ITEM (from vertical) → LEFT from home")
+            print(f"     Reason: '{current_item}' is first LEFT item, previous was vertical row")
+            print(f"     prev_focus_name = {prev_focus_name} (home, not previous vertical item)")
         elif is_same_row:
             # Same row: horizontal navigation - check if LEFT or RIGHT of home
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
             prev_focus_name = f"{start_node_id}_{prev_item_name}"
-            items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
             is_left_item = current_item in items_left
             nav_direction = 'LEFT' if is_left_item else 'RIGHT'
             print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → {nav_direction} within row")
             print(f"     Reason: Both items in Row {current_row_index + 1}, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
             print(f"     prev_focus_name = {prev_focus_name}")
         else:
-            # Different rows: vertical navigation
+            # Different rows: vertical navigation (Row 1+ items)
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
             prev_focus_name = f"{start_node_id}_{prev_item_name}"
             nav_direction = 'DOWN'  # Moving to new row vertically

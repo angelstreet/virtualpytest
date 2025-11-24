@@ -270,17 +270,20 @@ class ExplorationEngine:
                 context.items_left_of_home = left_items
                 context.items_right_of_home = right_items
                 
-                # Reorder: [home, right items, left items]
+                # ✅ FIX: Reorder: [home, right items, LEFT items, THEN vertical rows]
+                # Complete Row 0 (horizontal) first, then Row 1+ (vertical)
                 reordered = ['home'] + right_items + left_items
                 
                 print(f"    Original L→R: {items_to_process}")
                 print(f"    Home at index: {home_index}")
                 print(f"    Left items: {left_items}")
                 print(f"    Right items: {right_items}")
-                print(f"    Reordered: {reordered}")
+                print(f"    Reordered Row 0: {reordered}")
+                print(f"    Vertical rows (Row 1+): {other_items}")
                 
-                # Combine: reordered Row 1 + unchanged other rows
+                # ✅ FIX: Row 0 (RIGHT + LEFT) FIRST, then Row 1+ (vertical)
                 sanitized_items = reordered + other_items
+                print(f"    Final order: {sanitized_items}")
             else:
                 # Home at start or not found
                 print(f"    Home at start or not found - no left items")
@@ -818,32 +821,48 @@ class ExplorationEngine:
             
             print(f"[@exploration_engine:analyze_and_plan] _phase1_anticipation completed, prediction: {self.prediction}")
             
-            # ✅ NEW: Extract left/right items for D-pad navigation AND reorder
+            # ✅ Extract left/right items for D-pad navigation AND reorder
             items_left_of_home = []
             items_right_of_home = []
             raw_items = self.prediction.get('items', [])
+            lines = self.prediction.get('lines', [])
             reordered_items = raw_items  # Default: no reordering
             
             # Check if this is horizontal D-pad navigation
             if self.prediction.get('strategy') in ['dpad_with_screenshot', 'test_dpad_directions'] and self.prediction.get('menu_type') in ['horizontal', 'mixed']:
-                # Find home index
+                
+                # For mixed menu: only process Row 0 (horizontal), keep Row 1+ separate
+                if self.prediction.get('menu_type') == 'mixed' and lines:
+                    row0_items = lines[0]  # Row 0 only
+                    other_items = []
+                    for row_idx in range(1, len(lines)):
+                        other_items.extend(lines[row_idx])  # Row 1+ items
+                    print(f"  📊 Mixed menu: Row 0 = {row0_items}, Row 1+ = {other_items}")
+                else:
+                    row0_items = raw_items
+                    other_items = []
+                
+                # Find home index in Row 0
                 home_index = -1
-                for i, item in enumerate(raw_items):
+                for i, item in enumerate(row0_items):
                     if item.lower() == 'home':
                         home_index = i
                         break
                 
                 if home_index > 0:
-                    # Home found with items on left
-                    items_left_of_home = raw_items[:home_index]
-                    items_right_of_home = raw_items[home_index + 1:]
-                    # ✅ REORDER: [home, RIGHT items, LEFT items]
-                    reordered_items = ['home'] + items_right_of_home + items_left_of_home
-                    print(f"  📊 Split items around home: {len(items_left_of_home)} left, {len(items_right_of_home)} right")
+                    # Home found with items on left in Row 0
+                    items_left_of_home = row0_items[:home_index]
+                    items_right_of_home = row0_items[home_index + 1:]
+                    
+                    # ✅ CORRECT ORDER: [home, Row 0 RIGHT, Row 0 LEFT, Row 1+ vertical]
+                    reordered_items = ['home'] + items_right_of_home + items_left_of_home + other_items
+                    
+                    print(f"  📊 Split Row 0 around home: {len(items_left_of_home)} left, {len(items_right_of_home)} right")
                     print(f"  🔄 Reordered for validation: {reordered_items}")
                 else:
                     # Home at start or not found
-                    items_right_of_home = raw_items[1:] if len(raw_items) > 1 else []
+                    items_right_of_home = row0_items[1:] if len(row0_items) > 1 else []
+                    reordered_items = row0_items + other_items
                     print(f"  📊 No left items - home at start")
             
             # ✅ NEW: Build edge preview for frontend (calculate edges once!)
