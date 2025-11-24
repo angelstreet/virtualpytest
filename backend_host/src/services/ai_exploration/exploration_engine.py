@@ -588,6 +588,148 @@ class ExplorationEngine:
                 f"Cannot fallback to click - device doesn't support it!"
             )
     
+    def _build_edges_preview(
+        self,
+        raw_items: List[str],
+        lines: List[List[str]],
+        strategy: str,
+        menu_type: str,
+        items_left_of_home: List[str],
+        items_right_of_home: List[str]
+    ) -> List[Dict]:
+        """
+        Build edge preview for frontend display (matches structure_creator.py logic)
+        
+        Returns list of edge previews with source/target/actions
+        """
+        from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
+        node_gen = NodeGenerator(self.tree_id, self.team_id)
+        
+        edges_preview = []
+        
+        # DUAL-LAYER TV NAVIGATION
+        if strategy in ['dpad_with_screenshot', 'test_dpad_directions']:
+            # ========== ROW 1: HORIZONTAL MENU ==========
+            if len(lines) > 0 and len(lines[0]) > 1:
+                row1_items = lines[0]
+                
+                # Build focus node list for Row 1
+                all_focus_nodes_row1 = []
+                for item in row1_items:
+                    node_name_clean = node_gen.target_to_node_name(item)
+                    if node_name_clean.lower() in ['home', 'accueil']:
+                        all_focus_nodes_row1.append('home')
+                    else:
+                        all_focus_nodes_row1.append(f"home_{node_name_clean}")
+                
+                # Find home index
+                try:
+                    start_idx = all_focus_nodes_row1.index('home')
+                except ValueError:
+                    start_idx = 0
+                
+                # RIGHT edges (outward from home)
+                for idx in range(start_idx, len(all_focus_nodes_row1) - 1):
+                    source_focus = all_focus_nodes_row1[idx]
+                    target_focus = all_focus_nodes_row1[idx + 1]
+                    original_item = row1_items[idx + 1]
+                    
+                    # Get screen node name
+                    screen_node = node_gen.target_to_node_name(original_item)
+                    
+                    edges_preview.append({
+                        'item': original_item,
+                        'horizontal': {
+                            'source': source_focus,
+                            'target': target_focus,
+                            'forward_action': 'RIGHT',
+                            'reverse_action': 'LEFT'
+                        },
+                        'vertical': {
+                            'source': target_focus,
+                            'target': screen_node,
+                            'forward_action': 'OK',
+                            'reverse_action': 'BACK'
+                        }
+                    })
+                
+                # LEFT edges (inward to home)
+                for idx in range(start_idx, 0, -1):
+                    source_focus = all_focus_nodes_row1[idx]
+                    target_focus = all_focus_nodes_row1[idx - 1]
+                    original_item = row1_items[idx - 1]
+                    
+                    # Get screen node name
+                    screen_node = node_gen.target_to_node_name(original_item)
+                    
+                    edges_preview.append({
+                        'item': original_item,
+                        'horizontal': {
+                            'source': source_focus,
+                            'target': target_focus,
+                            'forward_action': 'LEFT',
+                            'reverse_action': 'RIGHT'
+                        },
+                        'vertical': {
+                            'source': target_focus,
+                            'target': screen_node,
+                            'forward_action': 'OK',
+                            'reverse_action': 'BACK'
+                        }
+                    })
+            
+            # ========== ROW 2+: VERTICAL MENU (CHAINED) ==========
+            if len(lines) > 1:
+                prev_vertical_focus = 'home'  # Start from home for vertical chain
+                
+                for row_idx in range(1, len(lines)):
+                    row_items = lines[row_idx]
+                    
+                    for item in row_items:
+                        node_name_clean = node_gen.target_to_node_name(item)
+                        focus_node = f"home_{node_name_clean}"
+                        screen_node = node_name_clean
+                        
+                        edges_preview.append({
+                            'item': item,
+                            'horizontal': {
+                                'source': prev_vertical_focus,  # ✅ Chain from previous
+                                'target': focus_node,
+                                'forward_action': 'DOWN',
+                                'reverse_action': 'UP'
+                            },
+                            'vertical': {
+                                'source': focus_node,
+                                'target': screen_node,
+                                'forward_action': 'OK',
+                                'reverse_action': 'BACK'
+                            }
+                        })
+                        
+                        # Update prev for next item in chain
+                        prev_vertical_focus = focus_node
+        
+        else:
+            # MOBILE/WEB: Click-based navigation
+            for item in raw_items:
+                node_name_clean = node_gen.target_to_node_name(item)
+                
+                # Skip home
+                if node_name_clean.lower() in ['home', 'accueil']:
+                    continue
+                
+                edges_preview.append({
+                    'item': item,
+                    'click': {
+                        'source': 'home',
+                        'target': node_name_clean,
+                        'forward_action': f'click("{item}")',
+                        'reverse_action': 'BACK'
+                    }
+                })
+        
+        return edges_preview
+    
     def _extract_edge_id_from_response(self, response_text: str) -> str:
         """
         Extract edge_id from MCP response text
@@ -704,6 +846,16 @@ class ExplorationEngine:
                     items_right_of_home = raw_items[1:] if len(raw_items) > 1 else []
                     print(f"  📊 No left items - home at start")
             
+            # ✅ NEW: Build edge preview for frontend (calculate edges once!)
+            edges_preview = self._build_edges_preview(
+                raw_items=raw_items,
+                lines=self.prediction.get('lines', []),
+                strategy=self.prediction.get('strategy', 'click'),
+                menu_type=self.prediction.get('menu_type', 'horizontal'),
+                items_left_of_home=items_left_of_home,
+                items_right_of_home=items_right_of_home
+            )
+            
             # Build reasoning for user
             reasoning = f"""Menu Type: {self.prediction.get('menu_type', 'unknown')}
 Items Found: {len(self.prediction.get('items', []))} items
@@ -739,7 +891,8 @@ Exploration will navigate through these items using {self.prediction.get('strate
                     'screenshot': self.initial_screenshot,
                     'screen_name': 'Initial Screen',
                     'items_left_of_home': items_left_of_home,
-                    'items_right_of_home': items_right_of_home
+                    'items_right_of_home': items_right_of_home,
+                    'edges_preview': edges_preview  # ✅ NEW: Pre-calculated edges for frontend
                 }
             }
             

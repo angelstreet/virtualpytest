@@ -512,63 +512,27 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
 
                       {/* Edges Found - Show bilateral action sets - OPEN BY DEFAULT */}
                       {(() => {
-                        // Filter out home nodes and self-referencing edges
-                        const validEdges = explorationPlan.items.filter((item: string) => {
-                          const lower = item.toLowerCase();
-                          return !['home', 'accueil'].includes(lower);
-                        });
-                        
+                        // ✅ USE BACKEND-CALCULATED EDGES (no recalculation!)
+                        const edgesPreview = explorationPlan.edges_preview || [];
                         const strategy = explorationPlan.strategy || 'click';
-                        const lines = explorationPlan.lines || [];
-                        
-                        // Calculate edge count
-                        let edgeCount = validEdges.length;
-                        if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
-                          // Dual-layer: horizontal edges + vertical edges
-                          // For Row 1 with N items: (N-1) horizontal edges × 2 directions + N vertical edges × 2 directions
-                          const row1Items = lines.length > 0 ? lines[0].length : 0;
-                          if (row1Items > 1) {
-                            const horizontalEdges = (row1Items - 1) * 2; // LEFT/RIGHT pairs
-                            const verticalEdges = (row1Items - 1) * 2;   // OK/BACK pairs (excluding home)
-                            edgeCount = horizontalEdges + verticalEdges;
-                          }
-                        }
                         
                         return (
                           <details open>
                             <summary style={{ cursor: 'pointer', userSelect: 'none', padding: '4px 0' }}>
                               <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
-                                Edge found ({edgeCount})
+                                Edge found ({edgesPreview.length})
                               </Typography>
                             </summary>
                             <Box sx={{ mt: 1, pl: 2, pr:2, maxHeight: 200, overflow: 'auto' }}>
-                              {validEdges.map((item: string, idx: number) => {
-                                // Generate clean node name (simplified version of backend logic)
-                                const cleanNodeName = item.toLowerCase()
-                                  .replace(/&amp;/g, ' ')
-                                  .replace(/tab|register|button|screen|menu|page|currently selected/gi, ' ')
-                                  .replace(/[^a-z0-9]+/g, '_')
-                                  .replace(/_+/g, '_')
-                                  .replace(/^_|_$/g, '');
-                                
-                                const focusNodeName = `home_${cleanNodeName}`;
+                              {edgesPreview.map((edgePreview: any, idx: number) => {
+                                const item = edgePreview.item;
                                 const isSelected = selectedEdges.has(item);
                                 
                                 if (strategy === 'dpad_with_screenshot' || strategy === 'test_dpad_directions') {
-                                  // Calculate previous focus node for horizontal navigation
-                                  let prevFocusNode = 'home';
-                                  if (idx > 0) {
-                                    const prevItem = validEdges[idx - 1];
-                                    const prevCleanName = prevItem.toLowerCase()
-                                      .replace(/&amp;/g, ' ')
-                                      .replace(/tab|register|button|screen|menu|page|currently selected/gi, ' ')
-                                      .replace(/[^a-z0-9]+/g, '_')
-                                      .replace(/_+/g, '_')
-                                      .replace(/^_|_$/g, '');
-                                    prevFocusNode = `home_${prevCleanName}`;
-                                  }
+                                  // Dual-layer edges - use backend-calculated data
+                                  const horizontal = edgePreview.horizontal || {};
+                                  const vertical = edgePreview.vertical || {};
                                   
-                                  // Dual-layer edges
                                   return (
                                     <Box 
                                       key={idx} 
@@ -592,24 +556,26 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       <Typography variant="caption" sx={{ fontWeight: 'bold', color: 'text.secondary', display: 'block', mb: 0.5 }}>
                                         {item} {!isSelected && '(skipped)'}
                                       </Typography>
-                                      {/* Horizontal edges */}
+                                      {/* Horizontal edges - using backend data */}
                                       <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
-                                        {prevFocusNode} → {focusNodeName}: RIGHT
+                                        {horizontal.source} → {horizontal.target}: {horizontal.forward_action}
                                       </Typography>
                                       <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
-                                        {focusNodeName} ← {prevFocusNode}: LEFT
+                                        {horizontal.target} ← {horizontal.source}: {horizontal.reverse_action}
                                       </Typography>
-                                      {/* Vertical edges */}
+                                      {/* Vertical edges - using backend data */}
                                       <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
-                                        {focusNodeName} ↓ {cleanNodeName}: OK
+                                        {vertical.source} ↓ {vertical.target}: {vertical.forward_action}
                                       </Typography>
                                       <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
-                                        {cleanNodeName} ↑ {focusNodeName}: BACK
+                                        {vertical.target} ↑ {vertical.source}: {vertical.reverse_action}
                                       </Typography>
                                     </Box>
                                   );
                                 } else {
-                                  // Mobile/web: single click edge
+                                  // Mobile/web: single click edge - using backend data
+                                  const click = edgePreview.click || {};
+                                  
                                   return (
                                     <Box 
                                       key={idx} 
@@ -634,10 +600,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                         {item} {!isSelected && '(skipped)'}
                                       </Typography>
                                       <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
-                                        home → {cleanNodeName}: click("{item}")
+                                        {click.source} → {click.target}: {click.forward_action}
                                       </Typography>
                                       <Typography variant="body2" sx={{ fontSize: '0.70rem', fontFamily: 'monospace', pl: 1 }}>
-                                        {cleanNodeName} ← home: BACK
+                                        {click.target} ← {click.source}: {click.reverse_action}
                                       </Typography>
                                     </Box>
                                   );
