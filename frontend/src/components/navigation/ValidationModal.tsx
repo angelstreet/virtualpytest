@@ -293,7 +293,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                 validationResults.reduce((count, r) => {
                   let stepCount = r.forward.result === 'success' ? 1 : 0;
                   // Add backward only for non-horizontal (vertical edges)
-                  const isHorizontal = r.forward.action === 'RIGHT' || r.forward.action === 'DOWN';
+                  const isHorizontal = r.forward.action === 'RIGHT' || r.forward.action === 'LEFT' || r.forward.action === 'DOWN';
                   if (!isHorizontal && r.backward.result === 'success') stepCount++;
                   return count + stepCount;
                 }, 0)
@@ -302,7 +302,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               <span>❌ {
                 validationResults.reduce((count, r) => {
                   let stepCount = r.forward.result === 'failure' ? 1 : 0;
-                  const isHorizontal = r.forward.action === 'RIGHT' || r.forward.action === 'DOWN';
+                  const isHorizontal = r.forward.action === 'RIGHT' || r.forward.action === 'LEFT' || r.forward.action === 'DOWN';
                   if (!isHorizontal && r.backward.result === 'failure') stepCount++;
                   return count + stepCount;
                 }, 0)
@@ -343,8 +343,8 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
             let currentGroup: ValidationResult[] = [];
             
             validationResults.forEach((result, idx) => {
-              // Check if this is the start of a new item (horizontal edge)
-              const isHorizontalEdge = result.forward.action === 'RIGHT' || result.forward.action === 'DOWN';
+              // Check if this is the start of a new item (horizontal/focus edge)
+              const isHorizontalEdge = result.forward.action === 'RIGHT' || result.forward.action === 'LEFT' || result.forward.action === 'DOWN';
               
               if (isHorizontalEdge && currentGroup.length > 0) {
                 // Save previous group and start new one
@@ -372,7 +372,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               }}
             >
                 {group.map((result, resultIndex) => {
-                  const isHorizontal = result.forward.action === 'RIGHT' || result.forward.action === 'DOWN';
+                  const isHorizontal = result.forward.action === 'RIGHT' || result.forward.action === 'LEFT' || result.forward.action === 'DOWN';
                   const stepOffset = resultIndex === 0 ? 1 : 2; // .1 for first (horizontal), .2/.3 for second (vertical)
                   
                   return (

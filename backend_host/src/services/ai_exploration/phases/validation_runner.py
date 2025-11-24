@@ -316,23 +316,30 @@ def validate_next_item(executor) -> Dict[str, Any]:
             print(f"  🐛 DEBUG: ✅ Decision: FIRST LEFT ITEM (from vertical) → LEFT from home")
             print(f"     Reason: '{current_item}' is first LEFT item, previous was vertical row")
             print(f"     prev_focus_name = {prev_focus_name} (home, not previous vertical item)")
-        elif is_same_row:
-            # Same row: horizontal navigation - check if LEFT or RIGHT of home
+        elif is_same_row and current_row_index == 0:
+            # ✅ Row 0 same row: horizontal navigation - LEFT or RIGHT of home
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
             prev_focus_name = f"{start_node_id}_{prev_item_name}"
             is_left_item = current_item in items_left
             nav_direction = 'LEFT' if is_left_item else 'RIGHT'
-            print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → {nav_direction} within row")
-            print(f"     Reason: Both items in Row {current_row_index + 1}, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
+            print(f"  🐛 DEBUG: ✅ Decision: ROW 0 SAME ROW → {nav_direction} within horizontal menu")
+            print(f"     Reason: Both items in Row 0, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
             print(f"     prev_focus_name = {prev_focus_name}")
         else:
-            # Different rows: vertical navigation (Row 1+ items)
+            # ✅ Row 1+ (vertical): ALL items need DOWN from home
+            # For Row 1+, we always go to home first and press DOWN to reach target
+            # This is because we're exploring and don't know if chaining works
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
-            prev_focus_name = f"{start_node_id}_{prev_item_name}"
-            nav_direction = 'DOWN'  # Moving to new row vertically
-            print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → DOWN to new row")
-            print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
-            print(f"     prev_focus_name = {prev_focus_name}")
+            prev_focus_name = f"{start_node_id}_{prev_item_name}"  # Edge recorded from previous item
+            nav_direction = 'DOWN'
+            
+            if is_same_row:
+                print(f"  🐛 DEBUG: ✅ Decision: ROW {current_row_index + 1} SAME ROW → DOWN (vertical menu)")
+                print(f"     Reason: Vertical row - go to home first, then DOWN to target")
+            else:
+                print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → DOWN to Row {current_row_index + 1}")
+                print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
+            print(f"     prev_focus_name = {prev_focus_name} (for edge recording)")
         
         print(f"\n  🐛 DEBUG: Final Navigation Plan")
         print(f"     {prev_focus_name} → {focus_node_name}: {nav_direction}")
@@ -366,7 +373,9 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 print(f"    ❌ LEFT transition exception: {e}")
                 print(f"    ⚠️ Continuing anyway - validation may fail")
         
-        # ✅ RECOVERY: Navigate to home before DOWN navigation (new row)
+        # ✅ RECOVERY: Navigate to home before DOWN navigation (vertical rows)
+        # For ALL vertical items: go to start_node first, then press DOWN to reach target
+        # This is safe because we don't know if chaining DOWN from previous item works
         elif nav_direction == 'DOWN':
             print(f"\n    🔄 ROW {display_row} TRANSITION: Navigating to '{start_node_label}' before DOWN...")
             print(f"      Transitioning from Row {prev_row_index + 1 if prev_row_index >= 0 else 0} → Row {display_row}")
@@ -381,6 +390,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 
                 if nav_result.get('success'):
                     print(f"    ✅ At '{start_node_label}' - ready for DOWN navigation to Row {display_row}")
+                    # ✅ FIX: Update prev_focus_name to start_node since we navigated there
+                    prev_focus_name = start_node_id
                 else:
                     error_msg = nav_result.get('error', 'Unknown error')
                     print(f"    ❌ Navigation to '{start_node_label}' failed: {error_msg}")
@@ -404,14 +415,34 @@ def validate_next_item(executor) -> Dict[str, Any]:
         }
         screenshot_url = None
         
-        # Edge 1: Focus navigation (RIGHT for horizontal, DOWN for new row)
+        # Edge 1: Focus navigation (RIGHT/LEFT for horizontal, DOWN for vertical)
         try:
             print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
-            result = controller.press_key(nav_direction)
-            import inspect
-            if inspect.iscoroutine(result):
-                import asyncio
-                result = asyncio.run(result)
+            
+            # ✅ For vertical rows (Row 1+): Press DOWN multiple times from home
+            # - current_row_index: which row (1 = first vertical row)
+            # - current_position_in_row: position within that row
+            # - Total DOWNs from home = current_row_index + current_position_in_row
+            if nav_direction == 'DOWN' and current_row_index >= 1:
+                total_downs = current_row_index + current_position_in_row
+                print(f"    🔽 Vertical navigation: pressing DOWN {total_downs}x from home")
+                print(f"       (Row {current_row_index + 1}, Position {current_position_in_row + 1})")
+                
+                for down_count in range(total_downs):
+                    result = controller.press_key('DOWN')
+                    import inspect
+                    if inspect.iscoroutine(result):
+                        import asyncio
+                        result = asyncio.run(result)
+                    print(f"       DOWN {down_count + 1}/{total_downs}")
+                    time.sleep(0.8)  # Short delay between DOWNs
+            else:
+                # Horizontal navigation (LEFT/RIGHT) - single press
+                result = controller.press_key(nav_direction)
+                import inspect
+                if inspect.iscoroutine(result):
+                    import asyncio
+                    result = asyncio.run(result)
             
             edge_results['horizontal'] = 'success'
             print(f"    ✅ Focus navigation: {nav_direction}")
@@ -641,7 +672,14 @@ def validate_next_item(executor) -> Dict[str, Any]:
         vertical_exit_result = edge_results['exit']
         
         # Determine reverse direction for horizontal edge
-        reverse_direction = 'LEFT' if nav_direction == 'RIGHT' else 'UP'
+        if nav_direction == 'RIGHT':
+            reverse_direction = 'LEFT'
+        elif nav_direction == 'LEFT':
+            reverse_direction = 'RIGHT'
+        elif nav_direction == 'DOWN':
+            reverse_direction = 'UP'
+        else:
+            reverse_direction = 'DOWN'  # UP → DOWN (fallback)
         
         return {
             'success': True,
