@@ -235,42 +235,57 @@ class ExplorationEngine:
         
         # ✅ SPLIT AND REORDER for horizontal D-pad navigation
         # For TV/STB horizontal menus, we explore: RIGHT items first, then LEFT items
-        if context.strategy in ['dpad_with_screenshot', 'test_dpad_directions'] and prediction.get('menu_type') == 'horizontal':
+        # Apply to 'horizontal' (single row) and 'mixed' (Row 1 is horizontal, but has other rows too)
+        if context.strategy in ['dpad_with_screenshot', 'test_dpad_directions'] and prediction.get('menu_type') in ['horizontal', 'mixed']:
             print(f"\n  🔄 SPLITTING items around HOME for D-pad navigation...")
             
-            # Find home index in original left-to-right order
+            # For 'mixed' menus: only process Row 1 (horizontal nav bar), keep other rows unchanged
+            lines = prediction.get('lines', [])
+            if prediction.get('menu_type') == 'mixed' and lines:
+                # Row 1 is already sanitized in sanitized_items, extract it
+                row1_count = len(lines[0])
+                row1_items = sanitized_items[:row1_count]
+                other_items = sanitized_items[row1_count:]
+                
+                print(f"    Mixed menu: Row 1 has {row1_count} items, other rows have {len(other_items)} items")
+                items_to_process = row1_items
+            else:
+                # Pure horizontal: process all items
+                items_to_process = sanitized_items
+                other_items = []
+            
+            # Find home index
             home_index = -1
-            for i, item in enumerate(sanitized_items):
+            for i, item in enumerate(items_to_process):
                 if item.lower() == 'home':
                     home_index = i
                     break
             
             if home_index > 0:
-                # Home found with items on both sides
-                left_items = sanitized_items[:home_index]  # Items LEFT of home
-                right_items = sanitized_items[home_index + 1:]  # Items RIGHT of home
+                # Home found with items on left side
+                left_items = items_to_process[:home_index]
+                right_items = items_to_process[home_index + 1:]
                 
-                # Store metadata (will be used in action_sets)
+                # Store metadata (for action_sets)
                 context.items_left_of_home = left_items
                 context.items_right_of_home = right_items
                 
                 # Reorder: [home, right items, left items]
-                # We'll explore right first, then left
-                reordered_items = ['home'] + right_items + left_items
+                reordered = ['home'] + right_items + left_items
                 
-                print(f"    Original L→R order: {sanitized_items}")
+                print(f"    Original L→R: {items_to_process}")
                 print(f"    Home at index: {home_index}")
-                print(f"    Left items ({len(left_items)}): {left_items}")
-                print(f"    Right items ({len(right_items)}): {right_items}")
-                print(f"    Reordered: {reordered_items}")
-                print(f"    Exploration: home → RIGHT items ({right_items}) → HOME → LEFT items ({left_items})")
+                print(f"    Left items: {left_items}")
+                print(f"    Right items: {right_items}")
+                print(f"    Reordered: {reordered}")
                 
-                sanitized_items = reordered_items
+                # Combine: reordered Row 1 + unchanged other rows
+                sanitized_items = reordered + other_items
             else:
                 # Home at start or not found
-                print(f"    Home at start or not found - no left items to explore")
+                print(f"    Home at start or not found - no left items")
                 context.items_left_of_home = []
-                context.items_right_of_home = sanitized_items[1:] if len(sanitized_items) > 1 else []
+                context.items_right_of_home = items_to_process[1:] if len(items_to_process) > 1 else []
         
         # Populate context with SANITIZED (and possibly REORDERED) items
         context.predicted_items = sanitized_items
