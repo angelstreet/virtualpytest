@@ -515,14 +515,17 @@ CREATE TRIGGER cascade_delete_subtrees_trigger
 
 -- Function to prevent deletion of protected nodes (unless CASCADE delete)
 CREATE OR REPLACE FUNCTION prevent_protected_node_deletion()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
+AS $$
 DECLARE
     tree_exists BOOLEAN;
 BEGIN
     -- Only enforce protection if this is a direct delete, not a CASCADE delete
     -- Check if the parent tree still exists - if not, this is a CASCADE delete
     SELECT EXISTS(
-        SELECT 1 FROM navigation_trees WHERE id = OLD.tree_id
+        SELECT 1 FROM public.navigation_trees WHERE id = OLD.tree_id  -- ✅ Explicit schema qualification
     ) INTO tree_exists;
     
     -- If tree exists and node is protected, this is a direct delete - block it
@@ -535,7 +538,7 @@ BEGIN
     -- Otherwise allow deletion (CASCADE or unprotected node)
     RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Create trigger for protected node deletion
 CREATE TRIGGER trigger_prevent_protected_node_deletion
@@ -545,14 +548,17 @@ CREATE TRIGGER trigger_prevent_protected_node_deletion
 
 -- Function to prevent deletion of protected edges (unless CASCADE delete)
 CREATE OR REPLACE FUNCTION prevent_protected_edge_deletion()
-RETURNS TRIGGER AS $$
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
+AS $$
 DECLARE
     tree_exists BOOLEAN;
 BEGIN
     -- Only enforce protection if this is a direct delete, not a CASCADE delete
     -- Check if the parent tree still exists - if not, this is a CASCADE delete
     SELECT EXISTS(
-        SELECT 1 FROM navigation_trees WHERE id = OLD.tree_id
+        SELECT 1 FROM public.navigation_trees WHERE id = OLD.tree_id  -- ✅ Explicit schema qualification
     ) INTO tree_exists;
     
     -- If tree exists and edge is protected, this is a direct delete - block it
@@ -564,7 +570,7 @@ BEGIN
     -- Otherwise allow deletion (CASCADE or unprotected edge)
     RETURN OLD;
 END;
-$$ LANGUAGE plpgsql;
+$$;
 
 -- Create trigger for protected edge deletion
 CREATE TRIGGER trigger_prevent_protected_edge_deletion

@@ -746,18 +746,39 @@ def batch_delete_edges_except(tree_id: str, team_id: str, keep_edge_ids: List[st
     try:
         supabase = get_supabase()
         
-        # Build query: delete all edges except those in keep_edge_ids
-        query = supabase.table('navigation_edges').delete()\
+        # Fetch all edge IDs for this tree
+        all_edges = supabase.table('navigation_edges')\
+            .select('edge_id')\
             .eq('tree_id', tree_id)\
-            .eq('team_id', team_id)
+            .eq('team_id', team_id)\
+            .execute()
         
-        # Add NOT IN filter for edge_ids to keep
-        if keep_edge_ids:
-            query = query.not_.in_('edge_id', keep_edge_ids)
+        if not all_edges.data:
+            print(f"[@db:navigation_trees:batch_delete_edges_except] No edges found for tree {tree_id}")
+            return {'success': True, 'deleted_count': 0}
         
-        result = query.execute()
+        # Filter out the ones to keep
+        all_edge_ids = [e['edge_id'] for e in all_edges.data]
+        edges_to_delete = [eid for eid in all_edge_ids if eid not in keep_edge_ids]
+        
+        print(f"[@db:navigation_trees:batch_delete_edges_except] Found {len(all_edge_ids)} total edges")
+        print(f"[@db:navigation_trees:batch_delete_edges_except] Keep list: {keep_edge_ids}")
+        print(f"[@db:navigation_trees:batch_delete_edges_except] To delete: {len(edges_to_delete)} edges")
+        
+        if not edges_to_delete:
+            print(f"[@db:navigation_trees:batch_delete_edges_except] No edges to delete (all are in keep list)")
+            return {'success': True, 'deleted_count': 0}
+        
+        # Delete in batch using IN clause
+        print(f"[@db:navigation_trees:batch_delete_edges_except] Executing DELETE with IN clause for {len(edges_to_delete)} edges...")
+        result = supabase.table('navigation_edges').delete()\
+            .eq('tree_id', tree_id)\
+            .eq('team_id', team_id)\
+            .in_('edge_id', edges_to_delete)\
+            .execute()
         
         deleted_count = len(result.data) if result.data else 0
+        print(f"[@db:navigation_trees:batch_delete_edges_except] DELETE result: {result.data if result.data else 'None'}")
         print(f"[@db:navigation_trees:batch_delete_edges_except] Deleted {deleted_count} edges (kept {len(keep_edge_ids)} edges)")
         
         # Invalidate cache after successful delete (only once!)
@@ -783,18 +804,39 @@ def batch_delete_nodes_except(tree_id: str, team_id: str, keep_node_ids: List[st
     try:
         supabase = get_supabase()
         
-        # Build query: delete all nodes except those in keep_node_ids
-        query = supabase.table('navigation_nodes').delete()\
+        # Fetch all node IDs for this tree
+        all_nodes = supabase.table('navigation_nodes')\
+            .select('node_id')\
             .eq('tree_id', tree_id)\
-            .eq('team_id', team_id)
+            .eq('team_id', team_id)\
+            .execute()
         
-        # Add NOT IN filter for node_ids to keep
-        if keep_node_ids:
-            query = query.not_.in_('node_id', keep_node_ids)
+        if not all_nodes.data:
+            print(f"[@db:navigation_trees:batch_delete_nodes_except] No nodes found for tree {tree_id}")
+            return {'success': True, 'deleted_count': 0}
         
-        result = query.execute()
+        # Filter out the ones to keep
+        all_node_ids = [n['node_id'] for n in all_nodes.data]
+        nodes_to_delete = [nid for nid in all_node_ids if nid not in keep_node_ids]
+        
+        print(f"[@db:navigation_trees:batch_delete_nodes_except] Found {len(all_node_ids)} total nodes")
+        print(f"[@db:navigation_trees:batch_delete_nodes_except] Keep list: {keep_node_ids}")
+        print(f"[@db:navigation_trees:batch_delete_nodes_except] To delete: {len(nodes_to_delete)} nodes: {nodes_to_delete[:5]}...")
+        
+        if not nodes_to_delete:
+            print(f"[@db:navigation_trees:batch_delete_nodes_except] No nodes to delete (all are in keep list)")
+            return {'success': True, 'deleted_count': 0}
+        
+        # Delete in batch using IN clause
+        print(f"[@db:navigation_trees:batch_delete_nodes_except] Executing DELETE with IN clause for {len(nodes_to_delete)} nodes...")
+        result = supabase.table('navigation_nodes').delete()\
+            .eq('tree_id', tree_id)\
+            .eq('team_id', team_id)\
+            .in_('node_id', nodes_to_delete)\
+            .execute()
         
         deleted_count = len(result.data) if result.data else 0
+        print(f"[@db:navigation_trees:batch_delete_nodes_except] DELETE result: {result.data if result.data else 'None'}")
         print(f"[@db:navigation_trees:batch_delete_nodes_except] Deleted {deleted_count} nodes (kept {len(keep_node_ids)} nodes)")
         
         # Invalidate cache after successful delete (only once!)
