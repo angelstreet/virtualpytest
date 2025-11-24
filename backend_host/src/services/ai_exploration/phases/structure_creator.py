@@ -482,6 +482,20 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             
             # DELAY: Wait 2s to let view refresh/propagate before frontend fetch
             time.sleep(2)
+            
+            # ✅ CRITICAL: Reload navigation tree to populate unified cache for validation
+            # Without this, validation will fail with "context corrupted" because unified_graph is None
+            print(f"  🔄 Reloading navigation tree to populate unified cache...")
+            try:
+                userinterface_name = executor.exploration_state.get('userinterface_name')
+                if executor.device and hasattr(executor.device, 'navigation_executor'):
+                    reload_result = executor.device.navigation_executor.load_navigation_tree(userinterface_name, team_id)
+                    if reload_result.get('success'):
+                        print(f"  ✅ Navigation tree reloaded - unified cache populated")
+                    else:
+                        print(f"  ⚠️ Failed to reload navigation tree: {reload_result.get('error')}")
+            except Exception as e:
+                print(f"  ⚠️ Error reloading navigation tree: {e}")
         
         # Update state
         executor.exploration_state['status'] = 'structure_created'
