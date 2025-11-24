@@ -779,8 +779,8 @@ class TextHelpers:
                 elem_left = elem['area']['x']
                 x_gap = elem_left - current_right
                 
-                # If on same line (y_diff < half height) and close horizontally (gap < 2x height)
-                if y_diff < height_avg * 0.5 and x_gap < height_avg * 2:
+                # If on same line (y_diff < half height) and close horizontally (gap < 30px max)
+                if y_diff < height_avg * 0.5 and x_gap < 30:
                     # Merge into current group
                     current_group['text'] += ' ' + elem['text']
                     
