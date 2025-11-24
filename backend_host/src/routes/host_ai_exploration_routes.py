@@ -14,6 +14,8 @@ from shared.src.lib.database.navigation_trees_db import (
     get_tree_edges,
     delete_node,
     delete_edge,
+    batch_delete_edges_except,
+    batch_delete_nodes_except,
     save_nodes_batch,
     save_edges_batch,
     get_supabase
@@ -42,58 +44,30 @@ def cleanup_temp():
         
         print(f"[@route:ai_generation:cleanup_temp] Cleaning up _temp for tree: {tree_id}")
         
-        # ✅ SIMPLE: Delete ALL edges except entry-to-home, then delete all non-home nodes
+        # ✅ BATCH DELETE: Delete ALL edges except entry-to-home in ONE query
+        # Find entry-to-home edge ID
         edges_result = get_tree_edges(tree_id, team_id)
-        
-        print(f"[@route:ai_generation:cleanup_temp] Edges query result: success={edges_result.get('success')}, count={len(edges_result.get('edges', []))}")
-        
-        edges_deleted = 0
+        entry_edge_id = None
         
         if edges_result.get('success') and edges_result.get('edges'):
-            print(f"[@route:ai_generation:cleanup_temp] Processing {len(edges_result['edges'])} edges...")
             for edge in edges_result['edges']:
-                edge_id = edge.get('edge_id', '')
-                source = edge.get('source_node_id', '')
-                target = edge.get('target_node_id', '')
-                
-                # Keep ONLY the entry-to-home edge, delete everything else
-                is_entry_to_home = (
-                    'entry' in edge_id.lower() and 
-                    target.lower() == 'home'
-                )
-                
-                if not is_entry_to_home:
-                    print(f"  🗑️  Deleting edge: {edge_id} ({source} → {target})")
-                    delete_result = delete_edge(tree_id, edge_id, team_id)
-                    if delete_result.get('success'):
-                        edges_deleted += 1
-                        print(f"  ✅ Deleted edge: {edge_id}")
-                    else:
-                        print(f"  ❌ Failed to delete edge: {edge_id}, error: {delete_result.get('error')}")
-                else:
-                    print(f"  ⏭️  Keeping entry edge: {edge_id}")
-        else:
-            print(f"[@route:ai_generation:cleanup_temp] No edges found or query failed")
+                if 'entry' in edge.get('edge_id', '').lower() and edge.get('target_node_id', '').lower() == 'home':
+                    entry_edge_id = edge['edge_id']
+                    break
         
-        # Now get nodes
-        nodes_result = get_tree_nodes(tree_id, team_id)
+        # Batch delete all edges except entry-to-home
+        keep_edges = [entry_edge_id] if entry_edge_id else []
+        edges_delete_result = batch_delete_edges_except(tree_id, team_id, keep_edges)
+        edges_deleted = edges_delete_result.get('deleted_count', 0)
         
-        print(f"[@route:ai_generation:cleanup_temp] Found {len(nodes_result.get('nodes', []))} nodes")
+        print(f"[@route:ai_generation:cleanup_temp] ✅ Batch deleted {edges_deleted} edges (kept: {keep_edges})")
         
-        nodes_deleted = 0
+        # Batch delete all nodes except entry-node and home
+        keep_nodes = ['entry-node', 'home']
+        nodes_delete_result = batch_delete_nodes_except(tree_id, team_id, keep_nodes)
+        nodes_deleted = nodes_delete_result.get('deleted_count', 0)
         
-        # Delete ALL nodes except entry-node and home
-        if nodes_result.get('success') and nodes_result.get('nodes'):
-            for node in nodes_result['nodes']:
-                node_id = node.get('node_id', '')
-                if node_id.lower() not in ['entry-node', 'home']:
-                    delete_result = delete_node(tree_id, node_id, team_id)
-                    if delete_result.get('success'):
-                        nodes_deleted += 1
-                        print(f"  🗑️  Deleted node: {node_id}")
-                else:
-                    print(f"  ⏭️  Keeping protected node: {node_id}")
-        
+        print(f"[@route:ai_generation:cleanup_temp] ✅ Batch deleted {nodes_deleted} nodes (kept: {keep_nodes})")
         print(f"[@route:ai_generation:cleanup_temp] Complete: {nodes_deleted} nodes, {edges_deleted} edges deleted")
         
         # ✅ Clear and REBUILD cache after cleanup (don't wait for next take-control)
