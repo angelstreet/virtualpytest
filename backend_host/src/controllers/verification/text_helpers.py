@@ -392,15 +392,19 @@ class TextHelpers:
         Uses pytesseract.image_to_data() to get text with coordinates for each word/line.
         This is the TV equivalent of ADB dump - discovers all text elements with their areas.
         
+        Results are SORTED BY FONT SIZE (largest first) - titles/headings appear first.
+        This prioritizes larger, more prominent text for better verification matching.
+        
         Args:
             image_path: Path to screenshot
             confidence_threshold: Minimum OCR confidence (0-100), default 30
             
         Returns:
-            List of text elements with areas:
+            List of text elements with areas (sorted by font_size descending):
             [
-                {'text': 'TV Guide', 'area': {'x': 50, 'y': 30, 'width': 300, 'height': 60}, 'confidence': 85},
-                {'text': 'GOLF+', 'area': {'x': 100, 'y': 200, 'width': 150, 'height': 40}, 'confidence': 92},
+                {'text': 'Rent', 'area': {...}, 'confidence': 95, 'font_size': 48},  # Title - largest
+                {'text': 'Lassie 2 Ein neues Abenteuer', 'area': {...}, 'confidence': 85, 'font_size': 24},
+                {'text': 'SD 2 days CHF 3.50', 'area': {...}, 'confidence': 92, 'font_size': 18},
                 ...
             ]
         """
@@ -558,7 +562,8 @@ class TextHelpers:
                             'width': expanded_width,
                             'height': expanded_height
                         },
-                        'confidence': confidence
+                        'confidence': confidence,
+                        'font_size': height  # Use original height as font size proxy (larger = title/heading)
                     })
                 
                 print(f"\n  🐛 DEBUG: OCR Processing Summary")
@@ -575,16 +580,16 @@ class TextHelpers:
                 if elements:
                     print(f"  🐛 DEBUG: All valid elements ({len(elements)} total):")
                     for elem in elements:
-                        print(f"    - '{elem['text']}' (conf={elem['confidence']}) at ({elem['area']['x']}, {elem['area']['y']})")
+                        print(f"    - '{elem['text']}' (conf={elem['confidence']}, size={elem.get('font_size', 0)}) at ({elem['area']['x']}, {elem['area']['y']})")
                 
                 # Group nearby words into phrases (combine words on same line)
                 if elements:
                     grouped_elements = self._group_text_elements(elements)
-                    print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases")
+                    print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases (sorted by font size)")
                     if grouped_elements:
-                        print(f"  🐛 DEBUG: All grouped phrases ({len(grouped_elements)} total):")
+                        print(f"  🐛 DEBUG: All grouped phrases ({len(grouped_elements)} total, sorted largest first):")
                         for phrase in grouped_elements:
-                            print(f"    - '{phrase['text']}' (conf={phrase['confidence']}) at ({phrase['area']['x']}, {phrase['area']['y']})")
+                            print(f"    - '{phrase['text']}' (conf={phrase['confidence']}, size={phrase.get('font_size', 0)}) at ({phrase['area']['x']}, {phrase['area']['y']})")
                     return grouped_elements
                 
                 print(f"  🐛 DEBUG: ⚠️ No valid elements passed all filters!")
@@ -761,6 +766,7 @@ class TextHelpers:
                     'text': elem['text'],
                     'area': elem['area'].copy(),
                     'confidence': elem['confidence'],
+                    'font_size': elem.get('font_size', 0),  # Track font size (use max from group)
                     'word_count': 1
                 }
             else:
@@ -793,6 +799,13 @@ class TextHelpers:
                         (current_group['confidence'] * current_group['word_count'] + elem['confidence']) / 
                         (current_group['word_count'] + 1)
                     )
+                    
+                    # Use MAX font size from all words (important for titles with mixed sizes)
+                    current_group['font_size'] = max(
+                        current_group.get('font_size', 0),
+                        elem.get('font_size', 0)
+                    )
+                    
                     current_group['word_count'] += 1
                 else:
                     # ✅ LAYER 2: Save current group with cleaned text if it passes quality check
@@ -802,13 +815,15 @@ class TextHelpers:
                             grouped.append({
                                 'text': cleaned_text,
                                 'area': current_group['area'],
-                                'confidence': current_group['confidence']
+                                'confidence': current_group['confidence'],
+                                'font_size': current_group.get('font_size', 0)
                             })
                     
                     current_group = {
                         'text': elem['text'],
                         'area': elem['area'].copy(),
                         'confidence': elem['confidence'],
+                        'font_size': elem.get('font_size', 0),
                         'word_count': 1
                     }
         
@@ -819,8 +834,12 @@ class TextHelpers:
                 grouped.append({
                     'text': cleaned_text,
                     'area': current_group['area'],
-                    'confidence': current_group['confidence']
+                    'confidence': current_group['confidence'],
+                    'font_size': current_group.get('font_size', 0)
                 })
+        
+        # Sort by font_size (descending) - larger text (titles) comes first
+        grouped.sort(key=lambda g: g.get('font_size', 0), reverse=True)
         
         return grouped
 
