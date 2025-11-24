@@ -676,6 +676,34 @@ class ExplorationEngine:
             
             print(f"[@exploration_engine:analyze_and_plan] _phase1_anticipation completed, prediction: {self.prediction}")
             
+            # ✅ NEW: Extract left/right items for D-pad navigation AND reorder
+            items_left_of_home = []
+            items_right_of_home = []
+            raw_items = self.prediction.get('items', [])
+            reordered_items = raw_items  # Default: no reordering
+            
+            # Check if this is horizontal D-pad navigation
+            if self.prediction.get('strategy') in ['dpad_with_screenshot', 'test_dpad_directions'] and self.prediction.get('menu_type') in ['horizontal', 'mixed']:
+                # Find home index
+                home_index = -1
+                for i, item in enumerate(raw_items):
+                    if item.lower() == 'home':
+                        home_index = i
+                        break
+                
+                if home_index > 0:
+                    # Home found with items on left
+                    items_left_of_home = raw_items[:home_index]
+                    items_right_of_home = raw_items[home_index + 1:]
+                    # ✅ REORDER: [home, RIGHT items, LEFT items]
+                    reordered_items = ['home'] + items_right_of_home + items_left_of_home
+                    print(f"  📊 Split items around home: {len(items_left_of_home)} left, {len(items_right_of_home)} right")
+                    print(f"  🔄 Reordered for validation: {reordered_items}")
+                else:
+                    # Home at start or not found
+                    items_right_of_home = raw_items[1:] if len(raw_items) > 1 else []
+                    print(f"  📊 No left items - home at start")
+            
             # Build reasoning for user
             reasoning = f"""Menu Type: {self.prediction.get('menu_type', 'unknown')}
 Items Found: {len(self.prediction.get('items', []))} items
@@ -703,13 +731,15 @@ Exploration will navigate through these items using {self.prediction.get('strate
                 'success': True,
                 'plan': {
                     'menu_type': self.prediction.get('menu_type'),
-                    'items': self.prediction.get('items', []),
+                    'items': reordered_items,  # ✅ Use reordered list
                     'lines': self.prediction.get('lines', []),
                     'strategy': self.prediction.get('strategy'),
                     'predicted_depth': self.prediction.get('predicted_depth', 1),
                     'reasoning': reasoning,
                     'screenshot': self.initial_screenshot,
-                    'screen_name': 'Initial Screen'
+                    'screen_name': 'Initial Screen',
+                    'items_left_of_home': items_left_of_home,
+                    'items_right_of_home': items_right_of_home
                 }
             }
             

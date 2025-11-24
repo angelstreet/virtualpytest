@@ -30,6 +30,13 @@ def start_node_verification(executor) -> Dict[str, Any]:
                 'error': 'No node verification data available'
             }
         
+        # Filter out start_node if it already has verification
+        if executor.exploration_state.get('start_node_has_verification', False):
+            start_node_id = executor.exploration_state.get('home_id')
+            node_verification_data = [n for n in node_verification_data if n.get('node_id') != start_node_id]
+            start_node_label = executor.exploration_state.get('start_node', start_node_id)
+            print(f"[@ExplorationExecutor:start_node_verification] Filtered out '{start_node_label}' (already has verification)")
+        
         print(f"[@ExplorationExecutor:start_node_verification] Analyzing {len(node_verification_data)} nodes")
         
         # Analyze dumps to find unique elements
@@ -103,11 +110,12 @@ def approve_node_verifications(executor, approved_verifications: List[Dict], tea
             node_data = node_result['node']
             
             # ✅ Skip start_node if it already has verification
-            start_node_id = executor.exploration_state.get('home_id', 'home')
+            start_node_id = executor.exploration_state.get('home_id')
             existing_verifications = node_data.get('verifications', [])
             
             if node_id == start_node_id and len(existing_verifications) > 0:
-                print(f"  ⏭️  Skipping {node_id}: already has {len(existing_verifications)} verification(s)")
+                start_node_label = executor.exploration_state.get('start_node', node_id)
+                print(f"  ⏭️  Skipping '{start_node_label}': already has {len(existing_verifications)} verification(s)")
                 continue
             
             # Update node with screenshot + verification

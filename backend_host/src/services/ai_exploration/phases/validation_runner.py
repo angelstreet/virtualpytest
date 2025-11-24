@@ -289,20 +289,25 @@ def validate_next_item(executor) -> Dict[str, Any]:
             
             prev_focus_name = start_node_id
             if home_in_current_row:
-                nav_direction = 'RIGHT'  # start_node is IN this row, horizontal navigation
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node IN Row {current_row_index + 1} → RIGHT")
-                print(f"     Reason: '{start_node_label}' is part of Row {current_row_index + 1}, horizontal navigation")
+                # Check if item is LEFT or RIGHT of home
+                items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+                is_left_item = current_item in items_left
+                nav_direction = 'LEFT' if is_left_item else 'RIGHT'
+                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node IN Row {current_row_index + 1} → {nav_direction}")
+                print(f"     Reason: '{start_node_label}' is part of Row {current_row_index + 1}, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
             else:
                 nav_direction = 'DOWN'  # start_node is NOT in this row, vertical navigation
                 print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node NOT in rows → DOWN")
                 print(f"     Reason: '{start_node_label}' is Row 0, navigating down to Row {current_row_index + 1}")
         elif is_same_row:
-            # Same row: horizontal navigation
+            # Same row: horizontal navigation - check if LEFT or RIGHT of home
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
             prev_focus_name = f"{start_node_id}_{prev_item_name}"
-            nav_direction = 'RIGHT'  # Moving within same row horizontally
-            print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → RIGHT within row")
-            print(f"     Reason: Both items in Row {current_row_index + 1}")
+            items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+            is_left_item = current_item in items_left
+            nav_direction = 'LEFT' if is_left_item else 'RIGHT'
+            print(f"  🐛 DEBUG: ✅ Decision: SAME ROW → {nav_direction} within row")
+            print(f"     Reason: Both items in Row {current_row_index + 1}, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
             print(f"     prev_focus_name = {prev_focus_name}")
         else:
             # Different rows: vertical navigation
@@ -320,8 +325,33 @@ def validate_next_item(executor) -> Dict[str, Any]:
         # Row numbering: home is Row 0, lines[0] is Row 1, lines[1] is Row 2, etc.
         display_row = current_row_index + 1  # lines[0] = Row 1
         
+        # ✅ TRANSITION: Navigate to start_node before first LEFT item
+        items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+        if items_left and current_item in items_left and current_item == items_left[0]:
+            print(f"\n    🔄 LEFT TRANSITION: Navigating to '{start_node_label}' before first LEFT item...")
+            print(f"      First LEFT item: {current_item}")
+            print(f"      All LEFT items: {items_left}")
+            try:
+                import asyncio
+                nav_result = asyncio.run(executor.device.navigation_executor.execute_navigation(
+                    tree_id=tree_id,
+                    userinterface_name=executor.exploration_state['userinterface_name'],
+                    target_node_label=start_node_label,
+                    team_id=team_id
+                ))
+                
+                if nav_result.get('success'):
+                    print(f"    ✅ At '{start_node_label}' - ready for LEFT navigation")
+                else:
+                    error_msg = nav_result.get('error', 'Unknown error')
+                    print(f"    ❌ Navigation to '{start_node_label}' failed: {error_msg}")
+                    print(f"    ⚠️ Continuing anyway - validation may fail")
+            except Exception as e:
+                print(f"    ❌ LEFT transition exception: {e}")
+                print(f"    ⚠️ Continuing anyway - validation may fail")
+        
         # ✅ RECOVERY: Only navigate to home if we're doing DOWN navigation (home not in same row)
-        if is_first_item_overall and nav_direction == 'DOWN':
+        elif is_first_item_overall and nav_direction == 'DOWN':
             print(f"\n    🔄 ROW {display_row} START: Ensuring we're at home (Row 0)...")
             try:
                 import asyncio
