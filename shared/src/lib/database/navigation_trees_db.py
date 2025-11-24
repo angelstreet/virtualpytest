@@ -1196,8 +1196,7 @@ def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: 
         deleted_count = len(deleted_node_ids or []) + len(deleted_edge_ids or [])
         print(f"[@db:navigation_trees:save_tree_data] Deleted {deleted_count} items, saved {len(saved_nodes)} nodes and {len(saved_edges)} edges for tree {tree_id}")
         
-        # Invalidate cache after successful save
-        invalidate_navigation_cache_for_tree(tree_id, team_id)
+        # NOTE: Cache invalidation moved to caller (save_tree_data_api) to avoid duplicate clears
         
         return {
             'success': True,

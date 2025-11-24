@@ -69,12 +69,17 @@ def set_cached_tree(tree_id: str, team_id: str, data):
         print(f"[@cache] SET: Tree {tree_id} (total cached: {len(_tree_cache)})")
 
 def invalidate_cached_tree(tree_id: str, team_id: str):
-    """Invalidate cached tree when it's modified."""
+    """Invalidate cached tree when it's modified (SERVER + HOST)."""
+    # Clear SERVER cache
     with _cache_lock:
         cache_key = f"{team_id}:{tree_id}"
         if cache_key in _tree_cache:
             del _tree_cache[cache_key]
             print(f"[@cache] INVALIDATE: Tree {tree_id}")
+    
+    # Clear HOST cache
+    from shared.src.lib.database.navigation_trees_db import invalidate_navigation_cache_for_tree
+    invalidate_navigation_cache_for_tree(tree_id, team_id)
     
     # Also invalidate preview cache on all host devices
     try:
