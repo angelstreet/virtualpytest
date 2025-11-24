@@ -39,8 +39,10 @@ def start_validation(executor) -> Dict[str, Any]:
         print(f"🚀 [VALIDATION START] Validation order for {len(items_to_validate)} items")
         print(f"{'='*100}")
         for idx, item in enumerate(items_to_validate):
-            node_name = target_to_node_map.get(item, 'UNKNOWN')
-            print(f"  [{idx}] {item:20} -> will create nodes: {node_name} (focus), {item} (screen)")
+            # Each item will create: home_{item} (focus node) and {item} (screen node)
+            focus_node = f"home_{item.replace(' ', '_')}"
+            screen_node = item.replace(' ', '_')
+            print(f"  [{idx}] {item:20} -> will create: {focus_node} (focus), {screen_node} (screen)")
         print(f"{'='*100}\n")
         
         print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
