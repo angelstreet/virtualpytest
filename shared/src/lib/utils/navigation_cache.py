@@ -23,9 +23,14 @@ _tree_hierarchy_cache: Dict[str, Dict] = {}            # Tree hierarchy metadata
 _node_location_cache: Dict[str, str] = {}              # node_id -> tree_id mapping
 _unified_cache_timestamps: Dict[str, datetime] = {}
 
-def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiGraph]:
+def get_cached_unified_graph(root_tree_id: str, team_id: str, silent: bool = False) -> Optional[nx.DiGraph]:
     """
     Get cached unified NetworkX graph - memory-only (no file persistence)
+    
+    Args:
+        root_tree_id: Root navigation tree ID
+        team_id: Team ID for security
+        silent: If True, don't log cache hits/misses (reduces noise for update routes)
     """
     if not root_tree_id or not team_id:
         return None
@@ -38,15 +43,18 @@ def get_cached_unified_graph(root_tree_id: str, team_id: str) -> Optional[nx.DiG
         if timestamp:
             age = (datetime.now() - timestamp).total_seconds()
             if age < CACHE_TTL:
-                print(f"[@navigation:cache:get_cached_unified_graph] ✅ Memory Cache HIT: {cache_key} (age: {age:.1f}s)")
+                if not silent:
+                    print(f"[@navigation:cache:get_cached_unified_graph] ✅ Memory Cache HIT: {cache_key} (age: {age:.1f}s)")
                 return _unified_graphs_cache[cache_key]
             else:
                 # Expired - remove from cache
                 del _unified_graphs_cache[cache_key]
                 del _unified_cache_timestamps[cache_key]
-                print(f"[@navigation:cache:get_cached_unified_graph] Cache expired, removed: {cache_key}")
+                if not silent:
+                    print(f"[@navigation:cache:get_cached_unified_graph] Cache expired, removed: {cache_key}")
     
-    print(f"[@navigation:cache:get_cached_unified_graph] ❌ Cache MISS: {cache_key}")
+    if not silent:
+        print(f"[@navigation:cache:get_cached_unified_graph] ❌ Cache MISS: {cache_key}")
     return None
 
 def refresh_cache_timestamp(root_tree_id: str, team_id: str) -> bool:

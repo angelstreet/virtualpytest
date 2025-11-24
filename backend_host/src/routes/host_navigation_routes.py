@@ -337,47 +337,34 @@ def update_edge_in_cache():
                 'error': 'edge must have id, source_node_id, and target_node_id'
             }), 400
         
-        print(f"[@route:host_navigation:update_edge_in_cache] 🔧 Update Request:")
-        print(f"  → Edge ID: {edge_id}")
-        print(f"  → Tree ID (requested): {tree_id}")
-        print(f"  → Team ID: {team_id}")
-        print(f"  → Source: {source_node} → Target: {target_node}")
-        
         # Resolve to root tree (cache is always stored under root tree ID)
         from shared.src.lib.database.navigation_trees_db import _get_root_tree_id
         root_tree_id = _get_root_tree_id(tree_id, team_id)
         
         if not root_tree_id:
-            print(f"  ⚠️  Could not resolve root tree for {tree_id}")
             root_tree_id = tree_id  # Fallback to original tree_id
-        elif root_tree_id != tree_id:
-            print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
-        # Get the cached graph
+        # Get the cached graph (silent=True to avoid logging cache misses)
         from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
         
-        # DEBUG: Show what caches exist
-        available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
-        print(f"  → Available caches for team: {available_caches}")
+        cached_graph = get_cached_unified_graph(root_tree_id, team_id, silent=True)
         
-        # Try to get cache for ROOT tree
-        cache_key = f"unified_{root_tree_id}_{team_id}"
-        print(f"  → Looking for cache: {cache_key}")
-        
-        cached_graph = get_cached_unified_graph(root_tree_id, team_id)
-        
+        # If no cache exists, silently skip (cache only created on take-control)
         if not cached_graph:
-            print(f"  ⚠️  No cache found for root tree {root_tree_id}")
-            print(f"  💡 Cache is only created when taking control of a device")
             return jsonify({
                 'success': True,
                 'message': f'No cache for tree {tree_id} - update skipped (will rebuild on next take-control)',
-                'cache_exists': False,
-                'debug': {
-                    'requested_cache': cache_key,
-                    'available_caches': available_caches
-                }
+                'cache_exists': False
             })
+        
+        # Cache exists - log the update
+        print(f"[@route:host_navigation:update_edge_in_cache] 🔧 Update Request:")
+        print(f"  → Edge ID: {edge_id}")
+        print(f"  → Tree ID (requested): {tree_id}")
+        print(f"  → Team ID: {team_id}")
+        print(f"  → Source: {source_node} → Target: {target_node}")
+        if root_tree_id != tree_id:
+            print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
         # Update edge in graph - COMPLETELY REPLACE attributes (not shallow merge)
         if cached_graph.has_edge(source_node, target_node):
@@ -451,46 +438,33 @@ def update_node_in_cache():
                 'error': 'node must have id'
             }), 400
         
-        print(f"[@route:host_navigation:update_node_in_cache] 🔧 Update Request:")
-        print(f"  → Node ID: {node_id}")
-        print(f"  → Tree ID (requested): {tree_id}")
-        print(f"  → Team ID: {team_id}")
-        
         # Resolve to root tree (cache is always stored under root tree ID)
         from shared.src.lib.database.navigation_trees_db import _get_root_tree_id
         root_tree_id = _get_root_tree_id(tree_id, team_id)
         
         if not root_tree_id:
-            print(f"  ⚠️  Could not resolve root tree for {tree_id}")
             root_tree_id = tree_id  # Fallback to original tree_id
-        elif root_tree_id != tree_id:
-            print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
-        # Get the cached graph
+        # Get the cached graph (silent=True to avoid logging cache misses)
         from shared.src.lib.utils.navigation_cache import get_cached_unified_graph, save_unified_cache, _unified_graphs_cache
         
-        # DEBUG: Show what caches exist
-        available_caches = [k for k in _unified_graphs_cache.keys() if team_id in k]
-        print(f"  → Available caches for team: {available_caches}")
+        cached_graph = get_cached_unified_graph(root_tree_id, team_id, silent=True)
         
-        # Try to get cache for ROOT tree
-        cache_key = f"unified_{root_tree_id}_{team_id}"
-        print(f"  → Looking for cache: {cache_key}")
-        
-        cached_graph = get_cached_unified_graph(root_tree_id, team_id)
-        
+        # If no cache exists, silently skip (cache only created on take-control)
         if not cached_graph:
-            print(f"  ⚠️  No cache found for root tree {root_tree_id}")
-            print(f"  💡 Cache is only created when taking control of a device")
             return jsonify({
                 'success': True,
                 'message': f'No cache for tree {tree_id} - update skipped (will rebuild on next take-control)',
-                'cache_exists': False,
-                'debug': {
-                    'requested_cache': cache_key,
-                    'available_caches': available_caches
-                }
+                'cache_exists': False
             })
+        
+        # Cache exists - log the update
+        print(f"[@route:host_navigation:update_node_in_cache] 🔧 Update Request:")
+        print(f"  → Node ID: {node_id}")
+        print(f"  → Tree ID (requested): {tree_id}")
+        print(f"  → Team ID: {team_id}")
+        if root_tree_id != tree_id:
+            print(f"  🔗 Resolved to ROOT tree: {root_tree_id}")
         
         # Update node in graph
         if cached_graph.has_node(node_id):
