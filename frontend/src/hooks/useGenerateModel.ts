@@ -104,7 +104,7 @@ export const useGenerateModel = ({
   onClose
 }: UseGenerateModelProps) => {
   // ✅ AUTO-DETECT: Use current position from NavigationContext
-  const { currentNodeLabel } = useNavigation();
+  const { currentNodeLabel, nodes } = useNavigation();
   
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
@@ -340,12 +340,18 @@ export const useGenerateModel = ({
       setStatus('exploring');
       setCurrentStep('Starting AI exploration...');
       
+      // ✅ SUBTREE DETECTION: Find subtree root node (isParentReference: true)
+      const subtreeRootNode = nodes.find(n => n.data?.isParentReference === true);
+      const startNodeLabel = subtreeRootNode?.data?.label || currentNodeLabel || 'home';
+      
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
         treeId,
         host_name: selectedHost.host_name,
         device_id: selectedDeviceId,
         userinterface_name: userinterfaceName,
-        start_node: currentNodeLabel || 'home'
+        start_node: startNodeLabel,
+        is_subtree: !!subtreeRootNode,
+        subtree_root: subtreeRootNode?.data?.label
       });
 
       // Start new exploration (depth is fixed at 2 levels)
@@ -357,7 +363,7 @@ export const useGenerateModel = ({
           host_name: selectedHost.host_name,  // ← Just the name!
           device_id: selectedDeviceId,
           userinterface_name: userinterfaceName,
-          start_node: currentNodeLabel || 'home'  // ✅ AUTO-DETECT: Use context position
+          start_node: startNodeLabel  // ✅ AUTO-DETECT: Subtree root → current position → 'home'
         })
       });
 
@@ -383,7 +389,7 @@ export const useGenerateModel = ({
       setIsExploring(false);
       setStatus('failed');
     }
-  }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName]);
+  }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName, nodes, currentNodeLabel]);
 
   const continueExploration = useCallback(async (selectedScreenNodes?: Set<string>) => {
     if (!explorationId || !explorationHostName) {

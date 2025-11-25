@@ -147,10 +147,12 @@ export const useAIGenerationModal = ({
       const nodesData = await nodesResponse.json();
       const edgesData = await edgesResponse.json();
       
-      // Count non-essential nodes (exclude entry-node and home)
+      // Count non-essential nodes (exclude entry-node, home, and subtree root)
       const nonEssentialNodes = nodesData.success && nodesData.nodes 
         ? nodesData.nodes.filter((n: any) => 
-            n.node_id !== 'entry-node' && n.node_id !== 'home'
+            n.node_id !== 'entry-node' && 
+            n.node_id !== 'home' &&
+            n.data?.isParentReference !== true  // ✅ PROTECT: Subtree root node
           )
         : [];
       
@@ -198,10 +200,14 @@ export const useAIGenerationModal = ({
       const nodesData = await nodesResponse.json();
       const edgesData = await edgesResponse.json();
       
-      // Filter nodes: Keep 'entry-node' and 'home'
+      // Filter nodes: Keep 'entry-node', 'home', and subtree root
       const nodeIdsToDelete = nodesData.success && nodesData.nodes 
         ? nodesData.nodes
-            .filter((n: any) => n.node_id !== 'entry-node' && n.node_id !== 'home')
+            .filter((n: any) => 
+              n.node_id !== 'entry-node' && 
+              n.node_id !== 'home' &&
+              n.data?.isParentReference !== true  // ✅ PROTECT: Subtree root node
+            )
             .map((n: any) => n.node_id)
         : [];
       
