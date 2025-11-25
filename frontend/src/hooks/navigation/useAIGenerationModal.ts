@@ -187,7 +187,7 @@ export const useAIGenerationModal = ({
     setIsCheckingTree(true);
     
     try {
-      console.log('[@useAIGenerationModal] User confirmed - deleting all non-home nodes/edges...');
+      console.log('[@useAIGenerationModal] User confirmed - batch deleting all non-home nodes/edges...');
       
       // Get nodes and edges again
       const [nodesResponse, edgesResponse] = await Promise.all([
@@ -199,45 +199,46 @@ export const useAIGenerationModal = ({
       const edgesData = await edgesResponse.json();
       
       // Filter nodes: Keep 'entry-node' and 'home'
-      const nonEssentialNodes = nodesData.success && nodesData.nodes 
-        ? nodesData.nodes.filter((n: any) => 
-            n.node_id !== 'entry-node' && n.node_id !== 'home'
-          )
+      const nodeIdsToDelete = nodesData.success && nodesData.nodes 
+        ? nodesData.nodes
+            .filter((n: any) => n.node_id !== 'entry-node' && n.node_id !== 'home')
+            .map((n: any) => n.node_id)
         : [];
       
       // Filter edges: Keep 'edge-entry-node-to-home'
-      const allEdges = edgesData.success && edgesData.edges ? edgesData.edges : [];
-      const edgesToDelete = allEdges.filter((e: any) => 
-        e.edge_id !== 'edge-entry-node-to-home'
+      const edgeIdsToDelete = edgesData.success && edgesData.edges
+        ? edgesData.edges
+            .filter((e: any) => e.edge_id !== 'edge-entry-node-to-home')
+            .map((e: any) => e.edge_id)
+        : [];
+      
+      console.log(`[@useAIGenerationModal] Batch deleting ${edgeIdsToDelete.length} edges and ${nodeIdsToDelete.length} nodes...`);
+      
+      // ✅ Use batch endpoint - ONE API call instead of N calls
+      const batchResponse = await fetch(
+        buildServerUrl(`/server/navigationTrees/${treeId}/batch?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            nodes: [], // Not updating any nodes
+            edges: [], // Not updating any edges
+            deleted_node_ids: nodeIdsToDelete,
+            deleted_edge_ids: edgeIdsToDelete
+          })
+        }
       );
       
-      // Delete all edges EXCEPT 'edge-entry-node-to-home'
-      console.log(`[@useAIGenerationModal] Deleting ${edgesToDelete.length} edges (keeping edge-entry-node-to-home)...`);
-      for (const edge of edgesToDelete) {
-        try {
-          await fetch(
-            buildServerUrl(`/server/navigationTrees/${treeId}/edges/${edge.edge_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
-            { method: 'DELETE' }
-          );
-        } catch (err) {
-          console.warn(`[@useAIGenerationModal] Failed to delete edge ${edge.edge_id}:`, err);
-        }
+      if (!batchResponse.ok) {
+        throw new Error(`Batch delete failed: ${batchResponse.status}`);
       }
       
-      // Delete all non-essential nodes
-      console.log(`[@useAIGenerationModal] Deleting ${nonEssentialNodes.length} nodes (keeping entry-node and home)...`);
-      for (const node of nonEssentialNodes) {
-        try {
-          await fetch(
-            buildServerUrl(`/server/navigationTrees/${treeId}/nodes/${node.node_id}?team_id=${APP_CONFIG.DEFAULT_TEAM_ID}`),
-            { method: 'DELETE' }
-          );
-        } catch (err) {
-          console.warn(`[@useAIGenerationModal] Failed to delete node ${node.node_id}:`, err);
-        }
+      const batchResult = await batchResponse.json();
+      if (!batchResult.success) {
+        throw new Error(batchResult.error || 'Batch delete failed');
       }
       
-      console.log('[@useAIGenerationModal] Tree cleaned successfully');
+      console.log('[@useAIGenerationModal] ✅ Tree cleaned successfully via batch delete');
       
       // Refresh ReactFlow to show clean tree
       onGenerated();

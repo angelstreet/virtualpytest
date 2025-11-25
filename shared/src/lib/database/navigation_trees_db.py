@@ -1151,22 +1151,30 @@ def move_subtree(subtree_id: str, new_parent_tree_id: str, new_parent_node_id: s
 def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: str, deleted_node_ids: List[str] = None, deleted_edge_ids: List[str] = None, viewport: Dict = None) -> Dict:
     """Save complete tree data (nodes + edges) in batch with deletions."""
     try:
-        # Handle deletions first
-        if deleted_node_ids:
-            for node_id in deleted_node_ids:
-                delete_result = delete_node(tree_id, node_id, team_id)
-                if not delete_result['success']:
-                    return {'success': False, 'error': f"Failed to delete node {node_id}: {delete_result['error']}"}
+        supabase = get_supabase()
         
-        if deleted_edge_ids:
-            for edge_id in deleted_edge_ids:
-                delete_result = delete_edge(tree_id, edge_id, team_id)
-                if not delete_result['success']:
-                    return {'success': False, 'error': f"Failed to delete edge {edge_id}: {delete_result['error']}"}
+        # ✅ Batch delete edges in ONE query
+        if deleted_edge_ids and len(deleted_edge_ids) > 0:
+            supabase.table('navigation_edges')\
+                .delete()\
+                .eq('tree_id', tree_id)\
+                .eq('team_id', team_id)\
+                .in_('edge_id', deleted_edge_ids)\
+                .execute()
+            print(f"[@db:navigation_trees:save_tree_data] Batch deleted {len(deleted_edge_ids)} edges")
+        
+        # ✅ Batch delete nodes in ONE query
+        if deleted_node_ids and len(deleted_node_ids) > 0:
+            supabase.table('navigation_nodes')\
+                .delete()\
+                .eq('tree_id', tree_id)\
+                .eq('team_id', team_id)\
+                .in_('node_id', deleted_node_ids)\
+                .execute()
+            print(f"[@db:navigation_trees:save_tree_data] Batch deleted {len(deleted_node_ids)} nodes")
         
         # Update tree viewport if provided
         if viewport:
-            supabase = get_supabase()
             supabase.table('navigation_trees').update({
                 'viewport_x': viewport.get('x', 0),
                 'viewport_y': viewport.get('y', 0), 
@@ -1194,7 +1202,7 @@ def save_tree_data(tree_id: str, nodes: List[Dict], edges: List[Dict], team_id: 
                 return {'success': False, 'error': f"Failed to save edge {edge_data.get('edge_id')}: {result['error']}"}
         
         deleted_count = len(deleted_node_ids or []) + len(deleted_edge_ids or [])
-        print(f"[@db:navigation_trees:save_tree_data] Deleted {deleted_count} items, saved {len(saved_nodes)} nodes and {len(saved_edges)} edges for tree {tree_id}")
+        print(f"[@db:navigation_trees:save_tree_data] Batch deleted {deleted_count} items, saved {len(saved_nodes)} nodes and {len(saved_edges)} edges for tree {tree_id}")
         
         # NOTE: Cache invalidation moved to caller (save_tree_data_api) to avoid duplicate clears
         
