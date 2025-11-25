@@ -385,18 +385,22 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                             // DPAD navigation (TV/STB) - show dual-layer chips
                             <Box sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                               {explorationPlan.lines.map((line: string[], lineIdx: number) => {
+                                // Helper: Strip _duplicate* suffix for display
+                                const stripDuplicateSuffix = (name: string) => name.replace(/_duplicate\d+$/i, '');
+                                
                                 // Generate focus and screen node data WITH ORIGINAL INDICES
                                 const nodePairs: Array<{item: string, focusNode: string, screenNode: string, originalIndex: number}> = [];
                                 
                                 line.forEach((item, originalIdx) => {
                                   const isHome = item.toLowerCase() === 'home';
-                                  const cleanName = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+                                  const displayName = stripDuplicateSuffix(item);  // Remove _duplicate* for clean name
+                                  const cleanName = displayName.toLowerCase().replace(/[^a-z0-9]+/g, '_');
                                   
                                   if (!isHome) {
                                     nodePairs.push({
-                                      item: item,
-                                      focusNode: `home_${cleanName}`,
-                                      screenNode: cleanName,
+                                      item: item,  // Keep full name with _duplicate* for selection tracking
+                                      focusNode: `home_${cleanName}`,  // Use clean name for display
+                                      screenNode: cleanName,  // Use clean name for display
                                       originalIndex: originalIdx  // ✅ Preserve original line index
                                     });
                                   }
@@ -494,8 +498,12 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                   return !['home', 'accueil'].includes(lower);
                                 })
                                 .map((item: string, idx: number) => {
+                                  // Check if this is a renamed duplicate
+                                  const isDuplicate = /_duplicate\d+$/i.test(item);
+                                  const displayItem = item.replace(/_duplicate\d+$/i, '');  // Strip suffix for display
+                                  
                                   // Generate clean node name (same logic as action sets)
-                                  const cleanNodeName = item.toLowerCase()
+                                  const cleanNodeName = displayItem.toLowerCase()
                                     .replace(/&amp;/g, ' ')
                                     .replace(/tab|register|button|screen|menu|page|currently selected/gi, ' ')
                                     .replace(/[^a-z0-9]+/g, '_')
@@ -510,13 +518,14 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       label={cleanNodeName} 
                                       size="small" 
                                       variant="outlined"
-                                      onClick={() => toggleNodeSelection(item)}
+                                      onClick={isDuplicate ? undefined : () => toggleNodeSelection(item)}
                                       sx={{ 
-                                        cursor: 'pointer',
-                                        opacity: isSelected ? 1 : 0.4,
-                                        bgcolor: isSelected ? 'primary.dark' : 'transparent',
-                                        borderColor: isSelected ? 'primary.main' : 'grey.600',
-                                        '&:hover': {
+                                        cursor: isDuplicate ? 'not-allowed' : 'pointer',
+                                        opacity: isDuplicate ? 0.7 : (isSelected ? 1 : 0.4),
+                                        bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : (isSelected ? 'primary.dark' : 'transparent'),
+                                        borderColor: isDuplicate ? 'error.main' : (isSelected ? 'primary.main' : 'grey.600'),
+                                        borderWidth: isDuplicate ? '2px' : '1px',
+                                        '&:hover': isDuplicate ? {} : {
                                           opacity: 0.8,
                                           bgcolor: isSelected ? 'primary.dark' : 'action.hover'
                                         }
