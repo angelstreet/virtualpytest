@@ -62,8 +62,20 @@ def cleanup_temp():
         
         print(f"[@route:ai_generation:cleanup_temp] ✅ Batch deleted {edges_deleted} edges (kept: {keep_edges})")
         
-        # Batch delete all nodes except entry-node and home
+        # Batch delete all nodes except entry-node, home, and subtree root (if exists)
         keep_nodes = ['entry-node', 'home']
+        
+        # ✅ SUBTREE PROTECTION: Check if this is a subtree and preserve the parent reference node
+        nodes_result = get_tree_nodes(tree_id, team_id)
+        if nodes_result.get('success') and nodes_result.get('nodes'):
+            for node in nodes_result['nodes']:
+                node_data = node.get('data', {})
+                if node_data.get('isParentReference') is True:
+                    subtree_root_id = node.get('node_id')
+                    keep_nodes.append(subtree_root_id)
+                    print(f"[@route:ai_generation:cleanup_temp] 🌲 Detected subtree - protecting root node: {subtree_root_id}")
+                    break
+        
         nodes_delete_result = batch_delete_nodes_except(tree_id, team_id, keep_nodes)
         nodes_deleted = nodes_delete_result.get('deleted_count', 0)
         
