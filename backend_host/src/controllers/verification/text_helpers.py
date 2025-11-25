@@ -744,8 +744,23 @@ class TextHelpers:
                 elem_left = elem['area']['x']
                 x_gap = elem_left - current_right
                 
-                # If on same line (y_diff < half height) and close horizontally (gap < 30px max)
-                if y_diff < height_avg * 0.5 and x_gap < 30:
+                # Check font size similarity (don't group if font sizes differ by more than 50%)
+                current_font_size = current_group.get('font_size', 0)
+                elem_font_size = elem.get('font_size', 0)
+                max_font = max(current_font_size, elem_font_size)
+                min_font = min(current_font_size, elem_font_size)
+                font_ratio = min_font / max_font if max_font > 0 else 1.0
+                
+                # DEBUG logging
+                should_group_by_distance = (y_diff < height_avg * 0.5 and x_gap < 30)
+                should_group_by_font = (font_ratio > 0.5)  # Allow grouping if fonts within 50% size
+                
+                print(f"[@group] Comparing: '{current_group['text']}' (font={current_font_size}) + '{elem['text']}' (font={elem_font_size})")
+                print(f"  y_diff={y_diff:.1f}, height_avg={height_avg:.1f}, x_gap={x_gap:.1f}")
+                print(f"  font_ratio={font_ratio:.2f}, should_group={should_group_by_distance and should_group_by_font}")
+                
+                # If on same line (y_diff < half height) and close horizontally (gap < 30px max) and similar font size
+                if should_group_by_distance and should_group_by_font:
                     # Merge into current group
                     current_group['text'] += ' ' + elem['text']
                     
