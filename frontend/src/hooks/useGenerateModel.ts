@@ -600,7 +600,7 @@ export const useGenerateModel = ({
       setStatus('analyzing_verifications');
       setCurrentStep('Analyzing dumps for unique elements...');
 
-      const response = await fetch(buildServerUrl('/host/ai-generation/start-node-verification'), {
+      const response = await fetch(buildServerUrl('/server/ai-generation/start-node-verification'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -642,7 +642,7 @@ export const useGenerateModel = ({
       setIsGenerating(true);
       setCurrentStep('Updating nodes with verifications...');
 
-      const response = await fetch(buildServerUrl('/host/ai-generation/approve-node-verifications'), {
+      const response = await fetch(buildServerUrl('/server/ai-generation/approve-node-verifications'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
@@ -772,7 +772,7 @@ export const useGenerateModel = ({
       setIsExploring(true);
 
       const url = buildServerUrl(
-        `/host/ai-generation/init?host_name=${encodeURIComponent(explorationHostName)}&team_id=${selectedHost?.team_id || ''}`
+        `/server/ai-generation/init?host_name=${encodeURIComponent(explorationHostName)}&team_id=${selectedHost?.team_id || ''}`
       );
 
       const response = await fetch(url, {
@@ -825,7 +825,7 @@ export const useGenerateModel = ({
         setCurrentStep(`Creating item ${(context.current_step || 0) + 1}/${context.total_steps || 0}...`);
 
         const url = buildServerUrl(
-          `/host/ai-generation/next?host_name=${encodeURIComponent(explorationHostName)}&team_id=${selectedHost?.team_id || ''}`
+          `/server/ai-generation/next?host_name=${encodeURIComponent(explorationHostName)}&team_id=${selectedHost?.team_id || ''}`
         );
 
         const response = await fetch(url, {

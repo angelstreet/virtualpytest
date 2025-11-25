@@ -158,7 +158,7 @@ export const useNodeEdit = ({
               }
               
               // Use existing saveText endpoint which handles upsert
-              const updateResponse = await fetch(buildServerUrl('/host/verification/text/saveText'), {
+              const updateResponse = await fetch(buildServerUrl('/server/verification/text/saveText'), {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify(updateData)

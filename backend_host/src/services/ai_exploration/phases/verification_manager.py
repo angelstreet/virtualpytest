@@ -165,8 +165,10 @@ def approve_node_verifications(executor, approved_verifications: List[Dict], tea
                     # Get node label (remove _temp suffix)
                     node_label = node_data.get('label', node_id).replace('_temp', '')
                     
-                    # Create reference name with _text suffix to match frontend convention
-                    reference_name = f"{userinterface_name}_{node_label}_text"
+                    # Create reference name with _text suffix (WITHOUT userinterface prefix)
+                    # Frontend will generate internal key as: {userinterface}_{reference_name}_text
+                    # So if we save "profile_text", frontend creates key "test_stb_profile_text_text"
+                    reference_name = f"{node_label}_text"
                     
                     # Merge text with area data (match text_helpers.py format)
                     # Only store text + area coordinates (no confidence/font_size needed)
