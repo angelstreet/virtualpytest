@@ -439,6 +439,23 @@ def validate_next_item(executor) -> Dict[str, Any]:
         try:
             print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
             
+            # ✅ Read edge from database to get iterator parameter
+            edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}_temp"
+            iterator = 1  # Default: single press
+            
+            try:
+                edge_result = get_edge_by_id(tree_id, edge_id, team_id)
+                if edge_result.get('success') and edge_result.get('edge'):
+                    edge = edge_result['edge']
+                    action_sets = edge.get('action_sets', [])
+                    if len(action_sets) > 0 and action_sets[0].get('actions'):
+                        first_action = action_sets[0]['actions'][0]
+                        params = first_action.get('params', {})
+                        iterator = params.get('iterator', 1)
+                        print(f"    📊 Edge iterator from database: {iterator}")
+            except Exception as e:
+                print(f"    ⚠️ Could not read edge iterator: {e}")
+            
             # ✅ For vertical rows (Row 1+): Press DOWN multiple times from home
             # - current_row_index: which row (1 = first vertical row)
             # - current_position_in_row: position within that row
@@ -457,15 +474,21 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     print(f"       DOWN {down_count + 1}/{total_downs}")
                     time.sleep(0.8)  # Short delay between DOWNs
             else:
-                # Horizontal navigation (LEFT/RIGHT) - single press
-                result = controller.press_key(nav_direction)
-                import inspect
-                if inspect.iscoroutine(result):
-                    import asyncio
-                    result = asyncio.run(result)
+                # Horizontal navigation (LEFT/RIGHT) - use iterator from edge
+                print(f"    ➡️ Horizontal navigation: pressing {nav_direction} {iterator}x")
+                for press_count in range(iterator):
+                    result = controller.press_key(nav_direction)
+                    import inspect
+                    if inspect.iscoroutine(result):
+                        import asyncio
+                        result = asyncio.run(result)
+                    if iterator > 1:
+                        print(f"       {nav_direction} {press_count + 1}/{iterator}")
+                    time.sleep(0.8)  # Short delay between presses
             
             edge_results['horizontal'] = 'success'
-            print(f"    ✅ Focus navigation: {nav_direction}")
+            iterator_display = f" x{iterator}" if iterator > 1 else ""
+            print(f"    ✅ Focus navigation: {nav_direction}{iterator_display}")
             time.sleep(2.0)  # 2000ms for D-PAD navigation (matches structure_creator.py)
             
             # 📸 Capture screenshot for focus node (no dump needed)
@@ -894,6 +917,25 @@ def validate_next_item(executor) -> Dict[str, Any]:
         else:
             reverse_direction = 'DOWN'  # UP → DOWN (fallback)
         
+        # ✅ Get iterator for display (read from edge that was just validated)
+        edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}_temp"
+        display_iterator = 1
+        try:
+            edge_result = get_edge_by_id(tree_id, edge_id, team_id)
+            if edge_result.get('success') and edge_result.get('edge'):
+                edge = edge_result['edge']
+                action_sets = edge.get('action_sets', [])
+                if len(action_sets) > 0 and action_sets[0].get('actions'):
+                    first_action = action_sets[0]['actions'][0]
+                    params = first_action.get('params', {})
+                    display_iterator = params.get('iterator', 1)
+        except Exception as e:
+            print(f"    ⚠️ Could not read iterator for display: {e}")
+        
+        # Build action display with iterator
+        forward_action_display = f"{nav_direction} x{display_iterator}" if display_iterator > 1 else nav_direction
+        reverse_action_display = f"{reverse_direction} x{display_iterator}" if display_iterator > 1 else reverse_direction
+        
         return {
             'success': True,
             'item': current_item,
@@ -909,13 +951,13 @@ def validate_next_item(executor) -> Dict[str, Any]:
                         'forward': {
                             'source': prev_focus_name,
                             'target': focus_node_name,
-                            'action': nav_direction,  # RIGHT for same row, DOWN for new row
+                            'action': forward_action_display,  # ✅ Now includes iterator (e.g., "RIGHT x6")
                             'result': horizontal_result
                         },
                         'reverse': {
                             'source': focus_node_name,
                             'target': prev_focus_name,
-                            'action': reverse_direction,  # LEFT for same row, UP for new row
+                            'action': reverse_action_display,  # ✅ Now includes iterator (e.g., "LEFT x6")
                             'result': horizontal_result
                         }
                     }
