@@ -116,6 +116,7 @@ export interface ItemCreationResult {
 export interface ExplorationPlan {
   menu_type: string;
   items: string[];
+  lines?: string[][];  // 2D array of items by row
   duplicate_positions?: string[];  // Position identifiers like "1_5" (row 1, index 5)
   strategy: ExplorationStrategy;
   has_exact_selectors: boolean;

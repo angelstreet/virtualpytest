@@ -157,17 +157,36 @@ export const useGenerateModel = ({
       });
     };
     
+    const filterDuplicates = (items: string[], lines: string[][], duplicatePositions: string[]) => {
+      if (!duplicatePositions || duplicatePositions.length === 0) return items;
+      
+      const duplicateItems = new Set<string>();
+      duplicatePositions.forEach(posKey => {
+        const [rowIdx, itemIdx] = posKey.split('_').map(Number);
+        if (lines[rowIdx] && lines[rowIdx][itemIdx]) {
+          duplicateItems.add(lines[rowIdx][itemIdx]);
+        }
+      });
+      
+      return items.filter(item => !duplicateItems.has(item));
+    };
+    
     if (context?.predicted_items && context.predicted_items.length > 0) {
       const filtered = filterHomeNodes(context.predicted_items);
       setSelectedNodes(new Set(filtered));
       setSelectedEdges(new Set(filtered)); // Edges correspond 1:1 with nodes
     } else if (explorationPlan?.items && explorationPlan.items.length > 0) {
-      // Phase 1: Initialize from exploration plan (excluding home nodes)
+      // Phase 1: Initialize from exploration plan (excluding home nodes AND duplicates)
       const filtered = filterHomeNodes(explorationPlan.items);
-      setSelectedNodes(new Set(filtered));
-      setSelectedEdges(new Set(filtered)); // Edges correspond 1:1 with nodes
+      const withoutDuplicates = filterDuplicates(
+        filtered, 
+        explorationPlan.lines || [], 
+        explorationPlan.duplicate_positions || []
+      );
+      setSelectedNodes(new Set(withoutDuplicates));
+      setSelectedEdges(new Set(withoutDuplicates)); // Edges correspond 1:1 with nodes
     }
-  }, [context?.predicted_items, explorationPlan?.items]);
+  }, [context?.predicted_items, explorationPlan?.items, explorationPlan?.lines, explorationPlan?.duplicate_positions]);
   
   // ✅ Toggle node selection (and corresponding edge)
   const toggleNodeSelection = useCallback((nodeName: string) => {

@@ -105,14 +105,27 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     () => new Set()
   );
 
-  // ✅ Initialize screen selection when exploration plan loads (default: all selected)
+  // ✅ Initialize screen selection when exploration plan loads (default: all selected, excluding duplicates)
   useEffect(() => {
     if (explorationPlan && explorationPlan.items && explorationPlan.items.length > 0) {
-      // Filter out 'home' and select all other items by default
+      // Filter out 'home' and duplicates
       const nonHomeItems = explorationPlan.items.filter(
         (item: string) => item.toLowerCase() !== 'home' && item.toLowerCase() !== 'accueil'
       );
-      setSelectedScreenNodes(new Set(nonHomeItems));
+      
+      // Exclude duplicates from initial selection
+      const duplicateItems = new Set<string>();
+      if (explorationPlan.duplicate_positions && explorationPlan.lines) {
+        explorationPlan.duplicate_positions.forEach((posKey: string) => {
+          const [rowIdx, itemIdx] = posKey.split('_').map(Number);
+          if (explorationPlan.lines![rowIdx] && explorationPlan.lines![rowIdx][itemIdx]) {
+            duplicateItems.add(explorationPlan.lines![rowIdx][itemIdx]);
+          }
+        });
+      }
+      
+      const withoutDuplicates = nonHomeItems.filter(item => !duplicateItems.has(item));
+      setSelectedScreenNodes(new Set(withoutDuplicates));
     }
   }, [explorationPlan]);
 
