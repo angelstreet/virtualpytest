@@ -858,7 +858,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
                         # action_sets[1] is reverse (BACK)
                         if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
                             # Update BACK action to require 2 presses
-                            action_sets[1]['actions'][0]['params']['repeat'] = 2
+                            action_sets[1]['actions'][0]['params']['iterator'] = 2
                             action_sets[1]['actions'][0]['description'] = 'BACK x2 (press twice)'
                             print(f"    ✅ Updated edge: {screen_node_name} → {focus_node_name}: BACK x2")
                             
