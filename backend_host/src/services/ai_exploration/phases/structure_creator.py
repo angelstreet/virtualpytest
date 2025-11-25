@@ -121,6 +121,9 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 
                 print(f"  📊 Processing Row 1 (horizontal menu): {len(row1_items)} items")
                 
+                # ✅ NEW: Build mapping of focus node -> original position for iterator calculation
+                focus_to_original_position = {}
+                
                 # Step 1a: Create Row 1 focus nodes and screen nodes
                 for idx, original_item in enumerate(row1_items):
                     node_name_clean = node_gen.target_to_node_name(original_item)
@@ -128,6 +131,7 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     # ✅ ALWAYS include start_node - it's the anchor for the menu structure
                     if node_name_clean.lower() == start_node_label.lower() or node_name_clean.lower() in ['home', 'accueil'] and start_node_label == 'home':
                         all_focus_nodes_row1.append(start_node_id)
+                        focus_to_original_position[start_node_id] = idx  # Track original position
                         print(f"    ♻️  Using existing '{start_node_id}' node (Row 1 anchor)")
                         continue
                     
@@ -153,6 +157,7 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     )
                     nodes_to_save.append(focus_node_data)
                     all_focus_nodes_row1.append(focus_node_name)
+                    focus_to_original_position[focus_node_name] = idx  # ✅ Track original position
                     nodes_created.append(focus_node_name)
                     print(f"    ✅ Created FOCUS node: {focus_node_name}_temp")
                     
@@ -201,6 +206,26 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     source_focus = all_focus_nodes_row1[idx]
                     target_focus = all_focus_nodes_row1[idx + 1]
                     
+                    # ✅ Calculate iterator based on original positions (accounts for unselected items)
+                    source_original_pos = focus_to_original_position.get(source_focus, 0)
+                    target_original_pos = focus_to_original_position.get(target_focus, 0)
+                    iterator = abs(target_original_pos - source_original_pos)
+                    
+                    # Build action params with iterator
+                    forward_params = {
+                        "key": "RIGHT",
+                        "wait_time": 2000
+                    }
+                    reverse_params = {
+                        "key": "LEFT",
+                        "wait_time": 2000
+                    }
+                    
+                    # Add iterator only if > 1 (multiple presses needed)
+                    if iterator > 1:
+                        forward_params["iterator"] = iterator
+                        reverse_params["iterator"] = iterator
+                    
                     # Forward: RIGHT, Reverse: LEFT
                     edge_horizontal = node_gen.create_edge_data(
                         source=source_focus,
@@ -208,29 +233,46 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         actions=[{
                             "command": "press_key",
                             "action_type": "remote",
-                            "params": {
-                                "key": "RIGHT",
-                                "wait_time": 2000
-                            }
+                            "params": forward_params
                         }],
                         reverse_actions=[{
                             "command": "press_key",
                             "action_type": "remote",
-                            "params": {
-                                "key": "LEFT",
-                                "wait_time": 2000
-                            }
+                            "params": reverse_params
                         }],
                         label=f"{source_focus}_to_{target_focus}_temp"
                     )
                     edges_to_save.append(edge_horizontal)
-                    print(f"    ↔ {source_focus} → {target_focus}: RIGHT/LEFT")
+                    
+                    # Enhanced logging
+                    iterator_display = f" x{iterator}" if iterator > 1 else ""
+                    print(f"    ↔ {source_focus} → {target_focus}: RIGHT{iterator_display}/LEFT{iterator_display}")
 
                 # 2. Left side: Start Node -> Left (Action: LEFT)
                 # Iterate backwards from start node to start of list
                 for idx in range(start_idx, 0, -1):
                     source_focus = all_focus_nodes_row1[idx]
                     target_focus = all_focus_nodes_row1[idx - 1]
+                    
+                    # ✅ Calculate iterator based on original positions (accounts for unselected items)
+                    source_original_pos = focus_to_original_position.get(source_focus, 0)
+                    target_original_pos = focus_to_original_position.get(target_focus, 0)
+                    iterator = abs(target_original_pos - source_original_pos)
+                    
+                    # Build action params with iterator
+                    forward_params = {
+                        "key": "LEFT",
+                        "wait_time": 2000
+                    }
+                    reverse_params = {
+                        "key": "RIGHT",
+                        "wait_time": 2000
+                    }
+                    
+                    # Add iterator only if > 1 (multiple presses needed)
+                    if iterator > 1:
+                        forward_params["iterator"] = iterator
+                        reverse_params["iterator"] = iterator
                     
                     # Forward: LEFT, Reverse: RIGHT
                     edge_horizontal = node_gen.create_edge_data(
@@ -239,29 +281,27 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         actions=[{
                             "command": "press_key",
                             "action_type": "remote",
-                            "params": {
-                                "key": "LEFT",
-                                "wait_time": 2000
-                            }
+                            "params": forward_params
                         }],
                         reverse_actions=[{
                             "command": "press_key",
                             "action_type": "remote",
-                            "params": {
-                                "key": "RIGHT",
-                                "wait_time": 2000
-                            }
+                            "params": reverse_params
                         }],
                         label=f"{source_focus}_to_{target_focus}_temp"
                     )
                     edges_to_save.append(edge_horizontal)
-                    print(f"    ↔ {source_focus} → {target_focus}: LEFT/RIGHT")
+                    
+                    # Enhanced logging
+                    iterator_display = f" x{iterator}" if iterator > 1 else ""
+                    print(f"    ↔ {source_focus} → {target_focus}: LEFT{iterator_display}/RIGHT{iterator_display}")
                     
             # ========== ROW 2+: VERTICAL MENU (DOWN/UP from start node) ==========
             if len(lines) > 1:
                 print(f"\n  📊 Processing Rows 2-{len(lines)} (vertical menu): {len(lines) - 1} rows")
                 
                 prev_vertical_focus = start_node_id  # Start from start_node for vertical navigation
+                prev_row_index = 0  # Track row index for DOWN iterator calculation
                 
                 for row_idx in range(1, len(lines)):
                     row_items = lines[row_idx]
@@ -295,6 +335,25 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         nodes_created.append(focus_node_name)
                         print(f"    ✅ Created FOCUS node: {focus_node_name}_temp")
                         
+                        # ✅ Calculate DOWN iterator based on row gap
+                        # If we skipped rows (user unselected items in between), we need multiple DOWNs
+                        row_gap = row_idx - prev_row_index
+                        
+                        # Build action params with iterator
+                        down_params = {
+                            "key": "DOWN",
+                            "wait_time": 2000
+                        }
+                        up_params = {
+                            "key": "UP",
+                            "wait_time": 2000
+                        }
+                        
+                        # Add iterator only if > 1 (skipped rows)
+                        if row_gap > 1:
+                            down_params["iterator"] = row_gap
+                            up_params["iterator"] = row_gap
+                        
                         # Create DOWN/UP edge from previous vertical focus
                         edge_vertical_nav = node_gen.create_edge_data(
                             source=prev_vertical_focus,
@@ -302,23 +361,20 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                             actions=[{
                                 "command": "press_key",
                                 "action_type": "remote",
-                                "params": {
-                                    "key": "DOWN",
-                                    "wait_time": 2000
-                                }
+                                "params": down_params
                             }],
                             reverse_actions=[{
                                 "command": "press_key",
                                 "action_type": "remote",
-                                "params": {
-                                    "key": "UP",
-                                    "wait_time": 2000
-                                }
+                                "params": up_params
                             }],
                             label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
                         )
                         edges_to_save.append(edge_vertical_nav)
-                        print(f"    ↕ {prev_vertical_focus} ↔ {focus_node_name}: DOWN/UP (bidirectional)")
+                        
+                        # Enhanced logging
+                        iterator_display = f" x{row_gap}" if row_gap > 1 else ""
+                        print(f"    ↕ {prev_vertical_focus} ↔ {focus_node_name}: DOWN{iterator_display}/UP{iterator_display} (bidirectional)")
                         
                         # Create SCREEN node if selected
                         if selected_screen_items is None or original_item in selected_screen_items:
@@ -351,6 +407,7 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         
                         # Update previous vertical focus for next row
                         prev_vertical_focus = focus_node_name
+                        prev_row_index = row_idx  # ✅ Track row index for next iteration
                 
                 print(f"\n  📊 Rows 2+ complete: {len(all_vertical_focus_nodes)} vertical focus nodes")
             
