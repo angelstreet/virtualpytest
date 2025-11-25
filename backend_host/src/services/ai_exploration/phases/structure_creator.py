@@ -211,42 +211,41 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     target_original_pos = focus_to_original_position.get(target_focus, 0)
                     iterator = abs(target_original_pos - source_original_pos)
                     
-                    # Build action params with iterator
-                    forward_params = {
-                        "key": "RIGHT",
-                        "wait_time": 2000
+                    # Build actions with iterator at action level (not in params)
+                    forward_action = {
+                        "command": "press_key",
+                        "action_type": "remote",
+                        "params": {
+                            "key": "RIGHT",
+                            "wait_time": 2000
+                        }
                     }
-                    reverse_params = {
-                        "key": "LEFT",
-                        "wait_time": 2000
+                    reverse_action = {
+                        "command": "press_key",
+                        "action_type": "remote",
+                        "params": {
+                            "key": "LEFT",
+                            "wait_time": 2000
+                        }
                     }
                     
-                    # Add iterator only if > 1 (multiple presses needed)
+                    # Add iterator at action level if > 1 (multiple presses needed)
                     if iterator > 1:
-                        forward_params["iterator"] = iterator
-                        reverse_params["iterator"] = iterator
+                        forward_action["iterator"] = iterator
+                        reverse_action["iterator"] = iterator
                     
                     # Forward: RIGHT, Reverse: LEFT
                     edge_horizontal = node_gen.create_edge_data(
                         source=source_focus,
                         target=target_focus,
-                        actions=[{
-                            "command": "press_key",
-                            "action_type": "remote",
-                            "params": forward_params
-                        }],
-                        reverse_actions=[{
-                            "command": "press_key",
-                            "action_type": "remote",
-                            "params": reverse_params
-                        }],
+                        actions=[forward_action],
+                        reverse_actions=[reverse_action],
                         label=f"{source_focus}_to_{target_focus}_temp"
                     )
                     
-                    # ✅ DEBUG: Verify iterator is in edge data before saving
+                    # ✅ DEBUG: Verify iterator is at action level before saving
                     if iterator > 1:
-                        action_params = edge_horizontal['action_sets'][0]['actions'][0]['params']
-                        saved_iterator = action_params.get('iterator', 'NOT_FOUND')
+                        saved_iterator = edge_horizontal['action_sets'][0]['actions'][0].get('iterator', 'NOT_FOUND')
                         print(f"    🔍 DEBUG: Edge data has iterator = {saved_iterator}")
                     
                     edges_to_save.append(edge_horizontal)
@@ -266,42 +265,41 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     target_original_pos = focus_to_original_position.get(target_focus, 0)
                     iterator = abs(target_original_pos - source_original_pos)
                     
-                    # Build action params with iterator
-                    forward_params = {
-                        "key": "LEFT",
-                        "wait_time": 2000
+                    # Build actions with iterator at action level (not in params)
+                    forward_action = {
+                        "command": "press_key",
+                        "action_type": "remote",
+                        "params": {
+                            "key": "LEFT",
+                            "wait_time": 2000
+                        }
                     }
-                    reverse_params = {
-                        "key": "RIGHT",
-                        "wait_time": 2000
+                    reverse_action = {
+                        "command": "press_key",
+                        "action_type": "remote",
+                        "params": {
+                            "key": "RIGHT",
+                            "wait_time": 2000
+                        }
                     }
                     
-                    # Add iterator only if > 1 (multiple presses needed)
+                    # Add iterator at action level if > 1 (multiple presses needed)
                     if iterator > 1:
-                        forward_params["iterator"] = iterator
-                        reverse_params["iterator"] = iterator
+                        forward_action["iterator"] = iterator
+                        reverse_action["iterator"] = iterator
                     
                     # Forward: LEFT, Reverse: RIGHT
                     edge_horizontal = node_gen.create_edge_data(
                         source=source_focus,
                         target=target_focus,
-                        actions=[{
-                            "command": "press_key",
-                            "action_type": "remote",
-                            "params": forward_params
-                        }],
-                        reverse_actions=[{
-                            "command": "press_key",
-                            "action_type": "remote",
-                            "params": reverse_params
-                        }],
+                        actions=[forward_action],
+                        reverse_actions=[reverse_action],
                         label=f"{source_focus}_to_{target_focus}_temp"
                     )
                     
-                    # ✅ DEBUG: Verify iterator is in edge data before saving
+                    # ✅ DEBUG: Verify iterator is at action level before saving
                     if iterator > 1:
-                        action_params = edge_horizontal['action_sets'][0]['actions'][0]['params']
-                        saved_iterator = action_params.get('iterator', 'NOT_FOUND')
+                        saved_iterator = edge_horizontal['action_sets'][0]['actions'][0].get('iterator', 'NOT_FOUND')
                         print(f"    🔍 DEBUG: Edge data has iterator = {saved_iterator}")
                     
                     edges_to_save.append(edge_horizontal)
@@ -353,35 +351,35 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         # If we skipped rows (user unselected items in between), we need multiple DOWNs
                         row_gap = row_idx - prev_row_index
                         
-                        # Build action params with iterator
-                        down_params = {
-                            "key": "DOWN",
-                            "wait_time": 2000
+                        # Build actions with iterator at action level (not in params)
+                        down_action = {
+                            "command": "press_key",
+                            "action_type": "remote",
+                            "params": {
+                                "key": "DOWN",
+                                "wait_time": 2000
+                            }
                         }
-                        up_params = {
-                            "key": "UP",
-                            "wait_time": 2000
+                        up_action = {
+                            "command": "press_key",
+                            "action_type": "remote",
+                            "params": {
+                                "key": "UP",
+                                "wait_time": 2000
+                            }
                         }
                         
-                        # Add iterator only if > 1 (skipped rows)
+                        # Add iterator at action level if > 1 (skipped rows)
                         if row_gap > 1:
-                            down_params["iterator"] = row_gap
-                            up_params["iterator"] = row_gap
+                            down_action["iterator"] = row_gap
+                            up_action["iterator"] = row_gap
                         
                         # Create DOWN/UP edge from previous vertical focus
                         edge_vertical_nav = node_gen.create_edge_data(
                             source=prev_vertical_focus,
                             target=focus_node_name,
-                            actions=[{
-                                "command": "press_key",
-                                "action_type": "remote",
-                                "params": down_params
-                            }],
-                            reverse_actions=[{
-                                "command": "press_key",
-                                "action_type": "remote",
-                                "params": up_params
-                            }],
+                            actions=[down_action],
+                            reverse_actions=[up_action],
                             label=f"{prev_vertical_focus}_to_{focus_node_name}_temp"
                         )
                         edges_to_save.append(edge_vertical_nav)
