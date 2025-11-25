@@ -476,31 +476,6 @@ class TextHelpers:
                 filtered_by_invalid_box = 0
                 filtered_by_quality = 0  # Layer 1: OCR quality filter
                 
-                # 🐛 DEBUG: Log meaningful raw OCR results (skip empty text)
-                print(f"\n  🐛 DEBUG: ===== RAW OCR RESULTS (BEFORE FILTERING) =====")
-                print(f"  🐛 Total raw results: {len(lines)-1}")
-                shown_count = 0
-                for idx, line in enumerate(lines[1:], start=1):
-                    cols = line.split('\t')
-                    if len(cols) >= len(header):
-                        data = dict(zip(header, cols))
-                        text = data.get('text', '').strip()
-                        conf = data.get('conf', '-1')
-                        
-                        # ✅ Only show non-empty text entries
-                        if text:
-                            left = data.get('left', '?')
-                            top = data.get('top', '?')
-                            width = data.get('width', '?')
-                            height = data.get('height', '?')
-                            print(f"  🐛 [{idx:3d}] text='{text}' conf={conf:>3s} box=({left},{top},{width}x{height})")
-                            shown_count += 1
-                
-                empty_count = len(lines) - 1 - shown_count
-                if empty_count > 0:
-                    print(f"  🐛 (Skipped {empty_count} empty text entries)")
-                print(f"  🐛 DEBUG: ===== END RAW OCR RESULTS ({shown_count} shown, {empty_count} empty) =====\n")
-                
                 # Process each line (skip header)
                 for line in lines[1:]:
                     cols = line.split('\t')
@@ -576,20 +551,10 @@ class TextHelpers:
                 
                 print(f"[@text_helpers:extract_full_ocr_dump] Extracted {len(elements)} text elements (confidence >= {confidence_threshold})")
                 
-                # Show ALL valid elements
-                if elements:
-                    print(f"  🐛 DEBUG: All valid elements ({len(elements)} total):")
-                    for elem in elements:
-                        print(f"    - '{elem['text']}' (conf={elem['confidence']}, size={elem.get('font_size', 0)}) at ({elem['area']['x']}, {elem['area']['y']})")
-                
                 # Group nearby words into phrases (combine words on same line)
                 if elements:
                     grouped_elements = self._group_text_elements(elements)
                     print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases (sorted by font size)")
-                    if grouped_elements:
-                        print(f"  🐛 DEBUG: All grouped phrases ({len(grouped_elements)} total, sorted largest first):")
-                        for phrase in grouped_elements:
-                            print(f"    - '{phrase['text']}' (conf={phrase['confidence']}, size={phrase.get('font_size', 0)}) at ({phrase['area']['x']}, {phrase['area']['y']})")
                     return grouped_elements
                 
                 print(f"  🐛 DEBUG: ⚠️ No valid elements passed all filters!")

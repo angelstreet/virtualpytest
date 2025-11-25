@@ -200,23 +200,6 @@ def record_edge_execution(
         
         print(f"[@db:execution_results:record_edge_execution] {execution_id[:8]} | {action_set_id or 'N/A'} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
         
-        # DETAILED LOGGING: Show exact INSERT data being sent to database
-        print(f"[@db:execution_results:record_edge_execution] 📝 INSERT DATA BEING SENT:")
-        print(f"   • id: {execution_id}")
-        print(f"   • team_id: {team_id}")
-        print(f"   • tree_id: {tree_id}")
-        print(f"   • edge_id: {edge_id}")
-        print(f"   • action_set_id: {action_set_id}")
-        print(f"   • execution_type: action")
-        print(f"   • host_name: {host_name}")
-        print(f"   • device_model: {device_model}")
-        print(f"   • device_name: {device_name}")
-        print(f"   • success: {success}")
-        print(f"   • execution_time_ms: {execution_time_ms}")
-        print(f"   • message: {message}")
-        print(f"   • script_result_id: {script_result_id}")
-        print(f"   • script_context: {script_context}")
-        
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()
         
@@ -271,22 +254,6 @@ def record_node_execution(
         execution_id_short = execution_id[:8] if execution_id else 'unknown'
         node_id_short = node_id[:8] if node_id else 'none'
         print(f"[@db:execution_results:record_node_execution] {execution_id_short} | node:{node_id_short} | {host_name}:{device_model} | {'✓' if success else '✗'} {execution_time_ms}ms | {message}")
-        
-        # DETAILED LOGGING: Show exact INSERT data being sent to database
-        print(f"[@db:execution_results:record_node_execution] 📝 INSERT DATA BEING SENT:")
-        print(f"   • id: {execution_id}")
-        print(f"   • team_id: {team_id}")
-        print(f"   • tree_id: {tree_id}")
-        print(f"   • node_id: {node_id}")
-        print(f"   • execution_type: verification")
-        print(f"   • host_name: {host_name}")
-        print(f"   • device_model: {device_model}")
-        print(f"   • device_name: {device_name}")
-        print(f"   • success: {success}")
-        print(f"   • execution_time_ms: {execution_time_ms}")
-        print(f"   • message: {message}")
-        print(f"   • script_result_id: {script_result_id}")
-        print(f"   • script_context: {script_context}")
         
         supabase = get_supabase()
         result = supabase.table('execution_results').insert(execution_data).execute()
@@ -711,12 +678,6 @@ def update_execution_result_with_kpi(
         report_status = f" | Report: {kpi_report_url[:50]}..." if kpi_report_url else ""
         print(f"[@db:execution_results:update_kpi] {execution_result_id[:8]} | KPI: {kpi_status}{report_status}")
         
-        # DETAILED LOGGING: Show exact UPDATE data being sent to database
-        print(f"[@db:execution_results:update_kpi] 📝 UPDATE DATA BEING SENT:")
-        print(f"   • execution_result_id: {execution_result_id}")
-        print(f"   • team_id: {team_id}")
-        print(f"   • update_data: {update_data}")
-        
         supabase = get_supabase()
         result = supabase.table('execution_results').update(update_data).eq(
             'id', execution_result_id
@@ -724,27 +685,6 @@ def update_execution_result_with_kpi(
         
         if result.data:
             print(f"[@db:execution_results:update_kpi] ✓ Updated: {execution_result_id[:8]}")
-            # DETAILED LOGGING: Show what was actually updated in the database
-            print(f"[@db:execution_results:update_kpi] 📊 RESPONSE FROM DATABASE:")
-            for row in result.data:
-                print(f"   • id: {row.get('id')}")
-                print(f"   • team_id: {row.get('team_id')}")
-                print(f"   • tree_id: {row.get('tree_id')}")
-                print(f"   • edge_id: {row.get('edge_id')}")
-                print(f"   • node_id: {row.get('node_id')}")
-                print(f"   • action_set_id: {row.get('action_set_id')}")
-                print(f"   • execution_type: {row.get('execution_type')}")
-                print(f"   • host_name: {row.get('host_name')}")
-                print(f"   • device_model: {row.get('device_model')}")
-                print(f"   • device_name: {row.get('device_name')}")
-                print(f"   • success: {row.get('success')}")
-                print(f"   • execution_time_ms: {row.get('execution_time_ms')}")
-                print(f"   • kpi_measurement_success: {row.get('kpi_measurement_success')}")
-                print(f"   • kpi_measurement_ms: {row.get('kpi_measurement_ms')}")
-                print(f"   • kpi_measurement_error: {row.get('kpi_measurement_error')}")
-                print(f"   • kpi_report_url: {row.get('kpi_report_url')}")
-                print(f"   • message: {row.get('message')}")
-                print(f"   • executed_at: {row.get('executed_at')}")
             return True
         else:
             print(f"[@db:execution_results:update_kpi] ✗ Failed: No data returned")

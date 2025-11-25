@@ -210,7 +210,6 @@ class IRRemoteController(RemoteControllerInterface):
                 print(f"Remote[{self.device_type.upper()}]: Key {key} not found in {self.ir_config_file}")
                 return False
             
-            print(f"Remote[{self.device_type.upper()}]: Sending IR code for {key}")
             print(f"Remote[{self.device_type.upper()}]: Raw IR code: {raw_code[:100]}...")  # Debug: show first 100 chars
             
             # Convert to pulse/space format
