@@ -516,10 +516,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
             try:
                 from shared.src.lib.utils.device_utils import capture_screenshot
                 from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                from backend_host.src.controllers.controller_manager import get_host
                 before_ok_screenshot = capture_screenshot(executor.device, context=None)
                 if before_ok_screenshot:
                     print(f"    📸 Before OK screenshot: {before_ok_screenshot}")
-                    before_ok_url = buildHostImageUrl(executor.device.get('host_info'), before_ok_screenshot)
+                    host = get_host()
+                    before_ok_url = buildHostImageUrl({'host_url': host.host_url, 'host_api_url': getattr(host, 'host_api_url', None)}, before_ok_screenshot)
                     print(f"    🔗 Before OK URL: {before_ok_url}")
             except Exception as e:
                 print(f"    ⚠️ Failed to capture before-OK screenshot: {e}")
@@ -539,10 +541,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
             try:
                 from shared.src.lib.utils.device_utils import capture_screenshot
                 from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                from backend_host.src.controllers.controller_manager import get_host
                 after_ok_screenshot = capture_screenshot(executor.device, context=None)
                 if after_ok_screenshot:
                     print(f"    📸 After OK screenshot: {after_ok_screenshot}")
-                    after_ok_url = buildHostImageUrl(executor.device.get('host_info'), after_ok_screenshot)
+                    host = get_host()
+                    after_ok_url = buildHostImageUrl({'host_url': host.host_url, 'host_api_url': getattr(host, 'host_api_url', None)}, after_ok_screenshot)
                     print(f"    🔗 After OK URL: {after_ok_url}")
             except Exception as e:
                 print(f"    ⚠️ Failed to capture after-OK screenshot: {e}")
@@ -692,10 +696,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
             try:
                 from shared.src.lib.utils.device_utils import capture_screenshot
                 from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                from backend_host.src.controllers.controller_manager import get_host
                 before_back_screenshot = capture_screenshot(executor.device, context=None)
                 if before_back_screenshot:
                     print(f"    📸 Before BACK screenshot: {before_back_screenshot}")
-                    before_back_url = buildHostImageUrl(executor.device.get('host_info'), before_back_screenshot)
+                    host = get_host()
+                    before_back_url = buildHostImageUrl({'host_url': host.host_url, 'host_api_url': getattr(host, 'host_api_url', None)}, before_back_screenshot)
                     print(f"    🔗 Before BACK URL: {before_back_url}")
             except Exception as e:
                 print(f"    ⚠️ Failed to capture before-BACK screenshot: {e}")
@@ -712,10 +718,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
             try:
                 from shared.src.lib.utils.device_utils import capture_screenshot
                 from shared.src.lib.utils.build_url_utils import buildHostImageUrl
+                from backend_host.src.controllers.controller_manager import get_host
                 after_back_screenshot = capture_screenshot(executor.device, context=None)
                 if after_back_screenshot:
                     print(f"    📸 After BACK screenshot: {after_back_screenshot}")
-                    after_back_url = buildHostImageUrl(executor.device.get('host_info'), after_back_screenshot)
+                    host = get_host()
+                    after_back_url = buildHostImageUrl({'host_url': host.host_url, 'host_api_url': getattr(host, 'host_api_url', None)}, after_back_screenshot)
                     print(f"    🔗 After BACK URL: {after_back_url}")
             except Exception as e:
                 print(f"    ⚠️ Failed to capture after-BACK screenshot: {e}")
