@@ -85,13 +85,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     onStructureCreated: async (nodesCount, edgesCount) => {
       console.log('[@AIGenerationModal:Phase1] Structure created:', nodesCount, 'nodes,', edgesCount, 'edges');
       
-      // Wait for cache to clear before refreshing
-      await new Promise(resolve => setTimeout(resolve, 500));
-      
-      // Trigger ReactFlow refresh (refetches tree data)
-      console.log('[@AIGenerationModal:Phase1] Triggering React Flow refresh...');
-      onGenerated();
-      
       // Notify parent to show ValidationReadyPrompt with exploration details
       if (explorationId && explorationHostName) {
         onStructureCreated(nodesCount, edgesCount, explorationId, explorationHostName);
@@ -99,7 +92,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
         console.error('[@AIGenerationModal:Phase1] Missing exploration details!');
       }
       
-      // Close this modal - ValidationReadyPrompt will take over
+      // Close this modal - ValidationReadyPrompt will take over (user stays in current tree context)
       onClose();
     },
     onClose: () => {
