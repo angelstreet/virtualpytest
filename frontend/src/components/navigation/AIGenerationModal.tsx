@@ -377,10 +377,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                             // DPAD navigation (TV/STB) - show dual-layer chips
                             <Box sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
                               {explorationPlan.lines.map((line: string[], lineIdx: number) => {
-                                // Generate focus and screen node data
-                                const nodePairs: Array<{item: string, focusNode: string, screenNode: string}> = [];
+                                // Generate focus and screen node data WITH ORIGINAL INDICES
+                                const nodePairs: Array<{item: string, focusNode: string, screenNode: string, originalIndex: number}> = [];
                                 
-                                line.forEach((item) => {
+                                line.forEach((item, originalIdx) => {
                                   const isHome = item.toLowerCase() === 'home';
                                   const cleanName = item.toLowerCase().replace(/[^a-z0-9]+/g, '_');
                                   
@@ -388,7 +388,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                     nodePairs.push({
                                       item: item,
                                       focusNode: `home_${cleanName}`,
-                                      screenNode: cleanName
+                                      screenNode: cleanName,
+                                      originalIndex: originalIdx  // ✅ Preserve original line index
                                     });
                                   }
                                 });
@@ -409,7 +410,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
-                                          const positionKey = `${lineIdx}_${idx}`;
+                                          const positionKey = `${lineIdx}_${pair.originalIndex}`;  // ✅ Use original index!
                                           const isDuplicate = explorationPlan.duplicate_positions?.includes(positionKey);
                                           return (
                                             <Chip 
@@ -444,7 +445,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
                                           const isScreenSelected = selectedScreenNodes.has(pair.item);
-                                          const positionKey = `${lineIdx}_${idx}`;
+                                          const positionKey = `${lineIdx}_${pair.originalIndex}`;  // ✅ Use original index!
                                           const isDuplicate = explorationPlan.duplicate_positions?.includes(positionKey);
                                           return (
                                             <Chip 

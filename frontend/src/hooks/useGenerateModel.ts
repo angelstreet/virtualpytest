@@ -31,6 +31,7 @@ interface ExplorationPlan {
   menu_type: string;
   items: string[];
   duplicate_items?: string[];  // Items detected multiple times (e.g., duplicates in menu)
+  duplicate_positions?: string[];  // Position keys for duplicates (e.g., ["1_5", "1_6"])
   lines?: string[][];  // NEW: Line structure from AI
   strategy: string;
   predicted_depth: number;
