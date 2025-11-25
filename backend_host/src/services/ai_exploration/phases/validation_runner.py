@@ -421,25 +421,30 @@ def validate_next_item(executor) -> Dict[str, Any]:
         screenshot_url = None
         
         # Edge 1: Focus navigation (RIGHT/LEFT for horizontal, DOWN for vertical)
+        horizontal_edge = None  # Keep edge in memory for later updates
         try:
             print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
             
             # ✅ Read edge from database to get iterator parameter
-            edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}_temp"
+            # Edge IDs are constructed from node IDs (which never have _temp)
+            edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}"
             iterator = 1  # Default: single press
             
             try:
                 edge_result = get_edge_by_id(tree_id, edge_id, team_id)
+                
                 if edge_result.get('success') and edge_result.get('edge'):
-                    edge = edge_result['edge']
-                    action_sets = edge.get('action_sets', [])
+                    horizontal_edge = edge_result['edge']  # ✅ KEEP in memory
+                    action_sets = horizontal_edge.get('action_sets', [])
                     if len(action_sets) > 0 and action_sets[0].get('actions'):
                         first_action = action_sets[0]['actions'][0]
                         # Check iterator at action level (not in params)
                         iterator = first_action.get('iterator', 1)
                         print(f"    📊 Edge iterator from database: {iterator}")
+                else:
+                    print(f"    ⚠️ Edge not found: {edge_id}")
             except Exception as e:
-                print(f"    ⚠️ Could not read edge iterator: {e}")
+                print(f"    ⚠️ Could not read edge: {e}")
             
             # ✅ For vertical rows (Row 1+): Press DOWN multiple times from home
             # - current_row_index: which row (1 = first vertical row)
@@ -475,27 +480,22 @@ def validate_next_item(executor) -> Dict[str, Any]:
             iterator_display = f" x{iterator}" if iterator > 1 else ""
             print(f"    ✅ Focus navigation: {nav_direction}{iterator_display}")
             
-            # ✅ SAVE EDGE: Update database with confirmed iterator (same as BACK x2)
-            if iterator > 1:
+            # ✅ SAVE EDGE: Update database with confirmed iterator (no re-fetch needed!)
+            if iterator > 1 and horizontal_edge:
                 try:
-                    horizontal_edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}_temp"
-                    edge_result = get_edge_by_id(tree_id, horizontal_edge_id, team_id)
+                    action_sets = horizontal_edge.get('action_sets', [])
                     
-                    if edge_result.get('success'):
-                        edge = edge_result['edge']
-                        action_sets = edge.get('action_sets', [])
+                    # Ensure iterator is set in both directions (at action level, not in params)
+                    if len(action_sets) >= 2:
+                        if action_sets[0].get('actions') and len(action_sets[0]['actions']) > 0:
+                            action_sets[0]['actions'][0]['iterator'] = iterator
+                        if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
+                            action_sets[1]['actions'][0]['iterator'] = iterator
                         
-                        # Ensure iterator is set in both directions (at action level, not in params)
-                        if len(action_sets) >= 2:
-                            if action_sets[0].get('actions') and len(action_sets[0]['actions']) > 0:
-                                action_sets[0]['actions'][0]['iterator'] = iterator
-                            if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
-                                action_sets[1]['actions'][0]['iterator'] = iterator
-                            
-                            # Save (same as BACK x2)
-                            update_result = save_edges_batch(tree_id, [edge], team_id)
-                            if update_result.get('success'):
-                                print(f"    💾 Edge saved with iterator={iterator}")
+                        # Save updated edge (already in memory)
+                        update_result = save_edges_batch(tree_id, [horizontal_edge], team_id)
+                        if update_result.get('success'):
+                            print(f"    💾 Edge saved with iterator={iterator}")
                 except Exception as e:
                     print(f"    ⚠️ Failed to save iterator: {e}")
             
@@ -874,19 +874,20 @@ def validate_next_item(executor) -> Dict[str, Any]:
             else:
                 executor.exploration_state['status'] = 'awaiting_validation'
         
-        # ✅ TV: UPDATE VERTICAL EDGE with backs_needed
+        # ✅ TV: UPDATE VERTICAL EDGE with backs_needed (read ONLY when needed)
         if backs_needed == 2:
             print(f"\n  💾 Updating vertical edge with BACK x2...")
             try:
-                # Get the vertical edge (focus_node → screen_node)
-                vertical_edge_id = f"edge_{focus_node_name}_to_{screen_node_name}_temp"
+                # Read vertical edge from database (only when backs_needed == 2)
+                # Edge IDs are constructed from node IDs (which never have _temp)
+                vertical_edge_id = f"edge_{focus_node_name}_to_{screen_node_name}"
                 edge_result = get_edge_by_id(tree_id, vertical_edge_id, team_id)
                 
-                if edge_result.get('success'):
-                    edge = edge_result['edge']
+                if edge_result.get('success') and edge_result.get('edge'):
+                    vertical_edge = edge_result['edge']
                     
                     # Update reverse action (BACK) - iterator at action level, not in params
-                    action_sets = edge.get('action_sets', [])
+                    action_sets = vertical_edge.get('action_sets', [])
                     if len(action_sets) >= 2:
                         # action_sets[1] is reverse (BACK)
                         if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
@@ -895,13 +896,13 @@ def validate_next_item(executor) -> Dict[str, Any]:
                             print(f"    ✅ Updated edge: {screen_node_name} → {focus_node_name}: BACK x2")
                             
                             # Save updated edge
-                            update_result = save_edges_batch(tree_id, [edge], team_id)
+                            update_result = save_edges_batch(tree_id, [vertical_edge], team_id)
                             if update_result.get('success'):
                                 print(f"    ✅ Edge saved with BACK x2")
                             else:
                                 print(f"    ⚠️ Failed to save edge: {update_result.get('error')}")
                 else:
-                    print(f"    ⚠️ Could not find edge {vertical_edge_id}")
+                    print(f"    ⚠️ Edge not found: {vertical_edge_id}")
             except Exception as e:
                 print(f"    ⚠️ Failed to update edge with BACK x2: {e}")
         
@@ -926,20 +927,17 @@ def validate_next_item(executor) -> Dict[str, Any]:
         else:
             reverse_direction = 'DOWN'  # UP → DOWN (fallback)
         
-        # ✅ Get iterator for display (read from edge that was just validated)
-        edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}_temp"
+        # ✅ Get iterator for display (from edge already in memory)
         display_iterator = 1
-        try:
-            edge_result = get_edge_by_id(tree_id, edge_id, team_id)
-            if edge_result.get('success') and edge_result.get('edge'):
-                edge = edge_result['edge']
-                action_sets = edge.get('action_sets', [])
+        if horizontal_edge:
+            try:
+                action_sets = horizontal_edge.get('action_sets', [])
                 if len(action_sets) > 0 and action_sets[0].get('actions'):
                     first_action = action_sets[0]['actions'][0]
                     # Read iterator at action level, not in params
                     display_iterator = first_action.get('iterator', 1)
-        except Exception as e:
-            print(f"    ⚠️ Could not read iterator for display: {e}")
+            except Exception as e:
+                print(f"    ⚠️ Could not read iterator for display: {e}")
         
         # Build action display with iterator
         forward_action_display = f"{nav_direction} x{display_iterator}" if display_iterator > 1 else nav_direction
