@@ -396,7 +396,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
-                                          const isDuplicate = explorationPlan.duplicate_items?.includes(pair.item);
+                                          const positionKey = `${lineIdx}_${idx}`;
+                                          const isDuplicate = explorationPlan.duplicate_positions?.includes(positionKey);
                                           return (
                                             <Chip 
                                               key={idx}
@@ -430,7 +431,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
                                           const isScreenSelected = selectedScreenNodes.has(pair.item);
-                                          const isDuplicate = explorationPlan.duplicate_items?.includes(pair.item);
+                                          const positionKey = `${lineIdx}_${idx}`;
+                                          const isDuplicate = explorationPlan.duplicate_positions?.includes(positionKey);
                                           return (
                                             <Chip 
                                               key={idx}

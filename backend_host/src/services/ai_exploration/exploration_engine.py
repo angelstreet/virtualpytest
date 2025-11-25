@@ -238,7 +238,8 @@ class ExplorationEngine:
                 duplicate_items.append(sanitized)
                 print(f"    '{item}' → '{sanitized}' (duplicate)")
         
-        context.duplicate_items = duplicate_items
+        # Store duplicate positions for context (if needed later)
+        context.duplicate_positions = duplicate_items if hasattr(context, 'duplicate_positions') else []
         
         # ✅ SPLIT AND REORDER for horizontal D-pad navigation
         # For TV/STB horizontal menus, we explore: RIGHT items first, then LEFT items
@@ -872,19 +873,23 @@ class ExplorationEngine:
                     reordered_items = row0_items + other_items
                     print(f"  📊 No left items - home at start")
             
-            # ✅ Detect duplicates across all rows
-            seen = set()
-            duplicate_items = []
-            for item in raw_items:
-                sanitized = self.node_generator.target_to_node_name(item)
-                if sanitized in seen:
-                    if sanitized not in duplicate_items:
-                        duplicate_items.append(sanitized)
-                else:
-                    seen.add(sanitized)
+            # ✅ Detect duplicates by position (row_index format: "row_index")
+            seen = {}  # item_name -> first occurrence position
+            duplicate_positions = []  # List of "row_index" for duplicates only
             
-            if duplicate_items:
-                print(f"  🔍 Detected {len(duplicate_items)} duplicate items: {duplicate_items}")
+            for row_idx, row in enumerate(lines):
+                for item_idx, item in enumerate(row):
+                    sanitized = self.node_generator.target_to_node_name(item)
+                    if sanitized in seen:
+                        # This is a duplicate - mark its position
+                        duplicate_positions.append(f"{row_idx}_{item_idx}")
+                        print(f"  🔍 Duplicate detected: '{sanitized}' at row {row_idx}, index {item_idx} (first was at {seen[sanitized]})")
+                    else:
+                        # First occurrence - remember position
+                        seen[sanitized] = f"{row_idx}_{item_idx}"
+            
+            if duplicate_positions:
+                print(f"  ✅ Total duplicates to skip: {len(duplicate_positions)} positions: {duplicate_positions}")
             
             # ✅ NEW: Build edge preview for frontend (calculate edges once!)
             edges_preview = self._build_edges_preview(
@@ -925,7 +930,7 @@ Exploration will navigate through these items using {self.prediction.get('strate
                     'menu_type': self.prediction.get('menu_type'),
                     'items': reordered_items,
                     'lines': self.prediction.get('lines', []),
-                    'duplicate_items': duplicate_items,
+                    'duplicate_positions': duplicate_positions,
                     'strategy': self.prediction.get('strategy'),
                     'predicted_depth': self.prediction.get('predicted_depth', 1),
                     'reasoning': reasoning,
