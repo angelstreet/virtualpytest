@@ -872,6 +872,20 @@ class ExplorationEngine:
                     reordered_items = row0_items + other_items
                     print(f"  📊 No left items - home at start")
             
+            # ✅ Detect duplicates across all rows
+            seen = set()
+            duplicate_items = []
+            for item in raw_items:
+                sanitized = self.node_generator.target_to_node_name(item)
+                if sanitized in seen:
+                    if sanitized not in duplicate_items:
+                        duplicate_items.append(sanitized)
+                else:
+                    seen.add(sanitized)
+            
+            if duplicate_items:
+                print(f"  🔍 Detected {len(duplicate_items)} duplicate items: {duplicate_items}")
+            
             # ✅ NEW: Build edge preview for frontend (calculate edges once!)
             edges_preview = self._build_edges_preview(
                 raw_items=raw_items,
@@ -904,8 +918,6 @@ Exploration will navigate through these items using {self.prediction.get('strate
                         'reasoning': reasoning
                     }
                 )
-            
-            duplicate_items = getattr(self.context, 'duplicate_items', [])
             
             return {
                 'success': True,
