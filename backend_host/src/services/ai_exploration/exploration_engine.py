@@ -834,20 +834,44 @@ class ExplorationEngine:
             items_right_of_home = []
             raw_items = self.prediction.get('items', [])
             lines = self.prediction.get('lines', [])
-            reordered_items = raw_items  # Default: no reordering
             
-            # ✅ Use deduplicated items for reordering
+            # ✅ Detect and remove duplicates (process by rows to preserve structure)
+            seen = set()  # Track seen sanitized names
+            duplicate_positions = []  # List of "row_index" for duplicates (for frontend red chips)
+            deduplicated_lines = []  # Clean 2D array without duplicates
+            deduplicated_items = []  # Flat list without duplicates
+            
+            for row_idx, row in enumerate(lines):
+                deduplicated_row = []
+                for item_idx, item in enumerate(row):
+                    sanitized = self.node_generator.target_to_node_name(item)
+                    if sanitized not in seen:
+                        # First occurrence - keep it
+                        seen.add(sanitized)
+                        deduplicated_row.append(item)
+                        deduplicated_items.append(item)
+                    else:
+                        # Duplicate - mark position for frontend red chip
+                        duplicate_positions.append(f"{row_idx}_{item_idx}")
+                        print(f"  🔍 Duplicate skipped: '{sanitized}' at row {row_idx}, index {item_idx}")
+                deduplicated_lines.append(deduplicated_row)
+            
+            if duplicate_positions:
+                print(f"  ✅ Removed {len(duplicate_positions)} duplicates")
+                print(f"  📝 {len(raw_items)} → {len(deduplicated_items)} items")
+            
             reordered_items = deduplicated_items  # Start with clean list
             
             # Check if this is horizontal D-pad navigation
             if self.prediction.get('strategy') in ['dpad_with_screenshot', 'test_dpad_directions'] and self.prediction.get('menu_type') in ['horizontal', 'mixed']:
                 
                 # For mixed menu: only process Row 0 (horizontal), keep Row 1+ separate
-                if self.prediction.get('menu_type') == 'mixed' and lines:
-                    row0_items = lines[0]  # Row 0 only
+                if self.prediction.get('menu_type') == 'mixed' and deduplicated_lines:
+                    # ✅ Use deduplicated lines (preserves row structure)
+                    row0_items = deduplicated_lines[0]  # Row 0 (deduplicated)
                     other_items = []
-                    for row_idx in range(1, len(lines)):
-                        other_items.extend(lines[row_idx])  # Row 1+ items
+                    for row_idx in range(1, len(deduplicated_lines)):
+                        other_items.extend(deduplicated_lines[row_idx])  # Row 1+ (deduplicated)
                     print(f"  📊 Mixed menu: Row 0 = {row0_items}, Row 1+ = {other_items}")
                 else:
                     row0_items = deduplicated_items
@@ -876,34 +900,10 @@ class ExplorationEngine:
                     reordered_items = row0_items + other_items
                     print(f"  📊 No left items - home at start")
             
-            # ✅ Detect and remove duplicates
-            seen = {}  # sanitized_name -> first occurrence position
-            duplicate_positions = []  # List of "row_index" for duplicates (for frontend red chips)
-            deduplicated_items = []  # Clean list without duplicates
-            
-            for idx, item in enumerate(raw_items):
-                sanitized = self.node_generator.target_to_node_name(item)
-                if sanitized not in seen:
-                    # First occurrence - keep it
-                    seen[sanitized] = idx
-                    deduplicated_items.append(item)
-                else:
-                    # Duplicate - mark position for frontend
-                    for row_idx, row in enumerate(lines):
-                        if idx < sum(len(lines[i]) for i in range(row_idx + 1)):
-                            item_idx = idx - sum(len(lines[i]) for i in range(row_idx))
-                            duplicate_positions.append(f"{row_idx}_{item_idx}")
-                            print(f"  🔍 Duplicate skipped: '{sanitized}' at row {row_idx}, index {item_idx} (first at index {seen[sanitized]})")
-                            break
-            
-            if duplicate_positions:
-                print(f"  ✅ Removed {len(duplicate_positions)} duplicates from items list")
-                print(f"  📝 {len(raw_items)} → {len(deduplicated_items)} items")
-            
             # ✅ NEW: Build edge preview for frontend (calculate edges once!)
             edges_preview = self._build_edges_preview(
-                raw_items=raw_items,
-                lines=self.prediction.get('lines', []),
+                raw_items=deduplicated_items,
+                lines=deduplicated_lines,
                 strategy=self.prediction.get('strategy', 'click'),
                 menu_type=self.prediction.get('menu_type', 'horizontal'),
                 items_left_of_home=items_left_of_home,
@@ -938,7 +938,7 @@ Exploration will navigate through these items using {self.prediction.get('strate
                 'plan': {
                     'menu_type': self.prediction.get('menu_type'),
                     'items': reordered_items,
-                    'lines': self.prediction.get('lines', []),
+                    'lines': deduplicated_lines,
                     'duplicate_positions': duplicate_positions,
                     'strategy': self.prediction.get('strategy'),
                     'predicted_depth': self.prediction.get('predicted_depth', 1),
