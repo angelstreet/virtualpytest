@@ -203,6 +203,49 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 except ValueError:
                     start_idx = 0
                     print(f"  ⚠️ '{start_node_id}' node not found in row 1, defaulting to index 0")
+                    
+                    # ✅ SUBTREE ENTRY: Create edge from subtree root to first focus node
+                    # Use RIGHT-LEFT confirmation to verify position (Option 2)
+                    if len(all_focus_nodes_row1) > 0:
+                        first_focus_node = all_focus_nodes_row1[0]
+                        
+                        # Entry action: RIGHT then LEFT (confirms we're on first item)
+                        entry_forward_actions = [
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "RIGHT", "wait_time": 500}
+                            },
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "LEFT", "wait_time": 500}
+                            }
+                        ]
+                        
+                        # Reverse: Same confirmation (we're already here)
+                        entry_reverse_actions = [
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "RIGHT", "wait_time": 500}
+                            },
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "LEFT", "wait_time": 500}
+                            }
+                        ]
+                        
+                        edge_entry = node_gen.create_edge_data(
+                            source=start_node_id,
+                            target=first_focus_node,
+                            actions=entry_forward_actions,
+                            reverse_actions=entry_reverse_actions,
+                            label=f"{start_node_id}_to_{first_focus_node}_temp"
+                        )
+                        edges_to_save.append(edge_entry)
+                        print(f"    🌲 SUBTREE ENTRY: {start_node_id} ↔ {first_focus_node}: RIGHT-LEFT confirmation (both ways)")
 
                 # 1. Right side: Start Node -> Right (Action: RIGHT)
                 for idx in range(start_idx, len(all_focus_nodes_row1) - 1):
