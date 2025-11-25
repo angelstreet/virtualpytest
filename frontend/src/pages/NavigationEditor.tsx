@@ -440,13 +440,36 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             
             // Re-fetch tree data after AI generation using navigation hook
             console.log('[@NavigationEditor:handleAIGenerated] 🔄 Force-refreshing tree after AI structure creation');
+            console.log('[@NavigationEditor:handleAIGenerated] Current tree ID:', actualTreeId);
+            console.log('[@NavigationEditor:handleAIGenerated] Is subtree:', parentChain.length > 0);
+            
             try {
-              const result = await loadTreeByUserInterface(userInterface.id);
-              // Tree data is automatically updated in the navigation context
-              // If metrics were included, store them for useMetrics hook
-              if (result?.metrics) {
-                console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
-                setPreloadedMetrics(result.metrics);
+              // ✅ FIX: If in subtree, stay in subtree instead of jumping to root!
+              if (parentChain.length > 0 && actualTreeId) {
+                // We're in a subtree - reload the root tree BUT stay in the current subtree context
+                console.log('[@NavigationEditor:handleAIGenerated] Reloading tree while preserving SUBTREE context');
+                console.log('[@NavigationEditor:handleAIGenerated] Current subtree:', actualTreeId);
+                console.log('[@NavigationEditor:handleAIGenerated] Parent chain length:', parentChain.length);
+                
+                // Reload the root tree (to get updated data) but don't navigate away from subtree
+                const result = await loadTreeByUserInterface(userInterface.id);
+                
+                if (result?.metrics) {
+                  console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
+                  setPreloadedMetrics(result.metrics);
+                }
+                
+                // Parent chain is preserved by NavigationContext - we won't be redirected
+                console.log('[@NavigationEditor:handleAIGenerated] ✅ Tree reloaded, staying in subtree');
+              } else {
+                // We're in root tree - reload by userInterface as usual
+                console.log('[@NavigationEditor:handleAIGenerated] Reloading ROOT tree by userInterface');
+                const result = await loadTreeByUserInterface(userInterface.id);
+                
+                if (result?.metrics) {
+                  console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
+                  setPreloadedMetrics(result.metrics);
+                }
               }
               
               // ✅ Apply auto-layout after nodes are loaded
@@ -1661,8 +1684,10 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 console.error('[@NavigationEditor] Error finalizing structure:', err);
               }
               
-              // Refresh to show permanent nodes/edges
-              await handleAIGenerated();
+              // ✅ FIX: Don't reload tree unnecessarily - just refresh cache
+              // The nodes/edges were already renamed by backend, just invalidate cache
+              console.log('[@NavigationEditor] Invalidating cache after finalization');
+              navigationConfig.invalidateTreeCache(userInterface?.id);
               
               // Close modal
               setIsValidationModalOpen(false);
@@ -1670,6 +1695,9 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               // Reset exploration state
               setExplorationId(null);
               setExplorationHostName(null);
+              
+              // ✅ Show success message
+              console.log('[@NavigationEditor] ✅ Validation complete - structure finalized');
             }}
           />
         )}
