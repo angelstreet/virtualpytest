@@ -337,13 +337,14 @@ class ExplorationExecutor:
                         from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
                         
                         # Upload to R2 (same as other navigation screenshots)
-                        r2_filename = "home_initial.jpg"
+                        # ✅ FIX: Use start_node instead of hardcoded "home"
+                        r2_filename = f"{start_node}_initial.jpg"
                         userinterface_name = self.exploration_state['userinterface_name']
                         upload_result = upload_navigation_screenshot(screenshot_path, userinterface_name, r2_filename)
                         
                         if upload_result.get('success'):
                             screenshot_url = upload_result.get('url')
-                            print(f"[@ExplorationExecutor] Home screenshot uploaded to R2: {screenshot_url}")
+                            print(f"[@ExplorationExecutor] Start node ({start_node}) screenshot uploaded to R2: {screenshot_url}")
                             
                             with self._lock:
                                 self.exploration_state['current_analysis']['screenshot'] = screenshot_url
