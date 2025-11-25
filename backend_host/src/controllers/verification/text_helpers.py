@@ -785,7 +785,8 @@ class TextHelpers:
                     max_x_gap = 30   # Small text
                 
                 # DEBUG logging
-                should_group_by_distance = (y_diff < height_avg * 0.5 and x_gap < max_x_gap)
+                # FIX: Reject negative x_gap (element is to the LEFT, not right - wrong spatial order)
+                should_group_by_distance = (y_diff < height_avg * 0.5 and 0 <= x_gap < max_x_gap)
                 should_group_by_font = (font_ratio > 0.5)  # Allow grouping if fonts within 50% size
                 
                 print(f"[@group] Comparing: '{current_group['text']}' (font={current_font_size}) + '{elem['text']}' (font={elem_font_size})")
