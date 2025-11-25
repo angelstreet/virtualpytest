@@ -133,6 +133,7 @@ def start_exploration():
         
         # Validate params
         tree_id = data.get('tree_id')
+        root_tree_id = data.get('root_tree_id', tree_id)  # ✅ NEW: Root tree for pathfinding (defaults to tree_id)
         device_id = data.get('device_id', 'device1')
         userinterface_name = data.get('userinterface_name')
         original_prompt = data.get('original_prompt', '')
@@ -141,6 +142,7 @@ def start_exploration():
         # 🔍 DEBUG LOG: Show what's being started
         print(f"[@route:ai_generation:start_exploration] Starting exploration:")
         print(f"  tree_id: {tree_id}")
+        print(f"  root_tree_id: {root_tree_id}")
         print(f"  device_id: {device_id}")
         print(f"  userinterface_name: {userinterface_name}")
         print(f"  start_node: {start_node}")
@@ -168,6 +170,7 @@ def start_exploration():
         # Delegate to exploration executor
         result = device.exploration_executor.start_exploration(
             tree_id=tree_id,
+            root_tree_id=root_tree_id,  # ✅ NEW: Pass root tree for pathfinding
             userinterface_name=userinterface_name,
             team_id=team_id,
             original_prompt=original_prompt,

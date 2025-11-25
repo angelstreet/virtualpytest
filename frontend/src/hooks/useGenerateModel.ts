@@ -104,7 +104,7 @@ export const useGenerateModel = ({
   onClose
 }: UseGenerateModelProps) => {
   // ✅ AUTO-DETECT: Use current position from NavigationContext
-  const { currentNodeLabel, nodes } = useNavigation();
+  const { currentNodeLabel, nodes, parentChain } = useNavigation();
   
   // State
   const [explorationId, setExplorationId] = useState<string | null>(null);
@@ -344,13 +344,18 @@ export const useGenerateModel = ({
       const subtreeRootNode = nodes.find(n => n.data?.isParentReference === true);
       const startNodeLabel = subtreeRootNode?.data?.label || currentNodeLabel || 'home';
       
+      // ✅ ROOT TREE: Get root tree ID from parentChain for pathfinding
+      const rootTreeId = parentChain[0]?.treeId || treeId;
+      const isSubtree = !!subtreeRootNode && rootTreeId !== treeId;
+      
       console.log('[@useGenerateModel:startExploration] Starting exploration with params:', {
         treeId,
+        root_tree_id: rootTreeId,
         host_name: selectedHost.host_name,
         device_id: selectedDeviceId,
         userinterface_name: userinterfaceName,
         start_node: startNodeLabel,
-        is_subtree: !!subtreeRootNode,
+        is_subtree: isSubtree,
         subtree_root: subtreeRootNode?.data?.label
       });
 
@@ -360,6 +365,7 @@ export const useGenerateModel = ({
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           tree_id: treeId,
+          root_tree_id: rootTreeId,  // ✅ NEW: Root tree for pathfinding in subtrees
           host_name: selectedHost.host_name,  // ← Just the name!
           device_id: selectedDeviceId,
           userinterface_name: userinterfaceName,
@@ -389,7 +395,7 @@ export const useGenerateModel = ({
       setIsExploring(false);
       setStatus('failed');
     }
-  }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName, nodes, currentNodeLabel]);
+  }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName, nodes, currentNodeLabel, parentChain]);
 
   const continueExploration = useCallback(async (selectedScreenNodes?: Set<string>) => {
     if (!explorationId || !explorationHostName) {

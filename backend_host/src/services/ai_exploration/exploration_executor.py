@@ -137,15 +137,17 @@ class ExplorationExecutor:
         
         print(f"[@ExplorationExecutor] Initialized for device {device.device_id}")
     
-    def start_exploration(self, tree_id: str, userinterface_name: str, team_id: str, original_prompt: str = "", start_node: str = 'home') -> Dict[str, Any]:
+    def start_exploration(self, tree_id: str, root_tree_id: str, userinterface_name: str, team_id: str, original_prompt: str = "", start_node: str = 'home') -> Dict[str, Any]:
         """
         Start AI exploration (Phase 0+1: Strategy Detection + Analysis)
         
         v2.0: Now accepts original_prompt for context-aware execution
         v2.1: Now accepts start_node for recursive exploration (depth 0, 1, 2...)
+        v2.2: Now accepts root_tree_id for subtree pathfinding
         
         Args:
-            tree_id: Navigation tree ID
+            tree_id: Navigation tree ID (may be a subtree)
+            root_tree_id: Root tree ID for pathfinding (NEW in v2.2)
             userinterface_name: User interface name
             team_id: Team ID
             original_prompt: User's goal (NEW in v2.0)
@@ -279,11 +281,12 @@ class ExplorationExecutor:
         
         # ✅ PHASE 0c: Navigate to start_node BEFORE taking screenshot
         print(f"\n[@ExplorationExecutor:start_exploration] 📍 PHASE 0c: Navigating to start node '{start_node}'...")
+        print(f"[@ExplorationExecutor:start_exploration] Using root_tree_id for pathfinding: {root_tree_id}")
         
         try:
             import asyncio
             nav_result = asyncio.run(self.device.navigation_executor.execute_navigation(
-                tree_id=tree_id,
+                tree_id=root_tree_id,  # ✅ FIX: Use root tree for pathfinding (not subtree!)
                 userinterface_name=userinterface_name,
                 target_node_label=start_node,
                 team_id=team_id
