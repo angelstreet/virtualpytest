@@ -5,11 +5,30 @@ from shared.src.lib.database.navigation_trees_db import (
     get_node_by_id,
     get_edge_by_id,
     delete_node,
+    delete_edge,
     save_nodes_batch,
     save_edges_batch,
     get_tree_nodes,
     get_tree_edges
 )
+
+def _get_temp_items(tree_id: str, team_id: str) -> Dict[str, Any]:
+    """Get all _temp nodes and edges from database"""
+    nodes_result = get_tree_nodes(tree_id, team_id)
+    edges_result = get_tree_edges(tree_id, team_id)
+    
+    if not nodes_result.get('success') or not edges_result.get('success'):
+        return {'success': False, 'error': 'Failed to get tree data'}
+    
+    nodes = nodes_result.get('nodes', [])
+    edges = edges_result.get('edges', [])
+    
+    return {
+        'success': True,
+        'temp_nodes': [n for n in nodes if n.get('node_id', '').endswith('_temp')],
+        'temp_edges': [e for e in edges if '_temp' in e.get('edge_id', '') or '_temp' in e.get('source', '') or '_temp' in e.get('target', '')]
+    }
+
 
 def finalize_structure(executor) -> Dict[str, Any]:
     """
@@ -31,28 +50,22 @@ def finalize_structure(executor) -> Dict[str, Any]:
         
         print(f"[@ExplorationExecutor:finalize_structure] Renaming _temp nodes/edges for {executor.current_exploration_id}")
         
-        # Get all nodes and edges from tree
-        nodes_result = get_tree_nodes(tree_id, team_id)
-        edges_result = get_tree_edges(tree_id, team_id)
-        
-        if not nodes_result.get('success') or not edges_result.get('success'):
-            return {'success': False, 'error': 'Failed to get tree data'}
-        
-        nodes = nodes_result.get('nodes', [])
-        edges = edges_result.get('edges', [])
+        # Get all temp items from database
+        temp_result = _get_temp_items(tree_id, team_id)
+        if not temp_result['success']:
+            return temp_result
         
         nodes_renamed = 0
         edges_renamed = 0
         
         # Rename nodes: remove _temp suffix
         nodes_to_save = []
-        for node in nodes:
+        for node in temp_result['temp_nodes']:
             node_id = node.get('node_id', '')
-            if node_id.endswith('_temp'):
-                new_node_id = node_id.replace('_temp', '')
-                node['node_id'] = new_node_id
-                nodes_to_save.append(node)
-                print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
+            new_node_id = node_id.replace('_temp', '')
+            node['node_id'] = new_node_id
+            nodes_to_save.append(node)
+            print(f"  ✅ Renamed node: {node_id} → {new_node_id}")
         
         if nodes_to_save:
             result = save_nodes_batch(tree_id, nodes_to_save, team_id)
@@ -63,21 +76,17 @@ def finalize_structure(executor) -> Dict[str, Any]:
         
         # Rename edges: remove _temp suffix from edge_id, source, target
         edges_to_save = []
-        for edge in edges:
+        for edge in temp_result['temp_edges']:
             edge_id = edge.get('edge_id', '')
-            source = edge.get('source', '')
-            target = edge.get('target', '')
+            new_edge_id = edge_id.replace('_temp', '')
+            new_source = edge.get('source', '').replace('_temp', '')
+            new_target = edge.get('target', '').replace('_temp', '')
             
-            if '_temp' in edge_id or '_temp' in source or '_temp' in target:
-                new_edge_id = edge_id.replace('_temp', '')
-                new_source = source.replace('_temp', '')
-                new_target = target.replace('_temp', '')
-                
-                edge['edge_id'] = new_edge_id
-                edge['source'] = new_source
-                edge['target'] = new_target
-                edges_to_save.append(edge)
-                print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
+            edge['edge_id'] = new_edge_id
+            edge['source'] = new_source
+            edge['target'] = new_target
+            edges_to_save.append(edge)
+            print(f"  ✅ Renamed edge: {edge_id} → {new_edge_id}")
                 
         if edges_to_save:
             result = save_edges_batch(tree_id, edges_to_save, team_id)
@@ -178,24 +187,41 @@ def cancel_exploration(executor, tree_id: str, team_id: str) -> Dict[str, Any]:
             'message': 'Exploration cancelled'
         }
     """
+    print(f"[@ExplorationExecutor:cancel_exploration] Cancelling exploration")
+    
+    # Get all temp items from database
+    temp_result = _get_temp_items(tree_id, team_id)
+    if not temp_result['success']:
+        return temp_result
+    
+    # Delete all temp nodes
+    nodes_deleted = 0
+    for node in temp_result['temp_nodes']:
+        node_id = node.get('node_id')
+        delete_node(tree_id, node_id, team_id)
+        nodes_deleted += 1
+        print(f"  🗑️  Deleted node: {node_id}")
+    
+    # Delete all temp edges
+    edges_deleted = 0
+    for edge in temp_result['temp_edges']:
+        edge_id = edge.get('edge_id')
+        delete_edge(tree_id, edge_id, team_id)
+        edges_deleted += 1
+        print(f"  🗑️  Deleted edge: {edge_id}")
+    
+    # Reset state
     with executor._lock:
-        nodes_to_delete = executor.exploration_state.get('nodes_created', [])
-        
-        print(f"[@ExplorationExecutor:cancel_exploration] Cancelling exploration")
-        
-        for node_id in nodes_to_delete:
-            delete_node(tree_id, node_id, team_id)
-            print(f"  🗑️  Deleted node: {node_id}")
-        
-        # Reset state
         executor.current_exploration_id = None
         executor.exploration_engine = None
         executor.exploration_state['status'] = 'idle'
-        
-        print(f"[@ExplorationExecutor:cancel_exploration] ✅ Cancelled")
-        
-        return {
-            'success': True,
-            'message': 'Exploration cancelled, temporary nodes deleted'
-        }
+    
+    print(f"[@ExplorationExecutor:cancel_exploration] ✅ Cancelled: {nodes_deleted} nodes, {edges_deleted} edges deleted")
+    
+    return {
+        'success': True,
+        'nodes_deleted': nodes_deleted,
+        'edges_deleted': edges_deleted,
+        'message': f'Exploration cancelled: {nodes_deleted} nodes and {edges_deleted} edges deleted'
+    }
 
