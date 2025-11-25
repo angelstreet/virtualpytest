@@ -58,13 +58,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
     Phase 2b: Validate edges sequentially (depth-first for TV dual-layer)
     """
     with executor._lock:
-        print(f"\n{'='*80}")
-        print(f"[@ExplorationExecutor:validate_next_item] VALIDATION STEP START")
-        print(f"{'='*80}")
-        
         if executor.exploration_state['status'] not in ['awaiting_validation', 'validating']:
             error_msg = f"Cannot validate: status is {executor.exploration_state['status']}"
-            print(f"[@ExplorationExecutor:validate_next_item] ❌ {error_msg}")
             return {
                 'success': False,
                 'error': error_msg
@@ -75,12 +70,7 @@ def validate_next_item(executor) -> Dict[str, Any]:
         current_index = executor.exploration_state['current_validation_index']
         items_to_validate = executor.exploration_state['items_to_validate']
         
-        print(f"[@ExplorationExecutor:validate_next_item] Current index: {current_index}")
-        print(f"[@ExplorationExecutor:validate_next_item] Total items: {len(items_to_validate)}")
-        print(f"[@ExplorationExecutor:validate_next_item] Items to validate: {items_to_validate}")
-        
         if current_index >= len(items_to_validate):
-            print(f"[@ExplorationExecutor:validate_next_item] ✅ All items validated!")
             executor.exploration_state['status'] = 'validation_complete'
             return {
                 'success': True,
@@ -92,19 +82,14 @@ def validate_next_item(executor) -> Dict[str, Any]:
         target_to_node_map = executor.exploration_state['target_to_node_map']
         node_name = target_to_node_map.get(current_item)
         
-        print(f"[@ExplorationExecutor:validate_next_item] Validating item: {current_item}")
-        print(f"[@ExplorationExecutor:validate_next_item] Node name: {node_name}")
-        
         if not node_name:
             # Fallback
             node_gen = NodeGenerator(tree_id, team_id)
             node_name_clean = node_gen.target_to_node_name(current_item)
-            node_name = node_name_clean  # ← Fixed: ID doesn't have _temp, only label does
-            print(f"[@ExplorationExecutor:validate_next_item] Using fallback node name: {node_name}")
+            node_name = node_name_clean
         
         # Skip home
         if 'home' in node_name.lower() and node_name != 'home_temp':
-            print(f"[@ExplorationExecutor:validate_next_item] ⏭️  Skipping home node: {node_name}")
             executor.exploration_state['current_validation_index'] = current_index + 1
             return validate_next_item(executor)
         
@@ -489,6 +474,31 @@ def validate_next_item(executor) -> Dict[str, Any]:
             edge_results['horizontal'] = 'success'
             iterator_display = f" x{iterator}" if iterator > 1 else ""
             print(f"    ✅ Focus navigation: {nav_direction}{iterator_display}")
+            
+            # ✅ SAVE EDGE: Update database with confirmed iterator (same as BACK x2)
+            if iterator > 1:
+                try:
+                    horizontal_edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}_temp"
+                    edge_result = get_edge_by_id(tree_id, horizontal_edge_id, team_id)
+                    
+                    if edge_result.get('success'):
+                        edge = edge_result['edge']
+                        action_sets = edge.get('action_sets', [])
+                        
+                        # Ensure iterator is set in both directions
+                        if len(action_sets) >= 2:
+                            if action_sets[0].get('actions') and len(action_sets[0]['actions']) > 0:
+                                action_sets[0]['actions'][0]['params']['iterator'] = iterator
+                            if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
+                                action_sets[1]['actions'][0]['params']['iterator'] = iterator
+                            
+                            # Save (same as BACK x2)
+                            update_result = save_edges_batch(tree_id, [edge], team_id)
+                            if update_result.get('success'):
+                                print(f"    💾 Edge saved with iterator={iterator}")
+                except Exception as e:
+                    print(f"    ⚠️ Failed to save iterator: {e}")
+            
             time.sleep(2.0)  # 2000ms for D-PAD navigation (matches structure_creator.py)
             
             # 📸 Capture screenshot for focus node (no dump needed)
