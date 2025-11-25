@@ -364,10 +364,10 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                     actions=[{
                         "command": "press_key",
                         "action_type": "remote",
-                    "params": {
-                        "key": "OK",
-                        "wait_time": 6000
-                    }
+                        "params": {
+                            "key": "OK",
+                            "wait_time": 6000
+                        }
                     }],
                     reverse_actions=[{
                         "command": "press_key",
