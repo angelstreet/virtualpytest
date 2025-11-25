@@ -181,6 +181,7 @@ class ExplorationExecutor:
                 'status': 'starting',
                 'phase': 'analysis',
                 'tree_id': tree_id,
+                'root_tree_id': root_tree_id,  # ✅ Store for validation pathfinding
                 'team_id': team_id,
                 'userinterface_name': userinterface_name,
                 'current_step': 'Initializing exploration...',

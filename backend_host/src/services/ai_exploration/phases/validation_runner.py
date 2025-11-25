@@ -377,15 +377,17 @@ def validate_next_item(executor) -> Dict[str, Any]:
             print(f"      All LEFT items: {items_left}")
             try:
                 import asyncio
+                # ✅ Use root_tree_id for pathfinding (start_node is in parent tree!)
+                root_tree_id = executor.exploration_state.get('root_tree_id', tree_id)
                 nav_result = asyncio.run(executor.device.navigation_executor.execute_navigation(
-                    tree_id=tree_id,
+                    tree_id=root_tree_id,
                     userinterface_name=executor.exploration_state['userinterface_name'],
                     target_node_label=start_node_label,
                     team_id=team_id
                 ))
                 
                 if nav_result.get('success'):
-                    print(f"    ✅ At '{start_node_label}' - ready for LEFT navigation")
+                    print(f"    ✅ At '{start_node_label}' (used root_tree_id: {root_tree_id}) - ready for LEFT navigation")
                 else:
                     error_msg = nav_result.get('error', 'Unknown error')
                     print(f"    ❌ Navigation to '{start_node_label}' failed: {error_msg}")
@@ -402,15 +404,17 @@ def validate_next_item(executor) -> Dict[str, Any]:
             print(f"      Transitioning from Row {prev_row_index + 1 if prev_row_index >= 0 else 0} → Row {display_row}")
             try:
                 import asyncio
+                # ✅ Use root_tree_id for pathfinding (start_node is in parent tree!)
+                root_tree_id = executor.exploration_state.get('root_tree_id', tree_id)
                 nav_result = asyncio.run(executor.device.navigation_executor.execute_navigation(
-                    tree_id=tree_id,
+                    tree_id=root_tree_id,
                     userinterface_name=executor.exploration_state['userinterface_name'],
                     target_node_label=start_node_label,
                     team_id=team_id
                 ))
                 
                 if nav_result.get('success'):
-                    print(f"    ✅ At '{start_node_label}' - ready for DOWN navigation to Row {display_row}")
+                    print(f"    ✅ At '{start_node_label}' (used root_tree_id: {root_tree_id}) - ready for DOWN navigation to Row {display_row}")
                     # ✅ FIX: Update prev_focus_name to start_node since we navigated there
                     prev_focus_name = start_node_id
                 else:
