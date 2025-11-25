@@ -459,16 +459,15 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
 
       {/* Actions */}
       <DialogActions sx={{ p: 2, gap: 1 }}>
-        {/* During validation - only show disabled cancel */}
+        {/* During validation - show enabled cancel */}
         {isValidating && (
           <Button
-            onClick={onClose}
+            onClick={handleCancelExploration}
             variant="outlined"
             color="error"
             startIcon={<CancelIcon />}
-            disabled
           >
-            Validating...
+            Cancel
           </Button>
         )}
         

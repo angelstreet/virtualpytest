@@ -242,6 +242,13 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         }],
                         label=f"{source_focus}_to_{target_focus}_temp"
                     )
+                    
+                    # ✅ DEBUG: Verify iterator is in edge data before saving
+                    if iterator > 1:
+                        action_params = edge_horizontal['action_sets'][0]['actions'][0]['params']
+                        saved_iterator = action_params.get('iterator', 'NOT_FOUND')
+                        print(f"    🔍 DEBUG: Edge data has iterator = {saved_iterator}")
+                    
                     edges_to_save.append(edge_horizontal)
                     
                     # Enhanced logging
@@ -290,6 +297,13 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                         }],
                         label=f"{source_focus}_to_{target_focus}_temp"
                     )
+                    
+                    # ✅ DEBUG: Verify iterator is in edge data before saving
+                    if iterator > 1:
+                        action_params = edge_horizontal['action_sets'][0]['actions'][0]['params']
+                        saved_iterator = action_params.get('iterator', 'NOT_FOUND')
+                        print(f"    🔍 DEBUG: Edge data has iterator = {saved_iterator}")
+                    
                     edges_to_save.append(edge_horizontal)
                     
                     # Enhanced logging
