@@ -128,14 +128,17 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 for idx, original_item in enumerate(row1_items):
                     node_name_clean = node_gen.target_to_node_name(original_item)
                     
-                    # ✅ ALWAYS include start_node - it's the anchor for the menu structure
-                    if node_name_clean.lower() == start_node_label.lower() or node_name_clean.lower() in ['home', 'accueil'] and start_node_label == 'home':
-                        all_focus_nodes_row1.append(start_node_id)
-                        focus_to_original_position[start_node_id] = idx  # Track original position
-                        print(f"    ♻️  Using existing '{start_node_id}' node (Row 1 anchor)")
+                    # ✅ TV SUBTREE: start_node is only visible in Row 1 if it's 'home'
+                    # For other screens (apps, settings, replay), you're ON that screen, so it's not in the menu
+                    if node_name_clean.lower() == start_node_label.lower():
+                        if start_node_label.lower() in ['home', 'accueil']:
+                            all_focus_nodes_row1.append(start_node_id)
+                            focus_to_original_position[start_node_id] = idx
+                            print(f"    ♻️  Using existing '{start_node_id}' node (Row 1 anchor)")
+                        else:
+                            print(f"    ⏭️  Skipped '{start_node_id}' (not visible in Row 1 on TV subtrees)")
                         continue
                     
-                    # Only process OTHER selected items (start_node is always included)
                     if original_item not in items:
                         continue
                     
