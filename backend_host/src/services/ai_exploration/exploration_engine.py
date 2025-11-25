@@ -221,17 +221,19 @@ class ExplorationEngine:
             })
             return context
         
-        # Get raw items from prediction
         raw_items = prediction.get('items', [])
         
-        # ✅ SANITIZE ALL ITEMS before storing in context
-        # This ensures frontend displays clean labels that match node IDs
         print(f"  📝 Sanitizing {len(raw_items)} items...")
         sanitized_items = []
+        seen = set()
         for item in raw_items:
             sanitized = self.node_generator.target_to_node_name(item)
-            print(f"    '{item}' → '{sanitized}'")
-            sanitized_items.append(sanitized)
+            if sanitized not in seen:
+                seen.add(sanitized)
+                sanitized_items.append(sanitized)
+                print(f"    '{item}' → '{sanitized}'")
+            else:
+                print(f"    '{item}' → '{sanitized}' (duplicate, skipped)")
         
         # ✅ SPLIT AND REORDER for horizontal D-pad navigation
         # For TV/STB horizontal menus, we explore: RIGHT items first, then LEFT items
