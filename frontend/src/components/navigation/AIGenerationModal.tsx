@@ -405,20 +405,21 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
+                                          const isDuplicate = explorationPlan.duplicate_items?.includes(pair.item);
                                           return (
                                             <Chip 
                                               key={idx}
                                               label={pair.focusNode}
                                               size="small"
                                               variant="outlined"
-                                              onClick={() => toggleFocusNode(pair.item)}
+                                              onClick={isDuplicate ? undefined : () => toggleFocusNode(pair.item)}
                                               sx={{
-                                                cursor: 'pointer',
-                                                opacity: isFocusSelected ? 1 : 0.4,
-                                                bgcolor: isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent',
-                                                borderColor: isFocusSelected ? 'primary.main' : 'grey.600',
+                                                cursor: isDuplicate ? 'not-allowed' : 'pointer',
+                                                opacity: isDuplicate ? 0.5 : (isFocusSelected ? 1 : 0.4),
+                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.2)' : (isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent'),
+                                                borderColor: isDuplicate ? 'error.main' : (isFocusSelected ? 'primary.main' : 'grey.600'),
                                                 fontSize: '0.65rem',
-                                                '&:hover': {
+                                                '&:hover': isDuplicate ? {} : {
                                                   opacity: 0.8,
                                                   bgcolor: isFocusSelected ? 'rgba(33, 150, 243, 0.3)' : 'action.hover'
                                                 }
@@ -438,23 +439,24 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
                                           const isScreenSelected = selectedScreenNodes.has(pair.item);
+                                          const isDuplicate = explorationPlan.duplicate_items?.includes(pair.item);
                                           return (
                                             <Chip 
                                               key={idx}
                                               label={pair.screenNode}
                                               size="small"
                                               variant="outlined"
-                                              onClick={() => toggleScreenNode(pair.item)}
+                                              onClick={isDuplicate ? undefined : () => toggleScreenNode(pair.item)}
                                               sx={{
-                                                cursor: isFocusSelected ? 'pointer' : 'not-allowed',
-                                                opacity: (isFocusSelected && isScreenSelected) ? 1 : 0.3,
-                                                bgcolor: (isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent',
-                                                borderColor: (isFocusSelected && isScreenSelected) ? 'success.main' : 'grey.700',
+                                                cursor: isDuplicate ? 'not-allowed' : (isFocusSelected ? 'pointer' : 'not-allowed'),
+                                                opacity: isDuplicate ? 0.5 : ((isFocusSelected && isScreenSelected) ? 1 : 0.3),
+                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.2)' : ((isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
+                                                borderColor: isDuplicate ? 'error.main' : ((isFocusSelected && isScreenSelected) ? 'success.main' : 'grey.700'),
                                                 fontSize: '0.65rem',
-                                                '&:hover': isFocusSelected ? {
+                                                '&:hover': isDuplicate ? {} : (isFocusSelected ? {
                                                   opacity: 0.8,
                                                   bgcolor: isScreenSelected ? 'rgba(76, 175, 80, 0.3)' : 'action.hover'
-                                                } : undefined
+                                                } : undefined)
                                               }}
                                             />
                                           );

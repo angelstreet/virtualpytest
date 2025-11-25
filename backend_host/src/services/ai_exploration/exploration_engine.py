@@ -226,6 +226,8 @@ class ExplorationEngine:
         print(f"  📝 Sanitizing {len(raw_items)} items...")
         sanitized_items = []
         seen = set()
+        duplicate_items = []
+        
         for item in raw_items:
             sanitized = self.node_generator.target_to_node_name(item)
             if sanitized not in seen:
@@ -233,7 +235,10 @@ class ExplorationEngine:
                 sanitized_items.append(sanitized)
                 print(f"    '{item}' → '{sanitized}'")
             else:
-                print(f"    '{item}' → '{sanitized}' (duplicate, skipped)")
+                duplicate_items.append(sanitized)
+                print(f"    '{item}' → '{sanitized}' (duplicate)")
+        
+        context.duplicate_items = duplicate_items
         
         # ✅ SPLIT AND REORDER for horizontal D-pad navigation
         # For TV/STB horizontal menus, we explore: RIGHT items first, then LEFT items
@@ -900,12 +905,15 @@ Exploration will navigate through these items using {self.prediction.get('strate
                     }
                 )
             
+            duplicate_items = getattr(self.context, 'duplicate_items', [])
+            
             return {
                 'success': True,
                 'plan': {
                     'menu_type': self.prediction.get('menu_type'),
-                    'items': reordered_items,  # ✅ Use reordered list
+                    'items': reordered_items,
                     'lines': self.prediction.get('lines', []),
+                    'duplicate_items': duplicate_items,
                     'strategy': self.prediction.get('strategy'),
                     'predicted_depth': self.prediction.get('predicted_depth', 1),
                     'reasoning': reasoning,
@@ -913,7 +921,7 @@ Exploration will navigate through these items using {self.prediction.get('strate
                     'screen_name': 'Initial Screen',
                     'items_left_of_home': items_left_of_home,
                     'items_right_of_home': items_right_of_home,
-                    'edges_preview': edges_preview  # ✅ NEW: Pre-calculated edges for frontend
+                    'edges_preview': edges_preview
                 }
             }
             

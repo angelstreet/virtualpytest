@@ -116,6 +116,7 @@ export interface ItemCreationResult {
 export interface ExplorationPlan {
   menu_type: string;
   items: string[];
+  duplicate_items?: string[];
   strategy: ExplorationStrategy;
   has_exact_selectors: boolean;
   selectors: Record<string, SelectorInfo>;
