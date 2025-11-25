@@ -410,15 +410,10 @@ class TextHelpers:
         """
         try:
             print(f"[@text_helpers:extract_full_ocr_dump] Extracting OCR dump from: {image_path}")
-            print(f"  🐛 DEBUG: confidence_threshold = {confidence_threshold}")
             
             if not os.path.exists(image_path):
                 print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Image not found at {image_path}")
                 return []
-            
-            # Get file info
-            file_size = os.path.getsize(image_path)
-            print(f"  🐛 DEBUG: Image file size = {file_size} bytes")
             
             # Load image
             img = cv2.imread(image_path)
@@ -426,13 +421,9 @@ class TextHelpers:
                 print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Failed to load image with cv2.imread")
                 return []
             
-            img_height, img_width = img.shape[:2]
-            print(f"  🐛 DEBUG: Image dimensions = {img_width}x{img_height}")
-            
             # Preprocess: Convert to grayscale and apply binary threshold
             gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
             _, binary = cv2.threshold(gray, 127, 255, cv2.THRESH_BINARY)
-            print(f"  🐛 DEBUG: Preprocessed image (grayscale + binary threshold)")
             
             # Save preprocessed image temporarily for pytesseract
             with tempfile.NamedTemporaryFile(suffix='.png', delete=False) as tmp:
@@ -449,25 +440,19 @@ class TextHelpers:
                     timeout=30
                 )
                 
-                print(f"  🐛 DEBUG: Tesseract returncode = {result.returncode}")
-                
                 if result.returncode != 0:
                     print(f"[@text_helpers:extract_full_ocr_dump] ERROR: Tesseract failed")
-                    print(f"  🐛 DEBUG: stderr = {result.stderr}")
                     return []
                 
                 # Parse TSV output
                 lines = result.stdout.strip().split('\n')
-                print(f"  🐛 DEBUG: Tesseract output lines = {len(lines)} (including header)")
                 
                 if len(lines) < 2:  # Need header + at least 1 data row
                     print(f"[@text_helpers:extract_full_ocr_dump] No text detected by Tesseract")
-                    print(f"  🐛 DEBUG: Output was: {result.stdout[:500]}")  # First 500 chars
                     return []
                 
                 # Parse header to get column indices
                 header = lines[0].split('\t')
-                print(f"  🐛 DEBUG: TSV header columns = {header}")
                 
                 elements = []
                 total_detected = 0
@@ -541,14 +526,6 @@ class TextHelpers:
                         'font_size': height  # Use original height as font size proxy (larger = title/heading)
                     })
                 
-                print(f"\n  🐛 DEBUG: OCR Processing Summary")
-                print(f"     Total detected by Tesseract: {total_detected}")
-                print(f"     Filtered (empty/no-conf): {filtered_by_empty}")
-                print(f"     Filtered (confidence < {confidence_threshold}): {filtered_by_confidence}")
-                print(f"     Filtered (invalid box): {filtered_by_invalid_box}")
-                print(f"     Filtered (quality - Layer 1): {filtered_by_quality}")
-                print(f"     ✅ Valid elements: {len(elements)}")
-                
                 print(f"[@text_helpers:extract_full_ocr_dump] Extracted {len(elements)} text elements (confidence >= {confidence_threshold})")
                 
                 # Group nearby words into phrases (combine words on same line)
@@ -557,7 +534,6 @@ class TextHelpers:
                     print(f"[@text_helpers:extract_full_ocr_dump] Grouped into {len(grouped_elements)} phrases (sorted by font size)")
                     return grouped_elements
                 
-                print(f"  🐛 DEBUG: ⚠️ No valid elements passed all filters!")
                 return elements
                 
             finally:
@@ -784,14 +760,9 @@ class TextHelpers:
                 else:
                     max_x_gap = 30   # Small text
                 
-                # DEBUG logging
                 # FIX: Reject negative x_gap (element is to the LEFT, not right - wrong spatial order)
                 should_group_by_distance = (y_diff < height_avg * 0.5 and 0 <= x_gap < max_x_gap)
                 should_group_by_font = (font_ratio > 0.5)  # Allow grouping if fonts within 50% size
-                
-                print(f"[@group] Comparing: '{current_group['text']}' (font={current_font_size}) + '{elem['text']}' (font={elem_font_size})")
-                print(f"  y_diff={y_diff:.1f}, height_avg={height_avg:.1f}, x_gap={x_gap:.1f}, max_x_gap={max_x_gap}")
-                print(f"  font_ratio={font_ratio:.2f}, should_group={should_group_by_distance and should_group_by_font}")
                 
                 # If on same line (y_diff < half height) and close horizontally (gap < 30px max) and similar font size
                 if should_group_by_distance and should_group_by_font:
