@@ -108,24 +108,32 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   // ✅ Initialize screen selection when exploration plan loads (default: all selected, excluding duplicates)
   useEffect(() => {
     if (explorationPlan && explorationPlan.items && explorationPlan.items.length > 0) {
-      // Filter out 'home' and duplicates
-      const nonHomeItems = explorationPlan.items.filter(
-        (item: string) => item.toLowerCase() !== 'home' && item.toLowerCase() !== 'accueil'
-      );
+      // Calculate which indices in flat items array are duplicates
+      const duplicateIndices = new Set<number>();
       
-      // Exclude duplicates from initial selection
-      const duplicateItems = new Set<string>();
       if (explorationPlan.duplicate_positions && explorationPlan.lines) {
         explorationPlan.duplicate_positions.forEach((posKey: string) => {
           const [rowIdx, itemIdx] = posKey.split('_').map(Number);
-          if (explorationPlan.lines![rowIdx] && explorationPlan.lines![rowIdx][itemIdx]) {
-            duplicateItems.add(explorationPlan.lines![rowIdx][itemIdx]);
+          
+          // Convert row/item position to flat array index
+          let flatIndex = 0;
+          for (let r = 0; r < rowIdx; r++) {
+            flatIndex += explorationPlan.lines![r].length;
           }
+          flatIndex += itemIdx;
+          
+          duplicateIndices.add(flatIndex);
         });
       }
       
-      const withoutDuplicates = nonHomeItems.filter(item => !duplicateItems.has(item));
-      setSelectedScreenNodes(new Set(withoutDuplicates));
+      // Filter out 'home' and duplicates BY INDEX (not by name!)
+      const selectedItems = explorationPlan.items.filter((item: string, idx: number) => {
+        const isHome = item.toLowerCase() === 'home' || item.toLowerCase() === 'accueil';
+        const isDuplicate = duplicateIndices.has(idx);
+        return !isHome && !isDuplicate;
+      });
+      
+      setSelectedScreenNodes(new Set(selectedItems));
     }
   }, [explorationPlan]);
 
@@ -421,9 +429,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                               onClick={isDuplicate ? undefined : () => toggleFocusNode(pair.item)}
                                               sx={{
                                                 cursor: isDuplicate ? 'not-allowed' : 'pointer',
-                                                opacity: isDuplicate ? 0.5 : (isFocusSelected ? 1 : 0.4),
-                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.2)' : (isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent'),
+                                                opacity: isDuplicate ? 0.7 : (isFocusSelected ? 1 : 0.4),
+                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : (isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent'),
                                                 borderColor: isDuplicate ? 'error.main' : (isFocusSelected ? 'primary.main' : 'grey.600'),
+                                                borderWidth: isDuplicate ? '2px' : '1px',
                                                 fontSize: '0.65rem',
                                                 '&:hover': isDuplicate ? {} : {
                                                   opacity: 0.8,
@@ -456,9 +465,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                               onClick={isDuplicate ? undefined : () => toggleScreenNode(pair.item)}
                                               sx={{
                                                 cursor: isDuplicate ? 'not-allowed' : (isFocusSelected ? 'pointer' : 'not-allowed'),
-                                                opacity: isDuplicate ? 0.5 : ((isFocusSelected && isScreenSelected) ? 1 : 0.3),
-                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.2)' : ((isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
+                                                opacity: isDuplicate ? 0.7 : ((isFocusSelected && isScreenSelected) ? 1 : 0.3),
+                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : ((isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
                                                 borderColor: isDuplicate ? 'error.main' : ((isFocusSelected && isScreenSelected) ? 'success.main' : 'grey.700'),
+                                                borderWidth: isDuplicate ? '2px' : '1px',
                                                 fontSize: '0.65rem',
                                                 '&:hover': isDuplicate ? {} : (isFocusSelected ? {
                                                   opacity: 0.8,

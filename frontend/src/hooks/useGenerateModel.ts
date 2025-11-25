@@ -151,38 +151,43 @@ export const useGenerateModel = ({
   // ✅ Auto-select all nodes and edges when context.predicted_items OR explorationPlan.items is available
   // Filter out home/Accueil nodes since they already exist by default
   useEffect(() => {
-    const filterHomeNodes = (items: string[]) => {
-      return items.filter((item: string) => {
-        const lower = item.toLowerCase();
-        return !['home', 'accueil'].includes(lower);
-      });
-    };
-    
-    const filterDuplicates = (items: string[], lines: string[][], duplicatePositions: string[]) => {
-      if (!duplicatePositions || duplicatePositions.length === 0) return items;
+    const filterHomeAndDuplicates = (items: string[], lines?: string[][], duplicatePositions?: string[]) => {
+      // Calculate duplicate indices in flat array
+      const duplicateIndices = new Set<number>();
       
-      const duplicateItems = new Set<string>();
-      duplicatePositions.forEach(posKey => {
-        const [rowIdx, itemIdx] = posKey.split('_').map(Number);
-        if (lines[rowIdx] && lines[rowIdx][itemIdx]) {
-          duplicateItems.add(lines[rowIdx][itemIdx]);
-        }
-      });
+      if (duplicatePositions && lines) {
+        duplicatePositions.forEach(posKey => {
+          const [rowIdx, itemIdx] = posKey.split('_').map(Number);
+          
+          // Convert row/item position to flat array index
+          let flatIndex = 0;
+          for (let r = 0; r < rowIdx; r++) {
+            flatIndex += lines[r].length;
+          }
+          flatIndex += itemIdx;
+          
+          duplicateIndices.add(flatIndex);
+        });
+      }
       
-      return items.filter(item => !duplicateItems.has(item));
+      // Filter by index, not by name
+      return items.filter((item: string, idx: number) => {
+        const isHome = ['home', 'accueil'].includes(item.toLowerCase());
+        const isDuplicate = duplicateIndices.has(idx);
+        return !isHome && !isDuplicate;
+      });
     };
     
     if (context?.predicted_items && context.predicted_items.length > 0) {
-      const filtered = filterHomeNodes(context.predicted_items);
+      const filtered = filterHomeAndDuplicates(context.predicted_items);
       setSelectedNodes(new Set(filtered));
       setSelectedEdges(new Set(filtered)); // Edges correspond 1:1 with nodes
     } else if (explorationPlan?.items && explorationPlan.items.length > 0) {
-      // Phase 1: Initialize from exploration plan (excluding home nodes AND duplicates)
-      const filtered = filterHomeNodes(explorationPlan.items);
-      const withoutDuplicates = filterDuplicates(
-        filtered, 
-        explorationPlan.lines || [], 
-        explorationPlan.duplicate_positions || []
+      // Phase 1: Initialize from exploration plan (excluding home nodes AND duplicates BY INDEX)
+      const withoutDuplicates = filterHomeAndDuplicates(
+        explorationPlan.items,
+        explorationPlan.lines,
+        explorationPlan.duplicate_positions
       );
       setSelectedNodes(new Set(withoutDuplicates));
       setSelectedEdges(new Set(withoutDuplicates)); // Edges correspond 1:1 with nodes
