@@ -561,13 +561,19 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     if before_img is not None and after_img is not None:
                         if before_img.shape != after_img.shape:
                             after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
-                        before_gray = cv2.cvtColor(before_img, cv2.COLOR_BGR2GRAY)
-                        after_gray = cv2.cvtColor(after_img, cv2.COLOR_BGR2GRAY)
-                        diff = cv2.absdiff(before_gray, after_gray)
-                        matching_pixels = np.sum(diff <= 10)
-                        total_pixels = before_gray.shape[0] * before_gray.shape[1]
-                        similarity = (matching_pixels / total_pixels) * 100
+                        
+                        # Exact pixel-by-pixel comparison (strict)
+                        matches = np.all(before_img == after_img, axis=2)
+                        exact_matching_pixels = np.sum(matches)
+                        total_pixels = before_img.shape[0] * before_img.shape[1]
+                        similarity = (exact_matching_pixels / total_pixels) * 100
+                        
+                        # Calculate mean difference for additional context
+                        diff_gray = cv2.cvtColor(cv2.absdiff(before_img, after_img), cv2.COLOR_BGR2GRAY)
+                        mean_diff = np.mean(diff_gray)
+                        
                         print(f"    📊 OK similarity: {similarity:.1f}% (expect <30% - moved to different screen)")
+                        print(f"    📊 Mean pixel difference: {mean_diff:.2f}")
                         if similarity >= 30:
                             print(f"    ⚠️ WARNING: High similarity after OK - may not have moved to new screen!")
                     else:
@@ -738,13 +744,19 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     if before_img is not None and after_img is not None:
                         if before_img.shape != after_img.shape:
                             after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
-                        before_gray = cv2.cvtColor(before_img, cv2.COLOR_BGR2GRAY)
-                        after_gray = cv2.cvtColor(after_img, cv2.COLOR_BGR2GRAY)
-                        diff = cv2.absdiff(before_gray, after_gray)
-                        matching_pixels = np.sum(diff <= 10)
-                        total_pixels = before_gray.shape[0] * before_gray.shape[1]
-                        similarity = (matching_pixels / total_pixels) * 100
+                        
+                        # Exact pixel-by-pixel comparison (strict)
+                        matches = np.all(before_img == after_img, axis=2)
+                        exact_matching_pixels = np.sum(matches)
+                        total_pixels = before_img.shape[0] * before_img.shape[1]
+                        similarity = (exact_matching_pixels / total_pixels) * 100
+                        
+                        # Calculate mean difference for additional context
+                        diff_gray = cv2.cvtColor(cv2.absdiff(before_img, after_img), cv2.COLOR_BGR2GRAY)
+                        mean_diff = np.mean(diff_gray)
+                        
                         print(f"    📊 BACK similarity: {similarity:.1f}% (expect >70% - returned to same screen)")
+                        print(f"    📊 Mean pixel difference: {mean_diff:.2f}")
                         if similarity < 70:
                             print(f"    ⚠️ WARNING: Low similarity after BACK - may not have returned to previous screen!")
                     else:
