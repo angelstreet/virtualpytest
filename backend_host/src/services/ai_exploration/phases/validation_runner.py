@@ -735,6 +735,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 print(f"    ⚠️ Failed to capture after-BACK screenshot: {e}")
             
             # Compare screenshots if both captured successfully
+            # ✅ Use similarity to decide if BACK worked (>40% = still on same screen = BACK failed)
+            back_worked_via_similarity = None
             if before_back_screenshot and after_back_screenshot:
                 try:
                     import cv2
@@ -755,118 +757,71 @@ def validate_next_item(executor) -> Dict[str, Any]:
                         diff_gray = cv2.cvtColor(cv2.absdiff(before_img, after_img), cv2.COLOR_BGR2GRAY)
                         mean_diff = np.mean(diff_gray)
                         
-                        print(f"    📊 BACK similarity: {similarity:.1f}% (expect >70% - returned to same screen)")
+                        print(f"    📊 BACK similarity: {similarity:.1f}% (expect <40% - moved to different screen)")
                         print(f"    📊 Mean pixel difference: {mean_diff:.2f}")
-                        if similarity < 70:
-                            print(f"    ⚠️ WARNING: Low similarity after BACK - may not have returned to previous screen!")
+                        
+                        # ✅ Decision: If similarity > 40%, we're still on the same screen (BACK failed)
+                        if similarity > 40:
+                            back_worked_via_similarity = False
+                            print(f"    ⚠️ BACK FAILED: Similarity {similarity:.1f}% > 40% - still on same screen!")
+                        else:
+                            back_worked_via_similarity = True
+                            print(f"    ✅ BACK SUCCESS: Similarity {similarity:.1f}% ≤ 40% - moved to different screen")
                     else:
                         print(f"    ⚠️ Failed to load images for comparison (before: {before_img is not None}, after: {after_img is not None})")
                 except Exception as e:
                     print(f"    ⚠️ Screenshot similarity comparison failed: {e}")
             
-            # Verify if start_node has verification
-            if executor.exploration_state.get('start_node_has_verification', False):
-                start_node_id = executor.exploration_state.get('home_id', 'home')
-                start_node_label = executor.exploration_state.get('start_node', 'home')
+            # ✅ Try second BACK if similarity check indicates first BACK failed
+            if back_worked_via_similarity == False:
+                print(f"    🔄 Similarity check failed - trying second BACK...")
+                result = controller.press_key('BACK')
+                import inspect
+                if inspect.iscoroutine(result):
+                    import asyncio
+                    asyncio.run(result)
+                time.sleep(6.0)  # 6000ms for BACK
                 
-                import asyncio
-                verify = asyncio.run(executor.device.verification_executor.verify_node(
-                    node_id=start_node_id, 
-                    userinterface_name=executor.exploration_state['userinterface_name'],
-                    team_id=team_id, 
-                    tree_id=tree_id
-                ))
-                
-                if not verify.get('success'):
-                    print(f"    🔄 Trying second BACK...")
-                    result = controller.press_key('BACK')
-                    if inspect.iscoroutine(result):
-                        asyncio.run(result)
-                    time.sleep(6.0)  # 6000ms for BACK (matches structure_creator.py)
+                # Check similarity again after second BACK
+                try:
+                    from shared.src.lib.utils.device_utils import capture_screenshot
+                    after_second_back_screenshot = capture_screenshot(executor.device, context=None)
                     
-                    verify = asyncio.run(executor.device.verification_executor.verify_node(
-                        node_id=start_node_id, 
-                        userinterface_name=executor.exploration_state['userinterface_name'],
-                        team_id=team_id, 
-                        tree_id=tree_id
-                    ))
-                    
-                    if verify.get('success'):
-                        backs_needed = 2
-                        print(f"    ✅ Double BACK worked")
-                    else:
-                        print(f"    🔄 Recovery to '{start_node_label}'...")
-                        asyncio.run(executor.device.navigation_executor.execute_navigation(
-                            tree_id=tree_id, 
-                            userinterface_name=executor.exploration_state['userinterface_name'],
-                            target_node_label=start_node_label, 
-                            team_id=team_id
-                        ))
+                    if after_second_back_screenshot and before_back_screenshot:
+                        import cv2
+                        import numpy as np
+                        before_img = cv2.imread(before_back_screenshot, cv2.IMREAD_COLOR)
+                        after_img = cv2.imread(after_second_back_screenshot, cv2.IMREAD_COLOR)
                         
-                        # ✅ RE-POSITIONING: After recovery, device is at 'home' but prev_focus_name might be elsewhere
-                        # We need to re-position from home to prev_focus_name for next navigation to work correctly
-                        if prev_focus_name != start_node_id and current_index < len(items_to_validate) - 1:
-                            print(f"\n    🔧 RE-POSITIONING: Device at home, need to navigate to '{prev_focus_name}' for next item")
+                        if before_img is not None and after_img is not None:
+                            if before_img.shape != after_img.shape:
+                                after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
                             
-                            # Extract the item name from prev_focus_name (e.g., 'home_tv_guide' -> 'tv guide')
-                            prev_item_raw = prev_focus_name.replace(f"{start_node_id}_", '').replace('_', ' ')
+                            matches = np.all(before_img == after_img, axis=2)
+                            exact_matching_pixels = np.sum(matches)
+                            total_pixels = before_img.shape[0] * before_img.shape[1]
+                            similarity_after_2nd = (exact_matching_pixels / total_pixels) * 100
                             
-                            # Find prev_focus_name in row structure to determine navigation
-                            repositioned = False
-                            for row_idx, row_items in enumerate(lines):
-                                if prev_item_raw in row_items:
-                                    if row_idx == 0:  # Row 0 - horizontal (RIGHT or LEFT)
-                                        # Find home position and target position
-                                        try:
-                                            home_pos = None
-                                            # Try to find home/start_node in this row
-                                            for i, item in enumerate(row_items):
-                                                if item.lower() in [start_node_label.lower(), 'home', 'accueil']:
-                                                    home_pos = i
-                                                    break
-                                            
-                                            if home_pos is not None:
-                                                target_pos = row_items.index(prev_item_raw)
-                                                
-                                                if target_pos > home_pos:
-                                                    direction = 'RIGHT'
-                                                    num_presses = target_pos - home_pos
-                                                else:
-                                                    direction = 'LEFT'
-                                                    num_presses = home_pos - target_pos
-                                                
-                                                print(f"    🔧 RE-POSITION: Sending {direction} {num_presses}x to reach '{prev_focus_name}'")
-                                                for i in range(num_presses):
-                                                    result = controller.press_key(direction)
-                                                    if inspect.iscoroutine(result):
-                                                        asyncio.run(result)
-                                                    time.sleep(0.5)
-                                                
-                                                time.sleep(1.0)  # Final wait for UI to settle
-                                                print(f"    ✅ RE-POSITIONED to '{prev_focus_name}'")
-                                                repositioned = True
-                                        except (ValueError, IndexError) as e:
-                                            print(f"    ⚠️ RE-POSITION failed to calculate horizontal nav: {e}")
-                                    
-                                    else:  # Row 1+ - vertical (DOWN)
-                                        direction = 'DOWN'
-                                        num_presses = row_idx + 1  # Row 1 needs 1 DOWN, Row 2 needs 2 DOWN, etc.
-                                        
-                                        print(f"    🔧 RE-POSITION: Sending DOWN {num_presses}x to reach '{prev_focus_name}' (Row {row_idx + 1})")
-                                        for i in range(num_presses):
-                                            result = controller.press_key('DOWN')
-                                            if inspect.iscoroutine(result):
-                                                asyncio.run(result)
-                                            time.sleep(0.5)
-                                        
-                                        time.sleep(1.0)  # Final wait for UI to settle
-                                        print(f"    ✅ RE-POSITIONED to '{prev_focus_name}'")
-                                        repositioned = True
-                                    
-                                    break  # Found the row, exit loop
+                            print(f"    📊 After 2nd BACK similarity: {similarity_after_2nd:.1f}%")
                             
-                            if not repositioned:
-                                print(f"    ⚠️ RE-POSITION: Could not find '{prev_item_raw}' in row structure, skipping re-positioning")
+                            if similarity_after_2nd <= 40:
+                                backs_needed = 2
+                                print(f"    ✅ Second BACK worked! Edge requires 2x BACK")
+                            else:
+                                print(f"    ❌ Second BACK also failed (similarity {similarity_after_2nd:.1f}% > 40%)")
+                                # Try recovery navigation
+                                start_node_id = executor.exploration_state.get('home_id', 'home')
+                                start_node_label = executor.exploration_state.get('start_node', 'home')
+                                print(f"    🔄 Recovery to '{start_node_label}'...")
+                                import asyncio
+                                asyncio.run(executor.device.navigation_executor.execute_navigation(
+                                    tree_id=tree_id, 
+                                    userinterface_name=executor.exploration_state['userinterface_name'],
+                                    target_node_label=start_node_label, 
+                                    team_id=team_id
+                                ))
+                except Exception as e:
+                    print(f"    ⚠️ Second BACK similarity check failed: {e}")
             
             edge_results['exit'] = 'success'
             print(f"    ✅ Vertical exit: BACK")
