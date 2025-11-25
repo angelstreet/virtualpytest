@@ -349,6 +349,7 @@ class FFmpegCaptureController(AVControllerInterface):
             cutoff_time = now - 3
             
             recent_files = []
+            files_checked = 0
             try:
                 # Get 20 newest JPG files (not thumbnails) - MUCH faster than os.listdir() with many files
                 result = subprocess.run(
@@ -356,10 +357,7 @@ class FFmpegCaptureController(AVControllerInterface):
                     shell=True, cwd=captures_path, capture_output=True, text=True, timeout=2
                 )
                 
-                print(f"[{self.capture_source}]: ls command returncode: {result.returncode}")
-                
                 if result.returncode == 0 and result.stdout.strip():
-                    files_checked = 0
                     for filename in result.stdout.strip().split('\n'):
                         if filename:
                             files_checked += 1
@@ -373,15 +371,12 @@ class FFmpegCaptureController(AVControllerInterface):
                             except OSError as e:
                                 print(f"[{self.capture_source}]: OSError for {filename}: {e}")
                                 continue
-                    print(f"[{self.capture_source}]: Total files checked: {files_checked}")
                 else:
                     print(f"[{self.capture_source}]: ls command failed or no output")
                     if result.stderr:
                         print(f"[{self.capture_source}]: stderr: {result.stderr}")
             except subprocess.TimeoutExpired:
                 print(f"[{self.capture_source}]: WARNING - Timeout checking recent files")
-            
-            print(f"[{self.capture_source}]: Recent files found: {len(recent_files)}")
             
             if not recent_files:
                 print(f"[{self.capture_source}]: ERROR - No recent files found (within 3s)")
@@ -395,7 +390,7 @@ class FFmpegCaptureController(AVControllerInterface):
                 print(f"[{self.capture_source}]: ERROR - Newest file too old: {closest_age:.2f}s")
                 return None
             
-            print(f"[{self.capture_source}]: Using file (age: {closest_age:.2f}s)")
+            print(f"[{self.capture_source}]: File selected - checked: {files_checked}, recent: {len(recent_files)}, using age: {closest_age:.2f}s")
             
             # Auto-copy to cold storage (capture + thumbnail)
             if '/hot/' in closest_path:

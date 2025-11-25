@@ -754,12 +754,6 @@ class NavigationExecutor:
                     print(f"[@navigation_executor:execute_navigation] Verifications: {verification_result.get('passed_count', 0)}/{verification_result.get('total_count', 0)} passed")
                     
                     # ✅ VERIFICATION-DRIVEN RETRY: If main actions succeeded BUT verifications failed, try retry actions
-                    print(f"[@DEBUG] RETRY CHECK:")
-                    print(f"  → result.success: {result.get('success', False)}")
-                    print(f"  → main_actions_succeeded: {result.get('main_actions_succeeded', False)}")
-                    print(f"  → verification success: {verification_result.get('success', True)}")
-                    print(f"  → retry_actions exists: {bool(retry_actions)}")
-                    print(f"  → retry_actions count: {len(retry_actions) if retry_actions else 0}")
                     if result.get('success', False) and result.get('main_actions_succeeded', False) and not verification_result.get('success', True) and retry_actions:
                         print(f"[@navigation_executor:execute_navigation] ⚠️ Main actions succeeded but verifications failed - attempting retry actions")
                         

@@ -800,11 +800,9 @@ class ActionExecutor:
         action_completion_timestamp = time.time()
         
         # ✅ Write action metadata BEFORE wait so capture_monitor can read it during zapping
-        print(f"[@lib:action_executor:_execute_single_action] 🎬 Writing to frame JSON and last_action.json...")
         from backend_host.src.lib.utils.frame_metadata_utils import write_action_to_frame_json
         try:
             write_action_to_frame_json(self.device, action, action_completion_timestamp)
-            print(f"[@lib:action_executor:_execute_single_action] ✅ write_action_to_frame_json completed")
         except Exception as e:
             print(f"[@lib:action_executor:_execute_single_action] ❌ write_action_to_frame_json failed: {e}")
             import traceback
@@ -818,8 +816,7 @@ class ActionExecutor:
             print(f"[@lib:action_executor:_execute_single_action] [{current_time}] Waiting {wait_time}ms after successful {action.get('command')} execution")
             time.sleep(wait_seconds)
             end_time = time.strftime("%H:%M:%S", time.localtime())
-            print(f"[@lib:action_executor:_execute_single_action] [{end_time}] Wait completed after {action.get('command')}")
-        
+            
         # Record execution to database (summary of all iterations)
         self._record_execution_to_database(
             success=all_iterations_successful,

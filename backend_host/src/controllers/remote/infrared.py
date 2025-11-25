@@ -222,8 +222,6 @@ class IRRemoteController(RemoteControllerInterface):
             with open(temp_path, 'w') as temp_file:
                 temp_file.write(converted_code)
             
-            print(f"Remote[{self.device_type.upper()}]: Running command: sudo ir-ctl --device {self.ir_path} --send {temp_path}")
-            
             result = subprocess.run(
                 ["sudo", "ir-ctl", "--device", self.ir_path, "--send", temp_path], 
                 check=True,
@@ -232,7 +230,6 @@ class IRRemoteController(RemoteControllerInterface):
                 timeout=5
             )
             
-            print(f"Remote[{self.device_type.upper()}]: Successfully sent IR code for {key}")
             return True
             
         except subprocess.CalledProcessError as e:
