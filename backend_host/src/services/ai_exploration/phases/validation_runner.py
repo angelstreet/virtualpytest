@@ -510,6 +510,17 @@ def validate_next_item(executor) -> Dict[str, Any]:
         # Edge 2: Vertical enter (OK) - with screenshot + dump
         try:
             print(f"\n    Edge 2/3: {focus_node_name} ↓ {screen_node_name}")
+            
+            # Screenshot BEFORE OK (for similarity comparison)
+            before_ok_screenshot = None
+            try:
+                from shared.src.lib.utils.device_utils import capture_screenshot
+                before_ok_screenshot = capture_screenshot(executor.device, context=None)
+                if before_ok_screenshot:
+                    print(f"    📸 Before OK screenshot: {before_ok_screenshot}")
+            except Exception as e:
+                print(f"    ⚠️ Failed to capture before-OK screenshot: {e}")
+            
             result = controller.press_key('OK')
             import inspect
             if inspect.iscoroutine(result):
@@ -519,6 +530,40 @@ def validate_next_item(executor) -> Dict[str, Any]:
             edge_results['enter'] = 'success'
             print(f"    ✅ Vertical enter: OK")
             time.sleep(8.0)  # 8000ms for OK (matches structure_creator.py)
+            
+            # Screenshot AFTER OK and check similarity (should be LOW - moved to different screen)
+            after_ok_screenshot = None
+            try:
+                from shared.src.lib.utils.device_utils import capture_screenshot
+                after_ok_screenshot = capture_screenshot(executor.device, context=None)
+                if after_ok_screenshot:
+                    print(f"    📸 After OK screenshot: {after_ok_screenshot}")
+            except Exception as e:
+                print(f"    ⚠️ Failed to capture after-OK screenshot: {e}")
+            
+            # Compare screenshots if both captured successfully
+            if before_ok_screenshot and after_ok_screenshot:
+                try:
+                    import cv2
+                    import numpy as np
+                    before_img = cv2.imread(before_ok_screenshot, cv2.IMREAD_COLOR)
+                    after_img = cv2.imread(after_ok_screenshot, cv2.IMREAD_COLOR)
+                    if before_img is not None and after_img is not None:
+                        if before_img.shape != after_img.shape:
+                            after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
+                        before_gray = cv2.cvtColor(before_img, cv2.COLOR_BGR2GRAY)
+                        after_gray = cv2.cvtColor(after_img, cv2.COLOR_BGR2GRAY)
+                        diff = cv2.absdiff(before_gray, after_gray)
+                        matching_pixels = np.sum(diff <= 10)
+                        total_pixels = before_gray.shape[0] * before_gray.shape[1]
+                        similarity = (matching_pixels / total_pixels) * 100
+                        print(f"    📊 OK similarity: {similarity:.1f}% (expect <30% - moved to different screen)")
+                        if similarity >= 30:
+                            print(f"    ⚠️ WARNING: High similarity after OK - may not have moved to new screen!")
+                    else:
+                        print(f"    ⚠️ Failed to load images for comparison (before: {before_img is not None}, after: {after_img is not None})")
+                except Exception as e:
+                    print(f"    ⚠️ Screenshot similarity comparison failed: {e}")
             
             # 📸 Capture screenshot + dump (ONLY for screen nodes)
             dump_data = None
@@ -635,12 +680,57 @@ def validate_next_item(executor) -> Dict[str, Any]:
         
         try:
             print(f"\n    Edge 3/3: {screen_node_name} ↑ {focus_node_name}")
+            
+            # Screenshot BEFORE BACK (for similarity comparison)
+            before_back_screenshot = None
+            try:
+                from shared.src.lib.utils.device_utils import capture_screenshot
+                before_back_screenshot = capture_screenshot(executor.device, context=None)
+                if before_back_screenshot:
+                    print(f"    📸 Before BACK screenshot: {before_back_screenshot}")
+            except Exception as e:
+                print(f"    ⚠️ Failed to capture before-BACK screenshot: {e}")
+            
             result = controller.press_key('BACK')
             import inspect
             if inspect.iscoroutine(result):
                 import asyncio
                 asyncio.run(result)
             time.sleep(6.0)  # 6000ms for BACK (matches structure_creator.py)
+            
+            # Screenshot AFTER BACK and check similarity (should be HIGH - returned to same screen)
+            after_back_screenshot = None
+            try:
+                from shared.src.lib.utils.device_utils import capture_screenshot
+                after_back_screenshot = capture_screenshot(executor.device, context=None)
+                if after_back_screenshot:
+                    print(f"    📸 After BACK screenshot: {after_back_screenshot}")
+            except Exception as e:
+                print(f"    ⚠️ Failed to capture after-BACK screenshot: {e}")
+            
+            # Compare screenshots if both captured successfully
+            if before_back_screenshot and after_back_screenshot:
+                try:
+                    import cv2
+                    import numpy as np
+                    before_img = cv2.imread(before_back_screenshot, cv2.IMREAD_COLOR)
+                    after_img = cv2.imread(after_back_screenshot, cv2.IMREAD_COLOR)
+                    if before_img is not None and after_img is not None:
+                        if before_img.shape != after_img.shape:
+                            after_img = cv2.resize(after_img, (before_img.shape[1], before_img.shape[0]))
+                        before_gray = cv2.cvtColor(before_img, cv2.COLOR_BGR2GRAY)
+                        after_gray = cv2.cvtColor(after_img, cv2.COLOR_BGR2GRAY)
+                        diff = cv2.absdiff(before_gray, after_gray)
+                        matching_pixels = np.sum(diff <= 10)
+                        total_pixels = before_gray.shape[0] * before_gray.shape[1]
+                        similarity = (matching_pixels / total_pixels) * 100
+                        print(f"    📊 BACK similarity: {similarity:.1f}% (expect >70% - returned to same screen)")
+                        if similarity < 70:
+                            print(f"    ⚠️ WARNING: Low similarity after BACK - may not have returned to previous screen!")
+                    else:
+                        print(f"    ⚠️ Failed to load images for comparison (before: {before_img is not None}, after: {after_img is not None})")
+                except Exception as e:
+                    print(f"    ⚠️ Screenshot similarity comparison failed: {e}")
             
             # Verify if start_node has verification
             if executor.exploration_state.get('start_node_has_verification', False):
