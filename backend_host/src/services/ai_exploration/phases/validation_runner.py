@@ -1,7 +1,11 @@
 import time
 from typing import Dict, Any
 from backend_host.src.services.ai_exploration.node_generator import NodeGenerator
-from shared.src.lib.database.navigation_trees_db import get_edge_by_id, save_edges_batch
+from shared.src.lib.database.navigation_trees_db import (
+    get_edge_by_id, 
+    save_edges_batch,
+    invalidate_navigation_cache_for_tree
+)
 from shared.src.lib.utils.cloudflare_utils import upload_navigation_screenshot
 
 def start_validation(executor) -> Dict[str, Any]:
@@ -871,6 +875,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
             if not has_more:
                 executor.exploration_state['status'] = 'validation_complete'
                 executor.exploration_state['current_step'] = 'Edge validation complete - ready for node verification'
+                
+                # ✅ CRITICAL: Invalidate cache ONCE after ALL validations complete
+                # This ensures frontend gets fresh data with all iterator/BACK x2 updates
+                print(f"\n  🔄 All validations complete - invalidating cache...")
+                invalidate_navigation_cache_for_tree(tree_id, team_id)
+                print(f"  ✅ Cache invalidated for tree {tree_id}")
             else:
                 executor.exploration_state['status'] = 'awaiting_validation'
         
@@ -1382,6 +1392,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
         if not has_more:
             executor.exploration_state['status'] = 'validation_complete'
             executor.exploration_state['current_step'] = 'Edge validation complete - ready for node verification'
+            
+            # ✅ CRITICAL: Invalidate cache ONCE after ALL validations complete
+            # This ensures frontend gets fresh data with all validation results
+            print(f"\n  🔄 All validations complete - invalidating cache...")
+            invalidate_navigation_cache_for_tree(tree_id, team_id)
+            print(f"  ✅ Cache invalidated for tree {tree_id}")
         else:
             executor.exploration_state['status'] = 'awaiting_validation'
             # ✅ FIX: Update current_step to show NEXT item that will be validated
