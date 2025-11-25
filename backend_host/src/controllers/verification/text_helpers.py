@@ -583,6 +583,7 @@ class TextHelpers:
         - Not symbol-only (filters '@)', '®', '-~\.')
         - Not common UI indicators (filters 'HD', 'SD', 'OK', '4K')
         - Not single letter + punctuation (filters 'E.', 'H!')
+        - Not garbage patterns (filters 'eh ity fy', 'of ee', 'res Be ae')
         
         Args:
             text: Text to validate
@@ -618,6 +619,27 @@ class TextHelpers:
                 return False
             if not text_clean[0].isalnum() and text_clean[1].isalpha():
                 return False
+        
+        # 6. ✅ NEW: Garbage pattern detection (nonsensical OCR results)
+        #    Filters: 'eh ity fy', 'of ee', 'res Be ae'
+        #    Heuristic: More than 50% of "words" are 1-2 chars each
+        words = text_clean.split()
+        if len(words) >= 2:  # Only apply to multi-word text
+            short_word_count = sum(1 for word in words if len(word) <= 2)
+            if short_word_count / len(words) > 0.5:  # More than 50% are tiny words
+                return False
+        
+        # 7. ✅ NEW: Vowel-consonant ratio check (garbage text often lacks vowels)
+        #    Filters: 'xyz', 'qwrt', 'bcdfg'
+        #    But allows: 'TV', 'BBC', 'CNN' (common acronyms are short anyway)
+        if len(text_clean) > 4:  # Only check longer text (acronyms are short)
+            alpha_chars = [c for c in text_clean.lower() if c.isalpha()]
+            if alpha_chars:
+                vowels = sum(1 for c in alpha_chars if c in 'aeiou')
+                vowel_ratio = vowels / len(alpha_chars)
+                # Require at least 15% vowels (English averages ~40%, allow flexibility)
+                if vowel_ratio < 0.15:
+                    return False
         
         return True
     
@@ -751,12 +773,23 @@ class TextHelpers:
                 min_font = min(current_font_size, elem_font_size)
                 font_ratio = min_font / max_font if max_font > 0 else 1.0
                 
+                # Dynamic x_gap threshold based on font size (TV navigation text has larger spacing)
+                # Small font (< 20px): 30px gap max
+                # Large font (> 40px): 150px gap max (common for TV navigation menus)
+                avg_font_size = (current_font_size + elem_font_size) / 2
+                if avg_font_size > 40:
+                    max_x_gap = 150  # Large text (TV navigation)
+                elif avg_font_size > 25:
+                    max_x_gap = 80   # Medium text
+                else:
+                    max_x_gap = 30   # Small text
+                
                 # DEBUG logging
-                should_group_by_distance = (y_diff < height_avg * 0.5 and x_gap < 30)
+                should_group_by_distance = (y_diff < height_avg * 0.5 and x_gap < max_x_gap)
                 should_group_by_font = (font_ratio > 0.5)  # Allow grouping if fonts within 50% size
                 
                 print(f"[@group] Comparing: '{current_group['text']}' (font={current_font_size}) + '{elem['text']}' (font={elem_font_size})")
-                print(f"  y_diff={y_diff:.1f}, height_avg={height_avg:.1f}, x_gap={x_gap:.1f}")
+                print(f"  y_diff={y_diff:.1f}, height_avg={height_avg:.1f}, x_gap={x_gap:.1f}, max_x_gap={max_x_gap}")
                 print(f"  font_ratio={font_ratio:.2f}, should_group={should_group_by_distance and should_group_by_font}")
                 
                 # If on same line (y_diff < half height) and close horizontally (gap < 30px max) and similar font size
