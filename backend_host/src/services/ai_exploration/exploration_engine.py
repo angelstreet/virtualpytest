@@ -835,22 +835,37 @@ class ExplorationEngine:
             raw_items = self.prediction.get('items', [])
             lines = self.prediction.get('lines', [])
             
-            # ✅ Detect duplicates (but keep them in items list - treat as "pre-unselected")
-            seen = set()  # Track seen sanitized names
-            duplicate_positions = []  # List of "row_index" for duplicates (for frontend red chips)
+            # ✅ RENAME duplicates so they're auto-unselected (simpler than tracking!)
+            seen = {}  # Track seen items: {sanitized_name: occurrence_count}
+            duplicate_positions = []  # Still track positions for frontend red chips
             
+            # Rename duplicates in both flat list and lines structure
             for row_idx, row in enumerate(lines):
                 for item_idx, item in enumerate(row):
                     sanitized = self.node_generator.target_to_node_name(item)
+                    
                     if sanitized in seen:
-                        # Duplicate found - mark position for frontend (will show as red/disabled)
+                        # Duplicate found - rename it!
+                        seen[sanitized] += 1
+                        duplicate_suffix = f"_duplicate{seen[sanitized]}"
+                        renamed_item = f"{item}{duplicate_suffix}"
+                        
+                        # Update in lines structure
+                        lines[row_idx][item_idx] = renamed_item
+                        
+                        # Update in flat items list
+                        flat_index = sum(len(lines[r]) for r in range(row_idx)) + item_idx
+                        raw_items[flat_index] = renamed_item
+                        
+                        # Track position for frontend
                         duplicate_positions.append(f"{row_idx}_{item_idx}")
-                        print(f"  🔍 Duplicate detected: '{sanitized}' at row {row_idx}, index {item_idx} (will be pre-unselected)")
+                        
+                        print(f"  🔍 Duplicate detected: '{sanitized}' at row {row_idx}, index {item_idx} → renamed to '{renamed_item}' (auto-unselected)")
                     else:
-                        seen.add(sanitized)
+                        seen[sanitized] = 1  # First occurrence
             
             if duplicate_positions:
-                print(f"  ✅ Detected {len(duplicate_positions)} duplicates (will show as red chips in frontend)")
+                print(f"  ✅ Detected {len(duplicate_positions)} duplicates (renamed and auto-unselected)")
             
             reordered_items = raw_items  # Keep ALL items (duplicates included)
             
