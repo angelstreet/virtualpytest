@@ -841,6 +841,38 @@ def validate_next_item(executor) -> Dict[str, Any]:
             else:
                 executor.exploration_state['status'] = 'awaiting_validation'
         
+        # ✅ TV: UPDATE VERTICAL EDGE with backs_needed
+        if backs_needed == 2:
+            print(f"\n  💾 Updating vertical edge with BACK x2...")
+            try:
+                # Get the vertical edge (focus_node → screen_node)
+                vertical_edge_id = f"edge_{focus_node_name}_to_{screen_node_name}_temp"
+                edge_result = get_edge_by_id(tree_id, vertical_edge_id, team_id)
+                
+                if edge_result.get('success'):
+                    edge = edge_result['edge']
+                    
+                    # Update reverse action (BACK)
+                    action_sets = edge.get('action_sets', [])
+                    if len(action_sets) >= 2:
+                        # action_sets[1] is reverse (BACK)
+                        if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
+                            # Update BACK action to require 2 presses
+                            action_sets[1]['actions'][0]['params']['repeat'] = 2
+                            action_sets[1]['actions'][0]['description'] = 'BACK x2 (press twice)'
+                            print(f"    ✅ Updated edge: {screen_node_name} → {focus_node_name}: BACK x2")
+                            
+                            # Save updated edge
+                            update_result = save_edges_batch(tree_id, [edge], team_id)
+                            if update_result.get('success'):
+                                print(f"    ✅ Edge saved with BACK x2")
+                            else:
+                                print(f"    ⚠️ Failed to save edge: {update_result.get('error')}")
+                else:
+                    print(f"    ⚠️ Could not find edge {vertical_edge_id}")
+            except Exception as e:
+                print(f"    ⚠️ Failed to update edge with BACK x2: {e}")
+        
         print(f"\n  📊 Depth-first cycle complete:")
         print(f"     Horizontal: {edge_results['horizontal']}")
         print(f"     Enter (OK): {edge_results['enter']}")
