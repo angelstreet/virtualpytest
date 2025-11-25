@@ -691,14 +691,21 @@ class ScreenAnalyzer:
         print(f"{'-'*80}\n")
         
         # Simple prompt for TV/STB - just ask for a table
-        prompt = """List ALL clickable/focusable elements from this TV app screenshot.
+        prompt = """List ONLY THE VISIBLE clickable/focusable UI elements from this screenshot.
 
-⚠️ CRITICAL RULE #1: Group elements by VERTICAL POSITION (Y-coordinate), NOT by visual appearance.
+🚨 CRITICAL: Return ONLY what you can SEE in the image. DO NOT infer, assume, or add common elements.
+
+⚠️ RULE #1: Group elements by VERTICAL POSITION (Y-coordinate), NOT by visual appearance.
 Elements at the same HEIGHT = SAME ROW, even if separated by space or different types.
 
-⚠️ CRITICAL RULE #2: Within each row, use STRICT LEFT-TO-RIGHT PIXEL ORDER (X-coordinate).
-Imagine a ruler measuring from left edge to right edge. List elements in the order the ruler encounters them.
-DO NOT reorder by importance! A search icon on the far left comes BEFORE "home" text in the middle.
+⚠️ RULE #2: Within each row, use STRICT LEFT-TO-RIGHT PIXEL ORDER (X-coordinate).
+Scan from LEFT EDGE to RIGHT EDGE. Include ALL elements across the FULL WIDTH.
+DO NOT miss elements on far left or far right edges!
+
+⚠️ RULE #3: SCAN THE ENTIRE SCREEN WIDTH
+- Check far LEFT edge for icons (search, menu)
+- Check CENTER for main navigation
+- Check far RIGHT edge for buttons (settings, profile, radio, etc.)
 
 Output format (one row per line, elements separated by commas):
 
@@ -706,40 +713,36 @@ Row 1: element1, element2, element3
 Row 2: element4, element5
 Row 3: element6
 
-Rules:
-- Row 1 = topmost row of interactive elements (same Y-coordinate)
-- Include ALL elements at the same height in the same row (text + icons)
-- STRICT left-to-right pixel order: leftmost X-coordinate first, rightmost last
-- Include: buttons, tabs, menu items, icons (search, settings, profile, etc.)
-- Skip: program cards, background images, timestamps, decorative elements
+What to include:
+- Navigation buttons/tabs (visible text labels)
+- Icons (describe what they are: search, menu, settings, etc.)
+- Dropdowns (today, all channels, etc.)
+- Utility buttons on edges (radio, settings, profile, etc.)
 
-Common Layout Pattern - Top Navigation Bar:
-- Left side: Often has a search icon (magnifying glass)
-- Middle: Text navigation items (home, tv guide, apps, etc.)  
-- Right side: Utility icons (settings, profile)
-- ALL are at the SAME HEIGHT → ALL in Row 1, in left-to-right pixel order
+What to skip:
+- TV show names, program cards, timestamps
+- Channel numbers, logos
+- Background decorative elements
+- Time slots (19:00, 20:00, etc.)
 
-Examples:
+Example TV Guide Top Bar:
 
-✅ CORRECT - Strict pixel order (search icon is leftmost, so it comes first):
-Row 1: search, home, tv guide, apps, replay, movies & series, recordings, tv shop, settings, profile
-Row 2: watch
-Row 3: continue watching
+✅ CORRECT - Full width scan, left to right:
+Row 1: search, today, all channels, radio
 
-❌ WRONG - "Home" placed first even though search icon is to its left:
-Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop, search, settings, profile
-      ^^^^  <-- WRONG! Search icon is to the LEFT of home, should be first!
-Row 2: watch
-Row 3: continue watching
+❌ WRONG - Missing far-right element:
+Row 1: search, today, all channels
+       ^^ Missing "radio" button on far right!
 
-❌ WRONG - Split by visual grouping instead of pixel position:
-Row 1: home, tv guide, apps, replay, movies & series, recordings, tv shop
-Row 2: search, settings, profile  <-- WRONG! These are at same Y-coordinate as Row 1
-Row 3: watch
+❌ WRONG - Including program content instead of navigation:
+Row 1: search, today, all channels, Canal B, Heilige Messe, Le 20h
+                                    ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+                                    These are program cards, NOT navigation!
 
-Focus on TWO things:
+Focus on THREE things:
 1. Same Y-coordinate (vertical position)? → Same row!
-2. Left-to-right X-coordinate order → Like reading a ruler from 0 to 100!"""
+2. Full width scan: LEFT edge → CENTER → RIGHT edge
+3. ONLY return what's ACTUALLY VISIBLE in the image!"""
 
         print(f"📝 PROMPT SENT TO AI:")
         print(f"{'-'*80}")
