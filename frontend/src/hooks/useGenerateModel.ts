@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 import type { ExplorationContext, ExplorationPhase, ExplorationStrategy } from '../types/exploration';
 import { useNavigation } from '../contexts/navigation/NavigationContext';
@@ -30,6 +30,7 @@ interface CurrentAnalysis {
 interface ExplorationPlan {
   menu_type: string;
   items: string[];
+  duplicate_items?: string[];  // Items detected multiple times (e.g., duplicates in menu)
   lines?: string[][];  // NEW: Line structure from AI
   strategy: string;
   predicted_depth: number;
@@ -328,6 +329,12 @@ export const useGenerateModel = ({
     }
   }, [isExploring, explorationId, explorationHostName, fetchExplorationStatus]);
 
+  // ✅ Detect start node (for subtrees or root tree)
+  const startNodeLabel = useMemo(() => {
+    const subtreeRootNode = nodes.find(n => n.data?.isParentReference === true);
+    return subtreeRootNode?.data?.label || currentNodeLabel || 'home';
+  }, [nodes, currentNodeLabel]);
+
   const startExploration = useCallback(async () => {
     if (!treeId || !selectedHost || !selectedDeviceId || !isControlActive) {
       setError('Missing required parameters for exploration');
@@ -340,9 +347,8 @@ export const useGenerateModel = ({
       setStatus('exploring');
       setCurrentStep('Starting AI exploration...');
       
-      // ✅ SUBTREE DETECTION: Find subtree root node (isParentReference: true)
+      // Use pre-computed startNodeLabel
       const subtreeRootNode = nodes.find(n => n.data?.isParentReference === true);
-      const startNodeLabel = subtreeRootNode?.data?.label || currentNodeLabel || 'home';
       
       // ✅ ROOT TREE: Get root tree ID from parentChain for pathfinding
       const rootTreeId = parentChain[0]?.treeId || treeId;
@@ -914,6 +920,7 @@ export const useGenerateModel = ({
     context,
     currentPhase,
     strategy,
+    startNodeLabel,
     
     // ✅ Node and edge selection
     selectedNodes,

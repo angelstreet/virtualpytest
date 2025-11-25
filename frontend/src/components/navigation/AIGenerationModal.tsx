@@ -37,7 +37,6 @@ interface AIGenerationModalProps {
   selectedHost: any;
   selectedDeviceId: string;
   userinterfaceName?: string;
-  onGenerated: () => void; // Refresh ReactFlow after structure creation
   onStructureCreated: (nodesCount: number, edgesCount: number, explorationId: string, explorationHostName: string) => void; // Notify parent to show ValidationReadyPrompt
   onCleanupTemp?: () => void; // Cleanup _temp nodes from frontend state
 }
@@ -49,7 +48,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   selectedHost,
   selectedDeviceId,
   userinterfaceName,
-  onGenerated,
   onStructureCreated,
   onCleanupTemp
 }) => {
@@ -72,6 +70,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     context,
     currentPhase,
     strategy,
+    startNodeLabel,
     selectedNodes,
     selectedEdges,
     toggleNodeSelection,
@@ -168,7 +167,6 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     treeId,
     selectedHost,
     selectedDeviceId,
-    onGenerated,
     onClose,
     onCleanupTemp,
     startExploration,
@@ -771,7 +769,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           Found existing data:
         </Typography>
         <Box sx={{ pl: 2, mb: 2 }}>
-          <Typography variant="body2">• {existingNodesCount} node{existingNodesCount !== 1 ? 's' : ''} (excluding home)</Typography>
+          <Typography variant="body2">• {existingNodesCount} node{existingNodesCount !== 1 ? 's' : ''} (excluding {startNodeLabel})</Typography>
           <Typography variant="body2">• {existingEdgesCount} edge{existingEdgesCount !== 1 ? 's' : ''}</Typography>
         </Box>
         <Typography variant="body2" color="text.secondary">

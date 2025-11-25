@@ -8,7 +8,6 @@ interface UseAIGenerationModalProps {
   treeId: string;
   selectedHost: any;
   selectedDeviceId: string;
-  onGenerated: () => void;
   onClose: () => void;
   onCleanupTemp?: () => void;
   startExploration: () => Promise<void>;
@@ -19,7 +18,6 @@ export const useAIGenerationModal = ({
   isOpen,
   treeId,
   selectedHost,
-  onGenerated,
   onCleanupTemp,
   startExploration
 }: UseAIGenerationModalProps) => {
@@ -68,11 +66,9 @@ export const useAIGenerationModal = ({
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Validated:', data.nodes_renamed, 'nodes,', data.edges_renamed, 'edges');
         
-        // Refresh tree to show renamed nodes
-        onGenerated();
         setHasTempNodes(false);
         
-        // Keep modal open - user decides when to close
+        // Keep modal open - user decides when to close (tree will refresh naturally)
       } else {
         console.error('[@useAIGenerationModal] ❌ Validation failed:', data.error);
         alert(`Failed to validate: ${data.error || 'Unknown error'}`);
@@ -104,15 +100,10 @@ export const useAIGenerationModal = ({
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Aborted:', data.nodes_deleted, 'nodes,', data.edges_deleted, 'edges');
         
-        // Wait a moment for cache to clear
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Refresh tree to remove deleted nodes
-        onGenerated();
         onCleanupTemp?.();
         setHasTempNodes(false);
         
-        // Keep modal open - user decides when to close
+        // Keep modal open - user decides when to close (tree will refresh naturally)
       } else {
         console.error('[@useAIGenerationModal] ❌ Abort failed:', data.error);
       }
@@ -246,13 +237,10 @@ export const useAIGenerationModal = ({
       
       console.log('[@useAIGenerationModal] ✅ Tree cleaned successfully via batch delete');
       
-      // Refresh ReactFlow to show clean tree
-      onGenerated();
-      
       // Wait 1s for database updates to complete
       await new Promise(resolve => setTimeout(resolve, 1000));
       
-      // Start AI generation
+      // Start AI generation (tree will refresh naturally)
       await startExplorationFlow();
       
     } catch (error) {
