@@ -435,8 +435,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     action_sets = edge.get('action_sets', [])
                     if len(action_sets) > 0 and action_sets[0].get('actions'):
                         first_action = action_sets[0]['actions'][0]
-                        params = first_action.get('params', {})
-                        iterator = params.get('iterator', 1)
+                        # Check iterator at action level (not in params)
+                        iterator = first_action.get('iterator', 1)
                         print(f"    📊 Edge iterator from database: {iterator}")
             except Exception as e:
                 print(f"    ⚠️ Could not read edge iterator: {e}")
@@ -485,12 +485,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
                         edge = edge_result['edge']
                         action_sets = edge.get('action_sets', [])
                         
-                        # Ensure iterator is set in both directions
+                        # Ensure iterator is set in both directions (at action level, not in params)
                         if len(action_sets) >= 2:
                             if action_sets[0].get('actions') and len(action_sets[0]['actions']) > 0:
-                                action_sets[0]['actions'][0]['params']['iterator'] = iterator
+                                action_sets[0]['actions'][0]['iterator'] = iterator
                             if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
-                                action_sets[1]['actions'][0]['params']['iterator'] = iterator
+                                action_sets[1]['actions'][0]['iterator'] = iterator
                             
                             # Save (same as BACK x2)
                             update_result = save_edges_batch(tree_id, [edge], team_id)
@@ -885,14 +885,13 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 if edge_result.get('success'):
                     edge = edge_result['edge']
                     
-                    # Update reverse action (BACK)
+                    # Update reverse action (BACK) - iterator at action level, not in params
                     action_sets = edge.get('action_sets', [])
                     if len(action_sets) >= 2:
                         # action_sets[1] is reverse (BACK)
                         if action_sets[1].get('actions') and len(action_sets[1]['actions']) > 0:
                             # Update BACK action to require 2 presses
-                            action_sets[1]['actions'][0]['params']['iterator'] = 2
-                            action_sets[1]['actions'][0]['description'] = 'BACK x2 (press twice)'
+                            action_sets[1]['actions'][0]['iterator'] = 2
                             print(f"    ✅ Updated edge: {screen_node_name} → {focus_node_name}: BACK x2")
                             
                             # Save updated edge
@@ -937,8 +936,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 action_sets = edge.get('action_sets', [])
                 if len(action_sets) > 0 and action_sets[0].get('actions'):
                     first_action = action_sets[0]['actions'][0]
-                    params = first_action.get('params', {})
-                    display_iterator = params.get('iterator', 1)
+                    # Read iterator at action level, not in params
+                    display_iterator = first_action.get('iterator', 1)
         except Exception as e:
             print(f"    ⚠️ Could not read iterator for display: {e}")
         
