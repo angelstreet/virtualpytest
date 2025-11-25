@@ -261,7 +261,7 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
         {/* Progress Bar */}
         {progress.total > 0 && (
           <Box sx={{ mb: 0.5, position: 'sticky', top: 0, bgcolor: 'background.paper', zIndex: 1, pb: 1 }}>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 1, pl: 1.5 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5, pl: 1.5 }}>
               Progress: {progress.current}/{progress.total}
             </Typography>
             <LinearProgress 

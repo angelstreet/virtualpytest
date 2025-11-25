@@ -480,8 +480,9 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             invalidate_navigation_cache_for_tree(tree_id, team_id)
             print(f"  🔄 Cache invalidated immediately for tree {tree_id}")
             
-            # DELAY: Wait 2s to let view refresh/propagate before frontend fetch
-            time.sleep(2)
+            # DELAY: Wait 5s, force refresh, wait 5s more for materialized view
+            time.sleep(10)
+         
             
             # ✅ CRITICAL: Reload navigation tree to populate unified cache for validation
             # Without this, validation will fail with "context corrupted" because unified_graph is None
