@@ -908,7 +908,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               .catch((error) => {
                 console.error('[@NavigationEditor] ❌ Auto-save failed:', error);
               });
-          }, 500); // Small delay to ensure layout is complete
+          }, 2000); // Wait 2s to ensure layout positions are fully applied to ReactFlow
         }, 500); // Small delay to ensure nodes are rendered
       }
     }, [applyAutoLayoutFlag, nodes.length, handleAutoLayout, handleSaveToConfig]);
