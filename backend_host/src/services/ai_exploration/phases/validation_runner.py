@@ -312,10 +312,18 @@ def validate_next_item(executor) -> Dict[str, Any]:
         # Determine navigation type
         # Key insight: Check if we're in the SAME row or DIFFERENT row
         is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
-        is_first_item_overall = (current_index == 0)
+        
+        # ✅ FIX: Treat item as "first" if it's index 0 OR if previous item was 'home' (skipped)
+        # This bridges the gap between new data (home in list) and old logic (home not in list)
+        prev_item_is_home = False
+        if current_index > 0:
+             prev_item_check = items_to_validate[current_index - 1]
+             prev_item_is_home = prev_item_check.lower() in ['home', 'accueil']
+             
+        is_first_item_overall = (current_index == 0) or prev_item_is_home
         
         print(f"\n  🐛 DEBUG: Navigation Decision Logic")
-        print(f"     is_first_item_overall = {is_first_item_overall}")
+        print(f"     is_first_item_overall = {is_first_item_overall} (idx={current_index}, prev_is_home={prev_item_is_home})")
         print(f"     current_row_index = {current_row_index}")
         print(f"     prev_row_index = {prev_row_index}")
         print(f"     is_same_row = {is_same_row}")
