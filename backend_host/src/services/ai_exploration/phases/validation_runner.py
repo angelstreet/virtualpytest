@@ -345,22 +345,13 @@ def validate_next_item(executor) -> Dict[str, Any]:
             
             prev_focus_name = start_node_id
             if home_in_current_row:
-                # ROOT: start_node is in Row 1 - navigate LEFT or RIGHT from it
+                # Check if item is LEFT or RIGHT of home
                 is_left_item = current_item in items_left
                 nav_direction = 'LEFT' if is_left_item else 'RIGHT'
                 print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node IN Row {current_row_index + 1} → {nav_direction}")
                 print(f"     Reason: '{start_node_label}' is part of Row {current_row_index + 1}, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
-            elif current_row_index == 0:
-                # TV SUBTREE: start_node NOT in Row 1, but Row 1 is visible on that screen
-                # First item in Row 1 is already focused - no navigation needed
-                item_node_name = node_gen.target_to_node_name(current_item)
-                prev_focus_name = f"{start_node_id}_{item_node_name}"
-                nav_direction = None  # Already there
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, SUBTREE Row 1 → NONE (already focused)")
-                print(f"     Reason: '{start_node_label}' is subtree root, first item in Row 1 is already focused")
             else:
-                # SUBTREE: start_node is Row 0, navigate DOWN to Row 2+
-                nav_direction = 'DOWN'
+                nav_direction = 'DOWN'  # start_node is NOT in this row, vertical navigation
                 print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node NOT in rows → DOWN")
                 print(f"     Reason: '{start_node_label}' is Row 0, navigating down to Row {current_row_index + 1}")
         elif is_first_left_item and not prev_was_left_item:
@@ -410,17 +401,15 @@ def validate_next_item(executor) -> Dict[str, Any]:
             print(f"      All LEFT items: {items_left}")
             try:
                 import asyncio
-                # ✅ Use root_tree_id for pathfinding (start_node is in parent tree!)
-                root_tree_id = executor.exploration_state.get('root_tree_id', tree_id)
                 nav_result = asyncio.run(executor.device.navigation_executor.execute_navigation(
-                    tree_id=root_tree_id,
+                    tree_id=tree_id,
                     userinterface_name=executor.exploration_state['userinterface_name'],
                     target_node_label=start_node_label,
                     team_id=team_id
                 ))
                 
                 if nav_result.get('success'):
-                    print(f"    ✅ At '{start_node_label}' (used root_tree_id: {root_tree_id}) - ready for LEFT navigation")
+                    print(f"    ✅ At '{start_node_label}' - ready for LEFT navigation")
                 else:
                     error_msg = nav_result.get('error', 'Unknown error')
                     print(f"    ❌ Navigation to '{start_node_label}' failed: {error_msg}")
@@ -437,17 +426,15 @@ def validate_next_item(executor) -> Dict[str, Any]:
             print(f"      Transitioning from Row {prev_row_index + 1 if prev_row_index >= 0 else 0} → Row {display_row}")
             try:
                 import asyncio
-                # ✅ Use root_tree_id for pathfinding (start_node is in parent tree!)
-                root_tree_id = executor.exploration_state.get('root_tree_id', tree_id)
                 nav_result = asyncio.run(executor.device.navigation_executor.execute_navigation(
-                    tree_id=root_tree_id,
+                    tree_id=tree_id,
                     userinterface_name=executor.exploration_state['userinterface_name'],
                     target_node_label=start_node_label,
                     team_id=team_id
                 ))
                 
                 if nav_result.get('success'):
-                    print(f"    ✅ At '{start_node_label}' (used root_tree_id: {root_tree_id}) - ready for DOWN navigation to Row {display_row}")
+                    print(f"    ✅ At '{start_node_label}' - ready for DOWN navigation to Row {display_row}")
                     # ✅ FIX: Update prev_focus_name to start_node since we navigated there
                     prev_focus_name = start_node_id
                 else:
@@ -459,12 +446,10 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 print(f"    ⚠️ Continuing anyway - validation may fail")
         
         # Print validation info
-        nav_type = '🔽 VERTICAL to new row' if nav_direction == 'DOWN' else ('✅ Already focused' if nav_direction is None else '➡️ HORIZONTAL within row')
-        nav_display = nav_direction or 'NONE'
         print(f"     📍 Row {display_row}, Position {current_position_in_row + 1}")
-        print(f"     {nav_type}")
+        print(f"     {'🔽 VERTICAL to new row' if nav_direction == 'DOWN' else '➡️ HORIZONTAL within row'}")
         print(f"     Edges to test:")
-        print(f"       1. {prev_focus_name} → {focus_node_name}: {nav_display}")
+        print(f"       1. {prev_focus_name} → {focus_node_name}: {nav_direction}")
         print(f"       2. {focus_node_name} ↓ {screen_node_name}: OK")
         print(f"       3. {screen_node_name} ↑ {focus_node_name}: BACK")
         
@@ -475,60 +460,61 @@ def validate_next_item(executor) -> Dict[str, Any]:
         }
         screenshot_url = None
         
-        # Edge 1: Focus navigation (RIGHT/LEFT for horizontal, DOWN for vertical, None for already focused)
-        horizontal_edge = None
+        # Edge 1: Focus navigation (RIGHT/LEFT for horizontal, DOWN for vertical)
+        horizontal_edge = None  # Keep edge in memory for later updates
         try:
             print(f"\n    Edge 1/3: {prev_focus_name} → {focus_node_name}")
             
-            if nav_direction is None:
-                # TV SUBTREE: First item in Row 1 is already focused
-                print(f"    ✅ Already at {focus_node_name} (no navigation needed)")
-                edge_results['horizontal'] = 'success'
-            else:
-                # Read edge from database to get iterator parameter
-                edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}"
-                iterator = 1
+            # ✅ Read edge from database to get iterator parameter
+            # Edge IDs are constructed from node IDs (which never have _temp)
+            edge_id = f"edge_{prev_focus_name}_to_{focus_node_name}"
+            iterator = 1  # Default: single press
+            
+            try:
+                edge_result = get_edge_by_id(tree_id, edge_id, team_id)
                 
-                try:
-                    edge_result = get_edge_by_id(tree_id, edge_id, team_id)
-                    
-                    if edge_result.get('success') and edge_result.get('edge'):
-                        horizontal_edge = edge_result['edge']
-                        action_sets = horizontal_edge.get('action_sets', [])
-                        if len(action_sets) > 0 and action_sets[0].get('actions'):
-                            first_action = action_sets[0]['actions'][0]
-                            iterator = first_action.get('iterator', 1)
-                            print(f"    📊 Edge iterator from database: {iterator}")
-                    else:
-                        print(f"    ⚠️ Edge not found: {edge_id}")
-                except Exception as e:
-                    print(f"    ⚠️ Could not read edge: {e}")
-                
-                if nav_direction == 'DOWN' and current_row_index >= 1:
-                    total_downs = current_row_index + current_position_in_row
-                    print(f"    🔽 Vertical navigation: pressing DOWN {total_downs}x from home")
-                    print(f"       (Row {current_row_index + 1}, Position {current_position_in_row + 1})")
-                    
-                    for down_count in range(total_downs):
-                        result = controller.press_key('DOWN')
-                        import inspect
-                        if inspect.iscoroutine(result):
-                            import asyncio
-                            result = asyncio.run(result)
-                        print(f"       DOWN {down_count + 1}/{total_downs}")
-                        time.sleep(0.8)
+                if edge_result.get('success') and edge_result.get('edge'):
+                    horizontal_edge = edge_result['edge']  # ✅ KEEP in memory
+                    action_sets = horizontal_edge.get('action_sets', [])
+                    if len(action_sets) > 0 and action_sets[0].get('actions'):
+                        first_action = action_sets[0]['actions'][0]
+                        # Check iterator at action level (not in params)
+                        iterator = first_action.get('iterator', 1)
+                        print(f"    📊 Edge iterator from database: {iterator}")
                 else:
-                    # Horizontal navigation (LEFT/RIGHT)
-                    print(f"    ➡️ Horizontal navigation: pressing {nav_direction} {iterator}x")
-                    for press_count in range(iterator):
-                        result = controller.press_key(nav_direction)
-                        import inspect
-                        if inspect.iscoroutine(result):
-                            import asyncio
-                            result = asyncio.run(result)
-                        if iterator > 1:
-                            print(f"       {nav_direction} {press_count + 1}/{iterator}")
-                        time.sleep(0.8)
+                    print(f"    ⚠️ Edge not found: {edge_id}")
+            except Exception as e:
+                print(f"    ⚠️ Could not read edge: {e}")
+            
+            # ✅ For vertical rows (Row 1+): Press DOWN multiple times from home
+            # - current_row_index: which row (1 = first vertical row)
+            # - current_position_in_row: position within that row
+            # - Total DOWNs from home = current_row_index + current_position_in_row
+            if nav_direction == 'DOWN' and current_row_index >= 1:
+                total_downs = current_row_index + current_position_in_row
+                print(f"    🔽 Vertical navigation: pressing DOWN {total_downs}x from home")
+                print(f"       (Row {current_row_index + 1}, Position {current_position_in_row + 1})")
+                
+                for down_count in range(total_downs):
+                    result = controller.press_key('DOWN')
+                    import inspect
+                    if inspect.iscoroutine(result):
+                        import asyncio
+                        result = asyncio.run(result)
+                    print(f"       DOWN {down_count + 1}/{total_downs}")
+                    time.sleep(0.8)  # Short delay between DOWNs
+            else:
+                # Horizontal navigation (LEFT/RIGHT) - use iterator from edge
+                print(f"    ➡️ Horizontal navigation: pressing {nav_direction} {iterator}x")
+                for press_count in range(iterator):
+                    result = controller.press_key(nav_direction)
+                    import inspect
+                    if inspect.iscoroutine(result):
+                        import asyncio
+                        result = asyncio.run(result)
+                    if iterator > 1:
+                        print(f"       {nav_direction} {press_count + 1}/{iterator}")
+                    time.sleep(0.8)  # Short delay between presses
                 
                 edge_results['horizontal'] = 'success'
                 iterator_display = f" x{iterator}" if iterator > 1 else ""
