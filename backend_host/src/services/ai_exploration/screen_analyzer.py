@@ -786,6 +786,14 @@ Focus on THREE things:
             # Parse simple table format
             print(f"[@screen_analyzer:_analyze_from_ai_vision] 📊 Parsing table...")
             
+            def is_valid_menu_item(item: str) -> bool:
+                """Filter out non-menu items (time/date displays, etc.)"""
+                # Remove items with digits or special chars (except spaces, &, -, ')
+                import re
+                # Allow: letters, spaces, &, -, apostrophe
+                # Reject: digits, other punctuation
+                return bool(re.match(r"^[a-zA-Z\s&'\-]+$", item))
+            
             lines = []
             all_items = []
             
@@ -794,7 +802,17 @@ Focus on THREE things:
                 if line.startswith('Row') and ':' in line:
                     # Extract items after "Row X:"
                     items_text = line.split(':', 1)[1].strip()
-                    items = [item.strip() for item in items_text.split(',') if item.strip()]
+                    raw_items = [item.strip() for item in items_text.split(',') if item.strip()]
+                    
+                    # Filter out non-menu items (time, date, numbers)
+                    filtered_items = []
+                    for item in raw_items:
+                        if is_valid_menu_item(item):
+                            filtered_items.append(item)
+                        else:
+                            print(f"[@screen_analyzer:_analyze_from_ai_vision]   🚫 Filtered out '{item}' (contains digits/special chars)")
+                    
+                    items = filtered_items
                     
                     if items:
                         lines.append(items)
