@@ -132,8 +132,6 @@ class VideoMonitoringHelpers:
             Dictionary with latest JSON file information
         """
         try:
-            print(f"MonitoringHelpers[{self.device_name}]: Getting latest JSON for monitoring")
-            
             # Get capture folder path first
             capture_folder = self._get_capture_folder()
             
@@ -197,8 +195,6 @@ class VideoMonitoringHelpers:
                     'success': False,
                     'error': f'Failed to read JSON file: {str(e)}'
                 }
-            
-            print(f"MonitoringHelpers[{self.device_name}]: Latest JSON: {latest_json['filename']}")
             
             return {
                 'success': True,

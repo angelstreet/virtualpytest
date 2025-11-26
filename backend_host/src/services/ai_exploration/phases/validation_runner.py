@@ -214,12 +214,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
         # Get row structure from exploration plan
         lines = executor.exploration_state.get('exploration_plan', {}).get('lines', [])
         
-        print(f"\n  🐛 DEBUG: Row Structure Analysis")
-        print(f"     lines = {lines}")
-        print(f"     Total rows: {len(lines)}")
-        for idx, row in enumerate(lines):
-            print(f"     Row {idx}: {len(row)} items = {row}")
-        
         # Calculate node names
         node_gen = NodeGenerator(tree_id, team_id)
         # Use start_node_id from state
@@ -228,13 +222,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
         
         screen_node_name = node_gen.target_to_node_name(current_item)
         focus_node_name = f"{start_node_id}_{screen_node_name}"
-        
-        print(f"\n  🐛 DEBUG: Current Item Analysis")
-        print(f"     current_item = '{current_item}'")
-        print(f"     current_index = {current_index}")
-        print(f"     screen_node_name = '{screen_node_name}'")
-        print(f"     focus_node_name = '{focus_node_name}'")
-        print(f"     start_node_id = '{start_node_id}'")
         
         # ✅ FIX: TV menu structure
         # Row 0: home (starting point)
@@ -252,37 +239,21 @@ def validate_next_item(executor) -> Dict[str, Any]:
             if current_item in row_items:
                 current_row_index = row_idx
                 current_position_in_row = row_items.index(current_item)
-                print(f"  🐛 DEBUG: Found current_item '{current_item}' in Row {row_idx}, Position {current_position_in_row}")
                 break
-        
-        if current_row_index == -1:
-            print(f"  🐛 DEBUG: ⚠️ current_item '{current_item}' NOT FOUND in any row!")
         
         # Find previous item's position (if exists)
         if current_index > 0:
             prev_item = items_to_validate[current_index - 1]
-            print(f"\n  🐛 DEBUG: Previous Item Analysis")
-            print(f"     prev_item = '{prev_item}'")
             for row_idx, row_items in enumerate(lines):
                 if prev_item in row_items:
                     prev_row_index = row_idx
                     prev_position_in_row = row_items.index(prev_item)
-                    print(f"  🐛 DEBUG: Found prev_item '{prev_item}' in Row {row_idx}, Position {prev_position_in_row}")
                     break
-            
-            if prev_row_index == -1:
-                print(f"  🐛 DEBUG: ⚠️ prev_item '{prev_item}' NOT FOUND in any row!")
         
         # Determine navigation type
         # Key insight: Check if we're in the SAME row or DIFFERENT row
         is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
         is_first_item_overall = (current_index == 0)
-        
-        print(f"\n  🐛 DEBUG: Navigation Decision Logic")
-        print(f"     is_first_item_overall = {is_first_item_overall}")
-        print(f"     current_row_index = {current_row_index}")
-        print(f"     prev_row_index = {prev_row_index}")
-        print(f"     is_same_row = {is_same_row}")
         
         # ✅ Check if this is a Row 0 LEFT item (horizontal menu, left of home)
         items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
@@ -312,38 +283,26 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 prev_focus_name = start_node_id
                 is_left_item = current_item in items_left
                 nav_direction = 'LEFT' if is_left_item else 'RIGHT'
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node IN Row {current_row_index + 1} → {nav_direction}")
-                print(f"     Reason: '{start_node_label}' is part of Row {current_row_index + 1}, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
             elif current_row_index == 0:
                 # TV SUBTREE: start_node NOT in Row 1, but Row 1 is visible on that screen
                 # First item in Row 1 is already focused - no navigation needed
                 item_node_name = node_gen.target_to_node_name(current_item)
                 prev_focus_name = f"{start_node_id}_{item_node_name}"
                 nav_direction = None  # Already there
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM in TV SUBTREE Row 1 → NO NAV (already focused)")
-                print(f"     Reason: On '{start_node_label}' screen, Row 1 item '{current_item}' is already focused")
             else:
                 # start_node NOT in this row, and row > 0: navigate DOWN
                 prev_focus_name = start_node_id
                 nav_direction = 'DOWN'
-                print(f"  🐛 DEBUG: ✅ Decision: FIRST ITEM, start_node NOT in rows → DOWN")
-                print(f"     Reason: '{start_node_label}' is Row 0, navigating down to Row {current_row_index + 1}")
         elif is_first_left_item and not prev_was_left_item:
             # ✅ FIX: FIRST Row 0 LEFT item (coming from vertical rows) - navigate from HOME
             prev_focus_name = start_node_id  # Start from home, not from previous vertical item
             nav_direction = 'LEFT'
-            print(f"  🐛 DEBUG: ✅ Decision: FIRST LEFT ITEM (from vertical) → LEFT from home")
-            print(f"     Reason: '{current_item}' is first LEFT item, previous was vertical row")
-            print(f"     prev_focus_name = {prev_focus_name} (home, not previous vertical item)")
         elif is_same_row and current_row_index == 0:
             # ✅ Row 0 same row: horizontal navigation - LEFT or RIGHT of home
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
             prev_focus_name = f"{start_node_id}_{prev_item_name}"
             is_left_item = current_item in items_left
             nav_direction = 'LEFT' if is_left_item else 'RIGHT'
-            print(f"  🐛 DEBUG: ✅ Decision: ROW 0 SAME ROW → {nav_direction} within horizontal menu")
-            print(f"     Reason: Both items in Row 0, item is {'LEFT' if is_left_item else 'RIGHT'} of home")
-            print(f"     prev_focus_name = {prev_focus_name}")
         else:
             # ✅ Row 1+ (vertical): ALL items need DOWN from home
             # For Row 1+, we always go to home first and press DOWN to reach target
@@ -351,20 +310,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
             prev_item_name = node_gen.target_to_node_name(items_to_validate[current_index - 1])
             prev_focus_name = f"{start_node_id}_{prev_item_name}"  # Edge recorded from previous item
             nav_direction = 'DOWN'
-            
-            if is_same_row:
-                print(f"  🐛 DEBUG: ✅ Decision: ROW {current_row_index + 1} SAME ROW → DOWN (vertical menu)")
-                print(f"     Reason: Vertical row - go to home first, then DOWN to target")
-            else:
-                print(f"  🐛 DEBUG: ✅ Decision: DIFFERENT ROW → DOWN to Row {current_row_index + 1}")
-                print(f"     Reason: Row transition from Row {prev_row_index + 1} to Row {current_row_index + 1}")
-            print(f"     prev_focus_name = {prev_focus_name} (for edge recording)")
-        
-        print(f"\n  🐛 DEBUG: Final Navigation Plan")
-        nav_display_debug = nav_direction or 'NONE (already focused)'
-        nav_type_debug = '⬇️ VERTICAL' if nav_direction == 'DOWN' else ('✅ NO NAV' if nav_direction is None else '➡️ HORIZONTAL')
-        print(f"     {prev_focus_name} → {focus_node_name}: {nav_display_debug}")
-        print(f"     {nav_type_debug}\n")
         
         # Row numbering: home is Row 0, lines[0] is Row 1, lines[1] is Row 2, etc.
         display_row = current_row_index + 1  # lines[0] = Row 1

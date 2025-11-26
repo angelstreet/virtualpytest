@@ -694,7 +694,6 @@ def get_controller(device_id: str, controller_type: str):
     # If device_id is None, use the host device
     if device_id is None:
         device_id = 'host'
-        print(f"[@host_utils:get_controller] Using host device for controller: {controller_type}")
     
     # Handle specific verification controller types
     if controller_type.startswith('verification_'):
@@ -702,7 +701,6 @@ def get_controller(device_id: str, controller_type: str):
         device = host.get_device(device_id)
         
         if not device:
-            print(f"[@host_utils:get_controller] Device {device_id} not found")
             return None
         
         # Look for specific verification controller implementation
@@ -710,10 +708,8 @@ def get_controller(device_id: str, controller_type: str):
         for controller in verification_controllers:
             # Check if this controller matches the requested implementation
             if hasattr(controller, 'verification_type') and controller.verification_type == verification_impl:
-                print(f"[@host_utils:get_controller] Found {verification_impl} verification controller for device {device_id}")
                 return controller
         
-        print(f"[@host_utils:get_controller] No {verification_impl} verification controller found for device {device_id}")
         return None
     
     # Handle abstract controller types (av, remote, verification, web, desktop)
