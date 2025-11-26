@@ -58,16 +58,33 @@ def start_validation(executor) -> Dict[str, Any]:
         print(f"  [{idx}] {item:20} -> will create: {focus_node} (focus), {screen_node} (screen)")
     print(f"{'='*100}\n")
     
-    # ✅ NAVIGATION SUMMARY: Simplified (no NodeGenerator to avoid deadlock)
+    # ✅ NAVIGATION SUMMARY: Show edges (safe - no lock held, same as validate_next_item)
     print(f"\n{'='*100}")
-    print(f"📍 [NAVIGATION SUMMARY] Will validate {len([i for i in items_to_validate if 'home' not in i.lower()])} edges")
+    print(f"📍 [NAVIGATION SUMMARY] Edges to validate:")
     print(f"{'='*100}")
-    print(f"  Order: RIGHT items → LEFT items")
-    if lines and len(lines) > 0:
-        print(f"  Row 1: {', '.join([i for i in items_to_validate if i in lines[0] and 'home' not in i.lower()][:5])}")
-        if len(lines) > 1:
-            print(f"  Row 2+: {len([i for i in items_to_validate if i not in lines[0] and 'home' not in i.lower()])} vertical items")
-    print(f"{'='*100}\n")
+    
+    # Simple node name sanitizer (same logic as NodeGenerator.target_to_node_name)
+    def sanitize_name(target: str) -> str:
+        return target.lower().replace(' ', '_').replace('&', '').replace('-', '_').replace("'", '')
+    
+    display_num = 0
+    for idx, item in enumerate(items_to_validate):
+        screen_node_name = sanitize_name(item)
+        focus_node_name = f"{start_node_id}_{screen_node_name}"
+        
+        # Skip 'home' - it's skipped in validation too
+        if 'home' in screen_node_name and screen_node_name != 'home_temp':
+            continue
+        
+        display_num += 1
+        
+        # Simplified: Just show the item and edges (details during actual validation)
+        print(f"\n  [{display_num}] {item}")
+        print(f"      → {focus_node_name} (focus)")
+        print(f"      ↓ {screen_node_name} (screen)")
+        print(f"      ↑ {focus_node_name} (exit)")
+    
+    print(f"\n{'='*100}\n")
     
     print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
     
@@ -81,6 +98,8 @@ def validate_next_item(executor) -> Dict[str, Any]:
     """
     Phase 2b: Validate edges sequentially (depth-first for TV dual-layer)
     """
+    # Check if we should skip 'home' (do this check outside lock to avoid recursive deadlock)
+    should_skip_home = False
     with executor._lock:
         if executor.exploration_state['status'] not in ['awaiting_validation', 'validating']:
             error_msg = f"Cannot validate: status is {executor.exploration_state['status']}"
@@ -112,10 +131,30 @@ def validate_next_item(executor) -> Dict[str, Any]:
             node_name_clean = node_gen.target_to_node_name(current_item)
             node_name = node_name_clean
         
-        # Skip home
-        if 'home' in node_name.lower() and node_name != 'home_temp':
+        # Skip home - increment index and check outside lock
+        should_skip_home = 'home' in node_name.lower() and node_name != 'home_temp'
+        if should_skip_home:
             executor.exploration_state['current_validation_index'] = current_index + 1
-            return validate_next_item(executor)
+    
+    # ✅ Release lock before recursive call to avoid deadlock
+    if should_skip_home:
+        return validate_next_item(executor)
+    
+    # Continue with validation (reacquire lock for the rest)
+    with executor._lock:
+        # Re-read state after releasing and reacquiring lock
+        tree_id = executor.exploration_state['tree_id']
+        team_id = executor.exploration_state['team_id']
+        current_index = executor.exploration_state['current_validation_index']
+        items_to_validate = executor.exploration_state['items_to_validate']
+        current_item = items_to_validate[current_index]
+        target_to_node_map = executor.exploration_state['target_to_node_map']
+        node_name = target_to_node_map.get(current_item)
+        
+        if not node_name:
+            node_gen = NodeGenerator(tree_id, team_id)
+            node_name_clean = node_gen.target_to_node_name(current_item)
+            node_name = node_name_clean
         
         # ✅ NEW: Capture HOME dump before first navigation (Critical for Uniqueness)
         if current_index == 0:
