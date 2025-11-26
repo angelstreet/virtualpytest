@@ -33,6 +33,7 @@ def execute_zap_iterations(max_iteration: int, action: str = 'live_chup', goto_l
     from shared.src.lib.executors.zap_executor import ZapExecutor
     
     device = get_device()
+    context = get_context()
     args = get_args()
     
     # ZapExecutor handles complete zap workflow
