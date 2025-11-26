@@ -916,7 +916,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
     // Effect to trigger auto-layout after AI generation
     useEffect(() => {
       if (applyAutoLayoutFlag && nodes.length > 0) {
-        console.log('[@NavigationEditor] Triggering auto-layout after AI generation');
+        console.log('[@NavigationEditor] Triggering auto-layout after AI generation with', nodes.length, 'nodes and', edges.length, 'edges');
         setTimeout(() => {
           handleAutoLayout();
           setApplyAutoLayoutFlag(false); // Reset flag
@@ -934,7 +934,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
           }, 2000); // Wait 2s to ensure layout positions are fully applied to ReactFlow
         }, 1000); // Small delay to ensure nodes are rendered
       }
-    }, [applyAutoLayoutFlag, nodes.length, handleAutoLayout, handleSaveToConfig]);
+    }, [applyAutoLayoutFlag, nodes.length, edges.length, handleAutoLayout, handleSaveToConfig]);
 
     // Wrap onNodesChange to track position changes as unsaved changes
     const wrappedOnNodesChange = useCallback(
@@ -1542,7 +1542,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedDeviceId={selectedDeviceId}
             userinterfaceName={userInterface?.name}
             onGenerated={handleAIGenerated}
-            onStructureCreated={(nodesCount, edgesCount, explId, explHostName) => {
+            onStructureCreated={async (nodesCount, edgesCount, explId, explHostName) => {
               // Show ValidationReadyPrompt after structure creation
               setValidationNodesCount(nodesCount);
               setValidationEdgesCount(edgesCount);
@@ -1550,9 +1550,32 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               setExplorationHostName(explHostName);
               setShowValidationPrompt(true);
               
-              // Trigger auto-layout after nodes/edges are created
-              console.log('[@NavigationEditor] Triggering auto-layout after AI generation');
-              setApplyAutoLayoutFlag(true);
+              // ✅ CRITICAL: Reload tree data BEFORE triggering auto-layout
+              // This ensures the newly created nodes/edges are fetched and displayed
+              console.log('[@NavigationEditor] 🔄 Reloading tree data after structure creation...');
+              if (userInterface?.id) {
+                try {
+                  // Invalidate cache to force fresh fetch
+                  navigationConfig.invalidateTreeCache(userInterface.id);
+                  
+                  // Reload tree data
+                  const result = await loadTreeByUserInterface(userInterface.id);
+                  
+                  if (result?.metrics) {
+                    console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
+                    setPreloadedMetrics(result.metrics);
+                  }
+                  
+                  console.log('[@NavigationEditor] ✅ Tree data reloaded - triggering auto-layout');
+                  
+                  // Small delay to ensure React state has updated before triggering auto-layout
+                  setTimeout(() => {
+                    setApplyAutoLayoutFlag(true);
+                  }, 100);
+                } catch (error) {
+                  console.error('[@NavigationEditor] ❌ Failed to reload tree data:', error);
+                }
+              }
             }}
             onCleanupTemp={() => {
               // Clean up _temp nodes from frontend state (match by label, not ID)
