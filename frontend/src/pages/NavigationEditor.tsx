@@ -773,18 +773,23 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       async () => {
         try {
           const treeType = isNested && currentLevel ? 'nested' : 'root';
-          console.log(`[@NavigationEditor] Saving ${treeType} tree: ${actualTreeId} with ${nodes.length} nodes`);
+          const contextInfo = navigation.parentChain.length > 0 
+            ? `(subtree depth: ${navigation.parentChain.length})` 
+            : '(root level)';
           
-          // All tree saves now use the same unified batch API
+          console.log(`[@NavigationEditor] 💾 Saving ${treeType} tree: ${actualTreeId} ${contextInfo}`);
+          console.log(`[@NavigationEditor] 💾 Tree contains: ${nodes.length} nodes, ${edges.length} edges`);
+          
+          // All tree saves now use the same unified batch API - saves to actualTreeId (current tree context)
           await saveTreeWithStateUpdate(actualTreeId!);
           
-          console.log(`[@NavigationEditor] ${treeType} tree saved successfully`);
+          console.log(`[@NavigationEditor] ✅ ${treeType} tree saved successfully: ${actualTreeId}`);
         } catch (error) {
           console.error('Error saving tree:', error);
           throw error;
         }
       },
-      [isNested, currentLevel, actualTreeId, nodes.length, saveTreeWithStateUpdate],
+      [isNested, currentLevel, actualTreeId, nodes.length, edges.length, saveTreeWithStateUpdate, navigation.parentChain.length],
     );
 
     // Wrapper for the header component (matches expected signature)
@@ -916,26 +921,41 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
 
     // Effect to trigger auto-layout after AI generation
     useEffect(() => {
-      if (applyAutoLayoutFlag && nodes.length > 0) {
-        console.log('[@NavigationEditor] Triggering auto-layout after AI generation with', nodes.length, 'nodes and', edges.length, 'edges');
+      if (applyAutoLayoutFlag && nodes.length > 0 && actualTreeId) {
+        const treeType = navigation.parentChain.length > 0 ? 'subtree' : 'root tree';
+        const treeInfo = navigation.parentChain.length > 0 
+          ? `subtree (${actualTreeId}, depth: ${navigation.parentChain.length})` 
+          : `root tree (${actualTreeId})`;
+        
+        console.log(`[@NavigationEditor] 🎨 Triggering auto-layout after AI generation for ${treeInfo}`);
+        console.log(`[@NavigationEditor] 🎨 Layout will be applied to ${nodes.length} nodes and ${edges.length} edges`);
+        
         setTimeout(() => {
           handleAutoLayout();
           setApplyAutoLayoutFlag(false); // Reset flag
           
-          // Auto-save after layout is applied
-          console.log('[@NavigationEditor] Auto-saving after layout...');
+          // Auto-save after layout is applied to the CURRENT tree (root or subtree)
+          console.log(`[@NavigationEditor] 💾 Auto-saving ${treeType} after layout to tree: ${actualTreeId}`);
           setTimeout(() => {
+            if (!actualTreeId) {
+              console.error(`[@NavigationEditor] ❌ Cannot save - actualTreeId is undefined!`);
+              return;
+            }
+            
             handleSaveToConfig()
               .then(() => {
-                console.log('[@NavigationEditor] ✅ Auto-save completed after layout');
+                console.log(`[@NavigationEditor] ✅ Auto-save completed for ${treeType}: ${actualTreeId}`);
               })
               .catch((error) => {
-                console.error('[@NavigationEditor] ❌ Auto-save failed:', error);
+                console.error(`[@NavigationEditor] ❌ Auto-save failed for ${treeType}:`, error);
               });
           }, 2000); // Wait 2s to ensure layout positions are fully applied to ReactFlow
         }, 1000); // Small delay to ensure nodes are rendered
+      } else if (applyAutoLayoutFlag && !actualTreeId) {
+        console.error('[@NavigationEditor] ❌ Cannot apply auto-layout - actualTreeId is undefined!');
+        setApplyAutoLayoutFlag(false);
       }
-    }, [applyAutoLayoutFlag, nodes.length, edges.length, handleAutoLayout, handleSaveToConfig]);
+    }, [applyAutoLayoutFlag, nodes.length, edges.length, handleAutoLayout, handleSaveToConfig, actualTreeId, navigation.parentChain.length]);
 
     // Wrap onNodesChange to track position changes as unsaved changes
     const wrappedOnNodesChange = useCallback(
@@ -1552,7 +1572,13 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               
               // ✅ CRITICAL: Reload tree data BEFORE triggering auto-layout
               // This ensures the newly created nodes/edges are fetched and displayed
-              console.log('[@NavigationEditor] 🔄 Reloading tree data after structure creation...');
+              const treeType = navigation.parentChain.length > 0 ? 'subtree' : 'root tree';
+              const treeContext = navigation.parentChain.length > 0 
+                ? `(subtree: ${actualTreeId}, depth: ${navigation.parentChain.length})` 
+                : `(root tree: ${actualTreeId})`;
+              
+              console.log(`[@NavigationEditor] 🔄 Reloading ${treeType} data after structure creation ${treeContext}`);
+              
               if (actualTreeId) {
                 try {
                   // Invalidate cache to force fresh fetch
@@ -1561,17 +1587,20 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                   }
                   
                   // ✅ Reload CURRENT tree (preserves subtree context if in subtree)
+                  console.log(`[@NavigationEditor] 🔄 Loading tree: ${actualTreeId}`);
                   await loadTreeData(actualTreeId);
                   
-                  console.log('[@NavigationEditor] ✅ Tree data reloaded - triggering auto-layout');
+                  console.log(`[@NavigationEditor] ✅ Tree data reloaded for ${treeType} - triggering auto-layout`);
                   
                   // Small delay to ensure React state has updated before triggering auto-layout
                   setTimeout(() => {
                     setApplyAutoLayoutFlag(true);
                   }, 100);
                 } catch (error) {
-                  console.error('[@NavigationEditor] ❌ Failed to reload tree data:', error);
+                  console.error(`[@NavigationEditor] ❌ Failed to reload ${treeType} data:`, error);
                 }
+              } else {
+                console.error('[@NavigationEditor] ❌ Cannot reload tree - actualTreeId is undefined!');
               }
             }}
             onCleanupTemp={() => {
