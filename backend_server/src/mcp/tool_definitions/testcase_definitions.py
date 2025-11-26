@@ -77,7 +77,36 @@ Polls automatically until completion (up to 5 minutes).""",
             "name": "save_testcase",
             "description": """Save a test case graph to database
 
-Saves graph from generate_test_graph() for later reuse.
+⚠️ REQUIRED GRAPH STRUCTURE:
+- Must have exactly ONE node with type: "start" (lowercase)
+- Must have at least ONE terminal node with type: "success" or "failure" (lowercase)
+- All edges must have type: "success" or "failure"
+
+**Node Types:**
+- `start`: Entry point (exactly one required)
+- `navigation`: Navigate to a screen node (requires target_node_id + target_node_label)
+- `action`: Execute device action (requires command)
+- `verification`: Verify screen state (requires verification_type)
+- `success`: Test passed terminal (at least one success OR failure required)
+- `failure`: Test failed terminal
+
+**Complete Example:**
+```json
+{
+  "nodes": [
+    {"id": "start", "type": "start", "data": {}},
+    {"id": "nav-login", "type": "navigation", "data": {"target_node_id": "<UUID>", "target_node_label": "login"}},
+    {"id": "verify-login", "type": "verification", "data": {"command": "waitForElementToAppear", "verification_type": "web", "params": {"search_term": "Login", "timeout": 10}}},
+    {"id": "success", "type": "success", "data": {}}
+  ],
+  "edges": [
+    {"source": "start", "target": "nav-login", "type": "success"},
+    {"source": "nav-login", "target": "verify-login", "type": "success"},
+    {"source": "verify-login", "target": "success", "type": "success"}
+  ]
+}
+```
+
 Can organize with folders and tags.""",
             "inputSchema": {
                 "type": "object",

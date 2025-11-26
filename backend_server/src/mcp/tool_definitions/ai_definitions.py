@@ -49,6 +49,12 @@ Returns executable graph that can be:
 1. Passed to execute_testcase() to run immediately
 2. Passed to save_testcase() to save for later
 
+⚠️ GRAPH STRUCTURE (auto-generated):
+The AI generates a graph with these required elements:
+- `type: "start"` node (entry point)
+- `type: "success"` node (test passed terminal)
+- All edges with `type: "success"` or `type: "failure"`
+
 Example workflow:
 1. graph = generate_test_graph(prompt="Check home screen")
 2. execute_testcase(graph_json=graph['graph'])

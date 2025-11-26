@@ -118,7 +118,6 @@ class VirtualPyTestMCPServer:
             
             # Verification tools
             'list_verifications': self.verification_tools.list_verifications,
-            'verify_device_state': self.verification_tools.verify_device_state,
             'dump_ui_elements': self.verification_tools.dump_ui_elements,
             
             # TestCase tools
