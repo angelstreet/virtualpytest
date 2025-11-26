@@ -49,6 +49,85 @@ def start_validation(executor) -> Dict[str, Any]:
             print(f"  [{idx}] {item:20} -> will create: {focus_node} (focus), {screen_node} (screen)")
         print(f"{'='*100}\n")
         
+        # ✅ NAVIGATION SUMMARY: Show all edges that will be validated
+        print(f"\n{'='*100}")
+        print(f"📍 [NAVIGATION SUMMARY] Edges to validate:")
+        print(f"{'='*100}")
+        
+        tree_id = executor.exploration_state['tree_id']
+        team_id = executor.exploration_state['team_id']
+        start_node_id = executor.exploration_state.get('home_id', 'home')
+        start_node_label = executor.exploration_state.get('start_node', 'home')
+        lines = executor.exploration_state.get('exploration_plan', {}).get('lines', [])
+        items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+        
+        node_gen = NodeGenerator(tree_id, team_id)
+        
+        for idx, item in enumerate(items_to_validate):
+            screen_node_name = node_gen.target_to_node_name(item)
+            focus_node_name = f"{start_node_id}_{screen_node_name}"
+            
+            # Determine navigation direction (same logic as validate_next_item)
+            current_row_index = -1
+            for row_idx, row_items in enumerate(lines):
+                if item in row_items:
+                    current_row_index = row_idx
+                    break
+            
+            # Determine previous focus node
+            if idx == 0:
+                # First item
+                home_in_current_row = False
+                if current_row_index >= 0 and current_row_index < len(lines):
+                    row_items_lower = [i.lower() for i in lines[current_row_index]]
+                    home_in_current_row = (start_node_label.lower() in row_items_lower or 
+                                         'home' in row_items_lower or 
+                                         'accueil' in row_items_lower)
+                
+                if home_in_current_row:
+                    prev_focus = start_node_id
+                    is_left = item in items_left
+                    nav_dir = 'LEFT' if is_left else 'RIGHT'
+                elif current_row_index == 0:
+                    prev_focus = f"{start_node_id}_{screen_node_name}"
+                    nav_dir = 'NONE'
+                else:
+                    prev_focus = start_node_id
+                    nav_dir = 'DOWN'
+            else:
+                # Not first item - check if same row or different row
+                prev_item = items_to_validate[idx - 1]
+                prev_row_index = -1
+                for row_idx, row_items in enumerate(lines):
+                    if prev_item in row_items:
+                        prev_row_index = row_idx
+                        break
+                
+                is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
+                is_first_left = (item in items_left and (idx == 0 or items_to_validate[idx-1] not in items_left))
+                
+                if is_first_left:
+                    prev_focus = start_node_id
+                    nav_dir = 'LEFT'
+                elif is_same_row and current_row_index == 0:
+                    prev_screen = node_gen.target_to_node_name(prev_item)
+                    prev_focus = f"{start_node_id}_{prev_screen}"
+                    is_left = item in items_left
+                    nav_dir = 'LEFT' if is_left else 'RIGHT'
+                else:
+                    prev_screen = node_gen.target_to_node_name(prev_item)
+                    prev_focus = f"{start_node_id}_{prev_screen}"
+                    nav_dir = 'DOWN'
+            
+            # Print summary
+            print(f"\n  [{idx+1}] {item}")
+            if nav_dir != 'NONE':
+                print(f"      {prev_focus} → {focus_node_name}: {nav_dir}")
+            print(f"      {focus_node_name} ↓ {screen_node_name}: OK")
+            print(f"      {screen_node_name} ↑ {focus_node_name}: BACK")
+        
+        print(f"\n{'='*100}\n")
+        
         print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
         
         return {
