@@ -380,7 +380,8 @@ def quick_blackscreen_check(img, threshold=10):
     sample_total = sample.shape[0] * sample.shape[1]
     dark_percentage = (sample_dark / sample_total) * 100
     
-    return bool(dark_percentage > 85), dark_percentage
+    # ✅ THRESHOLD: Raised from 85% to 95% (matches main blackscreen detection)
+    return bool(dark_percentage > 95), dark_percentage
 
 # analyze_subtitles() removed - now handled by subtitle_monitor.py
 
@@ -611,7 +612,10 @@ def detect_issues(image_path, fps=5, queue_size=0, debug=False, skip_freeze=Fals
                 dark_pixels = np.sum(top_region <= threshold)
                 dark_percentage = (dark_pixels / total_pixels) * 100
             
-            blackscreen = bool(dark_percentage > 85)
+            # ✅ THRESHOLD: Raised from 85% to 95% to avoid false positives on dark content
+            # Dark movies/credits (85-94% dark) should NOT trigger blackscreen
+            # Real blackscreens (channel change, technical issues) are 95-100% pure black
+            blackscreen = bool(dark_percentage > 95)
             timings['blackscreen'] = (time.perf_counter() - start) * 1000
             
             # Cache result for next frames (when overloaded) - OPTIMIZATION: Lowered threshold from 50 to 30
