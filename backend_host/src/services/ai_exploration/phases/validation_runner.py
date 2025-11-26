@@ -65,9 +65,16 @@ def start_validation(executor) -> Dict[str, Any]:
     
     node_gen = NodeGenerator(tree_id, team_id)
     
+    display_num = 0  # Track display number (excluding skipped items)
     for idx, item in enumerate(items_to_validate):
         screen_node_name = node_gen.target_to_node_name(item)
         focus_node_name = f"{start_node_id}_{screen_node_name}"
+        
+        # ✅ Skip 'home' - it's the start node, not a navigable item
+        if 'home' in screen_node_name.lower() and screen_node_name != 'home_temp':
+            continue
+        
+        display_num += 1
         
         # Determine navigation direction (same logic as validate_next_item)
         current_row_index = -1
@@ -76,9 +83,18 @@ def start_validation(executor) -> Dict[str, Any]:
                 current_row_index = row_idx
                 break
         
-        # Determine previous focus node
-        if idx == 0:
-            # First item
+        # Determine previous focus node (skip over any 'home' items when looking back)
+        prev_idx = idx - 1
+        while prev_idx >= 0:
+            prev_item = items_to_validate[prev_idx]
+            prev_screen = node_gen.target_to_node_name(prev_item)
+            # Skip if it's 'home'
+            if 'home' not in prev_screen.lower() or prev_screen == 'home_temp':
+                break
+            prev_idx -= 1
+        
+        if prev_idx < 0:
+            # No previous non-home item (this is effectively the first)
             home_in_current_row = False
             if current_row_index >= 0 and current_row_index < len(lines):
                 row_items_lower = [i.lower() for i in lines[current_row_index]]
@@ -97,8 +113,8 @@ def start_validation(executor) -> Dict[str, Any]:
                 prev_focus = start_node_id
                 nav_dir = 'DOWN'
         else:
-            # Not first item - check if same row or different row
-            prev_item = items_to_validate[idx - 1]
+            # Has previous non-home item
+            prev_item = items_to_validate[prev_idx]
             prev_row_index = -1
             for row_idx, row_items in enumerate(lines):
                 if prev_item in row_items:
@@ -106,7 +122,7 @@ def start_validation(executor) -> Dict[str, Any]:
                     break
             
             is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
-            is_first_left = (item in items_left and (idx == 0 or items_to_validate[idx-1] not in items_left))
+            is_first_left = (item in items_left and (prev_idx < 0 or items_to_validate[prev_idx] not in items_left))
             
             if is_first_left:
                 prev_focus = start_node_id
@@ -122,7 +138,7 @@ def start_validation(executor) -> Dict[str, Any]:
                 nav_dir = 'DOWN'
         
         # Print summary
-        print(f"\n  [{idx+1}] {item}")
+        print(f"\n  [{display_num}] {item}")
         if nav_dir != 'NONE':
             print(f"      {prev_focus} → {focus_node_name}: {nav_dir}")
         print(f"      {focus_node_name} ↓ {screen_node_name}: OK")
