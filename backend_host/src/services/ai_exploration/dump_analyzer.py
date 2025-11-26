@@ -343,8 +343,42 @@ def _find_unique_text_for_node(target_node_id: str, target_node_label: str, targ
     
     print(f"[@dump_analyzer]   📊 Scoring {len(unique_texts)} unique candidates for '{target_node_label}':")
     
+    # ⚡️ OPTIMIZATION: Build text->element map ONCE for fast lookup (avoids O(N*M) loop)
+    text_map = {}
+    if target_dump and 'elements' in target_dump:
+        for elem in target_dump['elements']:
+            e_dict = elem.__dict__ if hasattr(elem, '__dict__') else elem
+            
+            # Extract text matching _extract_texts_from_dump logic
+            t = str(e_dict.get('text', '') or '').strip()
+            if t == '<no text>': t = ''
+            
+            cd = str(e_dict.get('content_desc', '') or '').strip()
+            if cd == '<no content-desc>': cd = ''
+            
+            val = t or cd
+            if val:
+                text_map[val] = e_dict
+
     for text in unique_texts:
         score, is_weak = _score_text_candidate(text, target_node_label)
+        
+        # 📍 POSITION BOOST: Prefer Top/Left elements (Menus/Headers)
+        if text in text_map:
+            area = text_map[text].get('area') # OCR/Vision dump
+            if area:
+                y = area.get('y', 9999)
+                x = area.get('x', 9999)
+                
+                # Boost Top (Header/Nav)
+                if y < 100: 
+                    score += 30
+                    print(f"      -> Boost: Top element (y={y}) +30")
+                    
+                # Boost Left (Side Menu)
+                if x < 100: 
+                    score += 30
+                    print(f"      -> Boost: Left element (x={x}) +30")
         
         if is_weak:
             weak_candidates.append((score, text))

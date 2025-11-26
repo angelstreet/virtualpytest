@@ -139,6 +139,12 @@ def score_text_candidate(text: str, node_label: str) -> Tuple[int, bool]:
     
     # 3. Length Heuristics
     length = len(text)
+    words = text.split()
+    
+    # Boost single words (Concise labels are usually better navigation targets)
+    if len(words) == 1:
+        score += 30
+        
     if length < 3:
         score -= 50  # Too short (e.g., "ok", "en")
     elif 4 <= length <= 25:
