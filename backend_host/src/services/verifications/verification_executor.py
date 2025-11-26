@@ -339,28 +339,59 @@ class VerificationExecutor:
                         }
                         print(f"[@lib:verification_executor] Host info for report: {host_info}")
                         
-                        # Get source_image_path from result details
+                        # Get source_image_path from result details (cropped) and original from config
                         source_path = None
+                        original_path = verification_config.get('source_image_path')  # Original before crop
+                        crop_area = verification_config.get('params', {}).get('area')  # Crop coordinates if any
+                        
                         print(f"[@lib:verification_executor] Details dict has {len(details)} keys: {list(details.keys())}")
                         
                         if 'source_image_path' in details:
-                            source_path = details['source_image_path']
-                            print(f"[@lib:verification_executor] ✅ Found source_image_path in details: {source_path}")
+                            source_path = details['source_image_path']  # Cropped version
+                            print(f"[@lib:verification_executor] ✅ Found cropped source_image_path in details: {source_path}")
                         elif 'source_image_path' in verification_config:
                             source_path = verification_config['source_image_path']
                             print(f"[@lib:verification_executor] ✅ Found source_image_path in config: {source_path}")
                         else:
                             print(f"[@lib:verification_executor] ❌ source_image_path not found!")
                         
+                        if original_path:
+                            print(f"[@lib:verification_executor] ✅ Original image path: {original_path}")
+                        if crop_area:
+                            print(f"[@lib:verification_executor] ✅ Crop area: {crop_area}")
+                        
                         if source_path and device_folder:
                             # ✅ UPLOAD verification images to R2 BEFORE generating report (reuse KPI upload utility)
                             try:
                                 from shared.src.lib.utils.cloudflare_utils import upload_kpi_thumbnails
+                                from shared.src.lib.utils.storage_path_utils import get_cold_storage_path
+                                from PIL import Image, ImageDraw
                                 
                                 # Collect images to upload
                                 failure_images = {}
                                 if source_path and os.path.exists(source_path):
                                     failure_images['source'] = source_path
+                                
+                                # Generate original image with crop rectangle overlay (if crop area exists)
+                                if original_path and os.path.exists(original_path) and original_path != source_path:
+                                    if crop_area and isinstance(crop_area, (list, tuple)) and len(crop_area) == 4:
+                                        # Generate overlay image with red rectangle
+                                        img = Image.open(original_path)
+                                        draw = ImageDraw.Draw(img)
+                                        x, y, w, h = crop_area
+                                        draw.rectangle([x, y, x+w, y+h], outline='red', width=3)
+                                        
+                                        # Save overlay to cold storage
+                                        cold_base = get_cold_storage_path(device_folder, '')
+                                        overlay_timestamp = str(int(time.time() * 1000))
+                                        original_overlay_path = os.path.join(cold_base, f'original_with_crop_{overlay_timestamp}.png')
+                                        img.save(original_overlay_path)
+                                        
+                                        failure_images['original'] = original_overlay_path
+                                        print(f"[@lib:verification_executor] ✅ Generated original with crop overlay: {original_overlay_path}")
+                                    else:
+                                        # No crop area, upload original as-is
+                                        failure_images['original'] = original_path
                                 
                                 overlay_path = details.get('result_overlay_path')
                                 if overlay_path and os.path.exists(overlay_path):
@@ -368,17 +399,20 @@ class VerificationExecutor:
                                 
                                 # Upload to R2 (reuse KPI upload function)
                                 if failure_images:
-                                    timestamp = time.strftime('%Y%m%d%H%M%S')
+                                    upload_timestamp = time.strftime('%Y%m%d%H%M%S')
                                     # Use device_folder as execution_result_id prefix for path consistency
-                                    r2_urls = upload_kpi_thumbnails(failure_images, f"verif_fail_{device_folder}", timestamp)
+                                    r2_urls = upload_kpi_thumbnails(failure_images, f"verif_fail_{device_folder}", upload_timestamp)
                                     
                                     # Update details with R2 URLs
                                     if r2_urls.get('source'):
                                         details['source_image_url'] = r2_urls['source']
-                                        print(f"[@lib:verification_executor] ✅ Source uploaded: {r2_urls['source'][:80]}...")
+                                        print(f"[@lib:verification_executor] ✅ Source uploaded to R2: {r2_urls['source'][:80]}...")
+                                    if r2_urls.get('original'):
+                                        details['original_image_url'] = r2_urls['original']
+                                        print(f"[@lib:verification_executor] ✅ Original uploaded to R2: {r2_urls['original'][:80]}...")
                                     if r2_urls.get('overlay'):
                                         details['result_overlay_url'] = r2_urls['overlay']
-                                        print(f"[@lib:verification_executor] ✅ Overlay uploaded: {r2_urls['overlay'][:80]}...")
+                                        print(f"[@lib:verification_executor] ✅ Overlay uploaded to R2: {r2_urls['overlay'][:80]}...")
                                     
                                     print(f"[@lib:verification_executor] ✅ Uploaded {len(r2_urls)}/{len(failure_images)} images to R2")
                             except Exception as upload_error:
@@ -386,8 +420,8 @@ class VerificationExecutor:
                                 import traceback
                                 traceback.print_exc()
                             
-                            # Add source_image_path to verification_config for report generator
-                            verification_config_with_path = {**verification_config, 'source_image_path': source_path}
+                            # Add paths to verification_config for report generator
+                            verification_config_with_path = {**verification_config, 'source_image_path': source_path, 'original_image_path': original_path, 'crop_area': crop_area}
                             
                             # Generate report (with R2 URLs in details if upload succeeded)
                             report_path = generate_verification_failure_report(

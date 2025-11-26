@@ -46,29 +46,43 @@ def generate_verification_failure_report(
         verification_type = verification_config.get('verification_type', 'unknown')
         command = verification_config.get('command', 'unknown')
         
-        # Get image URLs - prefer R2 URLs from details, fallback to local paths converted to HTTP URLs
-        # Source image: Check R2 URL first, then convert local path
+        # Get image URLs - all uploaded to R2 by verification_executor before calling this function
+        # Source image (cropped): R2 URL from details
         source_image_url = details.get('source_image_url')
-        if not source_image_url:
+        if source_image_url:
+            print(f"[@verification_report_generator] Source: Using R2 URL: {source_image_url[:80]}...")
+        else:
+            # Fallback to local path conversion (should rarely happen)
             source_image_path = verification_config.get('source_image_path') or details.get('source_image_path')
             source_image_url = buildHostImageUrl(host_info, source_image_path) if source_image_path else None
-            print(f"[@verification_report_generator] Source: Using host-served URL (R2 not available)")
+            print(f"[@verification_report_generator] Source: Using host-served URL (R2 upload may have failed)")
+        
+        # Original image (with crop rectangle overlay): R2 URL from details
+        original_image_url = details.get('original_image_url')
+        crop_area = verification_config.get('crop_area')
+        if original_image_url:
+            print(f"[@verification_report_generator] Original: Using R2 URL: {original_image_url[:80]}...")
         else:
-            print(f"[@verification_report_generator] Source: Using R2 URL: {source_image_url[:80]}...")
+            # Fallback to local path conversion (should rarely happen)
+            original_image_path = verification_config.get('original_image_path')
+            original_image_url = buildHostImageUrl(host_info, original_image_path) if original_image_path else None
+            print(f"[@verification_report_generator] Original: Using host-served URL (R2 upload may have failed)")
         
-        # Reference image URL is already R2 URL - use as is
+        # Reference image: R2 URL from details
         reference_image_url = details.get('reference_image_url')
-        print(f"[@verification_report_generator] Reference image URL from details: {reference_image_url}")
+        if reference_image_url:
+            print(f"[@verification_report_generator] Reference: Using R2 URL: {reference_image_url[:80]}...")
         
-        # Overlay image: Check R2 URL first, then convert local path
+        # Result overlay image: R2 URL from details
         result_overlay_url = details.get('result_overlay_url')
-        if not result_overlay_url:
+        if result_overlay_url:
+            print(f"[@verification_report_generator] Overlay: Using R2 URL: {result_overlay_url[:80]}...")
+        else:
+            # Fallback to local path conversion (should rarely happen)
             result_overlay_path = details.get('result_overlay_path')
             result_overlay_url = buildHostImageUrl(host_info, result_overlay_path) if result_overlay_path else None
             if result_overlay_url:
-                print(f"[@verification_report_generator] Overlay: Using host-served URL (R2 not available)")
-        else:
-            print(f"[@verification_report_generator] Overlay: Using R2 URL: {result_overlay_url[:80]}...")
+                print(f"[@verification_report_generator] Overlay: Using host-served URL (R2 upload may have failed)")
         
         # Build simple HTML (same pattern as KPI failure report)
         html = ['<!DOCTYPE html><html><head><meta charset="UTF-8">']
@@ -91,8 +105,15 @@ def generate_verification_failure_report(
         
         # Images section
         html.append('<h2>Images</h2>')
+        
+        # Show original image with crop rectangle FIRST (most useful for debugging)
+        if original_image_url:
+            crop_info = f' (crop area: {crop_area})' if crop_area else ''
+            html.append(f'<div><p><b>Original Screenshot{crop_info}</b></p>')
+            html.append(f'<a href="{original_image_url}" target="_blank"><img src="{original_image_url}" alt="Original"></a></div>')
+        
         if source_image_url:
-            html.append(f'<div><p><b>Source Screenshot</b></p>')
+            html.append(f'<div><p><b>Cropped Source Screenshot</b></p>')
             html.append(f'<a href="{source_image_url}" target="_blank"><img src="{source_image_url}" alt="Source"></a></div>')
         
         if reference_image_url:
