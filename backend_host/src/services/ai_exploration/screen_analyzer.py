@@ -725,9 +725,9 @@ What to skip:
 - Background decorative elements
 - Time slots (19:00, 20:00, etc.)
 
-🚨 CRITICAL: SKIP content cards (movie posters, TV thumbnails, program grids)!
-Only extract navigation UI (buttons/tabs at top/edges). Ignore show names ("Tehran", "Sunrise") and repeated thumbnails.
-If you see cards in a grid/carousel → those are CONTENT, not navigation!
+🚨 CRITICAL: SKIP dynamic content in cards (movie posters, TV thumbnails, program cards)!
+Ignore show names ("Tehran", "Sunrise") and repeated thumbnails.
+
 
 Example TV Guide Top Bar:
 
