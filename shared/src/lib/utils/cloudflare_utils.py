@@ -96,12 +96,24 @@ class CloudflareUtils:
             logger.info(f"Using endpoint: {endpoint_url}")
             logger.info(f"Using bucket: {self.bucket_name}")
             
+            # Configure aggressive timeouts and retries to prevent long hangs
+            # Reference image downloads should be fast - if they're slow, fail fast
+            config = Config(
+                signature_version='s3v4',
+                connect_timeout=5,      # 5 seconds to establish connection
+                read_timeout=10,        # 10 seconds to read response
+                retries={
+                    'max_attempts': 2,  # Only retry once (total 2 attempts)
+                    'mode': 'standard'
+                }
+            )
+            
             return boto3.client(
                 's3',
                 endpoint_url=endpoint_url,
                 aws_access_key_id=access_key,
                 aws_secret_access_key=secret_key,
-                config=Config(signature_version='s3v4')
+                config=config
             )
             
         except Exception as e:
@@ -269,42 +281,61 @@ class CloudflareUtils:
         Returns:
             Dict with success status, local file path, and ETag
         """
+        start_time = time.time()
         try:
             # Ensure directory exists
             os.makedirs(os.path.dirname(local_path), exist_ok=True)
             
+            logger.debug(f"Starting download: {remote_path}")
+            
             # Download file using bucket name and get response metadata
+            # With config timeouts: connect_timeout=5s, read_timeout=10s, max 2 attempts
             response = self.s3_client.get_object(
                 Bucket=self.bucket_name,
                 Key=remote_path
             )
             
+            fetch_time = time.time() - start_time
+            if fetch_time > 1.0:
+                logger.warning(f"Slow R2 fetch: {remote_path} took {fetch_time:.2f}s to get response")
+            
             # Write file content
             with open(local_path, 'wb') as f:
                 f.write(response['Body'].read())
             
+            write_time = time.time() - start_time - fetch_time
+            total_time = time.time() - start_time
+            
             # Extract ETag from response metadata
             etag = response.get('ETag', '').strip('"')
+            file_size = os.path.getsize(local_path)
             
-            logger.info(f"Downloaded: {remote_path} -> {local_path} (ETag: {etag[:8]}...)")
+            # Log with timing details
+            if total_time > 2.0:
+                logger.warning(f"Downloaded: {remote_path} -> {local_path} (ETag: {etag[:8]}...) - SLOW: {total_time:.2f}s (fetch: {fetch_time:.2f}s, write: {write_time:.2f}s, size: {file_size} bytes)")
+            else:
+                logger.info(f"Downloaded: {remote_path} -> {local_path} (ETag: {etag[:8]}...) - {total_time:.2f}s ({file_size} bytes)")
             
             return {
                 'success': True,
                 'remote_path': remote_path,
                 'local_path': local_path,
-                'size': os.path.getsize(local_path),
-                'etag': etag
+                'size': file_size,
+                'etag': etag,
+                'download_time': total_time
             }
             
         except ClientError as e:
+            elapsed = time.time() - start_time
             if e.response['Error']['Code'] == '404':
-                logger.error(f"File not found in R2: {remote_path}")
+                logger.error(f"File not found in R2: {remote_path} (failed after {elapsed:.2f}s)")
                 return {'success': False, 'error': f"File not found in R2: {remote_path}"}
             else:
-                logger.error(f"Download failed: {str(e)}")
+                logger.error(f"Download failed: {str(e)} (failed after {elapsed:.2f}s)")
                 return {'success': False, 'error': str(e)}
         except Exception as e:
-            logger.error(f"Download failed: {str(e)}")
+            elapsed = time.time() - start_time
+            logger.error(f"Download failed: {str(e)} (failed after {elapsed:.2f}s)")
             return {'success': False, 'error': str(e)}
     
     def head_file(self, remote_path: str) -> Dict:
@@ -318,34 +349,44 @@ class CloudflareUtils:
         Returns:
             Dict with success status, etag, last_modified, and content_length
         """
+        start_time = time.time()
         try:
+            # HEAD request with same timeout config as downloads (5s connect, 10s read)
             response = self.s3_client.head_object(
                 Bucket=self.bucket_name,
                 Key=remote_path
             )
             
+            elapsed = time.time() - start_time
+            
             etag = response.get('ETag', '').strip('"')
             last_modified = response.get('LastModified')
             content_length = response.get('ContentLength', 0)
             
-            logger.debug(f"HEAD: {remote_path} (ETag: {etag[:8]}..., Size: {content_length} bytes)")
+            if elapsed > 1.0:
+                logger.warning(f"HEAD: {remote_path} (ETag: {etag[:8]}..., Size: {content_length} bytes) - SLOW: {elapsed:.2f}s")
+            else:
+                logger.debug(f"HEAD: {remote_path} (ETag: {etag[:8]}..., Size: {content_length} bytes) - {elapsed:.2f}s")
             
             return {
                 'success': True,
                 'etag': etag,
                 'last_modified': last_modified,
-                'content_length': content_length
+                'content_length': content_length,
+                'request_time': elapsed
             }
             
         except ClientError as e:
+            elapsed = time.time() - start_time
             if e.response['Error']['Code'] == '404':
-                logger.error(f"File not found in R2: {remote_path}")
+                logger.error(f"File not found in R2: {remote_path} (failed after {elapsed:.2f}s)")
                 return {'success': False, 'error': f"File not found in R2: {remote_path}"}
             else:
-                logger.error(f"HEAD request failed: {str(e)}")
+                logger.error(f"HEAD request failed: {str(e)} (failed after {elapsed:.2f}s)")
                 return {'success': False, 'error': str(e)}
         except Exception as e:
-            logger.error(f"HEAD request failed: {str(e)}")
+            elapsed = time.time() - start_time
+            logger.error(f"HEAD request failed: {str(e)} (failed after {elapsed:.2f}s)")
             return {'success': False, 'error': str(e)}
     
     def copy_file(self, source_path: str, destination_path: str) -> Dict:
