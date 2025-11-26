@@ -1630,12 +1630,20 @@ class InotifyFrameMonitor:
             device_id = device_info.get('device_id', capture_folder)
             device_state = self.incident_manager.get_device_state(device_id)
             
-            # ✅ OPTIMIZATION: Skip expensive audio cache lookup during freeze (audio not relevant during freeze)
-            # But we still populate audio data from existing cache for JSON writing
-            skip_audio_lookup = bool(device_state.get('freeze_event_start'))
+            # ✅ INCIDENT AUDIO HANDLING: During freeze/blackscreen, always set audio=false
+            # Reasons:
+            # 1. We skip audio checking during incidents (performance optimization)
+            # 2. Video incidents make audio state unreliable
+            # 3. Showing stale "audio=true" during freeze is confusing
+            has_freeze_incident = bool(device_state.get('freeze_event_start'))
+            has_blackscreen_incident = bool(device_state.get('blackscreen_event_start'))
             
-            if not skip_audio_lookup:
-                # Check last 1 frame for audio data (refreshes cache from transcript_accumulator writes)
+            if has_freeze_incident or has_blackscreen_incident:
+                # INCIDENT ONGOING: Force audio=false (we're not checking audio during incidents)
+                self.audio_cache[capture_folder] = {'audio': False, 'mean_volume_db': -91.0}
+                logger.debug(f"[{capture_folder}] ⏩ Audio set to false (incident ongoing, audio check skipped)")
+            else:
+                # NORMAL OPERATION: Check last 1 frame for audio data (refreshes cache from transcript_accumulator writes)
                 # This runs for EVERY frame to catch audio updates written to recent frames
                 # OPTIMIZATION: Reduced from 3 frames to 1 frame to save I/O (66% reduction)
                 for i in range(1, 2):  # Check only previous 1 frame (200ms window)
@@ -1667,12 +1675,6 @@ class InotifyFrameMonitor:
                                     break
                         except:
                             continue  # Skip corrupted JSON
-            else:
-                # FREEZE ONGOING: Skip expensive I/O, but ensure we have cached audio for JSON writing
-                if capture_folder not in self.audio_cache:
-                    # No cache yet - use safe default (no audio during freeze is common)
-                    self.audio_cache[capture_folder] = {'audio': False, 'mean_volume_db': -91.0}
-                # else: use existing cached value (audio status doesn't change rapidly during freeze)
             
             # Check if JSON already exists and extract audio data early (needed for event tracking)
             existing_audio_data = {}
