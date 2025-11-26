@@ -726,7 +726,7 @@ What to skip:
 - Time slots (19:00, 20:00, etc.)
 
 🚨 CRITICAL: SKIP dynamic content in cards (movie posters, TV thumbnails, program cards)!
-Ignore show names ("Tehran", "Sunrise") and repeated thumbnails.
+Ignore show names, movie titles, program titles ("Tehran", "Sunrise") and repeated thumbnails.
 
 
 Example TV Guide Top Bar:
