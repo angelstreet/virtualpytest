@@ -55,10 +55,10 @@ class ScreenAnalysisTools:
         
         # Validate
         if not elements:
-            return self.formatter.error("No elements provided. Call dump_ui_elements first.")
+            return self.formatter.format_error("No elements provided. Call dump_ui_elements first.")
         
         if platform not in ['mobile', 'web']:
-            return self.formatter.error(f"Invalid platform: {platform}. Use 'mobile' or 'web'.")
+            return self.formatter.format_error(f"Invalid platform: {platform}. Use 'mobile' or 'web'.")
         
         # Find best selector using unified scoring
         try:
@@ -70,7 +70,7 @@ class ScreenAnalysisTools:
             )
             
             if not result:
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"No unique selector found for '{intent}'.\n"
                     f"This usually means:\n"
                     f"1. Element doesn't exist on screen\n"
@@ -130,7 +130,7 @@ class ScreenAnalysisTools:
             return {"content": [{"type": "text", "text": response_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Analysis failed: {str(e)}")
+            return self.formatter.format_error(f"Analysis failed: {str(e)}")
     
     def analyze_screen_for_verification(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """
@@ -161,13 +161,13 @@ class ScreenAnalysisTools:
         
         # Validate
         if not elements:
-            return self.formatter.error("No elements provided. Call dump_ui_elements first.")
+            return self.formatter.format_error("No elements provided. Call dump_ui_elements first.")
         
         if not node_label:
-            return self.formatter.error("node_label is required (e.g., 'home', 'login')")
+            return self.formatter.format_error("node_label is required (e.g., 'home', 'login')")
         
         if platform not in ['mobile', 'web']:
-            return self.formatter.error(f"Invalid platform: {platform}. Use 'mobile' or 'web'.")
+            return self.formatter.format_error(f"Invalid platform: {platform}. Use 'mobile' or 'web'.")
         
         # Find best selector
         try:
@@ -179,7 +179,7 @@ class ScreenAnalysisTools:
             )
             
             if not result:
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"No unique verification found for node '{node_label}'.\n"
                     f"Try: Navigate to the screen first, then dump_ui_elements"
                 )
@@ -230,5 +230,5 @@ class ScreenAnalysisTools:
             return {"content": [{"type": "text", "text": response_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Analysis failed: {str(e)}")
+            return self.formatter.format_error(f"Analysis failed: {str(e)}")
 

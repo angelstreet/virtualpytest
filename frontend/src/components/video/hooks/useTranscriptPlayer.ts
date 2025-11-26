@@ -126,8 +126,16 @@ export const useTranscriptPlayer = ({
               return;
             }
             
+            // Filter to chunks from last 24h only (prevents showing old transcripts)
+            const now = Date.now();
+            const chunks24h = manifest.chunks.filter((chunk: any) => {
+              if (!chunk.timestamp) return false;
+              const chunkTime = new Date(chunk.timestamp).getTime();
+              return (now - chunkTime) < 24 * 60 * 60 * 1000; // 24h in ms
+            });
+            
             // Check if transcript exists for this hour/chunk
-            const chunkInfo = manifest.chunks.find(
+            const chunkInfo = chunks24h.find(
               (chunk: any) => chunk.hour === hour && chunk.chunk_index === chunkIndex
             );
             

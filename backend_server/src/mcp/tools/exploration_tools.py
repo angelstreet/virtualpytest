@@ -31,7 +31,7 @@ class ExplorationTools:
         start_node = params.get('start_node', 'home')
         
         if not userinterface_name:
-            return self.formatter.error("userinterface_name is required")
+            return self.formatter.format_error("userinterface_name is required")
         
         # Get compatible host/device
         try:
@@ -41,7 +41,7 @@ class ExplorationTools:
             )
             
             if not hosts_response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Failed to get compatible hosts: {hosts_response.get('error')}",
                     ErrorCategory.NOT_FOUND
                 )
@@ -63,14 +63,14 @@ class ExplorationTools:
                         tree_id = ui.get('root_tree_id')
             
             if not tree_id:
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Could not find tree_id for userinterface '{userinterface_name}'. "
                     f"Create userinterface first with create_userinterface()",
                     ErrorCategory.NOT_FOUND
                 )
             
         except Exception as e:
-            return self.formatter.error(
+            return self.formatter.format_error(
                 f"Failed to setup exploration: {str(e)}",
                 ErrorCategory.BACKEND
             )
@@ -91,7 +91,7 @@ class ExplorationTools:
             )
             
             if not response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Exploration failed to start: {response.get('error')}",
                     ErrorCategory.BACKEND
                 )
@@ -156,19 +156,19 @@ class ExplorationTools:
                 
                 elif status == 'failed':
                     error = status_response.get('error', 'Unknown error')
-                    return self.formatter.error(
+                    return self.formatter.format_error(
                         f"Exploration failed: {error}",
                         ErrorCategory.BACKEND
                     )
             
             # Timeout
-            return self.formatter.error(
+            return self.formatter.format_error(
                 "Exploration timed out waiting for analysis to complete",
                 ErrorCategory.TIMEOUT
             )
             
         except Exception as e:
-            return self.formatter.error(
+            return self.formatter.format_error(
                 f"Exploration error: {str(e)}",
                 ErrorCategory.BACKEND
             )
@@ -180,7 +180,7 @@ class ExplorationTools:
         team_id = params.get('team_id', 'team_1')
         
         if not exploration_id or not host_name:
-            return self.formatter.error("exploration_id and host_name are required")
+            return self.formatter.format_error("exploration_id and host_name are required")
         
         try:
             response = self.api_client.get(
@@ -193,7 +193,7 @@ class ExplorationTools:
             )
             
             if not response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Failed to get status: {response.get('error')}",
                     ErrorCategory.BACKEND
                 )
@@ -218,7 +218,7 @@ class ExplorationTools:
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Status check failed: {str(e)}", ErrorCategory.BACKEND)
+            return self.formatter.format_error(f"Status check failed: {str(e)}", ErrorCategory.BACKEND)
     
     def approve_exploration_plan(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Approve plan and create structure"""
@@ -230,7 +230,7 @@ class ExplorationTools:
         selected_screen_items = params.get('selected_screen_items')
         
         if not all([exploration_id, host_name, userinterface_name]):
-            return self.formatter.error("exploration_id, host_name, and userinterface_name are required")
+            return self.formatter.format_error("exploration_id, host_name, and userinterface_name are required")
         
         try:
             response = self.api_client.post(
@@ -246,7 +246,7 @@ class ExplorationTools:
             )
             
             if not response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Failed to create structure: {response.get('error')}",
                     ErrorCategory.BACKEND
                 )
@@ -281,7 +281,7 @@ class ExplorationTools:
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Approval failed: {str(e)}", ErrorCategory.BACKEND)
+            return self.formatter.format_error(f"Approval failed: {str(e)}", ErrorCategory.BACKEND)
     
     def validate_exploration_edges(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Validate edges sequentially"""
@@ -291,7 +291,7 @@ class ExplorationTools:
         team_id = params.get('team_id', 'team_1')
         
         if not all([exploration_id, host_name, userinterface_name]):
-            return self.formatter.error("exploration_id, host_name, and userinterface_name are required")
+            return self.formatter.format_error("exploration_id, host_name, and userinterface_name are required")
         
         try:
             # Start validation if needed
@@ -326,7 +326,7 @@ class ExplorationTools:
                     result_text += "Get verification suggestions with `get_node_verification_suggestions()`"
                     return {"content": [{"type": "text", "text": result_text}], "isError": False}
                 
-                return self.formatter.error(f"Validation failed: {error}", ErrorCategory.BACKEND)
+                return self.formatter.format_error(f"Validation failed: {error}", ErrorCategory.BACKEND)
             
             # Format validation result
             item = response.get('item', 'unknown')
@@ -369,7 +369,7 @@ class ExplorationTools:
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Validation failed: {str(e)}", ErrorCategory.BACKEND)
+            return self.formatter.format_error(f"Validation failed: {str(e)}", ErrorCategory.BACKEND)
     
     def get_node_verification_suggestions(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Get AI verification suggestions"""
@@ -378,7 +378,7 @@ class ExplorationTools:
         team_id = params.get('team_id', 'team_1')
         
         if not all([exploration_id, host_name]):
-            return self.formatter.error("exploration_id and host_name are required")
+            return self.formatter.format_error("exploration_id and host_name are required")
         
         try:
             response = self.api_client.post(
@@ -391,7 +391,7 @@ class ExplorationTools:
             )
             
             if not response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Failed to get suggestions: {response.get('error')}",
                     ErrorCategory.BACKEND
                 )
@@ -418,7 +418,7 @@ class ExplorationTools:
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Failed to get suggestions: {str(e)}", ErrorCategory.BACKEND)
+            return self.formatter.format_error(f"Failed to get suggestions: {str(e)}", ErrorCategory.BACKEND)
     
     def approve_node_verifications(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Apply verifications to nodes"""
@@ -429,7 +429,7 @@ class ExplorationTools:
         approved_verifications = params.get('approved_verifications', [])
         
         if not all([exploration_id, host_name, userinterface_name]):
-            return self.formatter.error("exploration_id, host_name, and userinterface_name are required")
+            return self.formatter.format_error("exploration_id, host_name, and userinterface_name are required")
         
         try:
             response = self.api_client.post(
@@ -444,7 +444,7 @@ class ExplorationTools:
             )
             
             if not response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Failed to apply verifications: {response.get('error')}",
                     ErrorCategory.BACKEND
                 )
@@ -459,7 +459,7 @@ class ExplorationTools:
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Failed to apply verifications: {str(e)}", ErrorCategory.BACKEND)
+            return self.formatter.format_error(f"Failed to apply verifications: {str(e)}", ErrorCategory.BACKEND)
     
     def finalize_exploration(self, params: Dict[str, Any]) -> Dict[str, Any]:
         """Finalize exploration"""
@@ -469,7 +469,7 @@ class ExplorationTools:
         team_id = params.get('team_id', 'team_1')
         
         if not all([exploration_id, host_name, tree_id]):
-            return self.formatter.error("exploration_id, host_name, and tree_id are required")
+            return self.formatter.format_error("exploration_id, host_name, and tree_id are required")
         
         try:
             response = self.api_client.post(
@@ -483,7 +483,7 @@ class ExplorationTools:
             )
             
             if not response.get('success'):
-                return self.formatter.error(
+                return self.formatter.format_error(
                     f"Failed to finalize: {response.get('error')}",
                     ErrorCategory.BACKEND
                 )
@@ -499,5 +499,5 @@ class ExplorationTools:
             return {"content": [{"type": "text", "text": result_text}], "isError": False}
             
         except Exception as e:
-            return self.formatter.error(f"Finalization failed: {str(e)}", ErrorCategory.BACKEND)
+            return self.formatter.format_error(f"Finalization failed: {str(e)}", ErrorCategory.BACKEND)
 
