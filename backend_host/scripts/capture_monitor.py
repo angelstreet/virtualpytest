@@ -1638,15 +1638,10 @@ class InotifyFrameMonitor:
             has_freeze_incident = bool(device_state.get('freeze_event_start'))
             has_blackscreen_incident = bool(device_state.get('blackscreen_event_start'))
             
-            if has_freeze_incident or has_blackscreen_incident:
-                # INCIDENT ONGOING: Force audio=false (we're not checking audio during incidents)
-                self.audio_cache[capture_folder] = {'audio': False, 'mean_volume_db': -91.0}
-                logger.debug(f"[{capture_folder}] ⏩ Audio set to false (incident ongoing, audio check skipped)")
-            else:
-                # NORMAL OPERATION: Check last 1 frame for audio data (refreshes cache from transcript_accumulator writes)
-                # This runs for EVERY frame to catch audio updates written to recent frames
-                # OPTIMIZATION: Reduced from 3 frames to 1 frame to save I/O (66% reduction)
-                for i in range(1, 2):  # Check only previous 1 frame (200ms window)
+            # Check last 1 frame for audio data (refreshes cache from transcript_accumulator writes)
+            # This runs for EVERY frame to catch audio updates written to recent frames
+            # OPTIMIZATION: Reduced from 3 frames to 1 frame to save I/O (66% reduction)
+            for i in range(1, 2):  # Check only previous 1 frame (200ms window)
                     prev_json = os.path.join(metadata_path, f'capture_{sequence-i:09d}.json')
                     if os.path.exists(prev_json):
                         try:
