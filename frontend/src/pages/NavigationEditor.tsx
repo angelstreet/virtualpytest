@@ -269,6 +269,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
       
       // API methods
       loadTreeByUserInterface,
+      loadTreeData,
 
       // Confirmation dialog state and handlers
       confirmDialogState,
@@ -441,15 +442,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             // Re-fetch tree data after AI generation using navigation hook
             console.log('[@NavigationEditor:handleAIGenerated] 🔄 Force-refreshing tree after AI structure creation');
             console.log('[@NavigationEditor:handleAIGenerated] Current tree ID:', actualTreeId);
-            console.log('[@NavigationEditor:handleAIGenerated] Is subtree:', parentChain.length > 0);
+            console.log('[@NavigationEditor:handleAIGenerated] Is subtree:', navigation.parentChain.length > 0);
             
             try {
               // ✅ FIX: If in subtree, stay in subtree instead of jumping to root!
-              if (parentChain.length > 0 && actualTreeId) {
+              if (navigation.parentChain.length > 0 && actualTreeId) {
                 // We're in a subtree - reload the root tree BUT stay in the current subtree context
                 console.log('[@NavigationEditor:handleAIGenerated] Reloading tree while preserving SUBTREE context');
                 console.log('[@NavigationEditor:handleAIGenerated] Current subtree:', actualTreeId);
-                console.log('[@NavigationEditor:handleAIGenerated] Parent chain length:', parentChain.length);
+                console.log('[@NavigationEditor:handleAIGenerated] Parent chain length:', navigation.parentChain.length);
                 
                 // Reload the root tree (to get updated data) but don't navigate away from subtree
                 const result = await loadTreeByUserInterface(userInterface.id);
@@ -1541,7 +1542,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             selectedHost={selectedHost}
             selectedDeviceId={selectedDeviceId}
             userinterfaceName={userInterface?.name}
-            onGenerated={handleAIGenerated}
             onStructureCreated={async (nodesCount, edgesCount, explId, explHostName) => {
               // Show ValidationReadyPrompt after structure creation
               setValidationNodesCount(nodesCount);
@@ -1553,18 +1553,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               // ✅ CRITICAL: Reload tree data BEFORE triggering auto-layout
               // This ensures the newly created nodes/edges are fetched and displayed
               console.log('[@NavigationEditor] 🔄 Reloading tree data after structure creation...');
-              if (userInterface?.id) {
+              if (actualTreeId) {
                 try {
                   // Invalidate cache to force fresh fetch
-                  navigationConfig.invalidateTreeCache(userInterface.id);
-                  
-                  // Reload tree data
-                  const result = await loadTreeByUserInterface(userInterface.id);
-                  
-                  if (result?.metrics) {
-                    console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
-                    setPreloadedMetrics(result.metrics);
+                  if (userInterface?.id) {
+                    navigationConfig.invalidateTreeCache(userInterface.id);
                   }
+                  
+                  // ✅ Reload CURRENT tree (preserves subtree context if in subtree)
+                  await loadTreeData(actualTreeId);
                   
                   console.log('[@NavigationEditor] ✅ Tree data reloaded - triggering auto-layout');
                   
