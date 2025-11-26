@@ -358,7 +358,15 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             if len(lines) > 1:
                 print(f"\n  📊 Processing Rows 2-{len(lines)} (vertical menu): {len(lines) - 1} rows")
                 
-                prev_vertical_focus = start_node_id  # Start from start_node for vertical navigation
+                # ✅ SUBTREE FIX: Start vertical navigation from first Row 1 focus node, not subtree root!
+                # When you enter 'apps', you're already at 'apps_netflix' (first focus), not at 'apps' itself
+                if len(all_focus_nodes_row1) > 0:
+                    prev_vertical_focus = all_focus_nodes_row1[0]  # First focus in Row 1 (e.g., 'apps_netflix')
+                    print(f"    🌲 SUBTREE: Starting vertical navigation from Row 1 first focus: {prev_vertical_focus}")
+                else:
+                    prev_vertical_focus = start_node_id  # Fallback to start_node (shouldn't happen)
+                    print(f"    ⚠️ WARNING: No Row 1 focus nodes - using start_node: {prev_vertical_focus}")
+                
                 prev_row_index = 0  # Track row index for DOWN iterator calculation
                 
                 for row_idx in range(1, len(lines)):
