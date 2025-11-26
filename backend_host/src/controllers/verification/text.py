@@ -485,18 +485,26 @@ class TextVerificationController:
             userinterface_name = verification_config.get('userinterface_name')
             team_id = verification_config.get('team_id')
             
-            # Resolve area from database if reference_name is provided AND area is not already present
+            # ✅ PRIORITY: Always resolve reference_name FIRST (single source of truth)
+            # Get reference_name and resolve area from verifications_references table
+            area = None
             reference_name = params.get('reference_name')
-            if reference_name and not area:
+            
+            if reference_name:
+                # ALWAYS resolve from verifications_references table (DB is source of truth)
                 from shared.src.lib.utils.reference_utils import resolve_reference_area_backend
                 resolved_area = resolve_reference_area_backend(reference_name, userinterface_name, team_id)
                 if resolved_area:
                     area = resolved_area
-                    print(f"[@controller:TextVerification] Resolved area from reference {reference_name}: {resolved_area}")
+                    print(f"[@controller:TextVerification] ✅ Resolved area from reference '{reference_name}': {resolved_area}")
                 else:
-                    print(f"[@controller:TextVerification] Warning: No area found for reference {reference_name}")
-            elif area:
-                print(f"[@controller:TextVerification] Using pre-resolved area: {area}")
+                    print(f"[@controller:TextVerification] ⚠️ Warning: No area found for reference '{reference_name}'")
+            
+            # Fallback to params['area'] ONLY if no reference_name (backward compatibility)
+            if not area:
+                area = params.get('area')
+                if area:
+                    print(f"[@controller:TextVerification] Using hardcoded area (no reference): {area}")
             
             print(f"[@controller:TextVerification] Executing {command} with text: '{text}'")
             print(f"[@controller:TextVerification] Parameters: timeout={timeout}, area={area}, filter={image_filter}")
