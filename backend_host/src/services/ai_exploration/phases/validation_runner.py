@@ -39,28 +39,67 @@ def start_validation(executor) -> Dict[str, Any]:
         executor.exploration_state['current_validation_index'] = 0
         executor.exploration_state['node_verification_data'] = []  # Initialize for collecting dumps during validation
         
-        print(f"\n{'='*100}")
-        print(f"🚀 [VALIDATION START] Validation order for {len(items_to_validate)} items")
-        print(f"{'='*100}")
-        for idx, item in enumerate(items_to_validate):
-            # Each item will create: home_{item} (focus node) and {item} (screen node)
-            focus_node = f"home_{item.replace(' ', '_')}"
-            screen_node = item.replace(' ', '_')
-            print(f"  [{idx}] {item:20} -> will create: {focus_node} (focus), {screen_node} (screen)")
-        print(f"{'='*100}\n")
+        # Copy data needed for summary (to use outside lock)
+        tree_id = executor.exploration_state['tree_id']
+        team_id = executor.exploration_state['team_id']
+        start_node_id = executor.exploration_state.get('home_id', 'home')
+        start_node_label = executor.exploration_state.get('start_node', 'home')
+        lines = executor.exploration_state.get('exploration_plan', {}).get('lines', [])
+        items_left = executor.exploration_state.get('exploration_plan', {}).get('items_left_of_home', [])
+    
+    # ✅ Print summaries OUTSIDE the lock to avoid deadlock
+    print(f"\n{'='*100}")
+    print(f"🚀 [VALIDATION START] Validation order for {len(items_to_validate)} items")
+    print(f"{'='*100}")
+    for idx, item in enumerate(items_to_validate):
+        # Each item will create: home_{item} (focus node) and {item} (screen node)
+        focus_node = f"home_{item.replace(' ', '_')}"
+        screen_node = item.replace(' ', '_')
+        print(f"  [{idx}] {item:20} -> will create: {focus_node} (focus), {screen_node} (screen)")
+    print(f"{'='*100}\n")
+    
+    # ✅ NAVIGATION SUMMARY: Show edges (safe - no lock held, same as validate_next_item)
+    print(f"\n{'='*100}")
+    print(f"📍 [NAVIGATION SUMMARY] Edges to validate:")
+    print(f"{'='*100}")
+    
+    # Simple node name sanitizer (same logic as NodeGenerator.target_to_node_name)
+    def sanitize_name(target: str) -> str:
+        return target.lower().replace(' ', '_').replace('&', '').replace('-', '_').replace("'", '')
+    
+    display_num = 0
+    for idx, item in enumerate(items_to_validate):
+        screen_node_name = sanitize_name(item)
+        focus_node_name = f"{start_node_id}_{screen_node_name}"
         
-        print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
+        # Skip 'home' - it's skipped in validation too
+        if 'home' in screen_node_name and screen_node_name != 'home_temp':
+            continue
         
-        return {
-            'success': True,
-            'message': 'Ready to start validation',
-            'total_items': len(items_to_validate)
-        }
+        display_num += 1
+        
+        # Simplified: Just show the item and edges (details during actual validation)
+        print(f"\n  [{display_num}] {item}")
+        print(f"      → {focus_node_name} (focus)")
+        print(f"      ↓ {screen_node_name} (screen)")
+        print(f"      ↑ {focus_node_name} (exit)")
+    
+    print(f"\n{'='*100}\n")
+    
+    print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
+    
+    return {
+        'success': True,
+        'message': 'Ready to start validation',
+        'total_items': len(items_to_validate)
+    }
 
 def validate_next_item(executor) -> Dict[str, Any]:
     """
     Phase 2b: Validate edges sequentially (depth-first for TV dual-layer)
     """
+    # Check if we should skip 'home' (do this check outside lock to avoid recursive deadlock)
+    should_skip_home = False
     with executor._lock:
         if executor.exploration_state['status'] not in ['awaiting_validation', 'validating']:
             error_msg = f"Cannot validate: status is {executor.exploration_state['status']}"
@@ -92,10 +131,30 @@ def validate_next_item(executor) -> Dict[str, Any]:
             node_name_clean = node_gen.target_to_node_name(current_item)
             node_name = node_name_clean
         
-        # Skip home
-        if 'home' in node_name.lower() and node_name != 'home_temp':
+        # Skip home - increment index and check outside lock
+        should_skip_home = 'home' in node_name.lower() and node_name != 'home_temp'
+        if should_skip_home:
             executor.exploration_state['current_validation_index'] = current_index + 1
-            return validate_next_item(executor)
+    
+    # ✅ Release lock before recursive call to avoid deadlock
+    if should_skip_home:
+        return validate_next_item(executor)
+    
+    # Continue with validation (reacquire lock for the rest)
+    with executor._lock:
+        # Re-read state after releasing and reacquiring lock
+        tree_id = executor.exploration_state['tree_id']
+        team_id = executor.exploration_state['team_id']
+        current_index = executor.exploration_state['current_validation_index']
+        items_to_validate = executor.exploration_state['items_to_validate']
+        current_item = items_to_validate[current_index]
+        target_to_node_map = executor.exploration_state['target_to_node_map']
+        node_name = target_to_node_map.get(current_item)
+        
+        if not node_name:
+            node_gen = NodeGenerator(tree_id, team_id)
+            node_name_clean = node_gen.target_to_node_name(current_item)
+            node_name = node_name_clean
         
         # ✅ NEW: Capture HOME dump before first navigation (Critical for Uniqueness)
         if current_index == 0:
@@ -214,12 +273,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
         # Get row structure from exploration plan
         lines = executor.exploration_state.get('exploration_plan', {}).get('lines', [])
         
-        print(f"\n  🐛 DEBUG: Row Structure Analysis")
-        print(f"     lines = {lines}")
-        print(f"     Total rows: {len(lines)}")
-        for idx, row in enumerate(lines):
-            print(f"     Row {idx}: {len(row)} items = {row}")
-        
         # Calculate node names
         node_gen = NodeGenerator(tree_id, team_id)
         # Use start_node_id from state
@@ -228,13 +281,6 @@ def validate_next_item(executor) -> Dict[str, Any]:
         
         screen_node_name = node_gen.target_to_node_name(current_item)
         focus_node_name = f"{start_node_id}_{screen_node_name}"
-        
-        print(f"\n  🐛 DEBUG: Current Item Analysis")
-        print(f"     current_item = '{current_item}'")
-        print(f"     current_index = {current_index}")
-        print(f"     screen_node_name = '{screen_node_name}'")
-        print(f"     focus_node_name = '{focus_node_name}'")
-        print(f"     start_node_id = '{start_node_id}'")
         
         # ✅ FIX: TV menu structure
         # Row 0: home (starting point)
@@ -252,26 +298,16 @@ def validate_next_item(executor) -> Dict[str, Any]:
             if current_item in row_items:
                 current_row_index = row_idx
                 current_position_in_row = row_items.index(current_item)
-                print(f"  🐛 DEBUG: Found current_item '{current_item}' in Row {row_idx}, Position {current_position_in_row}")
                 break
-        
-        if current_row_index == -1:
-            print(f"  🐛 DEBUG: ⚠️ current_item '{current_item}' NOT FOUND in any row!")
         
         # Find previous item's position (if exists)
         if current_index > 0:
             prev_item = items_to_validate[current_index - 1]
-            print(f"\n  🐛 DEBUG: Previous Item Analysis")
-            print(f"     prev_item = '{prev_item}'")
             for row_idx, row_items in enumerate(lines):
                 if prev_item in row_items:
                     prev_row_index = row_idx
                     prev_position_in_row = row_items.index(prev_item)
-                    print(f"  🐛 DEBUG: Found prev_item '{prev_item}' in Row {row_idx}, Position {prev_position_in_row}")
                     break
-            
-            if prev_row_index == -1:
-                print(f"  🐛 DEBUG: ⚠️ prev_item '{prev_item}' NOT FOUND in any row!")
         
         # Determine navigation type
         # Key insight: Check if we're in the SAME row or DIFFERENT row
@@ -479,10 +515,10 @@ def validate_next_item(executor) -> Dict[str, Any]:
                     if iterator > 1:
                         print(f"       {nav_direction} {press_count + 1}/{iterator}")
                     time.sleep(0.8)  # Short delay between presses
-            
-            edge_results['horizontal'] = 'success'
-            iterator_display = f" x{iterator}" if iterator > 1 else ""
-            print(f"    ✅ Focus navigation: {nav_direction}{iterator_display}")
+                
+                edge_results['horizontal'] = 'success'
+                iterator_display = f" x{iterator}" if iterator > 1 else ""
+                print(f"    ✅ Focus navigation: {nav_direction}{iterator_display}")
             
             # ✅ SAVE EDGE: Update database with confirmed iterator (no re-fetch needed!)
             if iterator > 1 and horizontal_edge:
@@ -934,8 +970,10 @@ def validate_next_item(executor) -> Dict[str, Any]:
             reverse_direction = 'RIGHT'
         elif nav_direction == 'DOWN':
             reverse_direction = 'UP'
+        elif nav_direction is None:
+            reverse_direction = None  # No navigation needed
         else:
-            reverse_direction = 'DOWN'  # UP → DOWN (fallback)
+            reverse_direction = 'DOWN'  # Fallback
         
         # ✅ Get iterator for display (from edge already in memory)
         display_iterator = 1
@@ -950,8 +988,12 @@ def validate_next_item(executor) -> Dict[str, Any]:
                 print(f"    ⚠️ Could not read iterator for display: {e}")
         
         # Build action display with iterator
-        forward_action_display = f"{nav_direction} x{display_iterator}" if display_iterator > 1 else nav_direction
-        reverse_action_display = f"{reverse_direction} x{display_iterator}" if display_iterator > 1 else reverse_direction
+        if nav_direction is None:
+            forward_action_display = 'NONE'
+            reverse_action_display = 'NONE'
+        else:
+            forward_action_display = f"{nav_direction} x{display_iterator}" if display_iterator > 1 else nav_direction
+            reverse_action_display = f"{reverse_direction} x{display_iterator}" if display_iterator > 1 else reverse_direction
         
         return {
             'success': True,

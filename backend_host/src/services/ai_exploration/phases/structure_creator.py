@@ -57,9 +57,25 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             items = all_items
             print(f"[@ExplorationExecutor:continue_exploration] ⚠️ No selection provided - creating all {len(items)} items")
         
+        # ✅ ROOT TREE FIX: Ensure start_node is ALWAYS in items for root trees
+        # This preserves the validation order: [home, RIGHT items, LEFT items, vertical items]
+        start_node_label = executor.exploration_state.get('start_node', 'home')
+        if start_node_label.lower() in ['home', 'accueil']:
+            # Check if start_node is in all_items but not in filtered items
+            start_node_in_plan = any(item.lower() == start_node_label.lower() for item in all_items)
+            start_node_in_filtered = any(item.lower() == start_node_label.lower() for item in items)
+            
+            if start_node_in_plan and not start_node_in_filtered:
+                # Find the original 'home' item from all_items and insert at correct position
+                for idx, item in enumerate(all_items):
+                    if item.lower() == start_node_label.lower():
+                        # Insert at the same position it had in all_items to preserve order
+                        items.insert(idx if idx < len(items) else len(items), item)
+                        print(f"[@ExplorationExecutor:continue_exploration] ✅ Auto-included '{item}' (start_node for root tree) at position {idx}")
+                        break
+        
         # ✅ RESTORE SORTING: Ensure validation order is [Right -> Left -> Vertical]
         # This matches the validation_runner logic (transition to home before First Left and before Down)
-        start_node_label = executor.exploration_state.get('start_node', 'home')
         items_left = exploration_plan.get('items_left_of_home', [])
         lines = exploration_plan.get('lines', [])
         
@@ -154,14 +170,17 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 for idx, original_item in enumerate(row1_items):
                     node_name_clean = node_gen.target_to_node_name(original_item)
                     
-                    # ✅ ALWAYS include start_node - it's the anchor for the menu structure
-                    if node_name_clean.lower() == start_node_label.lower() or node_name_clean.lower() in ['home', 'accueil'] and start_node_label == 'home':
-                        all_focus_nodes_row1.append(start_node_id)
-                        focus_to_original_position[start_node_id] = idx  # Track original position
-                        print(f"    ♻️  Using existing '{start_node_id}' node (Row 1 anchor)")
+                    # ✅ TV SUBTREE: start_node is only visible in Row 1 if it's 'home'
+                    # For other screens (apps, settings, replay), you're ON that screen, so it's not in the menu
+                    if node_name_clean.lower() == start_node_label.lower():
+                        if start_node_label.lower() in ['home', 'accueil']:
+                            all_focus_nodes_row1.append(start_node_id)
+                            focus_to_original_position[start_node_id] = idx
+                            print(f"    ♻️  Using existing '{start_node_id}' node (Row 1 anchor)")
+                        else:
+                            print(f"    ⏭️  Skipped '{start_node_id}' (not visible in Row 1 on TV subtrees)")
                         continue
                     
-                    # Only process OTHER selected items (start_node is always included)
                     if original_item not in items:
                         continue
                     
@@ -226,6 +245,49 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
                 except ValueError:
                     start_idx = 0
                     print(f"  ⚠️ '{start_node_id}' node not found in row 1, defaulting to index 0")
+                    
+                    # ✅ SUBTREE ENTRY: Create edge from subtree root to first focus node
+                    # Use RIGHT-LEFT confirmation to verify position (Option 2)
+                    if len(all_focus_nodes_row1) > 0:
+                        first_focus_node = all_focus_nodes_row1[0]
+                        
+                        # Entry action: RIGHT then LEFT (confirms we're on first item)
+                        entry_forward_actions = [
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "RIGHT", "wait_time": 500}
+                            },
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "LEFT", "wait_time": 500}
+                            }
+                        ]
+                        
+                        # Reverse: Same confirmation (we're already here)
+                        entry_reverse_actions = [
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "RIGHT", "wait_time": 500}
+                            },
+                            {
+                                "command": "press_key",
+                                "action_type": "remote",
+                                "params": {"key": "LEFT", "wait_time": 500}
+                            }
+                        ]
+                        
+                        edge_entry = node_gen.create_edge_data(
+                            source=start_node_id,
+                            target=first_focus_node,
+                            actions=entry_forward_actions,
+                            reverse_actions=entry_reverse_actions,
+                            label=f"{start_node_id}_to_{first_focus_node}_temp"
+                        )
+                        edges_to_save.append(edge_entry)
+                        print(f"    🌲 SUBTREE ENTRY: {start_node_id} ↔ {first_focus_node}: RIGHT-LEFT confirmation (both ways)")
 
                 # 1. Right side: Start Node -> Right (Action: RIGHT)
                 for idx in range(start_idx, len(all_focus_nodes_row1) - 1):
@@ -338,7 +400,15 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             if len(lines) > 1:
                 print(f"\n  📊 Processing Rows 2-{len(lines)} (vertical menu): {len(lines) - 1} rows")
                 
-                prev_vertical_focus = start_node_id  # Start from start_node for vertical navigation
+                # ✅ SUBTREE FIX: Start vertical navigation from first Row 1 focus node, not subtree root!
+                # When you enter 'apps', you're already at 'apps_netflix' (first focus), not at 'apps' itself
+                if len(all_focus_nodes_row1) > 0:
+                    prev_vertical_focus = all_focus_nodes_row1[0]  # First focus in Row 1 (e.g., 'apps_netflix')
+                    print(f"    🌲 SUBTREE: Starting vertical navigation from Row 1 first focus: {prev_vertical_focus}")
+                else:
+                    prev_vertical_focus = start_node_id  # Fallback to start_node (shouldn't happen)
+                    print(f"    ⚠️ WARNING: No Row 1 focus nodes - using start_node: {prev_vertical_focus}")
+                
                 prev_row_index = 0  # Track row index for DOWN iterator calculation
                 
                 for row_idx in range(1, len(lines)):
