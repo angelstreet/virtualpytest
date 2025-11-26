@@ -1375,12 +1375,24 @@ class InotifyTranscriptMonitor:
                     'timestamp': datetime.now().isoformat()
                 }
                 
-                # Write audio detection to ONE recent capture JSON
-                # capture_monitor will propagate this to all subsequent frames via its audio cache
+                # Write to shared audio_status.json (capture_monitor reads this directly)
+                # This ensures audio status is always current (max 5-10s lag)
                 latest_json_filename = None
                 try:
                     metadata_path = get_metadata_path(device_folder)
                     os.makedirs(metadata_path, mode=0o777, exist_ok=True)
+                    
+                    # Write shared audio status file (single source of truth)
+                    audio_status_path = os.path.join(metadata_path, 'audio_status.json')
+                    audio_status_data = {
+                        'audio': has_audio,
+                        'mean_volume_db': mean_volume,
+                        'timestamp': detection_result['timestamp'],
+                        'segment_file': segment_filename
+                    }
+                    with open(audio_status_path + '.tmp', 'w') as f:
+                        json.dump(audio_status_data, f)
+                    os.rename(audio_status_path + '.tmp', audio_status_path)
                     
                     # Find most recent capture JSON
                     import fcntl

@@ -1638,38 +1638,29 @@ class InotifyFrameMonitor:
             has_freeze_incident = bool(device_state.get('freeze_event_start'))
             has_blackscreen_incident = bool(device_state.get('blackscreen_event_start'))
             
-            # Check last 1 frame for audio data (refreshes cache from transcript_accumulator writes)
-            # This runs for EVERY frame to catch audio updates written to recent frames
-            # OPTIMIZATION: Reduced from 3 frames to 1 frame to save I/O (66% reduction)
-            for i in range(1, 2):  # Check only previous 1 frame (200ms window)
-                    prev_json = os.path.join(metadata_path, f'capture_{sequence-i:09d}.json')
-                    if os.path.exists(prev_json):
-                        try:
-                            with open(prev_json, 'r') as f:
-                                prev_data = json.load(f)
-                            if 'audio' in prev_data:
-                                # Found audio data - check if it's different from cache
-                                new_audio = prev_data['audio']
-                                new_volume = prev_data.get('mean_volume_db', -100)
-                                
-                                # Only update and log if changed (or cache empty)
-                                if capture_folder not in self.audio_cache:
-                                    self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
-                                    audio_val = "✅ YES" if new_audio else "❌ NO"
-                                    logger.info(f"[{capture_folder}] 🔍 Cached audio from frame-{i}: audio={audio_val}, volume={new_volume:.1f}dB")
-                                    break
-                                elif self.audio_cache[capture_folder].get('audio') != new_audio:
-                                    # Audio changed - update cache and log
-                                    self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
-                                    audio_val = "✅ YES" if new_audio else "❌ NO"
-                                    logger.info(f"[{capture_folder}] 🔄 Audio changed from frame-{i}: audio={audio_val}, volume={new_volume:.1f}dB")
-                                    break
-                                else:
-                                    # Same as cache - just ensure it's fresh (silent update)
-                                    self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
-                                    break
-                        except:
-                            continue  # Skip corrupted JSON
+            # Read audio status from shared file (written by transcript_accumulator every 5-10s)
+            # This ensures max 5-10s lag regardless of frame processing order
+            audio_status_path = os.path.join(metadata_path, 'audio_status.json')
+            if os.path.exists(audio_status_path):
+                try:
+                    with open(audio_status_path, 'r') as f:
+                        audio_status = json.load(f)
+                    new_audio = audio_status.get('audio', False)
+                    new_volume = audio_status.get('mean_volume_db', -100)
+                    
+                    # Update cache if changed
+                    if capture_folder not in self.audio_cache:
+                        self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
+                        audio_val = "✅ YES" if new_audio else "❌ NO"
+                        logger.info(f"[{capture_folder}] 🔍 Audio from status file: audio={audio_val}, volume={new_volume:.1f}dB")
+                    elif self.audio_cache[capture_folder].get('audio') != new_audio:
+                        self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
+                        audio_val = "✅ YES" if new_audio else "❌ NO"
+                        logger.info(f"[{capture_folder}] 🔄 Audio changed: audio={audio_val}, volume={new_volume:.1f}dB")
+                    else:
+                        self.audio_cache[capture_folder] = {'audio': new_audio, 'mean_volume_db': new_volume}
+                except:
+                    pass  # Skip if file is being written
             
             # Check if JSON already exists and extract audio data early (needed for event tracking)
             existing_audio_data = {}
