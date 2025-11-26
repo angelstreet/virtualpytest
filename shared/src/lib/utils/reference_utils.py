@@ -26,13 +26,30 @@ def resolve_reference_area_backend(reference_name: str, userinterface_name: str,
             
         from shared.src.lib.database.verifications_references_db import get_references
         
-        result = get_references(team_id, userinterface_name=userinterface_name, name=reference_name)
-        if result.get('success') and result.get('references'):
-            references = result['references']
-            reference_data = next((ref for ref in references if ref['name'] == reference_name), None)
-            if reference_data and reference_data.get('area'):
-                return reference_data['area']
+        # Try exact name first
+        names_to_try = [reference_name]
+        
+        # Add variations (handle _text suffix logic matching frontend)
+        if reference_name.endswith('_text'):
+            names_to_try.append(reference_name[:-5])  # Remove _text
+        else:
+            names_to_try.append(f"{reference_name}_text")  # Add _text
+            
+        print(f"[@reference_utils] Attempting to resolve reference with variations: {names_to_try}")
+            
+        # Try each name variation
+        for name_variant in names_to_try:
+            result = get_references(team_id, userinterface_name=userinterface_name, name=name_variant)
+            if result.get('success') and result.get('references'):
+                references = result['references']
+                # Find exact match for this variant
+                reference_data = next((ref for ref in references if ref['name'] == name_variant), None)
                 
+                if reference_data and reference_data.get('area'):
+                    print(f"[@reference_utils] ✅ Resolved reference '{reference_name}' as '{name_variant}'")
+                    return reference_data['area']
+        
+        print(f"[@reference_utils] ❌ Failed to resolve reference '{reference_name}' (tried: {names_to_try})")
         return None
         
     except Exception as e:
