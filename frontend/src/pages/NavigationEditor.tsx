@@ -1555,22 +1555,31 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               setApplyAutoLayoutFlag(true);
             }}
             onCleanupTemp={() => {
-              // Clean up _temp nodes from frontend state
-              const tempNodes = nodes.filter(node => node.id.endsWith('_temp'));
-              const tempEdges = edges.filter(edge => edge.id.includes('_temp'));
+              // Clean up _temp nodes from frontend state (match by label, not ID)
+              const tempNodes = nodes.filter(node => node.data?.label?.endsWith('_temp'));
+              const tempNodeIds = new Set(tempNodes.map(n => n.id));
+              
+              // Clean up edges connected to _temp nodes
+              const tempEdges = edges.filter(edge => 
+                tempNodeIds.has(edge.source) || tempNodeIds.has(edge.target)
+              );
               
               if (tempNodes.length > 0 || tempEdges.length > 0) {
-                const remainingEdges = edges.filter(edge => !edge.id.includes('_temp'));
+                console.log(`[@NavigationEditor] Cleaning up ${tempNodes.length} _temp nodes and ${tempEdges.length} edges from React Flow...`);
+                
+                // Remove edges first (to avoid orphaned edges)
+                const remainingEdges = edges.filter(edge => 
+                  !tempNodeIds.has(edge.source) && !tempNodeIds.has(edge.target)
+                );
                 setEdges(remainingEdges);
                 
-                const remainingNodes = nodes.filter(node => !node.id.endsWith('_temp'));
+                // Remove nodes
+                const remainingNodes = nodes.filter(node => !node.data?.label?.endsWith('_temp'));
                 setNodes(remainingNodes);
                 
-                setHasUnsavedChanges(true);
-                console.log(`[@NavigationEditor] Cleaned up ${tempNodes.length} _temp nodes and ${tempEdges.length} _temp edges`);
-                
-                // Refresh to sync with backend
-                handleAIGenerated();
+                console.log(`[@NavigationEditor] ✅ Cleaned up ${tempNodes.length} _temp nodes and ${tempEdges.length} _temp edges from React Flow`);
+              } else {
+                console.log('[@NavigationEditor] No _temp nodes found to clean up');
               }
             }}
           />

@@ -100,10 +100,11 @@ export const useAIGenerationModal = ({
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Aborted:', data.nodes_deleted, 'nodes,', data.edges_deleted, 'edges');
         
+        // Immediately clean up from React Flow (no need to wait for refresh)
         onCleanupTemp?.();
         setHasTempNodes(false);
         
-        // Keep modal open - user decides when to close (tree will refresh naturally)
+        // Keep modal open - user decides when to close
       } else {
         console.error('[@useAIGenerationModal] ❌ Abort failed:', data.error);
       }
