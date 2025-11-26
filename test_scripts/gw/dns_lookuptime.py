@@ -32,7 +32,7 @@ from shared.src.lib.executors.script_decorators import script, get_context, get_
 
 # Script arguments
 _script_args = [
-    '--dns:str:epg.prod.ch.dmdsdp.com'
+    '--dns:str:epg.prod.ch.dmdsdp.com',
 ]
 
 

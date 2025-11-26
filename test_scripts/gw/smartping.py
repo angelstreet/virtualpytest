@@ -40,6 +40,7 @@ _script_args = [
     '--target:str:google.com',
     '--protocol:str:icmp',
     '--count:int:5',
+    '--max_hops:int:30',
 ]
 
 

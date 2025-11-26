@@ -82,7 +82,10 @@ def script(name: str, description: str):
                         parser.add_argument(arg_name, type=str_to_bool, default=default_bool,
                                            help=f'{arg_name.replace("--", "").replace("_", " ").title()} (default: {default_value})')
             
-            args = parser.parse_args()
+            args, unknown_args = parser.parse_known_args()
+            if unknown_args:
+                print(f"[script_decorator] Ignoring unknown arguments: {' '.join(unknown_args)}")
+            
             context = executor.setup_execution_context(args, enable_db_tracking=True)
             
             if context.error_message:
