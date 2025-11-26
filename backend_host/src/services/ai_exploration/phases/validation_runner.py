@@ -58,93 +58,16 @@ def start_validation(executor) -> Dict[str, Any]:
         print(f"  [{idx}] {item:20} -> will create: {focus_node} (focus), {screen_node} (screen)")
     print(f"{'='*100}\n")
     
-    # ✅ NAVIGATION SUMMARY: Show all edges that will be validated
+    # ✅ NAVIGATION SUMMARY: Simplified (no NodeGenerator to avoid deadlock)
     print(f"\n{'='*100}")
-    print(f"📍 [NAVIGATION SUMMARY] Edges to validate:")
+    print(f"📍 [NAVIGATION SUMMARY] Will validate {len([i for i in items_to_validate if 'home' not in i.lower()])} edges")
     print(f"{'='*100}")
-    
-    node_gen = NodeGenerator(tree_id, team_id)
-    
-    display_num = 0  # Track display number (excluding skipped items)
-    for idx, item in enumerate(items_to_validate):
-        screen_node_name = node_gen.target_to_node_name(item)
-        focus_node_name = f"{start_node_id}_{screen_node_name}"
-        
-        # ✅ Skip 'home' - it's the start node, not a navigable item
-        if 'home' in screen_node_name.lower() and screen_node_name != 'home_temp':
-            continue
-        
-        display_num += 1
-        
-        # Determine navigation direction (same logic as validate_next_item)
-        current_row_index = -1
-        for row_idx, row_items in enumerate(lines):
-            if item in row_items:
-                current_row_index = row_idx
-                break
-        
-        # Determine previous focus node (skip over any 'home' items when looking back)
-        prev_idx = idx - 1
-        while prev_idx >= 0:
-            prev_item = items_to_validate[prev_idx]
-            prev_screen = node_gen.target_to_node_name(prev_item)
-            # Skip if it's 'home'
-            if 'home' not in prev_screen.lower() or prev_screen == 'home_temp':
-                break
-            prev_idx -= 1
-        
-        if prev_idx < 0:
-            # No previous non-home item (this is effectively the first)
-            home_in_current_row = False
-            if current_row_index >= 0 and current_row_index < len(lines):
-                row_items_lower = [i.lower() for i in lines[current_row_index]]
-                home_in_current_row = (start_node_label.lower() in row_items_lower or 
-                                     'home' in row_items_lower or 
-                                     'accueil' in row_items_lower)
-            
-            if home_in_current_row:
-                prev_focus = start_node_id
-                is_left = item in items_left
-                nav_dir = 'LEFT' if is_left else 'RIGHT'
-            elif current_row_index == 0:
-                prev_focus = f"{start_node_id}_{screen_node_name}"
-                nav_dir = 'NONE'
-            else:
-                prev_focus = start_node_id
-                nav_dir = 'DOWN'
-        else:
-            # Has previous non-home item
-            prev_item = items_to_validate[prev_idx]
-            prev_row_index = -1
-            for row_idx, row_items in enumerate(lines):
-                if prev_item in row_items:
-                    prev_row_index = row_idx
-                    break
-            
-            is_same_row = (prev_row_index == current_row_index) and (prev_row_index != -1)
-            is_first_left = (item in items_left and (prev_idx < 0 or items_to_validate[prev_idx] not in items_left))
-            
-            if is_first_left:
-                prev_focus = start_node_id
-                nav_dir = 'LEFT'
-            elif is_same_row and current_row_index == 0:
-                prev_screen = node_gen.target_to_node_name(prev_item)
-                prev_focus = f"{start_node_id}_{prev_screen}"
-                is_left = item in items_left
-                nav_dir = 'LEFT' if is_left else 'RIGHT'
-            else:
-                prev_screen = node_gen.target_to_node_name(prev_item)
-                prev_focus = f"{start_node_id}_{prev_screen}"
-                nav_dir = 'DOWN'
-        
-        # Print summary
-        print(f"\n  [{display_num}] {item}")
-        if nav_dir != 'NONE':
-            print(f"      {prev_focus} → {focus_node_name}: {nav_dir}")
-        print(f"      {focus_node_name} ↓ {screen_node_name}: OK")
-        print(f"      {screen_node_name} ↑ {focus_node_name}: BACK")
-    
-    print(f"\n{'='*100}\n")
+    print(f"  Order: RIGHT items → LEFT items")
+    if lines and len(lines) > 0:
+        print(f"  Row 1: {', '.join([i for i in items_to_validate if i in lines[0] and 'home' not in i.lower()][:5])}")
+        if len(lines) > 1:
+            print(f"  Row 2+: {len([i for i in items_to_validate if i not in lines[0] and 'home' not in i.lower()])} vertical items")
+    print(f"{'='*100}\n")
     
     print(f"[@ExplorationExecutor:start_validation] ✅ Ready to validate {len(items_to_validate)} items")
     
