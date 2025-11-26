@@ -104,21 +104,55 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   const [selectedScreenNodes, setSelectedScreenNodes] = React.useState<Set<string>>(
     () => new Set()
   );
+  
+  // ✅ EDITABLE PLAN: Allow user to delete AI mistakes
+  const [editedPlan, setEditedPlan] = React.useState<typeof explorationPlan | null>(null);
+  
+  // Use edited plan if available, otherwise use original
+  const activePlan = editedPlan || explorationPlan;
+  
+  // Delete item from exploration plan (corrects AI mistakes)
+  const deleteItem = (rowIdx: number, itemIdx: number) => {
+    if (!explorationPlan) return;
+    
+    const plan = editedPlan || explorationPlan;
+    const newLines = plan.lines?.map((line, rIdx) => 
+      rIdx === rowIdx ? line.filter((_, iIdx) => iIdx !== itemIdx) : [...line]
+    ) || [];
+    
+    const newItems = newLines.flat();
+    
+    // Recalculate duplicates with new indices
+    const seen = new Set<string>();
+    const newDuplicatePositions: string[] = [];
+    newLines.forEach((line, rIdx) => {
+      line.forEach((lineItem, iIdx) => {
+        const clean = lineItem.toLowerCase().replace(/[^a-z0-9]+/g, '_');
+        if (seen.has(clean)) {
+          newDuplicatePositions.push(`${rIdx}_${iIdx}`);
+        } else {
+          seen.add(clean);
+        }
+      });
+    });
+    
+    setEditedPlan({...plan, items: newItems, lines: newLines, duplicate_positions: newDuplicatePositions});
+  };
 
   // ✅ Initialize screen selection when exploration plan loads (default: all selected, excluding duplicates)
   useEffect(() => {
-    if (explorationPlan && explorationPlan.items && explorationPlan.items.length > 0) {
+    if (activePlan && activePlan.items && activePlan.items.length > 0) {
       // Calculate which indices in flat items array are duplicates
       const duplicateIndices = new Set<number>();
       
-      if (explorationPlan.duplicate_positions && explorationPlan.lines) {
-        explorationPlan.duplicate_positions.forEach((posKey: string) => {
+      if (activePlan.duplicate_positions && activePlan.lines) {
+        activePlan.duplicate_positions.forEach((posKey: string) => {
           const [rowIdx, itemIdx] = posKey.split('_').map(Number);
           
           // Convert row/item position to flat array index
           let flatIndex = 0;
           for (let r = 0; r < rowIdx; r++) {
-            flatIndex += explorationPlan.lines![r].length;
+            flatIndex += activePlan.lines![r].length;
           }
           flatIndex += itemIdx;
           
@@ -127,7 +161,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       }
       
       // Filter out 'home' and duplicates BY INDEX (not by name!)
-      const selectedItems = explorationPlan.items.filter((item: string, idx: number) => {
+      const selectedItems = activePlan.items.filter((item: string, idx: number) => {
         const isHome = item.toLowerCase() === 'home' || item.toLowerCase() === 'accueil';
         const isDuplicate = duplicateIndices.has(idx);
         return !isHome && !isDuplicate;
@@ -135,7 +169,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
       
       setSelectedScreenNodes(new Set(selectedItems));
     }
-  }, [explorationPlan]);
+  }, [activePlan]);
 
   const toggleFocusNode = (item: string) => {
     toggleNodeSelection(item);  // Toggle focus
@@ -218,7 +252,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   
   const handleCreateStructure = async () => {
     console.log('[@AIGenerationModal:Phase1] Creating structure...');
-    await continueExploration(selectedScreenNodes); // Phase 2a: Create nodes/edges with screen selection
+    // Pass edited plan if user deleted items
+    await continueExploration(selectedScreenNodes, editedPlan); // Phase 2a: Create nodes/edges with screen selection and edited plan
     // onStructureCreated callback will be triggered by hook, which closes this modal
   };
 
@@ -315,8 +350,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
           </Paper>
         )}
 
-        {/* Approval Section - Show AI plan */}
-        {isAwaitingApproval && explorationPlan && (
+                        {/* Approval Section - Show AI plan */}
+        {isAwaitingApproval && activePlan && (
           <Paper sx={{ p: 2, bgcolor: 'transparent' }}>
             <Grid container spacing={2}>
               {/* Left: Screenshot */}
@@ -353,7 +388,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
               {/* Right: AI Plan */}
               <Grid item xs={12} md={7}>
                 <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                  {explorationPlan.items.length === 0 ? (
+                  {activePlan.items.length === 0 ? (
                     <Typography variant="body2" color="warning.main">No items detected - AI couldn't read screen</Typography>
                   ) : (
                     <>
@@ -363,8 +398,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                           <Typography variant="body2" component="span" sx={{ fontWeight: 500 }}>
                             Nodes found ({(() => {
                               // Calculate actual node count based on strategy
-                              const strategy = explorationPlan.strategy || 'click';
-                              const items = explorationPlan.items || [];
+                              const strategy = activePlan.strategy || 'click';
+                              const items = activePlan.items || [];
                               const nonHomeItems = items.filter((item: string) => {
                                 const lower = item.toLowerCase();
                                 return !['home', 'accueil'].includes(lower);
@@ -381,10 +416,10 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                           </Typography>
                         </summary>
                         <Box sx={{ mt: 1, pl: 2, maxHeight: 200, overflow: 'auto' }}>
-                          {explorationPlan.lines && explorationPlan.lines.length > 0 ? (
+                          {activePlan.lines && activePlan.lines.length > 0 ? (
                             // DPAD navigation (TV/STB) - show dual-layer chips
                             <Box sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}>
-                              {explorationPlan.lines.map((line: string[], lineIdx: number) => {
+                              {activePlan.lines.map((line: string[], lineIdx: number) => {
                                 // Helper: Strip _duplicate* suffix for display
                                 const stripDuplicateSuffix = (name: string) => name.replace(/_duplicate\d+$/i, '');
                                 
@@ -423,27 +458,29 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                         {nodePairs.map((pair, idx) => {
                                           const isFocusSelected = selectedNodes.has(pair.item);
                                           const positionKey = `${lineIdx}_${pair.originalIndex}`;  // ✅ Use original index!
-                                          const isDuplicate = explorationPlan.duplicate_positions?.includes(positionKey);
+                                          const isDuplicate = activePlan.duplicate_positions?.includes(positionKey);
                                           return (
-                                            <Chip 
-                                              key={idx}
-                                              label={pair.focusNode}
-                                              size="small"
-                                              variant="outlined"
-                                              onClick={isDuplicate ? undefined : () => toggleFocusNode(pair.item)}
-                                              sx={{
-                                                cursor: isDuplicate ? 'not-allowed' : 'pointer',
-                                                opacity: isDuplicate ? 0.7 : (isFocusSelected ? 1 : 0.4),
-                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : (isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent'),
-                                                borderColor: isDuplicate ? 'error.main' : (isFocusSelected ? 'primary.main' : 'grey.600'),
-                                                borderWidth: isDuplicate ? '2px' : '1px',
-                                                fontSize: '0.65rem',
-                                                '&:hover': isDuplicate ? {} : {
-                                                  opacity: 0.8,
-                                                  bgcolor: isFocusSelected ? 'rgba(33, 150, 243, 0.3)' : 'action.hover'
-                                                }
-                                              }}
-                                            />
+                                            <Box key={idx} sx={{ position: 'relative', display: 'inline-block' }}>
+                                              <Chip 
+                                                label={pair.focusNode}
+                                                size="small"
+                                                variant="outlined"
+                                                onClick={isDuplicate ? undefined : () => toggleFocusNode(pair.item)}
+                                                onDelete={!isDuplicate ? () => deleteItem(lineIdx, pair.originalIndex) : undefined}
+                                                sx={{
+                                                  cursor: isDuplicate ? 'not-allowed' : 'pointer',
+                                                  opacity: isDuplicate ? 0.7 : (isFocusSelected ? 1 : 0.4),
+                                                  bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : (isFocusSelected ? 'rgba(33, 150, 243, 0.2)' : 'transparent'),
+                                                  borderColor: isDuplicate ? 'error.main' : (isFocusSelected ? 'primary.main' : 'grey.600'),
+                                                  borderWidth: isDuplicate ? '2px' : '1px',
+                                                  fontSize: '0.65rem',
+                                                  '&:hover': isDuplicate ? {} : {
+                                                    opacity: 0.8,
+                                                    bgcolor: isFocusSelected ? 'rgba(33, 150, 243, 0.3)' : 'action.hover'
+                                                  }
+                                                }}
+                                              />
+                                            </Box>
                                           );
                                         })}
                                       </Box>
@@ -459,27 +496,29 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                           const isFocusSelected = selectedNodes.has(pair.item);
                                           const isScreenSelected = selectedScreenNodes.has(pair.item);
                                           const positionKey = `${lineIdx}_${pair.originalIndex}`;  // ✅ Use original index!
-                                          const isDuplicate = explorationPlan.duplicate_positions?.includes(positionKey);
+                                          const isDuplicate = activePlan.duplicate_positions?.includes(positionKey);
                                           return (
-                                            <Chip 
-                                              key={idx}
-                                              label={pair.screenNode}
-                                              size="small"
-                                              variant="outlined"
-                                              onClick={isDuplicate ? undefined : () => toggleScreenNode(pair.item)}
-                                              sx={{
-                                                cursor: isDuplicate ? 'not-allowed' : (isFocusSelected ? 'pointer' : 'not-allowed'),
-                                                opacity: isDuplicate ? 0.7 : ((isFocusSelected && isScreenSelected) ? 1 : 0.3),
-                                                bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : ((isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
-                                                borderColor: isDuplicate ? 'error.main' : ((isFocusSelected && isScreenSelected) ? 'success.main' : 'grey.700'),
-                                                borderWidth: isDuplicate ? '2px' : '1px',
-                                                fontSize: '0.65rem',
-                                                '&:hover': isDuplicate ? {} : (isFocusSelected ? {
-                                                  opacity: 0.8,
-                                                  bgcolor: isScreenSelected ? 'rgba(76, 175, 80, 0.3)' : 'action.hover'
-                                                } : undefined)
-                                              }}
-                                            />
+                                            <Box key={idx} sx={{ position: 'relative', display: 'inline-block' }}>
+                                              <Chip 
+                                                label={pair.screenNode}
+                                                size="small"
+                                                variant="outlined"
+                                                onClick={isDuplicate ? undefined : () => toggleScreenNode(pair.item)}
+                                                onDelete={!isDuplicate ? () => deleteItem(lineIdx, pair.originalIndex) : undefined}
+                                                sx={{
+                                                  cursor: isDuplicate ? 'not-allowed' : (isFocusSelected ? 'pointer' : 'not-allowed'),
+                                                  opacity: isDuplicate ? 0.7 : ((isFocusSelected && isScreenSelected) ? 1 : 0.3),
+                                                  bgcolor: isDuplicate ? 'rgba(244, 67, 54, 0.3)' : ((isFocusSelected && isScreenSelected) ? 'rgba(76, 175, 80, 0.2)' : 'transparent'),
+                                                  borderColor: isDuplicate ? 'error.main' : ((isFocusSelected && isScreenSelected) ? 'success.main' : 'grey.700'),
+                                                  borderWidth: isDuplicate ? '2px' : '1px',
+                                                  fontSize: '0.65rem',
+                                                  '&:hover': isDuplicate ? {} : (isFocusSelected ? {
+                                                    opacity: 0.8,
+                                                    bgcolor: isScreenSelected ? 'rgba(76, 175, 80, 0.3)' : 'action.hover'
+                                                  } : undefined)
+                                                }}
+                                              />
+                                            </Box>
                                           );
                                         })}
                                       </Box>
@@ -492,7 +531,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                             // Click-based navigation (mobile/web) - show cleaned node names as chips
                             // ✅ Filter out home nodes (home, Home, Accueil, etc.)
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                              {explorationPlan.items
+                              {activePlan.items
                                 .filter((item: string) => {
                                   const lower = item.toLowerCase();
                                   return !['home', 'accueil'].includes(lower);
@@ -519,6 +558,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                                       size="small" 
                                       variant="outlined"
                                       onClick={isDuplicate ? undefined : () => toggleNodeSelection(item)}
+                                      onDelete={!isDuplicate ? () => deleteItem(0, idx) : undefined}
                                       sx={{ 
                                         cursor: isDuplicate ? 'not-allowed' : 'pointer',
                                         opacity: isDuplicate ? 0.7 : (isSelected ? 1 : 0.4),
@@ -541,8 +581,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
                       {/* Edges Found - Show bilateral action sets - OPEN BY DEFAULT */}
                       {(() => {
                         // ✅ USE BACKEND-CALCULATED EDGES (no recalculation!)
-                        const edgesPreview = explorationPlan.edges_preview || [];
-                        const strategy = explorationPlan.strategy || 'click';
+                        const edgesPreview = activePlan.edges_preview || [];
+                        const strategy = activePlan.strategy || 'click';
                         
                         return (
                           <details open>

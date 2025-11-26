@@ -332,9 +332,13 @@ def continue_exploration():
         team_id = request.args.get('team_id')
         device_id = data.get('device_id', 'device1')
         selected_items = data.get('selected_items')  # ✅ Get user selection
+        cleaned_lines = data.get('cleaned_lines')  # ✅ User-edited lines (AI corrections)
+        cleaned_duplicate_positions = data.get('cleaned_duplicate_positions')  # ✅ Recalculated duplicates
         
         print(f"[@route:ai_generation:continue_exploration] Received selected_items: {selected_items}")
         print(f"[@route:ai_generation:continue_exploration] Type: {type(selected_items)}, Length: {len(selected_items) if selected_items else 0}")
+        if cleaned_lines:
+            print(f"[@route:ai_generation:continue_exploration] ✏️ User edited plan - using cleaned data")
         
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id required'}), 400
@@ -345,10 +349,12 @@ def continue_exploration():
         
         device = current_app.host_devices[device_id]
         
-        # Delegate to exploration executor with selected items
+        # Delegate to exploration executor with selected items and cleaned data
         result = device.exploration_executor.continue_exploration(
             team_id=team_id,
-            selected_items=selected_items
+            selected_items=selected_items,
+            cleaned_lines=cleaned_lines,
+            cleaned_duplicate_positions=cleaned_duplicate_positions
         )
         
         return jsonify(result)

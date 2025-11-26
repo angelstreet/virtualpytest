@@ -481,7 +481,7 @@ class ExplorationExecutor:
                 'error': state.get('error')
             }
     
-    def continue_exploration(self, team_id: str, selected_items: List[str] = None, selected_screen_items: List[str] = None) -> Dict[str, Any]:
+    def continue_exploration(self, team_id: str, selected_items: List[str] = None, selected_screen_items: List[str] = None, cleaned_lines: List[List[str]] = None, cleaned_duplicate_positions: List[str] = None) -> Dict[str, Any]:
         """
         Phase 2a: Create nodes and edges structure for selected items
         
@@ -497,6 +497,13 @@ class ExplorationExecutor:
                 'edges_created': 10
             }
         """
+        # ✅ Update exploration_plan with cleaned data if provided (user edited AI response)
+        if cleaned_lines is not None:
+            self.exploration_state['exploration_plan']['lines'] = cleaned_lines
+            self.exploration_state['exploration_plan']['items'] = [item for line in cleaned_lines for item in line]
+        if cleaned_duplicate_positions is not None:
+            self.exploration_state['exploration_plan']['duplicate_positions'] = cleaned_duplicate_positions
+        
         return phase2_continue(self, team_id, selected_items, selected_screen_items)
 
     def start_validation(self) -> Dict[str, Any]:

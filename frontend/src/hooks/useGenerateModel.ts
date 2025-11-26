@@ -428,7 +428,7 @@ export const useGenerateModel = ({
     }
   }, [treeId, selectedHost, selectedDeviceId, isControlActive, userinterfaceName, nodes, currentNodeLabel, parentChain]);
 
-  const continueExploration = useCallback(async (selectedScreenNodes?: Set<string>) => {
+  const continueExploration = useCallback(async (selectedScreenNodes?: Set<string>, editedPlan?: typeof explorationPlan | null) => {
     if (!explorationId || !explorationHostName) {
       setError('No exploration session to continue');
       return;
@@ -444,6 +444,9 @@ export const useGenerateModel = ({
       console.log('[@useGenerateModel:continueExploration] Selected focus:', Array.from(selectedNodes));
       console.log('[@useGenerateModel:continueExploration] Selected screen:', selectedScreenNodes ? Array.from(selectedScreenNodes) : 'same as focus');
 
+      // Use edited plan if provided (user deleted items), otherwise use original
+      const planToSend = editedPlan || explorationPlan;
+      
       const response = await fetch(buildServerUrl(`/server/ai-generation/continue-exploration?host_name=${encodeURIComponent(explorationHostName)}`), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -451,7 +454,10 @@ export const useGenerateModel = ({
           exploration_id: explorationId,
           device_id: selectedDeviceId,
           selected_items: Array.from(selectedNodes),
-          selected_screen_items: selectedScreenNodes ? Array.from(selectedScreenNodes) : Array.from(selectedNodes)
+          selected_screen_items: selectedScreenNodes ? Array.from(selectedScreenNodes) : Array.from(selectedNodes),
+          // ✅ Send cleaned data if user edited the plan (deleted AI mistakes)
+          cleaned_lines: editedPlan ? planToSend?.lines : undefined,
+          cleaned_duplicate_positions: editedPlan ? planToSend?.duplicate_positions : undefined
         })
       });
 
