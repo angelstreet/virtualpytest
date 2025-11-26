@@ -9,9 +9,10 @@ import { useMemo } from 'react';
 import { UserInterface, UserInterfaceCreatePayload } from '../../types/pages/UserInterface_Types';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { APP_CONFIG } from '../../config/constants';
 
-// 1-hour cache for user interfaces (reduced from 24h for multi-user scenarios)
-const USER_INTERFACE_TTL = 60 * 60 * 1000; // 1 hour
+// 1-minute cache for user interfaces to match backend TTL
+const USER_INTERFACE_TTL = 60 * 1000; // 1 minute (matches backend UI_TTL)
 
 const userInterfaceCache = new Map<string, {data: Promise<UserInterface>, timestamp: number}>();
 const allInterfacesCache: {data: UserInterface[] | null, timestamp: number} = {data: null, timestamp: 0};
@@ -32,19 +33,23 @@ function setCachedInterface(name: string, data: Promise<UserInterface>) {
   userInterfaceCache.set(name, {data, timestamp: Date.now()});
 }
 
-function getCachedCompatibleInterfaces(deviceModel: string) {
-  const cached = compatibleInterfacesCache.get(deviceModel);
+function getCachedCompatibleInterfaces(deviceModel: string, teamId: string) {
+  // Include team_id in cache key to prevent cross-team cache pollution
+  const cacheKey = `${teamId}:${deviceModel}`;
+  const cached = compatibleInterfacesCache.get(cacheKey);
   if (cached && (Date.now() - cached.timestamp) < USER_INTERFACE_TTL) {
     return cached.data;
   }
   if (cached) {
-    compatibleInterfacesCache.delete(deviceModel); // Remove expired
+    compatibleInterfacesCache.delete(cacheKey); // Remove expired
   }
   return null;
 }
 
-function setCachedCompatibleInterfaces(deviceModel: string, data: UserInterface[]) {
-  compatibleInterfacesCache.set(deviceModel, {data, timestamp: Date.now()});
+function setCachedCompatibleInterfaces(deviceModel: string, teamId: string, data: UserInterface[]) {
+  // Include team_id in cache key to prevent cross-team cache pollution
+  const cacheKey = `${teamId}:${deviceModel}`;
+  compatibleInterfacesCache.set(cacheKey, {data, timestamp: Date.now()});
 }
 
 /**
@@ -645,18 +650,20 @@ export const useUserInterface = () => {
           return [];
         }
 
-        // Check cache first
-        const cachedData = getCachedCompatibleInterfaces(deviceModel);
+        const teamId = APP_CONFIG.DEFAULT_TEAM_ID;
+
+        // Check cache first (with team_id to prevent cross-team pollution)
+        const cachedData = getCachedCompatibleInterfaces(deviceModel, teamId);
         if (cachedData) {
           console.log(
-            `[@hook:useUserInterface:getCompatibleInterfaces] Cache HIT for ${deviceModel} (${cachedData.length} interfaces)`,
+            `[@hook:useUserInterface:getCompatibleInterfaces] Cache HIT for ${deviceModel}:${teamId} (${cachedData.length} interfaces)`,
           );
           return cachedData;
         }
 
         try {
           console.log(
-            `[@hook:useUserInterface:getCompatibleInterfaces] Fetching compatible interfaces for device model: ${deviceModel}`,
+            `[@hook:useUserInterface:getCompatibleInterfaces] Fetching compatible interfaces for device model: ${deviceModel}, team: ${teamId}`,
           );
 
           const response = await fetch(
@@ -673,8 +680,8 @@ export const useUserInterface = () => {
             console.log(
               `[@hook:useUserInterface:getCompatibleInterfaces] Found ${data.interfaces.length} compatible interfaces`,
             );
-            // Store in cache
-            setCachedCompatibleInterfaces(deviceModel, data.interfaces);
+            // Store in cache (with team_id to prevent cross-team pollution)
+            setCachedCompatibleInterfaces(deviceModel, teamId, data.interfaces);
             return data.interfaces;
           } else {
             console.log(
