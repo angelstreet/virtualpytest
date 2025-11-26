@@ -57,6 +57,23 @@ def continue_exploration(executor, team_id: str, selected_items: List[str] = Non
             items = all_items
             print(f"[@ExplorationExecutor:continue_exploration] ⚠️ No selection provided - creating all {len(items)} items")
         
+        # ✅ ROOT TREE FIX: Ensure start_node is ALWAYS in items for root trees
+        # This preserves the validation order: [home, RIGHT items, LEFT items, vertical items]
+        start_node_label = executor.exploration_state.get('start_node', 'home')
+        if start_node_label.lower() in ['home', 'accueil']:
+            # Check if start_node is in all_items but not in filtered items
+            start_node_in_plan = any(item.lower() == start_node_label.lower() for item in all_items)
+            start_node_in_filtered = any(item.lower() == start_node_label.lower() for item in items)
+            
+            if start_node_in_plan and not start_node_in_filtered:
+                # Find the original 'home' item from all_items and insert at correct position
+                for idx, item in enumerate(all_items):
+                    if item.lower() == start_node_label.lower():
+                        # Insert at the same position it had in all_items to preserve order
+                        items.insert(idx if idx < len(items) else len(items), item)
+                        print(f"[@ExplorationExecutor:continue_exploration] ✅ Auto-included '{item}' (start_node for root tree) at position {idx}")
+                        break
+        
         print(f"\n{'='*80}")
         print(f"[@ExplorationExecutor:continue_exploration] 📋 EDGE CREATION STRATEGY")
         print(f"{'='*80}")
