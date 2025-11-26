@@ -7,6 +7,17 @@ import { useDeviceData } from '../../contexts/device/DeviceDataContext';
 import { useVerification } from './useVerification';
 
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+
+// Helper to round area coordinates to 2 decimal places
+const roundArea = (area: any) => {
+  if (!area) return area;
+  const rounded: any = {};
+  for (const key in area) {
+    rounded[key] = typeof area[key] === 'number' ? parseFloat(area[key].toFixed(2)) : area[key];
+  }
+  return rounded;
+};
+
 // Define interfaces for editor-specific data structures
 interface DetectedTextData {
   text: string;
@@ -186,8 +197,11 @@ export const useVerificationEditor = ({
       return;
     }
 
+    const roundedArea = roundArea(selectedArea);
+
     console.log('[@hook:useVerificationEditor] Capture reference requested:', {
       selectedArea,
+      roundedArea,
       captureSourcePath,
       referenceName,
       referenceType,
@@ -213,7 +227,7 @@ export const useVerificationEditor = ({
           body: JSON.stringify({
             host_name: selectedHost.host_name, // Send full host object
             device_id: selectedDeviceId, // Send device ID
-            area: selectedArea,
+            area: roundedArea,
             image_source_url: captureSourcePath,
             reference_name: referenceName || 'temp_capture',
             userinterface_name: userinterfaceName,
@@ -231,7 +245,7 @@ export const useVerificationEditor = ({
           body: JSON.stringify({
             host_name: selectedHost.host_name, // Send full host object
             device_id: selectedDeviceId, // Send device ID
-            area: selectedArea,
+            area: roundedArea,
             image_source_url: captureSourcePath,
             reference_name: referenceName || 'temp_capture',
             userinterface_name: userinterfaceName,
@@ -307,6 +321,7 @@ export const useVerificationEditor = ({
       return;
     }
 
+    const roundedArea = roundArea(selectedArea);
     setPendingSave(true);
 
     try {
@@ -314,6 +329,7 @@ export const useVerificationEditor = ({
         name: referenceName,
         userinterface_name: userinterfaceName,
         area: selectedArea,
+        roundedArea,
         captureSourcePath: captureSourcePath,
         referenceType: referenceType,
         imageProcessingOptions: imageProcessingOptions,
@@ -335,7 +351,7 @@ export const useVerificationEditor = ({
             device_id: selectedDeviceId,
             reference_name: referenceName,
             userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
-            area: selectedArea,
+            area: roundedArea,
             text: referenceText,
             image_textdetected_path: detectedTextData?.image_textdetected_path || '', // Use processed image from detectText
           }),
@@ -357,7 +373,7 @@ export const useVerificationEditor = ({
               name: referenceName,
               type: 'text',
               url: '', // Text references don't have URLs
-              area: selectedArea,
+              area: roundedArea,
               text: referenceText,
               font_size: detectedTextData?.fontSize,
               confidence: detectedTextData?.confidence,
@@ -399,7 +415,7 @@ export const useVerificationEditor = ({
             body: JSON.stringify({
               host_name: selectedHost.host_name,
               device_id: selectedDeviceId,
-              area: selectedArea,
+              area: roundedArea,
               image_source_url: captureSourcePath,
               reference_name: referenceName,
               userinterface_name: userinterfaceName,
@@ -417,7 +433,7 @@ export const useVerificationEditor = ({
             body: JSON.stringify({
               host_name: selectedHost.host_name,
               device_id: selectedDeviceId,
-              area: selectedArea,
+              area: roundedArea,
               image_source_url: captureSourcePath,
               reference_name: referenceName,
               userinterface_name: userinterfaceName,
@@ -444,8 +460,8 @@ export const useVerificationEditor = ({
             userinterface_name: userinterfaceName, // Required for R2 folder structure - defines app/UI context
             area:
               imageProcessingOptions.autocrop && captureResult.processed_area
-                ? captureResult.processed_area
-                : selectedArea,
+                ? roundArea(captureResult.processed_area)
+                : roundedArea,
             image_source_url: captureResult.filename, // Use cropped filename as source
             reference_type: referenceType === 'image' ? 'reference_image' : 'screenshot',
           }),
@@ -465,8 +481,8 @@ export const useVerificationEditor = ({
           // Add reference to cache immediately for instant availability in verification dropdown
           if (addReferenceToCache && userinterfaceName && result.r2_url) {
             const savedArea = imageProcessingOptions.autocrop && captureResult.processed_area
-              ? captureResult.processed_area
-              : selectedArea;
+              ? roundArea(captureResult.processed_area)
+              : roundedArea;
 
             addReferenceToCache(userinterfaceName, {
               name: referenceName,
@@ -530,6 +546,8 @@ export const useVerificationEditor = ({
       return;
     }
 
+    const roundedArea = roundArea(selectedArea);
+
     try {
       console.log(
         '[@hook:useVerificationEditor] Starting text auto-detection in area:',
@@ -549,7 +567,7 @@ export const useVerificationEditor = ({
           host_name: selectedHost.host_name, // Send full host object
           device_id: selectedDeviceId, // Add missing device_id parameter
           userinterface_name: userinterfaceName,
-          area: selectedArea,
+          area: roundedArea,
           image_source_url: sourceFilename,
           image_filter: textImageFilter,
         }),

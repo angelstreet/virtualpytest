@@ -38,6 +38,16 @@ def save_reference(name: str, userinterface_name: str, reference_type: str, team
                 'error': 'reference_type must be "reference_image" or "reference_text"'
             }
         
+        # Round area coordinates to 2 decimal places before saving
+        if area:
+            rounded_area = {}
+            for key, value in area.items():
+                if isinstance(value, (int, float)):
+                    rounded_area[key] = round(value, 2)
+                else:
+                    rounded_area[key] = value
+            area = rounded_area
+        
         # Prepare reference data
         reference_data = {
             'name': name,
