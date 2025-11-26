@@ -55,7 +55,7 @@ ENABLE_MACROBLOCKS = False  # Set to True to enable macroblocks detection
 OVERLOAD_DETECTION_INTERVAL = 10  # Run expensive detections every N frames (2 seconds at 5fps) - OPTIMIZATION: Reduced from 5
 
 # Freeze detection threshold (percentage of pixels that must differ)
-FREEZE_THRESHOLD = 1.5  # 1.5% pixel difference = frozen - OPTIMIZATION: Increased from 2.0 to reduce false positives
+FREEZE_THRESHOLD = 1  # 1% pixel difference = frozen - OPTIMIZATION: Increased from 2.0 to reduce false positives
 
 from shared.src.lib.utils.storage_path_utils import (
     is_ram_mode,
