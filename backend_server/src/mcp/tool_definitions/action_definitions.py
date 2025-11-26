@@ -93,7 +93,7 @@ DEVICE-SPECIFIC COMMANDS & PARAMETERS:
 - Example: {"command": "input_text", "params": {"text": "Hello", "wait_time": 1000}}
 
 🌐 WEB (host_vnc/web):
-- Commands: click_element, click_element_by_id, input_text, web_navigate
+- Commands: click_element, click_element_by_id, input_text, navigate_to_url
 - ⚠️ CRITICAL: Web uses DIFFERENT parameter names:
   • click_element_by_id: Use 'element_id' NOT 'text'
   • input_text: Use 'selector' NOT 'element_text'
