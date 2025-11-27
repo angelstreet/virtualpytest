@@ -184,7 +184,15 @@ const Users: React.FC = () => {
               </TableHead>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow key={user.id} hover>
+                  <TableRow 
+                    key={user.id} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'transparent',
+                      },
+                    }}
+                  >
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar

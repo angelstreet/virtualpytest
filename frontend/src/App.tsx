@@ -280,6 +280,7 @@ const App: React.FC = () => {
                   
                   {/* VirtualPyTest Documentation Routes */}
                   <Route path="/docs/api" element={<ApiDocumentation />} />
+                  <Route path="/docs/:section/:subsection/:category/:page" element={<Documentation />} />
                   <Route path="/docs/:section/:subsection/:page" element={<Documentation />} />
                   <Route path="/docs/:section/:page" element={<Documentation />} />
                   <Route path="/docs/:section" element={<Documentation />} />

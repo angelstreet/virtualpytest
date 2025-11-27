@@ -8,7 +8,12 @@ import remarkGfm from 'remark-gfm';
  * Simple Documentation Viewer - Renders markdown files from /docs
  */
 const Documentation: React.FC = () => {
-  const { section = 'README', subsection, page = 'README' } = useParams<{ section?: string; subsection?: string; page?: string }>();
+  const { section = 'README', subsection, category, page = 'README' } = useParams<{ 
+    section?: string; 
+    subsection?: string; 
+    category?: string;
+    page?: string 
+  }>();
   const [markdown, setMarkdown] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -24,9 +29,16 @@ const Documentation: React.FC = () => {
         // /docs/get-started -> /docs/get-started/README.md
         // /docs/features/unified-controller -> /docs/features/unified-controller.md
         // /docs/technical/ai/builder -> /docs/technical/ai/builder.md
+        // /docs/technical/architecture/components/backend-server -> /docs/technical/architecture/components/backend-server.md
         let mdPath: string;
-        if (subsection && page !== 'README') {
-          // Nested path: /docs/technical/ai/builder
+        if (category && page !== 'README') {
+          // 4-level nested path: /docs/technical/architecture/components/backend-server
+          mdPath = `/${section}/${subsection}/${category}/${page}.md`;
+        } else if (category) {
+          // 4-level README: /docs/technical/architecture/components
+          mdPath = `/${section}/${subsection}/${category}/README.md`;
+        } else if (subsection && page !== 'README') {
+          // 3-level nested path: /docs/technical/ai/builder
           mdPath = `/${section}/${subsection}/${page}.md`;
         } else if (subsection) {
           // Subsection README: /docs/technical/ai
@@ -58,7 +70,7 @@ const Documentation: React.FC = () => {
     };
 
     fetchMarkdown();
-  }, [section, subsection, page]);
+  }, [section, subsection, category, page]);
 
   if (loading) {
     return (

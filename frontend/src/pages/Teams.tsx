@@ -161,7 +161,15 @@ const Teams: React.FC = () => {
               </TableHead>
               <TableBody>
                 {teams.map((team) => (
-                  <TableRow key={team.id} hover>
+                  <TableRow 
+                    key={team.id} 
+                    hover
+                    sx={{
+                      '&:hover': {
+                        backgroundColor: 'transparent',
+                      },
+                    }}
+                  >
                     <TableCell>
                       <Typography variant="body1" fontWeight="medium">
                         {team.name}

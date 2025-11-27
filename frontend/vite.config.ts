@@ -113,6 +113,7 @@ const registeredRoutes = [
   '/configuration/environment',
   // Dynamic routes patterns
   '/navigation-editor', // Will match /navigation-editor/* paths
+  '/docs', // Will match /docs/* paths for documentation
 ];
 
 export default defineConfig({
@@ -141,6 +142,8 @@ export default defineConfig({
             if (route === url) return true;
             if (route.endsWith('/') && url.startsWith(route)) return true;
             if (route === '/navigation-editor' && url.startsWith('/navigation-editor/'))
+              return true;
+            if (route === '/docs' && url.startsWith('/docs/'))
               return true;
             return false;
           });
