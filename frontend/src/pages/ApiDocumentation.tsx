@@ -1,6 +1,7 @@
 import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip, Typography } from '@mui/material';
 import { OpenInNew, Refresh } from '@mui/icons-material';
 import React, { useState } from 'react';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 interface ApiDoc {
   title: string;
@@ -40,8 +41,8 @@ const ApiDocumentation: React.FC = () => {
   // Get the documentation URL (served from backend)
   const getDocUrl = () => {
     // Docs are served by the backend server at /docs/openapi/docs/
-    const serverUrl = (import.meta as any).env?.VITE_SERVER_URL || 'http://localhost:5109';
-    return `${serverUrl}/docs/openapi/docs/${selectedDoc}.html`;
+    // Use buildServerUrl to respect selected server from ServerSelector
+    return buildServerUrl(`/docs/openapi/docs/${selectedDoc}.html`);
   };
 
   return (
