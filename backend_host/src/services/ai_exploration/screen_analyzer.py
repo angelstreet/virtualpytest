@@ -170,15 +170,11 @@ class ScreenAnalyzer:
             print(f"[@screen_analyzer:DEBUG] FULL RAW DUMP ({len(elements)} elements)")
             print(f"{'='*80}")
             for i, elem in enumerate(elements, 1):
-                print(f"\n[Element {i}/{len(elements)}]")
-                print(f"  tagName: {elem.get('tagName')}")
-                print(f"  id: {elem.get('id')}")
-                print(f"  selector: {elem.get('selector')}")
-                print(f"  textContent: {elem.get('textContent', '')[:100]}")  # First 100 chars
-                print(f"  className: {elem.get('className', '')[:50]}")  # First 50 chars
-                print(f"  attributes: {elem.get('attributes', {})}")
-                print(f"  position: {elem.get('position')}")
-                print(f"  isVisible: {elem.get('isVisible')}")
+                # Clean textContent for logging (remove newlines, truncate)
+                text_raw = elem.get('textContent', '')
+                text_clean = ' '.join(text_raw.split())[:100]  # Remove all whitespace, first 100 chars
+                
+                print(f"[Element {i}/{len(elements)}] tag={elem.get('tagName')} id={elem.get('id')} selector={elem.get('selector')} text='{text_clean}' class='{elem.get('className', '')[:50]}' visible={elem.get('isVisible')}")
             print(f"{'='*80}\n")
             
             if not elements:
@@ -469,16 +465,16 @@ class ScreenAnalyzer:
                 attributes = elem.get('attributes', {})
                 if not (attributes.get('onclick') or attributes.get('role') == 'button'):
                     print(f"[@screen_analyzer:_extract_web] Filtered NON-INTERACTIVE CONTAINER: {selector}")
-                continue
+                    continue
         
-        # ═══════════════════════════════════════════════════════════════
+            # ═══════════════════════════════════════════════════════════════
             # FILTER: Skip text input fields (not navigation targets)
-        # ═══════════════════════════════════════════════════════════════
+            # ═══════════════════════════════════════════════════════════════
             if tag == 'input':
                 input_type = elem.get('attributes', {}).get('type', 'text')
                 if input_type in ['text', 'email', 'password', 'number', 'tel', 'url']:
                     print(f"[@screen_analyzer:_extract_web] Filtered TEXT INPUT: {selector}")
-                continue
+                    continue
                 # Keep submit buttons and other clickable inputs
             
             # ═══════════════════════════════════════════════════════════════
@@ -669,9 +665,9 @@ class ScreenAnalyzer:
                 
                 clean_label = unique_label
             
-                interactive_elements.append(clean_label)
-                seen_selectors.add(selector)
-                print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
+            interactive_elements.append(clean_label)
+            seen_selectors.add(selector)
+            print(f"[@screen_analyzer:_extract_web] ✅ INCLUDED: {clean_label} (selector: {selector})")
         
         print(f"[@screen_analyzer:_extract_web] Final count: {len(interactive_elements)} navigation targets")
         
