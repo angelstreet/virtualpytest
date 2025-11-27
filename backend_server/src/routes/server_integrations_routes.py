@@ -6,6 +6,14 @@ from pathlib import Path
 
 server_integrations_bp = Blueprint('server_integrations_bp', __name__, url_prefix='/server/integrations')
 
+# Add CORS headers for all responses in this blueprint
+@server_integrations_bp.after_request
+def add_cors_headers(response):
+    response.headers['Access-Control-Allow-Origin'] = '*'
+    response.headers['Access-Control-Allow-Headers'] = 'Content-Type, Authorization, Pragma, Cache-Control'
+    response.headers['Access-Control-Allow-Methods'] = 'GET, POST, OPTIONS, DELETE'
+    return response
+
 # Path to integrations config
 BACKEND_SERVER_ROOT = Path(__file__).parent.parent.parent
 JIRA_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'integrations' / 'jira_instances.json'

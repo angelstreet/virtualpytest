@@ -128,9 +128,18 @@ const JiraIntegration: React.FC = () => {
     try {
       const params = new URLSearchParams();
       if (statusFilter) params.append('status', statusFilter);
+      // Add cache-busting timestamp
+      params.append('_t', Date.now().toString());
       
       const response = await fetch(
-        `${API_BASE}/server/integrations/jira/${selectedInstance}/tickets?${params}`
+        `${API_BASE}/server/integrations/jira/${selectedInstance}/tickets?${params}`,
+        {
+          cache: 'no-cache',
+          headers: {
+            'Cache-Control': 'no-cache',
+            'Pragma': 'no-cache'
+          }
+        }
       );
       const data = await response.json();
       
@@ -405,7 +414,15 @@ const JiraIntegration: React.FC = () => {
             </TableHead>
             <TableBody>
               {tickets.map((ticket) => (
-                <TableRow key={ticket.id} hover>
+                <TableRow 
+                  key={ticket.id} 
+                  hover 
+                  sx={{ 
+                    '&:hover': { 
+                      backgroundColor: 'rgba(255, 255, 255, 0.05) !important' 
+                    } 
+                  }}
+                >
                   <TableCell>
                     <Typography variant="body2" fontWeight="bold">
                       {ticket.key}
