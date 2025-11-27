@@ -1605,11 +1605,24 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             }}
             onFinalized={async () => {
               // ✅ Reload tree after finalize to show updated labels (removed _temp suffix)
-              console.log('[@NavigationEditor] 🔄 Reloading tree after finalize...');
+              const treeType = navigation.parentChain.length > 0 ? 'subtree' : 'root tree';
+              const treeContext = navigation.parentChain.length > 0 
+                ? `(subtree: ${actualTreeId}, depth: ${navigation.parentChain.length})` 
+                : `(root tree: ${actualTreeId})`;
+              
+              console.log(`[@NavigationEditor] 🔄 Reloading ${treeType} data after finalize ${treeContext}`);
+              
               if (actualTreeId && userInterface?.id) {
-                navigationConfig.invalidateTreeCache(userInterface.id);
-                await loadTreeData(actualTreeId);
-                console.log('[@NavigationEditor] ✅ Tree reloaded after finalize');
+                try {
+                  navigationConfig.invalidateTreeCache(userInterface.id);
+                  
+                  // ✅ Reload CURRENT tree (preserves subtree context if in subtree)
+                  await loadTreeData(actualTreeId);
+                  
+                  console.log(`[@NavigationEditor] ✅ Tree data reloaded for ${treeType} after finalize`);
+                } catch (error) {
+                  console.error(`[@NavigationEditor] ❌ Failed to reload ${treeType} after finalize:`, error);
+                }
               }
             }}
             onCleanupTemp={() => {
