@@ -1603,6 +1603,15 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 console.error('[@NavigationEditor] ❌ Cannot reload tree - actualTreeId is undefined!');
               }
             }}
+            onFinalized={async () => {
+              // ✅ Reload tree after finalize to show updated labels (removed _temp suffix)
+              console.log('[@NavigationEditor] 🔄 Reloading tree after finalize...');
+              if (actualTreeId && userInterface?.id) {
+                navigationConfig.invalidateTreeCache(userInterface.id);
+                await loadTreeData(actualTreeId);
+                console.log('[@NavigationEditor] ✅ Tree reloaded after finalize');
+              }
+            }}
             onCleanupTemp={() => {
               // Clean up _temp nodes from frontend state (match by label, not ID)
               const tempNodes = nodes.filter(node => node.data?.label?.endsWith('_temp'));
