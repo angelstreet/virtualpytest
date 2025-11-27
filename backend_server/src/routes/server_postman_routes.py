@@ -392,21 +392,76 @@ def run_api_test():
         
         print(f"[@postman_routes:run_api_test] Determined server URL from Host header '{host_header}': {server_url}")
         
-        # Format endpoints for api_test.py
-        endpoint_paths = [f"{ep['method']} {ep['path']}" for ep in endpoints]
-        endpoints_param = ','.join(endpoint_paths)
+        # Execute tests using requests
+        results = []
+        success_count = 0
         
-        # TODO: Trigger api_test.py script execution
-        # For now, return the parameters that would be used
-        print(f"[@postman_routes:run_api_test] Would run: api_test.py --endpoints '{endpoints_param}'")
-        print(f"[@postman_routes:run_api_test] Server URL: {server_url}")
+        # Default team_id for testing
+        DEFAULT_TEAM_ID = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
+        
+        for ep in endpoints:
+            method = ep.get('method', 'GET')
+            path = ep.get('path')
+            name = ep.get('name', path)
+            
+            # Ensure path starts with /
+            if path and not path.startswith('/'):
+                path = '/' + path
+                
+            url = f"{server_url}{path}"
+            
+            start_time = time.time()
+            result_entry = {
+                'name': name,
+                'method': method,
+                'path': path,
+                'status': 'pending'
+            }
+            
+            try:
+                print(f"[@postman_routes] Executing {method} {url}")
+                
+                # Add query params if needed
+                params = {}
+                if 'team_id' in path or any(x in path for x in ['devices', 'campaigns', 'testcase', 'requirements']):
+                     params['team_id'] = DEFAULT_TEAM_ID
+                
+                response = requests.request(
+                    method=method,
+                    url=url,
+                    params=params,
+                    timeout=10
+                )
+                
+                duration = (time.time() - start_time) * 1000
+                result_entry['statusCode'] = response.status_code
+                result_entry['duration'] = round(duration, 2)
+                result_entry['status'] = 'pass' if response.ok else 'fail'
+                
+                # Try to parse response body if JSON
+                try:
+                    result_entry['response'] = response.json()
+                except:
+                    result_entry['response'] = response.text[:500]  # Truncate text
+                
+                if response.ok:
+                    success_count += 1
+                    
+            except Exception as e:
+                print(f"[@postman_routes] Error executing {name}: {e}")
+                result_entry['status'] = 'error'
+                result_entry['error'] = str(e)
+                result_entry['statusCode'] = 0
+            
+            results.append(result_entry)
         
         return jsonify({
             'success': True,
-            'message': f'Test queued for {len(endpoints)} endpoints on {server_url}',
-            'endpoints': endpoint_paths,
-            'serverUrl': server_url,
-            'note': 'View results in Deployments page'
+            'message': f'Completed {len(endpoints)} tests',
+            'results': results,
+            'passed': success_count,
+            'total': len(endpoints),
+            'serverUrl': server_url
         })
     except Exception as e:
         print(f"[@postman_routes:run_api_test] Error: {e}")

@@ -18,6 +18,17 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
+  Paper,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -62,6 +73,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [running, setRunning] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
+  const [showResultsDialog, setShowResultsDialog] = useState(false);
 
   useEffect(() => {
     loadWorkspaceAndCollections();
@@ -243,6 +255,9 @@ const UserApiWorkspaceDetail: React.FC = () => {
 
       const data = await response.json();
       setTestResult(data);
+      if (data.success && data.results) {
+        setShowResultsDialog(true);
+      }
     } catch (err) {
       console.error('Error running tests:', err);
       setTestResult({ success: false, error: 'Failed to run tests' });
@@ -347,7 +362,18 @@ const UserApiWorkspaceDetail: React.FC = () => {
         )}
 
         {testResult && (
-          <Alert severity={testResult.success ? 'success' : 'error'} sx={{ mt: 1 }} onClose={() => setTestResult(null)}>
+          <Alert 
+            severity={testResult.success ? 'success' : 'error'} 
+            sx={{ mt: 1 }} 
+            onClose={() => setTestResult(null)}
+            action={
+              testResult.results && (
+                <Button color="inherit" size="small" onClick={() => setShowResultsDialog(true)}>
+                  View Details
+                </Button>
+              )
+            }
+          >
             {testResult.success ? testResult.message : testResult.error}
             {testResult.note && (
               <Typography variant="caption" display="block" sx={{ mt: 1 }}>
@@ -356,6 +382,83 @@ const UserApiWorkspaceDetail: React.FC = () => {
             )}
           </Alert>
         )}
+
+        <Dialog 
+          open={showResultsDialog} 
+          onClose={() => setShowResultsDialog(false)}
+          maxWidth="lg"
+          fullWidth
+        >
+          <DialogTitle>
+            Test Results
+            <Typography variant="subtitle2" color="text.secondary">
+              {testResult?.passed}/{testResult?.total} Passed
+            </Typography>
+          </DialogTitle>
+          <DialogContent dividers>
+            {testResult?.results && (
+              <TableContainer component={Paper} variant="outlined">
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Method</TableCell>
+                      <TableCell>Path</TableCell>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Code</TableCell>
+                      <TableCell>Time</TableCell>
+                      <TableCell>Response/Error</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {testResult.results.map((result: any, index: number) => (
+                      <TableRow key={index} hover>
+                        <TableCell>
+                          <Chip 
+                            label={result.method} 
+                            size="small" 
+                            variant="outlined"
+                            color={
+                              result.method === 'GET' ? 'success' :
+                              result.method === 'POST' ? 'primary' :
+                              'default'
+                            }
+                            sx={{ fontSize: '0.7rem', height: 20 }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                          {result.path}
+                        </TableCell>
+                        <TableCell>
+                          <Chip 
+                            label={result.status} 
+                            color={result.status === 'pass' ? 'success' : 'error'} 
+                            size="small" 
+                            sx={{ height: 20 }}
+                          />
+                        </TableCell>
+                        <TableCell>{result.statusCode || '-'}</TableCell>
+                        <TableCell>{result.duration ? `${result.duration}ms` : '-'}</TableCell>
+                        <TableCell sx={{ 
+                          maxWidth: 400, 
+                          overflow: 'hidden', 
+                          textOverflow: 'ellipsis', 
+                          whiteSpace: 'nowrap',
+                          fontFamily: 'monospace',
+                          fontSize: '0.8rem'
+                        }}>
+                          {result.error || (typeof result.response === 'string' ? result.response : JSON.stringify(result.response))}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
+          </DialogContent>
+          <DialogActions>
+            <Button onClick={() => setShowResultsDialog(false)}>Close</Button>
+          </DialogActions>
+        </Dialog>
       </Box>
 
       {/* Scrollable Collections Area */}
