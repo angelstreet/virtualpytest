@@ -507,8 +507,16 @@ def extract_requests_from_items(items, requests_list, folder_path=""):
             # Build full path with folder
             full_name = f"{folder_path}/{item['name']}" if folder_path else item['name']
             
+            # Use uid as primary ID, fallback to id, then name (hashed) as last resort
+            # This ensures we have a unique ID for the frontend
+            item_id = item.get('uid') or item.get('id') or item.get('_postman_id')
+            if not item_id:
+                # Fallback for items without explicit ID
+                import hashlib
+                item_id = hashlib.md5(f"{full_name}:{method}:{path}".encode()).hexdigest()
+
             requests_list.append({
-                'id': item.get('id', ''),
+                'id': item_id,
                 'name': item['name'],
                 'fullName': full_name,
                 'method': method,

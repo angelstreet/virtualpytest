@@ -21,19 +21,19 @@ import {
   Dialog,
   DialogTitle,
   DialogContent,
-  DialogActions,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
-  Paper,
+  IconButton,
 } from '@mui/material';
 import {
   ArrowBack,
   ExpandMore,
   PlayArrow,
+  Close,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
@@ -243,6 +243,12 @@ const UserApiWorkspaceDetail: React.FC = () => {
         }
       });
 
+      if (endpoints.length === 0) {
+        setRunning(false);
+        alert('Error: Selected endpoints could not be found in the loaded collections. Please try reloading the page.');
+        return;
+      }
+
       const response = await fetch(buildServerUrl('/server/postman/test'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -389,16 +395,25 @@ const UserApiWorkspaceDetail: React.FC = () => {
           maxWidth="lg"
           fullWidth
         >
-          <DialogTitle>
-            Test Results
-            <Typography variant="subtitle2" color="text.secondary">
-              {testResult?.passed}/{testResult?.total} Passed
-            </Typography>
+          <DialogTitle sx={{ m: 0, p: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'baseline', gap: 2 }}>
+              <Typography variant="h6">Test Results</Typography>
+              <Typography variant="subtitle2" color="text.secondary">
+                {testResult?.passed}/{testResult?.total} Passed
+              </Typography>
+            </Box>
+            <IconButton
+              aria-label="close"
+              onClick={() => setShowResultsDialog(false)}
+              size="small"
+            >
+              <Close />
+            </IconButton>
           </DialogTitle>
-          <DialogContent dividers>
+          <DialogContent dividers sx={{ p: 0 }}>
             {testResult?.results && (
-              <TableContainer component={Paper} variant="outlined">
-                <Table size="small">
+              <TableContainer sx={{ maxHeight: '60vh' }}>
+                <Table size="small" stickyHeader>
                   <TableHead>
                     <TableRow>
                       <TableCell>Method</TableCell>
@@ -411,7 +426,10 @@ const UserApiWorkspaceDetail: React.FC = () => {
                   </TableHead>
                   <TableBody>
                     {testResult.results.map((result: any, index: number) => (
-                      <TableRow key={index} hover>
+                      <TableRow 
+                        key={index} 
+                        sx={{ '&:hover': { bgcolor: 'transparent !important' } }}
+                      >
                         <TableCell>
                           <Chip 
                             label={result.method} 
@@ -455,9 +473,6 @@ const UserApiWorkspaceDetail: React.FC = () => {
               </TableContainer>
             )}
           </DialogContent>
-          <DialogActions>
-            <Button onClick={() => setShowResultsDialog(false)}>Close</Button>
-          </DialogActions>
         </Dialog>
       </Box>
 
