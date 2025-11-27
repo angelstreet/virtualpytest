@@ -103,7 +103,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
     }
   };
 
-  const loadCollectionRequests = async (collectionId: string) => {
+  const loadCollectionRequests = async (collectionId: string, expand = true) => {
     setLoadingRequests(prev => new Set(prev).add(collectionId));
     
     try {
@@ -121,7 +121,11 @@ const UserApiWorkspaceDetail: React.FC = () => {
         );
         
         // Expand the collection
-        setExpandedCollections(prev => new Set(prev).add(collectionId));
+        if (expand) {
+          setExpandedCollections(prev => new Set(prev).add(collectionId));
+        }
+        
+        return data.requests;
       }
     } catch (err) {
       console.error('Error loading requests:', err);
@@ -132,6 +136,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
         return newSet;
       });
     }
+    return null;
   };
 
   const handleCollectionToggle = (collectionId: string) => {
@@ -141,7 +146,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
     
     // If not yet loaded, load requests first
     if (!collection.requests) {
-      loadCollectionRequests(collectionId);
+      loadCollectionRequests(collectionId, true);
     } else {
       // Toggle expansion
       setExpandedCollections(prev => {
@@ -168,21 +173,32 @@ const UserApiWorkspaceDetail: React.FC = () => {
     });
   };
 
-  const handleCollectionSelectAll = (collectionId: string) => {
+  const handleCollectionSelectAll = async (collectionId: string) => {
     const collection = collections.find(c => c.id === collectionId);
-    if (!collection || !collection.requests) return;
+    if (!collection) return;
     
-    const collectionRequestIds = collection.requests.map(r => r.id);
-    const allSelected = collectionRequestIds.every(id => selectedRequests.has(id));
+    let requests = collection.requests;
+    
+    // Load requests if not already loaded
+    if (!requests) {
+      requests = await loadCollectionRequests(collectionId, false);
+    }
+    
+    if (!requests) return;
+    
+    const collectionRequestIds = requests.map((r: Request) => r.id);
     
     setSelectedRequests(prev => {
       const newSet = new Set(prev);
+      // Check if all are currently selected
+      const allSelected = collectionRequestIds.every((id: string) => prev.has(id));
+      
       if (allSelected) {
         // Deselect all
-        collectionRequestIds.forEach(id => newSet.delete(id));
+        collectionRequestIds.forEach((id: string) => newSet.delete(id));
       } else {
         // Select all
-        collectionRequestIds.forEach(id => newSet.add(id));
+        collectionRequestIds.forEach((id: string) => newSet.add(id));
       }
       return newSet;
     });
@@ -237,7 +253,17 @@ const UserApiWorkspaceDetail: React.FC = () => {
 
   if (loading) {
     return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', height: '60vh' }}>
+      <Box sx={{ 
+        display: 'flex', 
+        justifyContent: 'center', 
+        alignItems: 'center', 
+        position: 'fixed',
+        top: 64,
+        left: 38,
+        right: 38,
+        bottom: 35,
+        overflow: 'hidden'
+      }}>
         <CircularProgress />
       </Box>
     );
@@ -245,9 +271,17 @@ const UserApiWorkspaceDetail: React.FC = () => {
 
   if (!workspace) {
     return (
-      <Box sx={{ p: 3 }}>
+      <Box sx={{ 
+        p: 2,
+        position: 'fixed',
+        top: 64,
+        left: 38,
+        right: 38,
+        bottom: 35,
+        overflow: 'hidden'
+      }}>
         <Alert severity="error">Workspace not found</Alert>
-        <Button startIcon={<ArrowBack />} onClick={() => navigate('/api/workspaces')} sx={{ mt: 2 }}>
+        <Button startIcon={<ArrowBack />} onClick={() => navigate('/api/workspaces')} sx={{ mt: 1 }}>
           Back to Workspaces
         </Button>
       </Box>
@@ -255,21 +289,56 @@ const UserApiWorkspaceDetail: React.FC = () => {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
-      {/* Compact Header */}
-      <Box sx={{ px: 3, pt: 2, pb: 1 }}>
-        <Button
-          startIcon={<ArrowBack />}
-          onClick={() => navigate('/api/workspaces')}
-          size="small"
-          sx={{ mb: 0.5 }}
-        >
-          Back to Workspaces
-        </Button>
-        
-        <Typography variant="h5">
-          {workspace.name}
-        </Typography>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      position: 'fixed',
+      top: 64,
+      left: 38,
+      right: 38,
+      bottom: 35,
+      overflow: 'hidden'
+    }}>
+      {/* Ultra-Compact Header with All Controls */}
+      <Box 
+        sx={{ 
+          px: 3, 
+          py: 0.5, 
+          flexShrink: 0,
+          bgcolor: 'background.default',
+          borderBottom: 1,
+          borderColor: 'divider',
+          boxShadow: 1
+        }}
+      >
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+          <Button
+            startIcon={<ArrowBack />}
+            onClick={() => navigate('/api/workspaces')}
+            size="small"
+          >
+            Back to Workspaces
+          </Button>
+          
+          <Typography variant="h6">
+            {workspace.name}
+          </Typography>
+
+          <Box sx={{ flex: 1 }} />
+          
+          <Typography variant="caption" color="text.secondary" sx={{ mr: 2 }}>
+            {collections.length} collections
+          </Typography>
+
+          <Button
+            variant="contained"
+            startIcon={running ? <CircularProgress size={16} /> : <PlayArrow />}
+            onClick={handleRunTests}
+            disabled={selectedRequests.size === 0 || running}
+          >
+            Run Now ({selectedRequests.size})
+          </Button>
+        </Box>
 
         {error && (
           <Alert severity="error" sx={{ mt: 1 }}>
@@ -289,39 +358,16 @@ const UserApiWorkspaceDetail: React.FC = () => {
         )}
       </Box>
 
-      {/* Sticky Action Bar */}
-      <Box 
-        sx={{ 
-          position: 'sticky',
-          top: 0,
-          zIndex: 10,
-          bgcolor: 'background.default',
-          borderBottom: 1,
-          borderColor: 'divider',
-          px: 3,
-          py: 1.5,
-          boxShadow: 1
-        }}
-      >
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-          <Button
-            variant="contained"
-            size="large"
-            fullWidth
-            startIcon={running ? <CircularProgress size={20} /> : <PlayArrow />}
-            onClick={handleRunTests}
-            disabled={selectedRequests.size === 0 || running}
-          >
-            Run Now ({selectedRequests.size})
-          </Button>
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 100, textAlign: 'right' }}>
-            {collections.length} collections
-          </Typography>
-        </Box>
-      </Box>
-
       {/* Scrollable Collections Area */}
-      <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
+      <Box sx={{ 
+        flex: 1, 
+        overflow: 'auto', 
+        overflowX: 'hidden',
+        px: 3, 
+        py: 1, 
+        minHeight: 0,
+        maxHeight: '100%'
+      }}>
         {collections.length === 0 && (
           <Card>
             <CardContent>
@@ -347,7 +393,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
           >
             <AccordionSummary expandIcon={<ExpandMore />}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
-                {collection.requests && (
+                {collection.requestCount > 0 && (
                   <Checkbox
                     checked={allSelected}
                     indeterminate={someSelected && !allSelected}
@@ -371,7 +417,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
                 />
               </Box>
             </AccordionSummary>
-            <AccordionDetails>
+            <AccordionDetails sx={{ p: 1 }}>
               {isLoadingRequests && (
                 <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
                   <CircularProgress size={24} />
@@ -379,16 +425,17 @@ const UserApiWorkspaceDetail: React.FC = () => {
               )}
               
               {collection.requests && (
-                <List dense>
+                <List dense disablePadding>
                   {collection.requests.map((request) => (
                     <ListItem key={request.id} disablePadding>
-                      <ListItemButton onClick={() => handleRequestToggle(request.id)}>
-                        <ListItemIcon>
+                      <ListItemButton onClick={() => handleRequestToggle(request.id)} sx={{ py: 0.5 }}>
+                        <ListItemIcon sx={{ minWidth: 40 }}>
                           <Checkbox
                             checked={selectedRequests.has(request.id)}
                             edge="start"
                             tabIndex={-1}
                             disableRipple
+                            size="small"
                           />
                         </ListItemIcon>
                         <ListItemText
@@ -404,14 +451,25 @@ const UserApiWorkspaceDetail: React.FC = () => {
                                   request.method === 'DELETE' ? 'error' :
                                   'default'
                                 }
-                                sx={{ minWidth: 60, fontFamily: 'monospace', fontSize: '0.7rem' }}
+                                sx={{ 
+                                  minWidth: 50, 
+                                  height: 20, 
+                                  fontFamily: 'monospace', 
+                                  fontSize: '0.65rem',
+                                  '& .MuiChip-label': { px: 1 }
+                                }}
                               />
-                              <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>
+                              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
                                 {request.path}
                               </Typography>
                             </Box>
                           }
-                          secondary={request.name}
+                          secondary={
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                              {request.name}
+                            </Typography>
+                          }
+                          sx={{ my: 0 }}
                         />
                       </ListItemButton>
                     </ListItem>
