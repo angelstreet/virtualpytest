@@ -18,6 +18,12 @@ CREATE TABLE IF NOT EXISTS public.profiles (
 -- Enable Row Level Security
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies to make this script idempotent
+DROP POLICY IF EXISTS "Users can view own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can view all profiles" ON public.profiles;
+DROP POLICY IF EXISTS "Admins can update all profiles" ON public.profiles;
+
 -- Allow users to read their own profile
 CREATE POLICY "Users can view own profile"
   ON public.profiles
@@ -31,18 +37,56 @@ CREATE POLICY "Users can update own profile"
   USING (auth.uid() = id)
   WITH CHECK (auth.uid() = id);
 
+-- Allow admins to view all profiles
+CREATE POLICY "Admins can view all profiles"
+  ON public.profiles
+  FOR SELECT
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
+-- Allow admins to update all profiles
+CREATE POLICY "Admins can update all profiles"
+  ON public.profiles
+  FOR UPDATE
+  USING (
+    EXISTS (
+      SELECT 1 FROM public.profiles WHERE id = auth.uid() AND role = 'admin'
+    )
+  );
+
 -- Function to auto-create profile on signup
 CREATE OR REPLACE FUNCTION public.handle_new_user()
 RETURNS TRIGGER AS $$
+DECLARE
+  default_team_id UUID;
 BEGIN
-  INSERT INTO public.profiles (id, email, full_name, avatar_url, role)
+  -- Get the default team ID
+  SELECT id INTO default_team_id 
+  FROM public.teams 
+  WHERE is_default = true 
+  LIMIT 1;
+  
+  -- Create profile with default team assignment
+  INSERT INTO public.profiles (id, email, full_name, avatar_url, role, team_id)
   VALUES (
     NEW.id,
     NEW.email,
     COALESCE(NEW.raw_user_meta_data->>'full_name', NEW.raw_user_meta_data->>'name'),
     NEW.raw_user_meta_data->>'avatar_url',
-    'viewer' -- Default role for new users
+    'viewer', -- Default role for new users
+    default_team_id
   );
+  
+  -- Add user to default team in team_members table
+  IF default_team_id IS NOT NULL THEN
+    INSERT INTO public.team_members (team_id, user_id, role)
+    VALUES (default_team_id, NEW.id, 'member')
+    ON CONFLICT (team_id, user_id) DO NOTHING;
+  END IF;
+  
   RETURN NEW;
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
@@ -72,18 +116,40 @@ CREATE TRIGGER on_profile_updated
 -- Backfill: Create profiles for existing users
 -- =====================================================
 -- Run this if you had users BEFORE creating the trigger
-INSERT INTO public.profiles (id, email, full_name, avatar_url, role, permissions)
-SELECT 
-  u.id,
-  u.email,
-  COALESCE(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name'),
-  u.raw_user_meta_data->>'avatar_url',
-  'viewer',
-  '[]'::jsonb
-FROM auth.users u
-LEFT JOIN public.profiles p ON u.id = p.id
-WHERE p.id IS NULL
-ON CONFLICT (id) DO NOTHING;
+DO $$
+DECLARE
+  default_team_id UUID;
+BEGIN
+  -- Get the default team ID
+  SELECT id INTO default_team_id 
+  FROM public.teams 
+  WHERE is_default = true 
+  LIMIT 1;
+  
+  -- Create profiles for existing users
+  INSERT INTO public.profiles (id, email, full_name, avatar_url, role, permissions, team_id)
+  SELECT 
+    u.id,
+    u.email,
+    COALESCE(u.raw_user_meta_data->>'full_name', u.raw_user_meta_data->>'name'),
+    u.raw_user_meta_data->>'avatar_url',
+    'viewer',
+    '[]'::jsonb,
+    default_team_id
+  FROM auth.users u
+  LEFT JOIN public.profiles p ON u.id = p.id
+  WHERE p.id IS NULL
+  ON CONFLICT (id) DO NOTHING;
+  
+  -- Add existing users to default team in team_members table
+  IF default_team_id IS NOT NULL THEN
+    INSERT INTO public.team_members (team_id, user_id, role)
+    SELECT default_team_id, id, 'member'
+    FROM public.profiles
+    WHERE team_id = default_team_id
+    ON CONFLICT (team_id, user_id) DO NOTHING;
+  END IF;
+END $$;
 
 -- =====================================================
 -- Initial Admin User (OPTIONAL)

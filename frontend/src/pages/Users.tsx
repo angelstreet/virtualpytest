@@ -34,6 +34,8 @@ import {
 } from '@mui/icons-material';
 import { useUsers, User } from '../hooks/pages/useUsers';
 import { useTeams } from '../hooks/pages/useTeams';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 /**
  * Users Management Page
@@ -63,6 +65,9 @@ const Users: React.FC = () => {
     role: 'tester' as 'admin' | 'tester' | 'viewer',
     teamId: '',
   });
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   const handleOpenDialog = (user?: User) => {
     if (user) {
@@ -122,19 +127,24 @@ const Users: React.FC = () => {
   };
 
   const handleDeleteUser = async (userId: string) => {
-    if (window.confirm('Are you sure you want to delete this user?')) {
-      try {
-        await deleteUser(userId);
-      } catch (err) {
-        console.error('Error deleting user:', err);
-      }
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: 'Are you sure you want to delete this user?',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          await deleteUser(userId);
+        } catch (err) {
+          console.error('Error deleting user:', err);
+        }
+      },
+    });
   };
 
   const getRoleColor = (role: string) => {
     switch (role) {
       case 'admin':
-        return 'error';
+        return 'secondary';
       case 'tester':
         return 'primary';
       case 'viewer':
@@ -319,6 +329,18 @@ const Users: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 };

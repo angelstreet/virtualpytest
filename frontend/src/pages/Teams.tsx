@@ -29,6 +29,8 @@ import {
   Groups as TeamsIcon,
 } from '@mui/icons-material';
 import { useTeams, Team } from '../hooks/pages/useTeams';
+import { useConfirmDialog } from '../hooks/useConfirmDialog';
+import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 /**
  * Teams Management Page
@@ -56,6 +58,9 @@ const Teams: React.FC = () => {
     name: '',
     description: '',
   });
+
+  // Confirmation dialog
+  const { dialogState, confirm, handleConfirm, handleCancel } = useConfirmDialog();
 
   const handleOpenDialog = (team?: Team) => {
     if (team) {
@@ -105,13 +110,18 @@ const Teams: React.FC = () => {
   };
 
   const handleDeleteTeam = async (teamId: string) => {
-    if (window.confirm('Are you sure you want to delete this team?')) {
-      try {
-        await deleteTeam(teamId);
-      } catch (err) {
-        console.error('Error deleting team:', err);
-      }
-    }
+    confirm({
+      title: 'Confirm Delete',
+      message: 'Are you sure you want to delete this team?',
+      confirmColor: 'error',
+      onConfirm: async () => {
+        try {
+          await deleteTeam(teamId);
+        } catch (err) {
+          console.error('Error deleting team:', err);
+        }
+      },
+    });
   };
 
   return (
@@ -249,6 +259,18 @@ const Teams: React.FC = () => {
           </Button>
         </DialogActions>
       </Dialog>
+
+      {/* Confirmation Dialog */}
+      <ConfirmDialog
+        open={dialogState.open}
+        title={dialogState.title}
+        message={dialogState.message}
+        confirmText={dialogState.confirmText}
+        cancelText={dialogState.cancelText}
+        confirmColor={dialogState.confirmColor}
+        onConfirm={handleConfirm}
+        onCancel={handleCancel}
+      />
     </Box>
   );
 };
