@@ -83,8 +83,9 @@ CREATE TABLE navigation_nodes (
     has_subtree boolean DEFAULT false, -- True if this node has associated subtrees
     subtree_count integer DEFAULT 0, -- Number of subtrees linked to this node
     
-    -- Protection flag
-    is_system_protected boolean DEFAULT false, -- True for essential nodes that cannot be deleted
+    -- Protection flags
+    is_system_protected boolean DEFAULT false, -- True for essential nodes that cannot be deleted (but may be updated)
+    is_read_only boolean DEFAULT false, -- True for nodes that cannot be updated or deleted (stricter than is_system_protected)
     
     team_id uuid NOT NULL REFERENCES teams(id) ON DELETE CASCADE,
     created_at timestamp with time zone DEFAULT now(),
@@ -198,6 +199,9 @@ CREATE INDEX idx_navigation_trees_viewport ON navigation_trees(viewport_x, viewp
 
 -- Add column comments
 COMMENT ON COLUMN navigation_edges.action_sets IS 'Array of action sets. Each action set can include kpi_references (verification objects) and use_verifications_for_kpi flag for per-transition performance measurement.';
+COMMENT ON COLUMN navigation_nodes.is_system_protected IS 'Flag indicating if this node cannot be deleted (but may be updated unless is_read_only=true)';
+COMMENT ON COLUMN navigation_nodes.is_read_only IS 'Flag indicating if this node is completely read-only (cannot be updated or deleted). Stricter than is_system_protected.';
+COMMENT ON COLUMN navigation_edges.is_system_protected IS 'Flag indicating if this edge cannot be deleted (but may be updated via action sets)';
 
 -- Nested Tree Helper Functions
 -- Function to get all descendant trees
@@ -554,6 +558,36 @@ CREATE TRIGGER trigger_prevent_protected_node_deletion
     BEFORE DELETE ON navigation_nodes
     FOR EACH ROW
     EXECUTE FUNCTION prevent_protected_node_deletion();
+
+-- Function to prevent updates to read-only nodes
+CREATE OR REPLACE FUNCTION prevent_readonly_node_update()
+RETURNS TRIGGER
+LANGUAGE plpgsql
+SECURITY DEFINER  -- ✅ Run with postgres privileges to bypass RLS
+AS $$
+BEGIN
+    IF OLD.is_read_only = true THEN
+        -- Allow updating updated_at timestamp only
+        IF NEW.label != OLD.label 
+           OR NEW.node_id != OLD.node_id 
+           OR NEW.position_x != OLD.position_x 
+           OR NEW.position_y != OLD.position_y 
+           OR NEW.node_type != OLD.node_type 
+           OR NEW.data::text != OLD.data::text 
+           OR NEW.verifications::text != OLD.verifications::text THEN
+            RAISE EXCEPTION 'Cannot update read-only node: % (node_id: %)', OLD.label, OLD.node_id
+                USING HINT = 'This node is read-only and cannot be modified.';
+        END IF;
+    END IF;
+    RETURN NEW;
+END;
+$$;
+
+-- Create trigger for read-only node updates
+CREATE TRIGGER trigger_prevent_readonly_node_update
+    BEFORE UPDATE ON navigation_nodes
+    FOR EACH ROW
+    EXECUTE FUNCTION prevent_readonly_node_update();
 
 -- Function to prevent deletion of protected edges (unless CASCADE delete)
 CREATE OR REPLACE FUNCTION prevent_protected_edge_deletion()
