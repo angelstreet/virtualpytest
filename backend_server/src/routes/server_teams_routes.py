@@ -60,7 +60,7 @@ def create_team():
         if not team:
             return jsonify({"error": "Failed to create team"}), 500
         
-        logger.info(f"Team created: {team['id']} by user {user_id}")
+        logger.info(f"Team created: {team['id']}")
         return jsonify(team), 201
         
     except Exception as e:
