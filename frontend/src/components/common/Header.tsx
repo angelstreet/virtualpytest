@@ -1,4 +1,3 @@
-import { Science } from '@mui/icons-material';
 import { AppBar, Toolbar, Typography, Box } from '@mui/material';
 import React from 'react';
 
@@ -8,7 +7,6 @@ const Header: React.FC = () => {
   return (
     <AppBar position="static" elevation={1}>
       <Toolbar>
-        <Science sx={{ mr: 2 }} />
         <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
           VirtualPyTest
         </Typography>

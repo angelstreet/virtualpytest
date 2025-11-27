@@ -71,6 +71,11 @@ const NavigationBar: React.FC = () => {
           path: '/test-execution/deployments',
           icon: <RunIcon fontSize="small" />,
         },
+        {
+          label: 'API Tests',
+          path: '/api/workspaces',
+          icon: <ApiIcon fontSize="small" />,
+        },
       ],
     },
     {
@@ -118,15 +123,6 @@ const NavigationBar: React.FC = () => {
     },
   ];
 
-  // User API Testing menu items
-  const apiItems = [
-    {
-      label: 'API Workspaces',
-      path: '/api/workspaces',
-      icon: <ApiIcon fontSize="small" />,
-    },
-  ];
-
   // VirtualPyTest Documentation menu items
   const docsItems = [
     {
@@ -147,6 +143,11 @@ const NavigationBar: React.FC = () => {
       label: 'JIRA',
       path: '/integrations/jira',
       icon: <IntegrationIcon fontSize="small" />,
+    },
+    {
+      label: 'Grafana',
+      path: '/grafana-dashboard',
+      icon: <DashboardIcon fontSize="small" />,
     },
   ];
 
@@ -242,36 +243,14 @@ const NavigationBar: React.FC = () => {
       {/* Monitoring Dropdown */}
       <NavigationDropdown label="Monitoring" items={monitoringItems} />
 
-      {/* Grafana Dashboard - Simple button */}
-      <Button
-        component={Link}
-        to="/grafana-dashboard"
-        startIcon={<DashboardIcon fontSize="small" />}
-        sx={{
-          color: location.pathname === '/grafana-dashboard' ? 'secondary.main' : 'inherit',
-          fontWeight: location.pathname === '/grafana-dashboard' ? 600 : 400,
-          textTransform: 'none',
-          px: 2,
-          py: 1,
-          '&:hover': {
-            backgroundColor: 'rgba(255, 255, 255, 0.1)',
-          },
-        }}
-      >
-        Grafana
-      </Button>
-
-      {/* API Testing Dropdown (User's Postman Workspaces) */}
-      <NavigationDropdown label="API" items={apiItems} />
-
       {/* Docs Dropdown (VirtualPyTest Documentation) */}
       <NavigationDropdown label="Docs" items={docsItems} />
 
       {/* Integrations Dropdown (Third-party Tools) */}
-      <NavigationDropdown label="Integrations" items={integrationsItems} />
+      <NavigationDropdown label="Plugins" items={integrationsItems} />
 
       {/* Configuration Dropdown */}
-      <NavigationDropdown label="Configuration" items={configurationItems} />
+      <NavigationDropdown label="Settings" items={configurationItems} />
     </Box>
   );
 };
