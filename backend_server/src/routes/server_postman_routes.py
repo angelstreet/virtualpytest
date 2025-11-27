@@ -358,6 +358,8 @@ def get_collection_requests(collection_id):
 def run_api_test():
     """Run API test immediately for selected endpoints (tests on current server)"""
     try:
+        from shared.src.lib.utils.build_url_utils import buildServerUrl
+        
         data = request.json
         workspace_id = data.get('workspaceId')
         workspace_name = data.get('workspaceName')
@@ -376,21 +378,7 @@ def run_api_test():
                 'error': 'Workspace not found'
             }), 404
         
-        # Determine server URL from request origin
-        # If frontend is on localhost:5173, backend is on localhost:5109
-        # Use the Host header to determine where we're running
-        host_header = request.headers.get('Host', 'localhost:5109')
-        
-        # Extract host and determine corresponding backend_host port
-        # Server is on 5109, Host is on 5073
-        if 'localhost' in host_header or '127.0.0.1' in host_header:
-            server_url = 'http://localhost:5073'
-        else:
-            # Production or other environment
-            # Replace server port (5109) with host port (5073)
-            server_url = f"http://{host_header.replace(':5109', ':5073')}"
-        
-        print(f"[@postman_routes:run_api_test] Determined server URL from Host header '{host_header}': {server_url}")
+        print(f"[@postman_routes:run_api_test] Testing {len(endpoints)} endpoints")
         
         # Execute tests using requests
         results = []
@@ -407,8 +395,22 @@ def run_api_test():
             # Ensure path starts with /
             if path and not path.startswith('/'):
                 path = '/' + path
-                
-            url = f"{server_url}{path}"
+            
+            # Skip /host/* endpoints for now - only test /server/* endpoints
+            if path.startswith('/host/'):
+                print(f"[@postman_routes] Skipping host endpoint (not implemented yet): {path}")
+                results.append({
+                    'name': name,
+                    'method': method,
+                    'path': path,
+                    'status': 'skipped',
+                    'statusCode': 0,
+                    'error': 'Host endpoints not yet supported - requires host selection'
+                })
+                continue
+            
+            # Use buildServerUrl to construct proper URL with environment detection
+            url = buildServerUrl(path)
             
             start_time = time.time()
             result_entry = {
@@ -460,8 +462,7 @@ def run_api_test():
             'message': f'Completed {len(endpoints)} tests',
             'results': results,
             'passed': success_count,
-            'total': len(endpoints),
-            'serverUrl': server_url
+            'total': len(endpoints)
         })
     except Exception as e:
         print(f"[@postman_routes:run_api_test] Error: {e}")
