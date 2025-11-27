@@ -4,6 +4,14 @@ import { useServerManager } from '../useServerManager';
 import { TestCase, Campaign, Tree } from '../../types';
 import { DashboardStats, RecentActivity } from '../../types/pages/Dashboard_Types';
 
+// Cache configuration (30 second TTL for dashboard stats)
+const CACHE_TTL_MS = 30000; // 30 seconds
+let dashboardCache: {
+  data: DashboardStats;
+  timestamp: number;
+  serverKey: string;
+} | null = null;
+
 export interface UseDashboardReturn {
   // Data
   stats: DashboardStats;
@@ -59,6 +67,22 @@ export const useDashboard = (): UseDashboardReturn => {
         return;
       }
       
+      // Check cache first (use selectedServer URL as cache key)
+      const serverKey = selectedServerRef.current;
+      const now = Date.now();
+      
+      if (dashboardCache && 
+          dashboardCache.serverKey === serverKey && 
+          (now - dashboardCache.timestamp) < CACHE_TTL_MS) {
+        console.log(`[@useDashboard] Cache HIT (age: ${((now - dashboardCache.timestamp) / 1000).toFixed(1)}s)`);
+        setStats(dashboardCache.data);
+        setLoading(false);
+        setIsRequestInProgress(false);
+        return;
+      }
+      
+      console.log('[@useDashboard] Cache MISS - fetching fresh data');
+      
       // Fetch campaigns, testcases, trees using selected server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([
         fetch(buildSelectedServerUrl('/server/campaigns/getAllCampaigns', selectedServerRef.current)),
@@ -112,12 +136,22 @@ export const useDashboard = (): UseDashboardReturn => {
         ),
       ].slice(0, 5);
 
-      setStats({
+      const newStats = {
         testCases: testCases.length,
         campaigns: campaigns.length,
         trees: trees.length,
         recentActivity,
-      });
+      };
+      
+      setStats(newStats);
+      
+      // Update cache
+      dashboardCache = {
+        data: newStats,
+        timestamp: Date.now(),
+        serverKey,
+      };
+      console.log('[@useDashboard] Cache updated');
       
     } catch (err) {
       setError('Failed to fetch dashboard data');
@@ -129,8 +163,11 @@ export const useDashboard = (): UseDashboardReturn => {
   }, [isRequestInProgress]);
 
   const refreshData = useCallback(async () => {
+    // Force refresh - invalidate cache
+    console.log('[@useDashboard] Manual refresh - invalidating cache');
+    dashboardCache = null;
     await fetchDashboardData();
-  }, []);
+  }, [fetchDashboardData]);
 
   // Load data on mount and when selectedServer changes
   useEffect(() => {

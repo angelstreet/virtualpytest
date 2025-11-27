@@ -602,7 +602,7 @@ def delete_testcase(testcase_id: str, team_id: str = None) -> bool:
         return False
 
 
-def list_testcases(team_id: str, include_inactive: bool = False, environment: str = None) -> List[Dict[str, Any]]:
+def list_testcases(team_id: str, include_inactive: bool = False, environment: str = None, include_graph: bool = False) -> List[Dict[str, Any]]:
     """
     List all test cases for a team.
     
@@ -610,18 +610,26 @@ def list_testcases(team_id: str, include_inactive: bool = False, environment: st
         team_id: Team ID
         include_inactive: (Deprecated - kept for backward compatibility)
         environment: Filter by environment ('dev', 'test', 'prod') - None returns all
+        include_graph: If True, includes graph_json field (slower, use only when needed)
     
     Returns:
-        List of test case dicts (without full graph_json)
+        List of test case dicts
     """
     supabase = get_supabase()
     if not supabase:
         return []
     
     try:
-        # Note: Supabase doesn't support subqueries in select, so we get execution counts separately
+        # OPTIMIZED: Select fields based on need
+        # By default, exclude graph_json for performance (can be 100KB+ per testcase)
+        # Only include it when explicitly requested via include_graph=True
+        if include_graph:
+            select_fields = 'testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,environment,graph_json'
+        else:
+            select_fields = 'testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,environment'
+        
         query = supabase.table('testcase_definitions')\
-            .select('testcase_id,team_id,testcase_name,description,userinterface_name,created_at,updated_at,created_by,environment,graph_json')\
+            .select(select_fields)\
             .eq('team_id', team_id)
         
         # Filter by environment if specified
@@ -632,41 +640,73 @@ def list_testcases(team_id: str, include_inactive: bool = False, environment: st
         
         result = query.execute()
         
+        if not result.data:
+            return []
+        
+        # OPTIMIZED: Batch fetch version numbers for ALL testcases in a single query
+        testcase_ids = [tc['testcase_id'] for tc in result.data]
+        version_map = {}
+        
+        if testcase_ids:
+            try:
+                # Get MAX version for each testcase_id using PostgreSQL aggregation
+                # Note: Supabase Python client doesn't support GROUP BY directly,
+                # so we fetch all and aggregate in Python (still better than N queries)
+                version_result = supabase.table('testcase_definitions_history')\
+                    .select('testcase_id,version_number')\
+                    .eq('team_id', team_id)\
+                    .in_('testcase_id', testcase_ids)\
+                    .order('version_number', desc=True)\
+                    .execute()
+                
+                # Build version map (testcase_id -> max_version)
+                for record in version_result.data:
+                    tc_id = str(record['testcase_id'])
+                    if tc_id not in version_map:
+                        version_map[tc_id] = record['version_number']
+            except Exception as e:
+                print(f"[@testcase_db] Warning: Failed to fetch versions: {e}")
+        
+        # OPTIMIZED: Batch fetch execution stats for ALL testcases in a single query
+        testcase_names = [tc['testcase_name'] for tc in result.data]
+        exec_map = {}
+        
+        if testcase_names:
+            try:
+                # Fetch all execution records for these testcases
+                exec_result = supabase.table('script_results')\
+                    .select('script_name,success,started_at')\
+                    .eq('script_type', 'testcase')\
+                    .eq('team_id', team_id)\
+                    .in_('script_name', testcase_names)\
+                    .order('started_at', desc=True)\
+                    .execute()
+                
+                # Build execution map (testcase_name -> {count, last_success})
+                for record in exec_result.data:
+                    name = record['script_name']
+                    if name not in exec_map:
+                        exec_map[name] = {
+                            'count': 0,
+                            'last_success': record.get('success')
+                        }
+                    exec_map[name]['count'] += 1
+            except Exception as e:
+                print(f"[@testcase_db] Warning: Failed to fetch execution stats: {e}")
+        
+        # Build final testcase list with all metadata
         testcases = []
         for testcase in result.data:
             testcase['testcase_id'] = str(testcase['testcase_id'])
             testcase['team_id'] = str(testcase['team_id'])
             
-            # Get current version number from history
-            try:
-                version_result = supabase.table('testcase_definitions_history')\
-                    .select('version_number')\
-                    .eq('testcase_id', testcase['testcase_id'])\
-                    .eq('team_id', team_id)\
-                    .order('version_number', desc=True)\
-                    .limit(1)\
-                    .execute()
-                
-                # If there's history, the current version is MAX(version_number)
-                # If no history, this is version 1 (not yet updated)
-                testcase['current_version'] = version_result.data[0]['version_number'] if version_result.data else 1
-            except:
-                testcase['current_version'] = 1
+            # Add version from batch-fetched map
+            testcase['current_version'] = version_map.get(testcase['testcase_id'], 1)
             
-            # Get execution count and last success
-            try:
-                exec_result = supabase.table('script_results')\
-                    .select('success')\
-                    .eq('script_type', 'testcase')\
-                    .eq('script_name', testcase['testcase_name'])\
-                    .order('started_at', desc=True)\
-                    .execute()
-                
-                testcase['execution_count'] = len(exec_result.data) if exec_result.data else 0
-                testcase['last_execution_success'] = exec_result.data[0]['success'] if exec_result.data else None
-            except:
-                testcase['execution_count'] = 0
-                testcase['last_execution_success'] = None
+            # Add execution stats from batch-fetched map
+            exec_info = exec_map.get(testcase['testcase_name'], {})
+            testcase['execution_count'] = exec_info.get('count', 0)
+            testcase['last_execution_success'] = exec_info.get('last_success')
             
             testcases.append(testcase)
         

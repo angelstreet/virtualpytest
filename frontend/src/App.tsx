@@ -1,7 +1,7 @@
 import { Science } from '@mui/icons-material';
 import { Container, AppBar, Toolbar, Typography, Box, CircularProgress } from '@mui/material';
 import React, { Suspense } from 'react';
-import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 
 // Import navigation components (keep these as regular imports since they're always needed)
 import Footer from './components/common/Footer';
@@ -13,6 +13,14 @@ import { HostManagerProvider } from './contexts/HostManagerProvider';
 import { ServerManagerProvider } from './contexts/ServerManagerProvider';
 import { ToastProvider } from './contexts/ToastContext';
 import { BuilderProvider } from './contexts/builder/BuilderContext';
+
+// Auth components and providers
+import { AuthProvider } from './contexts/auth/AuthContext';
+import { PermissionProvider } from './contexts/auth/PermissionContext';
+import { LoginPage, ProtectedRoute, AuthCallback } from './components/auth';
+import { UserMenu } from './components/auth/UserMenu';
+import { useAuth } from './hooks/auth/useAuth';
+import { isAuthEnabled } from './lib/supabase';
 
 // Lazy load all pages for better performance and to avoid loading everything at once
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
@@ -45,7 +53,6 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const MCPPlayground = React.lazy(() => import('./pages/MCPPlayground'));
 const GrafanaRedirect = React.lazy(() => import('./pages/GrafanaRedirect'));
 const ApiDocumentation = React.lazy(() => import('./pages/ApiDocumentation'));
-const PostmanWorkspace = React.lazy(() => import('./pages/PostmanWorkspace'));
 const UserApiWorkspaces = React.lazy(() => import('./pages/UserApiWorkspaces'));
 const UserApiWorkspaceDetail = React.lazy(() => import('./pages/UserApiWorkspaceDetail'));
 const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
@@ -131,6 +138,58 @@ const LoadingSpinner: React.FC = () => (
   </Box>
 );
 
+// Header component that checks auth state
+const AppHeader: React.FC = () => {
+  const location = useLocation();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  // Hide header on login and callback pages
+  const isAuthPage = location.pathname === '/login' || location.pathname === '/auth/callback';
+  
+  // Show header if: auth disabled OR user authenticated OR not on auth pages
+  const shouldShowHeader = !isAuthEnabled || (isAuthenticated && !isAuthPage);
+
+  if (isAuthPage || isLoading) {
+    // Minimal header for login page
+    return (
+      <AppBar position="static" elevation={1}>
+        <Toolbar>
+          <Science sx={{ mr: 2 }} />
+          <Typography variant="h6" component="div" sx={{ flexGrow: 1 }}>
+            VirtualPyTest
+          </Typography>
+          <ThemeToggle />
+        </Toolbar>
+      </AppBar>
+    );
+  }
+
+  if (!shouldShowHeader) {
+    return null;
+  }
+
+  // Full header with navigation
+  return (
+    <AppBar position="static" elevation={1}>
+      <Toolbar>
+        <Science sx={{ mr: 2 }} />
+        <Typography variant="h6" component="div" sx={{ mr: 3 }}>
+          VirtualPyTest
+        </Typography>
+        <ServerSelector size="small" minWidth={160} />
+        <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, mr: 2 }}>
+          <NavigationBar />
+        </Box>
+        <Box sx={{ flexGrow: 1 }} />
+        <ThemeToggle />
+        <Box sx={{ ml: 2 }}>
+          <UserMenu />
+        </Box>
+      </Toolbar>
+    </AppBar>
+  );
+};
+
 const App: React.FC = () => {
   // Detect if app is running under a proxy path (e.g., /pi4/)
   // Check if current path starts with /piX/ pattern
@@ -142,24 +201,14 @@ const App: React.FC = () => {
   
   return (
         <Router basename={getBasename()}>
-      <ToastProvider>
-        <BuilderProvider>
-          <ServerManagerProvider>
-            <HostManagerProvider>
-              <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
-            <AppBar position="static" elevation={1}>
-              <Toolbar>
-                <Science sx={{ mr: 2 }} />
-                <Typography variant="h6" component="div" sx={{ mr: 3 }}>
-                  VirtualPyTest
-                </Typography>
-                <ServerSelector size="small" minWidth={160} />
-                <Box sx={{ display: 'flex', alignItems: 'center', ml: 2, mr: 2 }}>
-                  <NavigationBar />
-                </Box>
-                <ThemeToggle />
-              </Toolbar>
-            </AppBar>
+      <AuthProvider>
+        <PermissionProvider>
+          <ToastProvider>
+            <BuilderProvider>
+              <ServerManagerProvider>
+                <HostManagerProvider>
+                  <Box sx={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+                <AppHeader />
             <Container
               maxWidth="lg"
               sx={{
@@ -173,8 +222,13 @@ const App: React.FC = () => {
             >
               <Suspense fallback={<LoadingSpinner />}>
                 <Routes>
-                  {/* Dashboard */}
-                  <Route path="/" element={<Dashboard />} />
+                  {/* Public Routes - Only login and OAuth callback */}
+                  <Route path="/login" element={<LoginPage />} />
+                  <Route path="/auth/callback" element={<AuthCallback />} />
+
+                  {/* All other routes require authentication */}
+                  <Route element={<ProtectedRoute />}>
+                    <Route path="/" element={<Dashboard />} />
 
                   {/* Rec Page */}
                   <Route path="/rec" element={<Rec />} />
@@ -215,16 +269,19 @@ const App: React.FC = () => {
                   {/* Grafana Direct Access - Redirects to VITE_GRAFANA_URL */}
                   <Route path="/grafana/*" element={<GrafanaRedirect />} />
 
-                  {/* User API Testing Routes */}
-                  <Route path="/api/workspaces" element={<UserApiWorkspaces />} />
-                  <Route path="/api/workspace/:workspaceId" element={<UserApiWorkspaceDetail />} />
+                  {/* User API Testing Routes - Protected by permission */}
+                  <Route element={<ProtectedRoute requiredPermission="api_testing" />}>
+                    <Route path="/api/workspaces" element={<UserApiWorkspaces />} />
+                    <Route path="/api/workspace/:workspaceId" element={<UserApiWorkspaceDetail />} />
+                  </Route>
                   
                   {/* VirtualPyTest Documentation Routes */}
                   <Route path="/docs/api" element={<ApiDocumentation />} />
-                  <Route path="/docs/postman" element={<PostmanWorkspace />} />
 
-                  {/* Integrations Routes */}
-                  <Route path="/integrations/jira" element={<JiraIntegration />} />
+                  {/* Integrations Routes - Protected by permission */}
+                  <Route element={<ProtectedRoute requiredPermission="jira_integration" />}>
+                    <Route path="/integrations/jira" element={<JiraIntegration />} />
+                  </Route>
 
                   {/* Configuration Routes */}
                   <Route
@@ -235,11 +292,21 @@ const App: React.FC = () => {
                     path="/configuration/"
                     element={<Navigate to="/configuration/models" replace />}
                   />
-                  <Route path="/configuration/models" element={<Models />} />
+                  
+                  {/* Admin-only configuration routes */}
+                  <Route element={<ProtectedRoute requiredRole="admin" />}>
+                    <Route path="/configuration/models" element={<Models />} />
+                    <Route path="/configuration/settings" element={<Settings />} />
+                  </Route>
+                  
+                  {/* Regular configuration routes */}
                   <Route path="/configuration/interface" element={<UserInterface />} />
-                  <Route path="/configuration/settings" element={<Settings />} />
                   <Route path="/configuration/openrouter" element={<OpenRouterDebug />} />
-                  <Route path="/configuration/api-testing" element={<ApiTestingPage />} />
+                  
+                  {/* API Testing - requires permission */}
+                  <Route element={<ProtectedRoute requiredPermission="api_testing" />}>
+                    <Route path="/configuration/api-testing" element={<ApiTestingPage />} />
+                  </Route>
 
                   {/* Navigation Editor Route */}
                   <Route
@@ -254,8 +321,9 @@ const App: React.FC = () => {
                   {/* Debug Routes */}
                   <Route path="/debug/hls" element={<HLSDebugPage />} />
 
-                  {/* Catch-all route for 404 */}
-                  <Route path="*" element={<NotFound />} />
+                    {/* Catch-all route for 404 */}
+                    <Route path="*" element={<NotFound />} />
+                  </Route>
                 </Routes>
               </Suspense>
             </Container>
@@ -265,10 +333,12 @@ const App: React.FC = () => {
 
             <Footer />
           </Box>
-          </HostManagerProvider>
-        </ServerManagerProvider>
-        </BuilderProvider>
-      </ToastProvider>
+                </HostManagerProvider>
+              </ServerManagerProvider>
+            </BuilderProvider>
+          </ToastProvider>
+        </PermissionProvider>
+      </AuthProvider>
     </Router>
   );
 };

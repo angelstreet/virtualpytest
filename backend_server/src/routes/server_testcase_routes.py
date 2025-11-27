@@ -128,15 +128,23 @@ def testcase_save():
 
 @server_testcase_bp.route('/list', methods=['GET'])
 def testcase_list():
-    """List all test cases for a team"""
+    """
+    List all test cases for a team
+    
+    Query params:
+        - team_id: Required
+        - include_inactive: Optional (default: false)
+        - include_graph: Optional (default: false) - Include graph_json field (slower)
+    """
     try:
         team_id = request.args.get('team_id')
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
         include_inactive = request.args.get('include_inactive', 'false').lower() == 'true'
+        include_graph = request.args.get('include_graph', 'false').lower() == 'true'
         
-        testcases = list_testcases(team_id, include_inactive=include_inactive)
+        testcases = list_testcases(team_id, include_inactive=include_inactive, include_graph=include_graph)
         
         return jsonify({'success': True, 'testcases': testcases})
         

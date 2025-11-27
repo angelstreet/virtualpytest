@@ -130,11 +130,6 @@ const NavigationBar: React.FC = () => {
       path: '/docs/api',
       icon: <ApiIcon fontSize="small" />,
     },
-    {
-      label: 'Postman Workspace',
-      path: '/docs/postman',
-      icon: <ApiIcon fontSize="small" />,
-    },
   ];
 
   // Third-party Integrations menu items

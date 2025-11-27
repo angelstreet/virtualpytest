@@ -1,5 +1,8 @@
 // Export all web hooks from organized structure
 
+// Auth Hooks
+export * from './auth';
+
 // Core Hooks
 export * from './useToast';
 

@@ -1,5 +1,6 @@
 import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip, Typography } from '@mui/material';
 import { OpenInNew, Refresh } from '@mui/icons-material';
+import ApiIcon from '@mui/icons-material/Api';
 import React, { useState } from 'react';
 
 interface ApiDoc {
@@ -87,6 +88,15 @@ const ApiDocumentation: React.FC = () => {
               size="medium"
             >
               <OpenInNew />
+            </IconButton>
+          </Tooltip>
+          <Tooltip title="Open Postman Workspace">
+            <IconButton
+              onClick={() => window.open('https://www.postman.com/angelstreet-6173fb0b-1548216/virtualpytest-api-testing/overview', '_blank')}
+              color="secondary"
+              size="medium"
+            >
+              <ApiIcon />
             </IconButton>
           </Tooltip>
         </Box>

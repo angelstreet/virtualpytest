@@ -90,16 +90,23 @@ def testcase_save():
 
 @host_testcase_bp.route('/list', methods=['GET'])
 def testcase_list():
-    """List all test cases for a team"""
+    """
+    List all test cases for a team
+    
+    Query params:
+        - team_id: Required
+        - include_graph: Optional (default: false) - Include graph_json field (slower)
+    """
     try:
         from shared.src.lib.database.testcase_db import list_testcases
         
         team_id = request.args.get('team_id')
-        
         if not team_id:
             return jsonify({'success': False, 'error': 'team_id is required'}), 400
         
-        testcases = list_testcases(team_id)
+        include_graph = request.args.get('include_graph', 'false').lower() == 'true'
+        
+        testcases = list_testcases(team_id, include_graph=include_graph)
         
         return jsonify({
             'success': True,
