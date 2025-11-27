@@ -1603,28 +1603,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 console.error('[@NavigationEditor] ❌ Cannot reload tree - actualTreeId is undefined!');
               }
             }}
-            onFinalized={async () => {
-              // ✅ Reload tree after finalize to show updated labels (removed _temp suffix)
-              const treeType = navigation.parentChain.length > 0 ? 'subtree' : 'root tree';
-              const treeContext = navigation.parentChain.length > 0 
-                ? `(subtree: ${actualTreeId}, depth: ${navigation.parentChain.length})` 
-                : `(root tree: ${actualTreeId})`;
-              
-              console.log(`[@NavigationEditor] 🔄 Reloading ${treeType} data after finalize ${treeContext}`);
-              
-              if (actualTreeId && userInterface?.id) {
-                try {
-                  navigationConfig.invalidateTreeCache(userInterface.id);
-                  
-                  // ✅ Reload CURRENT tree (preserves subtree context if in subtree)
-                  await loadTreeData(actualTreeId);
-                  
-                  console.log(`[@NavigationEditor] ✅ Tree data reloaded for ${treeType} after finalize`);
-                } catch (error) {
-                  console.error(`[@NavigationEditor] ❌ Failed to reload ${treeType} after finalize:`, error);
-                }
-              }
-            }}
+            onFinalized={handleAIGenerated}
             onCleanupTemp={() => {
               // Clean up _temp nodes from frontend state (match by label, not ID)
               const tempNodes = nodes.filter(node => node.data?.label?.endsWith('_temp'));
@@ -1764,10 +1743,8 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
                 console.error('[@NavigationEditor] Error finalizing structure:', err);
               }
               
-              // ✅ FIX: Don't reload tree unnecessarily - just refresh cache
-              // The nodes/edges were already renamed by backend, just invalidate cache
-              console.log('[@NavigationEditor] Invalidating cache after finalization');
-              navigationConfig.invalidateTreeCache(userInterface?.id);
+              // ✅ Refresh tree to show renamed nodes (same as old onGenerated callback)
+              await handleAIGenerated();
               
               // Close modal
               setIsValidationModalOpen(false);
@@ -1775,9 +1752,6 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
               // Reset exploration state
               setExplorationId(null);
               setExplorationHostName(null);
-              
-              // ✅ Show success message
-              console.log('[@NavigationEditor] ✅ Validation complete - structure finalized');
             }}
           />
         )}
