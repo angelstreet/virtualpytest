@@ -18,16 +18,11 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  FormControl,
-  InputLabel,
-  Select,
-  MenuItem,
 } from '@mui/material';
 import {
   ArrowBack,
   ExpandMore,
   PlayArrow,
-  Schedule,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
@@ -48,11 +43,6 @@ interface Collection {
   requests?: Request[];
 }
 
-interface Environment {
-  id: string;
-  name: string;
-}
-
 interface Workspace {
   id: string;
   name: string;
@@ -65,8 +55,6 @@ const UserApiWorkspaceDetail: React.FC = () => {
   
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
-  const [environments, setEnvironments] = useState<Environment[]>([]);
-  const [selectedEnvironment, setSelectedEnvironment] = useState<string>('');
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -78,13 +66,6 @@ const UserApiWorkspaceDetail: React.FC = () => {
   useEffect(() => {
     loadWorkspaceAndCollections();
   }, [workspaceId]);
-
-  // Auto-select first environment
-  useEffect(() => {
-    if (environments.length > 0 && !selectedEnvironment) {
-      setSelectedEnvironment(environments[0].id);
-    }
-  }, [environments]);
 
   const loadWorkspaceAndCollections = async () => {
     setLoading(true);
@@ -113,17 +94,6 @@ const UserApiWorkspaceDetail: React.FC = () => {
         setCollections(collData.collections);
       } else {
         setError(collData.error || 'Failed to load collections');
-      }
-
-      // Load environments
-      const envResponse = await fetch(buildServerUrl(`/server/postman/workspaces/${workspaceId}/environments`));
-      const envData = await envResponse.json();
-      
-      if (envData.success) {
-        setEnvironments(envData.environments);
-      } else {
-        console.warn('Failed to load environments:', envData.error);
-        // Don't set error - environments are optional
       }
     } catch (err) {
       setError('Error connecting to server');
@@ -224,11 +194,6 @@ const UserApiWorkspaceDetail: React.FC = () => {
       return;
     }
 
-    if (!selectedEnvironment) {
-      alert('Please select an environment (provides server URL)');
-      return;
-    }
-
     setRunning(true);
     setTestResult(null);
 
@@ -256,7 +221,6 @@ const UserApiWorkspaceDetail: React.FC = () => {
         body: JSON.stringify({
           workspaceId,
           workspaceName: workspace?.name,
-          environmentId: selectedEnvironment || undefined,
           endpoints,
         }),
       });
@@ -291,106 +255,84 @@ const UserApiWorkspaceDetail: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 3 }}>
-      {/* Header */}
-      <Box sx={{ mb: 3 }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: 'calc(100vh - 64px)' }}>
+      {/* Compact Header */}
+      <Box sx={{ px: 3, pt: 2, pb: 1 }}>
         <Button
           startIcon={<ArrowBack />}
           onClick={() => navigate('/api/workspaces')}
-          sx={{ mb: 2 }}
+          size="small"
+          sx={{ mb: 0.5 }}
         >
           Back to Workspaces
         </Button>
         
-        <Typography variant="h4" sx={{ mb: 1 }}>
+        <Typography variant="h5">
           {workspace.name}
         </Typography>
-        {workspace.description && (
-          <Typography variant="body2" color="text.secondary">
-            {workspace.description}
-          </Typography>
+
+        {error && (
+          <Alert severity="error" sx={{ mt: 1 }}>
+            {error}
+          </Alert>
+        )}
+
+        {testResult && (
+          <Alert severity={testResult.success ? 'success' : 'error'} sx={{ mt: 1 }} onClose={() => setTestResult(null)}>
+            {testResult.success ? testResult.message : testResult.error}
+            {testResult.note && (
+              <Typography variant="caption" display="block" sx={{ mt: 1 }}>
+                {testResult.note}
+              </Typography>
+            )}
+          </Alert>
         )}
       </Box>
 
-      {error && (
-        <Alert severity="error" sx={{ mb: 2 }}>
-          {error}
-        </Alert>
-      )}
-
-      {testResult && (
-        <Alert severity={testResult.success ? 'success' : 'error'} sx={{ mb: 2 }} onClose={() => setTestResult(null)}>
-          {testResult.success ? testResult.message : testResult.error}
-          {testResult.note && (
-            <Typography variant="caption" display="block" sx={{ mt: 1 }}>
-              {testResult.note}
-            </Typography>
-          )}
-        </Alert>
-      )}
-
-      {/* Environment Selector */}
-      {environments.length > 0 && (
-        <FormControl fullWidth size="small" sx={{ mb: 2 }}>
-          <InputLabel id="environment-select-label">Environment</InputLabel>
-          <Select
-            labelId="environment-select-label"
-            id="environment-select"
-            value={selectedEnvironment}
-            label="Environment"
-            onChange={(e) => setSelectedEnvironment(e.target.value)}
-            MenuProps={{
-              PaperProps: {
-                style: {
-                  maxHeight: 200,
-                },
-              },
-            }}
+      {/* Sticky Action Bar */}
+      <Box 
+        sx={{ 
+          position: 'sticky',
+          top: 0,
+          zIndex: 10,
+          bgcolor: 'background.default',
+          borderBottom: 1,
+          borderColor: 'divider',
+          px: 3,
+          py: 1.5,
+          boxShadow: 1
+        }}
+      >
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Button
+            variant="contained"
+            size="large"
+            fullWidth
+            startIcon={running ? <CircularProgress size={20} /> : <PlayArrow />}
+            onClick={handleRunTests}
+            disabled={selectedRequests.size === 0 || running}
           >
-            {environments.map((env) => (
-              <MenuItem key={env.id} value={env.id}>
-                {env.name}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
-      )}
-
-      {/* Actions */}
-      <Box sx={{ mb: 2, display: 'flex', gap: 1, alignItems: 'center' }}>
-        <Button
-          variant="contained"
-          startIcon={running ? <CircularProgress size={16} /> : <PlayArrow />}
-          onClick={handleRunTests}
-          disabled={selectedRequests.size === 0 || running || !selectedEnvironment}
-        >
-          Run Selected Tests ({selectedRequests.size})
-        </Button>
-        <Button
-          variant="outlined"
-          startIcon={<Schedule />}
-          onClick={() => navigate('/deployments')}
-          disabled={selectedRequests.size === 0}
-        >
-          Deploy to Schedule
-        </Button>
-        <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
-          {collections.length} collections
-        </Typography>
+            Run Now ({selectedRequests.size})
+          </Button>
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 2, minWidth: 100, textAlign: 'right' }}>
+            {collections.length} collections
+          </Typography>
+        </Box>
       </Box>
 
-      {/* Collections */}
-      {collections.length === 0 && (
-        <Card>
-          <CardContent>
-            <Typography variant="body1" color="text.secondary" align="center">
-              No collections found in this workspace.
-            </Typography>
-          </CardContent>
-        </Card>
-      )}
+      {/* Scrollable Collections Area */}
+      <Box sx={{ flex: 1, overflow: 'auto', px: 3, py: 2 }}>
+        {collections.length === 0 && (
+          <Card>
+            <CardContent>
+              <Typography variant="body1" color="text.secondary" align="center">
+                No collections found in this workspace.
+              </Typography>
+            </CardContent>
+          </Card>
+        )}
 
-      {collections.map((collection) => {
+        {collections.map((collection) => {
         const isExpanded = expandedCollections.has(collection.id);
         const isLoadingRequests = loadingRequests.has(collection.id);
         const allSelected = collection.requests?.every(r => selectedRequests.has(r.id)) || false;
@@ -480,16 +422,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
           </Accordion>
         );
       })}
-
-      {selectedRequests.size > 0 && (
-        <Box sx={{ mt: 3 }}>
-          <Alert severity="info">
-            <Typography variant="body2">
-              Results are stored in the database. To schedule recurring tests, go to Deployments.
-            </Typography>
-          </Alert>
-        </Box>
-      )}
+      </Box>
     </Box>
   );
 };

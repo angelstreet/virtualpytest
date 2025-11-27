@@ -41,7 +41,7 @@ def auto_proxy(endpoint):
     try:
         # Explicit exclusions for endpoints that don't need host proxying
         # Note: mcp/ is handled by blueprint precedence, not explicit exclusion
-        if endpoint.startswith('executable/') or endpoint.startswith('settings/'):
+        if endpoint.startswith(('executable/', 'settings/', 'teams/', 'users/', 'auth/')):
             return jsonify({
                 'success': False,
                 'error': f'Endpoint /server/{endpoint} is handled by a dedicated blueprint, not auto-proxy'

@@ -194,14 +194,6 @@ const UserApiWorkspaces: React.FC = () => {
           </Grid>
         ))}
       </Grid>
-
-      {workspaces.length > 0 && (
-        <Box sx={{ mt: 3 }}>
-          <Alert severity="info">
-            Click a workspace to test endpoints. Schedule tests in Deployments.
-          </Alert>
-        </Box>
-      )}
     </Box>
   );
 };

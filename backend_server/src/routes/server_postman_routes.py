@@ -2,13 +2,22 @@ from flask import Blueprint, jsonify, request
 import os
 import json
 import requests
+import time
+import threading
 from pathlib import Path
+from shared.src.lib.config.constants import CACHE_CONFIG
 
 server_postman_bp = Blueprint('server_postman_bp', __name__, url_prefix='/server/postman')
 
 # Path to workspaces config
 BACKEND_SERVER_ROOT = Path(__file__).parent.parent.parent
 WORKSPACES_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'postman' / 'postman_workspaces.json'
+
+# ============================================================================
+# IN-MEMORY CACHE FOR POSTMAN COLLECTIONS
+# ============================================================================
+_postman_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
+_cache_lock = threading.Lock()
 
 def load_workspaces_config():
     """Load workspaces configuration from JSON file"""
@@ -83,8 +92,21 @@ def get_user_workspaces():
 
 @server_postman_bp.route('/workspaces/<workspace_id>/collections', methods=['GET'])
 def get_workspace_collections(workspace_id):
-    """Get collections for a workspace using Postman API"""
+    """Get collections for a workspace using Postman API (with 5-minute cache)"""
     try:
+        # Check cache first
+        cache_key = f"collections:{workspace_id}"
+        with _cache_lock:
+            if cache_key in _postman_cache:
+                cached = _postman_cache[cache_key]
+                age = time.time() - cached['timestamp']
+                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                    print(f"[@cache] HIT: Postman collections for {workspace_id} (age: {age:.1f}s)")
+                    return jsonify(cached['data'])
+                else:
+                    del _postman_cache[cache_key]
+                    print(f"[@cache] EXPIRED: Postman collections for {workspace_id} (age: {age:.1f}s)")
+        
         workspace = get_workspace_by_id(workspace_id)
         if not workspace:
             return jsonify({
@@ -95,6 +117,8 @@ def get_workspace_collections(workspace_id):
         # Call Postman API (backend handles API key - secure!)
         api_key = workspace['apiKey']
         postman_workspace_id = workspace['workspaceId']
+        
+        print(f"[@postman_routes] Fetching collections from Postman API for workspace {workspace_id}...")
         
         # Get collections in workspace
         data = call_postman_api(f"/collections?workspace={postman_workspace_id}", api_key)
@@ -130,10 +154,20 @@ def get_workspace_collections(workspace_id):
                     'requestCount': 0
                 })
         
-        return jsonify({
+        response_data = {
             'success': True,
             'collections': enhanced_collections
-        })
+        }
+        
+        # Store in cache
+        with _cache_lock:
+            _postman_cache[cache_key] = {
+                'data': response_data,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Postman collections for {workspace_id} (TTL: {CACHE_CONFIG['MEDIUM_TTL']}s)")
+        
+        return jsonify(response_data)
     except Exception as e:
         print(f"[@postman_routes:get_workspace_collections] Error: {e}")
         return jsonify({
@@ -144,14 +178,29 @@ def get_workspace_collections(workspace_id):
 
 @server_postman_bp.route('/workspaces/<workspace_id>/environments', methods=['GET'])
 def get_workspace_environments(workspace_id):
-    """Get environments for a workspace using Postman API"""
+    """Get environments for a workspace using Postman API (with 5-minute cache)"""
     try:
+        # Check cache first
+        cache_key = f"environments:{workspace_id}"
+        with _cache_lock:
+            if cache_key in _postman_cache:
+                cached = _postman_cache[cache_key]
+                age = time.time() - cached['timestamp']
+                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                    print(f"[@cache] HIT: Postman environments for {workspace_id} (age: {age:.1f}s)")
+                    return jsonify(cached['data'])
+                else:
+                    del _postman_cache[cache_key]
+                    print(f"[@cache] EXPIRED: Postman environments for {workspace_id} (age: {age:.1f}s)")
+        
         workspace = get_workspace_by_id(workspace_id)
         if not workspace:
             return jsonify({
                 'success': False,
                 'error': 'Workspace not found'
             }), 404
+        
+        print(f"[@postman_routes] Fetching environments from Postman API for workspace {workspace_id}...")
         
         # Call Postman API
         api_key = workspace['apiKey']
@@ -170,10 +219,20 @@ def get_workspace_environments(workspace_id):
                 'name': env['name'],
             })
         
-        return jsonify({
+        response_data = {
             'success': True,
             'environments': formatted_environments
-        })
+        }
+        
+        # Store in cache
+        with _cache_lock:
+            _postman_cache[cache_key] = {
+                'data': response_data,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Postman environments for {workspace_id} (TTL: {CACHE_CONFIG['MEDIUM_TTL']}s)")
+        
+        return jsonify(response_data)
     except Exception as e:
         print(f"[@postman_routes:get_workspace_environments] Error: {e}")
         return jsonify({
@@ -231,7 +290,7 @@ def get_environment_details(environment_id):
 
 @server_postman_bp.route('/collections/<collection_id>/requests', methods=['GET'])
 def get_collection_requests(collection_id):
-    """Get all requests/endpoints from a collection"""
+    """Get all requests/endpoints from a collection (with 5-minute cache)"""
     try:
         # Extract workspace_id from query params
         workspace_id = request.args.get('workspace_id')
@@ -241,12 +300,27 @@ def get_collection_requests(collection_id):
                 'error': 'workspace_id query parameter required'
             }), 400
         
+        # Check cache first
+        cache_key = f"requests:{collection_id}"
+        with _cache_lock:
+            if cache_key in _postman_cache:
+                cached = _postman_cache[cache_key]
+                age = time.time() - cached['timestamp']
+                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                    print(f"[@cache] HIT: Postman requests for collection {collection_id} (age: {age:.1f}s)")
+                    return jsonify(cached['data'])
+                else:
+                    del _postman_cache[cache_key]
+                    print(f"[@cache] EXPIRED: Postman requests for collection {collection_id} (age: {age:.1f}s)")
+        
         workspace = get_workspace_by_id(workspace_id)
         if not workspace:
             return jsonify({
                 'success': False,
                 'error': 'Workspace not found'
             }), 404
+        
+        print(f"[@postman_routes] Fetching requests from Postman API for collection {collection_id}...")
         
         # Call Postman API
         api_key = workspace['apiKey']
@@ -258,10 +332,20 @@ def get_collection_requests(collection_id):
         requests_list = []
         extract_requests_from_items(collection.get('item', []), requests_list)
         
-        return jsonify({
+        response_data = {
             'success': True,
             'requests': requests_list
-        })
+        }
+        
+        # Store in cache
+        with _cache_lock:
+            _postman_cache[cache_key] = {
+                'data': response_data,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Postman requests for collection {collection_id} (TTL: {CACHE_CONFIG['MEDIUM_TTL']}s)")
+        
+        return jsonify(response_data)
     except Exception as e:
         print(f"[@postman_routes:get_collection_requests] Error: {e}")
         return jsonify({
@@ -272,29 +356,18 @@ def get_collection_requests(collection_id):
 
 @server_postman_bp.route('/test', methods=['POST'])
 def run_api_test():
-    """Run API test immediately for selected endpoints"""
+    """Run API test immediately for selected endpoints (tests on current server)"""
     try:
         data = request.json
         workspace_id = data.get('workspaceId')
         workspace_name = data.get('workspaceName')
         endpoints = data.get('endpoints', [])
-        environment_id = data.get('environmentId')
         
         if not endpoints:
             return jsonify({
                 'success': False,
                 'error': 'No endpoints provided'
             }), 400
-        
-        if not environment_id:
-            return jsonify({
-                'success': False,
-                'error': 'Please select a Postman environment (required for server URL)'
-            }), 400
-        
-        # Get environment variables
-        env_variables = {}
-        server_url = None
         
         workspace = get_workspace_by_id(workspace_id)
         if not workspace:
@@ -303,33 +376,21 @@ def run_api_test():
                 'error': 'Workspace not found'
             }), 404
         
-        api_key = workspace['apiKey']
-        try:
-            env_data = call_postman_api(f"/environments/{environment_id}", api_key)
-            environment = env_data.get('environment', {})
-            for var in environment.get('values', []):
-                if var.get('enabled', True):
-                    env_variables[var['key']] = var['value']
-            print(f"[@postman_routes:run_api_test] Using environment variables: {list(env_variables.keys())}")
-        except Exception as e:
-            print(f"[@postman_routes:run_api_test] Error loading environment: {e}")
-            return jsonify({
-                'success': False,
-                'error': f'Failed to load environment: {str(e)}'
-            }), 500
+        # Determine server URL from request origin
+        # If frontend is on localhost:5173, backend is on localhost:5109
+        # Use the Host header to determine where we're running
+        host_header = request.headers.get('Host', 'localhost:5109')
         
-        # Get base_url from environment (required!)
-        if 'base_url' in env_variables:
-            server_url = env_variables['base_url']
-            print(f"[@postman_routes:run_api_test] Using base_url from environment: {server_url}")
-        elif 'baseUrl' in env_variables:
-            server_url = env_variables['baseUrl']
-            print(f"[@postman_routes:run_api_test] Using baseUrl from environment: {server_url}")
+        # Extract host and determine corresponding backend_host port
+        # Server is on 5109, Host is on 5073
+        if 'localhost' in host_header or '127.0.0.1' in host_header:
+            server_url = 'http://localhost:5073'
         else:
-            return jsonify({
-                'success': False,
-                'error': 'Environment must contain "base_url" or "baseUrl" variable'
-            }), 400
+            # Production or other environment
+            # Replace server port (5109) with host port (5073)
+            server_url = f"http://{host_header.replace(':5109', ':5073')}"
+        
+        print(f"[@postman_routes:run_api_test] Determined server URL from Host header '{host_header}': {server_url}")
         
         # Format endpoints for api_test.py
         endpoint_paths = [f"{ep['method']} {ep['path']}" for ep in endpoints]
@@ -339,13 +400,11 @@ def run_api_test():
         # For now, return the parameters that would be used
         print(f"[@postman_routes:run_api_test] Would run: api_test.py --endpoints '{endpoints_param}'")
         print(f"[@postman_routes:run_api_test] Server URL: {server_url}")
-        print(f"[@postman_routes:run_api_test] Environment variables: {env_variables}")
         
         return jsonify({
             'success': True,
-            'message': f'Test queued for {len(endpoints)} endpoints',
+            'message': f'Test queued for {len(endpoints)} endpoints on {server_url}',
             'endpoints': endpoint_paths,
-            'environment': environment_id or 'none',
             'serverUrl': server_url,
             'note': 'View results in Deployments page'
         })
