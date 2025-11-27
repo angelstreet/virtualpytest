@@ -1,5 +1,5 @@
 import React, { createContext, useContext, useEffect, useState } from 'react';
-import { User, Session, AuthError } from '@supabase/supabase-js';
+import { User, Session } from '@supabase/supabase-js';
 import { supabase } from '../../lib/supabase';
 import { UserProfile } from '../../types/auth';
 
@@ -81,11 +81,11 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   // Initialize auth state
   useEffect(() => {
     let mounted = true;
-    let timeoutCleared = false;
+    let initialLoadHandled = false;
     
-    // Safety timeout - clear loading if auth listener doesn't fire (e.g. network issues)
+    // Safety timeout - clear loading if auth completely fails
     const timeout = setTimeout(() => {
-      if (mounted && isLoading && !timeoutCleared) {
+      if (mounted && isLoading && !initialLoadHandled) {
         console.warn('[@AuthContext] Auth initialization timeout - clearing loading state');
         setIsLoading(false);
       }
@@ -100,9 +100,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
         
         if (sessionError) {
           console.error('[@AuthContext] Session error:', sessionError);
-          if (mounted && !timeoutCleared) {
+          if (mounted) {
             setIsLoading(false);
-            timeoutCleared = true;
+            initialLoadHandled = true;
             clearTimeout(timeout);
           }
           return;
@@ -125,18 +125,21 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
             
             // Clear loading only after profile is fetched
             setIsLoading(false);
-            timeoutCleared = true;
+            initialLoadHandled = true;
             clearTimeout(timeout);
           }
-        } else if (mounted && !timeoutCleared) {
-           // No session found immediately - wait for listener or timeout
-           console.log('[@AuthContext] No immediate session found - waiting for listener');
+        } else if (mounted) {
+           // No session found immediately - clear loading and let user see login
+           console.log('[@AuthContext] No immediate session found');
+           setIsLoading(false);
+           initialLoadHandled = true;
+           clearTimeout(timeout);
         }
       } catch (error: any) {
         console.error('[@AuthContext] Error initializing auth:', error.message);
-        if (mounted && !timeoutCleared) {
+        if (mounted) {
           setIsLoading(false);
-          timeoutCleared = true;
+          initialLoadHandled = true;
           clearTimeout(timeout);
         }
       }
@@ -144,29 +147,37 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
     initAuth();
 
-    // Listen for auth changes
+    // Listen for auth changes (login, logout, token refresh)
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       async (event, newSession) => {
         console.log('[@AuthContext] Auth state changed:', event, newSession ? `User: ${newSession.user.email}` : 'No session');
         
         if (!mounted) return;
 
+        // Skip SIGNED_IN event on initial load (already handled by initAuth)
+        if (event === 'SIGNED_IN' && !initialLoadHandled) {
+          console.log('[@AuthContext] Skipping SIGNED_IN event - already handled by initAuth');
+          return;
+        }
+
         setSession(newSession);
         setUser(newSession?.user ?? null);
 
         if (newSession?.user) {
           const userProfile = await fetchProfile(newSession.user.id);
-          if (userProfile) {
+          if (mounted && userProfile) {
             console.log('[@AuthContext] Profile updated:', userProfile.role);
+            setProfile(userProfile);
           }
-          setProfile(userProfile);
         } else {
           setProfile(null);
         }
 
-        setIsLoading(false);
-        timeoutCleared = true; // Auth listener loaded session, cancel timeout
-        clearTimeout(timeout);
+        if (!initialLoadHandled) {
+          setIsLoading(false);
+          initialLoadHandled = true;
+          clearTimeout(timeout);
+        }
       }
     );
 
@@ -270,7 +281,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
   const refreshProfile = async () => {
     if (user) {
       try {
-        const { data, error } = await supabase
+        const { data } = await supabase
           .from('profiles')
           .select('*')
           .eq('id', user.id)
