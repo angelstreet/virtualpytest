@@ -1,0 +1,12 @@
+[
+  {
+    "id": "workspace-virtualpytest",
+    "name": "VirtualPyTest API",
+    "apiKey": "you-api-postman-key",
+    "workspaceId": "your-workspace-id",
+    "teamId": "your-team-id",
+    "description": "VirtualPyTest server and host APIs ",
+    "serverUrl": "http://your-server-url"
+  }
+]
+

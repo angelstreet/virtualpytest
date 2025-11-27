@@ -29,6 +29,9 @@ backend_server/config/grafana/grafana.db-wal
 SSH.md
 backend_server/scripts/backup_grafana_db.sh
 
+# Integration credentials (JIRA API tokens, etc.)
+backend_server/config/integrations/jira_instances.json
+
 # Supabase database backups
 setup/db/backup/*.sql
 setup/db/backup/*.sql.gz
@@ -41,3 +44,5 @@ setup/docker/hetzner_custom/docker-compose.dev.yml
 setup/docker/hetzner_custom/host-nginx.conf
 backend_host_*/
 
+backend_server/config/postman/postman_workspaces.json
+.gitignore

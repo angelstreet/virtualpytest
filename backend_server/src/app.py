@@ -277,6 +277,14 @@ def register_all_server_routes(app):
         from routes import server_openapi_routes
         print("[@backend_server:routes] ✅ server_openapi_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_postman_routes...")
+        from routes import server_postman_routes
+        print("[@backend_server:routes] ✅ server_postman_routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing server_integrations_routes...")
+        from routes import server_integrations_routes
+        print("[@backend_server:routes] ✅ server_integrations_routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -323,6 +331,8 @@ def register_all_server_routes(app):
             (logs_routes.logs_bp, 'System logs and service monitoring'),
             (server_monitoring_routes.server_monitoring_bp, 'Monitoring system (registered before auto_proxy for precedence)'),
             (server_openapi_routes.server_openapi_bp, 'OpenAPI documentation serving'),
+            (server_postman_routes.server_postman_bp, 'User Postman workspace API testing'),
+            (server_integrations_routes.server_integrations_bp, 'Third-party integrations (JIRA, etc.)'),
             
             # Auto proxy (replaces 11 pure proxy route files + 18 verification proxy routes - navigation-execution now handled separately)
             (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, power, remote, translation + 18 verification routes)')

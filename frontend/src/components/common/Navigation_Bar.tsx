@@ -18,6 +18,7 @@ import {
   Api as ApiIcon,
   Build as BuildIcon, // For Builder section
   SmartToy, // For MCP Playground
+  Extension as IntegrationIcon, // For Integrations section
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -117,16 +118,35 @@ const NavigationBar: React.FC = () => {
     },
   ];
 
+  // User API Testing menu items
   const apiItems = [
     {
-      label: 'API Documentation',
-      path: '/api/documentation',
+      label: 'API Workspaces',
+      path: '/api/workspaces',
+      icon: <ApiIcon fontSize="small" />,
+    },
+  ];
+
+  // VirtualPyTest Documentation menu items
+  const docsItems = [
+    {
+      label: 'API Reference',
+      path: '/docs/api',
       icon: <ApiIcon fontSize="small" />,
     },
     {
       label: 'Postman Workspace',
-      path: '/api/postman',
+      path: '/docs/postman',
       icon: <ApiIcon fontSize="small" />,
+    },
+  ];
+
+  // Third-party Integrations menu items
+  const integrationsItems = [
+    {
+      label: 'JIRA',
+      path: '/integrations/jira',
+      icon: <IntegrationIcon fontSize="small" />,
     },
   ];
 
@@ -241,8 +261,14 @@ const NavigationBar: React.FC = () => {
         Grafana
       </Button>
 
-      {/* API Dropdown */}
+      {/* API Testing Dropdown (User's Postman Workspaces) */}
       <NavigationDropdown label="API" items={apiItems} />
+
+      {/* Docs Dropdown (VirtualPyTest Documentation) */}
+      <NavigationDropdown label="Docs" items={docsItems} />
+
+      {/* Integrations Dropdown (Third-party Tools) */}
+      <NavigationDropdown label="Integrations" items={integrationsItems} />
 
       {/* Configuration Dropdown */}
       <NavigationDropdown label="Configuration" items={configurationItems} />

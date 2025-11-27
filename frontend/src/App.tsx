@@ -46,6 +46,9 @@ const MCPPlayground = React.lazy(() => import('./pages/MCPPlayground'));
 const GrafanaRedirect = React.lazy(() => import('./pages/GrafanaRedirect'));
 const ApiDocumentation = React.lazy(() => import('./pages/ApiDocumentation'));
 const PostmanWorkspace = React.lazy(() => import('./pages/PostmanWorkspace'));
+const UserApiWorkspaces = React.lazy(() => import('./pages/UserApiWorkspaces'));
+const UserApiWorkspaceDetail = React.lazy(() => import('./pages/UserApiWorkspaceDetail'));
+const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -212,9 +215,16 @@ const App: React.FC = () => {
                   {/* Grafana Direct Access - Redirects to VITE_GRAFANA_URL */}
                   <Route path="/grafana/*" element={<GrafanaRedirect />} />
 
-                  {/* API Routes */}
-                  <Route path="/api/documentation" element={<ApiDocumentation />} />
-                  <Route path="/api/postman" element={<PostmanWorkspace />} />
+                  {/* User API Testing Routes */}
+                  <Route path="/api/workspaces" element={<UserApiWorkspaces />} />
+                  <Route path="/api/workspace/:workspaceId" element={<UserApiWorkspaceDetail />} />
+                  
+                  {/* VirtualPyTest Documentation Routes */}
+                  <Route path="/docs/api" element={<ApiDocumentation />} />
+                  <Route path="/docs/postman" element={<PostmanWorkspace />} />
+
+                  {/* Integrations Routes */}
+                  <Route path="/integrations/jira" element={<JiraIntegration />} />
 
                   {/* Configuration Routes */}
                   <Route
