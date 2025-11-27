@@ -439,47 +439,23 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
             console.log('[@NavigationEditor:handleAIGenerated] 🗑️ Invalidating cache for interface:', userInterface.id);
             navigationConfig.invalidateTreeCache(userInterface.id);
             
-            // Re-fetch tree data after AI generation using navigation hook
-            console.log('[@NavigationEditor:handleAIGenerated] 🔄 Force-refreshing tree after AI structure creation');
-            console.log('[@NavigationEditor:handleAIGenerated] Current tree ID:', actualTreeId);
-            console.log('[@NavigationEditor:handleAIGenerated] Is subtree:', navigation.parentChain.length > 0);
+            // Reload the CURRENT tree (root or subtree) - actualTreeId points to what was modified
+            const treeType = navigation.parentChain.length > 0 ? 'subtree' : 'root tree';
+            console.log(`[@NavigationEditor:handleAIGenerated] 🔄 Reloading ${treeType}: ${actualTreeId}`);
             
             try {
-              // ✅ FIX: If in subtree, stay in subtree instead of jumping to root!
-              if (navigation.parentChain.length > 0 && actualTreeId) {
-                // We're in a subtree - reload the root tree BUT stay in the current subtree context
-                console.log('[@NavigationEditor:handleAIGenerated] Reloading tree while preserving SUBTREE context');
-                console.log('[@NavigationEditor:handleAIGenerated] Current subtree:', actualTreeId);
-                console.log('[@NavigationEditor:handleAIGenerated] Parent chain length:', navigation.parentChain.length);
+              if (actualTreeId) {
+                // Simple: Just reload the current tree that was modified
+                await loadTreeData(actualTreeId);
+                console.log(`[@NavigationEditor:handleAIGenerated] ✅ ${treeType} reloaded successfully`);
                 
-                // Reload the root tree (to get updated data) but don't navigate away from subtree
-                const result = await loadTreeByUserInterface(userInterface.id);
-                
-                if (result?.metrics) {
-                  console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
-                  setPreloadedMetrics(result.metrics);
-                }
-                
-                // Parent chain is preserved by NavigationContext - we won't be redirected
-                console.log('[@NavigationEditor:handleAIGenerated] ✅ Tree reloaded, staying in subtree');
+                // Apply auto-layout after nodes are loaded
+                setApplyAutoLayoutFlag(true);
               } else {
-                // We're in root tree - reload by userInterface as usual
-                console.log('[@NavigationEditor:handleAIGenerated] Reloading ROOT tree by userInterface');
-                const result = await loadTreeByUserInterface(userInterface.id);
-                
-                if (result?.metrics) {
-                  console.log('[@NavigationEditor] Capturing preloaded metrics from tree load');
-                  setPreloadedMetrics(result.metrics);
-                }
+                console.error('[@NavigationEditor:handleAIGenerated] ❌ Cannot reload - actualTreeId is undefined');
               }
-              
-              // ✅ Apply auto-layout after nodes are loaded
-              // Note: We'll trigger this via a flag instead of calling handleAutoLayout directly
-              // to avoid circular dependency issues
-              setApplyAutoLayoutFlag(true);
-              
             } catch (error) {
-              console.error('Failed to refresh tree data after AI generation:', error);
+              console.error(`[@NavigationEditor:handleAIGenerated] ❌ Failed to reload ${treeType}:`, error);
             }
           }
         } catch (error) {
@@ -487,7 +463,7 @@ const NavigationEditorContent: React.FC<{ treeName: string }> = ({ treeName }) =
         }
       };
       refreshData();
-    }, [userInterface?.id, loadTreeByUserInterface, navigationConfig]);
+    }, [userInterface?.id, loadTreeData, navigationConfig, actualTreeId, navigation.parentChain.length]);
 
     // Wrap the original click handlers to close goto panel
     const wrappedOnNodeClick = useCallback(
