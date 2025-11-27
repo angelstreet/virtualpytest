@@ -38,6 +38,7 @@ import {
   Typography,
 } from '@mui/material';
 import React, { useEffect, useState } from 'react';
+import { buildServerUrl } from '../utils/buildUrlUtils';
 
 interface JiraInstance {
   id: string;
@@ -87,8 +88,6 @@ const JiraIntegration: React.FC = () => {
   const [testingConnection, setTestingConnection] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const API_BASE = import.meta.env.VITE_BACKEND_URL || 'http://localhost:5109';
-
   // Load instances on mount
   useEffect(() => {
     loadInstances();
@@ -104,7 +103,7 @@ const JiraIntegration: React.FC = () => {
 
   const loadInstances = async () => {
     try {
-      const response = await fetch(`${API_BASE}/server/integrations/jira/instances`);
+      const response = await fetch(buildServerUrl('/server/integrations/jira/instances'));
       const data = await response.json();
       
       if (data.success) {
@@ -132,7 +131,7 @@ const JiraIntegration: React.FC = () => {
       params.append('_t', Date.now().toString());
       
       const response = await fetch(
-        `${API_BASE}/server/integrations/jira/${selectedInstance}/tickets?${params}`,
+        buildServerUrl(`/server/integrations/jira/${selectedInstance}/tickets?${params}`),
         {
           cache: 'no-cache',
           headers: {
@@ -160,7 +159,7 @@ const JiraIntegration: React.FC = () => {
     if (!selectedInstance) return;
     
     try {
-      const response = await fetch(`${API_BASE}/server/integrations/jira/${selectedInstance}/stats`);
+      const response = await fetch(buildServerUrl(`/server/integrations/jira/${selectedInstance}/stats`));
       const data = await response.json();
       
       if (data.success) {
@@ -204,7 +203,7 @@ const JiraIntegration: React.FC = () => {
     if (!confirm('Are you sure you want to delete this JIRA instance?')) return;
     
     try {
-      const response = await fetch(`${API_BASE}/server/integrations/jira/instances/${instanceId}`, {
+      const response = await fetch(buildServerUrl(`/server/integrations/jira/instances/${instanceId}`), {
         method: 'DELETE',
       });
       const data = await response.json();
@@ -226,7 +225,7 @@ const JiraIntegration: React.FC = () => {
     setTestResult(null);
     
     try {
-      const response = await fetch(`${API_BASE}/server/integrations/jira/test/test`, {
+      const response = await fetch(buildServerUrl('/server/integrations/jira/test/test'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(formData),
@@ -260,7 +259,7 @@ const JiraIntegration: React.FC = () => {
         ? { ...formData, id: editingInstance.id }
         : formData;
       
-      const response = await fetch(`${API_BASE}/server/integrations/jira/instances`, {
+      const response = await fetch(buildServerUrl('/server/integrations/jira/instances'), {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(payload),
