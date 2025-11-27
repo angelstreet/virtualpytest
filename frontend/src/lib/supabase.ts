@@ -4,11 +4,11 @@ import { createClient } from '@supabase/supabase-js';
 // Option 1: Add to frontend/.env: VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY
 // Option 2: Leave empty to disable auth completely (no login required)
 const supabaseUrl = 
-  import.meta.env.VITE_SUPABASE_URL || 
+  (import.meta as any).env?.VITE_SUPABASE_URL || 
   '';
 
 const supabaseAnonKey = 
-  import.meta.env.VITE_SUPABASE_ANON_KEY || 
+  (import.meta as any).env?.VITE_SUPABASE_ANON_KEY || 
   '';
 
 // Check if auth is enabled (credentials provided)

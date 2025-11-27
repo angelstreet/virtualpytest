@@ -12,7 +12,7 @@ import {
   PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
-import { getCachedTestCaseList, invalidateTestCaseListCache } from '../../utils/testcaseCache';
+import { getCachedTestCaseList } from '../../utils/testcaseCache';
 
 export interface TestCaseItem {
   testcase_id: string;

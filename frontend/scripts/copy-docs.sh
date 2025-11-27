@@ -2,13 +2,14 @@
 
 # Script to copy only necessary documentation files to frontend/public/docs
 # - OpenAPI HTML docs (original)
-# - New markdown READMEs only (for documentation wrapper)
+# - Only markdown files that are actually referenced/linked
 
 set -e
 
 # Colors for output
 GREEN='\033[0;32m'
 BLUE='\033[0;34m'
+YELLOW='\033[0;33m'
 NC='\033[0m' # No Color
 
 echo -e "${BLUE}Copying documentation files...${NC}"
@@ -22,34 +23,93 @@ echo -e "${GREEN}✓${NC} Copying OpenAPI HTML docs"
 mkdir -p public/docs/api/openapi
 cp -r ../docs/api/openapi/docs/* public/docs/api/openapi/
 
-# 2. Copy only README.md files (new documentation wrapper)
-echo -e "${GREEN}✓${NC} Copying documentation READMEs"
+# 2. Copy only referenced markdown files
+echo -e "${GREEN}✓${NC} Finding and copying referenced markdown files"
 
-# Main docs README
-cp ../docs/README.md public/docs/
+# Temporary files to track what to copy
+TEMP_DIR=$(mktemp -d)
+FILES_TO_COPY="$TEMP_DIR/files_to_copy.txt"
+PROCESSED="$TEMP_DIR/processed.txt"
 
-# Section READMEs
-mkdir -p public/docs/get-started
-cp ../docs/get-started/README.md public/docs/get-started/ 2>/dev/null || true
+touch "$FILES_TO_COPY"
+touch "$PROCESSED"
 
-mkdir -p public/docs/features
-cp ../docs/features/README.md public/docs/features/ 2>/dev/null || true
+# Start with main README and section READMEs (entry points)
+cat > "$FILES_TO_COPY" << EOF
+README.md
+get-started/README.md
+features/README.md
+user-guide/README.md
+technical/README.md
+api/README.md
+examples/README.md
+integrations/README.md
+EOF
 
-mkdir -p public/docs/user-guide
-cp ../docs/user-guide/README.md public/docs/user-guide/ 2>/dev/null || true
+echo -e "${YELLOW}→${NC} Following markdown links recursively"
 
-mkdir -p public/docs/technical
-cp ../docs/technical/README.md public/docs/technical/ 2>/dev/null || true
+# Process files iteratively
+while IFS= read -r file; do
+    # Skip if already processed
+    if grep -Fxq "$file" "$PROCESSED" 2>/dev/null; then
+        continue
+    fi
+    
+    # Mark as processed
+    echo "$file" >> "$PROCESSED"
+    
+    # Skip if file doesn't exist
+    if [ ! -f "../docs/$file" ]; then
+        continue
+    fi
+    
+    # Find all markdown links in this file
+    current_dir=$(dirname "$file")
+    
+    # Extract .md links from markdown
+    grep -oE '\]\([^)]*\.md\)' "../docs/$file" 2>/dev/null | \
+    sed 's/][(]//g' | sed 's/)//g' | \
+    while IFS= read -r link; do
+        # Resolve relative path
+        if [[ "$link" == ../* ]]; then
+            # Parent directory: ../features/file.md
+            resolved=$(cd "../docs/$current_dir" && cd "$(dirname "$link")" && pwd)/$(basename "$link")
+            resolved="${resolved#$(cd ../docs && pwd)/}"
+        elif [[ "$link" == ./* ]]; then
+            # Same directory: ./file.md
+            resolved="$current_dir/${link#./}"
+        else
+            # Direct path
+            resolved="$current_dir/$link"
+        fi
+        
+        # Normalize and clean path
+        resolved=$(echo "$resolved" | sed 's|/\./|/|g')
+        
+        # Add to files to copy if not already there
+        if [ -f "../docs/$resolved" ] && ! grep -Fxq "$resolved" "$FILES_TO_COPY" 2>/dev/null; then
+            echo "$resolved" >> "$FILES_TO_COPY"
+        fi
+    done
+    
+done < "$FILES_TO_COPY"
 
-mkdir -p public/docs/api
-cp ../docs/api/README.md public/docs/api/ 2>/dev/null || true
+# Copy all found files
+file_count=0
+sort -u "$FILES_TO_COPY" | while IFS= read -r file; do
+    if [ -f "../docs/$file" ]; then
+        target_dir="public/docs/$(dirname "$file")"
+        mkdir -p "$target_dir"
+        cp "../docs/$file" "public/docs/$file"
+        ((file_count++)) || true
+    fi
+done
 
-mkdir -p public/docs/examples
-cp ../docs/examples/README.md public/docs/examples/ 2>/dev/null || true
+# Count actual copied files
+file_count=$(find public/docs -name "*.md" | wc -l | tr -d ' ')
 
-mkdir -p public/docs/integrations
-cp ../docs/integrations/README.md public/docs/integrations/ 2>/dev/null || true
+# Cleanup
+rm -rf "$TEMP_DIR"
 
 echo -e "${GREEN}✓ Documentation copied successfully!${NC}"
-echo -e "${BLUE}Copied: OpenAPI HTML docs (15 files) + Section READMEs (8 files)${NC}"
-
+echo -e "${BLUE}Copied: 15 OpenAPI HTML files + $file_count referenced markdown files${NC}"

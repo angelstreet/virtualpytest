@@ -1,4 +1,4 @@
-import { Box, CircularProgress, Paper, Typography } from '@mui/material';
+import { Box, CircularProgress, Typography } from '@mui/material';
 import React, { useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
@@ -8,7 +8,7 @@ import remarkGfm from 'remark-gfm';
  * Simple Documentation Viewer - Renders markdown files from /docs
  */
 const Documentation: React.FC = () => {
-  const { section = 'README', page = 'README' } = useParams<{ section?: string; page?: string }>();
+  const { section = 'README', subsection, page = 'README' } = useParams<{ section?: string; subsection?: string; page?: string }>();
   const [markdown, setMarkdown] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
@@ -23,7 +23,22 @@ const Documentation: React.FC = () => {
         // Examples:
         // /docs/get-started -> /docs/get-started/README.md
         // /docs/features/unified-controller -> /docs/features/unified-controller.md
-        const mdPath = page === 'README' ? `/${section}/README.md` : `/${section}/${page}.md`;
+        // /docs/technical/ai/builder -> /docs/technical/ai/builder.md
+        let mdPath: string;
+        if (subsection && page !== 'README') {
+          // Nested path: /docs/technical/ai/builder
+          mdPath = `/${section}/${subsection}/${page}.md`;
+        } else if (subsection) {
+          // Subsection README: /docs/technical/ai
+          mdPath = `/${section}/${subsection}/README.md`;
+        } else if (page === 'README') {
+          // Section README: /docs/get-started
+          mdPath = `/${section}/README.md`;
+        } else {
+          // Page in section: /docs/features/unified-controller
+          mdPath = `/${section}/${page}.md`;
+        }
+        
         const fullPath = `/docs${mdPath}`;
 
         const response = await fetch(fullPath);
@@ -43,7 +58,7 @@ const Documentation: React.FC = () => {
     };
 
     fetchMarkdown();
-  }, [section, page]);
+  }, [section, subsection, page]);
 
   if (loading) {
     return (
@@ -56,24 +71,35 @@ const Documentation: React.FC = () => {
   if (error) {
     return (
       <Box sx={{ p: 4 }}>
-        <Paper sx={{ p: 3, bgcolor: 'error.light' }}>
-          <Typography variant="h6" color="error">
+        <Box sx={{ p: 3, bgcolor: 'error.dark', borderRadius: 1, border: 1, borderColor: 'error.main' }}>
+          <Typography variant="h6" color="error.light">
             Error Loading Documentation
           </Typography>
-          <Typography variant="body2" sx={{ mt: 1 }}>
+          <Typography variant="body2" sx={{ mt: 1, color: 'error.light' }}>
             {error}
           </Typography>
-        </Paper>
+        </Box>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ p: 4, maxWidth: '1200px', mx: 'auto' }}>
-      <Paper sx={{ p: 4 }}>
-        <ReactMarkdown
-          remarkPlugins={[remarkGfm]}
-          components={{
+    <Box sx={{ p: 4, width: '100%', maxWidth: '1200px', mx: 'auto', minHeight: '80vh' }}>
+      <Box 
+        sx={{ 
+          p: 4, 
+          minHeight: '70vh', 
+          width: '100%',
+          backgroundColor: 'background.paper',
+          borderRadius: 2,
+          border: 1,
+          borderColor: 'divider',
+        }}
+      >
+        <Box sx={{ width: '100%', maxWidth: '900px', mx: 'auto' }}>
+          <ReactMarkdown
+            remarkPlugins={[remarkGfm]}
+            components={{
             // Style headers
             h1: ({ children }) => (
               <Typography variant="h3" component="h1" gutterBottom sx={{ mt: 2, mb: 2, fontWeight: 600 }}>
@@ -105,29 +131,33 @@ const Documentation: React.FC = () => {
             code: ({ inline, children, ...props }: any) => {
               if (inline) {
                 return (
-                  <code
-                    style={{
-                      backgroundColor: '#f5f5f5',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
+                  <Box
+                    component="code"
+                    sx={{
+                      backgroundColor: 'action.hover',
+                      px: 0.75,
+                      py: 0.25,
+                      borderRadius: 0.5,
                       fontFamily: 'monospace',
                       fontSize: '0.9em',
                     }}
                     {...props}
                   >
                     {children}
-                  </code>
+                  </Box>
                 );
               }
               return (
                 <Box
                   component="pre"
                   sx={{
-                    backgroundColor: '#f5f5f5',
+                    backgroundColor: 'action.hover',
                     p: 2,
                     borderRadius: 1,
                     overflow: 'auto',
                     my: 2,
+                    border: 1,
+                    borderColor: 'divider',
                   }}
                 >
                   <code style={{ fontFamily: 'monospace', fontSize: '0.9em' }} {...props}>
@@ -137,16 +167,44 @@ const Documentation: React.FC = () => {
               );
             },
             // Style links
-            a: ({ children, href }) => (
-              <a
-                href={href}
-                style={{ color: '#1976d2', textDecoration: 'none' }}
-                target={href?.startsWith('http') ? '_blank' : undefined}
-                rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
-              >
-                {children}
-              </a>
-            ),
+            a: ({ children, href }) => {
+              // Transform markdown links to React routes
+              let transformedHref = href;
+              if (href && !href.startsWith('http') && !href.startsWith('#')) {
+                // Handle relative paths in markdown
+                if (href.startsWith('../')) {
+                  // ../features/unified-controller.md -> /docs/features/unified-controller
+                  // ../../get-started/quickstart.md -> /docs/get-started/quickstart
+                  transformedHref = '/docs/' + href.replace(/^\.\.\/+/g, '').replace(/\.md$/, '').replace(/\/README$/i, '');
+                } else if (href.startsWith('./')) {
+                  // ./quickstart.md -> current section + quickstart
+                  // For nested docs, preserve current path
+                  const currentPath = window.location.pathname.replace(/\/docs\/?/, '').replace(/\/$/, '');
+                  const parentPath = currentPath.substring(0, currentPath.lastIndexOf('/')) || currentPath;
+                  const cleanHref = href.substring(2).replace(/\.md$/, '').replace(/\/README$/i, '');
+                  transformedHref = `/docs/${parentPath}/${cleanHref}`.replace(/\/+/g, '/');
+                } else {
+                  // Direct path
+                  transformedHref = href.replace(/\.md$/, '').replace(/\/README$/i, '');
+                }
+              }
+              
+              return (
+                <Box
+                  component="a"
+                  href={transformedHref}
+                  sx={{
+                    color: 'primary.main',
+                    textDecoration: 'none',
+                    '&:hover': { textDecoration: 'underline' },
+                  }}
+                  target={href?.startsWith('http') ? '_blank' : undefined}
+                  rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
+                >
+                  {children}
+                </Box>
+              );
+            },
             // Style lists
             ul: ({ children }) => (
               <Box component="ul" sx={{ pl: 3, my: 1.5 }}>
@@ -167,11 +225,12 @@ const Documentation: React.FC = () => {
             blockquote: ({ children }) => (
               <Box
                 sx={{
-                  borderLeft: '4px solid #1976d2',
+                  borderLeft: '4px solid',
+                  borderColor: 'primary.main',
                   pl: 2,
                   py: 0.5,
                   my: 2,
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: 'action.hover',
                 }}
               >
                 {children}
@@ -189,9 +248,10 @@ const Documentation: React.FC = () => {
               <Box
                 component="th"
                 sx={{
-                  border: '1px solid #ddd',
+                  border: 1,
+                  borderColor: 'divider',
                   p: 1.5,
-                  backgroundColor: '#f5f5f5',
+                  backgroundColor: 'action.hover',
                   fontWeight: 600,
                   textAlign: 'left',
                 }}
@@ -200,17 +260,18 @@ const Documentation: React.FC = () => {
               </Box>
             ),
             td: ({ children }) => (
-              <Box component="td" sx={{ border: '1px solid #ddd', p: 1.5 }}>
+              <Box component="td" sx={{ border: 1, borderColor: 'divider', p: 1.5 }}>
                 {children}
               </Box>
             ),
             // Style horizontal rules
-            hr: () => <Box component="hr" sx={{ my: 3, border: 'none', borderTop: '1px solid #ddd' }} />,
+            hr: () => <Box component="hr" sx={{ my: 3, border: 'none', borderTop: 1, borderColor: 'divider' }} />,
           }}
         >
           {markdown}
         </ReactMarkdown>
-      </Paper>
+        </Box>
+      </Box>
     </Box>
   );
 };

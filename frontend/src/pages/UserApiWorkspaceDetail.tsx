@@ -18,7 +18,6 @@ import {
   ListItemButton,
   ListItemIcon,
   ListItemText,
-  Divider,
   FormControl,
   InputLabel,
   Select,
@@ -28,7 +27,6 @@ import {
   ArrowBack,
   ExpandMore,
   PlayArrow,
-  CheckCircle,
   Schedule,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';

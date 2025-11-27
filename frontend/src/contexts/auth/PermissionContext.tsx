@@ -37,7 +37,7 @@ export const PermissionProvider: React.FC<PermissionProviderProps> = ({ children
     const rolePerms = ROLE_PERMISSIONS[userRole];
 
     // Admin has all permissions
-    if (rolePerms.includes('*')) {
+    if (Array.isArray(rolePerms) && rolePerms.length === 1 && rolePerms[0] === '*') {
       return {
         role: userRole,
         permissions: [

@@ -71,7 +71,6 @@ const JiraIntegration: React.FC = () => {
   const [selectedInstance, setSelectedInstance] = useState<string>('');
   const [tickets, setTickets] = useState<JiraTicket[]>([]);
   const [stats, setStats] = useState<JiraStats | null>(null);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string>('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   
@@ -121,7 +120,6 @@ const JiraIntegration: React.FC = () => {
   const loadTickets = async () => {
     if (!selectedInstance) return;
     
-    setLoading(true);
     setError('');
     
     try {
@@ -150,8 +148,6 @@ const JiraIntegration: React.FC = () => {
     } catch (err) {
       console.error('Error loading tickets:', err);
       setError('Failed to load tickets');
-    } finally {
-      setLoading(false);
     }
   };
 
