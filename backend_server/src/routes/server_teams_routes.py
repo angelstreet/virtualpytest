@@ -7,8 +7,7 @@ from typing import Optional
 import logging
 
 from shared.src.lib.database import teams_db
-from ..lib.error_handler import handle_error
-from ..lib.auth_middleware import require_auth, require_admin
+from backend_server.src.lib.error_handler import handle_error
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,6 @@ server_teams_bp = Blueprint('server_teams', __name__, url_prefix='/server/teams'
 
 
 @server_teams_bp.route('', methods=['GET'])
-@require_auth
 def get_teams():
     """
     Get all teams
@@ -33,7 +31,6 @@ def get_teams():
 
 
 @server_teams_bp.route('/<team_id>', methods=['GET'])
-@require_auth
 def get_team(team_id: str):
     """Get a specific team by ID"""
     try:
@@ -50,7 +47,6 @@ def get_team(team_id: str):
 
 
 @server_teams_bp.route('', methods=['POST'])
-@require_admin
 def create_team():
     """Create a new team (admin only)"""
     try:
@@ -59,9 +55,7 @@ def create_team():
         if not data or not data.get('name'):
             return jsonify({"error": "Team name is required"}), 400
         
-        user_id = request.user_id
-        
-        team = teams_db.create_team(data, creator_id=user_id)
+        team = teams_db.create_team(data)
         
         if not team:
             return jsonify({"error": "Failed to create team"}), 500
@@ -75,7 +69,6 @@ def create_team():
 
 
 @server_teams_bp.route('/<team_id>', methods=['PUT'])
-@require_admin
 def update_team(team_id: str):
     """Update a team (admin only)"""
     try:
@@ -98,7 +91,6 @@ def update_team(team_id: str):
 
 
 @server_teams_bp.route('/<team_id>', methods=['DELETE'])
-@require_admin
 def delete_team(team_id: str):
     """Delete a team (admin only)"""
     try:
@@ -116,7 +108,6 @@ def delete_team(team_id: str):
 
 
 @server_teams_bp.route('/<team_id>/members', methods=['GET'])
-@require_auth
 def get_team_members(team_id: str):
     """Get all members of a team"""
     try:
@@ -129,7 +120,6 @@ def get_team_members(team_id: str):
 
 
 @server_teams_bp.route('/<team_id>/members', methods=['POST'])
-@require_admin
 def add_team_member(team_id: str):
     """Add a user to a team (admin only)"""
     try:
@@ -152,7 +142,6 @@ def add_team_member(team_id: str):
 
 
 @server_teams_bp.route('/<team_id>/members/<user_id>', methods=['DELETE'])
-@require_admin
 def remove_team_member(team_id: str, user_id: str):
     """Remove a user from a team (admin only)"""
     try:

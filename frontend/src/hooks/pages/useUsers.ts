@@ -59,9 +59,7 @@ export const useUsers = () => {
   } = useQuery({
     queryKey: QUERY_KEYS.users,
     queryFn: async (): Promise<User[]> => {
-      const response = await fetch(USERS_API_BASE_URL, {
-        credentials: 'include',
-      });
+      const response = await fetch(USERS_API_BASE_URL);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch users: ${response.statusText}`);
@@ -80,7 +78,6 @@ export const useUsers = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -110,7 +107,6 @@ export const useUsers = () => {
     mutationFn: async (id: string): Promise<void> => {
       const response = await fetch(`${USERS_API_BASE_URL}/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -140,7 +136,6 @@ export const useUsers = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -193,9 +188,7 @@ export const useUser = (id: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.user(id),
     queryFn: async (): Promise<User> => {
-      const response = await fetch(`${USERS_API_BASE_URL}/${id}`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`${USERS_API_BASE_URL}/${id}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch user: ${response.statusText}`);

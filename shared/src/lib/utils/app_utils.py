@@ -155,7 +155,7 @@ def setup_flask_app(app_name="VirtualPyTest"):
          origins=allowed_origins,
          methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
          allow_headers=["Content-Type", "Authorization", "Accept", "DNT", "User-Agent", "X-Requested-With", "If-Modified-Since", "Cache-Control"],
-         supports_credentials=False
+         supports_credentials=True
     )
 
     # Add WebSocket support for async task notifications

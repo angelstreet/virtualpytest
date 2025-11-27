@@ -149,7 +149,13 @@ const Teams: React.FC = () => {
         <Card>
         <CardContent>
           <TableContainer component={Paper} elevation={0}>
-            <Table>
+            <Table
+              sx={{
+                '& .MuiTableRow-root:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell><strong>Team Name</strong></TableCell>
@@ -161,15 +167,7 @@ const Teams: React.FC = () => {
               </TableHead>
               <TableBody>
                 {teams.map((team) => (
-                  <TableRow 
-                    key={team.id} 
-                    hover
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'transparent',
-                      },
-                    }}
-                  >
+                  <TableRow key={team.id}>
                     <TableCell>
                       <Typography variant="body1" fontWeight="medium">
                         {team.name}

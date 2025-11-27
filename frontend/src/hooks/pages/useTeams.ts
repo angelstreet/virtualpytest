@@ -62,9 +62,7 @@ export const useTeams = () => {
   } = useQuery({
     queryKey: QUERY_KEYS.teams,
     queryFn: async (): Promise<Team[]> => {
-      const response = await fetch(TEAMS_API_BASE_URL, {
-        credentials: 'include',
-      });
+      const response = await fetch(TEAMS_API_BASE_URL);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch teams: ${response.statusText}`);
@@ -83,7 +81,6 @@ export const useTeams = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -112,7 +109,6 @@ export const useTeams = () => {
         headers: {
           'Content-Type': 'application/json',
         },
-        credentials: 'include',
         body: JSON.stringify(payload),
       });
 
@@ -142,7 +138,6 @@ export const useTeams = () => {
     mutationFn: async (id: string): Promise<void> => {
       const response = await fetch(`${TEAMS_API_BASE_URL}/${id}`, {
         method: 'DELETE',
-        credentials: 'include',
       });
 
       if (!response.ok) {
@@ -197,9 +192,7 @@ export const useTeam = (id: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.team(id),
     queryFn: async (): Promise<Team> => {
-      const response = await fetch(`${TEAMS_API_BASE_URL}/${id}`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`${TEAMS_API_BASE_URL}/${id}`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch team: ${response.statusText}`);
@@ -219,9 +212,7 @@ export const useTeamMembers = (teamId: string) => {
   return useQuery({
     queryKey: QUERY_KEYS.teamMembers(teamId),
     queryFn: async (): Promise<TeamMember[]> => {
-      const response = await fetch(`${TEAMS_API_BASE_URL}/${teamId}/members`, {
-        credentials: 'include',
-      });
+      const response = await fetch(`${TEAMS_API_BASE_URL}/${teamId}/members`);
 
       if (!response.ok) {
         throw new Error(`Failed to fetch team members: ${response.statusText}`);

@@ -291,3 +291,8 @@ def optional_user_auth(f: Callable) -> Callable:
     
     return decorated_function
 
+
+# Aliases for common usage patterns
+require_auth = require_user_auth
+require_admin = require_role('admin')
+

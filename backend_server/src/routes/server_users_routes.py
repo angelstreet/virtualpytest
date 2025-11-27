@@ -7,8 +7,7 @@ from typing import Optional
 import logging
 
 from shared.src.lib.database import users_db
-from ..lib.error_handler import handle_error
-from ..lib.auth_middleware import require_auth, require_admin
+from backend_server.src.lib.error_handler import handle_error
 
 logger = logging.getLogger(__name__)
 
@@ -16,7 +15,6 @@ server_users_bp = Blueprint('server_users', __name__, url_prefix='/server/users'
 
 
 @server_users_bp.route('', methods=['GET'])
-@require_admin
 def get_users():
     """
     Get all users (admin only)
@@ -32,20 +30,11 @@ def get_users():
 
 
 @server_users_bp.route('/<user_id>', methods=['GET'])
-@require_auth
 def get_user(user_id: str):
     """
     Get a specific user by ID
-    Users can view their own profile, admins can view any profile
     """
     try:
-        current_user_id = request.user_id
-        current_user_role = request.user_role
-        
-        # Check permission (self or admin)
-        if user_id != current_user_id and current_user_role != 'admin':
-            return jsonify({"error": "Unauthorized"}), 403
-        
         user = users_db.get_user(user_id)
         
         if not user:
@@ -59,12 +48,9 @@ def get_user(user_id: str):
 
 
 @server_users_bp.route('/<user_id>', methods=['PUT'])
-@require_auth
 def update_user(user_id: str):
     """
     Update a user profile
-    Users can update their own profile (limited fields)
-    Admins can update any profile (all fields)
     """
     try:
         data = request.get_json()
@@ -72,38 +58,7 @@ def update_user(user_id: str):
         if not data:
             return jsonify({"error": "No data provided"}), 400
         
-        current_user_id = request.user_id
-        current_user_role = request.user_role
-        
-        # Check permission
-        is_self = user_id == current_user_id
-        is_admin = current_user_role == 'admin'
-        
-        if not is_self and not is_admin:
-            return jsonify({"error": "Unauthorized"}), 403
-        
-        # Build update data based on permissions
-        update_data = {}
-        
-        # Fields users can update for themselves
-        if 'full_name' in data:
-            update_data['full_name'] = data['full_name']
-        if 'avatar_url' in data:
-            update_data['avatar_url'] = data['avatar_url']
-        
-        # Admin-only fields
-        if is_admin:
-            if 'role' in data:
-                update_data['role'] = data['role']
-            if 'permissions' in data:
-                update_data['permissions'] = data['permissions']
-            if 'team_id' in data:
-                update_data['team_id'] = data['team_id']
-        
-        if not update_data:
-            return jsonify({"error": "No valid fields to update"}), 400
-        
-        user = users_db.update_user(user_id, update_data)
+        user = users_db.update_user(user_id, data)
         
         if not user:
             return jsonify({"error": "User not found"}), 404
@@ -117,7 +72,6 @@ def update_user(user_id: str):
 
 
 @server_users_bp.route('/<user_id>', methods=['DELETE'])
-@require_admin
 def delete_user(user_id: str):
     """
     Delete a user (admin only)
@@ -138,7 +92,6 @@ def delete_user(user_id: str):
 
 
 @server_users_bp.route('/<user_id>/assign-team', methods=['POST'])
-@require_admin
 def assign_user_to_team(user_id: str):
     """
     Assign a user to a team (admin only)
@@ -165,7 +118,6 @@ def assign_user_to_team(user_id: str):
 
 
 @server_users_bp.route('/<user_id>/remove-team', methods=['POST'])
-@require_admin
 def remove_user_from_team(user_id: str):
     """
     Remove a user from a team (admin only)

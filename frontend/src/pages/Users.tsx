@@ -171,7 +171,13 @@ const Users: React.FC = () => {
         <Card>
         <CardContent>
           <TableContainer component={Paper} elevation={0}>
-            <Table>
+            <Table
+              sx={{
+                '& .MuiTableRow-root:hover': {
+                  backgroundColor: 'transparent !important',
+                },
+              }}
+            >
               <TableHead>
                 <TableRow>
                   <TableCell><strong>User</strong></TableCell>
@@ -184,15 +190,7 @@ const Users: React.FC = () => {
               </TableHead>
               <TableBody>
                 {users.map((user) => (
-                  <TableRow 
-                    key={user.id} 
-                    hover
-                    sx={{
-                      '&:hover': {
-                        backgroundColor: 'transparent',
-                      },
-                    }}
-                  >
+                  <TableRow key={user.id}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar
