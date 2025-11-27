@@ -54,34 +54,32 @@ export const useDashboard = (): UseDashboardReturn => {
       return;
     }
     
+    // Don't proceed if no selected server yet
+    if (!selectedServerRef.current) {
+      console.log('[@useDashboard] No selected server yet, skipping fetch');
+      return;
+    }
+    
+    // Check cache FIRST (before setting loading state)
+    const serverKey = selectedServerRef.current;
+    const now = Date.now();
+    
+    if (dashboardCache && 
+        dashboardCache.serverKey === serverKey && 
+        (now - dashboardCache.timestamp) < CACHE_TTL_MS) {
+      console.log(`[@useDashboard] Cache HIT (age: ${((now - dashboardCache.timestamp) / 1000).toFixed(1)}s)`);
+      setStats(dashboardCache.data);
+      setLoading(false);
+      setError(null);
+      return;
+    }
+    
+    console.log('[@useDashboard] Cache MISS - fetching fresh data');
+    
     try {
       setIsRequestInProgress(true);
       setLoading(true);
       setError(null);
-      
-      // Don't proceed if no selected server yet
-      if (!selectedServerRef.current) {
-        console.log('[@useDashboard] No selected server yet, skipping fetch');
-        setLoading(false);
-        setIsRequestInProgress(false);
-        return;
-      }
-      
-      // Check cache first (use selectedServer URL as cache key)
-      const serverKey = selectedServerRef.current;
-      const now = Date.now();
-      
-      if (dashboardCache && 
-          dashboardCache.serverKey === serverKey && 
-          (now - dashboardCache.timestamp) < CACHE_TTL_MS) {
-        console.log(`[@useDashboard] Cache HIT (age: ${((now - dashboardCache.timestamp) / 1000).toFixed(1)}s)`);
-        setStats(dashboardCache.data);
-        setLoading(false);
-        setIsRequestInProgress(false);
-        return;
-      }
-      
-      console.log('[@useDashboard] Cache MISS - fetching fresh data');
       
       // Fetch campaigns, testcases, trees using selected server
       const [campaignsResponse, testCasesResponse, treesResponse] = await Promise.all([

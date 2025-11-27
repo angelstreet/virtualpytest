@@ -25,6 +25,7 @@ import {
 import { useCampaignBuilder } from '../../../contexts/campaign/CampaignBuilderContext';
 import { CampaignToolboxItem, CampaignDragData } from '../../../types/pages/CampaignGraph_Types';
 import { buildServerUrl } from '../../../utils/buildUrlUtils';
+import { getCachedTestCaseList } from '../../../utils/testcaseCache';
 import { ScriptIOSections } from '../../testcase/builder/ScriptIOSections';
 import { ToolboxSearchBox } from '../../common/builder/ToolboxSearchBox';
 import { DraggableCommand } from '../../common/builder/DraggableCommand';
@@ -84,15 +85,9 @@ export const CampaignToolbox: React.FC<CampaignToolboxProps> = ({
 
   const loadTestCases = async () => {
     try {
-      // Use same endpoint as TestCase builder
-      const apiUrl = buildServerUrl('/server/testcase/list');
-      const response = await fetch(apiUrl);
-      if (!response.ok) {
-        console.error('[@CampaignToolbox] Failed to load testcases:', response.status);
-        return;
-      }
+      // Use cached endpoint
+      const data = await getCachedTestCaseList(buildServerUrl('/server/testcase/list'));
       
-      const data = await response.json();
       if (!data.success || !data.testcases) {
         console.error('[@CampaignToolbox] Invalid response format:', data);
         return;

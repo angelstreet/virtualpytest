@@ -7,6 +7,7 @@
 
 import { useCallback } from 'react';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { getCachedTestCaseList, invalidateTestCaseListCache } from '../../utils/testcaseCache';
 import { TestCaseGraph } from '../../types/testcase/TestCase_Types';
 
 export const useTestCaseSave = () => {
@@ -47,7 +48,14 @@ export const useTestCaseSave = () => {
         throw new Error(errorData.error || `HTTP ${response.status}`);
       }
       
-      return await response.json();
+      const result = await response.json();
+      
+      // Invalidate cache after successful save
+      if (result.success) {
+        invalidateTestCaseListCache();
+      }
+      
+      return result;
     } catch (error) {
       console.error('[useTestCaseSave] Error saving test case:', error);
       return {
@@ -62,13 +70,7 @@ export const useTestCaseSave = () => {
    */
   const listTestCases = useCallback(async (): Promise<{ success: boolean; testcases: any[] }> => {
     try {
-      const response = await fetch(buildServerUrl('/server/testcase/list'));
-      
-      if (!response.ok) {
-        throw new Error(`HTTP ${response.status}`);
-      }
-      
-      return await response.json();
+      return await getCachedTestCaseList(buildServerUrl('/server/testcase/list'));
     } catch (error) {
       console.error('[useTestCaseSave] Error listing test cases:', error);
       return { success: false, testcases: [] };

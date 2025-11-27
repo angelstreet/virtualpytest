@@ -86,10 +86,10 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Safety timeout - clear loading if auth listener doesn't fire (e.g. network issues)
     const timeout = setTimeout(() => {
       if (mounted && isLoading && !timeoutCleared) {
-        console.warn('[@AuthContext] Auth listener did not fire - clearing loading state');
+        console.warn('[@AuthContext] Auth initialization timeout - clearing loading state');
         setIsLoading(false);
       }
-    }, 1000); // 1 second timeout as fallback
+    }, 3000); // 3 second timeout as fallback
 
     const initAuth = async () => {
       try {

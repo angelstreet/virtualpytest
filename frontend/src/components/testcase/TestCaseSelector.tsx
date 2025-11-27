@@ -12,6 +12,7 @@ import {
   PlayArrow as ScriptIcon,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../../utils/buildUrlUtils';
+import { getCachedTestCaseList, invalidateTestCaseListCache } from '../../utils/testcaseCache';
 
 export interface TestCaseItem {
   testcase_id: string;
@@ -100,11 +101,10 @@ export const TestCaseSelector = forwardRef<{ refresh: () => void }, TestCaseSele
       setLoading(true);
       setError(null);
 
-      // Load test cases
-      const testCasesResponse = await fetch(
+      // Load test cases (with shared cache)
+      const testCasesData = await getCachedTestCaseList(
         buildServerUrl('/server/testcase/list')
       );
-      const testCasesData = await testCasesResponse.json();
 
       // Load scripts
       const scriptsResponse = await fetch(

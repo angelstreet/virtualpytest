@@ -15,6 +15,7 @@ import { useConfirmDialog } from '../hooks/useConfirmDialog';
 import { ConfirmDialog } from '../components/common/ConfirmDialog';
 
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { invalidateTestCaseListCache } from '../utils/testcaseCache';
 
 const TestCaseEditor: React.FC = () => {
   // Ref to access TestCaseSelector's refresh method
@@ -49,6 +50,9 @@ const TestCaseEditor: React.FC = () => {
           if (!response.ok) {
             throw new Error('Failed to delete test case');
           }
+          
+          // Invalidate cache after successful deletion
+          invalidateTestCaseListCache();
           
           // After successful deletion, refresh the list
           if (selectorRef.current) {
