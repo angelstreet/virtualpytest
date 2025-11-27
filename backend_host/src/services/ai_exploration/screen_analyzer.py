@@ -138,8 +138,8 @@ class ScreenAnalyzer:
                     else:
                         # Fallback to asyncio.run (may cause issues but better than crashing)
                         print(f"[@screen_analyzer] Fallback to asyncio.run()")
-                result = asyncio.run(result)
-                print(f"[@screen_analyzer] Async result type: {type(result)}")
+                        result = asyncio.run(result)
+                        print(f"[@screen_analyzer] Async result type: {type(result)}")
             
         except Exception as e:
             print(f"❌ [@screen_analyzer:_analyze_from_dump] dump_elements() FAILED")
