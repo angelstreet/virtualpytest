@@ -67,10 +67,17 @@ def call_jira_api(domain, endpoint, email, api_token, method='GET', data=None):
         else:
             raise ValueError(f"Unsupported method: {method}")
         
+        # Log response details for debugging
+        print(f"[@integrations_routes] Response status: {response.status_code}")
+        if response.status_code >= 400:
+            print(f"[@integrations_routes] Error response body: {response.text}")
+        
         response.raise_for_status()
         return response.json()
     except requests.exceptions.RequestException as e:
         print(f"[@integrations_routes] JIRA API error: {e}")
+        if hasattr(e, 'response') and e.response is not None:
+            print(f"[@integrations_routes] Error response: {e.response.text}")
         raise
 
 
@@ -221,8 +228,11 @@ def get_jira_tickets(instance_id):
             jql += f" AND status='{status_filter}'"
         jql += " ORDER BY created DESC"
         
-        # Call JIRA API
-        endpoint = f"/search?jql={jql}&maxResults={max_results}"
+        # Call JIRA API - use new /search/jql endpoint (v3)
+        import urllib.parse
+        encoded_jql = urllib.parse.quote(jql)
+        endpoint = f"/search/jql?jql={encoded_jql}&maxResults={max_results}&fields=summary,status,priority,assignee,created,updated,issuetype"
+        
         result = call_jira_api(
             instance['domain'],
             endpoint,
@@ -238,17 +248,26 @@ def get_jira_tickets(instance_id):
                 'id': issue.get('id'),
                 'key': issue.get('key'),
                 'summary': fields.get('summary', ''),
-                'status': fields.get('status', {}).get('name', ''),
-                'priority': fields.get('priority', {}).get('name', 'None'),
+                'status': fields.get('status', {}).get('name', '') if fields.get('status') else 'Unknown',
+                'priority': fields.get('priority', {}).get('name', 'None') if fields.get('priority') else 'None',
                 'assignee': fields.get('assignee', {}).get('displayName', 'Unassigned') if fields.get('assignee') else 'Unassigned',
                 'created': fields.get('created', ''),
                 'updated': fields.get('updated', ''),
-                'issueType': fields.get('issuetype', {}).get('name', ''),
+                'issueType': fields.get('issuetype', {}).get('name', '') if fields.get('issuetype') else 'Unknown',
                 'url': f"https://{instance['domain']}/browse/{issue.get('key')}"
             })
         
-        # Get statistics
-        total = result.get('total', 0)
+        # Get statistics - new API returns isLast instead of total
+        total = len(tickets)
+        if not result.get('isLast', True):
+            # If there are more pages, get accurate count
+            count_result = call_jira_api(
+                instance['domain'],
+                f"/search/jql?jql={encoded_jql}&maxResults=1000",
+                instance['email'],
+                instance['apiToken']
+            )
+            total = len(count_result.get('issues', []))
         
         return jsonify({
             'success': True,
@@ -287,6 +306,31 @@ def get_jira_stats(instance_id):
             }), 404
         
         project_key = instance['projectKey']
+        import urllib.parse
+        
+        # Helper function to get count using new /search/jql endpoint
+        def get_jira_count(jql):
+            encoded_jql = urllib.parse.quote(jql)
+            # Use new /search/jql endpoint
+            result = call_jira_api(
+                instance['domain'],
+                f"/search/jql?jql={encoded_jql}&maxResults=1",
+                instance['email'],
+                instance['apiToken']
+            )
+            # Count total by checking if there are more issues
+            total = len(result.get('issues', []))
+            if not result.get('isLast', True):
+                # If not last page, we need to get actual count
+                # Make another call with higher maxResults to get total
+                result_full = call_jira_api(
+                    instance['domain'],
+                    f"/search/jql?jql={encoded_jql}&maxResults=1000",
+                    instance['email'],
+                    instance['apiToken']
+                )
+                total = len(result_full.get('issues', []))
+            return total
         
         # Get counts by status
         statuses = ['Open', 'In Progress', 'Done', 'To Do', 'Closed']
@@ -296,25 +340,11 @@ def get_jira_stats(instance_id):
         }
         
         # Get total count
-        jql = f"project={project_key}"
-        result = call_jira_api(
-            instance['domain'],
-            f"/search?jql={jql}&maxResults=0",
-            instance['email'],
-            instance['apiToken']
-        )
-        stats['total'] = result.get('total', 0)
+        stats['total'] = get_jira_count(f"project={project_key}")
         
         # Get counts by status
         for status in statuses:
-            jql = f"project={project_key} AND status='{status}'"
-            result = call_jira_api(
-                instance['domain'],
-                f"/search?jql={jql}&maxResults=0",
-                instance['email'],
-                instance['apiToken']
-            )
-            count = result.get('total', 0)
+            count = get_jira_count(f"project={project_key} AND status='{status}'")
             if count > 0:
                 stats['byStatus'][status] = count
         
