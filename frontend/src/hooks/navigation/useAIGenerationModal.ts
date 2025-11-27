@@ -10,6 +10,7 @@ interface UseAIGenerationModalProps {
   selectedDeviceId: string;
   onClose: () => void;
   onCleanupTemp?: () => void;
+  onFinalized?: () => void; // ✅ NEW: Callback to reload tree after finalize
   startExploration: () => Promise<void>;
   explorationId?: string;
 }
@@ -19,6 +20,7 @@ export const useAIGenerationModal = ({
   treeId,
   selectedHost,
   onCleanupTemp,
+  onFinalized,
   startExploration
 }: UseAIGenerationModalProps) => {
   const [hasTempNodes, setHasTempNodes] = useState(false);
@@ -66,9 +68,12 @@ export const useAIGenerationModal = ({
       if (data.success) {
         console.log('[@useAIGenerationModal] ✅ Validated:', data.nodes_renamed, 'nodes,', data.edges_renamed, 'edges');
         
+        // ✅ CRITICAL: Reload tree to show finalized nodes (removed _temp suffix)
+        onFinalized?.();
+        
         setHasTempNodes(false);
         
-        // Keep modal open - user decides when to close (tree will refresh naturally)
+        // Keep modal open - user decides when to close
       } else {
         console.error('[@useAIGenerationModal] ❌ Validation failed:', data.error);
         alert(`Failed to validate: ${data.error || 'Unknown error'}`);

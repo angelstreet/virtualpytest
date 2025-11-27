@@ -39,6 +39,7 @@ interface AIGenerationModalProps {
   userinterfaceName?: string;
   onStructureCreated: (nodesCount: number, edgesCount: number, explorationId: string, explorationHostName: string) => void; // Notify parent to show ValidationReadyPrompt
   onCleanupTemp?: () => void; // Cleanup _temp nodes from frontend state
+  onFinalized?: () => void; // ✅ NEW: Reload tree after finalize
 }
 
 export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
@@ -49,7 +50,8 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
   selectedDeviceId,
   userinterfaceName,
   onStructureCreated,
-  onCleanupTemp
+  onCleanupTemp,
+  onFinalized
 }) => {
   const {
     explorationId,
@@ -224,6 +226,7 @@ export const AIGenerationModal: React.FC<AIGenerationModalProps> = ({
     selectedDeviceId,
     onClose,
     onCleanupTemp,
+    onFinalized,
     startExploration,
     explorationId: explorationId || undefined
   });
