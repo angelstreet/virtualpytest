@@ -1,0 +1,98 @@
+openapi: 3.0.0
+info:
+  title: SERVER - Navigation Management
+  version: 1.0.0
+  description: >-
+    Navigation tree and node management endpoints for UI navigation testing,
+    including navigation execution, tree creation, node management, and
+    pathfinding.
+servers:
+  - url: '{{server_url}}'
+paths:
+  /navigation/goto:
+    post:
+      summary: Navigate to Node (Goto)
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: >-
+        Navigate to a specific node in the navigation tree using the abstract
+        navigation controller
+  /navigation/config/createEmpty/TestUI_{{$timestamp}}:
+    post:
+      summary: Create Empty Navigation Config
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: >-
+        Create an empty navigation configuration for a user interface with entry
+        and home nodes
+  /navigation-trees/getTree/{test_navigation_id}:
+    get:
+      summary: Get Navigation Tree
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Retrieve a navigation tree by ID with all nodes and edges
+    parameters:
+      - name: test_navigation_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /navigation-trees/getAllTrees:
+    get:
+      summary: Get All Navigation Trees
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Get all navigation trees for a team
+  /navigation-trees/deleteTree/{test_navigation_id}:
+    delete:
+      summary: Delete Navigation Tree
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Delete a navigation tree and all its associated nodes and edges
+    parameters:
+      - name: test_navigation_id
+        in: path
+        required: true
+        schema:
+          type: string

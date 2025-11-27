@@ -1,0 +1,65 @@
+openapi: 3.0.0
+info:
+  title: SERVER - Core System & Health
+  version: 1.0.0
+  description: >-
+    Core system endpoints for health checks, host registration, system metrics,
+    and service monitoring. Essential for infrastructure monitoring and
+    automated health checks.
+servers:
+  - url: '{{server_url}}'
+  - url: '{{base_url}}'
+paths:
+  /health:
+    get:
+      summary: Health Check
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Optional team ID
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: >-
+        Basic health check endpoint to verify server status and database
+        connectivity
+  /system/register:
+    post:
+      summary: Register Host
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Register a new host with the server for device management
+  /system/stats:
+    get:
+      summary: Get System Stats
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Team ID for filtering stats
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: >-
+        Get comprehensive system statistics including CPU, memory, disk usage,
+        and active connections
+  /ping:
+    get:
+      summary: Ping Server
+      tags: []
+      responses: {}
+      description: Simple ping endpoint to check if server is responding (no auth required)

@@ -1,0 +1,68 @@
+openapi: 3.0.0
+info:
+  title: SERVER - AI & Analysis
+  version: 1.0.0
+  description: AI-powered test generation, prompt analysis, compatibility checking
+servers:
+  - url: '{{server_url}}'
+paths:
+  /ai/analyzeCompatibility:
+    post:
+      summary: Analyze Compatibility
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /ai/generatePlan:
+    post:
+      summary: Generate Plan
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /ai/getStatus:
+    post:
+      summary: Get AI Status
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /ai/stopExecution:
+    post:
+      summary: Stop AI Execution
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /ai/analyzePrompt:
+    post:
+      summary: Analyze Prompt
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /ai/resetCache:
+    post:
+      summary: Reset AI Cache
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}

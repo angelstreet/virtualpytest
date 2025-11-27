@@ -117,6 +117,19 @@ const NavigationBar: React.FC = () => {
     },
   ];
 
+  const apiItems = [
+    {
+      label: 'API Documentation',
+      path: '/api/documentation',
+      icon: <ApiIcon fontSize="small" />,
+    },
+    {
+      label: 'Postman Workspace',
+      path: '/api/postman',
+      icon: <ApiIcon fontSize="small" />,
+    },
+  ];
+
   const configurationItems = [
     {
       label: 'Models',
@@ -227,6 +240,9 @@ const NavigationBar: React.FC = () => {
       >
         Grafana
       </Button>
+
+      {/* API Dropdown */}
+      <NavigationDropdown label="API" items={apiItems} />
 
       {/* Configuration Dropdown */}
       <NavigationDropdown label="Configuration" items={configurationItems} />

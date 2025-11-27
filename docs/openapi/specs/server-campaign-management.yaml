@@ -1,0 +1,125 @@
+openapi: 3.0.0
+info:
+  title: SERVER - Campaign Management
+  version: 1.0.0
+  description: >-
+    Complete API testing for campaign management endpoints including CRUD
+    operations for test campaigns, campaign execution, and campaign results
+    tracking.
+servers:
+  - url: '{{server_url}}'
+paths:
+  /campaigns/getAllCampaigns:
+    get:
+      summary: Get All Campaigns
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Team ID to filter campaigns
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+        - name: User-Agent
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Retrieve all campaigns for a specific team
+  /campaigns/createCampaign:
+    post:
+      summary: Create Campaign
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Team ID for campaign ownership
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+        - name: X-User-ID
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Create a new test campaign with configuration
+  /campaigns/getCampaign/{test_campaign_id}:
+    get:
+      summary: Get Campaign by ID
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Team ID for authorization
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Retrieve a specific campaign by its ID
+    parameters:
+      - name: test_campaign_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /campaigns/updateCampaign/{test_campaign_id}:
+    put:
+      summary: Update Campaign
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Team ID for authorization
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+        - name: X-User-ID
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Update an existing campaign configuration
+    parameters:
+      - name: test_campaign_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /campaigns/deleteCampaign/{test_campaign_id}:
+    delete:
+      summary: Delete Campaign
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          description: Team ID for authorization
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+        - name: X-User-ID
+          in: header
+          schema:
+            type: string
+      responses: {}
+      description: Delete a campaign from the system
+    parameters:
+      - name: test_campaign_id
+        in: path
+        required: true
+        schema:
+          type: string

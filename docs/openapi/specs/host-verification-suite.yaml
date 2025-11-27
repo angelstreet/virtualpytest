@@ -1,0 +1,124 @@
+openapi: 3.0.0
+info:
+  title: HOST - Verification Suite
+  version: 1.0.0
+  description: >-
+    Comprehensive verification capabilities: image, text, video, audio, batch
+    execution
+servers:
+  - url: '{{host_url}}'
+paths:
+  /verification/getStatus:
+    get:
+      summary: Get Verification Status
+      tags: []
+      parameters:
+        - name: device_id
+          in: query
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/executeBatch:
+    post:
+      summary: Execute Batch Verifications
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/image/cropImage:
+    post:
+      summary: IMAGE - Crop Image
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/image/execute:
+    post:
+      summary: IMAGE - Execute Verification
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/text/detectText:
+    post:
+      summary: TEXT - Detect Text (OCR)
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/text/execute:
+    post:
+      summary: TEXT - Execute Verification
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/video/detectBlackscreen:
+    post:
+      summary: VIDEO - Detect Blackscreen
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/video/detectFreeze:
+    post:
+      summary: VIDEO - Detect Freeze
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/video/detectSubtitles:
+    post:
+      summary: VIDEO - Detect Subtitles
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/video/analyzeImageAI:
+    post:
+      summary: VIDEO - Analyze Image (AI)
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /verification/audio/execute:
+    post:
+      summary: AUDIO - Execute Audio Verification
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}

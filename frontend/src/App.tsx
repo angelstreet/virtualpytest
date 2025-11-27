@@ -44,6 +44,8 @@ const ApiTestingPage = React.lazy(() => import('./pages/ApiTestingPage'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const MCPPlayground = React.lazy(() => import('./pages/MCPPlayground'));
 const GrafanaRedirect = React.lazy(() => import('./pages/GrafanaRedirect'));
+const ApiDocumentation = React.lazy(() => import('./pages/ApiDocumentation'));
+const PostmanWorkspace = React.lazy(() => import('./pages/PostmanWorkspace'));
 
 // 404 Not Found component
 const NotFound: React.FC = () => {
@@ -209,6 +211,10 @@ const App: React.FC = () => {
                   
                   {/* Grafana Direct Access - Redirects to VITE_GRAFANA_URL */}
                   <Route path="/grafana/*" element={<GrafanaRedirect />} />
+
+                  {/* API Routes */}
+                  <Route path="/api/documentation" element={<ApiDocumentation />} />
+                  <Route path="/api/postman" element={<PostmanWorkspace />} />
 
                   {/* Configuration Routes */}
                   <Route

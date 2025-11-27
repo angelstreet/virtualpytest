@@ -273,6 +273,10 @@ def register_all_server_routes(app):
         from routes import server_monitoring_routes
         print("[@backend_server:routes] ✅ server_monitoring_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing server_openapi_routes...")
+        from routes import server_openapi_routes
+        print("[@backend_server:routes] ✅ server_openapi_routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -318,6 +322,7 @@ def register_all_server_routes(app):
             (server_mcp_proxy_routes.server_mcp_proxy_bp, 'MCP Proxy - OpenRouter Function Calling'),
             (logs_routes.logs_bp, 'System logs and service monitoring'),
             (server_monitoring_routes.server_monitoring_bp, 'Monitoring system (registered before auto_proxy for precedence)'),
+            (server_openapi_routes.server_openapi_bp, 'OpenAPI documentation serving'),
             
             # Auto proxy (replaces 11 pure proxy route files + 18 verification proxy routes - navigation-execution now handled separately)
             (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, power, remote, translation + 18 verification routes)')
