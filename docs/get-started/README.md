@@ -1,41 +1,72 @@
 # Getting Started with VirtualPyTest
 
-VirtualPyTest is a comprehensive testing automation platform that consists of three main components:
+Welcome! Choose your setup path based on your needs.
 
-- **Frontend**: React-based web interface for managing tests and monitoring
-- **Backend Server**: API server for test orchestration and data management  
-- **Backend Host**: Hardware interface for device control and test execution
+---
 
-## 🚀 Quick Start Options
+## 🚀 Quick Start (Recommended)
 
-Choose your deployment strategy:
+**Just want to try it?** Use Docker for instant setup.
 
-### 🏠 [Local Development Setup](./local-setup.md)
-Perfect for development and testing. All components run on your local machine with hardware access.
+➡️ **[Quick Start with Docker](./quickstart.md)** (5 minutes)
 
-### ☁️ [Cloud + Local Hybrid Setup](./cloud-setup.md)  
-Production-ready setup with frontend on Vercel, server on Render, and local host for hardware control.
+Perfect for:
+- First-time users
+- Quick evaluation
+- Demo purposes
+- Simple standalone deployment
 
-### 🗄️ [Database Setup (Supabase)](./supabase-setup.md)
-Required for both local and cloud setups. Set up your PostgreSQL database on Supabase.
+---
 
-## 📋 Prerequisites
+## 🏠 Local Development Setup
 
-- **Node.js** 18+ and npm
-- **Python** 3.8+ 
-- **Git**
-- **Supabase account** (for database)
+**Want to develop or customize?** Run everything locally.
 
-## 🏗️ Architecture Overview
+➡️ **[Local Development Setup](./local-setup.md)** (30 minutes)
+
+Perfect for:
+- Contributing to the project
+- Custom development
+- Full control over components
+- Debugging and testing
+
+---
+
+## ☁️ Cloud Deployment
+
+**Need production-ready deployment?** Use our hybrid cloud setup.
+
+➡️ **[Cloud Deployment Guide](./cloud-setup.md)** (1 hour)
+
+Perfect for:
+- Production environments
+- Team collaboration
+- Scalable infrastructure
+- 24/7 monitoring
+
+---
+
+## 🗄️ Database Setup
+
+**All setups require a database.** We use Supabase (PostgreSQL).
+
+➡️ **[Supabase Setup Guide](./supabase-setup.md)** (15 minutes)  
+➡️ **[Supabase Auth Setup](./supabase-auth-setup.md)** (Optional)
+
+---
+
+## Architecture Overview
+
+VirtualPyTest consists of three main components:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
 │    Frontend     │    │ Backend Server  │    │  Backend Host   │
 │   (React/TS)    │◄──►│   (Flask/Py)    │◄──►│   (Flask/Py)    │
 │                 │    │                 │    │                 │
-│ • Test UI       │    │ • API Routes    │    │ • Device Control│
-│ • Monitoring    │    │ • Test Logic    │    │ • Hardware I/O  │
-│ • Config        │    │ • Data Storage  │    │ • Verification  │
+│ • Web UI        │    │ • API Routes    │    │ • Device Control│
+│ • Dashboard     │    │ • Test Logic    │    │ • Hardware I/O  │
+│ • Monitoring    │    │ • Data Storage  │    │ • Verification  │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
          │                       │                       │
          └───────────────────────┼───────────────────────┘
@@ -43,30 +74,38 @@ Required for both local and cloud setups. Set up your PostgreSQL database on Sup
                     ┌─────────────────┐
                     │    Supabase     │
                     │   (PostgreSQL)  │
-                    │                 │
-                    │ • Test Data     │
-                    │ • Configurations│
-                    │ • Results       │
                     └─────────────────┘
 ```
 
-## 🎯 Recommended Setup Path
+---
 
-1. **Start with Database**: [Set up Supabase](./supabase-setup.md) first
-2. **Choose your path**:
-   - For development: [Local Setup](./local-setup.md)
-   - For production: [Cloud Setup](./cloud-setup.md)
+## Prerequisites
 
-## 🔗 Next Steps
+All setups require:
 
-After setup, explore these features:
-- Device management and configuration
-- Test automation and execution
-- Real-time monitoring and analytics
-- Custom controller implementations
+- **Python** 3.8 or higher
+- **Node.js** 18 or higher
+- **Git**
+- **Supabase account** (free tier works)
 
-## 🆘 Need Help?
+Optional (for Docker setup):
+- **Docker** & **Docker Compose**
 
-- Check the [troubleshooting section](../TROUBLESHOOTING.md)
-- Review [architecture documentation](../ARCHITECTURE_REDESIGN.md)
-- See [implementation guides](../) for specific features 
+---
+
+## What's Next?
+
+After setup, explore:
+
+- 📖 **[Features](../features/README.md)** - See what you can do
+- 📚 **[User Guide](../user-guide/README.md)** - Learn how to use it
+- 🔧 **[Technical Docs](../technical/README.md)** - Understand how it works
+- 🔌 **[Integrations](../integrations/README.md)** - Connect external tools
+
+---
+
+## Need Help?
+
+- 🐛 [Report Issues](https://github.com/angelstreet/virtualpytest/issues)
+- 💬 [Community Discussions](https://github.com/angelstreet/virtualpytest/discussions)
+- 📖 [Troubleshooting](../user-guide/troubleshooting.md)

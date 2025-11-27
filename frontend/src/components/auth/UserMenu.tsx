@@ -13,8 +13,8 @@ import {
 } from '@mui/material';
 import {
   Logout as LogoutIcon,
-  Person as PersonIcon,
-  Settings as SettingsIcon,
+  Groups as TeamsIcon,
+  People as UsersIcon,
 } from '@mui/icons-material';
 import { useAuth } from '../../hooks/auth/useAuth';
 import { useProfile } from '../../hooks/auth/useProfile';
@@ -23,7 +23,7 @@ import { isAuthEnabled } from '../../lib/supabase';
 
 /**
  * User Menu Component
- * Displays user avatar and dropdown menu with profile info and logout
+ * Displays user avatar and dropdown menu with teams/users management and logout
  */
 export const UserMenu: React.FC = () => {
   const { user, signOut } = useAuth();
@@ -39,14 +39,14 @@ export const UserMenu: React.FC = () => {
     setAnchorEl(null);
   };
 
-  const handleProfile = () => {
+  const handleTeams = () => {
     handleMenuClose();
-    navigate('/profile');
+    navigate('/teams');
   };
 
-  const handleSettings = () => {
+  const handleUsers = () => {
     handleMenuClose();
-    navigate('/configuration/settings');
+    navigate('/users');
   };
 
   const handleLogout = async () => {
@@ -113,18 +113,18 @@ export const UserMenu: React.FC = () => {
 
         <Divider />
 
-        <MenuItem onClick={handleProfile}>
+        <MenuItem onClick={handleTeams}>
           <ListItemIcon>
-            <PersonIcon fontSize="small" />
+            <TeamsIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Profile</ListItemText>
+          <ListItemText>Teams</ListItemText>
         </MenuItem>
 
-        <MenuItem onClick={handleSettings}>
+        <MenuItem onClick={handleUsers}>
           <ListItemIcon>
-            <SettingsIcon fontSize="small" />
+            <UsersIcon fontSize="small" />
           </ListItemIcon>
-          <ListItemText>Settings</ListItemText>
+          <ListItemText>Users</ListItemText>
         </MenuItem>
 
         <Divider />

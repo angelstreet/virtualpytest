@@ -289,6 +289,14 @@ def register_all_server_routes(app):
         from routes import server_auth_routes
         print("[@backend_server:routes] ✅ server_auth_routes imported successfully")
         
+        print("[@backend_server:routes] 🔍 Importing teams routes...")
+        from routes import teams
+        print("[@backend_server:routes] ✅ teams routes imported successfully")
+        
+        print("[@backend_server:routes] 🔍 Importing users routes...")
+        from routes import users
+        print("[@backend_server:routes] ✅ users routes imported successfully")
+        
         print("[@backend_server:routes] 🎉 All route imports completed successfully!")
         
         # Register all server blueprints
@@ -338,6 +346,8 @@ def register_all_server_routes(app):
             (server_postman_routes.server_postman_bp, 'User Postman workspace API testing'),
             (server_integrations_routes.server_integrations_bp, 'Third-party integrations (JIRA, etc.)'),
             (server_auth_routes.server_auth_bp, 'User authentication and authorization'),
+            (teams.teams_bp, 'Teams management'),
+            (users.users_bp, 'Users management'),
             
             # Auto proxy (replaces 11 pure proxy route files + 18 verification proxy routes - navigation-execution now handled separately)
             (auto_proxy.auto_proxy_bp, 'Auto proxy (replaces actions, ai-execution, ai-tools, av, desktop-bash, desktop-pyautogui, monitoring, power, remote, translation + 18 verification routes)')
