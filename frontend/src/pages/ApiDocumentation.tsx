@@ -42,7 +42,10 @@ const ApiDocumentation: React.FC = () => {
   const getDocUrl = () => {
     // Docs are served by the backend server at /docs/openapi/docs/
     // Use buildServerUrl to respect selected server from ServerSelector
-    return buildServerUrl(`/docs/openapi/docs/${selectedDoc}.html`);
+    const url = buildServerUrl(`/docs/openapi/docs/${selectedDoc}.html`);
+    console.log('[ApiDocumentation] Loading iframe URL:', url);
+    console.log('[ApiDocumentation] Selected doc:', selectedDoc);
+    return url;
   };
 
   return (
