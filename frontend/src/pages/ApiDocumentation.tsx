@@ -1,7 +1,6 @@
 import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip, Typography } from '@mui/material';
 import { OpenInNew, Refresh } from '@mui/icons-material';
 import React, { useState } from 'react';
-import { buildServerUrl } from '../utils/buildUrlUtils';
 
 interface ApiDoc {
   title: string;
@@ -38,11 +37,10 @@ const ApiDocumentation: React.FC = () => {
 
   const selectedDocData = apiDocs.find(d => d.filename === selectedDoc);
 
-  // Get the documentation URL (served from backend)
+  // Get the documentation URL (served as static files from frontend)
   const getDocUrl = () => {
-    // Docs are served by the backend server at /docs/openapi/docs/
-    // Use buildServerUrl to respect selected server from ServerSelector
-    const url = buildServerUrl(`/docs/openapi/docs/${selectedDoc}.html`);
+    // Docs are copied to public/ during build and served as static files
+    const url = `/docs/openapi/docs/${selectedDoc}.html`;
     console.log('[ApiDocumentation] Loading iframe URL:', url);
     console.log('[ApiDocumentation] Selected doc:', selectedDoc);
     return url;
