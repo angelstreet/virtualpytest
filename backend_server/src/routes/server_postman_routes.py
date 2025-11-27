@@ -378,7 +378,14 @@ def run_api_test():
                 'error': 'Workspace not found'
             }), 404
         
+        # Get server URL from workspace config (if specified) or use buildServerUrl
+        workspace_server_url = workspace.get('serverUrl')
+        
         print(f"[@postman_routes:run_api_test] Testing {len(endpoints)} endpoints")
+        if workspace_server_url:
+            print(f"[@postman_routes:run_api_test] Using workspace serverUrl: {workspace_server_url}")
+        else:
+            print(f"[@postman_routes:run_api_test] Using buildServerUrl (from SERVER_URL env)")
         
         # Execute tests using requests
         results = []
@@ -409,8 +416,13 @@ def run_api_test():
                 })
                 continue
             
-            # Use buildServerUrl to construct proper URL with environment detection
-            url = buildServerUrl(path)
+            # Build URL: use workspace serverUrl if specified, otherwise use buildServerUrl
+            if workspace_server_url:
+                # Direct URL from workspace config - use as-is
+                url = f"{workspace_server_url}{path}"
+            else:
+                # Use buildServerUrl for environment detection
+                url = buildServerUrl(path)
             
             start_time = time.time()
             result_entry = {
