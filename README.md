@@ -4,7 +4,7 @@
 [![Docker](https://img.shields.io/badge/docker-ready-blue.svg)](https://www.docker.com/)
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-active-success.svg)]()
-[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](docs_new/user/)
+[![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](docs/)
 [![Sandbox](https://img.shields.io/badge/Try_Live-VirtualPyTest.com-orange)](https://www.virtualpytest.com/)
 
 <div align="center">
@@ -12,9 +12,9 @@
   <p>One script = all devices. No expensive licenses. No vendor lock-in.</p>
 
   <p>
-    <a href="docs_new/user/getting-started.md"><b>Getting Started</b></a> •
-    <a href="docs_new/user/"><b>Documentation</b></a> •
-    <a href="docs_new/examples/"><b>Tutorials</b></a> •
+    <a href="docs/get-started/quickstart.md"><b>Getting Started</b></a> •
+    <a href="docs/"><b>Documentation</b></a> •
+    <a href="docs/examples/"><b>Examples</b></a> •
     <a href="#community--support"><b>Community</b></a>
   </p>
 </div>
@@ -72,20 +72,20 @@ This script will automatically:
 3. Open the dashboard at `http://localhost:3000`
 
 ### **Manual Setup**
-For developers who want to contribute or run locally without Docker, see our [Developer Guide](docs_new/technical/setup.md).
+For developers who want to contribute or run locally without Docker, see our [Developer Guide](docs/get-started/local-setup.md).
 
 ---
 
-## **Tutorials & Examples**
+## **Examples & Demos**
 
 Learn how to automate common scenarios:
 
-1. **[Basic Navigation](docs_new/examples/navigation.md)** - How to navigate menus on any device.
-2. **[Channel Zapping](docs_new/examples/zapping.md)** - Automate channel changes and validate video stability.
-3. **[App Validation](docs_new/examples/validation.md)** - Launch apps and verify they load correctly.
-4. **[Visual Regression](docs_new/examples/visual.md)** - Detect UI changes using AI comparison.
+- **[AI Automation Prompts](docs/examples/)** - Generate tests using AI
+- **[Mobile Automation](docs/examples/automate-prompt-mobile.md)** - Automate mobile apps
+- **[TV Automation](docs/examples/automate-prompt-tv.md)** - Automate set-top boxes and TVs
+- **[Web Automation](docs/examples/automate-prompt-web.md)** - Browser automation
 
-*See all examples in the [Examples Directory](docs_new/examples/).*
+*See all examples in the [Examples Directory](docs/examples/).*
 
 ---
 
@@ -126,7 +126,7 @@ We are constantly improving VirtualPyTest. Here is what's coming next:
 - [ ] **Visual Test Builder**: Drag-and-drop test creation UI.
 - [ ] **Advanced AI**: Self-healing test scripts that adapt to UI changes.
 
-Check out our [full roadmap](docs_new/roadmap.md) for more details.
+Check out our [full roadmap](https://github.com/angelstreet/virtualpytest/issues) for more details.
 
 ---
 
@@ -145,4 +145,4 @@ We welcome you to join our growing community!
 VirtualPyTest is available under the [MIT License](LICENSE).
 
 **Ready to revolutionize your device testing?**
-[Get Started Now](docs_new/user/getting-started.md) 🚀
+[Get Started Now](docs/get-started/quickstart.md) 🚀

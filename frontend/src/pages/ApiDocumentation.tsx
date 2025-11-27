@@ -40,8 +40,8 @@ const ApiDocumentation: React.FC = () => {
 
   // Get the documentation URL (served as static files from frontend)
   const getDocUrl = () => {
-    // Docs are copied to public/ during build and served as static files
-    const url = `/docs/openapi/docs/${selectedDoc}.html`;
+    // Docs are copied to public/docs/api/openapi/ during build
+    const url = `/docs/api/openapi/${selectedDoc}.html`;
     console.log('[ApiDocumentation] Loading iframe URL:', url);
     console.log('[ApiDocumentation] Selected doc:', selectedDoc);
     return url;

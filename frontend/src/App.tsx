@@ -25,6 +25,7 @@ import { isAuthEnabled } from './lib/supabase';
 // Lazy load all pages for better performance and to avoid loading everything at once
 const Dashboard = React.lazy(() => import('./pages/Dashboard'));
 const Rec = React.lazy(() => import('./pages/Rec'));
+const Documentation = React.lazy(() => import('./pages/Documentation'));
 const CampaignEditor = React.lazy(() => import('./pages/CampaignEditor'));
 const Requirements = React.lazy(() => import('./pages/Requirements'));
 const Coverage = React.lazy(() => import('./pages/Coverage'));
@@ -279,6 +280,8 @@ const App: React.FC = () => {
                   
                   {/* VirtualPyTest Documentation Routes */}
                   <Route path="/docs/api" element={<ApiDocumentation />} />
+                  <Route path="/docs/:section" element={<Documentation />} />
+                  <Route path="/docs/:section/:page" element={<Documentation />} />
 
                   {/* Integrations Routes - Protected by permission */}
                   <Route element={<ProtectedRoute requiredPermission="jira_integration" />}>

@@ -126,9 +126,34 @@ const NavigationBar: React.FC = () => {
   // VirtualPyTest Documentation menu items
   const docsItems = [
     {
+      label: 'Get Started',
+      path: '/docs/get-started',
+      icon: <RunIcon fontSize="small" />,
+    },
+    {
+      label: 'Features',
+      path: '/docs/features',
+      icon: <TestingIcon fontSize="small" />,
+    },
+    {
+      label: 'User Guide',
+      path: '/docs/user-guide',
+      icon: <RequirementIcon fontSize="small" />,
+    },
+    {
       label: 'API Reference',
       path: '/docs/api',
       icon: <ApiIcon fontSize="small" />,
+    },
+    {
+      label: 'Examples',
+      path: '/docs/examples',
+      icon: <TreeIcon fontSize="small" />,
+    },
+    {
+      label: 'Technical Docs',
+      path: '/docs/technical',
+      icon: <BuildIcon fontSize="small" />,
     },
   ];
 
