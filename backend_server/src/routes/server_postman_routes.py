@@ -364,6 +364,7 @@ def run_api_test():
         workspace_id = data.get('workspaceId')
         workspace_name = data.get('workspaceName')
         endpoints = data.get('endpoints', [])
+        host_name = data.get('host_name')  # Optional: only needed for /host/* endpoints
         
         if not endpoints:
             return jsonify({
@@ -403,26 +404,21 @@ def run_api_test():
             if path and not path.startswith('/'):
                 path = '/' + path
             
-            # Skip /host/* endpoints for now - only test /server/* endpoints
-            if path.startswith('/host/'):
-                print(f"[@postman_routes] Skipping host endpoint (not implemented yet): {path}")
+            # Check if this is a host endpoint and we don't have host_name
+            if path.startswith('/host/') and not host_name:
+                print(f"[@postman_routes] Skipping host endpoint (no host_name provided): {path}")
                 results.append({
                     'name': name,
                     'method': method,
                     'path': path,
                     'status': 'skipped',
                     'statusCode': 0,
-                    'error': 'Host endpoints not yet supported - requires host selection'
+                    'error': 'Host endpoints require host_name parameter - please select a host to test against'
                 })
                 continue
             
-            # Build URL: use workspace serverUrl if specified, otherwise use buildServerUrl
-            if workspace_server_url:
-                # Direct URL from workspace config - use as-is
-                url = f"{workspace_server_url}{path}"
-            else:
-                # Use buildServerUrl for environment detection
-                url = buildServerUrl(path)
+            # Use buildServerUrl to construct proper URL with environment detection
+            url = buildServerUrl(path)
             
             start_time = time.time()
             result_entry = {
@@ -435,15 +431,25 @@ def run_api_test():
             try:
                 print(f"[@postman_routes] Executing {method} {url}")
                 
-                # Add query params if needed
+                # Prepare request params
                 params = {}
+                json_data = None
+                
+                # Add team_id if needed
                 if 'team_id' in path or any(x in path for x in ['devices', 'campaigns', 'testcase', 'requirements']):
                      params['team_id'] = DEFAULT_TEAM_ID
                 
+                # For /host/* endpoints, add host_name to request body (server will proxy)
+                if path.startswith('/host/') and host_name:
+                    json_data = {'host_name': host_name}
+                    print(f"[@postman_routes] Adding host_name to request: {host_name}")
+                
+                # Execute request
                 response = requests.request(
                     method=method,
                     url=url,
                     params=params,
+                    json=json_data,
                     timeout=10
                 )
                 
