@@ -399,23 +399,41 @@ def run_api_test():
             method = ep.get('method', 'GET')
             path = ep.get('path')
             name = ep.get('name', path)
+            body = ep.get('body', {})  # Get request body from endpoint definition
             
             # Ensure path starts with /
             if path and not path.startswith('/'):
                 path = '/' + path
             
-            # Check if this is a host endpoint and we don't have host_name
-            if path.startswith('/host/') and not host_name:
-                print(f"[@postman_routes] Skipping host endpoint (no host_name provided): {path}")
-                results.append({
-                    'name': name,
-                    'method': method,
-                    'path': path,
-                    'status': 'skipped',
-                    'statusCode': 0,
-                    'error': 'Host endpoints require host_name parameter - please select a host to test against'
-                })
-                continue
+            # Detect if this is a host endpoint by checking if body contains host_name
+            # OR if path already starts with /host/
+            is_host_endpoint = 'host_name' in body or path.startswith('/host/')
+            
+            # Auto-prefix path based on endpoint type
+            if is_host_endpoint:
+                # This is a host endpoint
+                if not path.startswith('/host/'):
+                    path = f'/host{path}'
+                    print(f"[@postman_routes] Auto-detected host endpoint (has host_name in body): {path}")
+                
+                # Check if we have host_name to proxy to
+                endpoint_host_name = body.get('host_name') or host_name
+                if not endpoint_host_name:
+                    print(f"[@postman_routes] Skipping host endpoint (no host_name): {path}")
+                    results.append({
+                        'name': name,
+                        'method': method,
+                        'path': path,
+                        'status': 'skipped',
+                        'statusCode': 0,
+                        'error': 'Host endpoints require host_name in body or request - please select a host'
+                    })
+                    continue
+            else:
+                # This is a server endpoint
+                if not path.startswith('/server/'):
+                    path = f'/server{path}'
+                    print(f"[@postman_routes] Auto-detected server endpoint (no host_name in body): {path}")
             
             # Use buildServerUrl to construct proper URL with environment detection
             url = buildServerUrl(path)
