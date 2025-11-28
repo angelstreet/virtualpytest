@@ -498,17 +498,26 @@ def run_api_test():
             # Substitute {{variables}} in path, params, and body
             path = substitute_variables(path, env_variables)
             
-            # If path contains full URL (e.g., {{base_url}}/server/devices), extract it
+            # If path contains full URL (already substituted), use it directly
             if path.startswith('http://') or path.startswith('https://'):
                 url = path
                 print(f"[@postman_routes] Using full URL from path: {url}")
             else:
-                # Path is relative, need base_url from environment or fallback
-                base_url = env_variables.get('base_url')
+                # Path is relative, determine which base URL to use based on path
+                # /host/* endpoints → host_url, everything else → server_url
+                if path.startswith('/host/') or '/host/' in path:
+                    base_url = env_variables.get('host_url')
+                    url_type = 'host_url'
+                else:
+                    base_url = env_variables.get('server_url')
+                    url_type = 'server_url'
+                
                 if not base_url:
-                    # Fallback to buildServerUrl
+                    # Fallback to buildServerUrl for server endpoints
                     base_url = buildServerUrl('')
-                    print(f"[@postman_routes] No {{base_url}} in environment, using buildServerUrl: {base_url}")
+                    print(f"[@postman_routes] No {{{{{url_type}}}}} in environment, using buildServerUrl fallback: {base_url}")
+                else:
+                    print(f"[@postman_routes] Using {{{{{url_type}}}}} from environment: {base_url}")
                 
                 # Ensure path starts with /
                 if not path.startswith('/'):
