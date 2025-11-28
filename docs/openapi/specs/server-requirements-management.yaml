@@ -2,96 +2,150 @@ openapi: 3.0.0
 info:
   title: SERVER - Requirements Management
   version: 1.0.0
-  description: Requirements tracking, linking with testcases/scripts, coverage analysis
+  description: Requirements tracking and coverage
 servers:
   - url: '{{server_url}}'
 paths:
-  /requirements/create:
+  /server/requirements/create:
     post:
       summary: Create Requirement
-      tags: []
+      tags: [Requirements]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /requirements/list:
+      responses:
+        '200':
+          description: Requirement created
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/requirements/list:
     get:
       summary: List Requirements
-      tags: []
+      tags: [Requirements]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /requirements/{requirement_id}:
+      responses:
+        '200':
+          description: List of requirements
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/requirements/{requirement_id}:
     get:
       summary: Get Requirement by ID
-      tags: []
+      tags: [Requirements]
       parameters:
+        - name: requirement_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: requirement_id
-        in: path
-        required: true
-        schema:
-          type: string
+      responses:
+        '200':
+          description: Requirement details
+          content:
+            application/json:
+              schema:
+                type: object
     put:
       summary: Update Requirement
-      tags: []
+      tags: [Requirements]
       parameters:
+        - name: requirement_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /requirements/link-testcase:
+      responses:
+        '200':
+          description: Requirement updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/requirements/link-testcase:
     post:
       summary: Link Testcase to Requirement
-      tags: []
+      tags: [Requirements]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /requirements/coverage/summary:
+      responses:
+        '200':
+          description: Testcase linked
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/requirements/coverage/summary:
     get:
       summary: Get Coverage Summary
-      tags: []
+      tags: [Requirements]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
+      responses:
+        '200':
+          description: Coverage summary
+          content:
+            application/json:
+              schema:
+                type: object

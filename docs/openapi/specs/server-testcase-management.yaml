@@ -2,79 +2,110 @@ openapi: 3.0.0
 info:
   title: SERVER - Testcase Management
   version: 1.0.0
-  description: >-
-    Test case CRUD operations including creation, update, listing, execution,
-    and folder/tag management for organizing test cases.
+  description: Test case CRUD operations
 servers:
   - url: '{{server_url}}'
 paths:
-  /testcase/list:
+  /server/testcase/list:
     get:
       summary: List All Testcases
-      tags: []
+      tags: [Testcases]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: include_inactive
           in: query
-          description: Include inactive/deleted testcases
           schema:
             type: boolean
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Get all testcases for a team
-  /testcase/save:
+      responses:
+        '200':
+          description: List of testcases
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/testcase/save:
     post:
       summary: Create Testcase
-      tags: []
+      tags: [Testcases]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Create a new test case with graph structure
-  /testcase/{test_testcase_id}:
+      responses:
+        '200':
+          description: Testcase created
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/testcase/{testcase_id}:
     get:
       summary: Get Testcase by ID
-      tags: []
+      tags: [Testcases]
       parameters:
+        - name: testcase_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Retrieve a specific testcase by ID
-    parameters:
-      - name: test_testcase_id
-        in: path
-        required: true
-        schema:
-          type: string
+      responses:
+        '200':
+          description: Testcase details
+          content:
+            application/json:
+              schema:
+                type: object
     delete:
       summary: Delete Testcase
-      tags: []
+      tags: [Testcases]
       parameters:
+        - name: testcase_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Delete a testcase
+      responses:
+        '200':
+          description: Testcase deleted
+          content:
+            application/json:
+              schema:
+                type: object

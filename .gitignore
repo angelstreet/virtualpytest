@@ -47,4 +47,3 @@ backend_host_*/
 
 # Postman config with API keys (use .example for template)
 backend_server/config/postman/postman_config.json
-docs/api/openapi/specs/*.yaml

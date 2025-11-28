@@ -4,62 +4,104 @@ info:
   version: 1.0.0
   description: >-
     Core system endpoints for health checks, host registration, system metrics,
-    and service monitoring. Essential for infrastructure monitoring and
-    automated health checks.
+    and service monitoring.
 servers:
   - url: '{{server_url}}'
-  - url: '{{base_url}}'
 paths:
-  /health:
+  /server/system/health:
     get:
       summary: Health Check
-      tags: []
-      parameters:
-        - name: team_id
-          in: query
-          description: Optional team ID
-          schema:
-            type: string
-        - name: Authorization
-          in: header
-          schema:
-            type: string
-      responses: {}
-      description: >-
-        Basic health check endpoint to verify server status and database
-        connectivity
-  /system/register:
+      description: Basic health check endpoint to verify server status and get system stats
+      tags:
+        - System
+      responses:
+        '200':
+          description: Server is healthy
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: healthy
+                  timestamp:
+                    type: number
+                  mode:
+                    type: string
+                  system_stats:
+                    type: object
+  /server/system/register:
     post:
       summary: Register Host
-      tags: []
-      parameters:
-        - name: Authorization
-          in: header
-          schema:
-            type: string
-      responses: {}
       description: Register a new host with the server for device management
-  /system/stats:
-    get:
-      summary: Get System Stats
-      tags: []
+      tags:
+        - System
       parameters:
-        - name: team_id
-          in: query
-          description: Team ID for filtering stats
-          schema:
-            type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: >-
-        Get comprehensive system statistics including CPU, memory, disk usage,
-        and active connections
-  /ping:
-    get:
-      summary: Ping Server
-      tags: []
-      responses: {}
-      description: Simple ping endpoint to check if server is responding (no auth required)
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host_name:
+                  type: string
+                host_url:
+                  type: string
+      responses:
+        '200':
+          description: Host registered successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string
+  /server/system/ping:
+    post:
+      summary: Host Ping
+      description: Hosts send periodic health ping to server
+      tags:
+        - System
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+          example: Bearer {{api_key}}
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                host_name:
+                  type: string
+                system_stats:
+                  type: object
+                per_device_metrics:
+                  type: object
+      responses:
+        '200':
+          description: Ping received successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  success:
+                    type: boolean
+                  message:
+                    type: string

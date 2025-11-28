@@ -2,67 +2,109 @@ openapi: 3.0.0
 info:
   title: SERVER - AI & Analysis
   version: 1.0.0
-  description: AI-powered test generation, prompt analysis, compatibility checking
+  description: AI-powered test generation and analysis
 servers:
   - url: '{{server_url}}'
 paths:
-  /ai/analyzeCompatibility:
+  /server/ai/analyzeCompatibility:
     post:
       summary: Analyze Compatibility
-      tags: []
+      tags: [AI]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai/generatePlan:
+      responses:
+        '200':
+          description: Compatibility analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/ai/generatePlan:
     post:
       summary: Generate Plan
-      tags: []
+      tags: [AI]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai/getStatus:
+      responses:
+        '200':
+          description: Generated plan
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/ai/getStatus:
     post:
       summary: Get AI Status
-      tags: []
+      tags: [AI]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai/stopExecution:
+      responses:
+        '200':
+          description: AI status
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/ai/stopExecution:
     post:
       summary: Stop AI Execution
-      tags: []
+      tags: [AI]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai/analyzePrompt:
+      responses:
+        '200':
+          description: Execution stopped
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/ai/analyzePrompt:
     post:
       summary: Analyze Prompt
-      tags: []
+      tags: [AI]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai/resetCache:
+      responses:
+        '200':
+          description: Prompt analysis
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/ai/resetCache:
     post:
       summary: Reset AI Cache
-      tags: []
+      tags: [AI]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
+      responses:
+        '200':
+          description: Cache reset
+          content:
+            application/json:
+              schema:
+                type: object

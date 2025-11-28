@@ -2,107 +2,135 @@ openapi: 3.0.0
 info:
   title: SERVER - Device Management
   version: 1.0.0
-  description: >-
-    Complete API testing for device management endpoints including CRUD
-    operations for devices, controllers, and environment profiles.
+  description: Device CRUD operations
 servers:
   - url: '{{server_url}}'
 paths:
-  /devices/getAllDevices:
+  /server/devices/getAllDevices:
     get:
       summary: Get All Devices
-      tags: []
+      tags: [Devices]
       parameters:
         - name: team_id
           in: query
-          description: Team ID to filter devices
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Retrieve all devices for a specific team
-  /devices/createDevice:
+          example: Bearer {{api_key}}
+      responses:
+        '200':
+          description: List of devices
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/devices/createDevice:
     post:
       summary: Create Device
-      tags: []
+      tags: [Devices]
       parameters:
         - name: team_id
           in: query
-          description: Team ID for device ownership
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Create a new device with complete configuration
-  /devices/getDevice/{test_device_id}:
+      responses:
+        '200':
+          description: Device created
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/devices/getDevice/{device_id}:
     get:
       summary: Get Device by ID
-      tags: []
+      tags: [Devices]
       parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
-          description: Team ID for authorization
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Retrieve a specific device by its ID
-    parameters:
-      - name: test_device_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /devices/updateDevice/{test_device_id}:
+      responses:
+        '200':
+          description: Device details
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/devices/updateDevice/{device_id}:
     put:
       summary: Update Device
-      tags: []
+      tags: [Devices]
       parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
-          description: Team ID for authorization
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Update an existing device configuration
-    parameters:
-      - name: test_device_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /devices/deleteDevice/{test_device_id}:
+      responses:
+        '200':
+          description: Device updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/devices/deleteDevice/{device_id}:
     delete:
       summary: Delete Device
-      tags: []
+      tags: [Devices]
       parameters:
+        - name: device_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
-          description: Team ID for authorization
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-      description: Delete a device from the system
-    parameters:
-      - name: test_device_id
-        in: path
-        required: true
-        schema:
-          type: string
+      responses:
+        '200':
+          description: Device deleted
+          content:
+            application/json:
+              schema:
+                type: object

@@ -2,87 +2,121 @@ openapi: 3.0.0
 info:
   title: SERVER - Metrics & Analytics
   version: 1.0.0
-  description: Performance metrics, navigation analytics, execution history
+  description: Performance metrics and navigation analytics
 servers:
   - url: '{{server_url}}'
 paths:
-  /metrics/tree/{test_navigation_id}:
+  /server/metrics/tree/{navigation_id}:
     get:
       summary: Get Tree Metrics
-      tags: []
+      tags: [Metrics]
       parameters:
-        - name: Authorization
-          in: header
+        - name: navigation_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_navigation_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /metrics/node/node-id/{test_navigation_id}:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Tree metrics
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/metrics/node/node-id/{navigation_id}:
     get:
       summary: Get Node Metrics
-      tags: []
+      tags: [Metrics]
       parameters:
-        - name: Authorization
-          in: header
+        - name: navigation_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_navigation_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /metrics/edge/edge-id/{test_navigation_id}:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Node metrics
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/metrics/edge/edge-id/{navigation_id}:
     get:
       summary: Get Edge Metrics
-      tags: []
+      tags: [Metrics]
       parameters:
-        - name: Authorization
-          in: header
+        - name: navigation_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_navigation_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /metrics/history/actions/edge-id/{test_navigation_id}:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Edge metrics
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/metrics/history/actions/edge-id/{navigation_id}:
     get:
       summary: Get Action History
-      tags: []
+      tags: [Metrics]
       parameters:
-        - name: Authorization
-          in: header
+        - name: navigation_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_navigation_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /metrics/history/verifications/node-id/{test_navigation_id}:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Action history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/metrics/history/verifications/node-id/{navigation_id}:
     get:
       summary: Get Verification History
-      tags: []
+      tags: [Metrics]
       parameters:
-        - name: Authorization
-          in: header
+        - name: navigation_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_navigation_id
-        in: path
-        required: true
-        schema:
-          type: string
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Verification history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object

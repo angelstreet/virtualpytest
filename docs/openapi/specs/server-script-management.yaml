@@ -2,77 +2,121 @@ openapi: 3.0.0
 info:
   title: SERVER - Script Management
   version: 1.0.0
-  description: Script management, analysis, execution and monitoring endpoints
+  description: Script management and execution
 servers:
   - url: '{{server_url}}'
 paths:
-  /script/list:
+  /server/script/list:
     get:
       summary: List Scripts
-      tags: []
+      tags: [Scripts]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /script/analyze:
+      responses:
+        '200':
+          description: List of scripts
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/script/analyze:
     post:
       summary: Analyze Script
-      tags: []
+      tags: [Scripts]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /script/get_edge_options:
+      responses:
+        '200':
+          description: Analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/script/get_edge_options:
     post:
       summary: Get Edge Options
-      tags: []
+      tags: [Scripts]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /script/execute:
+      responses:
+        '200':
+          description: Edge options
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/script/execute:
     post:
       summary: Execute Script
-      tags: []
+      tags: [Scripts]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /script/status/{task_id}:
+      responses:
+        '200':
+          description: Execution started
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/script/status/{task_id}:
     get:
       summary: Get Script Status
-      tags: []
+      tags: [Scripts]
       parameters:
-        - name: Authorization
-          in: header
+        - name: task_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: task_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /script/taskComplete:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Script status
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/script/taskComplete:
     post:
       summary: Task Complete
-      tags: []
+      tags: [Scripts]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
+      responses:
+        '200':
+          description: Task completed
+          content:
+            application/json:
+              schema:
+                type: object

@@ -2,75 +2,109 @@ openapi: 3.0.0
 info:
   title: HOST - Testcase Execution
   version: 1.0.0
-  description: Host-side testcase execution, monitoring, history tracking
+  description: Host-side testcase execution
 servers:
   - url: '{{host_url}}'
 paths:
-  /testcase/{test_testcase_id}/execute:
+  /host/testcase/{testcase_id}/execute:
     post:
       summary: Execute Testcase
-      tags: []
+      tags: [Testcase]
       parameters:
-        - name: Authorization
-          in: header
+        - name: testcase_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_testcase_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /testcase/execute:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Testcase execution started
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/testcase/execute:
     post:
       summary: Execute from Graph
-      tags: []
+      tags: [Testcase]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /testcase/execution/{test_execution_id}/status:
+      responses:
+        '200':
+          description: Execution started
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/testcase/execution/{execution_id}/status:
     get:
       summary: Get Execution Status
-      tags: []
+      tags: [Testcase]
       parameters:
-        - name: Authorization
-          in: header
+        - name: execution_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_execution_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /testcase/{test_testcase_id}/history:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Execution status
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/testcase/{testcase_id}/history:
     get:
       summary: Get Execution History
-      tags: []
+      tags: [Testcase]
       parameters:
-        - name: Authorization
-          in: header
+        - name: testcase_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: test_testcase_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /testcase/execute-from-prompt:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Execution history
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /host/testcase/execute-from-prompt:
     post:
       summary: Execute from Prompt (AI)
-      tags: []
+      tags: [Testcase]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
+      responses:
+        '200':
+          description: AI execution started
+          content:
+            application/json:
+              schema:
+                type: object

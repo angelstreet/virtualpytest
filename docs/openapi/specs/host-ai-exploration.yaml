@@ -2,83 +2,131 @@ openapi: 3.0.0
 info:
   title: HOST - AI Exploration
   version: 1.0.0
-  description: AI-powered UI exploration, navigation discovery, validation workflows
+  description: AI-powered UI exploration
 servers:
   - url: '{{host_url}}'
 paths:
-  /ai-exploration/init:
+  /host/ai-exploration/init:
     post:
       summary: Initialize Exploration
-      tags: []
+      tags: [AI-Exploration]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai-exploration/start-exploration:
+      responses:
+        '200':
+          description: Exploration initialized
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/ai-exploration/start-exploration:
     post:
       summary: Start Exploration
-      tags: []
+      tags: [AI-Exploration]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai-exploration/exploration-status/{exploration_id}:
+      responses:
+        '200':
+          description: Exploration started
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/ai-exploration/exploration-status/{exploration_id}:
     get:
       summary: Get Exploration Status
-      tags: []
+      tags: [AI-Exploration]
       parameters:
-        - name: Authorization
-          in: header
+        - name: exploration_id
+          in: path
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: exploration_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /ai-exploration/continue-exploration:
+        - name: Authorization
+          in: header
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Exploration status
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/ai-exploration/continue-exploration:
     post:
       summary: Continue Exploration
-      tags: []
+      tags: [AI-Exploration]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai-exploration/start-validation:
+      responses:
+        '200':
+          description: Exploration continued
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/ai-exploration/start-validation:
     post:
       summary: Start Validation
-      tags: []
+      tags: [AI-Exploration]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai-exploration/finalize-structure:
+      responses:
+        '200':
+          description: Validation started
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/ai-exploration/finalize-structure:
     post:
       summary: Finalize Structure
-      tags: []
+      tags: [AI-Exploration]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /ai-exploration/cancel-exploration:
+      responses:
+        '200':
+          description: Structure finalized
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/ai-exploration/cancel-exploration:
     post:
       summary: Cancel Exploration
-      tags: []
+      tags: [AI-Exploration]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
+      responses:
+        '200':
+          description: Exploration cancelled
+          content:
+            application/json:
+              schema:
+                type: object

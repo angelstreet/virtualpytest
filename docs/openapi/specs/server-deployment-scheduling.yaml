@@ -2,95 +2,134 @@ openapi: 3.0.0
 info:
   title: SERVER - Deployment & Scheduling
   version: 1.0.0
-  description: Deployment management, scheduling, execution tracking
+  description: Deployment management and scheduling
 servers:
   - url: '{{server_url}}'
 paths:
-  /deployment/create:
+  /server/deployment/create:
     post:
       summary: Create Deployment
-      tags: []
+      tags: [Deployment]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /deployment/list:
+      responses:
+        '200':
+          description: Deployment created
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/deployment/list:
     get:
       summary: List Deployments
-      tags: []
+      tags: [Deployment]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /deployment/pause/{deployment_id}:
+      responses:
+        '200':
+          description: List of deployments
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/deployment/pause/{deployment_id}:
     post:
       summary: Pause Deployment
-      tags: []
+      tags: [Deployment]
       parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: deployment_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /deployment/resume/{deployment_id}:
+      responses:
+        '200':
+          description: Deployment paused
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/deployment/resume/{deployment_id}:
     post:
       summary: Resume Deployment
-      tags: []
+      tags: [Deployment]
       parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: deployment_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /deployment/delete/{deployment_id}:
+      responses:
+        '200':
+          description: Deployment resumed
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/deployment/delete/{deployment_id}:
     delete:
       summary: Delete Deployment
-      tags: []
+      tags: [Deployment]
       parameters:
+        - name: deployment_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: deployment_id
-        in: path
-        required: true
-        schema:
-          type: string
+      responses:
+        '200':
+          description: Deployment deleted
+          content:
+            application/json:
+              schema:
+                type: object

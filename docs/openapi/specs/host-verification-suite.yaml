@@ -2,123 +2,199 @@ openapi: 3.0.0
 info:
   title: HOST - Verification Suite
   version: 1.0.0
-  description: >-
-    Comprehensive verification capabilities: image, text, video, audio, batch
-    execution
+  description: Verification capabilities - image, text, video, audio
 servers:
   - url: '{{host_url}}'
 paths:
-  /verification/getStatus:
+  /host/verification/getStatus:
     get:
       summary: Get Verification Status
-      tags: []
+      tags: [Verification]
       parameters:
         - name: device_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/executeBatch:
+      responses:
+        '200':
+          description: Verification status
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/executeBatch:
     post:
       summary: Execute Batch Verifications
-      tags: []
+      tags: [Verification]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/image/cropImage:
+      responses:
+        '200':
+          description: Batch execution result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/image/cropImage:
     post:
       summary: IMAGE - Crop Image
-      tags: []
+      tags: [Verification-Image]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/image/execute:
+      responses:
+        '200':
+          description: Cropped image
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/image/execute:
     post:
       summary: IMAGE - Execute Verification
-      tags: []
+      tags: [Verification-Image]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/text/detectText:
+      responses:
+        '200':
+          description: Image verification result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/text/detectText:
     post:
       summary: TEXT - Detect Text (OCR)
-      tags: []
+      tags: [Verification-Text]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/text/execute:
+      responses:
+        '200':
+          description: OCR result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/text/execute:
     post:
       summary: TEXT - Execute Verification
-      tags: []
+      tags: [Verification-Text]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/video/detectBlackscreen:
+      responses:
+        '200':
+          description: Text verification result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/video/detectBlackscreen:
     post:
       summary: VIDEO - Detect Blackscreen
-      tags: []
+      tags: [Verification-Video]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/video/detectFreeze:
+      responses:
+        '200':
+          description: Blackscreen detection result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/video/detectFreeze:
     post:
       summary: VIDEO - Detect Freeze
-      tags: []
+      tags: [Verification-Video]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/video/detectSubtitles:
+      responses:
+        '200':
+          description: Freeze detection result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/video/detectSubtitles:
     post:
       summary: VIDEO - Detect Subtitles
-      tags: []
+      tags: [Verification-Video]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/video/analyzeImageAI:
+      responses:
+        '200':
+          description: Subtitles detection result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/video/analyzeImageAI:
     post:
       summary: VIDEO - Analyze Image (AI)
-      tags: []
+      tags: [Verification-Video]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /verification/audio/execute:
+      responses:
+        '200':
+          description: AI analysis result
+          content:
+            application/json:
+              schema:
+                type: object
+  /host/verification/audio/execute:
     post:
       summary: AUDIO - Execute Audio Verification
-      tags: []
+      tags: [Verification-Audio]
       parameters:
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
+      responses:
+        '200':
+          description: Audio verification result
+          content:
+            application/json:
+              schema:
+                type: object

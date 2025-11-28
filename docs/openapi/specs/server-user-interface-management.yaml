@@ -2,95 +2,134 @@ openapi: 3.0.0
 info:
   title: SERVER - User Interface Management
   version: 1.0.0
-  description: UI definition management, compatibility checking, interface CRUD
+  description: UI definition management
 servers:
   - url: '{{server_url}}'
 paths:
-  /userinterface/getAllUserInterfaces:
+  /server/userinterface/getAllUserInterfaces:
     get:
       summary: Get All User Interfaces
-      tags: []
+      tags: [UserInterface]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /userinterface/createUserInterface:
+      responses:
+        '200':
+          description: List of user interfaces
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: object
+  /server/userinterface/createUserInterface:
     post:
       summary: Create User Interface
-      tags: []
+      tags: [UserInterface]
       parameters:
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-  /userinterface/getUserInterface/{interface_id}:
+      responses:
+        '200':
+          description: User interface created
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/userinterface/getUserInterface/{interface_id}:
     get:
       summary: Get User Interface by ID
-      tags: []
+      tags: [UserInterface]
       parameters:
+        - name: interface_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: interface_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /userinterface/updateUserInterface/{interface_id}:
+      responses:
+        '200':
+          description: User interface details
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/userinterface/updateUserInterface/{interface_id}:
     put:
       summary: Update User Interface
-      tags: []
+      tags: [UserInterface]
       parameters:
+        - name: interface_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: interface_id
-        in: path
-        required: true
-        schema:
-          type: string
-  /userinterface/deleteUserInterface/{interface_id}:
+      responses:
+        '200':
+          description: User interface updated
+          content:
+            application/json:
+              schema:
+                type: object
+  /server/userinterface/deleteUserInterface/{interface_id}:
     delete:
       summary: Delete User Interface
-      tags: []
+      tags: [UserInterface]
       parameters:
+        - name: interface_id
+          in: path
+          required: true
+          schema:
+            type: string
         - name: team_id
           in: query
+          required: true
           schema:
             type: string
         - name: Authorization
           in: header
+          required: true
           schema:
             type: string
-      responses: {}
-    parameters:
-      - name: interface_id
-        in: path
-        required: true
-        schema:
-          type: string
+      responses:
+        '200':
+          description: User interface deleted
+          content:
+            application/json:
+              schema:
+                type: object
