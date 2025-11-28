@@ -71,21 +71,26 @@ while IFS= read -r file; do
     grep -oE '\]\([^)]*\.md\)' "../docs/$file" 2>/dev/null | \
     sed 's/][(]//g' | sed 's/)//g' | \
     while IFS= read -r link; do
-        # Resolve relative path
-        if [[ "$link" == ../* ]]; then
-            # Parent directory: ../features/file.md
-            resolved=$(cd "../docs/$current_dir" && cd "$(dirname "$link")" && pwd)/$(basename "$link")
-            resolved="${resolved#$(cd ../docs && pwd)/}"
-        elif [[ "$link" == ./* ]]; then
-            # Same directory: ./file.md
-            resolved="$current_dir/${link#./}"
-        else
-            # Direct path
-            resolved="$current_dir/$link"
+        # Resolve relative path safely
+        target_dir_path="../docs/$current_dir/$(dirname "$link")"
+        
+        # Skip if directory doesn't exist (avoids cd errors)
+        if [ ! -d "$target_dir_path" ]; then
+            continue
         fi
         
-        # Normalize and clean path
-        resolved=$(echo "$resolved" | sed 's|/\./|/|g')
+        # Resolve absolute paths to check boundaries
+        abs_target_dir=$(cd "$target_dir_path" && pwd)
+        abs_docs_root=$(cd "../docs" && pwd)
+        
+        # Skip if the file is outside the docs directory
+        if [[ "$abs_target_dir" != "$abs_docs_root"* ]]; then
+            continue
+        fi
+        
+        # Construct the resolved path relative to docs root
+        abs_file_path="$abs_target_dir/$(basename "$link")"
+        resolved="${abs_file_path#$abs_docs_root/}"
         
         # Add to files to copy if not already there
         if [ -f "../docs/$resolved" ] && ! grep -Fxq "$resolved" "$FILES_TO_COPY" 2>/dev/null; then

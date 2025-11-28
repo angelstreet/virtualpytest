@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-11-28T10:57:37Z",
+  "generated_at": "2025-11-28T11:46:15Z",
   "metrics": {
     "_totals": {
-      "CONFIDENCE.HIGH": 16,
+      "CONFIDENCE.HIGH": 15,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 5,
       "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 1,
+      "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 15,
       "SEVERITY.MEDIUM": 5,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 21640,
+      "loc": 21637,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -1212,15 +1212,15 @@
       "skipped_tests": 0
     },
     "backend_server/src/routes/server_postman_routes.py": {
-      "CONFIDENCE.HIGH": 1,
+      "CONFIDENCE.HIGH": 0,
       "CONFIDENCE.LOW": 0,
       "CONFIDENCE.MEDIUM": 0,
       "CONFIDENCE.UNDEFINED": 0,
-      "SEVERITY.HIGH": 1,
+      "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 0,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 502,
+      "loc": 499,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -1961,26 +1961,6 @@
       "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b104_hardcoded_bind_all_interfaces.html",
       "test_id": "B104",
       "test_name": "hardcoded_bind_all_interfaces"
-    },
-    {
-      "code": "658                 import hashlib\n659                 item_id = hashlib.md5(f\"{full_name}:{method}:{path}\".encode()).hexdigest()\n660 \n",
-      "col_offset": 26,
-      "end_col_offset": 78,
-      "filename": "backend_server/src/routes/server_postman_routes.py",
-      "issue_confidence": "HIGH",
-      "issue_cwe": {
-        "id": 327,
-        "link": "https://cwe.mitre.org/data/definitions/327.html"
-      },
-      "issue_severity": "HIGH",
-      "issue_text": "Use of weak MD5 hash for security. Consider usedforsecurity=False",
-      "line_number": 659,
-      "line_range": [
-        659
-      ],
-      "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b324_hashlib.html",
-      "test_id": "B324",
-      "test_name": "hashlib"
     }
   ]
 }
