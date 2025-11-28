@@ -6,211 +6,1215 @@
     <title>Security Report</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
-        
         body {
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f5f5f5;
-            padding: 16px;
-            color: #333;
-            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 12px;
+            font-size: 12px;
         }
-        
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }
-        
         .header {
-            background: #2c3e50;
-            color: white;
-            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }
-        
-        .header h1 { font-size: 18px; font-weight: 600; }
-        .timestamp { font-size: 12px; opacity: 0.9; }
-        
-        .content { padding: 20px; }
-        
-        .summary {
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-        }
-        
-        .summary-title { font-weight: 600; margin-bottom: 10px; font-size: 13px; }
-        
-        .summary-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }
-        
-        .summary-item {
-            text-align: center;
-            background: white;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #e9ecef;
-        }
-        
-        .summary-value {
-            font-size: 28px;
-            font-weight: bold;
-            line-height: 1;
-        }
-        
-        .summary-label {
-            font-size: 11px;
-            color: #666;
-            margin-top: 4px;
-            text-transform: uppercase;
-        }
-        
-        .components-grid {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-bottom: 16px;
-        }
-        
-        .component-card {
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 12px;
-        }
-        
-        .component-title {
-            font-size: 13px;
-            font-weight: 600;
-            color: #2c3e50;
             margin-bottom: 10px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #e9ecef;
         }
+        .header h1 { font-size: 14px; color: #fff; }
+        .timestamp { font-size: 10px; color: #666; }
         
-        .metrics {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
+        /* Summary Card */
+        .summary {
+            background: #252540;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #333;
+        }
+        .summary-metrics {
+            display: flex;
+            gap: 24px;
+        }
+        .metric { text-align: center; }
+        .metric-value { font-size: 28px; font-weight: 700; line-height: 1; }
+        .metric-label { font-size: 9px; color: #666; text-transform: uppercase; margin-top: 2px; }
+        .summary-info { font-size: 10px; color: #555; }
+        
+        .high { color: #ff6b6b; }
+        .medium { color: #ffd93d; }
+        .low { color: #6bcb77; }
+        
+        /* Filters */
+        .filters {
+            display: flex;
             gap: 6px;
+            margin-bottom: 10px;
         }
-        
-        .metric {
-            background: #f8f9fa;
-            padding: 8px 4px;
-            border-radius: 3px;
-            text-align: center;
-            border: 1px solid #e9ecef;
+        .filter-btn {
+            padding: 4px 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: transparent;
+            color: #888;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
         }
+        .filter-btn:hover { border-color: #666; color: #fff; }
+        .filter-btn.active { background: #333; color: #fff; border-color: #555; }
+        .filter-btn.active.high { border-color: #ff6b6b; color: #ff6b6b; }
+        .filter-btn.active.medium { border-color: #ffd93d; color: #ffd93d; }
+        .filter-btn.active.low { border-color: #6bcb77; color: #6bcb77; }
         
-        .metric-value {
-            font-size: 20px;
-            font-weight: bold;
-            line-height: 1;
+        /* Sections */
+        .section {
+            background: #252540;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #333;
+            overflow: hidden;
         }
-        
-        .metric-label {
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+        }
+        .section-header:hover { background: #2a2a4a; }
+        .section-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .section-arrow {
             font-size: 10px;
             color: #666;
-            margin-top: 2px;
+            transition: transform 0.2s;
         }
-        
-        .status-note {
+        .section.expanded .section-arrow { transform: rotate(90deg); }
+        .section-title {
             font-size: 11px;
-            margin-top: 8px;
-            padding: 6px 8px;
-            background: #fff3cd;
-            border-left: 3px solid #ffc107;
-            border-radius: 2px;
-            color: #856404;
+            font-weight: 600;
+            color: #aaa;
+            text-transform: uppercase;
         }
-        
-        .downloads {
-            padding: 12px 16px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            text-align: center;
-            border: 1px solid #dee2e6;
+        .section-counts {
+            display: flex;
+            gap: 8px;
+            font-size: 11px;
         }
-        
-        .downloads-title {
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 8px;
-        }
-        
-        .downloads a {
-            display: inline-block;
-            margin: 0 6px;
-            padding: 6px 12px;
-            background: #2c3e50;
-            color: white;
+        .section-counts span { opacity: 0.8; }
+        .json-link {
+            font-size: 10px;
+            color: #4dabf7;
             text-decoration: none;
+            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 12px;
+        }
+        .json-link:hover { background: #333; }
+        
+        /* Issue list */
+        .issues {
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+        }
+        .section.expanded .issues { display: block; }
+        .issue {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-left: 3px solid #444;
+            font-size: 11px;
+        }
+        .issue:nth-child(odd) { background: rgba(0,0,0,0.1); }
+        .issue.high { border-left-color: #ff6b6b; }
+        .issue.medium { border-left-color: #ffd93d; }
+        .issue.low { border-left-color: #6bcb77; }
+        .issue.hidden { display: none; }
+        .issue-id {
+            font-weight: 600;
+            color: #aaa;
+            min-width: 50px;
+        }
+        .issue-loc {
+            color: #666;
+            font-family: monospace;
+            font-size: 10px;
+            min-width: 200px;
+        }
+        .issue-text {
+            color: #888;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }
+        .issue-fix {
+            color: #6bcb77;
+            font-size: 10px;
+        }
+        .no-issues {
+            padding: 12px;
+            color: #555;
+            text-align: center;
+            font-style: italic;
         }
         
-        .downloads a:hover { background: #34495e; }
-        
-        .severity-high { color: #dc3545; }
-        .severity-medium { color: #ff9800; }
-        .severity-low { color: #28a745; }
-        
-        @media (max-width: 1200px) {
-            .components-grid { grid-template-columns: repeat(2, 1fr); }
-        }
-        
-        @media (max-width: 768px) {
-            .components-grid { grid-template-columns: 1fr; }
-            .summary-grid { grid-template-columns: 1fr; }
-        }
+        /* Scrollbar */
+        .issues::-webkit-scrollbar { width: 6px; }
+        .issues::-webkit-scrollbar-track { background: #1a1a2e; }
+        .issues::-webkit-scrollbar-thumb { background: #444; border-radius: 3px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔒 Security Report</h1>
-            <div class="timestamp">2025-11-28 12:13 UTC</div>
+    <div class="header">
+        <h1>🔒 Security Report</h1>
+        <span class="timestamp">2025-11-28 12:35</span>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary">
+        <div class="summary-metrics">
+            <div class="metric">
+                <div class="metric-value high">1</div>
+                <div class="metric-label">High</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value medium">26</div>
+                <div class="metric-label">Medium</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value low">203</div>
+                <div class="metric-label">Low</div>
+            </div>
         </div>
-        
-        <div class="content">
-            <div class="summary">
-                <div class="summary-title">Total Security Issues</div>
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <div class="summary-value severity-high">0</div>
-                        <div class="summary-label">High</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value severity-medium">0</div>
-                        <div class="summary-label">Medium</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value severity-low">0</div>
-                        <div class="summary-label">Low</div>
-                    </div>
+        <div class="summary-info">71,906 lines scanned</div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <button class="filter-btn active high" data-filter="high" onclick="toggleFilter('high')">High</button>
+        <button class="filter-btn active medium" data-filter="medium" onclick="toggleFilter('medium')">Medium</button>
+        <button class="filter-btn active low" data-filter="low" onclick="toggleFilter('low')">Low</button>
+    </div>
+
+    <!-- Backend Host -->
+    <div class="section" id="section-host">
+        <div class="section-header" onclick="toggleSection('host')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">Backend Host</span>
+                <div class="section-counts">
+                    <span class="high">0</span> /
+                    <span class="medium">21</span> /
+                    <span class="low">188</span>
                 </div>
             </div>
-            
-            <div class="components-grid">
-
-            </div>
-            
-            <div class="downloads">
-                <div class="downloads-title">Raw Data Downloads</div>
-                <a href="host-report.json" download>📄 Host JSON</a>
-                <a href="server-report.json" download>📄 Server JSON</a>
-                <a href="frontend-report.json" download>📄 Frontend JSON</a>
+            <a class="json-link" href="host-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            <div class="issue medium" data-severity="medium">
+                <span class="issue-id">B102</span>
+                <span class="issue-loc">src/builder/blocks/custom_code.py:71</span>
+                <span class="issue-text">Use of exec detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/audiovideo/hdmi_stream.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/audiovideo/hdmi_stream.py:76</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/audiovideo/hdmi_stream.py:76</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/audiovideo/vnc_stream.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/base_controller.py:347</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/base_controller.py:355</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B602</span>
+                <span class="issue-loc">src/controllers/base_controller.py:357</span>
+                <span class="issue-text">subprocess call with shell=True seems safe, but may be changed in the future, co</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/desktop/bash.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/desktop/bash.py:77</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/desktop/bash.py:79</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/desktop/pyautogui.py:583</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/desktop/pyautogui.py:590</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/desktop/pyautogui.py:593</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/desktop/pyautogui.py:596</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/desktop/test_pyautogui_security.py:79</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/android_mobile.py:10</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/android_mobile.py:537</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/remote/android_mobile.py:538</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/remote/android_mobile.py:538</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/android_tv.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/remote/android_tv.py:340</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/android_tv.py:418</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/remote/android_tv.py:421</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/remote/android_tv.py:421</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/appium_remote.py:11</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/appium_remote.py:590</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/remote/appium_remote.py:594</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/remote/appium_remote.py:594</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/bluetooth.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/remote/infrared.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/remote/infrared.py:219</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/remote/infrared.py:225</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/remote/infrared.py:225</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/appium.py:594</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:44</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:66</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:142</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:188</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:198</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:203</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio.py:303</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/audio_ai_helpers.py:23</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_ai_helpers.py:169</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/audio_ai_helpers.py:235</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:7</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:17</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:19</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:46</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:46</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:87</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:94</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:94</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:96</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:96</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:137</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:137</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:195</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:195</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:268</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:268</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:297</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:297</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:324</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:324</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:335</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:335</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:387</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/audio_dubbing_helpers.py:387</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/image.py:565</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/controllers/verification/image.py:687</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/image.py:690</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/image_helpers.py:20</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/image_helpers.py:526</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/image_helpers.py:526</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:19</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:191</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:191</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:206</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:233</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:233</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:242</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:436</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:436</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/text_helpers.py:543</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/video_ai_helpers.py:1052</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/video_analysis_helpers.py:14</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/video_analysis_helpers.py:143</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/video_content_helpers.py:17</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/video_content_helpers.py:1432</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/video_content_helpers.py:1481</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/video_content_helpers.py:1481</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/video_content_helpers.py:1485</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/video_content_helpers.py:1485</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:12</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:649</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:668</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:668</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:1069</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:1246</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/controllers/verification/video_restart_helpers.py:1260</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/adb_utils.py:8</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B405</span>
+                <span class="issue-loc">src/lib/utils/adb_utils.py:12</span>
+                <span class="issue-text">Using xml.etree.ElementTree to parse untrusted XML data is known to be vulnerabl</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/adb_utils.py:138</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B314</span>
+                <span class="issue-loc">src/lib/utils/adb_utils.py:473</span>
+                <span class="issue-text">Using xml.etree.ElementTree.fromstring to parse untrusted XML data is known to b</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/lib/utils/adb_utils.py:809</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/adb_utils.py:846</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/appium_utils.py:10</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/appium_utils.py:114</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/appium_utils.py:116</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/audio_utils.py:9</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/audio_utils.py:84</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/audio_utils.py:84</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/bash_utils.py:8</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/bash_utils.py:62</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/bash_utils.py:111</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/bash_utils.py:225</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B112</span>
+                <span class="issue-loc">src/lib/utils/frame_metadata_utils.py:124</span>
+                <span class="issue-text">Try, Except, Continue detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/frame_metadata_utils.py:172</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/frame_metadata_utils.py:175</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/host_utils.py:502</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:10</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:113</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:127</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:127</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:133</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:133</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:183</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:186</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:186</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:199</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/lightweight_browser_manager.py:231</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:13</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:214</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:214</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:220</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:220</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:250</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:296</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B104</span>
+                <span class="issue-loc">src/lib/utils/playwright_utils.py:510</span>
+                <span class="issue-text">Possible binding to all interfaces.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:12</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:25</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:235</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:251</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:326</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:326</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:393</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:393</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:407</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:407</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:412</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:412</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:421</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:421</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:426</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:426</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:513</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:513</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:519</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:527</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:884</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:884</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:986</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/system_info_utils.py:986</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/lib/utils/video_compression_utils.py:42</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:10</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:147</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:147</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:150</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:159</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:159</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:165</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:165</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:200</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:227</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:242</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:242</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:252</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:252</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B104</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:366</span>
+                <span class="issue-text">Possible binding to all interfaces.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:387</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:387</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:393</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/webkit_utils.py:393</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/routes/host_restart_routes.py:301</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/routes/host_restart_routes.py:496</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/routes/host_script_routes.py:84</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/routes/host_web_routes.py:107</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B112</span>
+                <span class="issue-loc">src/services/actions/action_executor.py:887</span>
+                <span class="issue-text">Try, Except, Continue detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B112</span>
+                <span class="issue-loc">src/services/actions/action_executor.py:899</span>
+                <span class="issue-text">Try, Except, Continue detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B106</span>
+                <span class="issue-loc">src/services/ai/ai_context_filter.py:85</span>
+                <span class="issue-text">Possible hardcoded password: '\b\w+\b'</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/deployment_scheduler.py:17</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B112</span>
+                <span class="issue-loc">src/services/deployment_scheduler.py:206</span>
+                <span class="issue-text">Try, Except, Continue detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B112</span>
+                <span class="issue-loc">src/services/deployment_scheduler.py:682</span>
+                <span class="issue-text">Try, Except, Continue detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:10</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:25</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:25</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:189</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:194</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:198</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:219</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:220</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:230</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/services/disk_usage_service.py:230</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/services/navigation/navigation_executor.py:1568</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/services/navigation/navigation_pathfinding.py:316</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B105</span>
+                <span class="issue-loc">src/services/verifications/verification_executor.py:238</span>
+                <span class="issue-text">Possible hardcoded password: 'all'</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B105</span>
+                <span class="issue-loc">src/services/verifications/verification_executor.py:302</span>
+                <span class="issue-text">Possible hardcoded password: 'any'</span>
             </div>
         </div>
     </div>
+
+    <!-- Backend Server -->
+    <div class="section" id="section-server">
+        <div class="section-header" onclick="toggleSection('server')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">Backend Server</span>
+                <div class="section-counts">
+                    <span class="high">1</span> /
+                    <span class="medium">5</span> /
+                    <span class="low">15</span>
+                </div>
+            </div>
+            <a class="json-link" href="server-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            <div class="issue medium" data-severity="medium">
+                <span class="issue-id">B104</span>
+                <span class="issue-loc">src/app.py:491</span>
+                <span class="issue-text">Possible binding to all interfaces.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/lib/utils/heatmap_utils.py:485</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/lib/utils/heatmap_utils.py:486</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/heatmap_utils.py:587</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:12</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B108</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:19</span>
+                <span class="issue-text">Probable insecure usage of temp file/directory.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:54</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:267</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:267</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:273</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B110</span>
+                <span class="issue-loc">src/lib/utils/server_utils.py:281</span>
+                <span class="issue-text">Try, Except, Pass detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/routes/logs_routes.py:8</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/routes/logs_routes.py:87</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/routes/logs_routes.py:136</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/routes/logs_routes.py:136</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B112</span>
+                <span class="issue-loc">src/routes/logs_routes.py:149</span>
+                <span class="issue-text">Try, Except, Continue detected.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B404</span>
+                <span class="issue-loc">src/routes/server_api_testing_routes.py:14</span>
+                <span class="issue-text">Consider possible security implications associated with the subprocess module.</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B607</span>
+                <span class="issue-loc">src/routes/server_api_testing_routes.py:396</span>
+                <span class="issue-text">Starting a process with a partial executable path</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">B603</span>
+                <span class="issue-loc">src/routes/server_api_testing_routes.py:396</span>
+                <span class="issue-text">subprocess call - check for execution of untrusted input.</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">B104</span>
+                <span class="issue-loc">src/routes/server_monitoring_routes.py:28</span>
+                <span class="issue-text">Possible binding to all interfaces.</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">B324</span>
+                <span class="issue-loc">src/routes/server_postman_routes.py:659</span>
+                <span class="issue-text">Use of weak MD5 hash for security. Consider usedforsecurity=False</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Frontend -->
+    <div class="section" id="section-frontend">
+        <div class="section-header" onclick="toggleSection('frontend')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">Frontend (npm)</span>
+                <div class="section-counts">
+                    <span class="high">1</span> /
+                    <span class="medium">1</span> /
+                    <span class="low">0</span>
+                </div>
+            </div>
+            <a class="json-link" href="frontend-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            <div class="issue high" data-severity="high">
+                <span class="issue-id">glob</span>
+                <span class="issue-text">glob CLI: Command injection via -c/--cmd executes matches wi</span>
+                <span class="issue-fix">✓ fix available</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">js-yaml</span>
+                <span class="issue-text">js-yaml has prototype pollution in merge (<<)</span>
+                <span class="issue-fix">✓ fix available</span>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Toggle section expand/collapse
+        function toggleSection(id) {
+            const section = document.getElementById('section-' + id);
+            section.classList.toggle('expanded');
+        }
+        
+        // Active filters
+        const activeFilters = { high: true, medium: true, low: true };
+        
+        // Toggle filter
+        function toggleFilter(severity) {
+            activeFilters[severity] = !activeFilters[severity];
+            
+            // Update button state
+            const btn = document.querySelector(`[data-filter="${severity}"]`);
+            btn.classList.toggle('active', activeFilters[severity]);
+            
+            // Filter issues
+            document.querySelectorAll('.issue').forEach(issue => {
+                const issueSeverity = issue.dataset.severity;
+                const show = activeFilters[issueSeverity];
+                issue.classList.toggle('hidden', !show);
+            });
+        }
+    </script>
 </body>
 </html>

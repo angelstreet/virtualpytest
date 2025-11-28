@@ -1,23 +1,18 @@
 #!/usr/bin/env python3
 
 """
-Parse security reports (Bandit JSON + Safety text + npm audit) into compact HTML
-Outputs directly to docs/security/ for static serving
+Parse security reports into interactive HTML with filters and collapsible sections
 """
 
 import json
-import os
 from datetime import datetime
 from pathlib import Path
 
-# Define paths
 DOCS_SECURITY = Path("docs/security")
 TEMP_DIR = DOCS_SECURITY / "temp"
 
 HOST_BANDIT_JSON = TEMP_DIR / "host_bandit.json"
 SERVER_BANDIT_JSON = TEMP_DIR / "server_bandit.json"
-HOST_SAFETY_TXT = TEMP_DIR / "host_safety.txt"
-SERVER_SAFETY_TXT = TEMP_DIR / "server_safety.txt"
 FRONTEND_AUDIT_JSON = TEMP_DIR / "frontend_audit.json"
 
 OUTPUT_HTML = DOCS_SECURITY / "index.html"
@@ -26,122 +21,148 @@ OUTPUT_SERVER_JSON = DOCS_SECURITY / "server-report.json"
 OUTPUT_FRONTEND_JSON = DOCS_SECURITY / "frontend-report.json"
 
 
-def parse_bandit_report(json_path):
-    """Parse Bandit JSON report"""
-    if not json_path.exists():
+def parse_bandit_report(json_path, fallback_path=None):
+    path_to_use = json_path if json_path.exists() else fallback_path
+    if not path_to_use or not path_to_use.exists():
         return None
     
-    with open(json_path, 'r') as f:
+    with open(path_to_use, 'r') as f:
         data = json.load(f)
     
     metrics = data.get('metrics', {}).get('_totals', {})
     results = data.get('results', [])
     
-    # Group by severity
-    by_severity = {
-        'HIGH': [r for r in results if r.get('issue_severity') == 'HIGH'],
-        'MEDIUM': [r for r in results if r.get('issue_severity') == 'MEDIUM'],
-        'LOW': [r for r in results if r.get('issue_severity') == 'LOW']
-    }
-    
     return {
         'metrics': metrics,
-        'by_severity': by_severity,
-        'total_issues': len(results),
+        'results': results,
         'raw_data': data
     }
 
 
-def parse_safety_report(txt_path):
-    """Parse Safety text report"""
-    if not txt_path.exists():
-        return None
-    
-    with open(txt_path, 'r') as f:
-        content = f.read()
-    
-    if 'command not found' in content or 'not installed' in content:
-        return {'status': 'not_installed', 'count': 0}
-    
-    if 'No known security vulnerabilities' in content:
-        return {'status': 'clean', 'count': 0}
-    
-    # Extract count
-    import re
-    match = re.search(r'(\d+)\s+vulnerabilities?\s+IGNORED', content)
-    if match:
-        return {'status': 'ignored', 'count': int(match.group(1))}
-    
-    return {'status': 'unknown', 'count': 0}
-
-
-def parse_npm_audit(json_path):
-    """Parse npm audit JSON report"""
-    if not json_path.exists():
+def parse_npm_audit(json_path, fallback_path=None):
+    path_to_use = json_path if json_path.exists() else fallback_path
+    if not path_to_use or not path_to_use.exists():
         return None
     
     try:
-        with open(json_path, 'r') as f:
+        with open(path_to_use, 'r') as f:
             data = json.load(f)
         
         if 'error' in data:
-            return {'status': 'error', 'vulnerabilities': {}, 'total': 0}
+            return {'status': 'error', 'vulnerabilities': {}, 'issues': []}
         
         metadata = data.get('metadata', {})
-        vulnerabilities = metadata.get('vulnerabilities', {})
-        total = sum(vulnerabilities.values()) if vulnerabilities else 0
+        vuln_counts = metadata.get('vulnerabilities', {})
+        
+        # Extract issues from vulnerabilities object
+        issues = []
+        vulns = data.get('vulnerabilities', {})
+        for name, info in vulns.items():
+            severity = info.get('severity', 'info')
+            via = info.get('via', [])
+            title = via[0].get('title', name) if via and isinstance(via[0], dict) else name
+            issues.append({
+                'name': name,
+                'severity': severity,
+                'title': title,
+                'fixAvailable': info.get('fixAvailable', False)
+            })
         
         return {
-            'status': 'clean' if total == 0 else 'found',
-            'vulnerabilities': vulnerabilities,
-            'total': total,
+            'status': 'found' if issues else 'clean',
+            'counts': vuln_counts,
+            'issues': issues,
             'raw_data': data
         }
     except:
-        return {'status': 'error', 'vulnerabilities': {}, 'total': 0}
+        return {'status': 'error', 'vulnerabilities': {}, 'issues': []}
 
 
 def generate_html_report():
-    """Generate compact HTML security report"""
+    host_bandit = parse_bandit_report(HOST_BANDIT_JSON, OUTPUT_HOST_JSON)
+    server_bandit = parse_bandit_report(SERVER_BANDIT_JSON, OUTPUT_SERVER_JSON)
+    frontend_audit = parse_npm_audit(FRONTEND_AUDIT_JSON, OUTPUT_FRONTEND_JSON)
     
-    # Parse all reports
-    host_bandit = parse_bandit_report(HOST_BANDIT_JSON)
-    server_bandit = parse_bandit_report(SERVER_BANDIT_JSON)
-    host_safety = parse_safety_report(HOST_SAFETY_TXT)
-    server_safety = parse_safety_report(SERVER_SAFETY_TXT)
-    frontend_audit = parse_npm_audit(FRONTEND_AUDIT_JSON)
+    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     
-    timestamp = datetime.now().strftime('%Y-%m-%d %H:%M UTC')
+    # Calculate metrics
+    host_results = host_bandit.get('results', []) if host_bandit else []
+    server_results = server_bandit.get('results', []) if server_bandit else []
+    frontend_issues = frontend_audit.get('issues', []) if frontend_audit else []
     
-    # Calculate totals
-    total_high = 0
-    total_medium = 0
-    total_low = 0
+    host_loc = host_bandit['metrics'].get('loc', 0) if host_bandit else 0
+    server_loc = server_bandit['metrics'].get('loc', 0) if server_bandit else 0
+    total_loc = host_loc + server_loc
     
-    if host_bandit:
-        total_high += len(host_bandit['by_severity']['HIGH'])
-        total_medium += len(host_bandit['by_severity']['MEDIUM'])
-        total_low += len(host_bandit['by_severity']['LOW'])
+    # Count by severity
+    def count_severity(results):
+        return {
+            'high': len([r for r in results if r.get('issue_severity') == 'HIGH']),
+            'medium': len([r for r in results if r.get('issue_severity') == 'MEDIUM']),
+            'low': len([r for r in results if r.get('issue_severity') == 'LOW'])
+        }
     
-    if server_bandit:
-        total_high += len(server_bandit['by_severity']['HIGH'])
-        total_medium += len(server_bandit['by_severity']['MEDIUM'])
-        total_low += len(server_bandit['by_severity']['LOW'])
+    host_counts = count_severity(host_results)
+    server_counts = count_severity(server_results)
+    
+    frontend_counts = frontend_audit.get('counts', {}) if frontend_audit else {}
+    
+    total_high = host_counts['high'] + server_counts['high']
+    total_medium = host_counts['medium'] + server_counts['medium']
+    total_low = host_counts['low'] + server_counts['low']
     
     # Save JSON reports
-    if host_bandit:
+    if host_bandit and HOST_BANDIT_JSON.exists():
         with open(OUTPUT_HOST_JSON, 'w') as f:
             json.dump(host_bandit['raw_data'], f, indent=2)
     
-    if server_bandit:
+    if server_bandit and SERVER_BANDIT_JSON.exists():
         with open(OUTPUT_SERVER_JSON, 'w') as f:
             json.dump(server_bandit['raw_data'], f, indent=2)
     
-    if frontend_audit and frontend_audit.get('raw_data'):
+    if frontend_audit and frontend_audit.get('raw_data') and FRONTEND_AUDIT_JSON.exists():
         with open(OUTPUT_FRONTEND_JSON, 'w') as f:
             json.dump(frontend_audit['raw_data'], f, indent=2)
     
-    # Build compact HTML
+    # Generate issue rows for bandit results
+    def generate_issue_rows(results, prefix):
+        rows = ""
+        for r in results:
+            severity = r.get('issue_severity', 'LOW').lower()
+            test_id = r.get('test_id', '')
+            filename = r.get('filename', '').replace('backend_host/', '').replace('backend_server/', '')
+            line = r.get('line_number', '')
+            text = r.get('issue_text', '')[:80]
+            rows += f'''<div class="issue {severity}" data-severity="{severity}">
+                <span class="issue-id">{test_id}</span>
+                <span class="issue-loc">{filename}:{line}</span>
+                <span class="issue-text">{text}</span>
+            </div>'''
+        return rows
+    
+    # Generate frontend issue rows
+    def generate_npm_rows(issues):
+        rows = ""
+        for i in issues:
+            severity = i.get('severity', 'info').lower()
+            if severity == 'moderate':
+                severity = 'medium'
+            elif severity == 'critical':
+                severity = 'high'
+            name = i.get('name', '')
+            title = i.get('title', '')[:60]
+            fix = '✓ fix available' if i.get('fixAvailable') else ''
+            rows += f'''<div class="issue {severity}" data-severity="{severity}">
+                <span class="issue-id">{name}</span>
+                <span class="issue-text">{title}</span>
+                <span class="issue-fix">{fix}</span>
+            </div>'''
+        return rows
+    
+    host_issue_rows = generate_issue_rows(host_results, 'host')
+    server_issue_rows = generate_issue_rows(server_results, 'server')
+    frontend_issue_rows = generate_npm_rows(frontend_issues)
+    
     html = f"""<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -150,314 +171,297 @@ def generate_html_report():
     <title>Security Report</title>
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
-        
         body {{
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-            background: #f5f5f5;
-            padding: 16px;
-            color: #333;
-            font-size: 14px;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #1a1a2e;
+            color: #e0e0e0;
+            padding: 12px;
+            font-size: 12px;
         }}
-        
-        .container {{
-            max-width: 1400px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 6px;
-            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-        }}
-        
         .header {{
-            background: #2c3e50;
-            color: white;
-            padding: 16px 20px;
             display: flex;
             justify-content: space-between;
             align-items: center;
-        }}
-        
-        .header h1 {{ font-size: 18px; font-weight: 600; }}
-        .timestamp {{ font-size: 12px; opacity: 0.9; }}
-        
-        .content {{ padding: 20px; }}
-        
-        .summary {{
-            background: #f8f9fa;
-            border: 1px solid #dee2e6;
-            padding: 12px 16px;
-            border-radius: 4px;
-            margin-bottom: 16px;
-        }}
-        
-        .summary-title {{ font-weight: 600; margin-bottom: 10px; font-size: 13px; }}
-        
-        .summary-grid {{
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-        }}
-        
-        .summary-item {{
-            text-align: center;
-            background: white;
-            padding: 8px;
-            border-radius: 4px;
-            border: 1px solid #e9ecef;
-        }}
-        
-        .summary-value {{
-            font-size: 28px;
-            font-weight: bold;
-            line-height: 1;
-        }}
-        
-        .summary-label {{
-            font-size: 11px;
-            color: #666;
-            margin-top: 4px;
-            text-transform: uppercase;
-        }}
-        
-        .components-grid {{
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 14px;
-            margin-bottom: 16px;
-        }}
-        
-        .component-card {{
-            background: white;
-            border: 1px solid #dee2e6;
-            border-radius: 4px;
-            padding: 12px;
-        }}
-        
-        .component-title {{
-            font-size: 13px;
-            font-weight: 600;
-            color: #2c3e50;
             margin-bottom: 10px;
-            padding-bottom: 6px;
-            border-bottom: 2px solid #e9ecef;
         }}
+        .header h1 {{ font-size: 14px; color: #fff; }}
+        .timestamp {{ font-size: 10px; color: #666; }}
         
-        .metrics {{
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
+        /* Summary Card */
+        .summary {{
+            background: #252540;
+            border-radius: 6px;
+            padding: 12px 16px;
+            margin-bottom: 10px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border: 1px solid #333;
+        }}
+        .summary-metrics {{
+            display: flex;
+            gap: 24px;
+        }}
+        .metric {{ text-align: center; }}
+        .metric-value {{ font-size: 28px; font-weight: 700; line-height: 1; }}
+        .metric-label {{ font-size: 9px; color: #666; text-transform: uppercase; margin-top: 2px; }}
+        .summary-info {{ font-size: 10px; color: #555; }}
+        
+        .high {{ color: #ff6b6b; }}
+        .medium {{ color: #ffd93d; }}
+        .low {{ color: #6bcb77; }}
+        
+        /* Filters */
+        .filters {{
+            display: flex;
             gap: 6px;
+            margin-bottom: 10px;
         }}
-        
-        .metric {{
-            background: #f8f9fa;
-            padding: 8px 4px;
-            border-radius: 3px;
-            text-align: center;
-            border: 1px solid #e9ecef;
+        .filter-btn {{
+            padding: 4px 10px;
+            border: 1px solid #444;
+            border-radius: 4px;
+            background: transparent;
+            color: #888;
+            font-size: 10px;
+            cursor: pointer;
+            transition: all 0.2s;
         }}
+        .filter-btn:hover {{ border-color: #666; color: #fff; }}
+        .filter-btn.active {{ background: #333; color: #fff; border-color: #555; }}
+        .filter-btn.active.high {{ border-color: #ff6b6b; color: #ff6b6b; }}
+        .filter-btn.active.medium {{ border-color: #ffd93d; color: #ffd93d; }}
+        .filter-btn.active.low {{ border-color: #6bcb77; color: #6bcb77; }}
         
-        .metric-value {{
-            font-size: 20px;
-            font-weight: bold;
-            line-height: 1;
+        /* Sections */
+        .section {{
+            background: #252540;
+            border-radius: 6px;
+            margin-bottom: 8px;
+            border: 1px solid #333;
+            overflow: hidden;
         }}
-        
-        .metric-label {{
+        .section-header {{
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 12px;
+            cursor: pointer;
+            user-select: none;
+        }}
+        .section-header:hover {{ background: #2a2a4a; }}
+        .section-left {{
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }}
+        .section-arrow {{
             font-size: 10px;
             color: #666;
-            margin-top: 2px;
+            transition: transform 0.2s;
         }}
-        
-        .status-note {{
+        .section.expanded .section-arrow {{ transform: rotate(90deg); }}
+        .section-title {{
             font-size: 11px;
-            margin-top: 8px;
-            padding: 6px 8px;
-            background: #fff3cd;
-            border-left: 3px solid #ffc107;
-            border-radius: 2px;
-            color: #856404;
+            font-weight: 600;
+            color: #aaa;
+            text-transform: uppercase;
         }}
-        
-        .downloads {{
-            padding: 12px 16px;
-            background: #f8f9fa;
-            border-radius: 4px;
-            text-align: center;
-            border: 1px solid #dee2e6;
+        .section-counts {{
+            display: flex;
+            gap: 8px;
+            font-size: 11px;
         }}
-        
-        .downloads-title {{
-            font-size: 12px;
-            color: #666;
-            margin-bottom: 8px;
-        }}
-        
-        .downloads a {{
-            display: inline-block;
-            margin: 0 6px;
-            padding: 6px 12px;
-            background: #2c3e50;
-            color: white;
+        .section-counts span {{ opacity: 0.8; }}
+        .json-link {{
+            font-size: 10px;
+            color: #4dabf7;
             text-decoration: none;
+            padding: 2px 6px;
             border-radius: 3px;
-            font-size: 12px;
+        }}
+        .json-link:hover {{ background: #333; }}
+        
+        /* Issue list */
+        .issues {{
+            display: none;
+            max-height: 300px;
+            overflow-y: auto;
+            border-top: 1px solid #333;
+        }}
+        .section.expanded .issues {{ display: block; }}
+        .issue {{
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 6px 12px;
+            border-left: 3px solid #444;
+            font-size: 11px;
+        }}
+        .issue:nth-child(odd) {{ background: rgba(0,0,0,0.1); }}
+        .issue.high {{ border-left-color: #ff6b6b; }}
+        .issue.medium {{ border-left-color: #ffd93d; }}
+        .issue.low {{ border-left-color: #6bcb77; }}
+        .issue.hidden {{ display: none; }}
+        .issue-id {{
+            font-weight: 600;
+            color: #aaa;
+            min-width: 50px;
+        }}
+        .issue-loc {{
+            color: #666;
+            font-family: monospace;
+            font-size: 10px;
+            min-width: 200px;
+        }}
+        .issue-text {{
+            color: #888;
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            white-space: nowrap;
+        }}
+        .issue-fix {{
+            color: #6bcb77;
+            font-size: 10px;
+        }}
+        .no-issues {{
+            padding: 12px;
+            color: #555;
+            text-align: center;
+            font-style: italic;
         }}
         
-        .downloads a:hover {{ background: #34495e; }}
-        
-        .severity-high {{ color: #dc3545; }}
-        .severity-medium {{ color: #ff9800; }}
-        .severity-low {{ color: #28a745; }}
-        
-        @media (max-width: 1200px) {{
-            .components-grid {{ grid-template-columns: repeat(2, 1fr); }}
-        }}
-        
-        @media (max-width: 768px) {{
-            .components-grid {{ grid-template-columns: 1fr; }}
-            .summary-grid {{ grid-template-columns: 1fr; }}
-        }}
+        /* Scrollbar */
+        .issues::-webkit-scrollbar {{ width: 6px; }}
+        .issues::-webkit-scrollbar-track {{ background: #1a1a2e; }}
+        .issues::-webkit-scrollbar-thumb {{ background: #444; border-radius: 3px; }}
     </style>
 </head>
 <body>
-    <div class="container">
-        <div class="header">
-            <h1>🔒 Security Report</h1>
-            <div class="timestamp">{timestamp}</div>
+    <div class="header">
+        <h1>🔒 Security Report</h1>
+        <span class="timestamp">{timestamp}</span>
+    </div>
+
+    <!-- Summary -->
+    <div class="summary">
+        <div class="summary-metrics">
+            <div class="metric">
+                <div class="metric-value high">{total_high}</div>
+                <div class="metric-label">High</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value medium">{total_medium}</div>
+                <div class="metric-label">Medium</div>
+            </div>
+            <div class="metric">
+                <div class="metric-value low">{total_low}</div>
+                <div class="metric-label">Low</div>
+            </div>
         </div>
-        
-        <div class="content">
-            <div class="summary">
-                <div class="summary-title">Total Security Issues</div>
-                <div class="summary-grid">
-                    <div class="summary-item">
-                        <div class="summary-value severity-high">{total_high}</div>
-                        <div class="summary-label">High</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value severity-medium">{total_medium}</div>
-                        <div class="summary-label">Medium</div>
-                    </div>
-                    <div class="summary-item">
-                        <div class="summary-value severity-low">{total_low}</div>
-                        <div class="summary-label">Low</div>
-                    </div>
+        <div class="summary-info">{total_loc:,} lines scanned</div>
+    </div>
+
+    <!-- Filters -->
+    <div class="filters">
+        <button class="filter-btn active high" data-filter="high" onclick="toggleFilter('high')">High</button>
+        <button class="filter-btn active medium" data-filter="medium" onclick="toggleFilter('medium')">Medium</button>
+        <button class="filter-btn active low" data-filter="low" onclick="toggleFilter('low')">Low</button>
+    </div>
+
+    <!-- Backend Host -->
+    <div class="section" id="section-host">
+        <div class="section-header" onclick="toggleSection('host')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">Backend Host</span>
+                <div class="section-counts">
+                    <span class="high">{host_counts['high']}</span> /
+                    <span class="medium">{host_counts['medium']}</span> /
+                    <span class="low">{host_counts['low']}</span>
                 </div>
             </div>
-            
-            <div class="components-grid">
-"""
-    
-    # Host Card
-    if host_bandit:
-        html += f"""
-                <div class="component-card">
-                    <div class="component-title">Backend Host</div>
-                    <div class="metrics">
-                        <div class="metric">
-                            <div class="metric-value severity-high">{len(host_bandit['by_severity']['HIGH'])}</div>
-                            <div class="metric-label">High</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value severity-medium">{len(host_bandit['by_severity']['MEDIUM'])}</div>
-                            <div class="metric-label">Medium</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value severity-low">{len(host_bandit['by_severity']['LOW'])}</div>
-                            <div class="metric-label">Low</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value">{host_bandit['metrics'].get('loc', 0)}</div>
-                            <div class="metric-label">Lines</div>
-                        </div>
-                    </div>
-"""
-        if host_safety and host_safety.get('count', 0) > 0:
-            html += f'<div class="status-note">⚠️ {host_safety["count"]} dependency issues (unpinned)</div>'
-        html += "</div>"
-    
-    # Server Card
-    if server_bandit:
-        html += f"""
-                <div class="component-card">
-                    <div class="component-title">Backend Server</div>
-                    <div class="metrics">
-                        <div class="metric">
-                            <div class="metric-value severity-high">{len(server_bandit['by_severity']['HIGH'])}</div>
-                            <div class="metric-label">High</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value severity-medium">{len(server_bandit['by_severity']['MEDIUM'])}</div>
-                            <div class="metric-label">Medium</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value severity-low">{len(server_bandit['by_severity']['LOW'])}</div>
-                            <div class="metric-label">Low</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value">{server_bandit['metrics'].get('loc', 0)}</div>
-                            <div class="metric-label">Lines</div>
-                        </div>
-                    </div>
-"""
-        if server_safety and server_safety.get('count', 0) > 0:
-            html += f'<div class="status-note">⚠️ {server_safety["count"]} dependency issues (unpinned)</div>'
-        html += "</div>"
-    
-    # Frontend Card
-    if frontend_audit and frontend_audit['status'] != 'error':
-        vulns = frontend_audit.get('vulnerabilities', {})
-        html += f"""
-                <div class="component-card">
-                    <div class="component-title">Frontend</div>
-                    <div class="metrics">
-                        <div class="metric">
-                            <div class="metric-value severity-high">{vulns.get('critical', 0) + vulns.get('high', 0)}</div>
-                            <div class="metric-label">High</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value severity-medium">{vulns.get('moderate', 0)}</div>
-                            <div class="metric-label">Medium</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value severity-low">{vulns.get('low', 0)}</div>
-                            <div class="metric-label">Low</div>
-                        </div>
-                        <div class="metric">
-                            <div class="metric-value">{frontend_audit.get('total', 0)}</div>
-                            <div class="metric-label">Total</div>
-                        </div>
-                    </div>
-                </div>
-"""
-    
-    html += """
-            </div>
-            
-            <div class="downloads">
-                <div class="downloads-title">Raw Data Downloads</div>
-                <a href="host-report.json" download>📄 Host JSON</a>
-                <a href="server-report.json" download>📄 Server JSON</a>
-                <a href="frontend-report.json" download>📄 Frontend JSON</a>
-            </div>
+            <a class="json-link" href="host-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            {host_issue_rows if host_issue_rows else '<div class="no-issues">No issues</div>'}
         </div>
     </div>
+
+    <!-- Backend Server -->
+    <div class="section" id="section-server">
+        <div class="section-header" onclick="toggleSection('server')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">Backend Server</span>
+                <div class="section-counts">
+                    <span class="high">{server_counts['high']}</span> /
+                    <span class="medium">{server_counts['medium']}</span> /
+                    <span class="low">{server_counts['low']}</span>
+                </div>
+            </div>
+            <a class="json-link" href="server-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            {server_issue_rows if server_issue_rows else '<div class="no-issues">No issues</div>'}
+        </div>
+    </div>
+
+    <!-- Frontend -->
+    <div class="section" id="section-frontend">
+        <div class="section-header" onclick="toggleSection('frontend')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">Frontend (npm)</span>
+                <div class="section-counts">
+                    <span class="high">{frontend_counts.get('high', 0) + frontend_counts.get('critical', 0)}</span> /
+                    <span class="medium">{frontend_counts.get('moderate', 0)}</span> /
+                    <span class="low">{frontend_counts.get('low', 0)}</span>
+                </div>
+            </div>
+            <a class="json-link" href="frontend-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            {frontend_issue_rows if frontend_issue_rows else '<div class="no-issues">No issues</div>'}
+        </div>
+    </div>
+
+    <script>
+        // Toggle section expand/collapse
+        function toggleSection(id) {{
+            const section = document.getElementById('section-' + id);
+            section.classList.toggle('expanded');
+        }}
+        
+        // Active filters
+        const activeFilters = {{ high: true, medium: true, low: true }};
+        
+        // Toggle filter
+        function toggleFilter(severity) {{
+            activeFilters[severity] = !activeFilters[severity];
+            
+            // Update button state
+            const btn = document.querySelector(`[data-filter="${{severity}}"]`);
+            btn.classList.toggle('active', activeFilters[severity]);
+            
+            // Filter issues
+            document.querySelectorAll('.issue').forEach(issue => {{
+                const issueSeverity = issue.dataset.severity;
+                const show = activeFilters[issueSeverity];
+                issue.classList.toggle('hidden', !show);
+            }});
+        }}
+    </script>
 </body>
 </html>
 """
     
-    # Write HTML
     with open(OUTPUT_HTML, 'w') as f:
         f.write(html)
     
     print(f"✅ Generated: {OUTPUT_HTML}")
-    if host_bandit:
-        print(f"✅ Generated: {OUTPUT_HOST_JSON}")
-    if server_bandit:
-        print(f"✅ Generated: {OUTPUT_SERVER_JSON}")
-    if frontend_audit and frontend_audit.get('raw_data'):
-        print(f"✅ Generated: {OUTPUT_FRONTEND_JSON}")
 
 
 if __name__ == '__main__':
     generate_html_report()
-
