@@ -44,6 +44,7 @@ technical/README.md
 api/README.md
 examples/README.md
 integrations/README.md
+security/README.md
 EOF
 
 echo -e "${YELLOW}→${NC} Following markdown links recursively"
@@ -111,5 +112,18 @@ file_count=$(find public/docs -name "*.md" | wc -l | tr -d ' ')
 # Cleanup
 rm -rf "$TEMP_DIR"
 
+# 3. Copy security reports if they exist (generated separately)
+if [ -f "../docs/security/index.html" ]; then
+    echo -e "${GREEN}✓${NC} Copying security reports"
+    mkdir -p public/docs/security
+    cp ../docs/security/index.html public/docs/security/
+    [ -f "../docs/security/host-report.json" ] && cp ../docs/security/host-report.json public/docs/security/
+    [ -f "../docs/security/server-report.json" ] && cp ../docs/security/server-report.json public/docs/security/
+    [ -f "../docs/security/frontend-report.json" ] && cp ../docs/security/frontend-report.json public/docs/security/
+    security_status="+ security reports"
+else
+    security_status="(security reports not generated yet)"
+fi
+
 echo -e "${GREEN}✓ Documentation copied successfully!${NC}"
-echo -e "${BLUE}Copied: 15 OpenAPI HTML files + $file_count referenced markdown files${NC}"
+echo -e "${BLUE}Copied: 15 OpenAPI HTML files + $file_count markdown files ${security_status}${NC}"

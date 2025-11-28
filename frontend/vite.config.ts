@@ -113,7 +113,7 @@ const registeredRoutes = [
   '/configuration/environment',
   // Dynamic routes patterns
   '/navigation-editor', // Will match /navigation-editor/* paths
-  '/docs', // Will match /docs/* paths for documentation
+  '/docs', // Will match /docs/* paths for documentation including security reports
 ];
 
 export default defineConfig({

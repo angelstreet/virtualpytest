@@ -54,6 +54,7 @@ const Settings = React.lazy(() => import('./pages/Settings'));
 const MCPPlayground = React.lazy(() => import('./pages/MCPPlayground'));
 const GrafanaRedirect = React.lazy(() => import('./pages/GrafanaRedirect'));
 const ApiDocumentation = React.lazy(() => import('./pages/ApiDocumentation'));
+const SecurityReports = React.lazy(() => import('./pages/SecurityReports'));
 const UserApiWorkspaces = React.lazy(() => import('./pages/UserApiWorkspaces'));
 const UserApiWorkspaceDetail = React.lazy(() => import('./pages/UserApiWorkspaceDetail'));
 const JiraIntegration = React.lazy(() => import('./pages/JiraIntegration'));
@@ -280,6 +281,7 @@ const App: React.FC = () => {
                   
                   {/* VirtualPyTest Documentation Routes */}
                   <Route path="/docs/api" element={<ApiDocumentation />} />
+                  <Route path="/docs/security" element={<SecurityReports />} />
                   <Route path="/docs/:section/:subsection/:category/:page" element={<Documentation />} />
                   <Route path="/docs/:section/:subsection/:page" element={<Documentation />} />
                   <Route path="/docs/:section/:page" element={<Documentation />} />

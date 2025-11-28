@@ -19,6 +19,7 @@ import {
   Build as BuildIcon, // For Builder section
   SmartToy, // For MCP Playground
   Extension as IntegrationIcon, // For Integrations section
+  Security as SecurityIcon, // For Security Reports
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -141,6 +142,16 @@ const NavigationBar: React.FC = () => {
       icon: <RequirementIcon fontSize="small" />,
     },
     {
+      label: 'Technical Docs',
+      path: '/docs/technical',
+      icon: <BuildIcon fontSize="small" />,
+    },
+    {
+      label: 'Security Reports',
+      path: '/docs/security',
+      icon: <SecurityIcon fontSize="small" />,
+    },
+    {
       label: 'API Reference',
       path: '/docs/api',
       icon: <ApiIcon fontSize="small" />,
@@ -149,11 +160,6 @@ const NavigationBar: React.FC = () => {
       label: 'Examples',
       path: '/docs/examples',
       icon: <TreeIcon fontSize="small" />,
-    },
-    {
-      label: 'Technical Docs',
-      path: '/docs/technical',
-      icon: <BuildIcon fontSize="small" />,
     },
   ];
 

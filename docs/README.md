@@ -59,6 +59,17 @@ Get up and running in 5 minutes with Docker.
 
 ---
 
+### [Security Reports](./security/README.md)
+**Security analysis and vulnerability scanning.**
+
+- Code security (Bandit)
+- Dependency vulnerabilities (Safety & npm audit)
+- Backend host, server, and frontend coverage
+- Interactive HTML dashboard
+- Automated scanning tools
+
+---
+
 ### [API Reference](./api/README.md)
 **Complete API documentation.**
 
@@ -110,8 +121,9 @@ Get up and running in 5 minutes with Docker.
 ### For DevOps
 1. [Installation Options](./get-started/README.md)
 2. [Deployment Guide](./technical/architecture/deployment.md)
-3. [Monitoring](./features/analytics.md)
-4. [Integrations](./integrations/README.md)
+3. [Security Reports](./security/README.md)
+4. [Monitoring](./features/analytics.md)
+5. [Integrations](./integrations/README.md)
 
 ### For Managers
 1. [Features Overview](./features/README.md)
@@ -224,8 +236,12 @@ docs/
 ├── examples/              # Code examples
 │   ├── automate-prompt-*.md
 │   └── sauce-demo-*.md
-└── integrations/          # Third-party tools
-    └── JIRA_INTEGRATION.md
+├── integrations/          # Third-party tools
+│   └── JIRA_INTEGRATION.md
+└── security/              # Security reports
+    ├── README.md
+    ├── index.html
+    └── *.json
 ```
 
 ---
