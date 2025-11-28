@@ -1,5 +1,5 @@
-import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip, Typography } from '@mui/material';
-import { OpenInNew, Refresh } from '@mui/icons-material';
+import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from '@mui/material';
+import { OpenInNew } from '@mui/icons-material';
 import ApiIcon from '@mui/icons-material/Api';
 import React, { useState } from 'react';
 
