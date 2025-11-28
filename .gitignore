@@ -45,5 +45,5 @@ setup/docker/hetzner_custom/docker-compose.dev.yml
 setup/docker/hetzner_custom/host-nginx.conf
 backend_host_*/
 
-backend_server/config/postman/postman_workspaces.json
-.gitignore
+# Postman config with API keys (use .example for template)
+backend_server/config/postman/postman_config.json

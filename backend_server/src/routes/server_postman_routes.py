@@ -9,9 +9,9 @@ from shared.src.lib.config.constants import CACHE_CONFIG
 
 server_postman_bp = Blueprint('server_postman_bp', __name__, url_prefix='/server/postman')
 
-# Path to workspaces config
+# Path to config file
 BACKEND_SERVER_ROOT = Path(__file__).parent.parent.parent
-WORKSPACES_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'postman' / 'postman_workspaces.json'
+CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'postman' / 'postman_config.json'
 
 # ============================================================================
 # IN-MEMORY CACHE FOR POSTMAN COLLECTIONS
@@ -19,21 +19,26 @@ WORKSPACES_CONFIG_PATH = BACKEND_SERVER_ROOT / 'config' / 'postman' / 'postman_w
 _postman_cache = {}  # {cache_key: {'data': {...}, 'timestamp': time.time()}}
 _cache_lock = threading.Lock()
 
-def load_workspaces_config():
-    """Load workspaces configuration from JSON file"""
+def load_config():
+    """Load Postman configuration (workspaces + environments)"""
     try:
-        if not WORKSPACES_CONFIG_PATH.exists():
-            print(f"[@postman_routes] Config file not found: {WORKSPACES_CONFIG_PATH}")
-            return []
+        if not CONFIG_PATH.exists():
+            print(f"[@postman_routes] Config file not found: {CONFIG_PATH}")
+            return {'workspaces': [], 'environments': []}
         
-        with open(WORKSPACES_CONFIG_PATH, 'r') as f:
-            workspaces = json.load(f)
+        with open(CONFIG_PATH, 'r') as f:
+            config = json.load(f)
         
-        print(f"[@postman_routes] Loaded {len(workspaces)} workspace(s)")
-        return workspaces
+        print(f"[@postman_routes] Loaded config: {len(config.get('workspaces', []))} workspace(s), {len(config.get('environments', []))} environment(s)")
+        return config
     except Exception as e:
         print(f"[@postman_routes] Error loading config: {e}")
-        return []
+        return {'workspaces': [], 'environments': []}
+
+def load_workspaces_config():
+    """Get workspaces from config"""
+    config = load_config()
+    return config.get('workspaces', [])
 
 def get_workspace_by_id(workspace_id):
     """Get workspace config by ID"""
@@ -42,6 +47,53 @@ def get_workspace_by_id(workspace_id):
         if workspace['id'] == workspace_id:
             return workspace
     return None
+
+def get_environments_by_workspace(workspace_id):
+    """Get all environments for a workspace"""
+    config = load_config()
+    environments = config.get('environments', [])
+    return [env for env in environments if env.get('workspaceId') == workspace_id]
+
+def normalize_environment_variables(variables):
+    """Convert environment variables from array format to dict format
+    
+    Supports two formats:
+    1. Array format (Postman standard): [{"key": "x", "value": "y", "type": "secret"}, ...]
+    2. Object format (simple): {"x": "y", ...}
+    
+    Returns: dict format {"x": "y", ...}
+    """
+    if isinstance(variables, list):
+        # Convert array to dict, extracting just key-value pairs
+        return {var['key']: var['value'] for var in variables if 'key' in var}
+    elif isinstance(variables, dict):
+        # Already in dict format
+        return variables
+    return {}
+
+def get_environment_by_id(environment_id):
+    """Get environment by ID"""
+    config = load_config()
+    environments = config.get('environments', [])
+    for env in environments:
+        if env['id'] == environment_id:
+            return env
+    return None
+
+def substitute_variables(text, variables):
+    """Replace {{variable}} placeholders with values from environment variables"""
+    if not text or not variables:
+        return text
+    
+    import re
+    def replacer(match):
+        var_name = match.group(1)
+        value = variables.get(var_name)
+        return str(value) if value is not None else match.group(0)
+    
+    # Replace {{variable}} with value
+    result = re.sub(r'\{\{(\w+)\}\}', replacer, str(text))
+    return result
 
 def call_postman_api(endpoint, api_key):
     """Call Postman API (security layer - API keys never exposed to frontend)"""
@@ -90,6 +142,41 @@ def get_user_workspaces():
         }), 500
 
 
+@server_postman_bp.route('/environments', methods=['GET'])
+def get_config_environments():
+    """Get environments for a workspace from config file"""
+    try:
+        workspace_id = request.args.get('workspaceId')
+        if not workspace_id:
+            return jsonify({
+                'success': False,
+                'error': 'workspaceId parameter required'
+            }), 400
+        
+        environments = get_environments_by_workspace(workspace_id)
+        
+        # Return sanitized data (variable values are safe to expose for testing)
+        result = []
+        for env in environments:
+            result.append({
+                'id': env['id'],
+                'name': env['name'],
+                'workspaceId': env.get('workspaceId'),
+                'variables': env.get('variables', {})
+            })
+        
+        return jsonify({
+            'success': True,
+            'environments': result
+        })
+    except Exception as e:
+        print(f"[@postman_routes:get_workspace_environments] Error: {e}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
 @server_postman_bp.route('/workspaces/<workspace_id>/collections', methods=['GET'])
 def get_workspace_collections(workspace_id):
     """Get collections for a workspace using Postman API (with 5-minute cache)"""
@@ -115,7 +202,7 @@ def get_workspace_collections(workspace_id):
             }), 404
         
         # Call Postman API (backend handles API key - secure!)
-        api_key = workspace['apiKey']
+        api_key = workspace['postmanApiKey']
         postman_workspace_id = workspace['workspaceId']
         
         print(f"[@postman_routes] Fetching collections from Postman API for workspace {workspace_id}...")
@@ -203,7 +290,7 @@ def get_workspace_environments(workspace_id):
         print(f"[@postman_routes] Fetching environments from Postman API for workspace {workspace_id}...")
         
         # Call Postman API
-        api_key = workspace['apiKey']
+        api_key = workspace['postmanApiKey']
         postman_workspace_id = workspace['workspaceId']
         
         # Get environments in workspace
@@ -261,7 +348,7 @@ def get_environment_details(environment_id):
             }), 404
         
         # Call Postman API
-        api_key = workspace['apiKey']
+        api_key = workspace['postmanApiKey']
         data = call_postman_api(f"/environments/{environment_id}", api_key)
         
         environment = data.get('environment', {})
@@ -323,7 +410,7 @@ def get_collection_requests(collection_id):
         print(f"[@postman_routes] Fetching requests from Postman API for collection {collection_id}...")
         
         # Call Postman API
-        api_key = workspace['apiKey']
+        api_key = workspace['postmanApiKey']
         data = call_postman_api(f"/collections/{collection_id}", api_key)
         
         collection = data.get('collection', {})
@@ -356,19 +443,29 @@ def get_collection_requests(collection_id):
 
 @server_postman_bp.route('/test', methods=['POST'])
 def run_api_test():
-    """Run API test immediately for selected endpoints (tests on current server)"""
+    """Run API test immediately for selected endpoints with environment variable substitution"""
     try:
         from shared.src.lib.utils.build_url_utils import buildServerUrl
         
         data = request.json
         workspace_id = data.get('workspaceId')
         workspace_name = data.get('workspaceName')
+        environment_id = data.get('environmentId')  # NEW: Environment ID for variable substitution
         endpoints = data.get('endpoints', [])
-        host_name = data.get('host_name')  # Optional: only needed for /host/* endpoints
-        device_id = data.get('device_id')  # Optional: device for /host/* endpoints
-        userinterface = data.get('userinterface')  # Optional: userinterface for /host/* endpoints
         
-        print(f"[@postman_routes] Received: host={host_name}, device={device_id}, userinterface={userinterface}")
+        # Load environment variables if specified
+        env_variables = {}
+        if environment_id:
+            environment = get_environment_by_id(environment_id)
+            if environment:
+                raw_variables = environment.get('variables', {})
+                # Normalize to dict format (supports both array and object formats)
+                env_variables = normalize_environment_variables(raw_variables)
+                print(f"[@postman_routes] Using environment '{environment.get('name')}' with {len(env_variables)} variables: {list(env_variables.keys())}")
+            else:
+                print(f"[@postman_routes] Warning: Environment '{environment_id}' not found")
+        else:
+            print(f"[@postman_routes] No environment selected, requests will use raw paths")
         
         if not endpoints:
             return jsonify({
@@ -383,64 +480,42 @@ def run_api_test():
                 'error': 'Workspace not found'
             }), 404
         
-        # Get server URL from workspace config (if specified) or use buildServerUrl
-        workspace_server_url = workspace.get('serverUrl')
-        
         print(f"[@postman_routes:run_api_test] Testing {len(endpoints)} endpoints")
-        if workspace_server_url:
-            print(f"[@postman_routes:run_api_test] Using workspace serverUrl: {workspace_server_url}")
-        else:
-            print(f"[@postman_routes:run_api_test] Using buildServerUrl (from SERVER_URL env)")
         
         # Execute tests using requests
         results = []
         success_count = 0
         
-        # Default team_id for testing
-        DEFAULT_TEAM_ID = "7fdeb4bb-3639-4ec3-959f-b54769a219ce"
-        
         for ep in endpoints:
             method = ep.get('method', 'GET')
-            path = ep.get('path')
+            path = ep.get('path', '')
             name = ep.get('name', path)
             body = ep.get('body', {})  # Get request body from endpoint definition
             
-            # Ensure path starts with /
-            if path and not path.startswith('/'):
-                path = '/' + path
+            # ==================================================================
+            # STEP 1: Variable Substitution (like real Postman!)
+            # ==================================================================
+            # Substitute {{variables}} in path, params, and body
+            path = substitute_variables(path, env_variables)
             
-            # Detect if this is a host endpoint by checking if body contains host_name
-            # OR if path already starts with /host/
-            is_host_endpoint = 'host_name' in body or path.startswith('/host/')
-            
-            # Auto-prefix path based on endpoint type
-            if is_host_endpoint:
-                # This is a host endpoint
-                if not path.startswith('/host/'):
-                    path = f'/host{path}'
-                    print(f"[@postman_routes] Auto-detected host endpoint (has host_name in body): {path}")
-                
-                # Check if we have host_name to proxy to
-                endpoint_host_name = body.get('host_name') or host_name
-                if not endpoint_host_name:
-                    print(f"[@postman_routes] Skipping host endpoint (no host_name): {path}")
-                    results.append({
-                        'name': name,
-                        'method': method,
-                        'path': path,
-                        'status': 'skipped',
-                        'statusCode': 0,
-                        'error': 'Host endpoints require host_name in body or request - please select a host'
-                    })
-                    continue
+            # If path contains full URL (e.g., {{base_url}}/server/devices), extract it
+            if path.startswith('http://') or path.startswith('https://'):
+                url = path
+                print(f"[@postman_routes] Using full URL from path: {url}")
             else:
-                # This is a server endpoint
-                if not path.startswith('/server/'):
-                    path = f'/server{path}'
-                    print(f"[@postman_routes] Auto-detected server endpoint (no host_name in body): {path}")
-            
-            # Use buildServerUrl to construct proper URL with environment detection
-            url = buildServerUrl(path)
+                # Path is relative, need base_url from environment or fallback
+                base_url = env_variables.get('base_url')
+                if not base_url:
+                    # Fallback to buildServerUrl
+                    base_url = buildServerUrl('')
+                    print(f"[@postman_routes] No {{base_url}} in environment, using buildServerUrl: {base_url}")
+                
+                # Ensure path starts with /
+                if not path.startswith('/'):
+                    path = '/' + path
+                
+                url = f"{base_url.rstrip('/')}{path}"
+                print(f"[@postman_routes] Constructed URL: {url}")
             
             start_time = time.time()
             result_entry = {
@@ -453,24 +528,44 @@ def run_api_test():
             try:
                 print(f"[@postman_routes] Executing {method} {url}")
                 
-                # Prepare request params
+                # ==================================================================
+                # STEP 2: Build Request (params, body, headers) with variables
+                # ==================================================================
                 params = {}
                 json_data = None
+                headers = {}
                 
-                # Add team_id if needed (most endpoints require it)
-                if 'team_id' in path or any(x in path for x in ['devices', 'campaigns', 'testcase', 'requirements', 'userinterface', 'kpi', 'monitor']):
-                     params['team_id'] = DEFAULT_TEAM_ID
+                # Add API key from environment if available
+                api_key = env_variables.get('api_key')
+                if api_key:
+                    headers['Authorization'] = f'Bearer {api_key}'
+                    print(f"[@postman_routes] Using api_key from environment")
                 
-                # For /host/* endpoints, add host_name/device_id/userinterface to request body (server will proxy)
+                # Add query parameters from environment variables
+                # Common variables: team_id, host_name, device_id, userinterface, etc.
+                if 'team_id' in env_variables:
+                    params['team_id'] = env_variables['team_id']
+                
+                if 'host_name' in env_variables:
+                    params['host_name'] = env_variables['host_name']
+                
+                if 'device_id' in env_variables:
+                    params['device_id'] = env_variables['device_id']
+                
+                if 'userinterface' in env_variables:
+                    # Map to userinterface_name for host routes
+                    params['userinterface_name'] = env_variables['userinterface']
+                
+                # For /host/* endpoints, add context to request body (server will proxy)
                 if path.startswith('/host/'):
                     json_data = {}
-                    if host_name:
-                        json_data['host_name'] = host_name
-                    if device_id:
-                        json_data['device_id'] = device_id
-                    if userinterface:
-                        json_data['userinterface'] = userinterface
-                    print(f"[@postman_routes] Adding to request body: {json_data}")
+                    if 'host_name' in env_variables:
+                        json_data['host_name'] = env_variables['host_name']
+                    if 'device_id' in env_variables:
+                        json_data['device_id'] = env_variables['device_id']
+                    if 'userinterface' in env_variables:
+                        json_data['userinterface'] = env_variables['userinterface']
+                    print(f"[@postman_routes] Adding environment vars to request body: {json_data}")
                 
                 # Execute request
                 response = requests.request(
@@ -478,6 +573,7 @@ def run_api_test():
                     url=url,
                     params=params,
                     json=json_data,
+                    headers=headers,
                     timeout=10
                 )
                 

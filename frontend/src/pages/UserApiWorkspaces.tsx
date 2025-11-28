@@ -83,7 +83,7 @@ const UserApiWorkspaces: React.FC = () => {
             variant="contained"
             startIcon={<Add />}
             onClick={() => {
-              alert('To add a workspace, edit backend_server/config/postman/postman_workspaces.json');
+              alert('To add a workspace, edit backend_server/config/postman/postman_config.json');
             }}
           >
             Add Workspace
@@ -119,7 +119,7 @@ const UserApiWorkspaces: React.FC = () => {
             </li>
             <li>
               <Typography variant="body2">
-                Edit <code>backend_server/config/postman/postman_workspaces.json</code>
+                Edit <code>backend_server/config/postman/postman_config.json</code>
               </Typography>
             </li>
             <li>

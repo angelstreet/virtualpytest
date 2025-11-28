@@ -34,6 +34,7 @@ import {
   MenuItem,
   FormControl,
   InputLabel,
+  TextField,
 } from '@mui/material';
 import {
   ArrowBack,
@@ -41,10 +42,9 @@ import {
   PlayArrow,
   Close,
   ContentCopy,
+  Search,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';
-import { useHostManager } from '../hooks/useHostManager';
-import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 
 interface Request {
   id: string;
@@ -67,15 +67,32 @@ interface Workspace {
   id: string;
   name: string;
   description: string;
+  postmanApiKey?: string;
+  workspaceId?: string;
+  teamId?: string;
+}
+
+interface EnvironmentVariable {
+  key: string;
+  value: any;
+  type?: 'default' | 'secret';
+}
+
+interface Environment {
+  id: string;
+  name: string;
+  workspaceId: string;
+  variables: EnvironmentVariable[];
 }
 
 const UserApiWorkspaceDetail: React.FC = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
-  const { getAllHosts, getDevicesFromHost } = useHostManager();
   
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
+  const [environments, setEnvironments] = useState<Environment[]>([]);
+  const [selectedEnvironment, setSelectedEnvironment] = useState<string>('');
   const [selectedRequests, setSelectedRequests] = useState<Set<string>>(new Set());
   const [expandedCollections, setExpandedCollections] = useState<Set<string>>(new Set());
   const [loading, setLoading] = useState(true);
@@ -89,26 +106,15 @@ const UserApiWorkspaceDetail: React.FC = () => {
   const [showSnackbar, setShowSnackbar] = useState(false);
   const [selectedResponse, setSelectedResponse] = useState<any>(null);
   const [showResponseDialog, setShowResponseDialog] = useState(false);
-  
-  // Host/Device/Userinterface selection (for /host/* endpoints)
-  const [selectedHost, setSelectedHost] = useState<string>('');
-  const [selectedDevice, setSelectedDevice] = useState<string>('');
-  const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
+  const [showEnvironmentDialog, setShowEnvironmentDialog] = useState(false);
+  const [filterText, setFilterText] = useState('');
 
-  // Auto-select first host on mount
+  // Auto-select first environment when environments load
   useEffect(() => {
-    const hosts = getAllHosts();
-    if (hosts.length > 0 && !selectedHost) {
-      const firstHost = hosts[0].host_name;
-      setSelectedHost(firstHost);
-      
-      // Auto-select first device for this host
-      const devices = getDevicesFromHost(firstHost);
-      if (devices.length > 0) {
-        setSelectedDevice(devices[0].device_id);
-      }
+    if (environments.length > 0 && !selectedEnvironment) {
+      setSelectedEnvironment(environments[0].id);
     }
-  }, [getAllHosts, getDevicesFromHost, selectedHost]);
+  }, [environments, selectedEnvironment]);
 
   useEffect(() => {
     loadWorkspaceAndCollections();
@@ -131,6 +137,14 @@ const UserApiWorkspaceDetail: React.FC = () => {
           setError('Workspace not found');
           return;
         }
+      }
+
+      // Load environments for this workspace
+      const envResponse = await fetch(buildServerUrl(`/server/postman/environments?workspaceId=${workspaceId}`));
+      const envData = await envResponse.json();
+      
+      if (envData.success) {
+        setEnvironments(envData.environments);
       }
 
       // Load collections
@@ -292,10 +306,8 @@ const UserApiWorkspaceDetail: React.FC = () => {
         body: JSON.stringify({
           workspaceId,
           workspaceName: workspace?.name,
+          environmentId: selectedEnvironment || undefined,
           endpoints,
-          host_name: selectedHost || undefined,
-          device_id: selectedDevice || undefined,
-          userinterface: selectedUserinterface || undefined,
         }),
       });
 
@@ -384,7 +396,8 @@ const UserApiWorkspaceDetail: React.FC = () => {
           boxShadow: 1
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
+        {/* Single Line Header */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={() => navigate('/api/workspaces')}
@@ -397,11 +410,53 @@ const UserApiWorkspaceDetail: React.FC = () => {
             {workspace.name}
           </Typography>
 
-          <Box sx={{ flex: 1 }} />
-          
-          <Typography variant="caption" color="text.secondary" sx={{ mr: 2 }}>
+          <TextField
+            size="small"
+            placeholder="Filter collections..."
+            value={filterText}
+            onChange={(e) => setFilterText(e.target.value)}
+            InputProps={{
+              startAdornment: <Search fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
+            }}
+            sx={{ minWidth: 180 }}
+          />
+
+          <Typography variant="caption" color="text.secondary">
             {collections.length} collections
           </Typography>
+
+          <Box sx={{ flex: 1 }} />
+
+          {/* Environment Selector */}
+          {environments.length > 0 && (
+            <>
+              <FormControl size="small" sx={{ minWidth: 200 }}>
+                <InputLabel>Environment</InputLabel>
+                <Select
+                  value={selectedEnvironment}
+                  label="Environment"
+                  onChange={(e) => setSelectedEnvironment(e.target.value)}
+                >
+                  {environments.map((env) => (
+                    <MenuItem key={env.id} value={env.id}>
+                      {env.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {selectedEnvironment && (
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => setShowEnvironmentDialog(true)}
+                  sx={{ textTransform: 'none' }}
+                >
+                  View Variables ({environments.find(e => e.id === selectedEnvironment)?.variables?.length || 0})
+                </Button>
+              )}
+            </>
+          )}
 
           <Button
             variant="contained"
@@ -409,77 +464,8 @@ const UserApiWorkspaceDetail: React.FC = () => {
             onClick={handleRunTests}
             disabled={selectedRequests.size === 0 || running}
           >
-            Run Now ({selectedRequests.size})
+            Run ({selectedRequests.size})
           </Button>
-        </Box>
-
-        {/* Host/Device/Userinterface Selectors - Always visible to prevent flashing */}
-        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Host</InputLabel>
-            <Select
-              value={selectedHost}
-              label="Host"
-              onChange={(e) => {
-                setSelectedHost(e.target.value);
-                setSelectedDevice('');
-                setSelectedUserinterface('');
-                // Auto-select first device
-                const devices = getDevicesFromHost(e.target.value);
-                if (devices.length > 0) {
-                  setSelectedDevice(devices[0].device_id);
-                }
-              }}
-            >
-              {getAllHosts().map((host) => (
-                <MenuItem key={host.host_name} value={host.host_name}>
-                  {host.host_name}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <FormControl size="small" sx={{ minWidth: 150 }}>
-            <InputLabel>Device</InputLabel>
-            <Select
-              value={selectedDevice}
-              label="Device"
-              onChange={(e) => {
-                setSelectedDevice(e.target.value);
-                setSelectedUserinterface('');
-              }}
-              disabled={!selectedHost}
-            >
-              {selectedHost && getDevicesFromHost(selectedHost).map((device) => (
-                <MenuItem key={device.device_id} value={device.device_id}>
-                  {device.device_name || device.device_id}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-
-          <Box sx={{ minWidth: 150 }}>
-            <UserinterfaceSelector
-              deviceModel={
-                selectedHost && selectedDevice
-                  ? getDevicesFromHost(selectedHost).find(d => d.device_id === selectedDevice)?.device_model || 'unknown'
-                  : 'unknown'
-              }
-              value={selectedUserinterface}
-              onChange={setSelectedUserinterface}
-              label="Userinterface"
-              size="small"
-              fullWidth
-            />
-          </Box>
-
-          <Chip 
-            label="For /host/* endpoints" 
-            size="small" 
-            color="info" 
-            variant="outlined"
-            sx={{ alignSelf: 'center' }}
-          />
         </Box>
 
         {error && (
@@ -669,6 +655,111 @@ const UserApiWorkspaceDetail: React.FC = () => {
           </DialogContent>
         </Dialog>
 
+        {/* Environment Variables Dialog */}
+        <Dialog
+          open={showEnvironmentDialog}
+          onClose={() => setShowEnvironmentDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ m: 0, p: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
+              Environment Variables - {environments.find(e => e.id === selectedEnvironment)?.name}
+            </Typography>
+            <IconButton
+              size="small"
+              onClick={() => setShowEnvironmentDialog(false)}
+            >
+              <Close />
+            </IconButton>
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 0, bgcolor: 'transparent' }}>
+            <TableContainer sx={{ 
+              bgcolor: 'transparent',
+              border: '2px solid',
+              borderColor: 'divider'
+            }}>
+              <Table size="small" sx={{ bgcolor: 'transparent' }}>
+                <TableHead>
+                  <TableRow sx={{ 
+                    bgcolor: 'transparent',
+                    '&:hover': { bgcolor: 'transparent !important' }
+                  }}>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: '30%',
+                      bgcolor: 'transparent',
+                      borderColor: 'divider',
+                      color: 'text.secondary'
+                    }}>Variable</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600,
+                      bgcolor: 'transparent',
+                      borderColor: 'divider',
+                      color: 'text.secondary'
+                    }}>Value</TableCell>
+                    <TableCell sx={{ 
+                      fontWeight: 600, 
+                      width: '10%',
+                      bgcolor: 'transparent',
+                      borderColor: 'divider',
+                      color: 'text.secondary'
+                    }}>Type</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {environments.find(e => e.id === selectedEnvironment)?.variables?.map((variable, index) => (
+                    <TableRow key={index} sx={{ 
+                      bgcolor: 'transparent',
+                      '&:hover': { bgcolor: 'rgba(255, 255, 255, 0.03) !important' }
+                    }}>
+                      <TableCell sx={{ 
+                        fontFamily: 'monospace', 
+                        fontSize: '0.85rem',
+                        bgcolor: 'transparent',
+                        borderColor: 'divider'
+                      }}>
+                        {variable.key}
+                      </TableCell>
+                      <TableCell sx={{ 
+                        fontFamily: 'monospace', 
+                        fontSize: '0.85rem',
+                        bgcolor: 'transparent',
+                        borderColor: 'divider'
+                      }}>
+                        {variable.type === 'secret' ? (
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Typography sx={{ fontFamily: 'monospace', letterSpacing: 2 }}>
+                              {'•'.repeat(40)}
+                            </Typography>
+                            <Tooltip title="Secret value - masked for security">
+                              <Chip label="🔒" size="small" sx={{ height: 18, fontSize: '0.7rem' }} />
+                            </Tooltip>
+                          </Box>
+                        ) : (
+                          variable.value || <em style={{ color: '#888' }}>null</em>
+                        )}
+                      </TableCell>
+                      <TableCell sx={{
+                        bgcolor: 'transparent',
+                        borderColor: 'divider'
+                      }}>
+                        <Chip
+                          label={variable.type === 'secret' ? 'secret' : 'default'}
+                          size="small"
+                          color={variable.type === 'secret' ? 'error' : 'default'}
+                          variant="outlined"
+                          sx={{ height: 20, fontSize: '0.65rem' }}
+                        />
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </DialogContent>
+        </Dialog>
+
         {/* Snackbar for notifications */}
         <Snackbar
           open={showSnackbar}
@@ -699,7 +790,17 @@ const UserApiWorkspaceDetail: React.FC = () => {
           </Card>
         )}
 
-        {collections.map((collection) => {
+        {collections.filter(collection => {
+          const search = filterText.toLowerCase();
+          if (!search) return true;
+          return (
+            collection.name.toLowerCase().includes(search) || 
+            (collection.requests && collection.requests.some(r => 
+              r.name.toLowerCase().includes(search) || 
+              r.path.toLowerCase().includes(search)
+            ))
+          );
+        }).map((collection) => {
         const isExpanded = expandedCollections.has(collection.id);
         const isLoadingRequests = loadingRequests.has(collection.id);
         const allSelected = collection.requests?.every(r => selectedRequests.has(r.id)) || false;
@@ -710,18 +811,27 @@ const UserApiWorkspaceDetail: React.FC = () => {
             key={collection.id}
             expanded={isExpanded}
             onChange={() => handleCollectionToggle(collection.id)}
-            sx={{ mb: 0.5 }}
+            disableGutters
+            elevation={1}
+            sx={{ 
+              mb: 0.5,
+              '&:before': { display: 'none' },
+              '&.Mui-expanded': { 
+                margin: '0 0 4px 0',
+                minHeight: 'unset'
+              }
+            }}
           >
-            <AccordionSummary 
-              expandIcon={<ExpandMore />}
-              sx={{ 
-                minHeight: 36,
-                py: 0.5,
-                '&.Mui-expanded': { minHeight: 36 },
-                '& .MuiAccordionSummary-content': { my: 0 },
-                '& .MuiAccordionSummary-content.Mui-expanded': { my: 0.5 }
-              }}
-            >
+              <AccordionSummary 
+                expandIcon={<ExpandMore />}
+                sx={{ 
+                  minHeight: 36,
+                  py: 0.5,
+                  '&.Mui-expanded': { minHeight: 36 },
+                  '& .MuiAccordionSummary-content': { my: 0 },
+                  '& .MuiAccordionSummary-content.Mui-expanded': { my: 0 }
+                }}
+              >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
                 {collection.requestCount > 0 && (
                   <Checkbox
