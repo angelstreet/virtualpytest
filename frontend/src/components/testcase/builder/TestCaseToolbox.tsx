@@ -141,7 +141,8 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     'standard': '#6b7280',    // grey - neutral for standard operations
     'navigation': '#8b5cf6',  // purple - unchanged
     'actions': '#f97316',     // orange - distinguishable from failure (red)
-    'verifications': '#3b82f6' // blue - distinguishable from success (green)
+    'verifications': '#3b82f6', // blue - distinguishable from success (green)
+    'api': '#06b6d4'          // cyan - API blocks
   };
 
   // Handle null/undefined toolboxConfig (should be rare since parent handles it)

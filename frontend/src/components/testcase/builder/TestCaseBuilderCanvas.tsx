@@ -105,6 +105,7 @@ export const TestCaseBuilderCanvas: React.FC<TestCaseBuilderCanvasProps> = ({
             get_current_time: '#6b7280',
             condition: '#6b7280',
             set_variable: '#6b7280',
+            api_call: '#06b6d4', // cyan - API blocks
           };
           return colorMap[node.type as string] || '#6b7280';
         }}

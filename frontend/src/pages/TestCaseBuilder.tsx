@@ -36,6 +36,7 @@ import { StartBlock } from '../components/testcase/blocks/StartBlock';
 import { SuccessBlock } from '../components/testcase/blocks/SuccessBlock';
 import { FailureBlock } from '../components/testcase/blocks/FailureBlock';
 import { UniversalBlock } from '../components/testcase/blocks/UniversalBlock';
+import { ApiCallBlock } from '../components/testcase/blocks/ApiCallBlock';
 import { SuccessEdge } from '../components/testcase/edges/SuccessEdge';
 import { FailureEdge } from '../components/testcase/edges/FailureEdge';
 import { DataEdge } from '../components/testcase/edges/DataEdge';
@@ -47,6 +48,7 @@ import { ActionConfigDialog } from '../components/testcase/dialogs/ActionConfigD
 import { VerificationConfigDialog } from '../components/testcase/dialogs/VerificationConfigDialog';
 import { LoopConfigDialog } from '../components/testcase/dialogs/LoopConfigDialog';
 import { StandardBlockConfigDialog } from '../components/testcase/dialogs/StandardBlockConfigDialog';
+import { ApiCallConfigModal } from '../components/testcase/dialogs/ApiCallConfigModal';
 import { TestCaseBuilderDialogs } from '../components/testcase/builder/TestCaseBuilderDialogs';
 import { AIGenerationResultPanel } from '../components/testcase/builder/AIGenerationResultPanel';
 import { PromptDisambiguation } from '../components/ai/PromptDisambiguation';
@@ -106,6 +108,8 @@ const NODE_TYPES = {
   custom_code: UniversalBlock,
   common_operation: UniversalBlock,
   evaluate_condition: UniversalBlock,
+  // API blocks
+  api_call: ApiCallBlock,
 };
 
 // Edge types for React Flow - memoized to prevent recreation warnings
@@ -183,6 +187,27 @@ const TestCaseBuilderContent: React.FC = () => {
     window.addEventListener('openBlockConfig' as any, handleOpenBlockConfig);
     return () => window.removeEventListener('openBlockConfig' as any, handleOpenBlockConfig);
   }, [hookData.nodes, hookData.setSelectedBlock, hookData.setIsConfigDialogOpen]);
+
+  // ✅ API Block Config Modal State
+  const [apiConfigModalOpen, setApiConfigModalOpen] = React.useState(false);
+  const [selectedApiBlock, setSelectedApiBlock] = React.useState<any>(null);
+
+  // ✅ Listen for API block config requests
+  React.useEffect(() => {
+    const handleOpenApiBlockConfig = (event: CustomEvent) => {
+      const blockId = event.detail?.blockId;
+      if (blockId) {
+        const node = hookData.nodes.find(n => n.id === blockId);
+        if (node) {
+          setSelectedApiBlock(node);
+          setApiConfigModalOpen(true);
+        }
+      }
+    };
+    
+    window.addEventListener('openApiBlockConfig' as any, handleOpenApiBlockConfig);
+    return () => window.removeEventListener('openApiBlockConfig' as any, handleOpenApiBlockConfig);
+  }, [hookData.nodes]);
 
   // Handle drop from toolbox
   const onDrop = useCallback(
@@ -679,6 +704,33 @@ const TestCaseBuilderContent: React.FC = () => {
           onCancel={() => hookData.setIsConfigDialogOpen(false)}
         />
       )}
+
+      {/* API Call Config Modal */}
+      <ApiCallConfigModal
+        open={apiConfigModalOpen}
+        onClose={() => {
+          setApiConfigModalOpen(false);
+          setSelectedApiBlock(null);
+        }}
+        initialConfig={selectedApiBlock?.data?.params}
+        onSave={(config) => {
+          if (selectedApiBlock) {
+            // Update block with API configuration
+            hookData.updateBlock(selectedApiBlock.id, {
+              params: config,
+              label: config.request_name,
+              // Define block outputs for API calls
+              blockOutputs: [
+                { name: 'response', type: 'object', value: null },
+                { name: 'status_code', type: 'number', value: null },
+                { name: 'headers', type: 'object', value: null },
+              ],
+            });
+          }
+          setApiConfigModalOpen(false);
+          setSelectedApiBlock(null);
+        }}
+      />
       
       {/* All Dialogs - using TestCaseBuilderDialogs component */}
       <TestCaseBuilderDialogs

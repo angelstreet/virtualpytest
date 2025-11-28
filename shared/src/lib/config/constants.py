@@ -52,6 +52,10 @@ CACHE_CONFIG = {
     # Used for: Navigation trees, heatmap analysis, Reference images (with ETag checking)
     'MEDIUM_TTL': 5 * 60,
     
+    # Postman cache - for Postman collections/environments (1 hour)
+    # Used for: Postman collections, requests, environments (heavy API calls, rarely change)
+    'POSTMAN_TTL': 60 * 60,
+    
     # Long cache - for static data (24 hours)
     # Used for: Stream URLs, metadata, device models, user interfaces
     'LONG_TTL': 24 * 60 * 60,
