@@ -6,7 +6,7 @@ These routes demonstrate the new user auth middleware.
 """
 
 from flask import Blueprint, request, jsonify
-from lib.auth_middleware import require_user_auth, require_role, require_permission, optional_user_auth
+from backend_server.src.lib.auth_middleware import require_user_auth, require_role, require_permission, optional_user_auth
 
 # Create blueprint
 server_auth_bp = Blueprint('server_auth', __name__, url_prefix='/server/auth')
