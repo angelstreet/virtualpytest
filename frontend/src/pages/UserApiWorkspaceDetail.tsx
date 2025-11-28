@@ -28,14 +28,23 @@ import {
   TableHead,
   TableRow,
   IconButton,
+  Tooltip,
+  Snackbar,
+  Select,
+  MenuItem,
+  FormControl,
+  InputLabel,
 } from '@mui/material';
 import {
   ArrowBack,
   ExpandMore,
   PlayArrow,
   Close,
+  ContentCopy,
 } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';
+import { useHostManager } from '../hooks/useHostManager';
+import { UserinterfaceSelector } from '../components/common/UserinterfaceSelector';
 
 interface Request {
   id: string;
@@ -63,6 +72,7 @@ interface Workspace {
 const UserApiWorkspaceDetail: React.FC = () => {
   const { workspaceId } = useParams<{ workspaceId: string }>();
   const navigate = useNavigate();
+  const { getAllHosts, getDevicesFromHost } = useHostManager();
   
   const [workspace, setWorkspace] = useState<Workspace | null>(null);
   const [collections, setCollections] = useState<Collection[]>([]);
@@ -74,6 +84,31 @@ const UserApiWorkspaceDetail: React.FC = () => {
   const [running, setRunning] = useState(false);
   const [testResult, setTestResult] = useState<any>(null);
   const [showResultsDialog, setShowResultsDialog] = useState(false);
+  const [copiedIndex, setCopiedIndex] = useState<number | null>(null);
+  const [snackbarMessage, setSnackbarMessage] = useState<string>('');
+  const [showSnackbar, setShowSnackbar] = useState(false);
+  const [selectedResponse, setSelectedResponse] = useState<any>(null);
+  const [showResponseDialog, setShowResponseDialog] = useState(false);
+  
+  // Host/Device/Userinterface selection (for /host/* endpoints)
+  const [selectedHost, setSelectedHost] = useState<string>('');
+  const [selectedDevice, setSelectedDevice] = useState<string>('');
+  const [selectedUserinterface, setSelectedUserinterface] = useState<string>('');
+
+  // Auto-select first host on mount
+  useEffect(() => {
+    const hosts = getAllHosts();
+    if (hosts.length > 0 && !selectedHost) {
+      const firstHost = hosts[0].host_name;
+      setSelectedHost(firstHost);
+      
+      // Auto-select first device for this host
+      const devices = getDevicesFromHost(firstHost);
+      if (devices.length > 0) {
+        setSelectedDevice(devices[0].device_id);
+      }
+    }
+  }, [getAllHosts, getDevicesFromHost, selectedHost]);
 
   useEffect(() => {
     loadWorkspaceAndCollections();
@@ -218,7 +253,8 @@ const UserApiWorkspaceDetail: React.FC = () => {
 
   const handleRunTests = async () => {
     if (selectedRequests.size === 0) {
-      alert('Please select at least one endpoint to test');
+      setSnackbarMessage('Please select at least one endpoint to test');
+      setShowSnackbar(true);
       return;
     }
 
@@ -245,7 +281,8 @@ const UserApiWorkspaceDetail: React.FC = () => {
 
       if (endpoints.length === 0) {
         setRunning(false);
-        alert('Error: Selected endpoints could not be found in the loaded collections. Please try reloading the page.');
+        setSnackbarMessage('Error: Selected endpoints could not be found in the loaded collections. Please try reloading the page.');
+        setShowSnackbar(true);
         return;
       }
 
@@ -256,6 +293,9 @@ const UserApiWorkspaceDetail: React.FC = () => {
           workspaceId,
           workspaceName: workspace?.name,
           endpoints,
+          host_name: selectedHost || undefined,
+          device_id: selectedDevice || undefined,
+          userinterface: selectedUserinterface || undefined,
         }),
       });
 
@@ -270,6 +310,18 @@ const UserApiWorkspaceDetail: React.FC = () => {
     } finally {
       setRunning(false);
     }
+  };
+
+  const handleCopyResponse = (response: any, index: number) => {
+    const textToCopy = typeof response === 'string' ? response : JSON.stringify(response, null, 2);
+    navigator.clipboard.writeText(textToCopy);
+    setCopiedIndex(index);
+    setTimeout(() => setCopiedIndex(null), 2000);
+  };
+
+  const handleViewResponse = (response: any) => {
+    setSelectedResponse(response);
+    setShowResponseDialog(true);
   };
 
   if (loading) {
@@ -332,13 +384,13 @@ const UserApiWorkspaceDetail: React.FC = () => {
           boxShadow: 1
         }}
       >
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1 }}>
           <Button
             startIcon={<ArrowBack />}
             onClick={() => navigate('/api/workspaces')}
             size="small"
           >
-            Back to Workspaces
+            Back
           </Button>
           
           <Typography variant="h6">
@@ -359,6 +411,75 @@ const UserApiWorkspaceDetail: React.FC = () => {
           >
             Run Now ({selectedRequests.size})
           </Button>
+        </Box>
+
+        {/* Host/Device/Userinterface Selectors - Always visible to prevent flashing */}
+        <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Host</InputLabel>
+            <Select
+              value={selectedHost}
+              label="Host"
+              onChange={(e) => {
+                setSelectedHost(e.target.value);
+                setSelectedDevice('');
+                setSelectedUserinterface('');
+                // Auto-select first device
+                const devices = getDevicesFromHost(e.target.value);
+                if (devices.length > 0) {
+                  setSelectedDevice(devices[0].device_id);
+                }
+              }}
+            >
+              {getAllHosts().map((host) => (
+                <MenuItem key={host.host_name} value={host.host_name}>
+                  {host.host_name}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <FormControl size="small" sx={{ minWidth: 150 }}>
+            <InputLabel>Device</InputLabel>
+            <Select
+              value={selectedDevice}
+              label="Device"
+              onChange={(e) => {
+                setSelectedDevice(e.target.value);
+                setSelectedUserinterface('');
+              }}
+              disabled={!selectedHost}
+            >
+              {selectedHost && getDevicesFromHost(selectedHost).map((device) => (
+                <MenuItem key={device.device_id} value={device.device_id}>
+                  {device.device_name || device.device_id}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+
+          <Box sx={{ minWidth: 150 }}>
+            <UserinterfaceSelector
+              deviceModel={
+                selectedHost && selectedDevice
+                  ? getDevicesFromHost(selectedHost).find(d => d.device_id === selectedDevice)?.device_model || 'unknown'
+                  : 'unknown'
+              }
+              value={selectedUserinterface}
+              onChange={setSelectedUserinterface}
+              label="Userinterface"
+              size="small"
+              fullWidth
+            />
+          </Box>
+
+          <Chip 
+            label="For /host/* endpoints" 
+            size="small" 
+            color="info" 
+            variant="outlined"
+            sx={{ alignSelf: 'center' }}
+          />
         </Box>
 
         {error && (
@@ -456,15 +577,33 @@ const UserApiWorkspaceDetail: React.FC = () => {
                         </TableCell>
                         <TableCell>{result.statusCode || '-'}</TableCell>
                         <TableCell>{result.duration ? `${result.duration}ms` : '-'}</TableCell>
-                        <TableCell sx={{ 
-                          maxWidth: 400, 
-                          overflow: 'hidden', 
-                          textOverflow: 'ellipsis', 
-                          whiteSpace: 'nowrap',
-                          fontFamily: 'monospace',
-                          fontSize: '0.8rem'
-                        }}>
-                          {result.error || (typeof result.response === 'string' ? result.response : JSON.stringify(result.response))}
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box 
+                              sx={{ 
+                                flex: 1,
+                                overflow: 'hidden', 
+                                textOverflow: 'ellipsis', 
+                                whiteSpace: 'nowrap',
+                                fontFamily: 'monospace',
+                                fontSize: '0.8rem',
+                                cursor: 'pointer',
+                                '&:hover': { textDecoration: 'underline' }
+                              }}
+                              onClick={() => handleViewResponse(result.error || result.response)}
+                            >
+                              {result.error || (typeof result.response === 'string' ? result.response : JSON.stringify(result.response))}
+                            </Box>
+                            <Tooltip title={copiedIndex === index ? "Copied!" : "Copy response"}>
+                              <IconButton 
+                                size="small" 
+                                onClick={() => handleCopyResponse(result.error || result.response, index)}
+                                sx={{ flexShrink: 0 }}
+                              >
+                                <ContentCopy fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}
@@ -474,6 +613,70 @@ const UserApiWorkspaceDetail: React.FC = () => {
             )}
           </DialogContent>
         </Dialog>
+
+        {/* Response Detail Dialog */}
+        <Dialog
+          open={showResponseDialog}
+          onClose={() => setShowResponseDialog(false)}
+          maxWidth="md"
+          fullWidth
+        >
+          <DialogTitle sx={{ m: 0, p: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Typography variant="h6">Response Details</Typography>
+            <Box sx={{ display: 'flex', gap: 1 }}>
+              <Tooltip title="Copy response">
+                <IconButton
+                  size="small"
+                  onClick={() => {
+                    const textToCopy = typeof selectedResponse === 'string' ? selectedResponse : JSON.stringify(selectedResponse, null, 2);
+                    navigator.clipboard.writeText(textToCopy);
+                    setSnackbarMessage('Response copied to clipboard');
+                    setShowSnackbar(true);
+                  }}
+                >
+                  <ContentCopy />
+                </IconButton>
+              </Tooltip>
+              <IconButton
+                size="small"
+                onClick={() => setShowResponseDialog(false)}
+              >
+                <Close />
+              </IconButton>
+            </Box>
+          </DialogTitle>
+          <DialogContent dividers sx={{ p: 2 }}>
+            <Box
+              component="pre"
+              sx={{
+                m: 0,
+                p: 2,
+                bgcolor: 'grey.900',
+                color: 'common.white',
+                borderRadius: 1,
+                overflow: 'auto',
+                fontFamily: 'monospace',
+                fontSize: '0.875rem',
+                lineHeight: 1.5,
+                whiteSpace: 'pre-wrap',
+                wordBreak: 'break-word'
+              }}
+            >
+              {typeof selectedResponse === 'string' 
+                ? selectedResponse 
+                : JSON.stringify(selectedResponse, null, 2)}
+            </Box>
+          </DialogContent>
+        </Dialog>
+
+        {/* Snackbar for notifications */}
+        <Snackbar
+          open={showSnackbar}
+          autoHideDuration={4000}
+          onClose={() => setShowSnackbar(false)}
+          message={snackbarMessage}
+          anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        />
       </Box>
 
       {/* Scrollable Collections Area */}
@@ -482,7 +685,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
         overflow: 'auto', 
         overflowX: 'hidden',
         px: 3, 
-        py: 1, 
+        py: 0.5, 
         minHeight: 0,
         maxHeight: '100%'
       }}>
@@ -507,10 +710,19 @@ const UserApiWorkspaceDetail: React.FC = () => {
             key={collection.id}
             expanded={isExpanded}
             onChange={() => handleCollectionToggle(collection.id)}
-            sx={{ mb: 1 }}
+            sx={{ mb: 0.5 }}
           >
-            <AccordionSummary expandIcon={<ExpandMore />}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, width: '100%' }}>
+            <AccordionSummary 
+              expandIcon={<ExpandMore />}
+              sx={{ 
+                minHeight: 36,
+                py: 0.5,
+                '&.Mui-expanded': { minHeight: 36 },
+                '& .MuiAccordionSummary-content': { my: 0 },
+                '& .MuiAccordionSummary-content.Mui-expanded': { my: 0.5 }
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, width: '100%' }}>
                 {collection.requestCount > 0 && (
                   <Checkbox
                     checked={allSelected}
@@ -519,11 +731,14 @@ const UserApiWorkspaceDetail: React.FC = () => {
                       e.stopPropagation();
                       handleCollectionSelectAll(collection.id);
                     }}
+                    size="small"
                   />
                 )}
-                <Box sx={{ flex: 1 }}>
-                  <Typography variant="subtitle1">{collection.name}</Typography>
-                  <Typography variant="caption" color="text.secondary">
+                <Box sx={{ flex: 1, minWidth: 0 }}>
+                  <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.9rem' }}>
+                    {collection.name}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1 }}>
                     {collection.description || 'No description'}
                   </Typography>
                 </Box>
@@ -532,13 +747,14 @@ const UserApiWorkspaceDetail: React.FC = () => {
                   size="small"
                   color="primary"
                   variant="outlined"
+                  sx={{ height: 22, fontSize: '0.7rem' }}
                 />
               </Box>
             </AccordionSummary>
-            <AccordionDetails sx={{ p: 1 }}>
+            <AccordionDetails sx={{ p: 0.5, pt: 0 }}>
               {isLoadingRequests && (
-                <Box sx={{ display: 'flex', justifyContent: 'center', p: 2 }}>
-                  <CircularProgress size={24} />
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 1 }}>
+                  <CircularProgress size={20} />
                 </Box>
               )}
               
@@ -546,8 +762,15 @@ const UserApiWorkspaceDetail: React.FC = () => {
                 <List dense disablePadding>
                   {collection.requests.map((request) => (
                     <ListItem key={request.id} disablePadding>
-                      <ListItemButton onClick={() => handleRequestToggle(request.id)} sx={{ py: 0.5 }}>
-                        <ListItemIcon sx={{ minWidth: 40 }}>
+                      <ListItemButton 
+                        onClick={() => handleRequestToggle(request.id)} 
+                        sx={{ 
+                          py: 0.25,
+                          minHeight: 26,
+                          '&:hover': { bgcolor: 'action.hover' }
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 36 }}>
                           <Checkbox
                             checked={selectedRequests.has(request.id)}
                             edge="start"
@@ -558,7 +781,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
                         </ListItemIcon>
                         <ListItemText
                           primary={
-                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
                               <Chip
                                 label={request.method}
                                 size="small"
@@ -570,20 +793,21 @@ const UserApiWorkspaceDetail: React.FC = () => {
                                   'default'
                                 }
                                 sx={{ 
-                                  minWidth: 50, 
-                                  height: 20, 
+                                  minWidth: 45, 
+                                  height: 16, 
                                   fontFamily: 'monospace', 
-                                  fontSize: '0.65rem',
-                                  '& .MuiChip-label': { px: 1 }
+                                  fontSize: '0.6rem',
+                                  fontWeight: 600,
+                                  '& .MuiChip-label': { px: 0.75, py: 0 }
                                 }}
                               />
-                              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
+                              <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', lineHeight: 1.3 }}>
                                 {request.path}
                               </Typography>
                             </Box>
                           }
                           secondary={
-                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.7rem', lineHeight: 1.2 }}>
                               {request.name}
                             </Typography>
                           }

@@ -365,6 +365,10 @@ def run_api_test():
         workspace_name = data.get('workspaceName')
         endpoints = data.get('endpoints', [])
         host_name = data.get('host_name')  # Optional: only needed for /host/* endpoints
+        device_id = data.get('device_id')  # Optional: device for /host/* endpoints
+        userinterface = data.get('userinterface')  # Optional: userinterface for /host/* endpoints
+        
+        print(f"[@postman_routes] Received: host={host_name}, device={device_id}, userinterface={userinterface}")
         
         if not endpoints:
             return jsonify({
@@ -453,14 +457,20 @@ def run_api_test():
                 params = {}
                 json_data = None
                 
-                # Add team_id if needed
-                if 'team_id' in path or any(x in path for x in ['devices', 'campaigns', 'testcase', 'requirements']):
+                # Add team_id if needed (most endpoints require it)
+                if 'team_id' in path or any(x in path for x in ['devices', 'campaigns', 'testcase', 'requirements', 'userinterface', 'kpi', 'monitor']):
                      params['team_id'] = DEFAULT_TEAM_ID
                 
-                # For /host/* endpoints, add host_name to request body (server will proxy)
-                if path.startswith('/host/') and host_name:
-                    json_data = {'host_name': host_name}
-                    print(f"[@postman_routes] Adding host_name to request: {host_name}")
+                # For /host/* endpoints, add host_name/device_id/userinterface to request body (server will proxy)
+                if path.startswith('/host/'):
+                    json_data = {}
+                    if host_name:
+                        json_data['host_name'] = host_name
+                    if device_id:
+                        json_data['device_id'] = device_id
+                    if userinterface:
+                        json_data['userinterface'] = userinterface
+                    print(f"[@postman_routes] Adding to request body: {json_data}")
                 
                 # Execute request
                 response = requests.request(
