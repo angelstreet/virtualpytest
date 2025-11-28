@@ -20,6 +20,7 @@ import {
   SmartToy, // For MCP Playground
   Extension as IntegrationIcon, // For Integrations section
   Security as SecurityIcon, // For Security Reports
+  LocalPostOffice as PostmanIcon, // For Postman integration
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -71,11 +72,6 @@ const NavigationBar: React.FC = () => {
           label: 'Deployments',
           path: '/test-execution/deployments',
           icon: <RunIcon fontSize="small" />,
-        },
-        {
-          label: 'API Tests',
-          path: '/api/workspaces',
-          icon: <ApiIcon fontSize="small" />,
         },
       ],
     },
@@ -166,14 +162,19 @@ const NavigationBar: React.FC = () => {
   // Third-party Integrations menu items
   const integrationsItems = [
     {
-      label: 'JIRA',
-      path: '/integrations/jira',
-      icon: <IntegrationIcon fontSize="small" />,
-    },
-    {
       label: 'Grafana',
       path: '/grafana-dashboard',
       icon: <DashboardIcon fontSize="small" />,
+    },
+    {
+      label: 'Postman',
+      path: '/api/workspaces',
+      icon: <PostmanIcon fontSize="small" />,
+    },
+    {
+      label: 'Jira',
+      path: '/integrations/jira',
+      icon: <IntegrationIcon fontSize="small" />,
     },
   ];
 
