@@ -69,18 +69,6 @@ const ApiDocumentation: React.FC = () => {
         </FormControl>
         
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" color="textSecondary">
-            OpenAPI 3.0 Documentation
-          </Typography>
-          <Tooltip title="Refresh documentation">
-            <IconButton
-              onClick={() => window.location.reload()}
-              color="primary"
-              size="medium"
-            >
-              <Refresh />
-            </IconButton>
-          </Tooltip>
           <Tooltip title="Open in new tab">
             <IconButton
               onClick={() => window.open(getDocUrl(), '_blank')}

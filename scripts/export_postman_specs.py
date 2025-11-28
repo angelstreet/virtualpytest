@@ -12,13 +12,18 @@ import json
 import requests
 import subprocess
 from pathlib import Path
+from dotenv import load_dotenv
+
+# Load .env from project root
+PROJECT_ROOT = Path(__file__).parent.parent
+load_dotenv(PROJECT_ROOT / ".env")
 
 # Configuration
 POSTMAN_API_KEY = os.getenv('POSTMAN_API_KEY')
 if not POSTMAN_API_KEY:
-    print("❌ Error: POSTMAN_API_KEY environment variable not set")
-    print("Set it in your .env file or export it:")
-    print("  export POSTMAN_API_KEY='your-key-here'")
+    print("❌ Error: POSTMAN_API_KEY not found in .env file")
+    print("Add it to your .env file:")
+    print("  POSTMAN_API_KEY=your-key-here")
     sys.exit(1)
 
 WORKSPACE_ID = "91dbec69-5756-413d-a530-a97b9cadf615"
@@ -148,7 +153,6 @@ def create_index_html(yaml_files):
 <body>
     <div class="container">
         <h1>🚀 VirtualPyTest API Documentation</h1>
-        <p class="subtitle">Interactive OpenAPI 3.0 Documentation</p>
         
         <div class="section">
             <h2>📡 SERVER APIs</h2>

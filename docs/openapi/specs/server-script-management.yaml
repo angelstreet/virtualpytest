@@ -1,0 +1,78 @@
+openapi: 3.0.0
+info:
+  title: SERVER - Script Management
+  version: 1.0.0
+  description: Script management, analysis, execution and monitoring endpoints
+servers:
+  - url: '{{server_url}}'
+paths:
+  /script/list:
+    get:
+      summary: List Scripts
+      tags: []
+      parameters:
+        - name: team_id
+          in: query
+          schema:
+            type: string
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /script/analyze:
+    post:
+      summary: Analyze Script
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /script/get_edge_options:
+    post:
+      summary: Get Edge Options
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /script/execute:
+    post:
+      summary: Execute Script
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+  /script/status/{task_id}:
+    get:
+      summary: Get Script Status
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+  /script/taskComplete:
+    post:
+      summary: Task Complete
+      tags: []
+      parameters:
+        - name: Authorization
+          in: header
+          schema:
+            type: string
+      responses: {}
