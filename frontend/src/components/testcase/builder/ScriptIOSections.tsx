@@ -105,13 +105,11 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const executionVariableValues = contextData?.executionVariableValues || {};
   const executionMetadataValues = contextData?.executionMetadataValues || {};
   
-  // Single-expand: only one section open at a time
-  const [expandedSection, setExpandedSection] = useState<'inputs' | 'outputs' | 'variables' | 'metadata' | null>(null);
-  
-  const inputsExpanded = expandedSection === 'inputs';
-  const outputsExpanded = expandedSection === 'outputs';
-  const variablesExpanded = expandedSection === 'variables';
-  const metadataExpanded = expandedSection === 'metadata';
+  // All sections expanded by default (no overlap issue with tabbed interface)
+  const [inputsExpanded, setInputsExpanded] = useState(true);
+  const [outputsExpanded, setOutputsExpanded] = useState(true);
+  const [variablesExpanded, setVariablesExpanded] = useState(true);
+  const [metadataExpanded, setMetadataExpanded] = useState(true);
   
   // Editing state
   const [editingMetadataField, setEditingMetadataField] = useState<string | null>(null);
@@ -309,7 +307,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setExpandedSection(inputsExpanded ? null : 'inputs')}
+          onClick={() => setInputsExpanded(!inputsExpanded)}
         >
           <Typography
             fontSize={13}
@@ -369,16 +367,20 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                   }}
                   onDelete={input.protected ? undefined : () => onRemoveInput(input.name)}
                   sx={{
-                    backgroundColor: sectionColors.inputs,
-                    color: 'white',
+                    backgroundColor: 'transparent',
+                    border: `1px solid ${sectionColors.inputs}`,
+                    color: 'text.primary', // White text for readability
                     fontSize: '0.7rem',
                     height: '24px',
                     justifyContent: 'space-between',
                     cursor: input.protected ? 'default' : 'grab',
+                    '&:hover': {
+                      backgroundColor: `${sectionColors.inputs}15`,
+                    },
                     '&:active': {
                       cursor: 'grabbing',
                     },
-                    '& .MuiChip-deleteIcon': { color: 'rgba(255,255,255,0.7)' }
+                    '& .MuiChip-deleteIcon': { color: 'text.secondary' }
                   }}
                 />
               );
@@ -420,7 +422,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setExpandedSection(outputsExpanded ? null : 'outputs')}
+          onClick={() => setOutputsExpanded(!outputsExpanded)}
         >
           <Typography
             fontSize={13}
@@ -470,15 +472,14 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       '& .MuiInputBase-root': {
                         height: '24px',
                         fontSize: '0.7rem',
-                        backgroundColor: sectionColors.outputs,
-                        color: 'white',
+                        backgroundColor: 'transparent',
                       },
                       '& .MuiInputBase-input': {
-                        color: 'white',
+                        color: 'text.primary',
                         padding: '0 8px',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        border: '1px solid rgba(255,255,255,0.3)',
+                        border: `1px solid ${sectionColors.outputs}`,
                       },
                     }}
                   />
@@ -550,17 +551,16 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }}
                       sx={{
                         width: '100%',
-                        backgroundColor: output.sourceBlockId ? sectionColors.variables : sectionColors.outputs,
-                        color: 'white',
+                        backgroundColor: 'transparent',
+                        border: `1px solid ${output.sourceBlockId ? sectionColors.variables : sectionColors.outputs}`,
+                        color: 'text.primary', // White text for readability
                         fontSize: '0.7rem',
                         height: '24px',
                         justifyContent: 'space-between',
                         cursor: 'pointer',
-                        border: '2px dashed transparent',
-                        '& .MuiChip-icon': { color: 'white', cursor: output.sourceBlockId ? 'pointer' : 'default' },
+                        '& .MuiChip-icon': { color: output.sourceBlockId ? sectionColors.variables : sectionColors.outputs },
                         '&:hover': {
-                          opacity: 0.9,
-                          border: '2px dashed rgba(255,255,255,0.5)'
+                          backgroundColor: output.sourceBlockId ? `${sectionColors.variables}15` : `${sectionColors.outputs}15`,
                         },
                         '&:active': {
                           cursor: 'grabbing',
@@ -624,7 +624,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setExpandedSection(variablesExpanded ? null : 'variables')}
+          onClick={() => setVariablesExpanded(!variablesExpanded)}
         >
           <Typography
             fontSize={13}
@@ -674,15 +674,14 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       '& .MuiInputBase-root': {
                         height: '24px',
                         fontSize: '0.7rem',
-                        backgroundColor: sectionColors.variables,
-                        color: 'white',
+                        backgroundColor: 'transparent',
                       },
                       '& .MuiInputBase-input': {
-                        color: 'white',
+                        color: 'text.primary',
                         padding: '0 8px',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        border: '1px solid rgba(255,255,255,0.3)',
+                        border: `1px solid ${sectionColors.variables}`,
                       },
                     }}
                   />
@@ -817,14 +816,17 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                           }}
                           sx={{
                             width: '100%',
-                            backgroundColor: sectionColors.variables,
-                            color: 'white',
+                            backgroundColor: 'transparent',
+                            border: `1px solid ${sectionColors.variables}`,
+                            color: 'text.primary', // White text for readability
                             fontSize: '0.7rem',
                             height: '24px',
                             justifyContent: 'space-between',
                             cursor: normalizeSourceLinks(variable).length > 0 ? 'pointer' : 'grab',
-                            border: '2px dashed transparent',
-                            '& .MuiChip-icon': { color: 'white' },
+                            '& .MuiChip-icon': { color: sectionColors.variables },
+                            '&:hover': {
+                              backgroundColor: `${sectionColors.variables}15`,
+                            },
                             '&:active': {
                               cursor: 'grabbing',
                             }
@@ -889,7 +891,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setExpandedSection(metadataExpanded ? null : 'metadata')}
+          onClick={() => setMetadataExpanded(!metadataExpanded)}
         >
           <Typography
             fontSize={13}
@@ -939,15 +941,14 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       '& .MuiInputBase-root': {
                         height: '24px',
                         fontSize: '0.7rem',
-                        backgroundColor: sectionColors.metadata,
-                        color: 'white',
+                        backgroundColor: 'transparent',
                       },
                       '& .MuiInputBase-input': {
-                        color: 'white',
+                        color: 'text.primary',
                         padding: '0 8px',
                       },
                       '& .MuiOutlinedInput-notchedOutline': {
-                        border: '1px solid rgba(255,255,255,0.3)',
+                        border: `1px solid ${sectionColors.metadata}`,
                       },
                     }}
                   />
@@ -1024,24 +1025,24 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
                       }}
                       sx={{
                         width: '100%',
-                        backgroundColor: sectionColors.metadata,
-                        color: 'white',
+                        backgroundColor: 'transparent',
+                        border: `1px solid ${field.sourceBlockId ? sectionColors.variables : sectionColors.metadata}`,
+                        color: 'text.primary', // White text for readability
                         fontSize: '0.7rem',
                         height: '24px',
                         justifyContent: 'space-between',
                         cursor: field.sourceBlockId ? 'pointer' : 'default',
-                        border: field.sourceBlockId ? `2px solid ${sectionColors.variables}` : '2px dashed transparent',
                         '& .MuiChip-icon': { 
-                          color: 'white',
+                          color: field.sourceBlockId ? sectionColors.variables : sectionColors.metadata,
                           marginLeft: '4px',
                           marginRight: '0px',
                         },
                         '& .MuiChip-label': {
                           paddingLeft: field.sourceBlockId ? '4px' : '12px',
                         },
-                        '&:hover': field.sourceBlockId ? {
-                          opacity: 0.9,
-                        } : {}
+                        '&:hover': {
+                          backgroundColor: field.sourceBlockId ? `${sectionColors.variables}15` : `${sectionColors.metadata}15`,
+                        }
                       }}
                     />
                     </Tooltip>
