@@ -91,75 +91,95 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
     return typeof value; // string, boolean, etc.
   };
 
-  // Accent color for inputs
-  const inputColor = '#7c3aed'; // muted violet
-
   return (
-    <Box sx={{ mb: 0.5 }} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
+    <Box sx={{ mb: 1 }} onClick={(e) => e.stopPropagation()} onDoubleClick={(e) => e.stopPropagation()}>
       <Box
         onClick={() => setExpanded(!expanded)}
         sx={{
           display: 'flex',
           alignItems: 'center',
+          justifyContent: 'space-between',
           gap: 0.5,
           cursor: 'pointer',
-          py: 0.25,
-          px: 0.5,
-          borderRadius: 0.5,
-          transition: 'background 0.15s ease',
+          py: 0.5,
+          px: 1,
+          background: actualMode === 'dark' 
+            ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%)'
+            : 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.06) 100%)',
+          borderRadius: 1,
+          border: '2px solid',
+          borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.3)',
+          boxShadow: actualMode === 'dark'
+            ? '0 2px 8px rgba(139, 92, 246, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.1)'
+            : '0 2px 8px rgba(139, 92, 246, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.5)',
+          transition: 'all 0.2s ease-in-out',
           '&:hover': {
-            bgcolor: actualMode === 'dark' ? 'rgba(124, 58, 237, 0.1)' : 'rgba(124, 58, 237, 0.05)',
+            bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
+            borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.6)' : 'rgba(139, 92, 246, 0.5)',
+            boxShadow: actualMode === 'dark'
+              ? '0 4px 12px rgba(139, 92, 246, 0.25), inset 0 1px 0 rgba(255, 255, 255, 0.15)'
+              : '0 4px 12px rgba(139, 92, 246, 0.2), inset 0 1px 0 rgba(255, 255, 255, 0.6)',
+            transform: 'translateY(-1px)',
           },
         }}
       >
-        <Typography fontSize={10} fontWeight={500} color={inputColor} sx={{ opacity: 0.8 }}>
-          ↳
-        </Typography>
-        
-        {/* Inline params preview */}
-        <Box sx={{ 
-          display: 'flex', 
-          alignItems: 'center', 
-          gap: 0.5, 
-          overflow: 'hidden',
-          flex: 1,
-          minWidth: 0,
-        }}>
-          {displayParams.slice(0, expanded ? displayParams.length : 4).map(([key]) => {
-            const link = paramLinks?.[key];
-            const isLinked = Boolean(link);
-            
-            return (
-              <Typography
-                key={key}
-                fontSize={10}
-                sx={{ 
-                  color: isLinked ? '#16a34a' : 'text.secondary',
-                  fontWeight: isLinked ? 500 : 400,
-                  whiteSpace: 'nowrap',
-                  overflow: 'hidden',
-                  textOverflow: 'ellipsis',
-                  maxWidth: '60px',
-                }}
-              >
-                {key}
-              </Typography>
-            );
-          })}
-          {!expanded && displayParams.length > 4 && (
-            <Typography fontSize={9} color="text.disabled">
-              +{displayParams.length - 4}
-            </Typography>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
+          <Typography fontSize={13} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
+            INPUTS ({displayParams.length})
+          </Typography>
+          
+          {/* Preview: Show first 1-3 inputs inline when collapsed */}
+          {!expanded && (
+            <Box sx={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: 0.5, 
+              overflow: 'hidden',
+              flex: 1,
+              minWidth: 0,
+            }}>
+              {displayParams.slice(0, 3).map(([key]) => {
+                const link = paramLinks?.[key];
+                const isLinked = Boolean(link);
+                
+                return (
+                  <Chip
+                    key={key}
+                    label={key}
+                    size="small"
+                    icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
+                    sx={{ 
+                      fontSize: 14, 
+                      height: 20,
+                      maxWidth: '80px',
+                      bgcolor: isLinked 
+                        ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                        : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
+                      borderColor: isLinked ? '#10b981' : '#8b5cf6',
+                      '& .MuiChip-label': {
+                        px: 0.5,
+                        overflow: 'hidden',
+                        textOverflow: 'ellipsis',
+                        whiteSpace: 'nowrap',
+                      }
+                    }}
+                    variant="outlined"
+                  />
+                );
+              })}
+              {displayParams.length > 3 && (
+                <Typography fontSize={9} color="#8b5cf6" sx={{ flexShrink: 0 }}>
+                  +{displayParams.length - 3}
+                </Typography>
+              )}
+            </Box>
           )}
         </Box>
-        
-        <IconButton size="small" sx={{ p: 0, opacity: 0.5 }}>
-          {expanded ? <ExpandLessIcon sx={{ fontSize: 12, color: 'text.secondary' }} /> : <ExpandMoreIcon sx={{ fontSize: 12, color: 'text.secondary' }} />}
-        </IconButton>
+        {expanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} />}
       </Box>
       
       <Collapse in={expanded}>
-        <Box sx={{ mt: 0.25, pl: 1.5, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+        <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {displayParams.map(([key, value]) => {
             const link = paramLinks?.[key];
             const isLinked = Boolean(link);
@@ -191,18 +211,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
             return (
               <Box 
                 key={key} 
-                sx={{ 
-                  display: 'flex', 
-                  alignItems: 'center', 
-                  gap: 0.5,
-                  py: 0.25,
-                  px: 0.5,
-                  borderRadius: 0.5,
-                  cursor: 'pointer',
-                  '&:hover': {
-                    bgcolor: actualMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.03)',
-                  },
-                }}
+                sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}
                 onDragOver={(e) => {
                   e.preventDefault();
                   e.stopPropagation();
@@ -214,64 +223,57 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                     onDrop(key, draggedOutput);
                   }
                 }}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  if (!isLinked) {
-                    if (onConfigureClick) {
-                      onConfigureClick();
-                    } else {
-                      handleViewValue(key, actualValue, e);
-                    }
-                  }
-                }}
               >
-                {isLinked && <LinkIcon sx={{ fontSize: 10, color: '#16a34a' }} />}
-                <Typography 
-                  fontSize={10} 
-                  sx={{ 
-                    color: isLinked ? '#16a34a' : 'text.secondary',
-                    fontWeight: isLinked ? 500 : 400,
+                <Chip
+                  label={isLinked && link
+                    ? `${key} ← ${link.sourceOutputName}` 
+                    : `${key}: ${displayValue.substring(0, 30)}${displayValue.length > 30 ? '...' : ''}`
+                  }
+                  size="small"
+                  icon={isLinked ? <LinkIcon sx={{ fontSize: 12, color: '#10b981' }} /> : undefined}
+                  onClick={(e) => {
+                    e.stopPropagation(); // ✅ Prevent block selection
+                    if (!isLinked) {
+                      // ✅ If onConfigureClick provided, open config dialog instead of view dialog
+                      if (onConfigureClick) {
+                        onConfigureClick();
+                      } else {
+                        handleViewValue(key, actualValue, e);
+                      }
+                    }
                   }}
-                >
-                  {key}
-                </Typography>
-                {!isLinked && (
-                  <Typography 
-                    fontSize={10} 
-                    sx={{ 
-                      color: 'text.disabled',
-                      flex: 1,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }}
-                  >
-                    : {displayValue.substring(0, 20)}{displayValue.length > 20 ? '...' : ''}
-                  </Typography>
-                )}
-                {isLinked && link && (
-                  <Typography 
-                    fontSize={9} 
-                    sx={{ color: 'text.disabled' }}
-                  >
-                    ← {link.sourceOutputName}
-                  </Typography>
-                )}
+                  onDelete={isLinked && onUnlink ? () => onUnlink(key) : undefined}
+                  sx={{ 
+                    fontSize: 16, 
+                    height: 26,
+                    flex: 1,
+                    bgcolor: isLinked 
+                      ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
+                      : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
+                    borderColor: isLinked ? '#10b981' : '#8b5cf6',
+                    cursor: 'pointer',
+                    '&:hover': {
+                      bgcolor: isLinked
+                        ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.25)' : 'rgba(16, 185, 129, 0.2)')
+                        : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)'),
+                    }
+                  }}
+                  variant="outlined"
+                />
                 
-                <Tooltip title={copiedParam === key ? "Copied!" : "Copy"}>
+                <Tooltip title={copiedParam === key ? "Copied!" : "Copy value"}>
                   <IconButton
                     size="small"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleCopyParam(key, actualValue, e);
-                    }}
+                    onClick={(e) => handleCopyParam(key, actualValue, e)}
                     sx={{
-                      padding: '1px',
-                      opacity: 0.5,
-                      '&:hover': { opacity: 1 },
+                      padding: '2px',
+                      color: copiedParam === key ? '#10b981' : '#8b5cf6',
+                      '&:hover': {
+                        backgroundColor: 'rgba(139, 92, 246, 0.1)',
+                      },
                     }}
                   >
-                    <ContentCopyIcon sx={{ fontSize: 10, color: copiedParam === key ? '#16a34a' : 'text.secondary' }} />
+                    <ContentCopyIcon sx={{ fontSize: 12 }} />
                   </IconButton>
                 </Tooltip>
               </Box>
