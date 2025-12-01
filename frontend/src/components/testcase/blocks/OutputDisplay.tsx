@@ -144,47 +144,8 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
           <Typography fontSize={13} fontWeight="bold" color="#f97316" sx={{ flexShrink: 0 }}>
-            OUTPUTS ({blockOutputs.length})
+            Outputs ({blockOutputs.length})
           </Typography>
-          
-          {/* Preview: Show first 1-3 outputs inline when collapsed */}
-          {!expanded && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 0.5, 
-              overflow: 'hidden',
-              flex: 1,
-              minWidth: 0,
-            }}>
-              {blockOutputs.slice(0, 3).map((output) => (
-                <Chip
-                  key={output.name}
-                  label={output.name}
-                  size="small"
-                  sx={{ 
-                    fontSize: 14, 
-                    height: 20,
-                    maxWidth: '80px',
-                    bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.1)' : 'rgba(249, 115, 22, 0.08)',
-                    borderColor: '#f97316',
-                    '& .MuiChip-label': {
-                      px: 0.5,
-                      overflow: 'hidden',
-                      textOverflow: 'ellipsis',
-                      whiteSpace: 'nowrap',
-                    }
-                  }}
-                  variant="outlined"
-                />
-              ))}
-              {blockOutputs.length > 3 && (
-                <Typography fontSize={9} color="#f97316" sx={{ flexShrink: 0 }}>
-                  +{blockOutputs.length - 3}
-                </Typography>
-              )}
-            </Box>
-          )}
         </Box>
         {expanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#f97316', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#f97316', flexShrink: 0 }} />}
       </Box>
@@ -370,22 +331,22 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
               ? 'linear-gradient(135deg, rgba(30, 30, 30, 0.98) 0%, rgba(40, 40, 40, 0.98) 100%)'
               : 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 248, 248, 0.98) 100%)',
             boxShadow: actualMode === 'dark'
-              ? '0 8px 32px rgba(249, 115, 22, 0.3), 0 0 0 1px rgba(249, 115, 22, 0.2) inset'
-              : '0 8px 32px rgba(249, 115, 22, 0.2), 0 0 0 1px rgba(249, 115, 22, 0.1) inset',
+              ? '0 8px 32px rgba(249, 115, 22, 0.3)'
+              : '0 8px 32px rgba(249, 115, 22, 0.2)',
           }
         }}
       >
         <DialogTitle
           sx={{
             background: actualMode === 'dark'
-              ? 'linear-gradient(135deg, rgba(249, 115, 22, 0.15) 0%, rgba(249, 115, 22, 0.08) 100%)'
-              : 'linear-gradient(135deg, rgba(249, 115, 22, 0.12) 0%, rgba(249, 115, 22, 0.06) 100%)',
+              ? 'linear-gradient(135deg, rgba(30, 30, 30, 0.5) 0%, rgba(40, 40, 40, 0.5) 100%)'
+              : 'linear-gradient(135deg, rgba(248, 248, 248, 0.5) 0%, rgba(255, 255, 255, 0.5) 100%)',
             borderBottom: '2px solid',
             borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.3)' : 'rgba(249, 115, 22, 0.2)',
-            color: '#f97316',
+            color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
             fontWeight: 600,
             fontSize: '1.1rem',
-            py: 1,
+            py: 2,
             mb: 1,
             display: 'flex',
             alignItems: 'center',
@@ -402,15 +363,15 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
                 height: '20px',
                 fontWeight: 500,
                 textTransform: 'uppercase',
-                bgcolor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.25)' : 'rgba(249, 115, 22, 0.15)',
-                color: '#f97316',
+                bgcolor: 'transparent',
+                color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
                 border: '1px solid',
                 borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.4)' : 'rgba(249, 115, 22, 0.3)',
               }}
             />
           )}
         </DialogTitle>
-        <DialogContent sx={{ pt: 1 }}>
+        <DialogContent sx={{ pt: 2 }}>
           <Box
             sx={{
               background: actualMode === 'dark' 
@@ -419,7 +380,8 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
               borderRadius: 2,
               border: '1px solid',
               borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
-              p: 1,
+              p: 2.5,
+              color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
               fontFamily: 'monospace',
               fontSize: '0.875rem',
               maxHeight: '400px',
@@ -459,8 +421,8 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
             borderTop: '1px solid',
             borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.2)' : 'rgba(249, 115, 22, 0.15)',
             px: 3,
-            py: 1,
-            gap: 0.5,
+            py: 2,
+            gap: 1,
           }}
         >
           <Button 
@@ -474,10 +436,10 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
             }}
             variant="outlined"
             sx={{
-              borderColor: '#f97316',
-              color: '#f97316',
+              borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.5)' : 'rgba(249, 115, 22, 0.4)',
+              color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
               '&:hover': {
-                borderColor: '#ea580c',
+                borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.7)' : 'rgba(249, 115, 22, 0.6)',
                 backgroundColor: 'rgba(249, 115, 22, 0.1)',
               },
             }}
@@ -486,11 +448,13 @@ export const OutputDisplay: React.FC<OutputDisplayProps> = ({
           </Button>
           <Button 
             onClick={() => setViewDialogOpen(false)}
-            variant="contained"
+            variant="outlined"
             sx={{
-              backgroundColor: '#f97316',
+              borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.5)' : 'rgba(249, 115, 22, 0.4)',
+              color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
               '&:hover': {
-                backgroundColor: '#ea580c',
+                borderColor: actualMode === 'dark' ? 'rgba(249, 115, 22, 0.7)' : 'rgba(249, 115, 22, 0.6)',
+                backgroundColor: 'rgba(249, 115, 22, 0.1)',
               },
             }}
           >

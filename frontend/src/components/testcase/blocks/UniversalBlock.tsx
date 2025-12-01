@@ -17,6 +17,7 @@ import { executeNavigationAsync } from '../../../utils/navigationExecutionUtils'
 import { resolveParamsVariables } from '../../../utils/variableResolutionUtils';
 import { InputDisplay } from './InputDisplay';
 import { OutputDisplay } from './OutputDisplay';
+import { ActionConfigDialog } from '../dialogs/ActionConfigDialog';
 
 export type OutputType = 'success' | 'failure' | 'true' | 'false' | 'complete' | 'break';
 
@@ -46,6 +47,7 @@ export const UniversalBlock: React.FC<NodeProps & {
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
   const [isEditingLabel, setIsEditingLabel] = useState(false);
   const [editedLabel, setEditedLabel] = useState(data.label || '');
+  const [isConfigDialogOpen, setIsConfigDialogOpen] = useState(false);
   
   // ✅ NEW: Calculate what this block's outputs are linked to
   const calculateLinkedTo = (): Record<string, Array<{ targetType: 'variable' | 'output' | 'metadata' | 'input'; targetName: string }>> => {
@@ -990,6 +992,7 @@ export const UniversalBlock: React.FC<NodeProps & {
               paramLinks={data.paramLinks}
               command={data.command} 
               draggedOutput={draggedOutput}
+              onConfigureClick={() => setIsConfigDialogOpen(true)}
               onDrop={(paramKey, dragData) => {
                 updateBlock(id as string, {
                   paramLinks: {
@@ -1088,6 +1091,27 @@ export const UniversalBlock: React.FC<NodeProps & {
       
       {/* Output handles at bottom - rectangles with icons */}
       {renderOutputHandles()}
+      
+      {/* Action/Verification Configuration Dialog */}
+      {(type === 'action' || type === 'verification') && (
+        <ActionConfigDialog
+          open={isConfigDialogOpen}
+          initialData={{
+            command: data.command,
+            params: data.params || {},
+            action_type: data.action_type,
+            verification_type: data.verification_type
+          }}
+          onSave={(actionData) => {
+            updateBlock(id as string, {
+              params: actionData.params
+            });
+            setIsConfigDialogOpen(false);
+            showSuccess('Parameters updated');
+          }}
+          onCancel={() => setIsConfigDialogOpen(false)}
+        />
+      )}
     </Box>
   );
 };

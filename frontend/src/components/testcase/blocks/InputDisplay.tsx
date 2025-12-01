@@ -125,55 +125,8 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flex: 1, minWidth: 0 }}>
           <Typography fontSize={13} fontWeight="bold" color="#8b5cf6" sx={{ flexShrink: 0 }}>
-            INPUTS ({displayParams.length})
+            Inputs ({displayParams.length})
           </Typography>
-          
-          {/* Preview: Show first 1-3 inputs inline when collapsed */}
-          {!expanded && (
-            <Box sx={{ 
-              display: 'flex', 
-              alignItems: 'center', 
-              gap: 0.5, 
-              overflow: 'hidden',
-              flex: 1,
-              minWidth: 0,
-            }}>
-              {displayParams.slice(0, 3).map(([key]) => {
-                const link = paramLinks?.[key];
-                const isLinked = Boolean(link);
-                
-                return (
-                  <Chip
-                    key={key}
-                    label={key}
-                    size="small"
-                    icon={isLinked ? <LinkIcon sx={{ fontSize: 10, color: '#10b981' }} /> : undefined}
-                    sx={{ 
-                      fontSize: 14, 
-                      height: 20,
-                      maxWidth: '80px',
-                      bgcolor: isLinked 
-                        ? (actualMode === 'dark' ? 'rgba(16, 185, 129, 0.15)' : 'rgba(16, 185, 129, 0.1)')
-                        : (actualMode === 'dark' ? 'rgba(139, 92, 246, 0.1)' : 'rgba(139, 92, 246, 0.08)'),
-                      borderColor: isLinked ? '#10b981' : '#8b5cf6',
-                      '& .MuiChip-label': {
-                        px: 0.5,
-                        overflow: 'hidden',
-                        textOverflow: 'ellipsis',
-                        whiteSpace: 'nowrap',
-                      }
-                    }}
-                    variant="outlined"
-                  />
-                );
-              })}
-              {displayParams.length > 3 && (
-                <Typography fontSize={9} color="#8b5cf6" sx={{ flexShrink: 0 }}>
-                  +{displayParams.length - 3}
-                </Typography>
-              )}
-            </Box>
-          )}
         </Box>
         {expanded ? <ExpandLessIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} /> : <ExpandMoreIcon sx={{ fontSize: 16, color: '#8b5cf6', flexShrink: 0 }} />}
       </Box>
@@ -297,19 +250,19 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
               ? 'linear-gradient(135deg, rgba(30, 30, 30, 0.98) 0%, rgba(40, 40, 40, 0.98) 100%)'
               : 'linear-gradient(135deg, rgba(255, 255, 255, 0.98) 0%, rgba(248, 248, 248, 0.98) 100%)',
             boxShadow: actualMode === 'dark'
-              ? '0 8px 32px rgba(139, 92, 246, 0.3), 0 0 0 1px rgba(139, 92, 246, 0.2) inset'
-              : '0 8px 32px rgba(139, 92, 246, 0.2), 0 0 0 1px rgba(139, 92, 246, 0.1) inset',
+              ? '0 8px 32px rgba(139, 92, 246, 0.3)'
+              : '0 8px 32px rgba(139, 92, 246, 0.2)',
           }
         }}
       >
         <DialogTitle
           sx={{
             background: actualMode === 'dark'
-              ? 'linear-gradient(135deg, rgba(139, 92, 246, 0.15) 0%, rgba(139, 92, 246, 0.08) 100%)'
-              : 'linear-gradient(135deg, rgba(139, 92, 246, 0.12) 0%, rgba(139, 92, 246, 0.06) 100%)',
+              ? 'linear-gradient(135deg, rgba(30, 30, 30, 0.5) 0%, rgba(40, 40, 40, 0.5) 100%)'
+              : 'linear-gradient(135deg, rgba(248, 248, 248, 0.5) 0%, rgba(255, 255, 255, 0.5) 100%)',
             borderBottom: '2px solid',
             borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.3)' : 'rgba(139, 92, 246, 0.2)',
-            color: '#8b5cf6',
+            color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
             fontWeight: 600,
             fontSize: '1.1rem',
             py: 2,
@@ -329,8 +282,8 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
                 height: '20px',
                 fontWeight: 500,
                 textTransform: 'uppercase',
-                bgcolor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.25)' : 'rgba(139, 92, 246, 0.15)',
-                color: '#8b5cf6',
+                bgcolor: 'transparent',
+                color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
                 border: '1px solid',
                 borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.4)' : 'rgba(139, 92, 246, 0.3)',
               }}
@@ -347,6 +300,7 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
               border: '1px solid',
               borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.2)' : 'rgba(139, 92, 246, 0.15)',
               p: 2.5,
+              color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
               fontFamily: 'monospace',
               fontSize: '0.875rem',
               maxHeight: '400px',
@@ -399,10 +353,10 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
             }}
             variant="outlined"
             sx={{
-              borderColor: '#8b5cf6',
-              color: '#8b5cf6',
+              borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.5)' : 'rgba(139, 92, 246, 0.4)',
+              color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
               '&:hover': {
-                borderColor: '#7c3aed',
+                borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.7)' : 'rgba(139, 92, 246, 0.6)',
                 backgroundColor: 'rgba(139, 92, 246, 0.1)',
               },
             }}
@@ -411,11 +365,13 @@ export const InputDisplay: React.FC<InputDisplayProps> = ({
           </Button>
           <Button 
             onClick={() => setViewDialogOpen(false)}
-            variant="contained"
+            variant="outlined"
             sx={{
-              backgroundColor: '#8b5cf6',
+              borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.5)' : 'rgba(139, 92, 246, 0.4)',
+              color: actualMode === 'dark' ? '#ffffff' : '#1f2937',
               '&:hover': {
-                backgroundColor: '#7c3aed',
+                borderColor: actualMode === 'dark' ? 'rgba(139, 92, 246, 0.7)' : 'rgba(139, 92, 246, 0.6)',
+                backgroundColor: 'rgba(139, 92, 246, 0.1)',
               },
             }}
           >

@@ -159,6 +159,7 @@ function extractActionGroups(availableActions: Actions) {
         color: '#f97316', // orange - distinguishable from failure (red)
         outputs: ['success', 'failure'],
         defaultData: {
+          label: actionDef.label, // ✅ Preserve action label for block display
           command: actionDef.command,
           action_type: actionDef.action_type,
           params: { ...actionDef.params },
@@ -205,6 +206,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
       color: '#3b82f6', // blue - distinguishable from success (green)
       outputs: ['success', 'failure'],
       defaultData: {
+        label: verificationDef.label || verificationDef.command, // ✅ Preserve verification label for block display
         command: verificationDef.command,
         action_type: 'verification', // ✅ Required for backend routing
         verification_type: verificationDef.verification_type || verificationType,

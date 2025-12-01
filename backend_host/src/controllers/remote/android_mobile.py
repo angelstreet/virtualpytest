@@ -831,7 +831,7 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             'Remote': [
                 # Navigation actions
                 {
-                    'id': 'click_element_ny_text',
+                    'id': 'click_element_by_text',
                     'label': 'Click Element by Text',
                     'command': 'click_element',
                     'action_type': 'remote',
