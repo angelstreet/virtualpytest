@@ -107,18 +107,18 @@ export const UniversalBlock: React.FC<NodeProps & {
   const [draggedOutput, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
   
   // Get command configuration from toolbox config
-  // Determine color based on type category
+  // Determine color based on type category (muted, professional palette)
   let color: string;
   if (type === 'navigation') {
-    color = '#8b5cf6'; // purple
+    color = '#7c3aed'; // violet (muted)
   } else if (type === 'action') {
-    color = '#f97316'; // orange
+    color = '#ea580c'; // orange (muted)
   } else if (type === 'verification') {
-    color = '#3b82f6'; // blue
+    color = '#2563eb'; // blue (muted)
   } else if (['sleep', 'get_current_time', 'condition', 'set_variable', 'set_variable_io', 'set_metadata', 'loop', 'custom_code', 'common_operation', 'evaluate_condition'].includes(type as string)) {
-    color = '#6b7280'; // grey (standard blocks)
+    color = '#64748b'; // slate (muted)
   } else {
-    color = '#6b7280'; // default
+    color = '#64748b'; // default
   }
   
   const categoryLabel = data.label || data.command || type;
@@ -600,11 +600,11 @@ export const UniversalBlock: React.FC<NodeProps & {
       
       let content;
       if (output === 'success' || output === 'true' || output === 'complete') {
-        content = <CheckIcon sx={{ fontSize: isActive ? 34 : 26, fontWeight: isActive ? 900 : 'normal' }} />;
+        content = <CheckIcon sx={{ fontSize: isActive ? 18 : 16 }} />;
       } else if (output === 'failure' || output === 'false') {
-        content = <CloseIcon sx={{ fontSize: isActive ? 34 : 26, fontWeight: isActive ? 900 : 'normal' }} />;
+        content = <CloseIcon sx={{ fontSize: isActive ? 18 : 16 }} />;
       } else if (output === 'break') {
-        content = <Typography fontSize={14} fontWeight="bold">BREAK</Typography>;
+        content = <Typography fontSize={10} fontWeight="bold">BREAK</Typography>;
       } else {
         content = null;
       }
@@ -617,11 +617,11 @@ export const UniversalBlock: React.FC<NodeProps & {
             id={output}
             style={{
               background: handleColor,
-              width: isActive ? 90 : 80,
-              height: isActive ? 38 : 32,
+              width: isActive ? 60 : 50,
+              height: isActive ? 24 : 20,
               borderRadius: 4,
-              border: isActive ? '4px solid white' : '2px solid white',
-              bottom: isActive ? -40 : -36,
+              border: 'none',
+              bottom: isActive ? -26 : -22,
               left: '50%',
               transform: 'translateX(-50%)',
               display: 'flex',
@@ -629,10 +629,10 @@ export const UniversalBlock: React.FC<NodeProps & {
               justifyContent: 'center',
               color: 'white',
               fontWeight: 'bold',
-              fontSize: 16,
+              fontSize: 12,
               cursor: 'pointer',
-              boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
-              transition: 'all 0.3s ease',
+              boxShadow: isActive ? `0 0 12px ${handleColor}` : '0 1px 3px rgba(0,0,0,0.2)',
+              transition: 'all 0.2s ease',
             }}
           >
             <Box
@@ -644,7 +644,7 @@ export const UniversalBlock: React.FC<NodeProps & {
                 animation: isAnimating ? 'pulse 0.5s ease-in-out 3' : 'none',
                 '@keyframes pulse': {
                   '0%, 100%': { transform: 'scale(1)' },
-                  '50%': { transform: 'scale(1.2)' },
+                  '50%': { transform: 'scale(1.15)' },
                 },
               }}
             >
@@ -655,76 +655,82 @@ export const UniversalBlock: React.FC<NodeProps & {
       );
     }
     
-    // Multiple outputs - full width, each taking half
-    return outputs.map((output, idx) => {
-      const handleColor = getHandleColor(output);
-      const isLeft = idx === 0;
-      const isAnimating = animateHandle === output;
-      const isActive = isHandleActive(output);
-      
-      // Determine icon/text based on output type
-      let content;
-      if (output === 'success' || output === 'true' || output === 'complete') {
-        content = <CheckIcon sx={{ fontSize: isActive ? 32 : 24, fontWeight: isActive ? 900 : 'normal' }} />;
-      } else if (output === 'failure' || output === 'false') {
-        content = <CloseIcon sx={{ fontSize: isActive ? 32 : 24, fontWeight: isActive ? 900 : 'normal' }} />;
-      } else if (output === 'break') {
-        content = <Typography fontSize={14} fontWeight="bold">BREAK</Typography>;
-      } else {
-        content = null;
-      }
-      
-      const handleHeight = isActive ? 34 : 28;
-      const bottomOffset = isActive ? -36 : -32;
-      
-      return (
-        <Handle
-          key={output}
-          type="source"
-          position={Position.Bottom}
-          id={output}
-          style={{
-            left: isLeft ? '0%' : '50%',
-            right: isLeft ? '50%' : '0%',
-            background: handleColor,
-            width: 'auto',
-            height: handleHeight,
-            borderRadius: isLeft ? '0 0 0 4px' : '0 0 4px 0',
-            borderLeft: isActive ? '4px solid white' : '2px solid white',
-            borderRight: isActive ? '4px solid white' : '2px solid white',
-            borderBottom: isActive ? '4px solid white' : '2px solid white',
-            borderTop: 'none',
-            bottom: bottomOffset,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            color: 'white',
-            fontWeight: 'bold',
-            fontSize: 16,
-            cursor: 'pointer',
-            boxShadow: isActive ? `0 0 20px ${handleColor}` : 'none',
-            transition: 'all 0.3s ease',
-            transform: 'none',
-          }}
-        >
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              pointerEvents: 'none',
-              animation: isAnimating ? 'pulse 0.5s ease-in-out 3' : 'none',
-              '@keyframes pulse': {
-                '0%, 100%': { transform: 'scale(1)' },
-                '50%': { transform: 'scale(1.2)' },
-              },
-            }}
-          >
-            {content}
-          </Box>
-        </Handle>
-      );
-    });
+    // Multiple outputs - compact, centered with gap
+    return (
+      <Box
+        sx={{
+          position: 'absolute',
+          bottom: -22,
+          left: '50%',
+          transform: 'translateX(-50%)',
+          display: 'flex',
+          gap: 0.5,
+        }}
+      >
+        {outputs.map((output) => {
+          const handleColor = getHandleColor(output);
+          const isAnimating = animateHandle === output;
+          const isActive = isHandleActive(output);
+          
+          // Determine icon/text based on output type
+          let content;
+          if (output === 'success' || output === 'true' || output === 'complete') {
+            content = <CheckIcon sx={{ fontSize: isActive ? 16 : 14 }} />;
+          } else if (output === 'failure' || output === 'false') {
+            content = <CloseIcon sx={{ fontSize: isActive ? 16 : 14 }} />;
+          } else if (output === 'break') {
+            content = <Typography fontSize={9} fontWeight="bold">BRK</Typography>;
+          } else {
+            content = null;
+          }
+          
+          return (
+            <Handle
+              key={output}
+              type="source"
+              position={Position.Bottom}
+              id={output}
+              style={{
+                position: 'relative',
+                transform: 'none',
+                top: 0,
+                left: 0,
+                background: handleColor,
+                width: isActive ? 48 : 40,
+                height: isActive ? 22 : 18,
+                borderRadius: 4,
+                border: 'none',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                color: 'white',
+                fontWeight: 'bold',
+                fontSize: 12,
+                cursor: 'pointer',
+                boxShadow: isActive ? `0 0 12px ${handleColor}` : '0 1px 3px rgba(0,0,0,0.2)',
+                transition: 'all 0.2s ease',
+              }}
+            >
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  pointerEvents: 'none',
+                  animation: isAnimating ? 'pulse 0.5s ease-in-out 3' : 'none',
+                  '@keyframes pulse': {
+                    '0%, 100%': { transform: 'scale(1)' },
+                    '50%': { transform: 'scale(1.15)' },
+                  },
+                }}
+              >
+                {content}
+              </Box>
+            </Handle>
+          );
+        })}
+      </Box>
+    );
   };
   
   // Get execution state styling
@@ -783,21 +789,26 @@ export const UniversalBlock: React.FC<NodeProps & {
         width: 340,  // Fixed width - increased for longer labels
         minHeight: 120,  // Fixed minimum height
         maxHeight: 320, // Fixed maximum height - increased for expanded inputs/outputs
-        border: selected ? '3px solid #fbbf24' : `2px solid ${color}`,
+        border: selected ? '2px solid #fbbf24' : `1px solid ${actualMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)'}`,
+        borderLeft: `3px solid ${color}`, // Left accent bar for type indication
         ...getExecutionStyling(), // Apply execution styling
-        borderRadius: 2,
-        background: actualMode === 'dark' ? '#1f2937' : '#ffffff',
-        boxShadow: 2,
+        borderRadius: 1.5,
+        background: actualMode === 'dark' ? '#1e293b' : '#ffffff',
+        boxShadow: actualMode === 'dark' 
+          ? '0 2px 8px rgba(0,0,0,0.3)' 
+          : '0 2px 8px rgba(0,0,0,0.08)',
         cursor: 'pointer',
         opacity: dragging ? 0.5 : (isExecuting ? 0.7 : 1),
-        transition: 'all 0.3s ease',
+        transition: 'all 0.2s ease',
         pointerEvents: isExecuting ? 'none' : 'auto', // Disable interaction during execution
         position: 'relative',
         display: 'flex',
         flexDirection: 'column',
         overflow: 'visible', // Changed to visible to show output handles
         '&:hover': {
-          boxShadow: isExecuting ? 2 : 4,
+          boxShadow: isExecuting 
+            ? (actualMode === 'dark' ? '0 2px 8px rgba(0,0,0,0.3)' : '0 2px 8px rgba(0,0,0,0.08)')
+            : (actualMode === 'dark' ? '0 4px 16px rgba(0,0,0,0.4)' : '0 4px 16px rgba(0,0,0,0.12)'),
         },
       }}
     >
@@ -830,7 +841,8 @@ export const UniversalBlock: React.FC<NodeProps & {
       {/* Header */}
       <Box
         sx={{
-          background: color,
+          background: actualMode === 'dark' ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.02)',
+          borderBottom: `1px solid ${actualMode === 'dark' ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.08)'}`,
           p: 1,
           display: 'flex',
           alignItems: 'center',
@@ -850,22 +862,22 @@ export const UniversalBlock: React.FC<NodeProps & {
                 size="small"
                 inputProps={{
                   maxLength: 20,
-                  style: { color: 'white', fontSize: 15, fontWeight: 'bold', padding: '2px 4px' }
+                  style: { color: color, fontSize: 14, fontWeight: 600, padding: '2px 4px' }
                 }}
                 sx={{
                   '& .MuiOutlinedInput-root': {
                     '& fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.5)',
+                      borderColor: color,
                     },
                     '&:hover fieldset': {
-                      borderColor: 'rgba(255, 255, 255, 0.8)',
+                      borderColor: color,
                     },
                     '&.Mui-focused fieldset': {
-                      borderColor: 'white',
+                      borderColor: color,
                     },
                   },
                   flex: 1,
-                  maxWidth: '300px',  // Increased for wider labels
+                  maxWidth: '300px',
                 }}
               />
               <IconButton
@@ -875,10 +887,10 @@ export const UniversalBlock: React.FC<NodeProps & {
                   handleLabelCancel();
                 }}
                 sx={{
-                  color: 'white',
+                  color: 'text.secondary',
                   padding: '2px',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    backgroundColor: 'action.hover',
                   },
                 }}
               >
@@ -888,14 +900,14 @@ export const UniversalBlock: React.FC<NodeProps & {
           ) : (
             <>
               <Typography 
-                color="white" 
-                fontWeight="bold" 
-                fontSize={20}
+                fontWeight={600}
+                fontSize={14}
                 sx={{ 
                   flex: 1,
                   overflow: 'hidden',
                   textOverflow: 'ellipsis',
-                  whiteSpace: 'nowrap'
+                  whiteSpace: 'nowrap',
+                  color: color, // Use accent color for label
                 }}
               >
                 {data.label || headerLabel}
@@ -904,14 +916,14 @@ export const UniversalBlock: React.FC<NodeProps & {
                 size="small"
                 onClick={handleLabelEdit}
                 sx={{
-                  color: 'white',
+                  color: 'text.secondary',
                   padding: '2px',
                   '&:hover': {
-                    backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                    backgroundColor: 'action.hover',
                   },
                 }}
               >
-                <EditIcon sx={{ fontSize: 15 }} />
+                <EditIcon sx={{ fontSize: 14 }} />
               </IconButton>
             </>
           )}
@@ -923,17 +935,17 @@ export const UniversalBlock: React.FC<NodeProps & {
               onClick={handleExecute}
               disabled={isExecuting}
               sx={{
-                color: 'white',
+                color: color,
                 padding: '4px',
                 '&:hover': {
-                  backgroundColor: 'rgba(255, 255, 255, 0.2)',
+                  backgroundColor: 'action.hover',
                 },
                 '&.Mui-disabled': {
-                  color: 'rgba(255, 255, 255, 0.5)',
+                  color: 'text.disabled',
                 },
               }}
             >
-              {isExecuting ? <CircularProgress size={16} sx={{ color: 'white' }} /> : <PlayArrowIcon fontSize="small" />}
+              {isExecuting ? <CircularProgress size={14} sx={{ color: color }} /> : <PlayArrowIcon sx={{ fontSize: 18 }} />}
             </IconButton>
           )}
         </Box>
@@ -1048,11 +1060,11 @@ export const UniversalBlock: React.FC<NodeProps & {
         id="input-hitarea"
         style={{
           background: 'transparent',
-          width: 32,
-          height: 32,
+          width: 24,
+          height: 24,
           borderRadius: '50%',
           border: 'none',
-          top: -16,
+          top: -12,
           pointerEvents: 'all',
         }}
       />
@@ -1064,11 +1076,12 @@ export const UniversalBlock: React.FC<NodeProps & {
         id="input"
         style={{
           background: color,
-          width: 20,
-          height: 20,
+          width: 14,
+          height: 14,
           borderRadius: '50%',
-          border: '2px solid white',
-          top: -10,
+          border: 'none',
+          top: -7,
+          boxShadow: '0 1px 3px rgba(0,0,0,0.2)',
           pointerEvents: 'none',
         }}
       />
