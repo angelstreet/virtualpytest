@@ -30,7 +30,7 @@ export const ApiCallBlock: React.FC<NodeProps & {
   const executionState = data.executionState as BlockExecutionState | undefined;
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
-  const { updateBlock, nodes, scriptInputs, scriptVariables } = useTestCaseBuilder();
+  const { updateBlock, nodes } = useTestCaseBuilder();
   
   // Get context data for variable substitution (future enhancement)
   const context: Record<string, any> = {};
@@ -83,7 +83,7 @@ export const ApiCallBlock: React.FC<NodeProps & {
     const startTime = Date.now();
     
     try {
-      const { workspace_id, collection_id, request_id, environment_id, method, path_preview, request_name } = data.params;
+      const { workspace_id, environment_id, method, path_preview, request_name } = data.params;
       
       // Call existing /server/postman/test endpoint
       const response = await fetch(buildServerUrl('/server/postman/test'), {
@@ -163,7 +163,7 @@ export const ApiCallBlock: React.FC<NodeProps & {
     return linkedTo;
   };
   
-  const [draggedOutput, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
+  const [, setDraggedOutput] = useState<{blockId: string, outputName: string, outputType: string} | null>(null);
   
   // Get execution state styling
   const getExecutionStyling = () => {
