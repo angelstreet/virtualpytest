@@ -136,13 +136,13 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     }
   }, [selectedHost, selectedDeviceId, userinterface, scriptInputs.length]); // Trigger when inputs count changes (e.g., after load)
 
-  // Define tab colors (matching block type colors)
+  // Define tab colors (muted, professional palette)
   const tabColors: Record<string, string> = {
-    'standard': '#6b7280',    // grey - neutral for standard operations
-    'navigation': '#8b5cf6',  // purple - unchanged
-    'actions': '#f97316',     // orange - distinguishable from failure (red)
-    'verifications': '#3b82f6', // blue - distinguishable from success (green)
-    'api': '#06b6d4'          // cyan - API blocks
+    'standard': '#64748b',    // slate - neutral for standard operations
+    'navigation': '#7c3aed',  // violet - navigation
+    'actions': '#ea580c',     // orange - actions (muted)
+    'verifications': '#2563eb', // blue - verifications (muted)
+    'api': '#0891b2'          // cyan - API blocks (muted)
   };
 
   // Handle null/undefined toolboxConfig (should be rare since parent handles it)
@@ -278,123 +278,97 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
               const tabColor = tabColors[tabKey] || '#6b7280';
               const tabName = tabConfig.tabName || tabKey;
 
+          // Count total commands across all groups
+          const totalCommands = tabConfig.groups.reduce(
+            (sum: number, group: any) => sum + group.commands.length, 0
+          );
+
           return (
             <Accordion
               key={tabKey}
               defaultExpanded={searchTerm.trim() !== ''} // Auto-expand when searching
               sx={{
                 boxShadow: 'none',
-                '&:before': { display: 'none'},
-                padding: '2px !important',
-                margin: '4px !important',
-                mb: 1,
-                borderLeft: `4px solid ${tabColor}`,
-                backgroundColor: `${tabColor}08`, // Very subtle background tint
+                '&:before': { display: 'none' },
+                margin: '0 !important',
+                borderRadius: 0,
+                borderLeft: '3px solid transparent',
+                backgroundColor: 'transparent',
+                transition: 'all 0.15s ease',
                 '& .MuiAccordionDetails-root': {
-                  padding: '8px !important',
-                  margin: '0px !important',
+                  padding: '4px 8px 8px 12px !important',
                 },
                 '&.Mui-expanded': {
-                  padding: '2px !important',
-                  margin: '4px !important',
-                  minHeight: '0 !important',
+                  margin: '0 !important',
+                  borderLeft: `3px solid ${tabColor}`,
+                  backgroundColor: 'action.hover',
                 }
               }}
             >
               <AccordionSummary
-                expandIcon={<ExpandMoreIcon sx={{ fontSize: 18, color: tabColor }} />}
+                expandIcon={<ExpandMoreIcon sx={{ fontSize: 16, color: 'text.secondary' }} />}
                 sx={{
-                  minHeight: '28px !important',
-                  height: '28px',
-                  py: '20px !important',
-                  px: 1,
+                  minHeight: '36px !important',
+                  px: 1.5,
                   '& .MuiAccordionSummary-content': {
-                    my: '0 !important',
-                    minHeight: '28px !important',
-                    py: '20px !important',
+                    my: '8px !important',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                  },
+                  '&:hover': {
+                    backgroundColor: 'action.hover',
                   },
                   '&.Mui-expanded': {
-                    minHeight: '28px !important',
-                    height: '28px',
-                    my: '0 !important',
-                    py: '20px !important',
+                    minHeight: '36px !important',
                   }
                 }}
               >
                 <Typography 
-                  fontSize={14} 
-                  fontWeight="bold" 
+                  fontSize={13} 
+                  fontWeight={500}
                   sx={{ 
-                    color: tabColor,
-                    textTransform: 'uppercase',
-                    letterSpacing: '0.5px'
+                    color: 'text.primary',
                   }}
                 >
                   {tabName}
                 </Typography>
+                <Typography 
+                  fontSize={11} 
+                  sx={{ 
+                    color: 'text.disabled',
+                    mr: 1,
+                  }}
+                >
+                  {totalCommands}
+                </Typography>
               </AccordionSummary>
-              <AccordionDetails sx={{ p: 1 }}>
-                {/* Render each group with collapsible header */}
+              <AccordionDetails sx={{ p: 0 }}>
+                {/* Render commands directly - flattened structure */}
                 {tabConfig.groups.map((group: any, groupIdx: number) => (
-                  <Accordion
-                    key={`${tabKey}-group-${groupIdx}`}
-                    defaultExpanded={true} // Always expanded
-                    sx={{
-                      boxShadow: 'none',
-                      '&:before': { display: 'none'},
-                      margin: '0 !important',
-                      marginBottom: '2px !important',
-                      padding: '0 !important',
-                      backgroundColor: 'transparent',
-                      '&.Mui-expanded': {
-                        margin: '0 !important',
-                        marginBottom: '2px !important',
-                        minHeight: '0 !important',
-                      }
-                    }}
-                  >
-                    <AccordionSummary
-                      expandIcon={<ExpandMoreIcon sx={{ fontSize: 14 }} />}
-                      sx={{
-                        minHeight: '20px !important',
-                        height: '20px',
-                        padding: '0 4px !important',
-                        margin: '0 !important',
-                        '& .MuiAccordionSummary-content': {
-                          margin: '0 !important',
-                          minHeight: '20px !important',
-                        },
-                        '&.Mui-expanded': {
-                          minHeight: '20px !important',
-                          height: '20px',
-                          margin: '0 !important',
-                        }
-                      }}
-                    >
+                  <React.Fragment key={`${tabKey}-group-${groupIdx}`}>
+                    {/* Show group name only if multiple groups exist */}
+                    {tabConfig.groups.length > 1 && (
                       <Typography 
-                        fontSize={12} 
-                        fontWeight="bold" 
-                        padding={0.5}
+                        fontSize={11} 
                         sx={{ 
-                          color: 'text.secondary',
-                          textTransform: 'uppercase',
-                          letterSpacing: '0.5px',
-                          opacity: 0.8
+                          color: 'text.disabled',
+                          px: 0.5,
+                          py: 0.5,
+                          mt: groupIdx > 0 ? 1 : 0,
                         }}
                       >
-                        {group.groupName} ({group.commands.length})
+                        {group.groupName}
                       </Typography>
-                    </AccordionSummary>
-                    <AccordionDetails sx={{ padding: '0 !important', margin: '0 !important' }}>
-                      {group.commands.map((command: any, cmdIdx: number) => (
-                        <DraggableCommand 
-                          key={`${group.groupName}-${cmdIdx}`} 
-                          command={command}
-                          onCloseProgressBar={onCloseProgressBar}
-                        />
-                      ))}
-                    </AccordionDetails>
-                  </Accordion>
+                    )}
+                    {group.commands.map((command: any, cmdIdx: number) => (
+                      <DraggableCommand 
+                        key={`${group.groupName}-${cmdIdx}`} 
+                        command={command}
+                        onCloseProgressBar={onCloseProgressBar}
+                      />
+                    ))}
+                  </React.Fragment>
                 ))}
               </AccordionDetails>
             </Accordion>
