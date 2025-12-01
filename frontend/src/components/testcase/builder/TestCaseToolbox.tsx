@@ -353,21 +353,21 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
                       }}
                       disableGutters
                       TransitionProps={{ unmountOnExit: true }}
-                      sx={{
-                        boxShadow: 'none',
-                        '&:before': { display: 'none' },
-                        margin: '0 !important',
-                        borderRadius: 0,
-                        borderLeft: isExpanded ? `3px solid ${tabColor}` : '3px solid transparent',
-                        backgroundColor: isExpanded ? 'action.hover' : 'transparent',
-                        transition: 'all 0.15s ease',
-                        '& .MuiAccordionDetails-root': {
-                          padding: '4px 8px 8px 12px !important',
-                        },
-                        '&.Mui-expanded': {
-                          margin: '0 !important',
-                        }
-                      }}
+              sx={{
+                boxShadow: 'none',
+                '&:before': { display: 'none' },
+                margin: '0 !important',
+                borderRadius: 0,
+                borderLeft: `3px solid ${tabColor}`, // Always show colored bar
+                backgroundColor: isExpanded ? 'action.hover' : 'transparent',
+                transition: 'all 0.15s ease',
+                '& .MuiAccordionDetails-root': {
+                  padding: '4px 8px 8px 12px !important',
+                },
+                '&.Mui-expanded': {
+                  margin: '0 !important',
+                }
+              }}
                     >
                       <AccordionSummary
                         expandIcon={<ExpandMoreIcon sx={{ fontSize: 16, color: 'text.secondary' }} />}
