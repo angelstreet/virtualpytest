@@ -8,11 +8,14 @@ Features:
 - Auto-substitute variables from execution context (server_url, team_id, device_id, etc.)
 - Store response in context for next blocks
 - Clean UX with cascading dropdowns
+
+SIMPLIFIED IMPLEMENTATION:
+- Reuses existing /server/postman/test endpoint (already working!)
+- No duplicate variable substitution logic
+- Cleaner, more maintainable code
 """
 
 import requests
-import json
-import re
 from typing import Dict, Any
 
 
@@ -34,7 +37,7 @@ def get_block_info() -> Dict[str, Any]:
                 'name': 'workspace_id',
                 'type': 'select',
                 'label': 'Workspace',
-                'options_source': 'postman_workspaces',  # Dynamic from config
+                'options_source': 'postman_workspaces',
                 'required': True,
                 'description': 'Postman workspace'
             },
@@ -42,7 +45,7 @@ def get_block_info() -> Dict[str, Any]:
                 'name': 'collection_id',
                 'type': 'select',
                 'label': 'Collection',
-                'options_source': 'postman_collections',  # Dynamic via API
+                'options_source': 'postman_collections',
                 'required': True,
                 'depends_on': 'workspace_id',
                 'description': 'API collection'
@@ -51,7 +54,7 @@ def get_block_info() -> Dict[str, Any]:
                 'name': 'request_id',
                 'type': 'select',
                 'label': 'Request',
-                'options_source': 'postman_requests',  # Dynamic via API
+                'options_source': 'postman_requests',
                 'required': True,
                 'depends_on': 'collection_id',
                 'description': 'API endpoint to call'
@@ -60,10 +63,34 @@ def get_block_info() -> Dict[str, Any]:
                 'name': 'environment_id',
                 'type': 'select',
                 'label': 'Environment',
-                'options_source': 'postman_environments',  # Dynamic via API
+                'options_source': 'postman_environments',
                 'required': False,
                 'depends_on': 'workspace_id',
                 'description': 'Environment (defines variable templates)'
+            },
+            {
+                'name': 'method',
+                'type': 'string',
+                'label': 'Method',
+                'description': 'HTTP method (auto-filled from selection)',
+                'required': True,
+                'default': 'GET'
+            },
+            {
+                'name': 'path_preview',
+                'type': 'string',
+                'label': 'Path',
+                'description': 'Request path (auto-filled from selection)',
+                'required': True,
+                'default': ''
+            },
+            {
+                'name': 'request_name',
+                'type': 'string',
+                'label': 'Request Name',
+                'description': 'Human-readable name (auto-filled from selection)',
+                'required': False,
+                'default': 'API Call'
             },
             {
                 'name': 'store_response_as',
@@ -100,11 +127,6 @@ def get_block_info() -> Dict[str, Any]:
                 'name': 'status_code',
                 'type': 'number',
                 'description': 'HTTP status code'
-            },
-            {
-                'name': 'headers',
-                'type': 'object',
-                'description': 'Response headers'
             }
         ]
     }
@@ -114,96 +136,102 @@ def execute(workspace_id: str = None,
             collection_id: str = None,
             request_id: str = None,
             environment_id: str = None,
+            method: str = 'GET',
+            path_preview: str = '',
+            request_name: str = 'API Call',
             store_response_as: str = 'api_response',
             fail_on_error: bool = True,
             timeout_ms: int = 5000,
             context: Dict[str, Any] = None,
             **kwargs) -> Dict[str, Any]:
     """
-    Execute Postman API request with context variable substitution.
+    Execute Postman API request using existing /server/postman/test endpoint.
+    
+    SIMPLIFIED: Reuses the working /server/postman/test endpoint instead of 
+    duplicating request fetching/substitution logic.
     
     Args:
         workspace_id: Postman workspace ID
-        collection_id: Collection ID
-        request_id: Request ID
+        collection_id: Collection ID (for reference)
+        request_id: Request ID (for reference)
         environment_id: Optional environment ID (for variable templates)
+        method: HTTP method (GET, POST, etc.)
+        path_preview: Request path/URL
+        request_name: Human-readable request name
         store_response_as: Variable name to store response in context
         fail_on_error: Fail if status >= 400
-        timeout_ms: Request timeout
+        timeout_ms: Request timeout (not used - server controls timeout)
         context: Execution context with variables
         **kwargs: Additional parameters
         
     Returns:
         Dict with success status and response data
     """
-    print(f"[@api_call] Executing API request: {request_id}")
+    print(f"[@api_call] Executing API request: {request_name} ({method} {path_preview})")
     
     if not context:
         context = {}
     
     try:
-        # 1. Fetch request definition from Postman
-        request_def = _fetch_request_definition(workspace_id, collection_id, request_id)
-        if not request_def:
-            return {
-                'success': False,
-                'message': f'Failed to fetch request definition: {request_id}',
-                'error': 'Request not found'
-            }
+        import os
+        server_url = os.getenv('BACKEND_SERVER_URL', 'http://localhost:5109')
         
-        # 2. Get environment variable templates
-        env_variables = _get_environment_variables(workspace_id, environment_id) if environment_id else {}
-        
-        # 3. Build variable map from context (context overrides env defaults)
-        variables = _build_variable_map(env_variables, context)
-        
-        # 4. Substitute variables in request
-        url = _substitute_variables(request_def.get('url', ''), variables)
-        body = _substitute_variables(request_def.get('body'), variables)
-        headers = _substitute_variables(request_def.get('headers', {}), variables)
-        
-        # 5. Execute HTTP request
-        method = request_def.get('method', 'GET').upper()
-        timeout_sec = timeout_ms / 1000.0
-        
-        print(f"[@api_call] {method} {url}")
-        
-        response = requests.request(
-            method=method,
-            url=url,
-            json=body if body else None,
-            headers=headers,
-            timeout=timeout_sec
+        # Call existing /server/postman/test endpoint (already handles variables, substitution, execution)
+        response = requests.post(
+            f'{server_url}/server/postman/test',
+            json={
+                'workspaceId': workspace_id,
+                'environmentId': environment_id or None,
+                'endpoints': [{
+                    'method': method,
+                    'path': path_preview,
+                    'name': request_name
+                }]
+            },
+            timeout=(timeout_ms / 1000.0) + 5  # Add buffer for server processing
         )
         
-        # 6. Parse response
-        try:
-            response_data = response.json()
-        except:
-            response_data = response.text
+        result = response.json()
         
-        # 7. Store response in context
-        if store_response_as:
-            context[store_response_as] = response_data
-            context[f'{store_response_as}_status'] = response.status_code
-            context[f'{store_response_as}_headers'] = dict(response.headers)
-        
-        # 8. Determine success
-        is_success = response.status_code < 400 or not fail_on_error
-        
-        return {
-            'success': is_success,
-            'result_success': 0 if is_success else 1,  # Legacy format
-            'status_code': response.status_code,
-            'response': response_data,
-            'headers': dict(response.headers),
-            'message': f'{method} {url} → {response.status_code}',
-            'output_data': {
+        if result.get('success') and result.get('results') and len(result['results']) > 0:
+            api_result = result['results'][0]
+            
+            # Parse response data
+            try:
+                response_data = api_result.get('response', {})
+            except:
+                response_data = api_result.get('response', '')
+            
+            status_code = api_result.get('statusCode', 0)
+            
+            # Store response in context
+            if store_response_as and context is not None:
+                context[store_response_as] = response_data
+                context[f'{store_response_as}_status'] = status_code
+            
+            # Determine success
+            is_success = (api_result.get('status') == 'pass') or (status_code < 400 and not fail_on_error)
+            
+            return {
+                'success': is_success,
+                'result_success': 0 if is_success else 1,
+                'status_code': status_code,
                 'response': response_data,
-                'status_code': response.status_code,
-                'headers': dict(response.headers)
+                'message': f'{method} {path_preview} → {status_code}',
+                'output_data': {
+                    'response': response_data,
+                    'status_code': status_code,
+                    'headers': {}
+                }
             }
-        }
+        else:
+            error_msg = result.get('error', 'API test failed')
+            return {
+                'success': False,
+                'result_success': 1,
+                'error': error_msg,
+                'message': f'{method} {path_preview} failed: {error_msg}'
+            }
         
     except requests.exceptions.Timeout:
         return {
@@ -214,160 +242,12 @@ def execute(workspace_id: str = None,
         }
     except Exception as e:
         print(f"[@api_call] Error: {str(e)}")
+        import traceback
+        traceback.print_exc()
         return {
             'success': False,
             'result_success': 1,
             'error': str(e),
             'message': f'API call failed: {str(e)}'
         }
-
-
-def _fetch_request_definition(workspace_id: str, collection_id: str, request_id: str) -> Dict[str, Any]:
-    """
-    Fetch request definition from backend server Postman cache.
-    
-    Args:
-        workspace_id: Workspace ID
-        collection_id: Collection ID
-        request_id: Request ID
-        
-    Returns:
-        Request definition dict or None
-    """
-    try:
-        # Call backend server to get request definition
-        # This endpoint should be created to fetch and cache request details from Postman
-        import os
-        server_url = os.getenv('BACKEND_SERVER_URL', 'http://localhost:5109')
-        
-        response = requests.get(
-            f'{server_url}/server/postman/requests/{request_id}/definition',
-            params={
-                'workspace_id': workspace_id,
-                'collection_id': collection_id
-            },
-            timeout=5.0
-        )
-        
-        if response.ok:
-            data = response.json()
-            return data.get('request')
-        
-        print(f"[@api_call] Failed to fetch request definition: {response.status_code}")
-        return None
-        
-    except Exception as e:
-        print(f"[@api_call] Error fetching request definition: {str(e)}")
-        return None
-
-
-def _get_environment_variables(workspace_id: str, environment_id: str) -> Dict[str, Any]:
-    """
-    Get environment variable templates from backend server.
-    
-    Args:
-        workspace_id: Workspace ID
-        environment_id: Environment ID
-        
-    Returns:
-        Dict of variable key-value pairs
-    """
-    try:
-        import os
-        server_url = os.getenv('BACKEND_SERVER_URL', 'http://localhost:5109')
-        
-        response = requests.get(
-            f'{server_url}/server/postman/environments/{environment_id}',
-            params={'workspace_id': workspace_id},
-            timeout=5.0
-        )
-        
-        if response.ok:
-            data = response.json()
-            env = data.get('environment', {})
-            variables = env.get('variables', [])
-            
-            # Convert to dict
-            return {var['key']: var['value'] for var in variables if 'key' in var}
-        
-        return {}
-        
-    except Exception as e:
-        print(f"[@api_call] Error fetching environment variables: {str(e)}")
-        return {}
-
-
-def _build_variable_map(env_variables: Dict[str, Any], context: Dict[str, Any]) -> Dict[str, Any]:
-    """
-    Build variable map with context overriding environment defaults.
-    
-    Priority: context > environment template
-    
-    Args:
-        env_variables: Environment variable templates
-        context: Execution context
-        
-    Returns:
-        Merged variable map
-    """
-    variables = env_variables.copy()
-    
-    # Common variable names that come from context
-    context_var_names = [
-        'server_url', 'host_url', 'api_key',
-        'team_id', 'user_id',
-        'device_id', 'device_name',
-        'host_name',
-        'userinterface', 'userinterface_name'
-    ]
-    
-    # Override with context values
-    for var_name in context_var_names:
-        if var_name in context:
-            variables[var_name] = context[var_name]
-    
-    return variables
-
-
-def _substitute_variables(template: Any, variables: Dict[str, Any]) -> Any:
-    """
-    Substitute {{variable}} placeholders with actual values.
-    
-    Supports:
-    - Strings: "{{server_url}}/path"
-    - Dicts: {"key": "{{value}}"}
-    - Lists: ["{{item1}}", "{{item2}}"]
-    
-    Args:
-        template: Template with {{variable}} placeholders
-        variables: Variable map
-        
-    Returns:
-        Template with substituted values
-    """
-    if template is None:
-        return None
-    
-    # String substitution
-    if isinstance(template, str):
-        # Replace {{variable}} with value
-        def replace_var(match):
-            var_name = match.group(1)
-            return str(variables.get(var_name, match.group(0)))
-        
-        return re.sub(r'\{\{(\w+)\}\}', replace_var, template)
-    
-    # Dict substitution (recursive)
-    if isinstance(template, dict):
-        return {
-            key: _substitute_variables(value, variables)
-            for key, value in template.items()
-        }
-    
-    # List substitution (recursive)
-    if isinstance(template, list):
-        return [_substitute_variables(item, variables) for item in template]
-    
-    # Other types - return as-is
-    return template
 

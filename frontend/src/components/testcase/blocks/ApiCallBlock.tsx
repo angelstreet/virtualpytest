@@ -11,6 +11,7 @@ import { useToastContext } from '../../../contexts/ToastContext';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { BlockExecutionState } from '../../../hooks/testcase/useExecutionState';
 import { OutputDisplay } from './OutputDisplay';
+import { buildServerUrl } from '../../../utils/buildUrlUtils';
 
 /**
  * ApiCallBlock - Compact block for API calls
@@ -29,7 +30,10 @@ export const ApiCallBlock: React.FC<NodeProps & {
   const executionState = data.executionState as BlockExecutionState | undefined;
   const { actualMode } = useTheme();
   const { showSuccess, showError } = useToastContext();
-  const { updateBlock, nodes } = useTestCaseBuilder();
+  const { updateBlock, nodes, scriptInputs, scriptVariables } = useTestCaseBuilder();
+  
+  // Get context data for variable substitution (future enhancement)
+  const context: Record<string, any> = {};
   
   const [isExecuting, setIsExecuting] = useState(false);
   const [animateHandle, setAnimateHandle] = useState<'success' | 'failure' | null>(null);
@@ -66,7 +70,7 @@ export const ApiCallBlock: React.FC<NodeProps & {
     window.dispatchEvent(event);
   };
   
-  // Execute API call (for future implementation)
+  // Execute API call using existing /server/postman/test endpoint
   const handleExecute = async (e: React.MouseEvent) => {
     e.stopPropagation();
     
@@ -75,8 +79,65 @@ export const ApiCallBlock: React.FC<NodeProps & {
       return;
     }
     
-    // TODO: Implement API call execution
-    showError('API execution not yet implemented');
+    setIsExecuting(true);
+    const startTime = Date.now();
+    
+    try {
+      const { workspace_id, collection_id, request_id, environment_id, method, path_preview, request_name } = data.params;
+      
+      // Call existing /server/postman/test endpoint
+      const response = await fetch(buildServerUrl('/server/postman/test'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          workspaceId: workspace_id,
+          environmentId: environment_id || undefined,
+          endpoints: [{
+            method: method,
+            path: path_preview,
+            name: request_name
+          }]
+        })
+      });
+      
+      const result = await response.json();
+      const duration = Date.now() - startTime;
+      
+      if (result.success && result.results && result.results.length > 0) {
+        const apiResult = result.results[0];
+        
+        if (apiResult.status === 'pass') {
+          // Update block outputs with response data
+          if (data.blockOutputs && context) {
+            const updatedOutputs = data.blockOutputs.map((output: any) => {
+              if (output.name === 'response') return { ...output, value: apiResult.response };
+              if (output.name === 'status_code') return { ...output, value: apiResult.statusCode };
+              if (output.name === 'headers') return { ...output, value: apiResult.headers || {} };
+              return output;
+            });
+            updateBlock(id as string, { blockOutputs: updatedOutputs });
+          }
+          
+          setAnimateHandle('success');
+          showSuccess(`✓ ${method} ${path_preview} → ${apiResult.statusCode} (${duration}ms)`);
+          setTimeout(() => setAnimateHandle(null), 2000);
+        } else {
+          setAnimateHandle('failure');
+          showError(`✗ ${method} ${path_preview}\n${apiResult.error || 'Request failed'}`);
+          setTimeout(() => setAnimateHandle(null), 2000);
+        }
+      } else {
+        throw new Error(result.error || 'API test failed');
+      }
+    } catch (error) {
+      const duration = Date.now() - startTime;
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error';
+      setAnimateHandle('failure');
+      showError(`✗ API call failed (${duration}ms)\n${errorMessage}`);
+      setTimeout(() => setAnimateHandle(null), 2000);
+    } finally {
+      setIsExecuting(false);
+    }
   };
   
   // Calculate linked outputs
