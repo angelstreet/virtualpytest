@@ -5,8 +5,12 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Tabs,
+  Tab,
 } from '@mui/material';
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore';
+import ViewModuleIcon from '@mui/icons-material/ViewModule';
+import SettingsIcon from '@mui/icons-material/Settings';
 import { ScriptIOSections } from './ScriptIOSections';
 import { useTestCaseBuilder } from '../../../contexts/testcase/TestCaseBuilderContext';
 import { useReactFlow } from 'reactflow';
@@ -30,7 +34,14 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
   userinterfaceName: userinterface
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [expandedTab, setExpandedTab] = useState<string | null>(null); // Single-expand: only one tab open at a time
+  const [activeMainTab, setActiveMainTab] = useState<'blocks' | 'config'>('blocks'); // Main tab: Blocks vs Config
   const reactFlowInstance = useReactFlow();
+  
+  // Reset expanded tab when toolbox config changes (e.g., new device selected)
+  useEffect(() => {
+    setExpandedTab(null);
+  }, [toolboxConfig]);
   
   // Access Script I/O state from context
   const {
@@ -239,6 +250,16 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
     }
   };
 
+  // Calculate totals for tab badges
+  const totalBlocks = useMemo(() => {
+    if (!toolboxConfig) return 0;
+    return Object.values(toolboxConfig).reduce((total: number, tab: any) => {
+      return total + (tab.groups?.reduce((sum: number, g: any) => sum + g.commands.length, 0) || 0);
+    }, 0);
+  }, [toolboxConfig]);
+
+  const totalConfig = scriptInputs.length + scriptOutputs.length + scriptVariables.length + scriptMetadata.length;
+
   return (
     <Box
       sx={{
@@ -248,155 +269,204 @@ export const TestCaseToolbox: React.FC<TestCaseToolboxProps> = ({
         overflow: 'hidden',
       }}
     >
-      {/* Filter/Search Box - Using shared component */}
-      <ToolboxSearchBox
-        value={searchTerm}
-        onChange={setSearchTerm}
-        placeholder="Search commands..."
-      />
-
-      {/* All Tabs - Scrollable */}
-      <Box
-        sx={{
-          flex: 1,
-          overflowY: 'auto',
-          p: 0.5,
-        }}
-      >
-        {/* Show message if no results */}
-        {Object.keys(filteredToolboxConfig).length === 0 ? (
-          <Box sx={{ p: 2, textAlign: 'center' }}>
-            <Typography variant="caption" color="text.secondary">
-              No commands found for "{searchTerm}"
-            </Typography>
-          </Box>
-        ) : (
-          <>
-            {/* Iterate through filtered tabs */}
-            {Object.keys(filteredToolboxConfig).map((tabKey) => {
-              const tabConfig = filteredToolboxConfig[tabKey];
-              const tabColor = tabColors[tabKey] || '#6b7280';
-              const tabName = tabConfig.tabName || tabKey;
-
-          // Count total commands across all groups
-          const totalCommands = tabConfig.groups.reduce(
-            (sum: number, group: any) => sum + group.commands.length, 0
-          );
-
-          return (
-            <Accordion
-              key={tabKey}
-              defaultExpanded={searchTerm.trim() !== ''} // Auto-expand when searching
-              sx={{
-                boxShadow: 'none',
-                '&:before': { display: 'none' },
-                margin: '0 !important',
-                borderRadius: 0,
-                borderLeft: '3px solid transparent',
-                backgroundColor: 'transparent',
-                transition: 'all 0.15s ease',
-                '& .MuiAccordionDetails-root': {
-                  padding: '4px 8px 8px 12px !important',
-                },
-                '&.Mui-expanded': {
-                  margin: '0 !important',
-                  borderLeft: `3px solid ${tabColor}`,
-                  backgroundColor: 'action.hover',
-                }
-              }}
-            >
-              <AccordionSummary
-                expandIcon={<ExpandMoreIcon sx={{ fontSize: 16, color: 'text.secondary' }} />}
-                sx={{
-                  minHeight: '36px !important',
-                  px: 1.5,
-                  '& .MuiAccordionSummary-content': {
-                    my: '8px !important',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  },
-                  '&:hover': {
-                    backgroundColor: 'action.hover',
-                  },
-                  '&.Mui-expanded': {
-                    minHeight: '36px !important',
-                  }
-                }}
-              >
-                <Typography 
-                  fontSize={13} 
-                  fontWeight={500}
-                  sx={{ 
-                    color: 'text.primary',
-                  }}
-                >
-                  {tabName}
-                </Typography>
-                <Typography 
-                  fontSize={11} 
-                  sx={{ 
-                    color: 'text.disabled',
-                    mr: 1,
-                  }}
-                >
-                  {totalCommands}
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ p: 0 }}>
-                {/* Render commands directly - flattened structure */}
-                {tabConfig.groups.map((group: any, groupIdx: number) => (
-                  <React.Fragment key={`${tabKey}-group-${groupIdx}`}>
-                    {/* Show group name only if multiple groups exist */}
-                    {tabConfig.groups.length > 1 && (
-                      <Typography 
-                        fontSize={11} 
-                        sx={{ 
-                          color: 'text.disabled',
-                          px: 0.5,
-                          py: 0.5,
-                          mt: groupIdx > 0 ? 1 : 0,
-                        }}
-                      >
-                        {group.groupName}
-                      </Typography>
-                    )}
-                    {group.commands.map((command: any, cmdIdx: number) => (
-                      <DraggableCommand 
-                        key={`${group.groupName}-${cmdIdx}`} 
-                        command={command}
-                        onCloseProgressBar={onCloseProgressBar}
-                      />
-                    ))}
-                  </React.Fragment>
-                ))}
-              </AccordionDetails>
-            </Accordion>
-          );
-        })}
-          </>
-        )}
+      {/* Main Tab Selector */}
+      <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+        <Tabs
+          value={activeMainTab}
+          onChange={(_, newValue) => setActiveMainTab(newValue)}
+          variant="fullWidth"
+          sx={{
+            minHeight: 36,
+            '& .MuiTab-root': {
+              minHeight: 36,
+              py: 0.5,
+              fontSize: 12,
+              fontWeight: 500,
+              textTransform: 'none',
+            },
+            '& .MuiTabs-indicator': {
+              height: 2,
+            },
+          }}
+        >
+          <Tab 
+            value="blocks" 
+            icon={<ViewModuleIcon sx={{ fontSize: 16 }} />}
+            iconPosition="start"
+            label={`Blocks (${totalBlocks})`}
+          />
+          <Tab 
+            value="config" 
+            icon={<SettingsIcon sx={{ fontSize: 16 }} />}
+            iconPosition="start"
+            label={`Config (${totalConfig})`}
+          />
+        </Tabs>
       </Box>
 
-      {/* Script I/O Sections (Fixed at bottom) */}
-      <ScriptIOSections
-        inputs={scriptInputs}
-        outputs={scriptOutputs}
-        variables={scriptVariables}
-        metadata={scriptMetadata}
-        onAddInput={handleAddInput}
-        onAddOutput={handleAddOutput}
-        onAddVariable={handleAddVariable}
-        onAddMetadataField={handleAddMetadataField}
-        onRemoveInput={handleRemoveInput}
-        onRemoveOutput={handleRemoveOutput}
-        onRemoveVariable={handleRemoveVariable}
-        onRemoveMetadataField={handleRemoveMetadataField}
-        onFocusSourceBlock={handleFocusSourceBlock}
-        onUpdateOutputs={setScriptOutputs}
-        onUpdateVariables={setScriptVariables}
-        onUpdateMetadata={setScriptMetadata}
-      />
+      {/* BLOCKS TAB CONTENT */}
+      {activeMainTab === 'blocks' && (
+        <>
+          {/* Search Box - Only in Blocks tab */}
+          <ToolboxSearchBox
+            value={searchTerm}
+            onChange={setSearchTerm}
+            placeholder="Search commands..."
+          />
+
+          {/* Block Categories - Scrollable */}
+          <Box
+            sx={{
+              flex: 1,
+              overflowY: 'auto',
+              p: 0.5,
+            }}
+          >
+            {/* Show message if no results */}
+            {Object.keys(filteredToolboxConfig).length === 0 ? (
+              <Box sx={{ p: 2, textAlign: 'center' }}>
+                <Typography variant="caption" color="text.secondary">
+                  No commands found for "{searchTerm}"
+                </Typography>
+              </Box>
+            ) : (
+              <>
+                {/* Iterate through filtered tabs */}
+                {Object.keys(filteredToolboxConfig).map((tabKey) => {
+                  const tabConfig = filteredToolboxConfig[tabKey];
+                  const tabColor = tabColors[tabKey] || '#6b7280';
+                  const tabName = tabConfig.tabName || tabKey;
+
+                  // Count total commands across all groups
+                  const totalCommands = tabConfig.groups.reduce(
+                    (sum: number, group: any) => sum + group.commands.length, 0
+                  );
+                  
+                  const isExpanded = searchTerm.trim() !== '' || expandedTab === tabKey;
+
+                  return (
+                    <Accordion
+                      key={tabKey}
+                      expanded={isExpanded}
+                      onChange={(_event, newExpanded) => {
+                        setExpandedTab(newExpanded ? tabKey : null);
+                      }}
+                      disableGutters
+                      TransitionProps={{ unmountOnExit: true }}
+                      sx={{
+                        boxShadow: 'none',
+                        '&:before': { display: 'none' },
+                        margin: '0 !important',
+                        borderRadius: 0,
+                        borderLeft: isExpanded ? `3px solid ${tabColor}` : '3px solid transparent',
+                        backgroundColor: isExpanded ? 'action.hover' : 'transparent',
+                        transition: 'all 0.15s ease',
+                        '& .MuiAccordionDetails-root': {
+                          padding: '4px 8px 8px 12px !important',
+                        },
+                        '&.Mui-expanded': {
+                          margin: '0 !important',
+                        }
+                      }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<ExpandMoreIcon sx={{ fontSize: 16, color: 'text.secondary' }} />}
+                        sx={{
+                          minHeight: '36px !important',
+                          px: 1.5,
+                          '& .MuiAccordionSummary-content': {
+                            my: '8px !important',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          },
+                          '&:hover': {
+                            backgroundColor: 'action.hover',
+                          },
+                          '&.Mui-expanded': {
+                            minHeight: '36px !important',
+                          }
+                        }}
+                      >
+                        <Typography 
+                          fontSize={13} 
+                          fontWeight={500}
+                          sx={{ 
+                            color: 'text.primary',
+                          }}
+                        >
+                          {tabName}
+                        </Typography>
+                        <Typography 
+                          fontSize={11} 
+                          sx={{ 
+                            color: 'text.disabled',
+                            mr: 1,
+                          }}
+                        >
+                          {totalCommands}
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: 0 }}>
+                        {/* Render commands directly - flattened structure */}
+                        {tabConfig.groups.map((group: any, groupIdx: number) => (
+                          <React.Fragment key={`${tabKey}-group-${groupIdx}`}>
+                            {/* Show group name only if multiple groups exist */}
+                            {tabConfig.groups.length > 1 && (
+                              <Typography 
+                                fontSize={11} 
+                                sx={{ 
+                                  color: 'text.disabled',
+                                  px: 0.5,
+                                  py: 0.5,
+                                  mt: groupIdx > 0 ? 1 : 0,
+                                }}
+                              >
+                                {group.groupName}
+                              </Typography>
+                            )}
+                            {group.commands.map((command: any, cmdIdx: number) => (
+                              <DraggableCommand 
+                                key={`${group.groupName}-${cmdIdx}`} 
+                                command={command}
+                                onCloseProgressBar={onCloseProgressBar}
+                              />
+                            ))}
+                          </React.Fragment>
+                        ))}
+                      </AccordionDetails>
+                    </Accordion>
+                  );
+                })}
+              </>
+            )}
+          </Box>
+        </>
+      )}
+
+      {/* CONFIG TAB CONTENT */}
+      {activeMainTab === 'config' && (
+        <Box sx={{ flex: 1, overflowY: 'auto' }}>
+          <ScriptIOSections
+            inputs={scriptInputs}
+            outputs={scriptOutputs}
+            variables={scriptVariables}
+            metadata={scriptMetadata}
+            onAddInput={handleAddInput}
+            onAddOutput={handleAddOutput}
+            onAddVariable={handleAddVariable}
+            onAddMetadataField={handleAddMetadataField}
+            onRemoveInput={handleRemoveInput}
+            onRemoveOutput={handleRemoveOutput}
+            onRemoveVariable={handleRemoveVariable}
+            onRemoveMetadataField={handleRemoveMetadataField}
+            onFocusSourceBlock={handleFocusSourceBlock}
+            onUpdateOutputs={setScriptOutputs}
+            onUpdateVariables={setScriptVariables}
+            onUpdateMetadata={setScriptMetadata}
+          />
+        </Box>
+      )}
     </Box>
   );
 };

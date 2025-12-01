@@ -105,10 +105,13 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   const executionVariableValues = contextData?.executionVariableValues || {};
   const executionMetadataValues = contextData?.executionMetadataValues || {};
   
-  const [inputsExpanded, setInputsExpanded] = useState(false);
-  const [outputsExpanded, setOutputsExpanded] = useState(false);
-  const [variablesExpanded, setVariablesExpanded] = useState(false);
-  const [metadataExpanded, setMetadataExpanded] = useState(false);
+  // Single-expand: only one section open at a time
+  const [expandedSection, setExpandedSection] = useState<'inputs' | 'outputs' | 'variables' | 'metadata' | null>(null);
+  
+  const inputsExpanded = expandedSection === 'inputs';
+  const outputsExpanded = expandedSection === 'outputs';
+  const variablesExpanded = expandedSection === 'variables';
+  const metadataExpanded = expandedSection === 'metadata';
   
   // Editing state
   const [editingMetadataField, setEditingMetadataField] = useState<string | null>(null);
@@ -275,28 +278,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
   };
 
   return (
-    <Box sx={{ borderTop: 1, borderColor: 'divider', mt: 'auto' }}>
-      {/* Section Header */}
-      <Box sx={{ 
-        px: 1.5, 
-        py: 1, 
-        backgroundColor: 'action.hover',
-        borderBottom: 1,
-        borderColor: 'divider',
-      }}>
-        <Typography 
-          fontSize={11} 
-          fontWeight={600}
-          sx={{ 
-            color: 'text.secondary',
-            textTransform: 'uppercase',
-            letterSpacing: '0.5px',
-          }}
-        >
-          Script Configuration
-        </Typography>
-      </Box>
-      
+    <Box sx={{ mt: 0 }}>
       {/* Output Value Dialog - Reusing VerificationConfigDialog */}
       <VerificationConfigDialog
         open={valueDialogOpen}
@@ -327,7 +309,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setInputsExpanded(!inputsExpanded)}
+          onClick={() => setExpandedSection(inputsExpanded ? null : 'inputs')}
         >
           <Typography
             fontSize={13}
@@ -438,7 +420,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setOutputsExpanded(!outputsExpanded)}
+          onClick={() => setExpandedSection(outputsExpanded ? null : 'outputs')}
         >
           <Typography
             fontSize={13}
@@ -642,7 +624,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setVariablesExpanded(!variablesExpanded)}
+          onClick={() => setExpandedSection(variablesExpanded ? null : 'variables')}
         >
           <Typography
             fontSize={13}
@@ -907,7 +889,7 @@ export const ScriptIOSections: React.FC<ScriptIOSectionsProps> = ({
               backgroundColor: 'action.hover',
             },
           }}
-          onClick={() => setMetadataExpanded(!metadataExpanded)}
+          onClick={() => setExpandedSection(metadataExpanded ? null : 'metadata')}
         >
           <Typography
             fontSize={13}
