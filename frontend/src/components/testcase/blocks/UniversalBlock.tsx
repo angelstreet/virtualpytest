@@ -977,7 +977,7 @@ export const UniversalBlock: React.FC<NodeProps & {
           <>
             {contentLabel && (
               <Typography 
-                fontSize={20} 
+                fontSize={type === 'navigation' ? 14 : 20} 
                 fontWeight="medium" 
                 mb={1}
                 textAlign={type === 'navigation' ? 'center' : 'left'}
@@ -992,7 +992,6 @@ export const UniversalBlock: React.FC<NodeProps & {
               paramLinks={data.paramLinks}
               command={data.command} 
               draggedOutput={draggedOutput}
-              onConfigureClick={() => setIsConfigDialogOpen(true)}
               onDrop={(paramKey, dragData) => {
                 updateBlock(id as string, {
                   paramLinks: {
@@ -1014,14 +1013,20 @@ export const UniversalBlock: React.FC<NodeProps & {
                 showSuccess(`Unlinked ${paramKey}`);
               }}
               onConfigureClick={
-                // ✅ For standard blocks, clicking input opens config dialog
-                ['evaluate_condition', 'custom_code', 'common_operation', 'set_variable', 'set_variable_io', 'get_current_time', 'sleep'].includes(type as string)
+                // ✅ For action/verification blocks, open ActionConfigDialog
+                (type === 'action' || type === 'verification')
                   ? () => {
-                      // Trigger config dialog opening through context
-                      const event = new CustomEvent('openBlockConfig', { detail: { blockId: id } });
-                      window.dispatchEvent(event);
+                      console.log('[@UniversalBlock] onConfigureClick called, opening dialog');
+                      setIsConfigDialogOpen(true);
                     }
-                  : undefined
+                  // ✅ For standard blocks, clicking input opens config dialog
+                  : ['evaluate_condition', 'custom_code', 'common_operation', 'set_variable', 'set_variable_io', 'get_current_time', 'sleep'].includes(type as string)
+                    ? () => {
+                        // Trigger config dialog opening through context
+                        const event = new CustomEvent('openBlockConfig', { detail: { blockId: id } });
+                        window.dispatchEvent(event);
+                      }
+                    : undefined
               }
             />
             
@@ -1103,13 +1108,17 @@ export const UniversalBlock: React.FC<NodeProps & {
             verification_type: data.verification_type
           }}
           onSave={(actionData) => {
+            console.log('[@UniversalBlock] Saving action data:', actionData);
             updateBlock(id as string, {
               params: actionData.params
             });
             setIsConfigDialogOpen(false);
             showSuccess('Parameters updated');
           }}
-          onCancel={() => setIsConfigDialogOpen(false)}
+          onCancel={() => {
+            console.log('[@UniversalBlock] Dialog cancelled');
+            setIsConfigDialogOpen(false);
+          }}
         />
       )}
     </Box>

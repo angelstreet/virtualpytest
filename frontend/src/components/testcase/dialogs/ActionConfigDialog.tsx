@@ -49,7 +49,7 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
       fullWidth
       sx={{ zIndex: getZIndex('NAVIGATION_DIALOGS') }}
     >
-      <DialogTitle sx={{ borderBottom: 1, borderColor: 'divider', pb: 2 }}>
+      <DialogTitle sx={{ borderBottom: 0, borderColor: 'divider', pb: 0 }}>
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
           <Typography variant="h6">Configure Action</Typography>
           <IconButton onClick={onCancel} size="small">
@@ -58,18 +58,14 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
         </Box>
       </DialogTitle>
 
-      <DialogContent sx={{ py: 0.5 }}>
-        <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-          Edit the action parameters
-        </Typography>
-
+      <DialogContent sx={{ py: 0 }}>
         {/* Reuse ActionsList component from Navigation Editor */}
         <Box
           sx={{
-            border: '1px solid',
+            border: '0px solid',
             borderColor: 'divider',
             borderRadius: 1,
-            p: 1,
+            p: 0.5,
           }}
         >
           <ActionsList
@@ -79,7 +75,7 @@ export const ActionConfigDialog: React.FC<ActionConfigDialogProps> = ({
         </Box>
       </DialogContent>
 
-      <DialogActions sx={{ borderTop: 1, borderColor: 'divider', pt: 2, pb: 2, px: 3 }}>
+      <DialogActions sx={{ borderTop: 0, borderColor: 'divider', pt: 0, pb: 0.5, px: 3 }}>
         <Button onClick={onCancel} variant="outlined">
           Cancel
         </Button>
