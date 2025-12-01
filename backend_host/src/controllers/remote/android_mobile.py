@@ -831,15 +831,18 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
             'Remote': [
                 # Navigation actions
                 {
-                    'id': 'click_element',
+                    'id': 'click_element_ny_text',
                     'label': 'Click Element by Text',
                     'command': 'click_element',
                     'action_type': 'remote',
-                    'params': {},
+                    'params': {
+                        'element_text': ''
+                    },
                     'description': 'Click on a UI element directly by text/ID (no UI dump required)',
                     'requiresInput': True,
                     'inputLabel': 'Element Text/ID',
-                    'inputPlaceholder': 'Home Tab'
+                    'inputPlaceholder': 'Home Tab',
+                    'inputParam': 'element_text'
                 },
                 {
                     'id': 'click_element_by_id',
@@ -957,11 +960,14 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'label': 'Input Text',
                     'command': 'input_text',
                     'action_type': 'remote',
-                    'params': {},
+                    'params': {
+                        'text': ''
+                    },
                     'description': 'Type text into current field',
                     'requiresInput': True,
                     'inputLabel': 'Text to input',
-                    'inputPlaceholder': 'Enter text...'
+                    'inputPlaceholder': 'Enter text...',
+                    'inputParam': 'text'
                 },
                 # App management actions
                 {
@@ -969,22 +975,28 @@ class AndroidMobileRemoteController(RemoteControllerInterface):
                     'label': 'Launch App',
                     'command': 'launch_app',
                     'action_type': 'remote',
-                    'params': {},
+                    'params': {
+                        'package': ''
+                    },
                     'description': 'Launch an application',
                     'requiresInput': True,
                     'inputLabel': 'Package name',
-                    'inputPlaceholder': 'com.example.app'
+                    'inputPlaceholder': 'com.example.app',
+                    'inputParam': 'package'
                 },
                 {
                     'id': 'close_app',
                     'label': 'Close App',
                     'command': 'close_app',
                     'action_type': 'remote',
-                    'params': {},
+                    'params': {
+                        'package': ''
+                    },
                     'description': 'Close an application',
                     'requiresInput': True,
                     'inputLabel': 'Package name', 
-                    'inputPlaceholder': 'com.example.app'
+                    'inputPlaceholder': 'com.example.app',
+                    'inputParam': 'package'
                 }  
             ]
         }

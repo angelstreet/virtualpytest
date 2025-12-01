@@ -14,7 +14,7 @@ import ContentCopyIcon from '@mui/icons-material/ContentCopy';
 import { useTheme } from '../../../contexts/ThemeContext';
 
 // Metadata fields to hide from parameter display
-const HIDDEN_METADATA_FIELDS = ['description', 'default', 'key', 'type', 'required', 'optional', 'placeholder', 'hidden', 'min', 'max'];
+const HIDDEN_METADATA_FIELDS = ['description', 'default', 'required', 'optional', 'placeholder', 'hidden'];
 
 // Commands that dump entire device - don't need area parameter
 const DUMP_COMMANDS = ['getMenuInfo', 'dumpWindowHierarchy', 'dumpUI', 'getUIElements'];
