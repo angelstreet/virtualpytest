@@ -413,9 +413,16 @@ export const ActionItem: React.FC<ActionItemProps> = ({
               placeholder="e.g., 8, 15, 23"
               sx={{
                 width: 220,
+                alignSelf: 'flex-start',
                 '& .MuiInputBase-input': {
                   padding: '3px 6px',
                   fontSize: '0.75rem',
+                },
+                '& .MuiInputLabel-root': {
+                  transform: 'translate(14px, 4px) scale(1)',
+                  '&.MuiInputLabel-shrink': {
+                    transform: 'translate(14px, -9px) scale(0.75)',
+                  },
                 },
               }}
             />,

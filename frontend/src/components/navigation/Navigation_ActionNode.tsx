@@ -505,23 +505,32 @@ export const UIActionNode: React.FC<NodeProps<UINavigationNodeType['data']>> = (
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0,0,0,0.8)',
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            zIndex: getZIndex('SCREENSHOT_MODAL'), // High z-index for modal
+            zIndex: getZIndex('SCREENSHOT_MODAL'),
+            cursor: 'pointer',
+            padding: '20px',
           }}
           onClick={closeModal}
+          title="Click to close"
         >
+          {/* Full-size screenshot */}
           <img
             src={screenshotUrl}
             alt={`Screenshot for ${data.label}`}
             style={{
-              maxWidth: '90%',
-              maxHeight: '90%',
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '95vw',
+              maxHeight: '95vh',
               objectFit: 'contain',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+              display: 'block',
+              pointerEvents: 'none',
             }}
-            onClick={(e) => e.stopPropagation()}
           />
         </div>
       )}

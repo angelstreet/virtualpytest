@@ -7,6 +7,7 @@ import NavigationIcon from '@mui/icons-material/Navigation';
 import TouchAppIcon from '@mui/icons-material/TouchApp';
 import VerifiedIcon from '@mui/icons-material/Verified';
 import AccessTimeIcon from '@mui/icons-material/AccessTime';
+import PublicIcon from '@mui/icons-material/Public';
 import type { Actions } from '../types/controller/Action_Types';
 import type { Verifications } from '../types/verification/Verification_Types';
 
@@ -60,7 +61,7 @@ export function buildToolboxFromNavigationData(
   return {
     standard: {
       tabName: 'Standard',
-      groups: extractStandardBlockGroups(standardBlocks)
+      groups: extractStandardBlockGroups(standardBlocks.filter(b => b.category !== 'api'))
     },
     navigation: {
       tabName: 'Navigation',
@@ -78,6 +79,10 @@ export function buildToolboxFromNavigationData(
     verifications: {
       tabName: 'Verifications',
       groups: extractVerificationGroups(availableVerifications)
+    },
+    api: {
+      tabName: 'API',
+      groups: extractApiBlockGroups(standardBlocks.filter(b => b.category === 'api'))
     }
   };
 }
@@ -154,6 +159,7 @@ function extractActionGroups(availableActions: Actions) {
         color: '#f97316', // orange - distinguishable from failure (red)
         outputs: ['success', 'failure'],
         defaultData: {
+          label: actionDef.label, // ✅ Preserve action label for block display
           command: actionDef.command,
           action_type: actionDef.action_type,
           params: { ...actionDef.params },
@@ -200,6 +206,7 @@ function extractVerificationGroups(availableVerifications: Verifications) {
       color: '#3b82f6', // blue - distinguishable from success (green)
       outputs: ['success', 'failure'],
       defaultData: {
+        label: verificationDef.label || verificationDef.command, // ✅ Preserve verification label for block display
         command: verificationDef.command,
         action_type: 'verification', // ✅ Required for backend routing
         verification_type: verificationDef.verification_type || verificationType,
@@ -282,6 +289,63 @@ export function extractStandardBlockGroups(standardBlocks: any[]) {
 
   const totalBlocks = commands.length;
   console.log(`[@toolboxBuilder] Extracted ${totalBlocks} standard blocks`);
+  
+  return groups;
+}
+
+/**
+ * Extract API block groups from standard blocks with category='api'
+ * API blocks (like api_call) for Postman integration
+ */
+function extractApiBlockGroups(apiBlocks: any[]) {
+  const groups: any[] = [];
+
+  if (!apiBlocks || apiBlocks.length === 0) {
+    console.log(`[@toolboxBuilder] No API blocks provided`);
+    return groups;
+  }
+
+  // Map each API block to toolbox format
+  const commands = apiBlocks.map((blockDef: any) => {
+    // Extract default values from param schemas
+    const defaultParams: Record<string, any> = {};
+    if (blockDef.params && typeof blockDef.params === 'object') {
+      for (const [key, paramSchema] of Object.entries(blockDef.params)) {
+        const schema = paramSchema as any;
+        if (schema && typeof schema === 'object' && 'default' in schema) {
+          defaultParams[key] = schema.default;
+        }
+      }
+    }
+
+    return {
+      type: blockDef.command,
+      label: blockDef.name || blockDef.label || blockDef.command,
+      icon: blockDef.icon === '🌐' ? PublicIcon : PublicIcon, // Use globe icon
+      color: '#06b6d4', // cyan - API blocks
+      outputs: ['success', 'failure'],
+      defaultData: {
+        command: blockDef.command,
+        action_type: 'api',
+        params: defaultParams,
+        paramSchema: blockDef.params || {},
+        blockOutputs: blockDef.outputs || [
+          { name: 'response', type: 'object' },
+          { name: 'status_code', type: 'number' },
+          { name: 'headers', type: 'object' },
+        ],
+      },
+      description: blockDef.description || `Execute API call`
+    };
+  });
+
+  groups.push({
+    groupName: 'API',
+    commands: sortCommands(commands)
+  });
+
+  const totalBlocks = commands.length;
+  console.log(`[@toolboxBuilder] Extracted ${totalBlocks} API blocks`);
   
   return groups;
 }

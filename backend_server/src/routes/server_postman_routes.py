@@ -187,7 +187,7 @@ def get_workspace_collections(workspace_id):
             if cache_key in _postman_cache:
                 cached = _postman_cache[cache_key]
                 age = time.time() - cached['timestamp']
-                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                if age < CACHE_CONFIG['POSTMAN_TTL']:
                     print(f"[@cache] HIT: Postman collections for {workspace_id} (age: {age:.1f}s)")
                     return jsonify(cached['data'])
                 else:
@@ -252,7 +252,7 @@ def get_workspace_collections(workspace_id):
                 'data': response_data,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: Postman collections for {workspace_id} (TTL: {CACHE_CONFIG['MEDIUM_TTL']}s)")
+            print(f"[@cache] SET: Postman collections for {workspace_id} (TTL: {CACHE_CONFIG['POSTMAN_TTL']}s)")
         
         return jsonify(response_data)
     except Exception as e:
@@ -273,7 +273,7 @@ def get_workspace_environments(workspace_id):
             if cache_key in _postman_cache:
                 cached = _postman_cache[cache_key]
                 age = time.time() - cached['timestamp']
-                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                if age < CACHE_CONFIG['POSTMAN_TTL']:
                     print(f"[@cache] HIT: Postman environments for {workspace_id} (age: {age:.1f}s)")
                     return jsonify(cached['data'])
                 else:
@@ -317,7 +317,7 @@ def get_workspace_environments(workspace_id):
                 'data': response_data,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: Postman environments for {workspace_id} (TTL: {CACHE_CONFIG['MEDIUM_TTL']}s)")
+            print(f"[@cache] SET: Postman environments for {workspace_id} (TTL: {CACHE_CONFIG['POSTMAN_TTL']}s)")
         
         return jsonify(response_data)
     except Exception as e:
@@ -393,7 +393,7 @@ def get_collection_requests(collection_id):
             if cache_key in _postman_cache:
                 cached = _postman_cache[cache_key]
                 age = time.time() - cached['timestamp']
-                if age < CACHE_CONFIG['MEDIUM_TTL']:
+                if age < CACHE_CONFIG['POSTMAN_TTL']:
                     print(f"[@cache] HIT: Postman requests for collection {collection_id} (age: {age:.1f}s)")
                     return jsonify(cached['data'])
                 else:
@@ -430,7 +430,7 @@ def get_collection_requests(collection_id):
                 'data': response_data,
                 'timestamp': time.time()
             }
-            print(f"[@cache] SET: Postman requests for collection {collection_id} (TTL: {CACHE_CONFIG['MEDIUM_TTL']}s)")
+            print(f"[@cache] SET: Postman requests for collection {collection_id} (TTL: {CACHE_CONFIG['POSTMAN_TTL']}s)")
         
         return jsonify(response_data)
     except Exception as e:
@@ -439,6 +439,152 @@ def get_collection_requests(collection_id):
             'success': False,
             'error': str(e)
         }), 500
+
+
+@server_postman_bp.route('/requests/<request_id>/definition', methods=['GET'])
+def get_request_definition(request_id):
+    """Get full request definition (url, method, body, headers) from a request ID"""
+    try:
+        # Extract params
+        workspace_id = request.args.get('workspace_id')
+        collection_id = request.args.get('collection_id')
+        
+        if not workspace_id or not collection_id:
+            return jsonify({
+                'success': False,
+                'error': 'workspace_id and collection_id query parameters required'
+            }), 400
+        
+        # Check cache first
+        cache_key = f"request_def:{request_id}"
+        with _cache_lock:
+            if cache_key in _postman_cache:
+                cached = _postman_cache[cache_key]
+                age = time.time() - cached['timestamp']
+                if age < CACHE_CONFIG['POSTMAN_TTL']:
+                    print(f"[@cache] HIT: Request definition {request_id} (age: {age:.1f}s)")
+                    return jsonify(cached['data'])
+                else:
+                    del _postman_cache[cache_key]
+                    print(f"[@cache] EXPIRED: Request definition {request_id} (age: {age:.1f}s)")
+        
+        workspace = get_workspace_by_id(workspace_id)
+        if not workspace:
+            return jsonify({
+                'success': False,
+                'error': 'Workspace not found'
+            }), 404
+        
+        print(f"[@postman_routes] Fetching request definition from Postman for {request_id}...")
+        
+        # Fetch collection to find the request
+        api_key = workspace['postmanApiKey']
+        data = call_postman_api(f"/collections/{collection_id}", api_key)
+        
+        collection = data.get('collection', {})
+        
+        # Find request in collection items
+        request_def = find_request_in_items(collection.get('item', []), request_id)
+        
+        if not request_def:
+            return jsonify({
+                'success': False,
+                'error': 'Request not found in collection'
+            }), 404
+        
+        # Extract request details
+        request_data = request_def.get('request', {})
+        
+        # Parse URL
+        url_data = request_data.get('url', {})
+        if isinstance(url_data, str):
+            url = url_data
+        else:
+            # Construct from parts
+            protocol = url_data.get('protocol', 'https')
+            host = url_data.get('host', [])
+            path = url_data.get('path', [])
+            
+            # Join host and path
+            if isinstance(host, list):
+                host_str = '.'.join(host)
+            else:
+                host_str = str(host)
+            
+            if isinstance(path, list):
+                path_str = '/' + '/'.join(path)
+            else:
+                path_str = str(path)
+            
+            url = f"{protocol}://{host_str}{path_str}"
+        
+        # Parse body
+        body_data = request_data.get('body', {})
+        body = None
+        if body_data:
+            mode = body_data.get('mode')
+            if mode == 'raw':
+                raw_body = body_data.get('raw', '')
+                # Try to parse as JSON
+                try:
+                    import json
+                    body = json.loads(raw_body)
+                except:
+                    body = raw_body
+            elif mode == 'urlencoded':
+                body = {item['key']: item['value'] for item in body_data.get('urlencoded', []) if 'key' in item}
+            elif mode == 'formdata':
+                body = {item['key']: item['value'] for item in body_data.get('formdata', []) if 'key' in item}
+        
+        # Parse headers
+        headers_list = request_data.get('header', [])
+        headers = {h['key']: h['value'] for h in headers_list if 'key' in h and not h.get('disabled')}
+        
+        response_data = {
+            'success': True,
+            'request': {
+                'id': request_id,
+                'name': request_def.get('name', ''),
+                'method': request_data.get('method', 'GET'),
+                'url': url,
+                'body': body,
+                'headers': headers
+            }
+        }
+        
+        # Store in cache
+        with _cache_lock:
+            _postman_cache[cache_key] = {
+                'data': response_data,
+                'timestamp': time.time()
+            }
+            print(f"[@cache] SET: Request definition {request_id} (TTL: {CACHE_CONFIG['POSTMAN_TTL']}s)")
+        
+        return jsonify(response_data)
+    except Exception as e:
+        print(f"[@postman_routes:get_request_definition] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
+
+def find_request_in_items(items, request_id):
+    """Recursively find request by ID in collection items"""
+    for item in items:
+        # Check if this item is a request with matching ID
+        if 'request' in item and item.get('id') == request_id:
+            return item
+        
+        # Check nested items (folders)
+        if 'item' in item:
+            found = find_request_in_items(item['item'], request_id)
+            if found:
+                return found
+    
+    return None
 
 
 @server_postman_bp.route('/test', methods=['POST'])

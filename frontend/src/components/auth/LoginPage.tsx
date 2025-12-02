@@ -220,6 +220,7 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     autoComplete="email"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <TextField
                     label="Password"
@@ -230,6 +231,7 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     autoComplete="current-password"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <Button
                     type="submit"
@@ -255,6 +257,7 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     autoComplete="name"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <TextField
                     label="Email"
@@ -265,6 +268,7 @@ export const LoginPage: React.FC = () => {
                     fullWidth
                     size="small"
                     autoComplete="email"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <TextField
                     label="Password"
@@ -276,6 +280,7 @@ export const LoginPage: React.FC = () => {
                     size="small"
                     autoComplete="new-password"
                     helperText="Minimum 6 characters"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <Button
                     type="submit"
@@ -304,6 +309,7 @@ export const LoginPage: React.FC = () => {
                     size="small"
                     autoComplete="email"
                     helperText="We'll send you a password reset link"
+                    InputLabelProps={{ shrink: true }}
                   />
                   <Button
                     type="submit"

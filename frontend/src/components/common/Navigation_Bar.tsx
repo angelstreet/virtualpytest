@@ -195,11 +195,6 @@ const NavigationBar: React.FC = () => {
       icon: <AIIcon fontSize="small" />,
     },
     {
-      label: 'API Testing',
-      path: '/configuration/api-testing',
-      icon: <ApiIcon fontSize="small" />,
-    },
-    {
       label: 'Settings',
       path: '/configuration/settings',
       icon: <SettingsIcon fontSize="small" />,

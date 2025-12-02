@@ -39,9 +39,10 @@ export const DraggableCommand: React.FC<DraggableCommandProps> = ({ command, onC
     <Paper
       onDragStart={onDragStart}
       draggable
+      elevation={0}
       sx={{
-        py: 0.5,
-        px: 0.5,
+        py: 0.75,
+        px: 1,
         mb: 0.5,
         cursor: 'grab',
         display: 'flex',
@@ -49,19 +50,32 @@ export const DraggableCommand: React.FC<DraggableCommandProps> = ({ command, onC
         lineHeight: 1.5,
         minHeight: '0 !important',
         height: 'auto',
+        backgroundColor: 'transparent',
+        borderRadius: 0.5,
         '&:hover': {
-          boxShadow: 1,
-          transform: 'translateX(12px)',
+          backgroundColor: 'action.hover',
+          transform: 'translateX(4px)',
         },
         '&:active': {
           cursor: 'grabbing',
+          backgroundColor: 'action.selected',
         },
-        transition: 'all 0.15s',
-        borderLeft: `3px solid ${command.color}`,
+        transition: 'all 0.12s ease',
+        borderLeft: `2px solid ${command.color}`,
       }}
       title={command.description}
     >
-      <Typography fontSize={13} noWrap sx={{ lineHeight: 1, mb: 0 }}>
+      <Typography 
+        fontSize={12} 
+        noWrap 
+        sx={{ 
+          lineHeight: 1.2, 
+          color: 'text.secondary',
+          '&:hover': {
+            color: 'text.primary',
+          },
+        }}
+      >
         {command.label}
       </Typography>
     </Paper>

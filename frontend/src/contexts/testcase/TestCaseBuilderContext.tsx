@@ -308,8 +308,15 @@ export const TestCaseBuilderProvider: React.FC<TestCaseBuilderProviderProps> = (
       data: {
         ...defaultData,
         // For navigation blocks, use block_label to avoid overwriting target_node_label
-        // For all other blocks, use label as expected
-        ...(type === 'navigation' ? { block_label: autoLabel } : { label: autoLabel }),
+        // For all other blocks, use label with counter-name format
+        ...(type === 'navigation' 
+          ? { block_label: autoLabel } 
+          : { 
+              label: (type === 'action' || type === 'verification') && defaultData?.label
+                ? `${blockCounters.current[labelGroup]}-${defaultData.label}` // e.g., "8-Click Element by Text"
+                : autoLabel // Use auto-label for standard blocks
+            }
+        ),
       },
     };
     setNodes((prev) => [...prev, newNode]);

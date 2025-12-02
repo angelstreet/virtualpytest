@@ -49,7 +49,6 @@ const RemoteTestPage = React.lazy(() => import('./pages/RemoteTestPage'));
 const AIQueueMonitor = React.lazy(() => import('./pages/AIQueueMonitor'));
 const HLSDebugPage = React.lazy(() => import('./pages/HLSDebugPage'));
 const OpenRouterDebug = React.lazy(() => import('./pages/OpenRouterDebug'));
-const ApiTestingPage = React.lazy(() => import('./pages/ApiTestingPage'));
 const Settings = React.lazy(() => import('./pages/Settings'));
 const MCPPlayground = React.lazy(() => import('./pages/MCPPlayground'));
 const GrafanaRedirect = React.lazy(() => import('./pages/GrafanaRedirect'));
@@ -317,11 +316,6 @@ const App: React.FC = () => {
                   {/* Regular configuration routes */}
                   <Route path="/configuration/interface" element={<UserInterface />} />
                   <Route path="/configuration/openrouter" element={<OpenRouterDebug />} />
-                  
-                  {/* API Testing - requires permission */}
-                  <Route element={<ProtectedRoute requiredPermission="api_testing" />}>
-                    <Route path="/configuration/api-testing" element={<ApiTestingPage />} />
-                  </Route>
 
                   {/* Navigation Editor Route */}
                   <Route

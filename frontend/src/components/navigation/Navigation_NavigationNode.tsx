@@ -540,119 +540,33 @@ export const UINavigationNode: React.FC<NodeProps<UINavigationNodeType['data']>>
             left: 0,
             right: 0,
             bottom: 0,
-            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+            backgroundColor: 'rgba(0, 0, 0, 0.95)',
             display: 'flex',
-            alignItems: 'flex-start',
+            alignItems: 'center',
             justifyContent: 'center',
             zIndex: getZIndex('SCREENSHOT_MODAL'),
             cursor: 'pointer',
-            paddingTop: '0px',
+            padding: '20px',
           }}
           onClick={closeModal}
-          onDoubleClick={(e) => {
-            e.stopPropagation();
-            e.preventDefault();
-            e.nativeEvent.stopImmediatePropagation();
-            console.log(
-              '[@component:UINavigationNode] Modal overlay double-clicked, preventing node focus',
-            );
-          }}
+          title="Click to close"
         >
-          <div
+          {/* Full-size screenshot */}
+          <img
+            src={screenshotUrl}
+            alt={`Screenshot of ${data.label}`}
             style={{
-              position: 'relative',
-              maxWidth: '90vw',
-              maxHeight: '80vh',
-              display: 'flex',
-              flexDirection: 'column',
-              margin: 0,
-              padding: 0,
+              width: 'auto',
+              height: 'auto',
+              maxWidth: '95vw',
+              maxHeight: '95vh',
+              objectFit: 'contain',
+              borderRadius: '8px',
+              boxShadow: '0 4px 20px rgba(0, 0, 0, 0.5)',
+              display: 'block',
+              pointerEvents: 'none',
             }}
-            onClick={(e) => e.stopPropagation()} // Prevent closing when clicking the image
-            onDoubleClick={(e) => {
-              e.stopPropagation();
-              e.preventDefault();
-              e.nativeEvent.stopImmediatePropagation();
-              console.log(
-                '[@component:UINavigationNode] Modal content double-clicked, preventing node focus',
-              );
-            }}
-          >
-            {/* Full-size screenshot */}
-            <img
-              src={screenshotUrl}
-              alt={`Screenshot of ${data.label}`}
-              style={{
-                width: 'auto',
-                height: 'auto',
-                maxWidth: '100%',
-                maxHeight: 'calc(85vh - 60px)', // Account for caption area
-                objectFit: 'contain',
-                borderRadius: '8px',
-                boxShadow: 'none', // Remove shadow from modal image
-                display: 'block',
-                margin: 0,
-                padding: 0,
-                cursor: 'pointer',
-              }}
-              onDoubleClick={closeModal}
-              title="Double-click to close"
-            />
-
-            {/* Caption and Close Button */}
-            <div
-              style={{
-                marginTop: '0px',
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: '0px',
-                height: '40px', // Fixed height for consistent layout
-                margin: '0px 0 0 0',
-                padding: 0,
-              }}
-            >
-              {/* Image caption */}
-              <div
-                style={{
-                  color: 'white',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  flex: 1,
-                }}
-              >
-                {data.label} - {data.type}
-              </div>
-
-              {/* Close button */}
-              <button
-                onClick={closeModal}
-                style={{
-                  background: 'rgba(255, 255, 255, 0.9)',
-                  border: 'none',
-                  borderRadius: '6px',
-                  padding: '4px 8px',
-                  fontSize: '14px',
-                  fontWeight: '500',
-                  cursor: 'pointer',
-                  color: '#333',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: '6px',
-                  transition: 'background-color 0.2s',
-                }}
-                onMouseEnter={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 1)';
-                }}
-                onMouseLeave={(e) => {
-                  e.currentTarget.style.background = 'rgba(255, 255, 255, 0.9)';
-                }}
-                title="Close"
-              >
-                <span style={{ fontSize: '14px' }}>×</span>
-              </button>
-            </div>
-          </div>
+          />
         </div>
       )}
     </div>

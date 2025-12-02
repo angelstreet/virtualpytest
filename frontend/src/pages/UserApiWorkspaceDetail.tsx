@@ -415,6 +415,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
             placeholder="Filter collections..."
             value={filterText}
             onChange={(e) => setFilterText(e.target.value)}
+            autoComplete="off"
             InputProps={{
               startAdornment: <Search fontSize="small" sx={{ mr: 1, color: 'text.secondary' }} />,
             }}
@@ -430,7 +431,7 @@ const UserApiWorkspaceDetail: React.FC = () => {
           {/* Environment Selector */}
           {environments.length > 0 && (
             <>
-              <FormControl size="small" sx={{ minWidth: 200 }}>
+              <FormControl size="small" sx={{ minWidth: 200, mt: 0.5 }}>
                 <InputLabel>Environment</InputLabel>
                 <Select
                   value={selectedEnvironment}

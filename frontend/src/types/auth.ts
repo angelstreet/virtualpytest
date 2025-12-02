@@ -62,7 +62,6 @@ export const PAGE_PERMISSIONS: Record<string, Permission | Role | null> = {
   '/login': null, // Public
   '/configuration/settings': 'manage_settings',
   '/configuration/models': 'admin',
-  '/configuration/api-testing': 'api_testing',
   '/api/workspaces': 'api_testing',
   '/integrations/jira': 'jira_integration',
   '/test-execution/run-tests': 'run_tests',
