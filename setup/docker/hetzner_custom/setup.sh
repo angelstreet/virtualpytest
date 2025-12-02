@@ -124,6 +124,92 @@ fi
 echo ""
 
 # ============================================
+# 0.1. CONFIGURE DOCKER LOG ROTATION
+# ============================================
+echo "📋 Configuring Docker log rotation..."
+
+DAEMON_JSON="/etc/docker/daemon.json"
+BACKUP_JSON="/etc/docker/daemon.json.backup"
+
+# Check if Docker is installed
+if command -v docker &> /dev/null; then
+    # Backup existing config if it exists
+    if [ -f "$DAEMON_JSON" ]; then
+        echo "   Backing up existing daemon.json..."
+        sudo cp "$DAEMON_JSON" "$BACKUP_JSON"
+        
+        # Check if log settings already exist
+        if grep -q '"log-driver"' "$DAEMON_JSON" && grep -q '"max-size"' "$DAEMON_JSON"; then
+            echo "   ✅ Log rotation already configured"
+        else
+            echo "   Updating daemon.json with log rotation..."
+            # Merge with existing config (basic merge - adds log settings)
+            sudo python3 -c "
+import json
+import sys
+
+try:
+    with open('$DAEMON_JSON', 'r') as f:
+        config = json.load(f)
+except:
+    config = {}
+
+config['log-driver'] = 'json-file'
+config['log-opts'] = {
+    'max-size': '10m',
+    'max-file': '3'
+}
+
+with open('$DAEMON_JSON', 'w') as f:
+    json.dump(config, f, indent=2)
+    
+print('Log rotation configured')
+" 2>/dev/null || {
+                # Fallback if Python fails - create new config
+                echo '   Creating new daemon.json...'
+                sudo tee "$DAEMON_JSON" > /dev/null <<EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+            }
+            
+            # Restart Docker to apply changes
+            echo "   Restarting Docker daemon to apply changes..."
+            sudo systemctl restart docker
+            sleep 3
+            echo "   ✅ Docker log rotation configured (10m max-size, 3 files)"
+        fi
+    else
+        # Create new daemon.json
+        echo "   Creating daemon.json..."
+        sudo tee "$DAEMON_JSON" > /dev/null <<EOF
+{
+  "log-driver": "json-file",
+  "log-opts": {
+    "max-size": "10m",
+    "max-file": "3"
+  }
+}
+EOF
+        
+        # Restart Docker to apply changes
+        echo "   Restarting Docker daemon to apply changes..."
+        sudo systemctl restart docker
+        sleep 3
+        echo "   ✅ Docker log rotation configured (10m max-size, 3 files)"
+    fi
+else
+    echo "   ⚠️  Docker not installed - skipping log rotation config"
+fi
+
+echo ""
+
+# ============================================
 # 0.3. SWAP SETUP (Prevent OOM crashes)
 # ============================================
 echo "💾 Swap Configuration:"
@@ -480,6 +566,11 @@ services:
       - SUPABASE_DB_URI=\${SUPABASE_DB_URI}
       - NEXT_PUBLIC_SUPABASE_URL=\${NEXT_PUBLIC_SUPABASE_URL}
       - NEXT_PUBLIC_SUPABASE_ANON_KEY=\${NEXT_PUBLIC_SUPABASE_ANON_KEY}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     restart: unless-stopped
     networks:
       - hetzner_network
@@ -515,6 +606,11 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
       - GRAFANA_ADMIN_PASSWORD=\${GRAFANA_ADMIN_PASSWORD:-admin123}
       - GRAFANA_SECRET_KEY=\${GRAFANA_SECRET_KEY:-SW2YcwTIb9zpOOhoPsMm}
       - GF_SERVER_DOMAIN=${DOMAIN}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     entrypoint: ["/bin/bash", "/grafana_entrypoint.sh"]
     restart: unless-stopped
     networks:
@@ -563,6 +659,11 @@ for i in $(seq 1 $HOST_MAX); do
       - XDG_CONFIG_HOME=/tmp/.chromium
       - XDG_CACHE_HOME=/tmp/.chromium
       - XDG_RUNTIME_DIR=/tmp/.chromium
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
     depends_on:
       backend_server:
         condition: service_started
@@ -627,6 +728,11 @@ services:
       - DEBUG=1
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 EOF
 
@@ -643,6 +749,11 @@ for i in $(seq 1 $HOST_MAX); do
       - DEBUG=1
       - PYTHONDONTWRITEBYTECODE=1
       - PYTHONUNBUFFERED=1
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
 
 EOF
 done
@@ -716,7 +827,12 @@ if [ "${ENABLE_GRAFANA}" = "true" ]; then
 else
     echo "   • docker-compose.yml (1 server + ${HOST_MAX} hosts)"
 fi
+echo "   • docker-compose.dev.yml (development mode)"
 echo "   • backend_host_1/.env through backend_host_${HOST_MAX}/.env"
+echo ""
+echo "🛡️  Protection configured:"
+echo "   • Docker log rotation: 10MB max per file, 3 files per container"
+echo "   • Prevents disk space issues from unlimited log growth"
 echo ""
 echo "📛 Host Names (${DEPLOYMENT_NAME:-hetzner1}):"
 for i in $(seq 1 $HOST_MAX); do
