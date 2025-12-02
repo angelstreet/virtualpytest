@@ -70,7 +70,13 @@ if (shouldUseHttps && !hasCertificates) {
 }
 
 // Kill any process using port 5073 synchronously
+// Only run this during dev mode (npm run dev), not during build
 const killPort5073 = () => {
+  // Skip in production build or if lsof command doesn't exist
+  if (process.env.NODE_ENV === 'production' || process.argv.includes('build')) {
+    return;
+  }
+
   try {
     const pids = execSync('lsof -ti:5073', { encoding: 'utf8' }).trim();
     if (pids) {
@@ -83,12 +89,12 @@ const killPort5073 = () => {
       console.log('✅ Port 5073 is already available');
     }
   } catch (error) {
-    // No processes found on port 5073, which is what we want
-    console.log('✅ Port 5073 is already available');
+    // No processes found on port 5073 or lsof command not available (e.g., Vercel)
+    // Both cases are fine - just continue
   }
 };
 
-// Kill port before starting - this will block until complete
+// Kill port before starting dev server - this will block until complete
 killPort5073();
 
 // Define registered frontend routes (must match your React Router routes)
