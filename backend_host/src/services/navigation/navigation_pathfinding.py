@@ -504,15 +504,16 @@ def _create_reachability_based_validation_sequence(G, edges_to_validate: List[Tu
             child_node_info = get_node_info(G, child_node) or {}
             if child_node_info.get('node_type') == 'action':
                 # Action nodes don't change position - we stay where we were
-                print(f"[@navigation:pathfinding] Action node {to_label} - staying at {from_label}")
-                # current_position stays the same
+                # Skip DFS recursion and return detection - we never moved!
+                print(f"[@navigation:pathfinding] Action node {to_label} - staying at {from_label} (no return needed)")
+                continue  # Move to next child, no recursion or return path needed
             else:
                 current_position = child_node
             
-            # Recursively go deeper into this child's branch
+            # Recursively go deeper into this child's branch (only for non-action nodes)
             depth_first_traversal(child_node, current_node)
             
-            # ENHANCED RETURN EDGE DETECTION
+            # ENHANCED RETURN EDGE DETECTION (only for non-action nodes)
             return_edge = (child_node, current_node)
             return_edge_data = None
             return_method = None

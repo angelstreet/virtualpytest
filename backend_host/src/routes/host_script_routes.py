@@ -237,6 +237,8 @@ def get_edge_options():
                 return bool(kpi_references)
         
         # Extract action_set labels (bidirectional support) - FILTER by KPI availability
+        # Use set to deduplicate (same edge can appear multiple times in validation sequence)
+        seen_labels = set()
         edge_options = []
         edge_details = []  # For debugging/display
         filtered_count = 0
@@ -256,13 +258,15 @@ def get_edge_options():
                 forward_has_kpi = action_set_has_kpi(forward_set, to_node_id)
                 
                 if forward_label and forward_set.get('actions') and forward_has_kpi:
-                    edge_options.append(forward_label)
-                    edge_details.append({
-                        'label': forward_label,
-                        'direction': 'forward',
-                        'from': from_label,
-                        'to': to_label
-                    })
+                    if forward_label not in seen_labels:
+                        seen_labels.add(forward_label)
+                        edge_options.append(forward_label)
+                        edge_details.append({
+                            'label': forward_label,
+                            'direction': 'forward',
+                            'from': from_label,
+                            'to': to_label
+                        })
                 elif forward_label and forward_set.get('actions') and not forward_has_kpi:
                     filtered_count += 1
             
@@ -273,17 +277,19 @@ def get_edge_options():
                 reverse_has_kpi = action_set_has_kpi(reverse_set, from_node_id)
                 
                 if reverse_label and reverse_set.get('actions') and reverse_has_kpi:
-                    edge_options.append(reverse_label)
-                    edge_details.append({
-                        'label': reverse_label,
-                        'direction': 'reverse',
-                        'from': to_label,  # Swapped for reverse
-                        'to': from_label   # Swapped for reverse
-                    })
+                    if reverse_label not in seen_labels:
+                        seen_labels.add(reverse_label)
+                        edge_options.append(reverse_label)
+                        edge_details.append({
+                            'label': reverse_label,
+                            'direction': 'reverse',
+                            'from': to_label,  # Swapped for reverse
+                            'to': from_label   # Swapped for reverse
+                        })
                 elif reverse_label and reverse_set.get('actions') and not reverse_has_kpi:
                     filtered_count += 1
         
-        print(f"[@host_script:get_edge_options] Extracted {len(edge_options)} action_set labels with KPI (filtered {filtered_count} without KPI)")
+        print(f"[@host_script:get_edge_options] Extracted {len(edge_options)} unique action_set labels with KPI (filtered {filtered_count} without KPI)")
         
         return jsonify({
             'success': True,
