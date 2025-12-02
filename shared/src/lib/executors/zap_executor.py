@@ -619,13 +619,14 @@ class ZapExecutor:
             print(f"🔍 [ZapExecutor] DEBUG: No context screenshots available - will fallback to take_screenshot")
         
         print(f"🔍 [ZapExecutor] DEBUG: Calling execute_verifications with image_source_url={image_source_url}")
-        return verification_executor.execute_verifications(
+        import asyncio
+        return asyncio.run(verification_executor.execute_verifications(
             verifications=verification_configs,
             userinterface_name=self.userinterface_name,  # MANDATORY parameter
             image_source_url=image_source_url,
             team_id=context.team_id,
             context=context
-        )
+        ))
     
     def _map_verification_result(self, result: ZapAnalysisResult, analysis_type: str, verification_result: Dict, context):
         """Map verification result to ZapAnalysisResult fields"""
