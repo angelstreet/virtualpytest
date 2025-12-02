@@ -1104,8 +1104,7 @@ export const UniversalBlock: React.FC<NodeProps & {
           initialData={{
             command: data.command,
             params: data.params || {},
-            action_type: data.action_type,
-            verification_type: data.verification_type
+            action_type: data.action_type
           }}
           onSave={(actionData) => {
             console.log('[@UniversalBlock] Saving action data:', actionData);
