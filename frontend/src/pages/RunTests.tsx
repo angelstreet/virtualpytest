@@ -1033,7 +1033,7 @@ const RunTests: React.FC = () => {
         onChange={handleParameterChange}
         error={param.required && !value.trim()}
         deviceModel={getPrimaryDeviceModel()}
-        userinterfaceName={parameterValues['userinterface_name'] || ''}
+        userinterfaceName={selectedUserinterface || ''}
         hostName={selectedHost}
       />
     );
