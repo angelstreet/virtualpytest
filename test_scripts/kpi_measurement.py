@@ -247,29 +247,34 @@ def main():
     
     # Execute navigation loop (simple, like goto.py)
     navigation_success_count = 0
+    import asyncio
     
     for i in range(args.iterations):
         print(f"\n{'='*60}")
         print(f"🔄 [kpi_measurement] Iteration {i+1}/{args.iterations}")
         print(f"{'='*60}")
         
-        # Step 1: Navigate to FROM node (like goto.py)
-        print(f"📍 [kpi_measurement] Going to '{from_label}'")
-        # ✅ Wrap async call with asyncio.run for script context
-        import asyncio
-        from_result = asyncio.run(device.navigation_executor.execute_navigation(
-            tree_id=context.tree_id,
-            userinterface_name=context.userinterface_name,  # MANDATORY parameter
-            target_node_label=from_label,
-            team_id=context.team_id,
-            context=context
-        ))
-        
-        if not from_result.get('success', False):
-            print(f"❌ [kpi_measurement] Failed to reach '{from_label}'")
-            continue
-        
-        print(f"✅ [kpi_measurement] Reached '{from_label}'")
+        # Step 1: Navigate to FROM node (skip if ENTRY - it's a virtual starting point)
+        if from_label.upper() == 'ENTRY':
+            # ENTRY is a conceptual starting point, not a real screen
+            # We assume we're at ENTRY (app starting position) - just proceed to target
+            print(f"📍 [kpi_measurement] From node is ENTRY - skipping navigation (virtual start point)")
+            print(f"✅ [kpi_measurement] Assuming at ENTRY position")
+        else:
+            print(f"📍 [kpi_measurement] Going to '{from_label}'")
+            from_result = asyncio.run(device.navigation_executor.execute_navigation(
+                tree_id=context.tree_id,
+                userinterface_name=context.userinterface_name,  # MANDATORY parameter
+                target_node_label=from_label,
+                team_id=context.team_id,
+                context=context
+            ))
+            
+            if not from_result.get('success', False):
+                print(f"❌ [kpi_measurement] Failed to reach '{from_label}'")
+                continue
+            
+            print(f"✅ [kpi_measurement] Reached '{from_label}'")
         
         # Step 2: Navigate to TO node (like goto.py) - KPI measured automatically
         print(f"⏱️  [kpi_measurement] Navigating to '{to_label}' (KPI will be measured)")
