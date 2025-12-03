@@ -14,6 +14,7 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+import rehypeRaw from 'rehype-raw';
 
 // Types for docs manifest
 interface DocItem {
@@ -364,7 +365,23 @@ const Documentation: React.FC = () => {
         <Box sx={{ width: '100%', maxWidth: '900px', mx: 'auto' }}>
           <ReactMarkdown
             remarkPlugins={[remarkGfm]}
+            rehypePlugins={[rehypeRaw]}
             components={{
+            // Style images
+            img: ({ src, alt }) => (
+              <Box
+                component="img"
+                src={src}
+                alt={alt || ''}
+                sx={{
+                  maxWidth: '100%',
+                  height: 'auto',
+                  borderRadius: 1,
+                  my: 2,
+                  display: 'block',
+                }}
+              />
+            ),
             // Style headers
             h1: ({ children }) => (
               <Typography variant="h4" component="h1" gutterBottom sx={{ mt: 1.5, mb: 1.5, fontWeight: 600, fontSize: '1.75rem' }}>

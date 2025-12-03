@@ -8,7 +8,7 @@ Visual gallery of VirtualPyTest features.
 
 The main dashboard provides an overview of your test infrastructure: servers, hosts, devices, and quick actions.
 
-<img src="/screenshot/dashboard.png" alt="Dashboard" width="800">
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="100%">
 
 ---
 
@@ -59,18 +59,4 @@ Record device sessions and replay them for debugging or demonstration.
 <!-- ![Recording](/screenshot/recording.png) -->
 
 ---
-
-## Adding New Screenshots
-
-To add a new screenshot:
-
-1. Take a screenshot of the feature (recommended size: 1920x1080 or 1280x720)
-2. Save it to `frontend/public/screenshot/` with a descriptive name
-3. Uncomment and update the relevant section above
-
-```bash
-# Example: Adding a device control screenshot
-# Save as: frontend/public/screenshot/device-control.png
-# Reference in markdown as: /screenshot/device-control.png
-```
 
