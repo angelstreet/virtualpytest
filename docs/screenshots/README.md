@@ -282,8 +282,8 @@
 
   <div class="screenshot-card">
     <h3>Ask AI</h3>
-    <a href="/screenshot/ask_ia.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/ask_ia.png" alt="Ask AI">
+    <a href="/screenshot/ask_ai.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/ask_ai.png" alt="Ask AI">
     </a>
   </div>
 
