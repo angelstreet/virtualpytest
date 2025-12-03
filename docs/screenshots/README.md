@@ -268,8 +268,8 @@
   
   <div class="screenshot-card">
     <h3>Postman Integration</h3>
-    <a href="/screenshot/api_testing_2.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/api_testing_2.png" alt="Postman Integration">
+    <a href="/screenshot/postman.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/postman.png" alt="Postman Integration">
     </a>
   </div>
 
