@@ -1,62 +1,77 @@
 # Screenshots
 
-Visual gallery of VirtualPyTest features.
-
 ---
 
 ## Dashboard
-
-The main dashboard provides an overview of your test infrastructure: servers, hosts, devices, and quick actions.
-
-<img src="/screenshot/dashboard.png" alt="Dashboard" width="100%">
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="80%">
 
 ---
 
-## Device Control
-<!-- TODO: Add screenshot -->
-Remote control any connected device - Android TV, mobile, STB, or iOS - from a unified interface.
-
-<!-- ![Device Control](/screenshot/device-control.png) -->
+## Remote Eye Controller
+<img src="/screenshot/rec.png" alt="Remote Eye Controller" width="80%">
 
 ---
 
 ## Test Execution
-<!-- TODO: Add screenshot -->
-Execute and monitor tests in real-time with step-by-step visual feedback.
-
-<!-- ![Test Execution](/screenshot/test-execution.png) -->
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="80%">
 
 ---
 
-## AI Navigation Tree
-<!-- TODO: Add screenshot -->
-AI-powered navigation tree builder automatically maps your application's UI structure.
+## Navigation Tree
+<img src="/screenshot/dashboard.png" alt="Navigation Tree" width="80%">
+<img src="/screenshot/dashboard.png" alt="Navigation Node" width="40%">
+<img src="/screenshot/dashboard.png" alt="Navigation Edge" width="40%">
 
-<!-- ![Navigation Tree](/screenshot/navigation-tree.png) -->
+---
 
+## Verification Editor
+<img src="/screenshot/verification_editor_image.png" alt="Verification Editor Image" width="40%">
+<img src="/screenshot/verification_editor_text.png" alt="Verification Editor Text" width="40%">
 ---
 
 ## Visual Capture & Timeline
-<!-- TODO: Add screenshot -->
-Frame-by-frame capture with automatic screenshot timeline for every test step.
-
-<!-- ![Visual Capture](/screenshot/visual-capture.png) -->
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="80%">
 
 ---
 
-## Grafana Analytics
-<!-- TODO: Add screenshot -->
-Real-time metrics and dashboards for test results, device health, and performance trends.
-
-<!-- ![Grafana Dashboard](/screenshot/grafana-dashboard.png) -->
+## Grafana
+<img src="/screenshot/grafana.png" alt="Grafana" width="80%">
 
 ---
 
-## Recording & Playback
-<!-- TODO: Add screenshot -->
-Record device sessions and replay them for debugging or demonstration.
-
-<!-- ![Recording](/screenshot/recording.png) -->
+## Last 24H
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="80%">
 
 ---
 
+## Live Monitoring
+<img src="/screenshot/monitoring.png" alt="Live Monitoring" width="80%">
+
+---
+
+## Heatmap
+<img src="/screenshot/heatmap.png" alt="Heatmap" width="80%">
+
+---
+
+## Incidents
+<img src="/screenshot/incidents.png" alt="Incidents" width="80%">
+
+---
+
+## Test Case builder
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="80%">
+
+---
+
+## AI model Creation
+<img src="/screenshot/ai_model_creation_1.png" alt="AI model creation 1" width="30%">
+<img src="/screenshot/ai_model_creation_2.png" alt="AI model creation 2" width="30%">
+<img src="/screenshot/ai_model_creation_3.png" alt="AI model creation 3" width="30%">
+
+---
+
+## API Testing : Postman integration
+<img src="/screenshot/apip_testing.png" alt="API Testing" width="40%">
+<img src="/screenshot/postman.png" alt="Postman Integration" width="40%">
+---
