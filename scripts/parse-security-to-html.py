@@ -14,11 +14,15 @@ TEMP_DIR = DOCS_SECURITY / "temp"
 HOST_BANDIT_JSON = TEMP_DIR / "host_bandit.json"
 SERVER_BANDIT_JSON = TEMP_DIR / "server_bandit.json"
 FRONTEND_AUDIT_JSON = TEMP_DIR / "frontend_audit.json"
+SNYK_HOST_JSON = TEMP_DIR / "snyk_host_code.json"
+SNYK_SERVER_JSON = TEMP_DIR / "snyk_server_code.json"
 
 OUTPUT_HTML = DOCS_SECURITY / "index.html"
 OUTPUT_HOST_JSON = DOCS_SECURITY / "host-report.json"
 OUTPUT_SERVER_JSON = DOCS_SECURITY / "server-report.json"
 OUTPUT_FRONTEND_JSON = DOCS_SECURITY / "frontend-report.json"
+OUTPUT_SNYK_HOST_JSON = DOCS_SECURITY / "snyk-host-report.json"
+OUTPUT_SNYK_SERVER_JSON = DOCS_SECURITY / "snyk-server-report.json"
 
 
 def parse_bandit_report(json_path, fallback_path=None):
@@ -78,10 +82,77 @@ def parse_npm_audit(json_path, fallback_path=None):
         return {'status': 'error', 'vulnerabilities': {}, 'issues': []}
 
 
+def parse_snyk_sarif(json_path, fallback_path=None):
+    """Parse Snyk Code SARIF format output"""
+    path_to_use = json_path if json_path.exists() else fallback_path
+    if not path_to_use or not path_to_use.exists():
+        return None
+    
+    try:
+        with open(path_to_use, 'r') as f:
+            data = json.load(f)
+        
+        if 'error' in data:
+            return {'status': 'error', 'results': [], 'raw_data': data}
+        
+        # SARIF format: runs[0].results contains the findings
+        runs = data.get('runs', [])
+        if not runs:
+            return {'status': 'clean', 'results': [], 'raw_data': data}
+        
+        sarif_results = runs[0].get('results', [])
+        
+        # Map SARIF level to severity
+        level_to_severity = {
+            'error': 'HIGH',
+            'warning': 'MEDIUM',
+            'note': 'LOW',
+            'none': 'LOW'
+        }
+        
+        issues = []
+        for r in sarif_results:
+            rule_id = r.get('ruleId', 'unknown')
+            level = r.get('level', 'warning')
+            message = r.get('message', {}).get('text', '')[:80]
+            
+            # Extract location
+            locations = r.get('locations', [])
+            if locations:
+                phys_loc = locations[0].get('physicalLocation', {})
+                artifact = phys_loc.get('artifactLocation', {})
+                uri = artifact.get('uri', '')
+                # Clean up file path
+                filename = uri.replace('file://', '').split('backend_host/')[-1].split('backend_server/')[-1]
+                region = phys_loc.get('region', {})
+                line = region.get('startLine', 0)
+            else:
+                filename = 'unknown'
+                line = 0
+            
+            issues.append({
+                'rule_id': rule_id,
+                'severity': level_to_severity.get(level, 'MEDIUM'),
+                'message': message,
+                'filename': filename,
+                'line': line
+            })
+        
+        return {
+            'status': 'found' if issues else 'clean',
+            'results': issues,
+            'raw_data': data
+        }
+    except Exception as e:
+        return {'status': 'error', 'results': [], 'raw_data': {'error': str(e)}}
+
+
 def generate_html_report():
     host_bandit = parse_bandit_report(HOST_BANDIT_JSON, OUTPUT_HOST_JSON)
     server_bandit = parse_bandit_report(SERVER_BANDIT_JSON, OUTPUT_SERVER_JSON)
     frontend_audit = parse_npm_audit(FRONTEND_AUDIT_JSON, OUTPUT_FRONTEND_JSON)
+    snyk_host = parse_snyk_sarif(SNYK_HOST_JSON, OUTPUT_SNYK_HOST_JSON)
+    snyk_server = parse_snyk_sarif(SNYK_SERVER_JSON, OUTPUT_SNYK_SERVER_JSON)
     
     timestamp = datetime.now().strftime('%Y-%m-%d %H:%M')
     
@@ -89,12 +160,14 @@ def generate_html_report():
     host_results = host_bandit.get('results', []) if host_bandit else []
     server_results = server_bandit.get('results', []) if server_bandit else []
     frontend_issues = frontend_audit.get('issues', []) if frontend_audit else []
+    snyk_host_results = snyk_host.get('results', []) if snyk_host else []
+    snyk_server_results = snyk_server.get('results', []) if snyk_server else []
     
     host_loc = host_bandit['metrics'].get('loc', 0) if host_bandit else 0
     server_loc = server_bandit['metrics'].get('loc', 0) if server_bandit else 0
     total_loc = host_loc + server_loc
     
-    # Count by severity
+    # Count by severity for Bandit
     def count_severity(results):
         return {
             'high': len([r for r in results if r.get('issue_severity') == 'HIGH']),
@@ -102,14 +175,25 @@ def generate_html_report():
             'low': len([r for r in results if r.get('issue_severity') == 'LOW'])
         }
     
+    # Count by severity for Snyk (uses 'severity' key)
+    def count_snyk_severity(results):
+        return {
+            'high': len([r for r in results if r.get('severity') == 'HIGH']),
+            'medium': len([r for r in results if r.get('severity') == 'MEDIUM']),
+            'low': len([r for r in results if r.get('severity') == 'LOW'])
+        }
+    
     host_counts = count_severity(host_results)
     server_counts = count_severity(server_results)
+    snyk_host_counts = count_snyk_severity(snyk_host_results)
+    snyk_server_counts = count_snyk_severity(snyk_server_results)
     
     frontend_counts = frontend_audit.get('counts', {}) if frontend_audit else {}
     
-    total_high = host_counts['high'] + server_counts['high']
-    total_medium = host_counts['medium'] + server_counts['medium']
-    total_low = host_counts['low'] + server_counts['low']
+    # Total includes Bandit + Snyk
+    total_high = host_counts['high'] + server_counts['high'] + snyk_host_counts['high'] + snyk_server_counts['high']
+    total_medium = host_counts['medium'] + server_counts['medium'] + snyk_host_counts['medium'] + snyk_server_counts['medium']
+    total_low = host_counts['low'] + server_counts['low'] + snyk_host_counts['low'] + snyk_server_counts['low']
     
     # Save JSON reports
     if host_bandit and HOST_BANDIT_JSON.exists():
@@ -123,6 +207,14 @@ def generate_html_report():
     if frontend_audit and frontend_audit.get('raw_data') and FRONTEND_AUDIT_JSON.exists():
         with open(OUTPUT_FRONTEND_JSON, 'w') as f:
             json.dump(frontend_audit['raw_data'], f, indent=2)
+    
+    if snyk_host and snyk_host.get('raw_data') and SNYK_HOST_JSON.exists():
+        with open(OUTPUT_SNYK_HOST_JSON, 'w') as f:
+            json.dump(snyk_host['raw_data'], f, indent=2)
+    
+    if snyk_server and snyk_server.get('raw_data') and SNYK_SERVER_JSON.exists():
+        with open(OUTPUT_SNYK_SERVER_JSON, 'w') as f:
+            json.dump(snyk_server['raw_data'], f, indent=2)
     
     # Generate issue rows for bandit results
     def generate_issue_rows(results, prefix):
@@ -159,9 +251,29 @@ def generate_html_report():
             </div>'''
         return rows
     
+    # Generate Snyk issue rows (SARIF format)
+    def generate_snyk_rows(results):
+        rows = ""
+        for r in results:
+            severity = r.get('severity', 'MEDIUM').lower()
+            rule_id = r.get('rule_id', '')
+            # Shorten rule_id for display (e.g., python/PT -> PT)
+            short_id = rule_id.split('/')[-1] if '/' in rule_id else rule_id
+            filename = r.get('filename', '')
+            line = r.get('line', 0)
+            message = r.get('message', '')[:80]
+            rows += f'''<div class="issue {severity}" data-severity="{severity}">
+                <span class="issue-id">{short_id}</span>
+                <span class="issue-loc">{filename}:{line}</span>
+                <span class="issue-text">{message}</span>
+            </div>'''
+        return rows
+    
     host_issue_rows = generate_issue_rows(host_results, 'host')
     server_issue_rows = generate_issue_rows(server_results, 'server')
     frontend_issue_rows = generate_npm_rows(frontend_issues)
+    snyk_host_issue_rows = generate_snyk_rows(snyk_host_results)
+    snyk_server_issue_rows = generate_snyk_rows(snyk_server_results)
     
     html = f"""<!DOCTYPE html>
 <html lang="en">
@@ -424,6 +536,44 @@ def generate_html_report():
         </div>
         <div class="issues">
             {frontend_issue_rows if frontend_issue_rows else '<div class="no-issues">No issues</div>'}
+        </div>
+    </div>
+
+    <!-- Snyk Code - Host -->
+    <div class="section" id="section-snyk-host">
+        <div class="section-header" onclick="toggleSection('snyk-host')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">🔍 Snyk Code - Host</span>
+                <div class="section-counts">
+                    <span class="high">{snyk_host_counts['high']}</span> /
+                    <span class="medium">{snyk_host_counts['medium']}</span> /
+                    <span class="low">{snyk_host_counts['low']}</span>
+                </div>
+            </div>
+            <a class="json-link" href="snyk-host-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            {snyk_host_issue_rows if snyk_host_issue_rows else '<div class="no-issues">No issues (or Snyk not installed)</div>'}
+        </div>
+    </div>
+
+    <!-- Snyk Code - Server -->
+    <div class="section" id="section-snyk-server">
+        <div class="section-header" onclick="toggleSection('snyk-server')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">🔍 Snyk Code - Server</span>
+                <div class="section-counts">
+                    <span class="high">{snyk_server_counts['high']}</span> /
+                    <span class="medium">{snyk_server_counts['medium']}</span> /
+                    <span class="low">{snyk_server_counts['low']}</span>
+                </div>
+            </div>
+            <a class="json-link" href="snyk-server-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            {snyk_server_issue_rows if snyk_server_issue_rows else '<div class="no-issues">No issues (or Snyk not installed)</div>'}
         </div>
     </div>
 

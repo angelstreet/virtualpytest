@@ -132,6 +132,42 @@ else
     echo ""
 fi
 
+# ==================== SNYK CODE ANALYSIS ====================
+SNYK_HOST_JSON="$TEMP_DIR/snyk_host_code.json"
+SNYK_SERVER_JSON="$TEMP_DIR/snyk_server_code.json"
+
+if command -v snyk &> /dev/null; then
+    echo -e "${YELLOW}→${NC} Running Snyk code analysis (SAST)..."
+
+    # Scan backend_host
+    if [ -d "backend_host/src" ]; then
+        echo -e "${BLUE}  • Scanning backend_host code...${NC}"
+        snyk code test backend_host/src --json > "$SNYK_HOST_JSON" 2>/dev/null || true
+        echo -e "${GREEN}  ✓ Host code analysis complete${NC}"
+    else
+        echo -e "${RED}  ✗ backend_host/src not found${NC}"
+        echo '{"error": "backend_host/src not found"}' > "$SNYK_HOST_JSON"
+    fi
+
+    # Scan backend_server
+    if [ -d "backend_server/src" ]; then
+        echo -e "${BLUE}  • Scanning backend_server code...${NC}"
+        snyk code test backend_server/src --json > "$SNYK_SERVER_JSON" 2>/dev/null || true
+        echo -e "${GREEN}  ✓ Server code analysis complete${NC}"
+    else
+        echo -e "${RED}  ✗ backend_server/src not found${NC}"
+        echo '{"error": "backend_server/src not found"}' > "$SNYK_SERVER_JSON"
+    fi
+
+    echo ""
+else
+    echo -e "${YELLOW}⚠ Snyk not found - skipping code analysis${NC}"
+    echo -e "${YELLOW}     Install: npm install -g snyk && snyk auth${NC}"
+    echo '{"error": "snyk not installed"}' > "$SNYK_HOST_JSON"
+    echo '{"error": "snyk not installed"}' > "$SNYK_SERVER_JSON"
+    echo ""
+fi
+
 # ==================== GENERATE HTML ====================
 echo -e "${YELLOW}→${NC} Generating HTML documentation..."
 
@@ -144,9 +180,20 @@ echo -e "  • docs/security/index.html"
 echo -e "  • docs/security/host-report.json"
 echo -e "  • docs/security/server-report.json"
 echo -e "  • docs/security/frontend-report.json"
+echo -e "  • docs/security/snyk-host-report.json (if Snyk available)"
+echo -e "  • docs/security/snyk-server-report.json (if Snyk available)"
 echo ""
 echo -e "${YELLOW}Access at: /docs/security/index.html${NC}"
 echo ""
+
+# Also copy Snyk reports to security_report/ folder
+SECURITY_REPORT_DIR="security_report"
+if [ -f "$DOCS_SECURITY/snyk-host-report.json" ]; then
+    cp "$DOCS_SECURITY/snyk-host-report.json" "$SECURITY_REPORT_DIR/snyk_host_code.json"
+fi
+if [ -f "$DOCS_SECURITY/snyk-server-report.json" ]; then
+    cp "$DOCS_SECURITY/snyk-server-report.json" "$SECURITY_REPORT_DIR/snyk_server_code.json"
+fi
 
 # Cleanup temp files
 rm -rf "$TEMP_DIR"

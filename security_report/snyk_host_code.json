@@ -1,0 +1,4757 @@
+{
+  "$schema": "https://docs.oasis-open.org/sarif/sarif/v2.1.0/errata01/os/schemas/sarif-schema-2.1.0.json",
+  "version": "2.1.0",
+  "runs": [
+    {
+      "tool": {
+        "driver": {
+          "name": "SnykCode",
+          "semanticVersion": "1.1301.0",
+          "version": "1.1301.0",
+          "informationUri": "https://docs.snyk.io/",
+          "rules": [
+            {
+              "id": "python/InsecureXmlParser",
+              "name": "InsecureXmlParser",
+              "shortDescription": {
+                "text": "Insecure Xml Parser (Python < 3.11)"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "markdown": "\n## Details\n\nPython's standard library XML parsers (such as `xml.etree.ElementTree`, `xml.sax`, `xml.dom.minidom`, etc.) use the Expat library under the hood.\n\nIn Python versions 3.10 and earlier, these modules may be vulnerable to XML External Entity (XXE) attacks and denial-of-service attacks (such as \"Billion Laughs\" and \"Quadratic Blowup\") if the underlying Expat version is older.\n\n### Python 3.11 and later\n\nPython 3.11 and later versions include Expat 2.7.1 or newer, which addresses these vulnerabilities.\n\n### Python 3.10 and earlier\n\nFor Python 3.10 and earlier, the risk depends on the version of Expat bundled with Python or provided by the system:\n- Expat versions lower than 2.6.0 are vulnerable to \"billion laughs\", \"quadratic blowup\", and \"large tokens\" attacks\n\n\nYou can check your Expat version at runtime using:\n```python\nimport pyexpat\nprint(pyexpat.EXPAT_VERSION)\n```\n\n### Python versions < 3.7.1\n\n- Python 3.7.0 and earlier are also vulnerable to XXE attacks by default\n\n## Best practices for prevention\n\n### For Python 3.11 and later\n\n* Using `xml.etree.ElementTree` is safe\u2014no additional mitigation is needed\n* Continue validating and sanitizing XML input when processing untrusted data\n\n### For Python 3.10 and earlier\n\n* **Recommended**: Upgrade to Python 3.11 or later if possible\n* If upgrading is not feasible:\n  * Consider using the `defusedxml` package, which provides safer alternatives for XML parsing (note: as of 2025, this package may be unmaintained)\n  * Verify your Expat version using `pyexpat.EXPAT_VERSION` and ensure it's 2.6.0 or higher\n  * Validate and sanitize all XML input, especially when processing untrusted data\n  * Use local, static document type definitions (DTDs) and ensure that external DTDs are disallowed\n\n## Important notes\n\n* The `defusedxml` package recommendation applies primarily to older Python versions where upgrading Python itself is not possible\n\n## References\n\n* [CPython PR removing vulnerability table (Python 3.11+ now safe)](https://github.com/python/cpython/pull/135294/files)\n* Python XML vulnerabilities documentation for `python >= 3.13` describe the mitigation:\n  * [`python 3.13](https://docs.python.org/3.13/library/xml.html#xml-vulnerabilities)\n  * [latest python 3](https://docs.python.org/3/library/xml.html#xml-vulnerabilities)\n* Python XML vulnerabilities documentation for `python 3.11 - 3.12` do not mention the mitigation\n  but this appears to be a delayed announcement:\n  * [`python 3.12`](https://docs.python.org/3.12/library/xml.html#xml-vulnerabilities)\n  * [python 3.11](https://docs.python.org/3.11/library/xml.html#xml-vulnerabilities)\n* Python XML docs in older versions do mention the vulnerability\n  * [`python 3.10`](https://docs.python.org/3.10/library/xml.html#xml-vulnerabilities)\n  * [`python 3.3`]https://docs.python.org/3.3/library/xml.html#xml-vulnerabilities\n\n* [Expat changelog (2.7.1)](https://github.com/libexpat/libexpat/blob/R_2_7_1/expat/Changes)",
+                "text": ""
+              },
+              "properties": {
+                "tags": [
+                  "python",
+                  "InsecureXmlParser",
+                  "Security"
+                ],
+                "categories": [
+                  "Security"
+                ],
+                "exampleCommitFixes": [
+                  {
+                    "commitURL": "https://github.com/DefectDojo/django-DefectDojo/commit/3bb6173ce1db621ebd99a1cb361e7da7cbaf1925?diff=split#diff-ef1e087c75390ecb8efe1b3990802470d172cb27c62e76392ba87bdae855ca2cL-1",
+                    "lines": [
+                      {
+                        "line": "from xml.dom import NamespaceErr\n",
+                        "lineNumber": 2,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "from xml.etree import ElementTree\n",
+                        "lineNumber": 3,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "from defusedxml.dom import NamespaceErr\n",
+                        "lineNumber": 2,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "from defusedxml.etree import ElementTree\n",
+                        "lineNumber": 3,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "from datetime import datetime\n",
+                        "lineNumber": 4,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 5,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "from dojo.models import Finding\n",
+                        "lineNumber": 6,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 7,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 8,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "class CheckmarxXMLParser(object):\n",
+                        "lineNumber": 9,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    def __init__(self, filename, test):\n",
+                        "lineNumber": 10,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        cxscan = ElementTree.parse(filename)\n",
+                        "lineNumber": 11,
+                        "lineChange": "none"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/tableau/server-client-python/commit/921d554e550cb494d71424750459dbc1348e6b13?diff=split#diff-1817d191ee3dba3576772719ed5f6fdf9dac5891ad290947042b6c496b544214L-1",
+                    "lines": [
+                      {
+                        "line": "import xml.etree.ElementTree as ET\n",
+                        "lineNumber": 0,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "from defusedxml.ElementTree import fromstring\n",
+                        "lineNumber": 0,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 1,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 2,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "class TagItem(object):\n",
+                        "lineNumber": 3,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    @classmethod\n",
+                        "lineNumber": 4,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    def from_response(cls, resp, ns):\n",
+                        "lineNumber": 5,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        return cls.from_xml_element(ET.fromstring(resp), ns)\n",
+                        "lineNumber": 6,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "        return cls.from_xml_element(fromstring(resp), ns)\n",
+                        "lineNumber": 6,
+                        "lineChange": "added"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/GeoNode/geonode/commit/084bbf0b44a3be4e7e97f8ec02c3b350163fc620?diff=split#diff-709ba0472e42f6d983a47dce6d65992b594de32b9db5ffeb056f5045bde5c8ffL-1",
+                    "lines": [
+                      {
+                        "line": "                import xml.etree.ElementTree as ET\n",
+                        "lineNumber": 473,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "                from defusedxml import lxml as dlxml\n",
+                        "lineNumber": 473,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "                namespaces = {'wms': 'http://www.opengis.net/wms',\n",
+                        "lineNumber": 474,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "                              'xlink': 'http://www.w3.org/1999/xlink',\n",
+                        "lineNumber": 475,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "                              'xsi': 'http://www.w3.org/2001/XMLSchema-instance'}\n",
+                        "lineNumber": 476,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 477,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "                e = ET.fromstring(wms_capabilities)\n",
+                        "lineNumber": 478,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "                e = dlxml.fromstring(wms_capabilities)\n",
+                        "lineNumber": 478,
+                        "lineChange": "added"
+                      }
+                    ]
+                  }
+                ],
+                "exampleCommitDescriptions": [],
+                "precision": "very-high",
+                "repoDatasetSize": 52,
+                "cwe": [
+                  "CWE-611"
+                ]
+              }
+            },
+            {
+              "id": "python/PT",
+              "name": "PT",
+              "shortDescription": {
+                "text": "Path Traversal"
+              },
+              "defaultConfiguration": {
+                "level": "error"
+              },
+              "help": {
+                "markdown": "## Details\n\nA Directory Traversal attack (also known as path traversal) aims to access files and directories that are stored outside the intended folder. By manipulating files with \"dot-dot-slash (../)\" sequences and its variations, or by using absolute file paths, it may be possible to access arbitrary files and directories stored on file system, including application source code, configuration, and other critical system files.\n\nBeing able to access and manipulate an arbitrary path leads to vulnerabilities when a program is being run with privileges that the user providing the path should not have. A website with a path traversal vulnerability would allow users access to sensitive files on the server hosting it. CLI programs may also be vulnerable to path traversal if they are being ran with elevated privileges (such as with the setuid or setgid flags in Unix systems).\n\nDirectory Traversal vulnerabilities can be generally divided into two types:\n\n- **Information Disclosure**: Allows the attacker to gain information about the folder structure or read the contents of sensitive files on the system.\n\n`st` is a module for serving static files on web pages, and contains a [vulnerability of this type](https://snyk.io/vuln/npm:st:20140206). In our example, we will serve files from the `public` route.\n\nIf an attacker requests the following URL from our server, it will in turn leak the sensitive private key of the root user.\n\n```\ncurl http://localhost:8080/public/%2e%2e/%2e%2e/%2e%2e/%2e%2e/%2e%2e/root/.ssh/id_rsa\n```\n**Note** `%2e` is the URL encoded version of `.` (dot).\n\n- **Writing arbitrary files**: Allows the attacker to create or replace existing files. This type of vulnerability is also known as `Zip-Slip`.\n\nOne way to achieve this is by using a malicious `zip` archive that holds path traversal filenames. When each filename in the zip archive gets concatenated to the target extraction folder, without validation, the final path ends up outside of the target folder. If an executable or a configuration file is overwritten with a file containing malicious code, the problem can turn into an arbitrary code execution issue quite easily.\n\nThe following is an example of a `zip` archive with one benign file and one malicious file. Extracting the malicious file will result in traversing out of the target folder, ending up in `/root/.ssh/` overwriting the `authorized_keys` file:\n\n```\n2018-04-15 22:04:29 .....           19           19  good.txt\n2018-04-15 22:04:42 .....           20           20  ../../../../../../root/.ssh/authorized_keys\n```",
+                "text": ""
+              },
+              "properties": {
+                "tags": [
+                  "python",
+                  "PT",
+                  "Security",
+                  "SourceServer",
+                  "SourceHttpParam",
+                  "Taint"
+                ],
+                "categories": [
+                  "Security"
+                ],
+                "exampleCommitFixes": [
+                  {
+                    "commitURL": "https://github.com/cmusatyalab/opendiamond/commit/398049c187ee644beabab44d6fece82251c1ea56?diff=split#diff-70a9940f7965191dc6ca548a38cd1bde7ec7ceaf10f26ca454cd4223d5d50fa9L-1",
+                    "lines": [
+                      {
+                        "line": "    return os.path.join(DATAROOT, obj_path)\n",
+                        "lineNumber": 122,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "    return safe_join(DATAROOT, obj_path)\n",
+                        "lineNumber": 123,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 124,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 125,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "def _get_index_absolute_path(index):\n",
+                        "lineNumber": 126,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    return os.path.join(INDEXDIR, index)\n",
+                        "lineNumber": 126,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 128,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 129,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "@scope_blueprint.route('/obj/<path:obj_path>')\n",
+                        "lineNumber": 130,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "def get_object_src_http(obj_path):\n",
+                        "lineNumber": 131,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    path = _get_obj_absolute_path(obj_path)\n",
+                        "lineNumber": 132,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 133,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    headers = Headers()\n",
+                        "lineNumber": 134,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    # With add_etags=True, conditional=True\n",
+                        "lineNumber": 135,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    # Flask should be smart enough to do 304 Not Modified\n",
+                        "lineNumber": 136,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    response = send_file(path,\n",
+                        "lineNumber": 137,
+                        "lineChange": "none"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/fonttools/fonttools/commit/0b99c8968e04e2e36c6c46ad8bb1a550d25969b4?diff=split#diff-e8b6161353c7ce5b13e62df1da329a85de0ef80ce8f039d283c25bf892b2b600L-1",
+                    "lines": [
+                      {
+                        "line": "\n",
+                        "lineNumber": 16,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "destdir = None\n",
+                        "lineNumber": 17,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "if sys.argv[1:]:\n",
+                        "lineNumber": 18,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\tdestdir = os.path.normpath(os.path.join(os.getcwd(), sys.argv[1]))\n",
+                        "lineNumber": 19,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\tassert os.path.isdir(destdir), \"destination is not an existing directory\"\n",
+                        "lineNumber": 20,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 21,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "os.chdir(wdir)\n",
+                        "lineNumber": 22,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 23,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "tar = src + \".tar\"\n",
+                        "lineNumber": 24,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "gz = tar + \".gz\"\n",
+                        "lineNumber": 25,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "tgz = src + \".tgz\"\n",
+                        "lineNumber": 19,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 26,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "print \"source:\", src\n",
+                        "lineNumber": 27,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "print \"dest:\", tgz\n",
+                        "lineNumber": 22,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 29,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "os.system('tar --exclude=CVS --exclude=%s -cf %s %s' % (scriptname, tar, src))\n",
+                        "lineNumber": 30,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "os.system('gzip -9v %s' % tar)\n",
+                        "lineNumber": 31,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "os.rename(gz, tgz)\n",
+                        "lineNumber": 26,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 32,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "if destdir:\n",
+                        "lineNumber": 33,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\tprint \"destination directory:\", destdir\n",
+                        "lineNumber": 34,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\tos.system('mv %s %s' % (gz, destdir))\n",
+                        "lineNumber": 35,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 36,
+                        "lineChange": "added"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/Guad/fuwa/commit/955baf1c0e8824f08a96e48a350ee3cd0e3c5493?diff=split#diff-568470d013cd12e4f388206520da39ab9a4e4c3c6b95846cbc281abc1ba3c959L-1",
+                    "lines": [
+                      {
+                        "line": "import string, random\n",
+                        "lineNumber": 1,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "import string, random, hashlib, os\n",
+                        "lineNumber": 1,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "from werkzeug import secure_filename\n",
+                        "lineNumber": 2,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 3,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "#Load config file\n",
+                        "lineNumber": 4,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "config = {}\n",
+                        "lineNumber": 5,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "with open('config.ini', 'r') as file:\n",
+                        "lineNumber": 6,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\tfor line in file.read().splitlines():\n",
+                        "lineNumber": 7,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\tline = line.split('==')\n",
+                        "lineNumber": 8,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\tconfig[line[0]] = line[1]\n",
+                        "lineNumber": 9,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 10,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "app = flask.Flask(__name__) #Initialize our application\n",
+                        "lineNumber": 11,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "app.config['MAX_CONTENT_LENGTH'] = 10 * 1024 * 1024 #Set the upload limit to 10MiB\n",
+                        "lineNumber": 12,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 14,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "def genHash(seed): #Generate five letter filenames for our files\n",
+                        "lineNumber": 15,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    base = string.ascii_lowercase+string.digits \n",
+                        "lineNumber": 16,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    random.seed(seed)\n",
+                        "lineNumber": 17,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    hash_value = \"\"\n",
+                        "lineNumber": 18,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    for i in range(5):\n",
+                        "lineNumber": 19,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        hash_value += random.choice(base)\n",
+                        "lineNumber": 20,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    return hash_value\n",
+                        "lineNumber": 21,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 22,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 23,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "@app.route('/', methods=['GET', 'POST'])\n",
+                        "lineNumber": 24,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "def index():\n",
+                        "lineNumber": 25,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\tif flask.request.method == 'POST':\n",
+                        "lineNumber": 26,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\t\"\"\"\n",
+                        "lineNumber": 27,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\t\tFile upload happens here.\n",
+                        "lineNumber": 28,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\t\tWe get your filename and convert it to our hash with your extension.\n",
+                        "lineNumber": 29,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\t\tThen we redirect to the file itself.\n",
+                        "lineNumber": 30,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\t\"\"\"\n",
+                        "lineNumber": 31,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\tf = flask.request.files['file']\n",
+                        "lineNumber": 32,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\t\textension = f.filename.split('.')[-1]\n",
+                        "lineNumber": 24,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "\t\tfilename = genHash(f.filename) + '.' + extension\n",
+                        "lineNumber": 25,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "\t\tf.save('static/files/%s' % filename)\n",
+                        "lineNumber": 26,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "\t\tprint 'Uploaded file \\'%s\\'' % filename #Log what file was uploaded\n",
+                        "lineNumber": 27,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "\t\treturn flask.redirect(flask.url_for('getFile', filename=filename))\n",
+                        "lineNumber": 28,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "\t\t\n",
+                        "lineNumber": 33,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\thasher = hashlib.md5() \t\t\n",
+                        "lineNumber": 34,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\tbuf = f.read()\t\t   \t\t\n",
+                        "lineNumber": 35,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\tf.seek(0) #Set cursor back to position 0 so we can read it again in the save function.\n",
+                        "lineNumber": 36,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\t\t\t\t\t\t\t# We hash the file to get its filename.\t   \t\t\n",
+                        "lineNumber": 37,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\t\t\t\t\t\t\t# So that we can upload two different images with the same filename,\n",
+                        "lineNumber": 38,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\thasher.update(buf)\t   \t\t# But not two same images with different filenames.\n",
+                        "lineNumber": 39,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\tdirname = genHash(hasher.hexdigest())\n",
+                        "lineNumber": 40,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\tif not os.path.exists(\"static/files/%s\" % dirname): # Check if the folder already exists\n",
+                        "lineNumber": 41,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\tos.mkdir('static/files/%s' % dirname) #Make it\n",
+                        "lineNumber": 42,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\tf.save('static/files/%s/%s' % (dirname, secure_filename(f.filename)))\n",
+                        "lineNumber": 43,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\tprint 'Uploaded file \\'%s\\'' % secure_filename(f.filename) #Log what file was uploaded\n",
+                        "lineNumber": 44,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\treturn flask.redirect(flask.url_for('getFile', dirname=dirname,filename=secure_filename(f.filename)))\n",
+                        "lineNumber": 45,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\telse:\n",
+                        "lineNumber": 46,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\tflask.flash('File already exists in %s!' % dirname) #Display a message for the user.\n",
+                        "lineNumber": 47,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\t\t\treturn flask.redirect(flask.url_for('index'))\n",
+                        "lineNumber": 48,
+                        "lineChange": "added"
+                      }
+                    ]
+                  }
+                ],
+                "exampleCommitDescriptions": [],
+                "precision": "very-high",
+                "repoDatasetSize": 180,
+                "cwe": [
+                  "CWE-23"
+                ]
+              }
+            },
+            {
+              "id": "python/ServerInformationExposure",
+              "name": "ServerInformationExposure",
+              "shortDescription": {
+                "text": "Server Information Exposure"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "markdown": "## Details\n\nWhen a command to your site or application fails, it should do so gracefully, meaning that the user is informed that there has been a problem, rather than experiencing erratic behavior, such as crashing, hanging, or returning a 404 or similar generic error page.\n\nIn some cases, developers include information in an error message to help pinpoint the source of an error; these may include username, password, application path, stack values, and other internal details. When this weakness is present, if these logs are accessible to an attacker, it may give them clues as to the inner workings of the app, helping them plan a focused attack. For example, clues revealing SQL database details may help plan an SQL injection attack.\n\n## Best practices for prevention\n* Keep error messages to the barest minimum of helpful information that users absolutely need to know.\n* Use consistent error messages that do not give attackers clues that they might be on the right track to a successful attack, such as \"File not found\" or \"User name does not exist\".\n* Ensure that debugging information is removed from code prior to release.\n* Create clear policy for the types of errors that must be logged, which messages will be displayed to users, and which details will be logged for later alerting and debugging.\n* When logging error details, never include sensitive information such as passwords.\n* Implement naming conventions that will help you flag and defend sensitive information.\n* Use dynamic (white box) test techniques to identify conditions that could cause errors and failures and test thoroughly to ensure that the code performs gracefully without revealing sensitive data under these stress conditions.",
+                "text": ""
+              },
+              "properties": {
+                "tags": [
+                  "python",
+                  "ServerInformationExposure",
+                  "Security",
+                  "SourceStackTrace",
+                  "Taint"
+                ],
+                "categories": [
+                  "Security"
+                ],
+                "exampleCommitFixes": [
+                  {
+                    "commitURL": "https://github.com/neurodata/ndstore/commit/2ea79e743de641ba61f302f7a6a03021a59afcef?diff=split#diff-c959a612f257e3226b18728f72286ca8dffd02019f8f11df8b09de587ee44de2L-1",
+                    "lines": [
+                      {
+                        "line": "return django.http.HttpResponseNotFound(e)\n",
+                        "lineNumber": 75,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "return django.http.HttpResponseNotFound(e.value)\n",
+                        "lineNumber": 75,
+                        "lineChange": "added"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/hcarvalhoalves/django-rest-thumbnails/commit/0ba38a5d752fba5b296264eb621ced611831a6bc?diff=split#diff-c96a187f2f543e8fad774cef55fc6d535ce533f3dabbd90cdf539aff7444b49bL-1",
+                    "lines": [
+                      {
+                        "line": "DEFAULT_TIMEOUT = 30\n",
+                        "lineNumber": 9,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "SECRET_PARAM = getattr(settings, 'REST_THUMBNAILS_SECRET_PARAM', 'secret')\n",
+                        "lineNumber": 9,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "TIMEOUT = getattr(settings, 'REST_THUMBNAILS_LOCK_TIMEOUT', 30)\n",
+                        "lineNumber": 10,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 11,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 12,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "def rescue(status=200):\n",
+                        "lineNumber": 13,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    return http.HttpResponse(status=status)\n",
+                        "lineNumber": 14,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 15,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 16,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "class ThumbnailView(View):\n",
+                        "lineNumber": 17,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "   def get(self, request, *args, **kwargs):\n",
+                        "lineNumber": 18,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        # Return 400 on invalid parameters - HTTP agents should also\n",
+                        "lineNumber": 13,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        # cache this response\n",
+                        "lineNumber": 14,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "try:\n",
+                        "lineNumber": 20,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    thumbnail = get_thumbnail(**self.kwargs)\n",
+                        "lineNumber": 21,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "except ThumbnailError, e:\n",
+                        "lineNumber": 22,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    return http.HttpResponseBadRequest(e)\n",
+                        "lineNumber": 18,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "    return rescue(status=400)\n",
+                        "lineNumber": 23,
+                        "lineChange": "added"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/grnet/synnefo/commit/a54d059ee5e38108f735636adf0ff937e84ffafd?diff=split#diff-325d5843487abda236a1f52e2d32a1057039442a0c9f6d9c470abaa8aede577bL-1",
+                    "lines": [
+                      {
+                        "line": "return HttpResponseNotFound(e)\n",
+                        "lineNumber": 86,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "logger.exception(e)\n",
+                        "lineNumber": 87,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "return HttpResponse(status=e.reason)\n",
+                        "lineNumber": 88,
+                        "lineChange": "added"
+                      }
+                    ]
+                  }
+                ],
+                "exampleCommitDescriptions": [],
+                "precision": "very-high",
+                "repoDatasetSize": 33,
+                "cwe": [
+                  "CWE-209"
+                ]
+              }
+            },
+            {
+              "id": "python/TooPermissiveCors",
+              "name": "TooPermissiveCors",
+              "shortDescription": {
+                "text": "Origin Validation Error"
+              },
+              "defaultConfiguration": {
+                "level": "warning"
+              },
+              "help": {
+                "markdown": "\n## Details\n\nAs a legacy of early web design and site limitations, most web applications default, for security reasons, to a \"same origin policy\". This means that browsers can only retrieve data from another site if the two sites share the same domain. In today's complex online environment, however, sites and applications often need to retrieve data from other domains. This is done under fairly limited conditions through an exception to the same origin policy known as \"cross-origin resource sharing\".\n\nDevelopers may create definitions of trusted domains that are broader than absolutely necessary, inadvertently opening up wider access than intended. This weakness could result in data exposure or loss, or even allow an attacker to take over the site or application.\n\n## Best practices for prevention\n* Avoid using wildcards for cross-origin resource sharing. Instead, define intended domains explicitly.\n* Ensure that your site or app is well defended against cross-site scripting attacks (XSS), which could lead to takeover via an overly permissive cross-domain policy.\n* Do not mix secure and insecure protocols when defining cross-domain policies.\n* Consider defining a clear approved list to specify which domains will be given resource-level access; use this approved list to validate all domain access requests.\n* Clearly define which methods (view, read, and update) are permitted for each resource and domain to avoid abuse.",
+                "text": ""
+              },
+              "properties": {
+                "tags": [
+                  "python",
+                  "TooPermissiveCors",
+                  "Security"
+                ],
+                "categories": [
+                  "Security"
+                ],
+                "exampleCommitFixes": [
+                  {
+                    "commitURL": "https://github.com/streamlit/streamlit/commit/474b38a5c0194d689d95919576cadef2b3ff706b?diff=split#diff-bf44ddb05a89f0d8c0096498307720c23e9d2eb7f9d36a6f25b52c94c10f95e0L-1",
+                    "lines": [
+                      {
+                        "line": "self.set_header(\"Content-Type\", \"application/json\")\n",
+                        "lineNumber": 35,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "if config.get_option(\"server.enableXsrfProtection\"):\n",
+                        "lineNumber": 34,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    self.set_header(\n",
+                        "lineNumber": 35,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "        \"Access-Control-Allow-Origin\",\n",
+                        "lineNumber": 36,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "        server_util.get_url(config.get_option(\"browser.serverAddress\")),\n",
+                        "lineNumber": 37,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    )\n",
+                        "lineNumber": 38,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    self.set_header(\"Access-Control-Allow-Headers\", \"X-Xsrftoken, Content-Type\")\n",
+                        "lineNumber": 39,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    self.set_header(\"Vary\", \"Origin\")\n",
+                        "lineNumber": 40,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    self.set_header(\"Access-Control-Allow-Credentials\", \"true\")\n",
+                        "lineNumber": 41,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "elif routes.allow_cross_origin_requests():\n",
+                        "lineNumber": 42,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    self.set_header(\"Access-Control-Allow-Origin\", \"*\")\n",
+                        "lineNumber": 43,
+                        "lineChange": "added"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/alanctkc/wsgi-middleware-demo/commit/984f64b1c9f201a2fb452502ac48c10954c40231?diff=split#diff-5380c2e333c5ab4c6d5fb769113ff90c2f50131a53cc4d784e8373bd00c1be4eL-1",
+                    "lines": [
+                      {
+                        "line": "def validate_origin(origin, whitelist):\n",
+                        "lineNumber": 0,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    return origin and origin in whitelist\n",
+                        "lineNumber": 1,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 2,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 3,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "def cors_middleware(app):\n",
+                        "lineNumber": 4,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    print \"CORS middleware applied.\"\n",
+                        "lineNumber": 5,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 6,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    whitelist = ['http://localhost:9000', 'http://localhost:9001']\n",
+                        "lineNumber": 7,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 8,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    def cors_enabled_application(environ, start_response):\n",
+                        "lineNumber": 9,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 10,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        origin = environ.get('HTTP_ORIGIN')\n",
+                        "lineNumber": 11,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 12,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "        def cors_allowed_response(status, response_headers, exc_info=None):\n",
+                        "lineNumber": 13,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "            \"\"\"This wraps the start_response behavior to add some headers.\"\"\"\n",
+                        "lineNumber": 14,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "            response_headers.extend([('Access-Control-Allow-Origin', '*')])\n",
+                        "lineNumber": 7,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "            response_headers.extend([('Access-Control-Allow-Origin', origin)])\n",
+                        "lineNumber": 15,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "            return start_response(status, response_headers, exc_info)\n",
+                        "lineNumber": 16,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 17,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "        if validate_origin(origin, whitelist):\n",
+                        "lineNumber": 18,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "            return app(environ, cors_allowed_response)\n",
+                        "lineNumber": 19,
+                        "lineChange": "none"
+                      }
+                    ]
+                  },
+                  {
+                    "commitURL": "https://github.com/admiralobvious/falcon-boilerplate/commit/411c9e3669c49d38ba2ceac58257ecb3af1029ed?diff=split#diff-4db911b05254f60d1dd42131be4e0a9072f90d50b5c2d5ca5de89a576ae8bb86L-1",
+                    "lines": [
+                      {
+                        "line": "import falcon\n",
+                        "lineNumber": 0,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "import app.util.json as json\n",
+                        "lineNumber": 0,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "from app.config import settings\n",
+                        "lineNumber": 1,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "from app.util.error import HTTPError\n",
+                        "lineNumber": 2,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 3,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "import app.util.serialization as json\n",
+                        "lineNumber": 2,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 4,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "\n",
+                        "lineNumber": 4,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "class Crossdomain(object):\n",
+                        "lineNumber": 5,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "def process_response(self, req, resp, resource):\n",
+                        "lineNumber": 6,
+                        "lineChange": "none"
+                      },
+                      {
+                        "line": "    resp.set_header('Access-Control-Allow-Origin', '*')  # Change in prod\n",
+                        "lineNumber": 7,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "    resp.set_header('Access-Control-Allow-Methods',\n",
+                        "lineNumber": 8,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "                    'GET, PUT, POST, DELETE')\n",
+                        "lineNumber": 9,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "    resp.set_header('Access-Control-Allow-Credentials', 'true')\n",
+                        "lineNumber": 10,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "    resp.set_header(\n",
+                        "lineNumber": 11,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "        'Access-Control-Allow-Headers',\n",
+                        "lineNumber": 12,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "        'Origin, Authorization, Content-Type, X-Requested-With')\n",
+                        "lineNumber": 13,
+                        "lineChange": "removed"
+                      },
+                      {
+                        "line": "    resp.set_header(\"Access-Control-Allow-Origin\",\n",
+                        "lineNumber": 7,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "                    settings.get(\"ACCESS_CONTROL_ALLOW_ORIGIN\"))\n",
+                        "lineNumber": 8,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    resp.set_header(\"Access-Control-Allow-Methods\",\n",
+                        "lineNumber": 9,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "                    settings.get(\"ACCESS_CONTROL_ALLOW_METHODS\"))\n",
+                        "lineNumber": 10,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    resp.set_header(\"Access-Control-Allow-Credentials\",\n",
+                        "lineNumber": 11,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "                    settings.get(\"ACCESS_CONTROL_ALLOW_CREDENTIALS\"))\n",
+                        "lineNumber": 12,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "    resp.set_header(\"Access-Control-Allow-Headers\",\n",
+                        "lineNumber": 13,
+                        "lineChange": "added"
+                      },
+                      {
+                        "line": "                    settings.get(\"ACCESS_CONTROL_ALLOW_HEADERS\"))\n",
+                        "lineNumber": 14,
+                        "lineChange": "added"
+                      }
+                    ]
+                  }
+                ],
+                "exampleCommitDescriptions": [],
+                "precision": "very-high",
+                "repoDatasetSize": 82,
+                "cwe": [
+                  "CWE-942",
+                  "CWE-346"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "results": [
+        {
+          "ruleId": "python/InsecureXmlParser",
+          "ruleIndex": 0,
+          "level": "warning",
+          "message": {
+            "text": "xml.etree.ElementTree.fromstring is vulnerable to XXE and DDOS in versions of python <= 3.10. If using python runtime 3.10 or older, consider upgrading python versions, or see https://docs.python.org/3.10/library/xml.html#xml-vulnerabilities for mitigations. Python versions 3.11 and onwards do not have this issue.",
+            "markdown": "{0} is vulnerable to XXE and DDOS in versions of python <= 3.10. If using python runtime 3.10 or older, consider upgrading python versions, or see https://docs.python.org/3.10/library/xml.html#xml-vulnerabilities for mitigations. Python versions 3.11 and onwards do not have this issue.",
+            "arguments": [
+              "[xml.etree.ElementTree.fromstring](0)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "lib/utils/adb_utils.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 473,
+                  "endLine": 473,
+                  "startColumn": 20,
+                  "endColumn": 33
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "1": "fc18fc4d.d797f3a1.79e62dc9.03d71cbf.424999a1.ba14daf2.624bb7d5.ebed174f.fc18fc4d.d797f3a1.79e62dc9.03d71cbf.424999a1.ba14daf2.624bb7d5.ebed174f",
+            "snyk/asset/finding/v1": "3340a283-fffc-4fde-8879-593469798d6b",
+            "identity": "3340a283-fffc-4fde-8879-593469798d6b",
+            "0": "a40b3a5625e91831168b3cfa4355cad1567cea7ed205a4bc052cd84e24b72efc"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "lib/utils/adb_utils.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 473,
+                            "endLine": 473,
+                            "startColumn": 20,
+                            "endColumn": 33
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 505,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "hotFileCodeFlow"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into flask.send_file, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5)",
+              "[flask.send_file](6)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_av_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 637,
+                  "endLine": 637,
+                  "startColumn": 20,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "9aa615ef-fbeb-43d6-ae29-b88bbc002f45",
+            "0": "e0f401d1ffd08ff30a7a1095027f21f96272e80bf18aebe1e273131550a14d9c",
+            "1": "4ea060f0.2da3d253.79e62dc9.139c59a8.f4f10911.786f7372.65909226.d5c196e5.129db901.2da3d253.b35c3d51.91aeb8c7.f4f10911.1835da1e.65909226.3b7aaa08",
+            "snyk/asset/finding/v1": "9aa615ef-fbeb-43d6-ae29-b88bbc002f45"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 613,
+                            "endLine": 613,
+                            "startColumn": 22,
+                            "endColumn": 30
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 613,
+                            "endLine": 613,
+                            "startColumn": 22,
+                            "endColumn": 30
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 626,
+                            "endLine": 626,
+                            "startColumn": 51,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 626,
+                            "endLine": 626,
+                            "startColumn": 28,
+                            "endColumn": 50
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 626,
+                            "endLine": 626,
+                            "startColumn": 13,
+                            "endColumn": 60
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 637,
+                            "endLine": 637,
+                            "startColumn": 30,
+                            "endColumn": 42
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 637,
+                            "endLine": 637,
+                            "startColumn": 20,
+                            "endColumn": 29
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into flask.send_file, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12)",
+              "[flask.send_file](13)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_av_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 688,
+                  "endLine": 688,
+                  "startColumn": 20,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "1": "4ea060f0.2da3d253.79e62dc9.139c59a8.f4f10911.786f7372.65909226.8a73a01e.e85162e7.2da3d253.184a673a.91aeb8c7.f4f10911.b2bb1a70.669c1d46.8a73a01e",
+            "snyk/asset/finding/v1": "9cf67f09-ad6e-4e48-a89e-3898575fe41b",
+            "identity": "9cf67f09-ad6e-4e48-a89e-3898575fe41b",
+            "0": "5e85aace73c280098f0d4886570688926a4e97f1f3a1f8eef9bef73247e16957"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 658,
+                            "endLine": 658,
+                            "startColumn": 21,
+                            "endColumn": 37
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 658,
+                            "endLine": 658,
+                            "startColumn": 21,
+                            "endColumn": 37
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 658,
+                            "endLine": 658,
+                            "startColumn": 9,
+                            "endColumn": 45
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 666,
+                            "endLine": 666,
+                            "startColumn": 35,
+                            "endColumn": 44
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 666,
+                            "endLine": 666,
+                            "startColumn": 35,
+                            "endColumn": 52
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 666,
+                            "endLine": 666,
+                            "startColumn": 17,
+                            "endColumn": 69
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 667,
+                            "endLine": 667,
+                            "startColumn": 61,
+                            "endColumn": 76
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 667,
+                            "endLine": 667,
+                            "startColumn": 40,
+                            "endColumn": 60
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 667,
+                            "endLine": 667,
+                            "startColumn": 17,
+                            "endColumn": 77
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 668,
+                            "endLine": 668,
+                            "startColumn": 34,
+                            "endColumn": 54
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 10,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 668,
+                            "endLine": 668,
+                            "startColumn": 34,
+                            "endColumn": 62
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 11,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 668,
+                            "endLine": 668,
+                            "startColumn": 17,
+                            "endColumn": 79
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 12,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 688,
+                            "endLine": 688,
+                            "startColumn": 30,
+                            "endColumn": 44
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 13,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 688,
+                            "endLine": 688,
+                            "startColumn": 20,
+                            "endColumn": 29
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into open, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5)",
+              "[open](6)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_translation_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 152,
+                  "endLine": 152,
+                  "startColumn": 14,
+                  "endColumn": 18
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "072f5eca-29ca-47d1-a489-4201f5df4981",
+            "0": "3071fcf105ee88fc9b0bb1b16686d70ac7db75a040509424e79b49e5f91d2fba",
+            "1": "2e8ddaeb.784012f5.187bf175.139c59a8.f3eda546.ba14daf2.081ac3f4.a4830b9a.2e8ddaeb.be004016.187bf175.5bc6639a.182d481f.ba14daf2.081ac3f4.a4830b9a",
+            "snyk/asset/finding/v1": "072f5eca-29ca-47d1-a489-4201f5df4981"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 128,
+                            "endLine": 128,
+                            "startColumn": 24,
+                            "endColumn": 38
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 128,
+                            "endLine": 128,
+                            "startColumn": 24,
+                            "endColumn": 38
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 53,
+                            "endColumn": 67
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 27,
+                            "endColumn": 52
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 9,
+                            "endColumn": 87
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 152,
+                            "endLine": 152,
+                            "startColumn": 19,
+                            "endColumn": 34
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 152,
+                            "endLine": 152,
+                            "startColumn": 14,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into open, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to read arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8)",
+              "[open](9)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_translation_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 289,
+                  "endLine": 289,
+                  "startColumn": 14,
+                  "endColumn": 18
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "snyk/asset/finding/v1": "4bb3ed73-474d-415f-a4a7-67e848dc62a3",
+            "identity": "4bb3ed73-474d-415f-a4a7-67e848dc62a3",
+            "0": "ca6a4154de705e98f8042ebc1c9b06572d42efa1bd10b26611e2aaae98c8531f",
+            "1": "2e8ddaeb.09b47a5b.187bf175.139c59a8.f3eda546.0b12d71d.081ac3f4.a4830b9a.2e8ddaeb.be004016.187bf175.5bc6639a.f3eda546.0b12d71d.a2237efa.f46ed94e"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 258,
+                            "endLine": 258,
+                            "startColumn": 27,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 258,
+                            "endLine": 258,
+                            "startColumn": 27,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 44,
+                            "endColumn": 58
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 23,
+                            "endColumn": 43
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 9,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 40,
+                            "endColumn": 51
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 27,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 9,
+                            "endColumn": 80
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 289,
+                            "endLine": 289,
+                            "startColumn": 19,
+                            "endColumn": 34
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 289,
+                            "endLine": 289,
+                            "startColumn": 14,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into json.dump, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to write arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to write arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11)",
+              "[json.dump](12)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_translation_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 238,
+                  "endLine": 238,
+                  "startColumn": 13,
+                  "endColumn": 22
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "9e654d9e-a864-4eae-8757-f7e40b30d3db",
+            "0": "53d280df5f4d0bb1388fca7cab97ca23c2af5bf07c1a5097c330c4c8545141fb",
+            "1": "2e8ddaeb.53ba7989.187bf175.139c59a8.175c247b.111d979a.081ac3f4.545e9171.2e8ddaeb.53ba7989.187bf175.139c59a8.182d481f.111d979a.4d04aaf9.f46ed94e",
+            "snyk/asset/finding/v1": "9e654d9e-a864-4eae-8757-f7e40b30d3db"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 128,
+                            "endLine": 128,
+                            "startColumn": 24,
+                            "endColumn": 38
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 128,
+                            "endLine": 128,
+                            "startColumn": 24,
+                            "endColumn": 38
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 53,
+                            "endColumn": 67
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 27,
+                            "endColumn": 52
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 9,
+                            "endColumn": 87
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 236,
+                            "endLine": 236,
+                            "startColumn": 21,
+                            "endColumn": 36
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 236,
+                            "endLine": 236,
+                            "startColumn": 21,
+                            "endColumn": 45
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 236,
+                            "endLine": 236,
+                            "startColumn": 9,
+                            "endColumn": 45
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 237,
+                            "endLine": 237,
+                            "startColumn": 19,
+                            "endColumn": 28
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 237,
+                            "endLine": 237,
+                            "startColumn": 14,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 10,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 237,
+                            "endLine": 237,
+                            "startColumn": 56,
+                            "endColumn": 57
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 11,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 238,
+                            "endLine": 238,
+                            "startColumn": 40,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 12,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 238,
+                            "endLine": 238,
+                            "startColumn": 13,
+                            "endColumn": 22
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into json.dump, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to write arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to write arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8),(9),(10),(11),(12)",
+              "[json.dump](13)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_translation_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 325,
+                  "endLine": 325,
+                  "startColumn": 13,
+                  "endColumn": 22
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "2bc85698-3051-4e95-a65a-9e60cf6b0659",
+            "0": "22089345bc4bd7c271ba10161e771c3a3b5e61fc54430e71f289c888f120384d",
+            "1": "2e8ddaeb.a215d38b.187bf175.139c59a8.175c247b.111d979a.081ac3f4.8794408a.2e8ddaeb.e35ffafd.187bf175.139c59a8.175c247b.111d979a.4d04aaf9.f46ed94e",
+            "snyk/asset/finding/v1": "2bc85698-3051-4e95-a65a-9e60cf6b0659"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 258,
+                            "endLine": 258,
+                            "startColumn": 27,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 258,
+                            "endLine": 258,
+                            "startColumn": 27,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 44,
+                            "endColumn": 58
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 23,
+                            "endColumn": 43
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 9,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 40,
+                            "endColumn": 51
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 27,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 9,
+                            "endColumn": 80
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 324,
+                            "endLine": 324,
+                            "startColumn": 19,
+                            "endColumn": 34
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 324,
+                            "endLine": 324,
+                            "startColumn": 19,
+                            "endColumn": 43
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 10,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 324,
+                            "endLine": 324,
+                            "startColumn": 14,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 11,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 324,
+                            "endLine": 324,
+                            "startColumn": 53,
+                            "endColumn": 54
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 12,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 325,
+                            "endLine": 325,
+                            "startColumn": 40,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 13,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 325,
+                            "endLine": 325,
+                            "startColumn": 13,
+                            "endColumn": 22
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into os.replace, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to remove arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to remove arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8)",
+              "[os.replace](9)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_translation_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 239,
+                  "endLine": 239,
+                  "startColumn": 9,
+                  "endColumn": 19
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "8f38e55e-248f-42a2-a7ea-571c7a8199e6",
+            "0": "ba346bf19287cfc6c137cb4e404deca5b06e64b2eb7e6fc102f32f4c1b2dd958",
+            "1": "2e8ddaeb.53ba7989.187bf175.139c59a8.f3eda546.ba14daf2.081ac3f4.8794408a.2e8ddaeb.5a500f7a.187bf175.cc98b6f9.58505caf.ba14daf2.0de88805.a4830b9a",
+            "snyk/asset/finding/v1": "8f38e55e-248f-42a2-a7ea-571c7a8199e6"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 128,
+                            "endLine": 128,
+                            "startColumn": 24,
+                            "endColumn": 38
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 128,
+                            "endLine": 128,
+                            "startColumn": 24,
+                            "endColumn": 38
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 53,
+                            "endColumn": 67
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 27,
+                            "endColumn": 52
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 146,
+                            "endLine": 146,
+                            "startColumn": 9,
+                            "endColumn": 87
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 236,
+                            "endLine": 236,
+                            "startColumn": 21,
+                            "endColumn": 36
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 236,
+                            "endLine": 236,
+                            "startColumn": 21,
+                            "endColumn": 45
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 236,
+                            "endLine": 236,
+                            "startColumn": 9,
+                            "endColumn": 45
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 239,
+                            "endLine": 239,
+                            "startColumn": 20,
+                            "endColumn": 29
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 239,
+                            "endLine": 239,
+                            "startColumn": 9,
+                            "endColumn": 19
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/PT",
+          "ruleIndex": 1,
+          "level": "error",
+          "message": {
+            "text": "Unsanitized input from an HTTP parameter flows into os.rename, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to write arbitrary files.",
+            "markdown": "Unsanitized input from {0} {1} into {2}, where it is used as a path. This may result in a Path Traversal vulnerability and allow an attacker to write arbitrary files.",
+            "arguments": [
+              "[an HTTP parameter](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8)",
+              "[os.rename](9)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_translation_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 326,
+                  "endLine": 326,
+                  "startColumn": 9,
+                  "endColumn": 18
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "9b6c27fe-14e6-4e6a-b322-0ebbd2c0566f",
+            "0": "b9ab0c08d4acdf6321e041c664f47a41c78ed2febf38e467c89e9517cae85b3f",
+            "1": "2d06e3d6.1c6650e9.2683ade8.139c59a8.056de048.0b12d71d.081ac3f4.8794408a.2e8ddaeb.d66f11c1.187bf175.139c59a8.87ed5538.0b12d71d.8040e4af.40f9a2ab",
+            "snyk/asset/finding/v1": "9b6c27fe-14e6-4e6a-b322-0ebbd2c0566f"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 258,
+                            "endLine": 258,
+                            "startColumn": 27,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 258,
+                            "endLine": 258,
+                            "startColumn": 27,
+                            "endColumn": 41
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 44,
+                            "endColumn": 58
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 23,
+                            "endColumn": 43
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 280,
+                            "endLine": 280,
+                            "startColumn": 9,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 40,
+                            "endColumn": 51
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 27,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 281,
+                            "endLine": 281,
+                            "startColumn": 9,
+                            "endColumn": 80
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 326,
+                            "endLine": 326,
+                            "startColumn": 45,
+                            "endColumn": 60
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_translation_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 326,
+                            "endLine": 326,
+                            "startColumn": 9,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 839,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/ServerInformationExposure",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "The stack trace from an exception flows into the return value of execute_image_verification and is leaked to the user. This may disclose sensitive server information to the attackers.",
+            "markdown": "The stack trace from {0} {1} into {2} and is leaked to the user. This may disclose sensitive server information to the attackers.",
+            "arguments": [
+              "[an exception](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8),(9)",
+              "[the return value of execute_image_verification](10)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_verification_image_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 191,
+                  "endLine": 196,
+                  "startColumn": 24,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "732679d8-4684-45bb-a9dd-05c033d9e81c",
+            "0": "19b3dc09d2a693ef0272e2a01e339f758980a31982d20a04f74b451be8eb4eca",
+            "1": "8a30cfc6.8c82a947.79e62dc9.29c8e855.146bf8fd.73cfdf26.54ae990a.f104f52b.973f29f2.24e08296.76fe3275.5759c8a0.aab64b50.73cfdf26.22a8b49e.6aac30d8",
+            "snyk/asset/finding/v1": "732679d8-4684-45bb-a9dd-05c033d9e81c"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 188,
+                            "endLine": 189,
+                            "startColumn": 29,
+                            "endColumn": 17
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 188,
+                            "endLine": 189,
+                            "startColumn": 29,
+                            "endColumn": 17
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 189,
+                            "endLine": 189,
+                            "startColumn": 67,
+                            "endColumn": 68
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 189,
+                            "endLine": 189,
+                            "startColumn": 29,
+                            "endColumn": 70
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 189,
+                            "endLine": 189,
+                            "startColumn": 17,
+                            "endColumn": 70
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 193,
+                            "endLine": 193,
+                            "startColumn": 30,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 193,
+                            "endLine": 193,
+                            "startColumn": 21,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 191,
+                            "endLine": 196,
+                            "startColumn": 32,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 191,
+                            "endLine": 191,
+                            "startColumn": 24,
+                            "endColumn": 31
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 191,
+                            "endLine": 196,
+                            "startColumn": 24,
+                            "endColumn": 24
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 10,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_image_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 191,
+                            "endLine": 196,
+                            "startColumn": 24,
+                            "endColumn": 24
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": false,
+            "priorityScore": 510,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileCodeFlow"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/ServerInformationExposure",
+          "ruleIndex": 2,
+          "level": "warning",
+          "message": {
+            "text": "The stack trace from an exception flows into the return value of execute_text_verification and is leaked to the user. This may disclose sensitive server information to the attackers.",
+            "markdown": "The stack trace from {0} {1} into {2} and is leaked to the user. This may disclose sensitive server information to the attackers.",
+            "arguments": [
+              "[an exception](0)",
+              "[flows](1),(2),(3),(4),(5),(6),(7),(8),(9)",
+              "[the return value of execute_text_verification](10)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_verification_text_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 161,
+                  "endLine": 166,
+                  "startColumn": 24,
+                  "endColumn": 24
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "snyk/asset/finding/v1": "a107605c-aa0f-43ec-b906-12cf8580e397",
+            "identity": "a107605c-aa0f-43ec-b906-12cf8580e397",
+            "0": "5c13f5f6ddda5f32b4cbb7465e95473c7554efe942137899545021acdbbf3e68",
+            "1": "8a30cfc6.8c82a947.79e62dc9.29c8e855.146bf8fd.73cfdf26.54ae990a.f104f52b.973f29f2.24e08296.02555f4e.5759c8a0.aab64b50.73cfdf26.22a8b49e.6aac30d8"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 158,
+                            "endLine": 159,
+                            "startColumn": 29,
+                            "endColumn": 17
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 158,
+                            "endLine": 159,
+                            "startColumn": 29,
+                            "endColumn": 17
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 2,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 159,
+                            "endLine": 159,
+                            "startColumn": 67,
+                            "endColumn": 68
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 3,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 159,
+                            "endLine": 159,
+                            "startColumn": 29,
+                            "endColumn": 70
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 4,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 159,
+                            "endLine": 159,
+                            "startColumn": 17,
+                            "endColumn": 70
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 5,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 163,
+                            "endLine": 163,
+                            "startColumn": 30,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 6,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 163,
+                            "endLine": 163,
+                            "startColumn": 21,
+                            "endColumn": 39
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 7,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 161,
+                            "endLine": 166,
+                            "startColumn": 32,
+                            "endColumn": 18
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 8,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 161,
+                            "endLine": 161,
+                            "startColumn": 24,
+                            "endColumn": 31
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 9,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 161,
+                            "endLine": 166,
+                            "startColumn": 24,
+                            "endColumn": 24
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 10,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_verification_text_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 161,
+                            "endLine": 166,
+                            "startColumn": 24,
+                            "endColumn": 24
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": false,
+            "priorityScore": 510,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileCodeFlow"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_av_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 617,
+                  "endLine": 617,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "0": "dea382eb6266d3b1fa89e256fe76538b31ed1cbc4f7435f45022631637948a56",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.b69c6615.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "389541f2-b259-43f6-9115-b4549583c591",
+            "identity": "389541f2-b259-43f6-9115-b4549583c591"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 617,
+                            "endLine": 617,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 617,
+                            "endLine": 617,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_av_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 638,
+                  "endLine": 638,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "snyk/asset/finding/v1": "7a389fdb-98de-4cab-aab9-6a558708440c",
+            "identity": "7a389fdb-98de-4cab-aab9-6a558708440c",
+            "0": "83b4ad56f1bdb6dd50244865a403f8ad784a7a314bd1d8b918bfad7048edd9f9",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.d9c10edc.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 638,
+                            "endLine": 638,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 638,
+                            "endLine": 638,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_av_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 652,
+                  "endLine": 652,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.b69c6615.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "9a8e7044-9cbc-4026-8e04-de2be7c89e53",
+            "identity": "9a8e7044-9cbc-4026-8e04-de2be7c89e53",
+            "0": "be4f1cb8e00aa34115077e8e3ccbff1bdce24d1af5892b9e36b0196f5e715180"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 652,
+                            "endLine": 652,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 652,
+                            "endLine": 652,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_av_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 689,
+                  "endLine": 689,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "0fbe3287-9e59-4022-ba32-49584eb6a443",
+            "0": "4cf5edd56a8494c096a477cf520ce303ff9590d04a73b186f14cdc484ae602a3",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.d9c10edc.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "0fbe3287-9e59-4022-ba32-49584eb6a443"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 689,
+                            "endLine": 689,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_av_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 689,
+                            "endLine": 689,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_builder_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 70,
+                  "endLine": 70,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "8d4be31f-9f17-4b7c-9aa7-79a245464760",
+            "0": "47435728e0a216010b3663da32721c3fc8419c7e65154994e8219da46394639d",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.b69c6615.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "8d4be31f-9f17-4b7c-9aa7-79a245464760"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 70,
+                            "endLine": 70,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 70,
+                            "endLine": 70,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_builder_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 87,
+                  "endLine": 87,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "f3a8a0dc-4e65-4f77-bd94-579249a89e11",
+            "0": "bb7266c8898460028649ff8f5b94e0607c297d3d1d340b9941a5089208d8186b",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.d9c10edc.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "f3a8a0dc-4e65-4f77-bd94-579249a89e11"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 87,
+                            "endLine": 87,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 87,
+                            "endLine": 87,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_builder_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 99,
+                  "endLine": 99,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.64d2525b.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "24e58692-c5e2-46bb-b4c6-f99302e6582b",
+            "identity": "24e58692-c5e2-46bb-b4c6-f99302e6582b",
+            "0": "3965f6eb9d39c1c2db6fb263e8f1fc87de91e4d9ed29e43ceb71aa4479aa6ba2"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 99,
+                            "endLine": 99,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 99,
+                            "endLine": 99,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_builder_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 126,
+                  "endLine": 126,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "identity": "74598efc-c046-47ad-ba58-c20e716e5235",
+            "0": "e4ce98c26c44e4be2c93eee97538ce40af56d8eb0732a05d7fda76c0d5eb4081",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.b69c6615.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "74598efc-c046-47ad-ba58-c20e716e5235"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 126,
+                            "endLine": 126,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 126,
+                            "endLine": 126,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_builder_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 207,
+                  "endLine": 207,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "0": "0ece47c3e25e23fa39e69428f085b68c15f7cd4760fee6332560384600c6ef40",
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.d9c10edc.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "b70077bc-f83a-4734-9125-2866c56f604e",
+            "identity": "b70077bc-f83a-4734-9125-2866c56f604e"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 207,
+                            "endLine": 207,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 207,
+                            "endLine": 207,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        },
+        {
+          "ruleId": "python/TooPermissiveCors",
+          "ruleIndex": 3,
+          "level": "warning",
+          "message": {
+            "text": "CORS policy \"*\" might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "markdown": "{0} {1} might be too permissive. This allows malicious code on other domains to communicate with the application, which is a security risk",
+            "arguments": [
+              "[CORS policy](0)",
+              "[\"*\"](1)"
+            ]
+          },
+          "locations": [
+            {
+              "id": 0,
+              "physicalLocation": {
+                "artifactLocation": {
+                  "uri": "routes/host_builder_routes.py",
+                  "uriBaseId": "%SRCROOT%"
+                },
+                "region": {
+                  "startLine": 219,
+                  "endLine": 219,
+                  "startColumn": 9,
+                  "endColumn": 29
+                }
+              }
+            }
+          ],
+          "fingerprints": {
+            "1": "7f2dc7a8.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.64d2525b.3b62f8f2.2d06e3d6.2da3d253.7e27d526.139c59a8.f4f10911.786f7372.081ac3f4.3b62f8f2",
+            "snyk/asset/finding/v1": "d8a2cbe5-ede6-44a0-b412-03167025e487",
+            "identity": "d8a2cbe5-ede6-44a0-b412-03167025e487",
+            "0": "ea639e999b03fed598712dc4fb5307836c665a5b4b3639405ca960e71a0c4c81"
+          },
+          "codeFlows": [
+            {
+              "threadFlows": [
+                {
+                  "locations": [
+                    {
+                      "location": {
+                        "id": 0,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 219,
+                            "endLine": 219,
+                            "startColumn": 30,
+                            "endColumn": 59
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "location": {
+                        "id": 1,
+                        "physicalLocation": {
+                          "artifactLocation": {
+                            "uri": "routes/host_builder_routes.py",
+                            "uriBaseId": "%SRCROOT%"
+                          },
+                          "region": {
+                            "startLine": 219,
+                            "endLine": 219,
+                            "startColumn": 61,
+                            "endColumn": 64
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "properties": {
+            "isAutofixable": true,
+            "priorityScore": 598,
+            "priorityScoreFactors": [
+              {
+                "label": true,
+                "type": "multipleOccurrence"
+              },
+              {
+                "label": true,
+                "type": "hotFileSource"
+              },
+              {
+                "label": true,
+                "type": "fixExamples"
+              }
+            ]
+          }
+        }
+      ],
+      "properties": {
+        "coverage": [
+          {
+            "files": 154,
+            "isSupported": true,
+            "lang": ".py",
+            "type": "SUPPORTED"
+          }
+        ]
+      },
+      "automationDetails": {
+        "id": "Snyk/Code/2025-12-03T09:19:46Z"
+      }
+    }
+  ]
+}

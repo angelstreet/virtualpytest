@@ -176,26 +176,26 @@
 <body>
     <div class="header">
         <h1>🔒 Security Report</h1>
-        <span class="timestamp">2025-11-28 12:46</span>
+        <span class="timestamp">2025-12-03 10:19</span>
     </div>
 
     <!-- Summary -->
     <div class="summary">
         <div class="summary-metrics">
             <div class="metric">
-                <div class="metric-value high">0</div>
+                <div class="metric-value high">83</div>
                 <div class="metric-label">High</div>
             </div>
             <div class="metric">
-                <div class="metric-value medium">26</div>
+                <div class="metric-value medium">61</div>
                 <div class="metric-label">Medium</div>
             </div>
             <div class="metric">
-                <div class="metric-value low">203</div>
+                <div class="metric-value low">204</div>
                 <div class="metric-label">Low</div>
             </div>
         </div>
-        <div class="summary-info">71,903 lines scanned</div>
+        <div class="summary-info">72,261 lines scanned</div>
     </div>
 
     <!-- Filters -->
@@ -213,7 +213,7 @@
                 <span class="section-title">Backend Host</span>
                 <div class="section-counts">
                     <span class="high">0</span> /
-                    <span class="medium">21</span> /
+                    <span class="medium">22</span> /
                     <span class="low">188</span>
                 </div>
             </div>
@@ -221,6 +221,10 @@
         </div>
         <div class="issues">
             <div class="issue medium" data-severity="medium">
+                <span class="issue-id">B113</span>
+                <span class="issue-loc">src/builder/blocks/api_call.py:180</span>
+                <span class="issue-text">Call to requests without timeout</span>
+            </div><div class="issue medium" data-severity="medium">
                 <span class="issue-id">B102</span>
                 <span class="issue-loc">src/builder/blocks/custom_code.py:71</span>
                 <span class="issue-text">Use of exec detected.</span>
@@ -1175,6 +1179,516 @@
         </div>
         <div class="issues">
             <div class="no-issues">No issues</div>
+        </div>
+    </div>
+
+    <!-- Snyk Code - Host -->
+    <div class="section" id="section-snyk-host">
+        <div class="section-header" onclick="toggleSection('snyk-host')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">🔍 Snyk Code - Host</span>
+                <div class="section-counts">
+                    <span class="high">8</span> /
+                    <span class="medium">13</span> /
+                    <span class="low">0</span>
+                </div>
+            </div>
+            <a class="json-link" href="snyk-host-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            <div class="issue medium" data-severity="medium">
+                <span class="issue-id">InsecureXmlParser</span>
+                <span class="issue-loc">lib/utils/adb_utils.py:473</span>
+                <span class="issue-text">xml.etree.ElementTree.fromstring is vulnerable to XXE and DDOS in versions of py</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_av_routes.py:637</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into flask.send_file, where it is</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_av_routes.py:688</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into flask.send_file, where it is</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_translation_routes.py:152</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into open, where it is used as a </span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_translation_routes.py:289</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into open, where it is used as a </span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_translation_routes.py:238</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into json.dump, where it is used </span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_translation_routes.py:325</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into json.dump, where it is used </span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_translation_routes.py:239</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into os.replace, where it is used</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">PT</span>
+                <span class="issue-loc">routes/host_translation_routes.py:326</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into os.rename, where it is used </span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/host_verification_image_routes.py:191</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of execute_image_v</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/host_verification_text_routes.py:161</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of execute_text_ve</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_av_routes.py:617</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_av_routes.py:638</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_av_routes.py:652</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_av_routes.py:689</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_builder_routes.py:70</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_builder_routes.py:87</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_builder_routes.py:99</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_builder_routes.py:126</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_builder_routes.py:207</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/host_builder_routes.py:219</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Snyk Code - Server -->
+    <div class="section" id="section-snyk-server">
+        <div class="section-header" onclick="toggleSection('snyk-server')">
+            <div class="section-left">
+                <span class="section-arrow">▶</span>
+                <span class="section-title">🔍 Snyk Code - Server</span>
+                <div class="section-counts">
+                    <span class="high">75</span> /
+                    <span class="medium">21</span> /
+                    <span class="low">1</span>
+                </div>
+            </div>
+            <a class="json-link" href="snyk-server-report.json" target="_blank" onclick="event.stopPropagation()">JSON ↗</a>
+        </div>
+        <div class="issues">
+            <div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_mcp_proxy_routes.py:335</span>
+                <span class="issue-text">The stack trace from traceback.format_exc flows into the return value of execute</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:30</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of get_teams and i</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_users_routes.py:47</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of get_user and is</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_users_routes.py:71</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of update_user and</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_users_routes.py:91</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of delete_user and</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_users_routes.py:117</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of assign_user_to_</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_users_routes.py:142</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of remove_user_fro</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">Ssrf</span>
+                <span class="issue-loc">routes/server_integrations_routes.py:72</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into requests.get, where it i</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">Ssrf</span>
+                <span class="issue-loc">routes/server_integrations_routes.py:74</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into requests.post, where it </span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">Ssrf</span>
+                <span class="issue-loc">routes/server_monitoring_routes.py:150</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into requests.get, where it is us</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">Ssrf</span>
+                <span class="issue-loc">routes/server_postman_routes.py:108</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into requests.get, where it is us</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">Ssrf</span>
+                <span class="issue-loc">routes/server_postman_routes.py:726</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into requests.request, where </span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">TooPermissiveCors</span>
+                <span class="issue-loc">routes/server_monitoring_routes.py:167</span>
+                <span class="issue-text">CORS policy "*" might be too permissive. This allows malicious code on other dom</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:46</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of get_team and is</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/auto_proxy.py:160</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of auto_pro</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_actions_routes.py:110</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of action_e</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_actions_routes.py:165</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_acti</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_actions_routes.py:231</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of action_e</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_actions_routes.py:234</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of action_e</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_ai_routes.py:23</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of anal</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_ai_routes.py:38</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of gene</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_ai_routes.py:53</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_web_routes.py:278</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_ai_routes.py:68</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of stop</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_ai_routes.py:112</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of anal</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_ai_routes.py:127</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of save</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:68</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of create_team and</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_builder_routes.py:89</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of execute_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_builder_routes.py:151</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_exec</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_campaign_execution_routes.py:238</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of exec</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_control_routes.py:151</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of take</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_control_routes.py:373</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of exec</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_control_routes.py:421</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of batc</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_desktop_bash_routes.py:25</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of desk</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_desktop_pyautogui_routes.py:25</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of desk</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_device_routes.py:72</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of crea</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_device_routes.py:119</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of upda</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:90</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of update_team and</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_monitoring_routes.py:75</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of list</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_monitoring_routes.py:100</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_monitoring_routes.py:118</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_monitoring_routes.py:204</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_navigation_execution_routes.py:136</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of execute_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_navigation_execution_routes.py:181</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_navi</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_navigation_execution_routes.py:246</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_navi</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_navigation_trees_routes.py:172</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_all_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_power_routes.py:29</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_power_routes.py:60</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of exec</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:107</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of delete_team and</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:30</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of take</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:52</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of scre</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:72</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:103</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of clic</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:134</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of tap_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:226</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of exec</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_web_routes.py:90</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of exec</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_remote_routes.py:246</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of dump</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:40</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of gene</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:64</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_anal</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:87</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of anal</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:119</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of get_team_member</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:111</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of gene</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:134</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of anal</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:157</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of anal</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:199</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of prep</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:246</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of gene</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:290</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of crea</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:336</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of crea</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_restart_routes.py:405</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of adju</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_script_routes.py:274</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_stream_proxy_routes.py:48</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of prox</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:141</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of add_team_member</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_stream_proxy_routes.py:89</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of prox</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_stream_proxy_routes.py:130</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of prox</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_system_routes.py:769</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of disk_usa</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_teams_routes.py:46</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_team</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_teams_routes.py:90</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of update_t</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_teams_routes.py:107</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of delete_t</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_testcase_routes.py:228</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of test</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_testcase_routes.py:243</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of testcase</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_testcase_routes.py:262</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of test</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_testcase_routes.py:295</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of testcase</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_teams_routes.py:158</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of remove_team_mem</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_testcase_routes.py:321</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of exec</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_testcase_routes.py:384</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of gene</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_translation_routes.py:53</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of tran</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_translation_routes.py:181</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of dete</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_users_routes.py:47</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_user</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_users_routes.py:71</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of update_u</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_users_routes.py:91</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of delete_u</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_verification_routes.py:65</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_all_</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_web_routes.py:165</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of navi</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_web_routes.py:196</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of get_</span>
+            </div><div class="issue medium" data-severity="medium">
+                <span class="issue-id">ServerInformationExposure</span>
+                <span class="issue-loc">routes/server_users_routes.py:29</span>
+                <span class="issue-text">The stack trace from an exception flows into the return value of get_users and i</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_web_routes.py:227</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of open</span>
+            </div><div class="issue high" data-severity="high">
+                <span class="issue-id">XSS</span>
+                <span class="issue-loc">routes/server_web_routes.py:258</span>
+                <span class="issue-text">Unsanitized input from the HTTP request body flows into the return value of clos</span>
+            </div><div class="issue low" data-severity="low">
+                <span class="issue-id">test</span>
+                <span class="issue-loc">routes/server_api_testing_routes.py:609</span>
+                <span class="issue-text">Unsanitized input from an HTTP parameter flows into the return value of get_html</span>
+            </div>
         </div>
     </div>
 

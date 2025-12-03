@@ -7,9 +7,11 @@ Automated security analysis for VirtualPyTest backend components.
 **[📊 Security Dashboard](./index.html)** - Interactive HTML report
 
 **Raw Data:**
-- [Host Report (JSON)](./host-report.json) - Backend host scan results
-- [Server Report (JSON)](./server-report.json) - Backend server scan results
+- [Host Report (JSON)](./host-report.json) - Backend host Bandit scan results
+- [Server Report (JSON)](./server-report.json) - Backend server Bandit scan results
 - [Frontend Report (JSON)](./frontend-report.json) - Frontend npm audit results
+- [Snyk Host Report (JSON)](./snyk-host-report.json) - Backend host Snyk Code results
+- [Snyk Server Report (JSON)](./snyk-server-report.json) - Backend server Snyk Code results
 
 ## Generate Reports
 
@@ -19,8 +21,12 @@ Automated security analysis for VirtualPyTest backend components.
 # Activate venv
 source venv/bin/activate
 
-# Install tools (included in backend_server/requirements.txt)
+# Install Python tools (included in backend_server/requirements.txt)
 pip install bandit safety
+
+# Install Snyk CLI (optional but recommended)
+npm install -g snyk
+snyk auth  # Login with free Snyk account
 ```
 
 ### Run
@@ -37,13 +43,17 @@ Files generated in `docs/security/`:
 - `host-report.json` - Backend host Bandit results  
 - `server-report.json` - Backend server Bandit results
 - `frontend-report.json` - Frontend npm audit results
+- `snyk-host-report.json` - Backend host Snyk Code results (SARIF)
+- `snyk-server-report.json` - Backend server Snyk Code results (SARIF)
 
 ## What It Scans
 
 | Component | Tool | Checks |
 |-----------|------|--------|
-| **backend_host/src/** | Bandit | Code vulnerabilities |
-| **backend_server/src/** | Bandit | Code vulnerabilities |
+| **backend_host/src/** | Bandit | Python code vulnerabilities |
+| **backend_server/src/** | Bandit | Python code vulnerabilities |
+| **backend_host/src/** | Snyk Code | SAST (Path Traversal, CORS, etc.) |
+| **backend_server/src/** | Snyk Code | SAST (Path Traversal, CORS, etc.) |
 | **frontend/** | npm audit | Dependency CVEs |
 | **backend_host/requirements.txt** | Safety | Dependency CVEs |
 | **backend_server/requirements.txt** | Safety | Dependency CVEs |

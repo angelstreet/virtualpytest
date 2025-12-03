@@ -1,17 +1,17 @@
 {
   "errors": [],
-  "generated_at": "2025-11-28T11:46:14Z",
+  "generated_at": "2025-12-03T09:19:26Z",
   "metrics": {
     "_totals": {
       "CONFIDENCE.HIGH": 187,
-      "CONFIDENCE.LOW": 0,
+      "CONFIDENCE.LOW": 1,
       "CONFIDENCE.MEDIUM": 22,
       "CONFIDENCE.UNDEFINED": 0,
       "SEVERITY.HIGH": 0,
       "SEVERITY.LOW": 188,
-      "SEVERITY.MEDIUM": 21,
+      "SEVERITY.MEDIUM": 22,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 50266,
+      "loc": 50509,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -77,6 +77,19 @@
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
       "loc": 4,
+      "nosec": 0,
+      "skipped_tests": 0
+    },
+    "backend_host/src/builder/blocks/api_call.py": {
+      "CONFIDENCE.HIGH": 0,
+      "CONFIDENCE.LOW": 1,
+      "CONFIDENCE.MEDIUM": 0,
+      "CONFIDENCE.UNDEFINED": 0,
+      "SEVERITY.HIGH": 0,
+      "SEVERITY.LOW": 0,
+      "SEVERITY.MEDIUM": 1,
+      "SEVERITY.UNDEFINED": 0,
+      "loc": 225,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -479,7 +492,7 @@
       "SEVERITY.LOW": 4,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 952,
+      "loc": 964,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -1402,7 +1415,7 @@
       "SEVERITY.LOW": 1,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 231,
+      "loc": 236,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -2000,7 +2013,7 @@
       "SEVERITY.LOW": 1,
       "SEVERITY.MEDIUM": 0,
       "SEVERITY.UNDEFINED": 0,
-      "loc": 578,
+      "loc": 579,
       "nosec": 0,
       "skipped_tests": 0
     },
@@ -2058,6 +2071,38 @@
     }
   },
   "results": [
+    {
+      "code": "179         # Call existing /server/postman/test endpoint (already handles variables, substitution, execution)\n180         response = requests.post(\n181             f'{server_url}/server/postman/test',\n182             json={\n183                 'workspaceId': workspace_id,\n184                 'environmentId': environment_id or None,\n185                 'endpoints': [{\n186                     'method': method,\n187                     'path': path_preview,\n188                     'name': request_name\n189                 }]\n190             },\n191             timeout=(timeout_ms / 1000.0) + 5  # Add buffer for server processing\n192         )\n193         \n",
+      "col_offset": 19,
+      "end_col_offset": 9,
+      "filename": "backend_host/src/builder/blocks/api_call.py",
+      "issue_confidence": "LOW",
+      "issue_cwe": {
+        "id": 400,
+        "link": "https://cwe.mitre.org/data/definitions/400.html"
+      },
+      "issue_severity": "MEDIUM",
+      "issue_text": "Call to requests without timeout",
+      "line_number": 180,
+      "line_range": [
+        180,
+        181,
+        182,
+        183,
+        184,
+        185,
+        186,
+        187,
+        188,
+        189,
+        190,
+        191,
+        192
+      ],
+      "more_info": "https://bandit.readthedocs.io/en/1.8.6/plugins/b113_request_without_timeout.html",
+      "test_id": "B113",
+      "test_name": "request_without_timeout"
+    },
     {
       "code": "70         # Execute the code\n71         exec(code, exec_globals)\n72         \n",
       "col_offset": 8,
