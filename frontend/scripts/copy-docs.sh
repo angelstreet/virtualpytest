@@ -229,12 +229,11 @@ function buildChildren(sectionPath, urlPrefix) {
       const meta = TECH_SUBSECTION_META[subdir] || { icon: '', title: toTitle(subdir), order: 99 };
       const subChildren = [];
       
-      // Add subdir files
+      // Add subdir files (skip README - paths don't work with routing)
       subFiles.forEach(file => {
+        if (file === 'README.md') return; // Skip README in nested dirs
         const name = file.replace('.md', '');
-        const docPath = name === 'README' 
-          ? urlPrefix + '/' + subdir
-          : urlPrefix + '/' + subdir + '/' + name;
+        const docPath = urlPrefix + '/' + subdir + '/' + name;
         subChildren.push({
           title: toTitle(file),
           path: docPath
@@ -248,18 +247,21 @@ function buildChildren(sectionPath, urlPrefix) {
         
         if (nestedFiles.length > 0) {
           const nestedMeta = TECH_SUBSECTION_META[nestedDir] || { icon: '', title: toTitle(nestedDir), order: 99 };
-          const nestedChildren = nestedFiles.map(file => {
-            const name = file.replace('.md', '');
-            const docPath = name === 'README'
-              ? urlPrefix + '/' + subdir + '/' + nestedDir
-              : urlPrefix + '/' + subdir + '/' + nestedDir + '/' + name;
-            return { title: toTitle(file), path: docPath };
-          });
+          // Skip README files in deeply nested dirs
+          const nestedChildren = nestedFiles
+            .filter(file => file !== 'README.md')
+            .map(file => {
+              const name = file.replace('.md', '');
+              const docPath = urlPrefix + '/' + subdir + '/' + nestedDir + '/' + name;
+              return { title: toTitle(file), path: docPath };
+            });
           
-          subChildren.push({
-            title: (nestedMeta.icon ? nestedMeta.icon + ' ' : '') + nestedMeta.title,
-            children: nestedChildren
-          });
+          if (nestedChildren.length > 0) {
+            subChildren.push({
+              title: (nestedMeta.icon ? nestedMeta.icon + ' ' : '') + nestedMeta.title,
+              children: nestedChildren
+            });
+          }
         }
       });
       
