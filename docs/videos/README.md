@@ -104,8 +104,7 @@
   <h3>Device Control & Testing</h3>
   <div class="video-wrapper">
     <iframe 
-      src="https://www.youtube.com/embed/8WUkd9cc0eQ" 
-      
+      src="https://www.youtube.com/embed/8WUkd9cc0eQ"  
       frameborder="0" 
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
       allowfullscreen>
