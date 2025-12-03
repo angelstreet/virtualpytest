@@ -195,3 +195,4 @@ def remove_user_from_team(user_id: str, team_id: str) -> bool:
         print(f"[@db:users_db:remove_user_from_team] Error: {e}")
         return False
 
+
