@@ -128,6 +128,7 @@ def get_user_workspaces():
                 'name': ws['name'],
                 'description': ws.get('description', ''),
                 'workspaceId': ws.get('workspaceId', ''),
+                'postmanUrl': ws.get('postmanUrl', ''),
             })
         
         return jsonify({
