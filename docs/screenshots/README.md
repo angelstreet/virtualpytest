@@ -63,9 +63,16 @@
 </div>
 
 <div class="screenshot-card">
+  <h3>Mobile Dump</h3>
+  <a href="/screenshot/rec_mobile_dump.png" target="_blank" rel="noopener noreferrer">
+    <img src="/screenshot/rec_mobile_dump.png" alt="Mobile Dump">
+  </a>
+</div>
+
+<div class="screenshot-card">
   <h3>Test Execution</h3>
-  <a href="/screenshot/dashboard.png" target="_blank" rel="noopener noreferrer">
-    <img src="/screenshot/dashboard.png" alt="Test Execution">
+  <a href="/screenshot/testcase_runner.png" target="_blank" rel="noopener noreferrer">
+    <img src="/screenshot/testcase_runner.png" alt="Run tests">
   </a>
 </div>
 

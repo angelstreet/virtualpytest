@@ -88,7 +88,7 @@
 <div class="spotlight-video">
   <div class="video-wrapper">
     <iframe 
-      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      src="https://www.youtube.com/embed/VqMs87mSopo" 
       frameborder="0" 
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
       allowfullscreen>
@@ -104,7 +104,8 @@
   <h3>Device Control & Testing</h3>
   <div class="video-wrapper">
     <iframe 
-      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      src="https://www.youtube.com/embed/8WUkd9cc0eQ" 
+      
       frameborder="0" 
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
       allowfullscreen>
@@ -116,7 +117,7 @@
   <h3>Navigation Tree</h3>
   <div class="video-wrapper">
     <iframe 
-      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      src="https://www.youtube.com/embed/sCTsyc6h0RU" 
       frameborder="0" 
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
       allowfullscreen>
@@ -128,7 +129,7 @@
   <h3>Monitoring</h3>
   <div class="video-wrapper">
     <iframe 
-      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      src="https://www.youtube.com/embed/NaoYeMQlKV0" 
       frameborder="0" 
       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
       allowfullscreen>
