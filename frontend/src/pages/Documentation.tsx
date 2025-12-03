@@ -450,9 +450,13 @@ const Documentation: React.FC = () => {
             },
             // Style links
             a: ({ children, href }) => {
+              // Check if link is an external link or image
+              const isExternal = href?.startsWith('http');
+              const isImage = href?.match(/\.(png|jpe?g|gif|svg|webp)$/i);
+              
               // Transform markdown links to React routes
               let transformedHref = href;
-              if (href && !href.startsWith('http') && !href.startsWith('#')) {
+              if (href && !href.startsWith('http') && !href.startsWith('#') && !isImage) {
                 // Handle relative paths in markdown
                 if (href.startsWith('../')) {
                   // ../features/unified-controller.md -> /docs/features/unified-controller
@@ -480,8 +484,8 @@ const Documentation: React.FC = () => {
                     textDecoration: 'none',
                     '&:hover': { textDecoration: 'underline' },
                   }}
-                  target={href?.startsWith('http') ? '_blank' : undefined}
-                  rel={href?.startsWith('http') ? 'noopener noreferrer' : undefined}
+                  target={isExternal || isImage ? '_blank' : undefined}
+                  rel={isExternal || isImage ? 'noopener noreferrer' : undefined}
                 >
                   {children}
                 </Box>

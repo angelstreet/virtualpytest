@@ -1,49 +1,141 @@
-# Video Demos
+<style>
+.spotlight-video {
+  max-width: 700px;
+  margin: 10px auto;
+  text-align: center;
+}
 
-Watch VirtualPyTest in action.
+.spotlight-video h2 {
+  margin-bottom: 8px;
+  color: rgb(255, 255, 255);
+  font-size: 24px;
+}
+
+.spotlight-video .video-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.spotlight-video .video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.video-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 20px;
+  padding: 20px 0;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.video-card {
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  padding: 4px;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: transparent;
+}
+
+.video-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.video-card h3 {
+  margin: 0 0 8px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color: rgb(255, 255, 255);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.video-card .video-wrapper {
+  position: relative;
+  padding-bottom: 56.25%; /* 16:9 aspect ratio */
+  height: 0;
+  overflow: hidden;
+  border-radius: 4px;
+}
+
+.video-card .video-wrapper iframe {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+}
+
+@media (max-width: 768px) {
+  .video-grid {
+    grid-template-columns: 1fr;
+  }
+}
+</style>
+
+<div class="spotlight-video">
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
 
 ---
 
-## Full Platform Overview
+<div class="video-grid">
 
-[![VirtualPyTest Demo](https://img.youtube.com/vi/YOUR_VIDEO_ID/maxresdefault.jpg)](https://www.youtube.com/watch?v=YOUR_VIDEO_ID)
+<div class="video-card">
+  <h3>Device Control & Testing</h3>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
 
-> *Click to watch the full demo on YouTube*
+<div class="video-card">
+  <h3>Navigation Tree</h3>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
 
-<!-- 
-To add your video:
-1. Upload to YouTube
-2. Replace YOUR_VIDEO_ID with your actual video ID (the part after v= in the URL)
-   Example: https://www.youtube.com/watch?v=dQw4w9WgXcQ → VIDEO_ID = dQw4w9WgXcQ
--->
+<div class="video-card">
+  <h3>Monitoring</h3>
+  <div class="video-wrapper">
+    <iframe 
+      src="https://www.youtube.com/embed/YOUR_VIDEO_ID" 
+      frameborder="0" 
+      allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" 
+      allowfullscreen>
+    </iframe>
+  </div>
+</div>
+
+</div>
 
 ---
-
-## Feature Demos
-
-| Feature | Description | Video |
-|---------|-------------|-------|
-| Device Control | Remote control devices from the web UI | [Watch →](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) |
-| Test Execution | Run and monitor automated tests | [Watch →](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) |
-| AI Navigation Tree | Auto-generate navigation trees with AI | [Watch →](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) |
-| Visual Capture | Frame-by-frame test recording | [Watch →](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) |
-| Grafana Dashboards | Real-time analytics and monitoring | [Watch →](https://www.youtube.com/watch?v=YOUR_VIDEO_ID) |
-
----
-
-## Recording Tips
-
-Tips for recording demo videos:
-
-1. **Keep it short**: 1-3 minutes per feature
-2. **Show real usage**: Demonstrate actual workflows
-3. **Add narration**: Explain what's happening (optional but helpful)
-4. **Upload to YouTube**: Set as "Unlisted" or "Public"
-5. **Update this page**: Replace `YOUR_VIDEO_ID` with the actual video ID
-
-### Recommended Recording Tools
-
-- **macOS**: QuickTime, OBS Studio
-- **Windows**: OBS Studio, Xbox Game Bar
-- **Linux**: OBS Studio, SimpleScreenRecorder
-
