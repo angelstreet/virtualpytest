@@ -1239,10 +1239,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             throw new Error(`Edge ${edgeForm.edgeId} not found in current tree`);
           }
 
-          // ✅ CONDITIONAL EDGE UNLINK: When editing, unlink from siblings
+          // ✅ CONDITIONAL EDGE UNLINK: Only when editing FORWARD direction
+          // Reverse direction (action_sets[1]) is ALWAYS independent - never triggers unlink
           const isConditionalEdge = currentSelectedEdge.data?.is_conditional || currentSelectedEdge.data?.is_conditional_primary;
+          const isEditingForwardDirection = edgeForm.direction === 'forward' || !edgeForm.direction; // Default to forward if not specified
           
-          if (isConditionalEdge) {
+          if (isConditionalEdge && isEditingForwardDirection) {
             const sharedActionSetId = edgeForm.default_action_set_id;
             const siblingEdges = edges.filter(e => 
               e.source === currentSelectedEdge.source &&
@@ -1251,7 +1253,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             );
             
             if (siblingEdges.length > 0) {
-              console.log(`[@NavigationContext:saveEdge] 🔓 UNLINKING ${siblingEdges.length + 1} conditional edges`);
+              console.log(`[@NavigationContext:saveEdge] 🔓 UNLINKING ${siblingEdges.length + 1} conditional edges (editing FORWARD direction)`);
               
               // UNLINK: Clear conditional flags for ALL siblings
               const unlinkedSiblings = siblingEdges.map(sibling => ({
@@ -1300,6 +1302,8 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               edgeForm.default_action_set_id = newActionSetId;
               console.log(`[@NavigationContext:saveEdge] 🔓 Created new action_set_id for edited edge: ${newActionSetId}`);
             }
+          } else if (isConditionalEdge && !isEditingForwardDirection) {
+            console.log(`[@NavigationContext:saveEdge] 📝 Editing REVERSE direction - no unlink needed (reverse is always independent)`);
           }
 
           // Update edge with form data
