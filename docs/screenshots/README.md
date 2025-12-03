@@ -119,23 +119,23 @@
   </div>
 
   <div class="screenshot-card">
-    <h3>Verification Editor<br>(Image)</h3>
+    <h3>Verification Editor</h3>
     <a href="/screenshot/verification_editor_1.png" target="_blank" rel="noopener noreferrer">
       <img src="/screenshot/verification_editor_1.png" alt="Verification Editor">
     </a>
   </div>
 
   <div class="screenshot-card">
-    <h3>Verification Editor<br>(Image)</h3>
+    <h3>Verification Image</h3>
     <a href="/screenshot/verification_editor_2.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/verification_editor_2.png" alt="Verification Editor Image">
+      <img src="/screenshot/verification_editor_2.png" alt="Verification Image">
     </a>
   </div>
 
   <div class="screenshot-card">
-    <h3>Verification Editor<br>(Text)</h3>
+    <h3>Verification Text<br>(Text)</h3>
     <a href="/screenshot/verification_editor_3.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/verification_editor_3.png" alt="Verification Editor Text">
+      <img src="/screenshot/verification_editor_3.png" alt="Verification Text">
     </a>
   </div>
 
@@ -169,15 +169,15 @@
 
   <div class="screenshot-card">
     <h3>Test Report - Detail</h3>
-    <a href="/screenshot/test_report2.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/test_report2.png" alt="Test Report - Detail 1">
+    <a href="/screenshot/test_report_2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/test_report_2.png" alt="Test Report - Detail 1">
     </a>
   </div>
 
   <div class="screenshot-card">
     <h3>Test Report</h3>
-    <a href="/screenshot/test_report3.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/test_report3.png" alt="Test Report - Detail 2">
+    <a href="/screenshot/test_report_3.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/test_report_3.png" alt="Test Report - Detail 2">
     </a>
   </div>
 
