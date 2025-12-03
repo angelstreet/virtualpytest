@@ -48,9 +48,21 @@ const ApiDocumentation: React.FC = () => {
   };
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
-      {/* Doc Selector */}
-      <Box sx={{ p: 1.5, borderBottom: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 2 }}>
+    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column', bgcolor: 'background.default' }}>
+      {/* Doc Selector - Sticky Header */}
+      <Box sx={{ 
+        position: 'sticky',
+        top: 0,
+        zIndex: 1100,
+        bgcolor: 'background.paper',
+        p: 1.5, 
+        borderBottom: '1px solid #334155', 
+        display: 'grid', 
+        gridTemplateColumns: '1fr auto 1fr', 
+        alignItems: 'center', 
+        gap: 2,
+        boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+      }}>
         <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
           <FormControl size="small" sx={{ minWidth: 280 }}>
             <InputLabel id="doc-select-label">Select API Documentation</InputLabel>
@@ -97,7 +109,7 @@ const ApiDocumentation: React.FC = () => {
       </Box>
 
       {/* Documentation iframe */}
-      <Box sx={{ flex: 1, overflow: 'hidden' }}>
+      <Box sx={{ flex: 1, overflow: 'auto', bgcolor: '#0f172a' }}>
         {selectedDocData && (
           <iframe
             key={selectedDoc} // Force reload on change
@@ -109,6 +121,8 @@ const ApiDocumentation: React.FC = () => {
             style={{
               border: 'none',
               display: 'block',
+              minHeight: '100%',
+              backgroundColor: '#0f172a'
             }}
           />
         )}

@@ -69,6 +69,36 @@ def check_node_tools():
     except:
         return False
 
+def inject_auto_expand_script(html_file):
+    """Inject JavaScript to auto-expand menu items in ReDoc HTML."""
+    auto_expand_script = """
+    // Auto-expand all menu items after Redoc loads
+    setTimeout(function() {
+      var menuLabels = document.querySelectorAll('[data-item-id] > label');
+      menuLabels.forEach(function(label) {
+        var svg = label.querySelector('svg');
+        if (svg && !label.parentElement.classList.contains('active')) {
+          label.click();
+        }
+      });
+    }, 300);
+    """
+    
+    try:
+        with open(html_file, 'r', encoding='utf-8') as f:
+            content = f.read()
+        
+        # Insert the script before the closing </script></body> tags
+        content = content.replace(
+            '    </script>\n</body>',
+            f'{auto_expand_script}    </script>\n</body>'
+        )
+        
+        with open(html_file, 'w', encoding='utf-8') as f:
+            f.write(content)
+    except Exception as e:
+        print(f"  {Colors.YELLOW}⚠{Colors.NC} Could not inject auto-expand script: {e}")
+
 def generate_html_docs():
     """Generate beautiful HTML documentation using redoc-cli."""
     print(f"\n{Colors.BLUE}╔══════════════════════════════════════════════════════════╗{Colors.NC}")
@@ -103,6 +133,9 @@ def generate_html_docs():
                 '--title', f'VirtualPyTest API - {spec_name.replace("-", " ").title()}'
             ], capture_output=True, check=True, text=True)
             
+            # Post-process: Add auto-expand script for menu items
+            inject_auto_expand_script(html_file)
+            
             print(f"  {Colors.GREEN}✓{Colors.NC} Generated: {html_file}\n")
         except subprocess.CalledProcessError as e:
             print(f"  {Colors.RED}✗{Colors.NC} Failed: {e.stderr}\n")
@@ -128,7 +161,7 @@ def create_index_html(yaml_files):
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-               background: transparent; 
+               background: #0f172a; 
                padding: 20px; min-height: 100vh; }}
         .container {{ max-width: 1400px; margin: 0 auto; }}
         .section {{ background: #1e293b; border: 1px solid #334155; border-radius: 10px; padding: 20px; margin-bottom: 20px; 
