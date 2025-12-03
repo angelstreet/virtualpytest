@@ -204,15 +204,15 @@
 
   <div class="screenshot-card">
     <h3>Grafana Radar</h3>
-    <a href="/screenshot/grafana_radar.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/grafana_radar.png" alt="Grafana Radar">
+    <a href="/screenshot/grafana_kpi_radar.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/grafana_kpi_radar.png" alt="Grafana Radar">
     </a>
   </div>
 
   <div class="screenshot-card">
     <h3>Live Monitoring</h3>
-    <a href="/screenshot/monitoring.png" target="_blank" rel="noopener noreferrer">
-      <img src="/screenshot/monitoring.png" alt="Live Monitoring">
+    <a href="/screenshot/monitoring_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/monitoring_1.png" alt="Live Monitoring">
     </a>
   </div>
 
