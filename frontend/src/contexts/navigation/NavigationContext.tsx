@@ -1295,7 +1295,12 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               setEdges(updatedEdges);
               
               // Generate new action_set_id for the edited edge to make it independent
-              const newActionSetId = `${currentSelectedEdge.source}_to_${currentSelectedEdge.target}_${Date.now()}`;
+              // ✅ FIX: Use node LABELS not node IDs for action_set_id
+              const sourceNode = nodes.find(n => n.id === currentSelectedEdge.source);
+              const targetNode = nodes.find(n => n.id === currentSelectedEdge.target);
+              const sourceLabel = (sourceNode?.data?.label || currentSelectedEdge.source).toLowerCase().replace(/[^a-z0-9]/g, '_');
+              const targetLabel = (targetNode?.data?.label || currentSelectedEdge.target).toLowerCase().replace(/[^a-z0-9]/g, '_');
+              const newActionSetId = `${sourceLabel}_to_${targetLabel}_${Date.now()}`;
               edgeForm.action_sets[0].id = newActionSetId;
               edgeForm.default_action_set_id = newActionSetId;
               console.log(`[@NavigationContext:saveEdge] 🔓 Created new action_set_id for edited edge: ${newActionSetId}`);
