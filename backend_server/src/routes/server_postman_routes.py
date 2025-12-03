@@ -693,7 +693,7 @@ def run_api_test():
                 # Add API key from environment if available
                 api_key = env_variables.get('api_key')
                 if api_key:
-                    headers['Authorization'] = f'Bearer {api_key}'
+                    headers['X-API-Key'] = api_key
                     print(f"[@postman_routes] Using api_key from environment")
                 
                 # Add query parameters from environment variables
