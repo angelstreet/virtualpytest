@@ -22,6 +22,8 @@ import {
   Security as SecurityIcon, // For Security Reports
   LocalPostOffice as PostmanIcon, // For Postman integration
   HelpOutline as FaqIcon, // For FAQ
+  PhotoLibrary as ScreenshotsIcon, // For Screenshots
+  VideoLibrary as VideosIcon, // For Videos
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -162,6 +164,16 @@ const NavigationBar: React.FC = () => {
       label: 'Examples',
       path: '/docs/examples',
       icon: <TreeIcon fontSize="small" />,
+    },
+    {
+      label: 'Screenshots',
+      path: '/docs/screenshots',
+      icon: <ScreenshotsIcon fontSize="small" />,
+    },
+    {
+      label: 'Videos',
+      path: '/docs/videos',
+      icon: <VideosIcon fontSize="small" />,
     },
   ];
 

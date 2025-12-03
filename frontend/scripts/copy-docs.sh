@@ -45,6 +45,8 @@ api/README.md
 examples/README.md
 integrations/README.md
 security/README.md
+screenshots/README.md
+videos/README.md
 EOF
 
 echo -e "${YELLOW}→${NC} Following markdown links recursively"
@@ -155,6 +157,8 @@ const SECTION_META = {
   'technical': { icon: '🔧', title: 'Technical Docs', order: 7 },
   'security': { icon: '🔐', title: 'Security', order: 8 },
   'api': { icon: '📡', title: 'API Reference', order: 9 },
+  'screenshots': { icon: '📸', title: 'Screenshots', order: 10 },
+  'videos': { icon: '🎬', title: 'Videos', order: 11 },
 };
 
 // Subsection metadata for technical docs

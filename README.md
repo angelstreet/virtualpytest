@@ -14,8 +14,8 @@
   <p>
     <a href="docs/get-started/quickstart.md"><b>Getting Started</b></a> •
     <a href="docs/"><b>Documentation</b></a> •
-    <a href="docs/screenshots.md"><b>Screenshots</b></a> •
-    <a href="docs/videos.md"><b>Videos</b></a> •
+    <a href="docs/screenshots/"><b>Screenshots</b></a> •
+    <a href="docs/videos/"><b>Videos</b></a> •
     <a href="#community--support"><b>Community</b></a>
   </p>
 </div>
@@ -127,7 +127,7 @@ We are constantly improving VirtualPyTest. Here is what's coming next:
 - [ ] **Visual Test Builder**: Drag-and-drop test creation UI.
 - [ ] **Advanced AI**: Self-healing test scripts that adapt to UI changes.
 
-Check out our [full roadmap](https://github.com/angelstreet/virtualpytest/issues) for more details.
+Check out our full roadmap for more details.
 
 ---
 

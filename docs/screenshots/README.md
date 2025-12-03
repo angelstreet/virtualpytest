@@ -1,4 +1,4 @@
-doc:sponsor# Screenshots
+# Screenshots
 
 Visual gallery of VirtualPyTest features.
 
@@ -8,7 +8,7 @@ Visual gallery of VirtualPyTest features.
 
 The main dashboard provides an overview of your test infrastructure: servers, hosts, devices, and quick actions.
 
-![Dashboard](/frontend/public/screenshot/dashboard.png)
+<img src="/screenshot/dashboard.png" alt="Dashboard" width="800">
 
 ---
 
@@ -16,7 +16,7 @@ The main dashboard provides an overview of your test infrastructure: servers, ho
 <!-- TODO: Add screenshot -->
 Remote control any connected device - Android TV, mobile, STB, or iOS - from a unified interface.
 
-<!-- ![Device Control](/frontend/public/screenshot/device-control.png) -->
+<!-- ![Device Control](/screenshot/device-control.png) -->
 
 ---
 
@@ -24,7 +24,7 @@ Remote control any connected device - Android TV, mobile, STB, or iOS - from a u
 <!-- TODO: Add screenshot -->
 Execute and monitor tests in real-time with step-by-step visual feedback.
 
-<!-- ![Test Execution](/frontend/public/screenshot/test-execution.png) -->
+<!-- ![Test Execution](/screenshot/test-execution.png) -->
 
 ---
 
@@ -32,7 +32,7 @@ Execute and monitor tests in real-time with step-by-step visual feedback.
 <!-- TODO: Add screenshot -->
 AI-powered navigation tree builder automatically maps your application's UI structure.
 
-<!-- ![Navigation Tree](/frontend/public/screenshot/navigation-tree.png) -->
+<!-- ![Navigation Tree](/screenshot/navigation-tree.png) -->
 
 ---
 
@@ -40,7 +40,7 @@ AI-powered navigation tree builder automatically maps your application's UI stru
 <!-- TODO: Add screenshot -->
 Frame-by-frame capture with automatic screenshot timeline for every test step.
 
-<!-- ![Visual Capture](/frontend/public/screenshot/visual-capture.png) -->
+<!-- ![Visual Capture](/screenshot/visual-capture.png) -->
 
 ---
 
@@ -48,7 +48,7 @@ Frame-by-frame capture with automatic screenshot timeline for every test step.
 <!-- TODO: Add screenshot -->
 Real-time metrics and dashboards for test results, device health, and performance trends.
 
-<!-- ![Grafana Dashboard](/frontend/public/screenshot/grafana-dashboard.png) -->
+<!-- ![Grafana Dashboard](/screenshot/grafana-dashboard.png) -->
 
 ---
 
@@ -56,7 +56,7 @@ Real-time metrics and dashboards for test results, device health, and performanc
 <!-- TODO: Add screenshot -->
 Record device sessions and replay them for debugging or demonstration.
 
-<!-- ![Recording](/frontend/public/screenshot/recording.png) -->
+<!-- ![Recording](/screenshot/recording.png) -->
 
 ---
 
@@ -65,11 +65,12 @@ Record device sessions and replay them for debugging or demonstration.
 To add a new screenshot:
 
 1. Take a screenshot of the feature (recommended size: 1920x1080 or 1280x720)
-2. Save it to `/frontend/public/screenshot/` with a descriptive name
+2. Save it to `frontend/public/screenshot/` with a descriptive name
 3. Uncomment and update the relevant section above
 
 ```bash
 # Example: Adding a device control screenshot
-# Save as: /frontend/public/screenshot/device-control.png
+# Save as: frontend/public/screenshot/device-control.png
+# Reference in markdown as: /screenshot/device-control.png
 ```
 
