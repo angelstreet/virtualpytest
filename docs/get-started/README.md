@@ -97,6 +97,7 @@ Optional (for Docker setup):
 
 After setup, explore:
 
+- ❓ **[FAQ](../faq/README.md)** - Common questions answered
 - 📖 **[Features](../features/README.md)** - See what you can do
 - 📚 **[User Guide](../user-guide/README.md)** - Learn how to use it
 - 🔧 **[Technical Docs](../technical/README.md)** - Understand how it works
