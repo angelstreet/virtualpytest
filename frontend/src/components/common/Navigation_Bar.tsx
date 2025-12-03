@@ -21,6 +21,7 @@ import {
   Extension as IntegrationIcon, // For Integrations section
   Security as SecurityIcon, // For Security Reports
   LocalPostOffice as PostmanIcon, // For Postman integration
+  HelpOutline as FaqIcon, // For FAQ
 } from '@mui/icons-material';
 import { Box, Button } from '@mui/material';
 import React from 'react';
@@ -126,6 +127,11 @@ const NavigationBar: React.FC = () => {
       label: 'Get Started',
       path: '/docs/get-started',
       icon: <RunIcon fontSize="small" />,
+    },
+    {
+      label: 'FAQ',
+      path: '/docs/faq',
+      icon: <FaqIcon fontSize="small" />,
     },
     {
       label: 'Features',

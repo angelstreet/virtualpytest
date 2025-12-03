@@ -93,6 +93,17 @@ Get up and running in 5 minutes with Docker.
 
 ---
 
+### [FAQ](./faq/README.md)
+**Quick answers to common questions.**
+
+- How does one script work for all devices?
+- What devices are supported?
+- How does AI validation work?
+- How is VirtualPyTest different from commercial tools?
+- Getting started and prerequisites
+
+---
+
 ### [Integrations](./integrations/README.md)
 **Connect to external tools.**
 
@@ -191,6 +202,7 @@ VirtualPyTest works with:
 
 ### Documentation
 - Browse sections above
+- Check [FAQ](./faq/README.md) for quick answers
 - Check [User Guide](./user-guide/README.md)
 - See [Examples](./examples/README.md)
 - Read [Technical Docs](./technical/README.md)
@@ -225,6 +237,8 @@ docs/
 │   ├── running-tests.md
 │   ├── monitoring.md
 │   └── guides/
+├── faq/                   # Frequently asked questions
+│   └── README.md
 ├── technical/             # Architecture & internals
 │   ├── architecture/
 │   ├── ai/
@@ -248,6 +262,7 @@ docs/
 
 ## 🔄 Recently Updated
 
+- ❓ [FAQ](./faq/README.md) - Common questions answered
 - ✨ [Quick Start Guide](./get-started/quickstart.md) - Simplified installation
 - 📖 [Features Section](./features/README.md) - Complete feature showcase
 - 🤖 [AI Validation](./features/ai-validation.md) - AI capabilities documented
