@@ -26,7 +26,6 @@ High-level system design and component interaction.
 
 **Navigation & Pathfinding:**
 - **[Navigation System](./architecture/navigation.md)** - Navigation tree architecture
-- **[Pathfinding](./architecture/PATHFINDING.md)** - Shortest path algorithms
 - **[Navigation Metrics](./architecture/navigation_metrics.md)** - Performance tracking
 - **[Node & Edges Metrics](./architecture/node_edges_metrics.md)** - Graph analytics
 
@@ -43,52 +42,39 @@ High-level system design and component interaction.
 
 **Deployment:**
 - **[Deployment Guide](./architecture/deployment.md)** - Production deployment
-- **[Storage Paths](./architecture/storage-paths.md)** - File organization
-- **[URL Builders](./architecture/url-builders.md)** - URL construction patterns
+- **[URL Builders](./dev/url-builders.md)** - URL construction patterns
+
+**Storage:**
+- **[Storage - Audio](./architecture/storage-audio.md)** - Audio file management
+- **[Storage - Hot RAM](./architecture/storage-hot-ram.md)** - In-memory caching
 
 **Integrations:**
-- **[Grafana Integration](./architecture/GRAFANA_INTEGRATION.md)** - Analytics setup
 - **[Appium Remote Implementation](./architecture/APPIUM_REMOTE_IMPLEMENTATION.md)** - Mobile automation
 
 **Monitoring:**
 - **[Incidents](./architecture/incidents.md)** - Incident management system
-- **[AI Monitoring](./architecture/AI_MONITORING_IMPLEMENTATION.md)** - AI-powered monitoring
 
 **Standards:**
-- **[Global Naming Convention](./architecture/GLOBAL_NAMING_CONVENTION.md)** - Code style guide
-- **[Z-Index Management](./architecture/Z_INDEX_MANAGEMENT.md)** - UI layering
+- **[Global Naming Convention](./dev/GLOBAL_NAMING_CONVENTION.md)** - Code style guide
+- **[Z-Index Management](./dev/Z_INDEX_MANAGEMENT.md)** - UI layering
 
 ---
 
 ## 🤖 AI Systems
 
-### AI Architecture
+### AI Services
 
-**Core AI:**
-- **[AI Centralization Plan](./architecture/AI_CENTRALIZATION_PLAN.md)** - AI service architecture
-
-**AI Services:**
+**AI-Powered Tools:**
 - **[Tree Creation](./ai/tree-creation.md)** - AI-generated navigation trees
 - **[Exploration](./ai/exploration.md)** - AI-driven app exploration
 - **[Builder](./ai/builder.md)** - AI test generation
 - **[Detector](./ai/detector.md)** - AI content detection
-- **[Detector Schema](./ai/detector-schema.md)** - Detection data models
-- **[Disambiguation](./ai/disambiguation.md)** - AI element disambiguation
 
 ---
 
 ## 🔧 Development
 
 ### Development Guides
-
-**Architecture:**
-- **[Mobile Architecture](./dev/mobile-architecture.md)** - Mobile testing design
-- **[Validation Improvements](./dev/validation-improvements.md)** - Enhanced validation
-- **[Validation Summary](./dev/validation-summary.md)** - Validation overview
-
-**Storage:**
-- **[Storage - Audio](./dev/storage-audio.md)** - Audio file management
-- **[Storage - Hot RAM](./dev/storage-hot-ram.md)** - In-memory caching
 
 **Infrastructure:**
 - **[Timezone Handling](./dev/timezone.md)** - Timezone management
@@ -175,14 +161,8 @@ VirtualPyTest's MCP integration provides AI-powered tools for test automation.
 **Understanding navigation:**
 → [Navigation System](./architecture/navigation.md)
 
-**Integrating AI features:**
-→ [AI Centralization Plan](./architecture/AI_CENTRALIZATION_PLAN.md)
-
 **Deploying to production:**
 → [Deployment Guide](./architecture/deployment.md)
-
-**Setting up Grafana:**
-→ [Grafana Integration](./architecture/GRAFANA_INTEGRATION.md)
 
 **Using MCP tools:**
 → [MCP README](./mcp/README.md)
@@ -204,7 +184,7 @@ VirtualPyTest's MCP integration provides AI-powered tools for test automation.
 Want to contribute to VirtualPyTest?
 
 1. Read the architecture docs
-2. Check [GLOBAL_NAMING_CONVENTION.md](./architecture/GLOBAL_NAMING_CONVENTION.md)
+2. Check [GLOBAL_NAMING_CONVENTION.md](./dev/GLOBAL_NAMING_CONVENTION.md)
 3. Follow the patterns in existing code
 4. Submit a pull request!
 
@@ -220,5 +200,6 @@ Want to contribute to VirtualPyTest?
 
 **Ready to dive deep?**  
 ➡️ [System Architecture](./architecture/architecture.md)  
-➡️ [MCP Overview](./mcp/README.md)
+➡️ [MCP Overview](./mcp/README.md)  
+➡️ [AI Systems](./ai/builder.md)
 
