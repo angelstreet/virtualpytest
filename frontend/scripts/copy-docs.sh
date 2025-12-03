@@ -132,3 +132,196 @@ fi
 
 echo -e "${GREEN}✓ Documentation copied successfully!${NC}"
 echo -e "${BLUE}Copied: 15 OpenAPI HTML files + $file_count markdown files ${security_status}${NC}"
+
+# 4. Generate docs manifest for navigation
+echo -e "${YELLOW}→${NC} Generating docs manifest..."
+
+# Generate manifest JSON by scanning the copied docs
+node -e "
+const fs = require('fs');
+const path = require('path');
+
+const DOCS_DIR = 'public/docs';
+
+// Section metadata with icons and order
+const SECTION_META = {
+  'README': { icon: '📚', title: 'Documentation Home', order: 0 },
+  'get-started': { icon: '🚀', title: 'Getting Started', order: 1 },
+  'features': { icon: '✨', title: 'Features', order: 2 },
+  'user-guide': { icon: '📖', title: 'User Guide', order: 3 },
+  'examples': { icon: '💡', title: 'Examples', order: 4 },
+  'integrations': { icon: '🔌', title: 'Integrations', order: 5 },
+  'faq': { icon: '❓', title: 'FAQ', order: 6 },
+  'technical': { icon: '🔧', title: 'Technical Docs', order: 7 },
+  'security': { icon: '🔐', title: 'Security', order: 8 },
+  'api': { icon: '📡', title: 'API Reference', order: 9 },
+};
+
+// Subsection metadata for technical docs
+const TECH_SUBSECTION_META = {
+  'ai': { icon: '🤖', title: 'AI', order: 1 },
+  'architecture': { icon: '🏗️', title: 'Architecture', order: 2 },
+  'components': { icon: '📦', title: 'Components', order: 3 },
+  'mcp': { icon: '🔮', title: 'MCP Tools', order: 4 },
+  'dev': { icon: '🛠️', title: 'Dev', order: 5 },
+};
+
+// Convert filename to readable title
+function toTitle(filename) {
+  return filename
+    .replace(/\.md\$/, '')
+    .replace(/^README\$/, 'Overview')
+    .replace(/[-_]/g, ' ')
+    .replace(/\\b\\w/g, c => c.toUpperCase())
+    .replace(/^Mcp /, 'MCP ')
+    .replace(/^Ai /, 'AI ')
+    .replace(/^Api /, 'API ')
+    .replace(/ Id\$/, ' ID')
+    .replace(/Jira/, 'JIRA')
+    .replace(/Hls/, 'HLS')
+    .replace(/Vnc/, 'VNC');
+}
+
+// Get all markdown files in a directory
+function getMdFiles(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter(f => f.endsWith('.md'))
+    .sort((a, b) => {
+      // README first, then alphabetically
+      if (a === 'README.md') return -1;
+      if (b === 'README.md') return 1;
+      return a.localeCompare(b);
+    });
+}
+
+// Get all subdirectories
+function getSubdirs(dir) {
+  if (!fs.existsSync(dir)) return [];
+  return fs.readdirSync(dir)
+    .filter(f => fs.statSync(path.join(dir, f)).isDirectory())
+    .filter(f => !f.startsWith('.') && f !== 'openapi');
+}
+
+// Build section children
+function buildChildren(sectionPath, urlPrefix) {
+  const children = [];
+  const files = getMdFiles(sectionPath);
+  const subdirs = getSubdirs(sectionPath);
+  
+  // Add files
+  files.forEach(file => {
+    const name = file.replace('.md', '');
+    const docPath = name === 'README' ? urlPrefix : urlPrefix + '/' + name;
+    children.push({
+      title: toTitle(file),
+      path: docPath
+    });
+  });
+  
+  // Add subdirectories
+  subdirs.forEach(subdir => {
+    const subPath = path.join(sectionPath, subdir);
+    const subFiles = getMdFiles(subPath);
+    const subSubdirs = getSubdirs(subPath);
+    
+    if (subFiles.length > 0 || subSubdirs.length > 0) {
+      const meta = TECH_SUBSECTION_META[subdir] || { icon: '', title: toTitle(subdir), order: 99 };
+      const subChildren = [];
+      
+      // Add subdir files
+      subFiles.forEach(file => {
+        const name = file.replace('.md', '');
+        const docPath = name === 'README' 
+          ? urlPrefix + '/' + subdir
+          : urlPrefix + '/' + subdir + '/' + name;
+        subChildren.push({
+          title: toTitle(file),
+          path: docPath
+        });
+      });
+      
+      // Handle nested subdirs (like components under architecture)
+      subSubdirs.forEach(nestedDir => {
+        const nestedPath = path.join(subPath, nestedDir);
+        const nestedFiles = getMdFiles(nestedPath);
+        
+        if (nestedFiles.length > 0) {
+          const nestedMeta = TECH_SUBSECTION_META[nestedDir] || { icon: '', title: toTitle(nestedDir), order: 99 };
+          const nestedChildren = nestedFiles.map(file => {
+            const name = file.replace('.md', '');
+            const docPath = name === 'README'
+              ? urlPrefix + '/' + subdir + '/' + nestedDir
+              : urlPrefix + '/' + subdir + '/' + nestedDir + '/' + name;
+            return { title: toTitle(file), path: docPath };
+          });
+          
+          subChildren.push({
+            title: (nestedMeta.icon ? nestedMeta.icon + ' ' : '') + nestedMeta.title,
+            children: nestedChildren
+          });
+        }
+      });
+      
+      if (subChildren.length > 0) {
+        children.push({
+          title: (meta.icon ? meta.icon + ' ' : '') + meta.title,
+          children: subChildren
+        });
+      }
+    }
+  });
+  
+  return children;
+}
+
+// Build the manifest
+const manifest = { docs: [] };
+
+// Get top-level sections
+const topLevelDirs = getSubdirs(DOCS_DIR);
+const sections = [];
+
+// Add root README if exists
+if (fs.existsSync(path.join(DOCS_DIR, 'README.md'))) {
+  sections.push({
+    title: SECTION_META['README'].icon + ' ' + SECTION_META['README'].title,
+    path: '/docs/README',
+    section: 'root',
+    order: SECTION_META['README'].order
+  });
+}
+
+// Process each section
+topLevelDirs.forEach(dir => {
+  const sectionPath = path.join(DOCS_DIR, dir);
+  const meta = SECTION_META[dir] || { icon: '📄', title: toTitle(dir), order: 99 };
+  const urlPrefix = '/docs/' + dir;
+  
+  const children = buildChildren(sectionPath, urlPrefix);
+  
+  if (children.length > 0) {
+    sections.push({
+      title: meta.icon + ' ' + meta.title,
+      path: urlPrefix,
+      section: dir,
+      order: meta.order,
+      children: children
+    });
+  }
+});
+
+// Sort by order
+sections.sort((a, b) => a.order - b.order);
+
+// Remove order field from output
+sections.forEach(s => delete s.order);
+
+manifest.docs = sections;
+
+// Write manifest
+fs.writeFileSync(path.join(DOCS_DIR, 'docs-manifest.json'), JSON.stringify(manifest, null, 2));
+console.log('Generated docs-manifest.json with ' + sections.length + ' sections');
+"
+
+echo -e "${GREEN}✓ Docs manifest generated!${NC}"

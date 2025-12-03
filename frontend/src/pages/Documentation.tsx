@@ -1,8 +1,264 @@
-import { Box, CircularProgress, Typography } from '@mui/material';
+import { 
+  Box, 
+  CircularProgress, 
+  Typography, 
+  FormControl,
+  Select,
+  MenuItem,
+  ListSubheader,
+  SelectChangeEvent,
+  Chip
+} from '@mui/material';
+import { MenuBook, ChevronRight } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
-import { useParams } from 'react-router-dom';
+import { useParams, useNavigate } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
+
+// Types for docs manifest
+interface DocItem {
+  title: string;
+  path?: string;
+  children?: DocItem[];
+}
+
+interface DocSection {
+  title: string;
+  path: string;
+  section: string;
+  children?: DocItem[];
+}
+
+interface DocsManifest {
+  docs: DocSection[];
+}
+
+/**
+ * Documentation Navigator Dropdown - Lists all available docs
+ */
+const DocsNavigator: React.FC<{ currentPath: string }> = ({ currentPath }) => {
+  const navigate = useNavigate();
+  const [manifest, setManifest] = useState<DocsManifest | null>(null);
+  const [open, setOpen] = useState(false);
+
+  useEffect(() => {
+    fetch('/docs/docs-manifest.json')
+      .then(res => res.json())
+      .then(data => setManifest(data))
+      .catch(err => console.error('Failed to load docs manifest:', err));
+  }, []);
+
+  const handleChange = (event: SelectChangeEvent<string>) => {
+    const path = event.target.value;
+    if (path) {
+      navigate(path);
+      setOpen(false);
+    }
+  };
+
+  // Check if a section has any files (direct paths or nested paths)
+  const hasFiles = (children?: DocItem[]): boolean => {
+    if (!children) return false;
+    return children.some(child => 
+      child.path || (child.children && hasFiles(child.children))
+    );
+  };
+
+  // Flatten all doc items for the dropdown
+  const renderMenuItems = () => {
+    if (!manifest) return null;
+    
+    const items: React.ReactNode[] = [];
+    let visibleSectionIdx = 0;
+    
+    manifest.docs.forEach((section) => {
+      // Skip sections with no children (like Documentation Home which only has a path)
+      if (!section.children || !hasFiles(section.children)) return;
+      
+      // Add section header
+      items.push(
+        <ListSubheader 
+          key={`section-${section.section}`}
+          sx={{ 
+            bgcolor: 'background.paper',
+            color: 'primary.main',
+            fontWeight: 600,
+            fontSize: '0.8rem',
+            lineHeight: '24px',
+            py: 0.25,
+            borderTop: visibleSectionIdx > 0 ? 1 : 0,
+            borderColor: 'divider',
+          }}
+        >
+          {section.title}
+        </ListSubheader>
+      );
+      visibleSectionIdx++;
+
+      // Add section children
+      if (section.children) {
+        section.children.forEach((child, childIdx) => {
+          if (child.path) {
+            items.push(
+              <MenuItem 
+                key={`${section.section}-${childIdx}`} 
+                value={child.path}
+                sx={{ 
+                  pl: 2.5,
+                  py: 0.5,
+                  minHeight: 28,
+                  fontSize: '0.8rem',
+                  '&.Mui-selected': {
+                    bgcolor: 'primary.dark',
+                    '&:hover': { bgcolor: 'primary.dark' }
+                  }
+                }}
+              >
+                {child.title}
+              </MenuItem>
+            );
+          } else if (child.children && hasFiles(child.children)) {
+            // Nested subsection (like AI, Architecture under Technical)
+            items.push(
+              <ListSubheader 
+                key={`subsection-${section.section}-${childIdx}`}
+                sx={{ 
+                  bgcolor: 'background.default',
+                  color: 'text.secondary',
+                  fontWeight: 600,
+                  fontSize: '0.75rem',
+                  lineHeight: '22px',
+                  py: 0,
+                  pl: 1.5,
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 0.25,
+                }}
+              >
+                <ChevronRight sx={{ fontSize: 12 }} />
+                {child.title}
+              </ListSubheader>
+            );
+            
+            child.children.forEach((subChild, subChildIdx) => {
+              if (subChild.path) {
+                items.push(
+                  <MenuItem 
+                    key={`${section.section}-${childIdx}-${subChildIdx}`} 
+                    value={subChild.path}
+                    sx={{ 
+                      pl: 4,
+                      py: 0.5,
+                      minHeight: 26,
+                      fontSize: '0.78rem',
+                      '&.Mui-selected': {
+                        bgcolor: 'primary.dark',
+                        '&:hover': { bgcolor: 'primary.dark' }
+                      }
+                    }}
+                  >
+                    {subChild.title}
+                  </MenuItem>
+                );
+              }
+            });
+          }
+        });
+      }
+    });
+    
+    return items;
+  };
+
+  // Get current doc title for display
+  const getCurrentTitle = (): string => {
+    if (!manifest) return 'Select Documentation';
+    
+    for (const section of manifest.docs) {
+      if (section.path === currentPath) return section.title;
+      if (section.children) {
+        for (const child of section.children) {
+          if (child.path === currentPath) return `${section.title.replace(/^[^\s]+\s/, '')} › ${child.title}`;
+          if (child.children) {
+            for (const subChild of child.children) {
+              if (subChild.path === currentPath) {
+                return `${child.title.replace(/^[^\s]+\s/, '')} › ${subChild.title}`;
+              }
+            }
+          }
+        }
+      }
+    }
+    return 'Select Documentation';
+  };
+
+  if (!manifest) {
+    return (
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1.5 }}>
+        <CircularProgress size={16} />
+        <Typography variant="caption" color="text.secondary">Loading...</Typography>
+      </Box>
+    );
+  }
+
+  return (
+    <Box sx={{ mb: 1.5, display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      <Chip 
+        icon={<MenuBook sx={{ fontSize: 16 }} />} 
+        label="Browse Docs" 
+        size="small" 
+        color="primary" 
+        variant="outlined"
+        sx={{ fontWeight: 600, height: 28, '& .MuiChip-label': { px: 1, fontSize: '0.75rem' } }}
+      />
+      <FormControl size="small" sx={{ minWidth: 280, maxWidth: 420 }}>
+        <Select
+          value={currentPath}
+          onChange={handleChange}
+          open={open}
+          onOpen={() => setOpen(true)}
+          onClose={() => setOpen(false)}
+          displayEmpty
+          renderValue={() => (
+            <Typography 
+              variant="caption" 
+              sx={{ 
+                fontWeight: 500,
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+                whiteSpace: 'nowrap',
+                fontSize: '0.8rem',
+              }}
+            >
+              {getCurrentTitle()}
+            </Typography>
+          )}
+          MenuProps={{
+            PaperProps: {
+              sx: {
+                maxHeight: 400,
+                '& .MuiList-root': {
+                  py: 0,
+                }
+              }
+            }
+          }}
+          sx={{
+            bgcolor: 'background.paper',
+            height: 32,
+            '& .MuiSelect-select': {
+              py: 0.5,
+              display: 'flex',
+              alignItems: 'center',
+            }
+          }}
+        >
+          {renderMenuItems()}
+        </Select>
+      </FormControl>
+    </Box>
+  );
+};
 
 /**
  * Simple Documentation Viewer - Renders markdown files from /docs
@@ -17,6 +273,24 @@ const Documentation: React.FC = () => {
   const [markdown, setMarkdown] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
+  
+  // Compute current path for navigator
+  const getCurrentDocPath = (): string => {
+    if (category && page !== 'README') {
+      return `/docs/${section}/${subsection}/${category}/${page}`;
+    } else if (category) {
+      return `/docs/${section}/${subsection}/${category}`;
+    } else if (subsection && page !== 'README') {
+      return `/docs/${section}/${subsection}/${page}`;
+    } else if (subsection) {
+      return `/docs/${section}/${subsection}`;
+    } else if (section !== 'README' && page === 'README') {
+      return `/docs/${section}`;
+    } else if (page !== 'README') {
+      return `/docs/${section}/${page}`;
+    }
+    return `/docs/${section}`;
+  };
 
   useEffect(() => {
     const fetchMarkdown = async () => {
@@ -96,10 +370,13 @@ const Documentation: React.FC = () => {
   }
 
   return (
-    <Box sx={{ p: 4, width: '100%', maxWidth: '1200px', mx: 'auto', minHeight: '80vh' }}>
+    <Box sx={{ pt: 0, px: 3, pb: 3, width: '100%', maxWidth: '1200px', mx: 'auto', minHeight: '80vh' }}>
+      {/* Documentation Navigator */}
+      <DocsNavigator currentPath={getCurrentDocPath()} />
+      
       <Box 
         sx={{ 
-          p: 4, 
+          p: 3, 
           minHeight: '70vh', 
           width: '100%',
           backgroundColor: 'background.paper',
@@ -114,28 +391,28 @@ const Documentation: React.FC = () => {
             components={{
             // Style headers
             h1: ({ children }) => (
-              <Typography variant="h3" component="h1" gutterBottom sx={{ mt: 2, mb: 2, fontWeight: 600 }}>
+              <Typography variant="h4" component="h1" gutterBottom sx={{ mt: 1.5, mb: 1.5, fontWeight: 600, fontSize: '1.75rem' }}>
                 {children}
               </Typography>
             ),
             h2: ({ children }) => (
-              <Typography variant="h4" component="h2" gutterBottom sx={{ mt: 3, mb: 2, fontWeight: 600 }}>
+              <Typography variant="h5" component="h2" gutterBottom sx={{ mt: 2, mb: 1.5, fontWeight: 600, fontSize: '1.35rem' }}>
                 {children}
               </Typography>
             ),
             h3: ({ children }) => (
-              <Typography variant="h5" component="h3" gutterBottom sx={{ mt: 2, mb: 1.5, fontWeight: 600 }}>
+              <Typography variant="h6" component="h3" gutterBottom sx={{ mt: 1.5, mb: 1, fontWeight: 600, fontSize: '1.1rem' }}>
                 {children}
               </Typography>
             ),
             h4: ({ children }) => (
-              <Typography variant="h6" component="h4" gutterBottom sx={{ mt: 2, mb: 1, fontWeight: 600 }}>
+              <Typography variant="subtitle1" component="h4" gutterBottom sx={{ mt: 1.5, mb: 0.75, fontWeight: 600, fontSize: '1rem' }}>
                 {children}
               </Typography>
             ),
             // Style paragraphs
             p: ({ children }) => (
-              <Typography variant="body1" paragraph sx={{ lineHeight: 1.7 }}>
+              <Typography variant="body2" paragraph sx={{ lineHeight: 1.65, fontSize: '0.9rem' }}>
                 {children}
               </Typography>
             ),
@@ -147,11 +424,11 @@ const Documentation: React.FC = () => {
                     component="code"
                     sx={{
                       backgroundColor: 'action.hover',
-                      px: 0.75,
-                      py: 0.25,
+                      px: 0.5,
+                      py: 0.15,
                       borderRadius: 0.5,
                       fontFamily: 'monospace',
-                      fontSize: '0.9em',
+                      fontSize: '0.8rem',
                     }}
                     {...props}
                   >
@@ -164,15 +441,15 @@ const Documentation: React.FC = () => {
                   component="pre"
                   sx={{
                     backgroundColor: 'action.hover',
-                    p: 2,
+                    p: 1.5,
                     borderRadius: 1,
                     overflow: 'auto',
-                    my: 2,
+                    my: 1.5,
                     border: 1,
                     borderColor: 'divider',
                   }}
                 >
-                  <code style={{ fontFamily: 'monospace', fontSize: '0.9em' }} {...props}>
+                  <code style={{ fontFamily: 'monospace', fontSize: '0.8rem' }} {...props}>
                     {children}
                   </code>
                 </Box>
@@ -219,17 +496,17 @@ const Documentation: React.FC = () => {
             },
             // Style lists
             ul: ({ children }) => (
-              <Box component="ul" sx={{ pl: 3, my: 1.5 }}>
+              <Box component="ul" sx={{ pl: 2.5, my: 1 }}>
                 {children}
               </Box>
             ),
             ol: ({ children }) => (
-              <Box component="ol" sx={{ pl: 3, my: 1.5 }}>
+              <Box component="ol" sx={{ pl: 2.5, my: 1 }}>
                 {children}
               </Box>
             ),
             li: ({ children }) => (
-              <Typography component="li" variant="body1" sx={{ mb: 0.5, lineHeight: 1.7 }}>
+              <Typography component="li" variant="body2" sx={{ mb: 0.25, lineHeight: 1.6, fontSize: '0.9rem' }}>
                 {children}
               </Typography>
             ),
@@ -237,12 +514,13 @@ const Documentation: React.FC = () => {
             blockquote: ({ children }) => (
               <Box
                 sx={{
-                  borderLeft: '4px solid',
+                  borderLeft: '3px solid',
                   borderColor: 'primary.main',
-                  pl: 2,
-                  py: 0.5,
-                  my: 2,
+                  pl: 1.5,
+                  py: 0.25,
+                  my: 1.5,
                   backgroundColor: 'action.hover',
+                  fontSize: '0.9rem',
                 }}
               >
                 {children}
@@ -250,8 +528,8 @@ const Documentation: React.FC = () => {
             ),
             // Style tables
             table: ({ children }) => (
-              <Box sx={{ overflowX: 'auto', my: 2 }}>
-                <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse' }}>
+              <Box sx={{ overflowX: 'auto', my: 1.5 }}>
+                <Box component="table" sx={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>
                   {children}
                 </Box>
               </Box>
@@ -262,22 +540,23 @@ const Documentation: React.FC = () => {
                 sx={{
                   border: 1,
                   borderColor: 'divider',
-                  p: 1.5,
+                  p: 1,
                   backgroundColor: 'action.hover',
                   fontWeight: 600,
                   textAlign: 'left',
+                  fontSize: '0.85rem',
                 }}
               >
                 {children}
               </Box>
             ),
             td: ({ children }) => (
-              <Box component="td" sx={{ border: 1, borderColor: 'divider', p: 1.5 }}>
+              <Box component="td" sx={{ border: 1, borderColor: 'divider', p: 1, fontSize: '0.85rem' }}>
                 {children}
               </Box>
             ),
             // Style horizontal rules
-            hr: () => <Box component="hr" sx={{ my: 3, border: 'none', borderTop: 1, borderColor: 'divider' }} />,
+            hr: () => <Box component="hr" sx={{ my: 2, border: 'none', borderTop: 1, borderColor: 'divider' }} />,
           }}
         >
           {markdown}

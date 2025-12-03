@@ -654,10 +654,10 @@ Project Structure:
 ├── frontend/              # React TypeScript app
 ├── backend_server/        # API orchestration service
 ├── backend_host/          # Hardware interface service
-├── backend_host/          # Shared business logic library
-├── shared/               # Common utilities library
-├── docker/               # Container orchestration
-└── docs_new/             # Documentation
+├── backend_core/          # Shared business logic library
+├── shared/                # Common utilities library
+├── docker/                # Container orchestration
+└── docs/                  # Documentation
 ```
 
 ### Build & Deployment Pipeline
@@ -684,4 +684,9 @@ Project Structure:
 
 ---
 
-**Want to understand specific components? Check our [Components Documentation](components/)!** 🔧
+**Want to understand specific components?**
+- [Frontend](components/frontend.md) - React TypeScript web interface
+- [Backend Server](components/backend-server.md) - API orchestration + Grafana
+- [Backend Host](components/backend-host.md) - Hardware interface service
+- [Backend Core](components/backend-core.md) - Shared business logic
+- [Shared Library](components/shared.md) - Common utilities
