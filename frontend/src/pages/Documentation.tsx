@@ -1,13 +1,13 @@
 import { 
   Box, 
-  CircularProgress, 
   Typography, 
   FormControl,
   Select,
   MenuItem,
   ListSubheader,
   SelectChangeEvent,
-  Chip
+  Chip,
+  CircularProgress
 } from '@mui/material';
 import { MenuBook, ChevronRight } from '@mui/icons-material';
 import React, { useEffect, useState } from 'react';
@@ -271,7 +271,6 @@ const Documentation: React.FC = () => {
     page?: string 
   }>();
   const [markdown, setMarkdown] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string>('');
   
   // Compute current path for navigator
@@ -294,39 +293,26 @@ const Documentation: React.FC = () => {
 
   useEffect(() => {
     const fetchMarkdown = async () => {
-      setLoading(true);
       setError('');
 
       try {
         // Construct path to markdown file
-        // Examples:
-        // /docs/get-started -> /docs/get-started/README.md
-        // /docs/features/unified-controller -> /docs/features/unified-controller.md
-        // /docs/technical/ai/builder -> /docs/technical/ai/builder.md
-        // /docs/technical/architecture/components/backend-server -> /docs/technical/architecture/components/backend-server.md
         let mdPath: string;
         if (category && page !== 'README') {
-          // 4-level nested path: /docs/technical/architecture/components/backend-server
           mdPath = `/${section}/${subsection}/${category}/${page}.md`;
         } else if (category) {
-          // 4-level README: /docs/technical/architecture/components
           mdPath = `/${section}/${subsection}/${category}/README.md`;
         } else if (subsection && page !== 'README') {
-          // 3-level nested path: /docs/technical/ai/builder
           mdPath = `/${section}/${subsection}/${page}.md`;
         } else if (subsection) {
-          // Subsection README: /docs/technical/ai
           mdPath = `/${section}/${subsection}/README.md`;
         } else if (page === 'README') {
-          // Section README: /docs/get-started
           mdPath = `/${section}/README.md`;
         } else {
-          // Page in section: /docs/features/unified-controller
           mdPath = `/${section}/${page}.md`;
         }
         
         const fullPath = `/docs${mdPath}`;
-
         const response = await fetch(fullPath);
 
         if (!response.ok) {
@@ -338,21 +324,11 @@ const Documentation: React.FC = () => {
       } catch (err) {
         console.error('Error loading documentation:', err);
         setError(err instanceof Error ? err.message : 'Failed to load documentation');
-      } finally {
-        setLoading(false);
       }
     };
 
     fetchMarkdown();
   }, [section, subsection, category, page]);
-
-  if (loading) {
-    return (
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '400px' }}>
-        <CircularProgress />
-      </Box>
-    );
-  }
 
   if (error) {
     return (
