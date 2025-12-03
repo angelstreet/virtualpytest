@@ -6,7 +6,8 @@
       "postmanApiKey": "PMAK-your-postman-api-key",
       "workspaceId": "your-postman-workspace-id",
       "teamId": "your-postman-team-id",
-      "description": "My Project API Testing"
+      "description": "My Project API Testing",
+      "postmanUrl": "https://www.postman.com/your-team-slug/your-workspace-slug/overview"
     }
   ],
   "environments": [

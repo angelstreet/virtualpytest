@@ -9,9 +9,11 @@ import {
   Chip,
   CircularProgress,
   Alert,
+  IconButton,
+  Tooltip,
 } from '@mui/material';
 import { useNavigate } from 'react-router-dom';
-import { ApiOutlined, Add, Refresh } from '@mui/icons-material';
+import { ApiOutlined, Add, Refresh, OpenInNew } from '@mui/icons-material';
 import { buildServerUrl } from '../utils/buildUrlUtils';
 
 interface Workspace {
@@ -19,6 +21,7 @@ interface Workspace {
   name: string;
   description: string;
   workspaceId: string;
+  postmanUrl?: string;
 }
 
 const UserApiWorkspaces: React.FC = () => {
@@ -160,7 +163,24 @@ const UserApiWorkspaces: React.FC = () => {
                     <ApiOutlined color="primary" />
                     <Typography variant="h6">{workspace.name}</Typography>
                   </Box>
-                  <Chip label="Postman" size="small" color="primary" variant="outlined" />
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                    <Chip label="Postman" size="small" color="primary" variant="outlined" />
+                    {workspace.postmanUrl && (
+                      <Tooltip title="Open in Postman">
+                        <IconButton
+                          size="small"
+                          color="primary"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            window.open(workspace.postmanUrl, '_blank');
+                          }}
+                          sx={{ ml: 0.5 }}
+                        >
+                          <OpenInNew fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
                 </Box>
 
                 <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
