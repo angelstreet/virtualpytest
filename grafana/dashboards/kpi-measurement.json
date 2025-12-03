@@ -24,7 +24,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "supabase-postgres"
+        "uid": "ceunuuxwxvy80e"
       },
       "fieldConfig": {
         "defaults": {
@@ -74,7 +74,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "supabase-postgres"
+            "uid": "ceunuuxwxvy80e"
           },
           "editorMode": "code",
           "format": "table",
@@ -89,7 +89,7 @@
     {
       "datasource": {
         "type": "grafana-postgresql-datasource",
-        "uid": "supabase-postgres"
+        "uid": "ceunuuxwxvy80e"
       },
       "fieldConfig": {
         "defaults": {
@@ -150,7 +150,7 @@
         {
           "datasource": {
             "type": "grafana-postgresql-datasource",
-            "uid": "supabase-postgres"
+            "uid": "ceunuuxwxvy80e"
           },
           "editorMode": "code",
           "format": "table",
@@ -161,6 +161,1553 @@
       ],
       "title": "Success Rate",
       "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "KPI Time (ms)",
+            "axisPlacement": "auto",
+            "fillOpacity": 60,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 4
+      },
+      "id": 3,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.9,
+        "colorByField": "action_set_id",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "text": {
+          "valueSize": 10
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, AVG(er.kpi_measurement_ms) as avg_kpi, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'horizon_android_tv' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_android_tv' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY avg_kpi DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI by Action Set - horizon_android_tv",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "KPI Time (ms)",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 4
+      },
+      "id": 4,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, AVG(er.kpi_measurement_ms) as avg_kpi, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'horizon_tv' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_tv' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY avg_kpi DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI by Action Set - horizon_tv",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": true,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Count",
+            "axisPlacement": "auto",
+            "fillOpacity": 60,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "decimals": 0,
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 0,
+        "y": 11
+      },
+      "id": 10,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.9,
+        "colorByField": "action_set_id",
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "text": {
+          "valueSize": 10
+        },
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, COUNT(*) as count, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'horizon_android_tv' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_android_tv' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI Count by Action Set - horizon_android_tv",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Count",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 7,
+        "w": 12,
+        "x": 12,
+        "y": 11
+      },
+      "id": 11,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, COUNT(*) as count, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'horizon_tv' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_tv' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI Count by Action Set - horizon_tv",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "KPI Time (ms)",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 18
+      },
+      "id": 5,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, AVG(er.kpi_measurement_ms) as avg_kpi, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'perseus_360_web' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'perseus_360_web' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY avg_kpi DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI by Action Set - perseus_360_web",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "KPI Time (ms)",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 18
+      },
+      "id": 6,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, AVG(er.kpi_measurement_ms) as avg_kpi, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'horizon_android_mobile' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_android_mobile' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY avg_kpi DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI by Action Set - horizon_android_mobile",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Count",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 0,
+        "y": 26
+      },
+      "id": 12,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, COUNT(*) as count, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'perseus_360_web' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'perseus_360_web' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI Count by Action Set - perseus_360_web",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "Count",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "short"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 12,
+        "x": 12,
+        "y": 26
+      },
+      "id": 13,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "always",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, COUNT(*) as count, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = 'horizon_android_mobile' AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_android_mobile' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY count DESC",
+          "refId": "A"
+        }
+      ],
+      "title": "KPI Count by Action Set - horizon_android_mobile",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisBorderShow": false,
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "KPI Time (ms)",
+            "axisPlacement": "auto",
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineWidth": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "links": [
+            {
+              "targetBlank": true,
+              "title": "View Last Report",
+              "url": "${__data.fields.report_url}"
+            }
+          ],
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "ms"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report_url"
+            },
+            "properties": [
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": true,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 34
+      },
+      "id": 7,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.97,
+        "fullHighlight": false,
+        "getOption": "// Access data from the context\nconst seriesData = context.panel.data?.series;\n\nif (!seriesData || seriesData.length === 0) {\n  return { title: { text: 'No data', left: 'center' } };\n}\n\nconst firstSeries = seriesData[0];\nconst fields = firstSeries.fields;\n\nif (!fields || fields.length < 2) {\n  return { title: { text: 'Invalid data structure', left: 'center' } };\n}\n\nconst actionSetField = fields.find(f => f.name === 'action_set_id');\nconst avgKpiField = fields.find(f => f.name === 'avg_kpi');\n\nif (!actionSetField || !avgKpiField) {\n  return { title: { text: 'Missing required fields', left: 'center' } };\n}\n\nconst categories = actionSetField.values.toArray();\nconst values = avgKpiField.values.toArray();\n\nif (categories.length === 0) {\n  return { title: { text: 'No data available', left: 'center' } };\n}\n\nconst maxValue = Math.max.apply(null, values);\nconst scaleMax = Math.ceil(maxValue * 1.2 / 100) * 100;\n\nreturn {\n  title: {\n    text: 'KPI Performance Radar - horizon_tv',\n    left: 'center',\n    textStyle: { fontSize: 16 }\n  },\n  tooltip: {\n    trigger: 'item'\n  },\n  legend: {\n    data: ['Average KPI (ms)'],\n    bottom: 10\n  },\n  radar: {\n    indicator: categories.map(function(cat, idx) {\n      return { \n        name: cat, \n        max: scaleMax \n      };\n    }),\n    radius: '65%',\n    splitNumber: 5,\n    axisName: {\n      color: '#999',\n      fontSize: 10\n    },\n    splitLine: {\n      lineStyle: {\n        color: 'rgba(255, 255, 255, 0.2)'\n      }\n    },\n    splitArea: {\n      show: true,\n      areaStyle: {\n        color: ['rgba(255, 255, 255, 0.05)', 'rgba(255, 255, 255, 0.1)']\n      }\n    }\n  },\n  series: [{\n    name: 'KPI Measurements',\n    type: 'radar',\n    data: [{\n      value: values,\n      name: 'Average KPI (ms)',\n      areaStyle: {\n        opacity: 0.3,\n        color: '#5470c6'\n      },\n      lineStyle: {\n        width: 2,\n        color: '#5470c6'\n      },\n      itemStyle: {\n        color: '#5470c6'\n      },\n      label: {\n        show: true,\n        formatter: function(params) {\n          return Math.round(params.value) + 'ms';\n        }\n      }\n    }]\n  }]\n};",
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "auto",
+        "renderer": "canvas",
+        "showValue": "auto",
+        "stacking": "none",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "single",
+          "sort": "none"
+        },
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT ui.name as user_interface, er.action_set_id, AVG(er.kpi_measurement_ms) as avg_kpi, (SELECT kpi_report_url FROM execution_results er2 LEFT JOIN navigation_trees nt2 ON er2.tree_id = nt2.id LEFT JOIN userinterfaces ui2 ON nt2.userinterface_id = ui2.id WHERE er2.action_set_id = er.action_set_id AND ui2.name = ui.name AND er2.kpi_report_url IS NOT NULL AND $__timeFilter(er2.executed_at) ORDER BY er2.executed_at DESC LIMIT 1) as report_url FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND $__timeFilter(er.executed_at) GROUP BY ui.name, er.action_set_id ORDER BY avg_kpi DESC LIMIT 20",
+          "refId": "A"
+        }
+      ],
+      "title": "Top Slowest Action Sets by User Interface",
+      "type": "barchart"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "filterable": true,
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": 0
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "KPI Time (ms)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "ms"
+              },
+              {
+                "id": "custom.align",
+                "value": "right"
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Success"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-text"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "red",
+                      "value": 0
+                    },
+                    {
+                      "color": "green",
+                      "value": true
+                    }
+                  ]
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "report"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "Url",
+                    "url": "${__data.fields.report}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 44
+      },
+      "id": 9,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": true,
+            "displayName": "Executed At"
+          }
+        ]
+      },
+      "pluginVersion": "12.1.1",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.executed_at as \"Executed At\", ui.name as \"User Interface\", er.action_set_id as \"Action Set ID\", er.host_name as \"Host Name\", er.device_model as \"Device Model\", nt.name as \"Tree Name\", er.kpi_measurement_ms as \"KPI Time (ms)\", er.kpi_measurement_success as \"Success\", er.kpi_measurement_error as \"Error\", kpi_report_url as Report FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND $__timeFilter(er.executed_at) ORDER BY er.executed_at DESC LIMIT 1000",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "KPI Measurement Details",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 54
+      },
+      "id": 14,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "// Access data from context (Grafana 12)\nconst seriesData = context?.panel?.data?.series;\n\nif (!seriesData || seriesData.length === 0) {\n  return {\n    title: { text: 'No data available', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'No data in selected time range', fontSize: 16, fill: '#999' }\n    }\n  };\n}\n\nconst series = seriesData[0];\nconst fields = series.fields;\n\n// Find the fields\nconst actionSetField = fields.find(f => f.name === 'action_set_id');\nconst avgKpiField = fields.find(f => f.name === 'avg_kpi');\n\nif (!actionSetField || !avgKpiField) {\n  return {\n    title: { text: 'Missing required fields', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Expected: action_set_id, avg_kpi', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Extract values (handle both Grafana 9 and 10+ formats)\nconst categories = actionSetField.values.buffer || actionSetField.values;\nconst rawValues = avgKpiField.values.buffer || avgKpiField.values;\nconst values = Array.from(rawValues).map(v => Math.round(v));\n\nif (categories.length === 0) {\n  return {\n    title: { text: 'No measurements found', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Try expanding the time range', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Calculate scale (add 20% padding to max value)\nconst maxValue = Math.max(...values);\nconst scaleMax = Math.ceil(maxValue * 1.2);\n\n// Build radar chart\nreturn {\n  title: {\n    text: 'KPI Performance Radar - horizon_tv',\n    left: 'center',\n    textStyle: { fontSize: 16 }\n  },\n  tooltip: {\n    trigger: 'item',\n    formatter: function(params) {\n      return params.name + ': ' + Math.round(params.value) + 'ms';\n    }\n  },\n  legend: {\n    data: ['Average KPI (ms)'],\n    bottom: 5\n  },\n  radar: {\n    indicator: Array.from(categories).map(function(cat, idx) {\n      return {\n        name: cat + ' (' + values[idx] + 'ms)',\n        max: scaleMax\n      };\n    }),\n    radius: '65%',\n    splitNumber: 4,\n    name: {\n      textStyle: {\n        color: '#fff',\n        fontSize: 11\n      }\n    },\n    splitLine: {\n      lineStyle: {\n        color: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)'].reverse()\n      }\n    },\n    splitArea: {\n      show: true,\n      areaStyle: {\n        color: ['rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.05)']\n      }\n    },\n    axisLine: {\n      lineStyle: {\n        color: 'rgba(255, 255, 255, 0.2)'\n      }\n    }\n  },\n  series: [{\n    name: 'KPI Measurements',\n    type: 'radar',\n    data: [{\n      value: values,\n      name: 'Average KPI (ms)',\n      symbol: 'circle',\n      symbolSize: 6,\n      areaStyle: {\n        opacity: 0.4,\n        color: 'rgba(84, 112, 198, 0.6)'\n      },\n      lineStyle: {\n        width: 2,\n        color: '#5470c6'\n      },\n      itemStyle: {\n        color: '#5470c6',\n        borderColor: '#fff',\n        borderWidth: 2\n      },\n      label: {\n        show: false\n      }\n    }]\n  }]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, ROUND(AVG(er.kpi_measurement_ms)) as avg_kpi FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_tv' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY er.action_set_id",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "type": "volkovlabs-echarts-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 54
+      },
+      "id": 16,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "// Access data from context (Grafana 12)\nconst seriesData = context?.panel?.data?.series;\n\nif (!seriesData || seriesData.length === 0) {\n  return {\n    title: { text: 'No data available', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'No data in selected time range', fontSize: 16, fill: '#999' }\n    }\n  };\n}\n\nconst series = seriesData[0];\nconst fields = series.fields;\n\n// Find the fields\nconst actionSetField = fields.find(f => f.name === 'action_set_id');\nconst avgKpiField = fields.find(f => f.name === 'avg_kpi');\n\nif (!actionSetField || !avgKpiField) {\n  return {\n    title: { text: 'Missing required fields', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Expected: action_set_id, avg_kpi', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Extract values (handle both Grafana 9 and 10+ formats)\nconst categories = actionSetField.values.buffer || actionSetField.values;\nconst rawValues = avgKpiField.values.buffer || avgKpiField.values;\nconst values = Array.from(rawValues).map(v => Math.round(v));\n\nif (categories.length === 0) {\n  return {\n    title: { text: 'No measurements found', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Try expanding the time range', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Calculate scale (add 20% padding to max value)\nconst maxValue = Math.max(...values);\nconst scaleMax = Math.ceil(maxValue * 1.2);\n\n// Build radar chart\nreturn {\n  title: {\n    text: 'KPI Performance Radar - horizon_tv',\n    left: 'center',\n    textStyle: { fontSize: 16 }\n  },\n  tooltip: {\n    trigger: 'item',\n    formatter: function(params) {\n      return params.name + ': ' + Math.round(params.value) + 'ms';\n    }\n  },\n  legend: {\n    data: ['Average KPI (ms)'],\n    bottom: 5\n  },\n  radar: {\n    indicator: Array.from(categories).map(function(cat, idx) {\n      return {\n        name: cat + ' (' + values[idx] + 'ms)',\n        max: scaleMax\n      };\n    }),\n    radius: '65%',\n    splitNumber: 4,\n    name: {\n      textStyle: {\n        color: '#fff',\n        fontSize: 11\n      }\n    },\n    splitLine: {\n      lineStyle: {\n        color: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)'].reverse()\n      }\n    },\n    splitArea: {\n      show: true,\n      areaStyle: {\n        color: ['rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.05)']\n      }\n    },\n    axisLine: {\n      lineStyle: {\n        color: 'rgba(255, 255, 255, 0.2)'\n      }\n    }\n  },\n  series: [{\n    name: 'KPI Measurements',\n    type: 'radar',\n    data: [{\n      value: values,\n      name: 'Average KPI (ms)',\n      symbol: 'circle',\n      symbolSize: 6,\n      areaStyle: {\n        opacity: 0.4,\n        color: 'rgba(84, 112, 198, 0.6)'\n      },\n      lineStyle: {\n        width: 2,\n        color: '#5470c6'\n      },\n      itemStyle: {\n        color: '#5470c6',\n        borderColor: '#fff',\n        borderWidth: 2\n      },\n      label: {\n        show: false\n      }\n    }]\n  }]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, ROUND(AVG(er.kpi_measurement_ms)) as avg_kpi FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_android_tv' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY er.action_set_id",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "type": "volkovlabs-echarts-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 66
+      },
+      "id": 17,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "// Access data from context (Grafana 12)\nconst seriesData = context?.panel?.data?.series;\n\nif (!seriesData || seriesData.length === 0) {\n  return {\n    title: { text: 'No data available', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'No data in selected time range', fontSize: 16, fill: '#999' }\n    }\n  };\n}\n\nconst series = seriesData[0];\nconst fields = series.fields;\n\n// Find the fields\nconst actionSetField = fields.find(f => f.name === 'action_set_id');\nconst avgKpiField = fields.find(f => f.name === 'avg_kpi');\n\nif (!actionSetField || !avgKpiField) {\n  return {\n    title: { text: 'Missing required fields', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Expected: action_set_id, avg_kpi', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Extract values (handle both Grafana 9 and 10+ formats)\nconst categories = actionSetField.values.buffer || actionSetField.values;\nconst rawValues = avgKpiField.values.buffer || avgKpiField.values;\nconst values = Array.from(rawValues).map(v => Math.round(v));\n\nif (categories.length === 0) {\n  return {\n    title: { text: 'No measurements found', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Try expanding the time range', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Calculate scale (add 20% padding to max value)\nconst maxValue = Math.max(...values);\nconst scaleMax = Math.ceil(maxValue * 1.2);\n\n// Build radar chart\nreturn {\n  title: {\n    text: 'KPI Performance Radar - horizon_tv',\n    left: 'center',\n    textStyle: { fontSize: 16 }\n  },\n  tooltip: {\n    trigger: 'item',\n    formatter: function(params) {\n      return params.name + ': ' + Math.round(params.value) + 'ms';\n    }\n  },\n  legend: {\n    data: ['Average KPI (ms)'],\n    bottom: 5\n  },\n  radar: {\n    indicator: Array.from(categories).map(function(cat, idx) {\n      return {\n        name: cat + ' (' + values[idx] + 'ms)',\n        max: scaleMax\n      };\n    }),\n    radius: '65%',\n    splitNumber: 4,\n    name: {\n      textStyle: {\n        color: '#fff',\n        fontSize: 11\n      }\n    },\n    splitLine: {\n      lineStyle: {\n        color: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)'].reverse()\n      }\n    },\n    splitArea: {\n      show: true,\n      areaStyle: {\n        color: ['rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.05)']\n      }\n    },\n    axisLine: {\n      lineStyle: {\n        color: 'rgba(255, 255, 255, 0.2)'\n      }\n    }\n  },\n  series: [{\n    name: 'KPI Measurements',\n    type: 'radar',\n    data: [{\n      value: values,\n      name: 'Average KPI (ms)',\n      symbol: 'circle',\n      symbolSize: 6,\n      areaStyle: {\n        opacity: 0.4,\n        color: 'rgba(84, 112, 198, 0.6)'\n      },\n      lineStyle: {\n        width: 2,\n        color: '#5470c6'\n      },\n      itemStyle: {\n        color: '#5470c6',\n        borderColor: '#fff',\n        borderWidth: 2\n      },\n      label: {\n        show: false\n      }\n    }]\n  }]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, ROUND(AVG(er.kpi_measurement_ms)) as avg_kpi FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'horizon_android_mobile' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY er.action_set_id",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "type": "volkovlabs-echarts-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "ceunuuxwxvy80e"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 66
+      },
+      "id": 18,
+      "options": {
+        "baidu": {
+          "callback": "bmapReady",
+          "key": ""
+        },
+        "editor": {
+          "format": "auto"
+        },
+        "editorMode": "code",
+        "gaode": {
+          "key": "",
+          "plugin": "AMap.Scale,AMap.ToolBar"
+        },
+        "getOption": "// Access data from context (Grafana 12)\nconst seriesData = context?.panel?.data?.series;\n\nif (!seriesData || seriesData.length === 0) {\n  return {\n    title: { text: 'No data available', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'No data in selected time range', fontSize: 16, fill: '#999' }\n    }\n  };\n}\n\nconst series = seriesData[0];\nconst fields = series.fields;\n\n// Find the fields\nconst actionSetField = fields.find(f => f.name === 'action_set_id');\nconst avgKpiField = fields.find(f => f.name === 'avg_kpi');\n\nif (!actionSetField || !avgKpiField) {\n  return {\n    title: { text: 'Missing required fields', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Expected: action_set_id, avg_kpi', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Extract values (handle both Grafana 9 and 10+ formats)\nconst categories = actionSetField.values.buffer || actionSetField.values;\nconst rawValues = avgKpiField.values.buffer || avgKpiField.values;\nconst values = Array.from(rawValues).map(v => Math.round(v));\n\nif (categories.length === 0) {\n  return {\n    title: { text: 'No measurements found', left: 'center' },\n    graphic: {\n      type: 'text',\n      left: 'center',\n      top: 'middle',\n      style: { text: 'Try expanding the time range', fontSize: 14, fill: '#999' }\n    }\n  };\n}\n\n// Calculate scale (add 20% padding to max value)\nconst maxValue = Math.max(...values);\nconst scaleMax = Math.ceil(maxValue * 1.2);\n\n// Build radar chart\nreturn {\n  title: {\n    text: 'KPI Performance Radar - horizon_tv',\n    left: 'center',\n    textStyle: { fontSize: 16 }\n  },\n  tooltip: {\n    trigger: 'item',\n    formatter: function(params) {\n      return params.name + ': ' + Math.round(params.value) + 'ms';\n    }\n  },\n  legend: {\n    data: ['Average KPI (ms)'],\n    bottom: 5\n  },\n  radar: {\n    indicator: Array.from(categories).map(function(cat, idx) {\n      return {\n        name: cat + ' (' + values[idx] + 'ms)',\n        max: scaleMax\n      };\n    }),\n    radius: '65%',\n    splitNumber: 4,\n    name: {\n      textStyle: {\n        color: '#fff',\n        fontSize: 11\n      }\n    },\n    splitLine: {\n      lineStyle: {\n        color: ['rgba(255, 255, 255, 0.1)', 'rgba(255, 255, 255, 0.2)'].reverse()\n      }\n    },\n    splitArea: {\n      show: true,\n      areaStyle: {\n        color: ['rgba(255, 255, 255, 0.02)', 'rgba(255, 255, 255, 0.05)']\n      }\n    },\n    axisLine: {\n      lineStyle: {\n        color: 'rgba(255, 255, 255, 0.2)'\n      }\n    }\n  },\n  series: [{\n    name: 'KPI Measurements',\n    type: 'radar',\n    data: [{\n      value: values,\n      name: 'Average KPI (ms)',\n      symbol: 'circle',\n      symbolSize: 6,\n      areaStyle: {\n        opacity: 0.4,\n        color: 'rgba(84, 112, 198, 0.6)'\n      },\n      lineStyle: {\n        width: 2,\n        color: '#5470c6'\n      },\n      itemStyle: {\n        color: '#5470c6',\n        borderColor: '#fff',\n        borderWidth: 2\n      },\n      label: {\n        show: false\n      }\n    }]\n  }]\n};",
+        "google": {
+          "callback": "gmapReady",
+          "key": ""
+        },
+        "map": "none",
+        "renderer": "canvas",
+        "themeEditor": {
+          "config": "{}",
+          "name": "default"
+        },
+        "visualEditor": {
+          "code": "return {\n  dataset: context.editor.dataset,\n  series: context.editor.series,\n  xAxis: {\n    type: 'time',\n  },\n  yAxis: {\n    type: 'value',\n    min: 'dataMin',\n  },\n}\n",
+          "dataset": [],
+          "series": []
+        }
+      },
+      "pluginVersion": "7.1.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "ceunuuxwxvy80e"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT er.action_set_id, ROUND(AVG(er.kpi_measurement_ms)) as avg_kpi FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL AND ui.name = 'perseus_360_web' AND $__timeFilter(er.executed_at) GROUP BY er.action_set_id ORDER BY er.action_set_id",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "",
+      "type": "volkovlabs-echarts-panel"
     }
   ],
   "preload": false,
@@ -181,12 +1728,19 @@
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "supabase-postgres"
+          "uid": "ceunuuxwxvy80e"
         },
         "includeAll": true,
         "label": "User Interface",
         "multi": true,
         "name": "user_interface",
+        "options": [
+          {
+            "selected": false,
+            "text": "horizon_tv",
+            "value": "horizon_tv"
+          }
+        ],
         "query": "SELECT DISTINCT ui.name FROM execution_results er LEFT JOIN navigation_trees nt ON er.tree_id = nt.id LEFT JOIN userinterfaces ui ON nt.userinterface_id = ui.id WHERE er.kpi_measurement_ms IS NOT NULL ORDER BY ui.name",
         "type": "query"
       },
@@ -197,24 +1751,36 @@
         },
         "datasource": {
           "type": "grafana-postgresql-datasource",
-          "uid": "supabase-postgres"
+          "uid": "ceunuuxwxvy80e"
         },
         "includeAll": true,
         "label": "Action Set",
         "multi": true,
         "name": "action_set",
+        "options": [
+          {
+            "selected": false,
+            "text": "home_apps_to_apps",
+            "value": "home_apps_to_apps"
+          },
+          {
+            "selected": false,
+            "text": "home_to_home_tvguide",
+            "value": "home_to_home_tvguide"
+          }
+        ],
         "query": "SELECT DISTINCT action_set_id FROM execution_results WHERE kpi_measurement_ms IS NOT NULL ORDER BY action_set_id",
         "type": "query"
       }
     ]
   },
   "time": {
-    "from": "now-7d",
+    "from": "now-24h",
     "to": "now"
   },
   "timepicker": {},
   "timezone": "browser",
   "title": "KPI Measurement",
   "uid": "kpi-measurement-dashboard",
-  "version": 48
+  "version": 49
 }
