@@ -1,4 +1,4 @@
-import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip } from '@mui/material';
+  import { Box, FormControl, IconButton, InputLabel, MenuItem, Select, SelectChangeEvent, Tooltip, Typography } from '@mui/material';
 import { OpenInNew } from '@mui/icons-material';
 import ApiIcon from '@mui/icons-material/Api';
 import React, { useState } from 'react';
@@ -50,30 +50,36 @@ const ApiDocumentation: React.FC = () => {
   return (
     <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
       {/* Doc Selector */}
-      <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
-        <FormControl sx={{ minWidth: 350 }}>
-          <InputLabel id="doc-select-label">Select API Documentation</InputLabel>
-          <Select
-            labelId="doc-select-label"
-            id="doc-select"
-            value={selectedDoc}
-            label="Select API Documentation"
-            onChange={handleDocChange}
-          >
-            {apiDocs.map((doc) => (
-              <MenuItem key={doc.filename} value={doc.filename}>
-                {doc.title}
-              </MenuItem>
-            ))}
-          </Select>
-        </FormControl>
+      <Box sx={{ p: 1.5, borderBottom: '1px solid #334155', display: 'grid', gridTemplateColumns: '1fr auto 1fr', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+          <FormControl size="small" sx={{ minWidth: 280 }}>
+            <InputLabel id="doc-select-label">Select API Documentation</InputLabel>
+            <Select
+              labelId="doc-select-label"
+              id="doc-select"
+              value={selectedDoc}
+              label="Select API Documentation"
+              onChange={handleDocChange}
+            >
+              {apiDocs.map((doc) => (
+                <MenuItem key={doc.filename} value={doc.filename}>
+                  {doc.title}
+                </MenuItem>
+              ))}
+            </Select>
+          </FormControl>
+        </Box>
         
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+        <Typography variant="h6" sx={{ fontWeight: 600, color: 'text.primary', display: 'flex', alignItems: 'center', gap: 1, whiteSpace: 'nowrap' }}>
+          🚀 VirtualPyTest API Documentation
+        </Typography>
+        
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: 0.5 }}>
           <Tooltip title="Open in new tab">
             <IconButton
               onClick={() => window.open(getDocUrl(), '_blank')}
               color="primary"
-              size="medium"
+              size="small"
             >
               <OpenInNew />
             </IconButton>
@@ -82,7 +88,7 @@ const ApiDocumentation: React.FC = () => {
             <IconButton
               onClick={() => window.open('https://www.postman.com/angelstreet-6173fb0b-1548216/virtualpytest-api-testing/overview', '_blank')}
               color="secondary"
-              size="medium"
+              size="small"
             >
               <ApiIcon />
             </IconButton>
