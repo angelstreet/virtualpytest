@@ -5,7 +5,7 @@
 [![Python](https://img.shields.io/badge/python-3.9%2B-blue)](https://www.python.org/)
 [![Status](https://img.shields.io/badge/status-active-success.svg)]()
 [![Documentation](https://img.shields.io/badge/docs-latest-brightgreen)](docs/)
-[![Sandbox](https://img.shields.io/badge/Try_Live-VirtualPyTest.com-orange)](https://www.virtualpytest.com/)
+<a href="https://www.virtualpytest.com/" target="_blank">![Sandbox](https://img.shields.io/badge/Try_Live-VirtualPyTest.com-orange)</a>
 
 <div align="center">
   <h3><b>Open-source, multi-device automation and monitoring made easy.</b></h3>
@@ -14,7 +14,8 @@
   <p>
     <a href="docs/get-started/quickstart.md"><b>Getting Started</b></a> •
     <a href="docs/"><b>Documentation</b></a> •
-    <a href="docs/examples/"><b>Examples</b></a> •
+    <a href="docs/screenshots.md"><b>Screenshots</b></a> •
+    <a href="docs/videos.md"><b>Videos</b></a> •
     <a href="#community--support"><b>Community</b></a>
   </p>
 </div>
@@ -25,13 +26,13 @@
 
 VirtualPyTest is a unified automation platform that helps you automate, monitor, and remotely control all your devices—TVs, set-top boxes (STBs), mobile phones, and more.
 
-Designed to **replace $15k+ commercial tools**, VirtualPyTest provides a free, flexible solution that works everywhere. Whether you are a QA team needing to automate regression tests, or an operations team monitoring device health 24/7, VirtualPyTest scales to meet your needs.
+Designed to **replace $50k+ commercial tools**, VirtualPyTest provides a free, flexible solution that works everywhere. Whether you are a QA team needing to automate regression tests, or an operations team monitoring device health 24/7, VirtualPyTest scales to meet your needs.
 
 <div align="center">
   <a href="https://www.virtualpytest.com/">
     <img src="/frontend/public/screenshot/dashboard.png" alt="VirtualPyTest Dashboard" width="100%">
   </a>
-  <p><i><a href="https://www.virtualpytest.com/">Try the Live Sandbox</a></i></p>
+  <p><i><a href="https://www.virtualpytest.com/" target="_blank">Try the Live Sandbox</a></i></p>
 </div>
 
 ---
@@ -93,7 +94,7 @@ Learn how to automate common scenarios:
 
 | Feature | VirtualPyTest | Commercial Tools |
 | :--- | :---: | :---: |
-| **Cost** | **Free (Open Source)** | $15k+ / year |
+| **Cost** | **Free (Open Source)** | $50k+ / year |
 | **Platform Support** | Linux, Raspberry Pi, Docker, Cloud | often Windows only |
 | **Customization** | Full Source Code Access | Vendor Locked |
 | **Monitoring** | Built-in Grafana | Paid Add-on |

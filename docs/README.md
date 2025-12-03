@@ -190,7 +190,7 @@ VirtualPyTest works with:
 
 | Feature | VirtualPyTest | Commercial Tools |
 | :--- | :---: | :---: |
-| Cost | **Free** | $15k+/year |
+| Cost | **Free** | $50k+/year |
 | Platform Support | All | Limited |
 | Customization | Full | Vendor Locked |
 | Monitoring | Built-in | Extra Cost |

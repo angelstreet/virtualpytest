@@ -249,7 +249,7 @@
 - Community-driven development
 
 **Value proposition**:
-- Replace expensive commercial tools ($15k+)
+- Replace expensive commercial tools ($50k+)
 - No vendor lock-in
 - Customize for your specific needs
 

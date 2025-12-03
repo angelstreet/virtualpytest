@@ -54,7 +54,7 @@ Connect to **JIRA**, **Grafana**, and more. Export test results, sync requiremen
 
 | Feature | VirtualPyTest | Commercial Tools |
 | :--- | :---: | :---: |
-| **Cost** | **Free (Open Source)** | $15k+ / year |
+| **Cost** | **Free (Open Source)** | $50k+ / year |
 | **Platform Support** | Linux, Raspberry Pi, Docker, Cloud | Often Windows only |
 | **Customization** | Full Source Code Access | Vendor Locked |
 | **Monitoring** | Built-in Grafana | Paid Add-on |

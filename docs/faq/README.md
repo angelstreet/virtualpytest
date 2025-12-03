@@ -150,7 +150,7 @@ cd virtualpytest && ./setup/quickstart.sh
 | **Script portability** | Same script for all devices | Different scripts per platform |
 | **Validation** | AI vision (semantic) | Element selectors (brittle) |
 | **STB/TV support** | Built-in (IR, HDMI capture) | Not supported |
-| **Cost** | Free (MIT License) | Free (but commercial tools cost $15k+) |
+| **Cost** | Free (MIT License) | Free (but commercial tools cost $50k+) |
 | **Monitoring** | Built-in Grafana dashboards | Requires separate tools |
 
 **VirtualPyTest complements** Appium/Selenium - it uses them under the hood for mobile/web while adding the unified layer on top.
@@ -209,7 +209,7 @@ services:
 - Full source code access
 
 **Why free?**
-VirtualPyTest was built to democratize device testing. Commercial tools cost $15k+/year and lock you into vendor ecosystems. We believe testing infrastructure should be accessible to everyone.
+VirtualPyTest was built to democratize device testing. Commercial tools cost $50k+/year and lock you into vendor ecosystems. We believe testing infrastructure should be accessible to everyone.
 
 **How to support the project:**
 - ⭐ Star the repo
