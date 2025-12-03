@@ -7,7 +7,7 @@ import sys
 import os
 
 from backend_host.src.lib.utils.translation_utils import batch_translate_restart_content, translate_text, detect_language_from_text
-from shared.src.lib.utils.storage_path_utils import get_device_base_path
+from shared.src.lib.utils.storage_path_utils import get_device_base_path, sanitize_folder_name
 
 import json
 
@@ -130,6 +130,12 @@ def translate_segments(capture_folder):
     Translate transcript using BATCH translation (full text as ONE block)
     Much faster than translating segment-by-segment!
     """
+    try:
+        # Security: sanitize capture_folder to prevent path traversal
+        capture_folder = sanitize_folder_name(capture_folder)
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    
     try:
         data = request.get_json()
         
@@ -260,6 +266,12 @@ def translate_transcripts(capture_folder):
     Translate transcript segments on-demand (caches in JSON)
     Minimal pattern from useRestart.ts - cached translations
     """
+    try:
+        # Security: sanitize capture_folder to prevent path traversal
+        capture_folder = sanitize_folder_name(capture_folder)
+    except ValueError as e:
+        return jsonify({'success': False, 'error': str(e)}), 400
+    
     try:
         data = request.get_json()
         

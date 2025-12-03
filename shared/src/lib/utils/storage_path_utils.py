@@ -25,6 +25,43 @@ from typing import Optional
 logger = logging.getLogger(__name__)
 
 # =====================================================
+# SECURITY UTILITIES
+# =====================================================
+
+def sanitize_folder_name(folder_name: str) -> str:
+    """
+    Sanitize a folder name to prevent path traversal attacks.
+    
+    Only allows alphanumeric characters, underscores, and hyphens.
+    Blocks dangerous patterns like '..', '/', '\', etc.
+    
+    Args:
+        folder_name: Raw folder name from user input (URL params, etc.)
+        
+    Returns:
+        Sanitized folder name safe for use in file paths
+        
+    Raises:
+        ValueError: If folder name contains dangerous characters or is empty
+        
+    Example:
+        sanitize_folder_name('capture1') -> 'capture1'
+        sanitize_folder_name('../etc') -> raises ValueError
+    """
+    if not folder_name:
+        raise ValueError('Folder name cannot be empty')
+    
+    # Block path traversal attempts
+    if '..' in folder_name or '/' in folder_name or '\\' in folder_name:
+        raise ValueError(f'Invalid folder name (path traversal not allowed): {folder_name}')
+    
+    # Only allow safe characters: alphanumeric, underscore, hyphen
+    if not re.match(r'^[a-zA-Z0-9_-]+$', folder_name):
+        raise ValueError(f'Invalid folder name (only alphanumeric, underscore, hyphen allowed): {folder_name}')
+    
+    return folder_name
+
+# =====================================================
 # BASE PATH CONFIGURATION (NO HARDCODING!)
 # =====================================================
 
