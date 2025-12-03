@@ -135,9 +135,9 @@ Check out our [full roadmap](https://github.com/angelstreet/virtualpytest/issues
 
 We welcome you to join our growing community!
 
-- **🐛 Issue Tracker**: Report bugs or request features on [GitHub Issues](https://github.com/your-repo/virtualpytest/issues).
-- **💬 Discussions**: Ask questions and share ideas in [GitHub Discussions](https://github.com/your-repo/virtualpytest/discussions).
-- **🤝 Contributing**: Want to help? Read our [Contribution Guide](CONTRIBUTING.md).
+- **🐛 Issue Tracker**: Report bugs or request features on [GitHub Issues](https://github.com/angelstreet/virtualpytest/issues).
+- **💬 Discussions**: Ask questions and share ideas in [GitHub Discussions](https://github.com/angelstreet/virtualpytest/discussions).
+- **💖 Sponsor**: Support the project on [GitHub Sponsors](https://github.com/sponsors/angelstreet).
 
 ---
 

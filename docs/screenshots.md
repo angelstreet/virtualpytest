@@ -1,4 +1,4 @@
-# Screenshots
+doc:sponsor# Screenshots
 
 Visual gallery of VirtualPyTest features.
 
