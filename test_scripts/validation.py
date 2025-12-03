@@ -201,7 +201,7 @@ def validate_with_recovery(max_iteration: int = None, edges: str = None) -> bool
             print(f"❌ [validation] Step {i+1} failed: {result.get('error', 'Unknown error')}")
             # Recovery: Navigate back to home after failure
             print(f"🔄 [validation] Recovery: Navigating back to home")
-            home_result = asyncio.run(device.navigation_executor.navigate_to(
+            home_result = asyncio.run(device.navigation_executor.execute_navigation(
                 target_node_label='home',
                 tree_id=context.tree_id,
                 userinterface_name=context.userinterface,

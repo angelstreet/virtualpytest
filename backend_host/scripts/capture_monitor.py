@@ -122,6 +122,11 @@ class InotifyFrameMonitor:
         from concurrent.futures import ThreadPoolExecutor
         self.zapping_executor = ThreadPoolExecutor(max_workers=4, thread_name_prefix="zapping-worker")
         
+        # ✅ LIFO BACKLOG TRACKING: Track last processed sequence per device
+        # Prevents starting new events when processing old frames from backlog
+        # {capture_folder: max_sequence_processed}
+        self.last_processed_sequence = {}
+        
         for capture_dir in capture_dirs:
             # Use centralized path utilities (handles both hot and cold storage)
             capture_folder = get_capture_folder(capture_dir)
@@ -347,6 +352,23 @@ class InotifyFrameMonitor:
         device_state = self.incident_manager.get_device_state(device_id)
         current_time = datetime.now()
         
+        # ✅ LIFO BACKLOG PROTECTION: Extract current sequence
+        try:
+            current_sequence = int(current_filename.split('_')[1].split('.')[0])
+        except:
+            current_sequence = None
+        
+        # Check if we're processing an old frame (LIFO backlog)
+        is_processing_backlog = False
+        if current_sequence is not None:
+            last_seq = self.last_processed_sequence.get(capture_folder, 0)
+            if current_sequence < last_seq:
+                is_processing_backlog = True
+                logger.debug(f"[{capture_folder}] 🔄 LIFO BACKLOG: Processing old frame seq={current_sequence} (last={last_seq})")
+            else:
+                # Update last processed sequence (only if newer)
+                self.last_processed_sequence[capture_folder] = current_sequence
+        
         # Track all event types with same logic
         for event_type in ['blackscreen', 'freeze', 'audio', 'macroblocks']:
             # For audio: True=good, False=problem (inverse of other events)
@@ -360,10 +382,23 @@ class InotifyFrameMonitor:
             
             if event_active:
                 if not device_state.get(event_start_key):
+                    # ✅ LIFO BACKLOG PROTECTION: Skip event START if processing old frame
+                    # This prevents starting new events when processing backlog frames
+                    # Example: Frame 8099 (new) already ended freeze, then we process 8096 (old) and detect freeze start
+                    # We should NOT start a new event for the old frame!
+                    if is_processing_backlog and current_sequence is not None:
+                        logger.warning(f"[{capture_folder}] ⏭️  SKIP {event_type.upper()} START: Processing old frame (seq={current_sequence}, backlog)")
+                        logger.warning(f"[{capture_folder}]     This prevents false events from LIFO queue processing")
+                        continue  # Skip this event type, move to next
+                    
                     # Event START
                     device_state[event_start_key] = current_time.isoformat()
                     detection_result[f'{event_type}_event_start'] = device_state[event_start_key]
                     detection_result[f'{event_type}_event_duration_ms'] = 0
+                    
+                    # ✅ Store sequence number for chronological validation (all event types)
+                    if current_sequence is not None:
+                        device_state[f'{event_type}_start_sequence'] = current_sequence
                     
                     # ✅ ZAPPING: Copy BEFORE + FIRST frames (original + thumbnail) to cold storage
                     if event_type == 'blackscreen':
@@ -519,12 +554,33 @@ class InotifyFrameMonitor:
                         else:
                             logger.info(f"[{capture_folder}] ⚠️  {event_type.upper()} ongoing: {duration_ms/1000:.1f}s")
             elif device_state.get(event_start_key):
+                # ✅ LIFO BACKLOG PROTECTION: Check if event END makes sense chronologically
+                # If processing old frame AND event started at a NEWER sequence, skip this END
+                # Example: Frame 8095-8099 (freeze), frame 8099 already ended it
+                # Then we process 8087 (old, from backlog) which is NOT freeze
+                # Device state still has freeze_start from 8096 (newer frame processed later)
+                # We should NOT end an event that started AFTER the current frame!
+                if is_processing_backlog and current_sequence is not None:
+                    # Get event start sequence from device_state if available
+                    event_start_seq_key = f'{event_type}_start_sequence'
+                    event_start_seq = device_state.get(event_start_seq_key)
+                    
+                    if event_start_seq and current_sequence < event_start_seq:
+                        logger.warning(f"[{capture_folder}] ⏭️  SKIP {event_type.upper()} END: Event started at seq={event_start_seq}, current={current_sequence} (backlog)")
+                        logger.warning(f"[{capture_folder}]     Cannot end an event that started AFTER this frame!")
+                        continue  # Skip this event type
+                
                 # Event END
                 start = datetime.fromisoformat(device_state[event_start_key])
                 detection_result[f'{event_type}_event_end'] = current_time.isoformat()
                 total_duration_ms = int((current_time - start).total_seconds() * 1000)
                 detection_result[f'{event_type}_event_total_duration_ms'] = total_duration_ms
                 device_state[event_start_key] = None
+                
+                # ✅ Clear sequence tracking when event ends
+                event_start_seq_key = f'{event_type}_start_sequence'
+                if event_start_seq_key in device_state:
+                    device_state[event_start_seq_key] = None
                 
                 # ✅ ZAPPING: Copy LAST + AFTER frames (original + thumbnail) to cold storage
                 if event_type == 'blackscreen':
