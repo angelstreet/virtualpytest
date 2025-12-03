@@ -1566,6 +1566,7 @@ class InotifyFrameMonitor:
     
     def process_frame(self, captures_path, filename, queue_size=0):
         """Process a single frame - called by both inotify and startup scan"""
+        from datetime import datetime  # Import at function scope to avoid shadowing issues
         
         # Log memory usage periodically (every hour)
         log_memory_usage()
@@ -1711,7 +1712,6 @@ class InotifyFrameMonitor:
                 # Calculate freeze duration for optimization (long freezes need less frequent checking)
                 freeze_duration_ms = 0
                 if device_state.get('freeze_event_start'):
-                    from datetime import datetime
                     freeze_start = datetime.fromisoformat(device_state['freeze_event_start'])
                     freeze_duration_ms = int((datetime.now() - freeze_start).total_seconds() * 1000)
                 

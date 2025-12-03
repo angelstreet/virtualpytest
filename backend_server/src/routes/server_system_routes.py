@@ -239,10 +239,6 @@ def getAllHosts():
         
         # Get all hosts from manager (no automatic cleanup - hosts are only removed on explicit unregister)
         all_hosts = host_manager.get_all_hosts()
-        print(f"🔍 [HOSTS] Raw hosts from manager: {len(all_hosts)} hosts (include_actions={include_actions}, include_system_stats={include_system_stats})")
-        for host_name, host_data in all_hosts.items():
-            print(f"   Host key: {host_name}, has host_name: {'host_name' in host_data}, has host_url: {'host_url' in host_data}")
-        
         # Verify required fields are present
         valid_hosts = []
         required_fields = ['host_name', 'host_url']
