@@ -128,26 +128,27 @@ def create_index_html(yaml_files):
     <style>
         * {{ margin: 0; padding: 0; box-sizing: border-box; }}
         body {{ font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; 
-               background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); 
+               background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%); 
                padding: 40px 20px; min-height: 100vh; }}
         .container {{ max-width: 1200px; margin: 0 auto; }}
-        h1 {{ color: white; font-size: 3em; margin-bottom: 20px; text-align: center; }}
-        .subtitle {{ color: rgba(255,255,255,0.9); text-align: center; margin-bottom: 50px; font-size: 1.2em; }}
-        .section {{ background: white; border-radius: 12px; padding: 30px; margin-bottom: 30px; 
-                    box-shadow: 0 10px 40px rgba(0,0,0,0.1); }}
-        .section h2 {{ color: #667eea; margin-bottom: 20px; font-size: 1.8em; }}
+        h1 {{ color: #f1f5f9; font-size: 3em; margin-bottom: 20px; text-align: center; }}
+        .subtitle {{ color: rgba(241,245,249,0.8); text-align: center; margin-bottom: 50px; font-size: 1.2em; }}
+        .section {{ background: #1e293b; border: 1px solid #334155; border-radius: 12px; padding: 30px; margin-bottom: 30px; 
+                    box-shadow: 0 10px 40px rgba(0,0,0,0.3); }}
+        .section h2 {{ color: #e2e8f0; margin-bottom: 20px; font-size: 1.8em; }}
         .api-grid {{ display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }}
-        .api-card {{ background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%); 
+        .api-card {{ background: #334155; 
                      padding: 20px; border-radius: 8px; transition: all 0.3s; 
-                     border-left: 4px solid #667eea; }}
-        .api-card:hover {{ transform: translateY(-5px); box-shadow: 0 10px 20px rgba(102,126,234,0.3); }}
-        .api-card a {{ text-decoration: none; color: #2d3748; font-weight: 600; font-size: 1.1em; }}
-        .api-card p {{ color: #4a5568; margin-top: 8px; font-size: 0.9em; }}
-        .host-card {{ border-left-color: #f093fb; background: linear-gradient(135deg, #fad0c4 0%, #ffd1ff 100%); }}
+                     border-left: 4px solid #64748b; }}
+        .api-card:hover {{ transform: translateY(-5px); box-shadow: 0 10px 20px rgba(0,0,0,0.4); background: #3f4f63; }}
+        .api-card a {{ text-decoration: none; color: #f1f5f9; font-weight: 600; font-size: 1.1em; }}
+        .api-card p {{ color: #94a3b8; margin-top: 8px; font-size: 0.9em; }}
+        .host-card {{ border-left-color: #94a3b8; background: #3d4f5f; }}
+        .host-card:hover {{ background: #4a5f70; }}
         .stats {{ display: flex; justify-content: space-around; margin-top: 30px; }}
         .stat {{ text-align: center; }}
-        .stat-number {{ font-size: 2.5em; color: #667eea; font-weight: bold; }}
-        .stat-label {{ color: #4a5568; margin-top: 5px; }}
+        .stat-number {{ font-size: 2.5em; color: #e2e8f0; font-weight: bold; }}
+        .stat-label {{ color: #94a3b8; margin-top: 5px; }}
     </style>
 </head>
 <body>

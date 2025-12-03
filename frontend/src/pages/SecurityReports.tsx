@@ -11,7 +11,7 @@ const SecurityReports: React.FC = () => {
   };
 
   return (
-    <Box sx={{ height: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <Box sx={{ height: '80vh', display: 'flex', flexDirection: 'column' }}>
       {/* Header with actions */}
       <Box sx={{ p: 2, borderBottom: '1px solid #e0e0e0', display: 'flex', alignItems: 'center', gap: 2 }}>
         <Security color="primary" sx={{ fontSize: 28 }} />
