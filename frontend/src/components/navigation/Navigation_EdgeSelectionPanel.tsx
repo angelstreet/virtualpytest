@@ -61,13 +61,12 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
   }) => {
     const { getNodes, getEdges } = useReactFlow();
 
-    // Direction lookup based on action set ID, with fallback to node labels
+    // Simple hardcoded direction lookup based on action set ID
     const { fromLabel, toLabel } = useMemo(() => {
       const nodes = getNodes();
       const sourceNode = nodes.find((node) => node.id === selectedEdge.source);
       const targetNode = nodes.find((node) => node.id === selectedEdge.target);
       
-      // Get actual node labels from the graph (source of truth)
       const sourceLabel = sourceNode?.data?.label || selectedEdge.source;
       const targetLabel = targetNode?.data?.label || selectedEdge.target;
 
@@ -75,21 +74,10 @@ export const EdgeSelectionPanel: React.FC<EdgeSelectionPanelProps> = React.memo(
         return { fromLabel: sourceLabel, toLabel: targetLabel };
       }
 
-      // Try parsing action set ID (format: "from_to_to" or "from_to_to_timestamp")
+      // Simple parsing: action set ID is always "from_to_to"
       if (actionSet.id.includes('_to_')) {
-        const [parsedFrom, ...rest] = actionSet.id.split('_to_');
-        const parsedTo = rest.join('_to_').replace(/_\d+$/, ''); // Remove timestamp suffix if present
-        
-        // ✅ FIX: If parsed labels look like node IDs (start with "node-"), use actual node labels instead
-        const fromLooksLikeNodeId = parsedFrom.startsWith('node-');
-        const toLooksLikeNodeId = parsedTo.startsWith('node-');
-        
-        if (fromLooksLikeNodeId || toLooksLikeNodeId) {
-          // Fallback to actual node labels when action_set_id contains node IDs
-          return { fromLabel: sourceLabel, toLabel: targetLabel };
-        }
-        
-        return { fromLabel: parsedFrom, toLabel: parsedTo };
+        const [fromLabel, toLabel] = actionSet.id.split('_to_');
+        return { fromLabel, toLabel };
       }
 
       return { fromLabel: sourceLabel, toLabel: targetLabel };
