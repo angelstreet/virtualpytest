@@ -113,6 +113,17 @@ sort -u "$FILES_TO_COPY" | while IFS= read -r file; do
     fi
 done
 
+# For screenshots and videos: use index.md (styled version) instead of README.md
+# This keeps GitHub showing README.md while website uses the styled index.md
+if [ -f "../docs/screenshots/index.md" ]; then
+    cp "../docs/screenshots/index.md" "public/docs/screenshots/README.md"
+    echo -e "${GREEN}✓${NC} Using styled index.md for screenshots"
+fi
+if [ -f "../docs/videos/index.md" ]; then
+    cp "../docs/videos/index.md" "public/docs/videos/README.md"
+    echo -e "${GREEN}✓${NC} Using styled index.md for videos"
+fi
+
 # Count actual copied files
 file_count=$(find public/docs -name "*.md" | wc -l | tr -d ' ')
 

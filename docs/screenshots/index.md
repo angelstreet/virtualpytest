@@ -1,240 +1,297 @@
-# Screenshots
 
-<table>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/dashboard.png" target="_blank">
-        <img src="screenshot/dashboard.png" width="240" alt="Dashboard">
-      </a>
-      <br><b>Dashboard</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/rec.png" target="_blank">
-        <img src="screenshot/rec.png" width="240" alt="Remote Eye Controller">
-      </a>
-      <br><b>Remote Eye Controller</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/rec_mobile_dump.png" target="_blank">
-        <img src="screenshot/rec_mobile_dump.png" width="240" alt="Mobile Dump">
-      </a>
-      <br><b>Mobile Dump</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/testcase_runner.png" target="_blank">
-        <img src="screenshot/testcase_runner.png" width="240" alt="Test Execution">
-      </a>
-      <br><b>Test Execution</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/navigation_tree_1.png" target="_blank">
-        <img src="screenshot/navigation_tree_1.png" width="240" alt="Navigation Tree">
-      </a>
-      <br><b>Navigation Tree</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/navigation_subtree.png" target="_blank">
-        <img src="screenshot/navigation_subtree.png" width="240" alt="Navigation Subtree">
-      </a>
-      <br><b>Navigation Subtree</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/navigation_node_metric.png" target="_blank">
-        <img src="screenshot/navigation_node_metric.png" width="240" alt="Navigation Metrics">
-      </a>
-      <br><b>Navigation Metrics</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/node_verification.png" target="_blank">
-        <img src="screenshot/node_verification.png" width="240" alt="Node Verification">
-      </a>
-      <br><b>Navigation Node</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/edge_action.png" target="_blank">
-        <img src="screenshot/edge_action.png" width="240" alt="Edge Action">
-      </a>
-      <br><b>Navigation Edge</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/pathfinding_preview.png" target="_blank">
-        <img src="screenshot/pathfinding_preview.png" width="240" alt="Pathfinding Preview">
-      </a>
-      <br><b>Pathfinding Preview</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/verification_editor_1.png" target="_blank">
-        <img src="screenshot/verification_editor_1.png" width="240" alt="Verification Editor">
-      </a>
-      <br><b>Verification Editor</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/verification_editor_2.png" target="_blank">
-        <img src="screenshot/verification_editor_2.png" width="240" alt="Verification Image">
-      </a>
-      <br><b>Verification Image</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/verification_editor_3.png" target="_blank">
-        <img src="screenshot/verification_editor_3.png" width="240" alt="Verification Text">
-      </a>
-      <br><b>Verification Text</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/testcase_builder.png" target="_blank">
-        <img src="screenshot/testcase_builder.png" width="240" alt="TestCase Builder">
-      </a>
-      <br><b>TestCase Builder</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/testcase_runner.png" target="_blank">
-        <img src="screenshot/testcase_runner.png" width="240" alt="TestCase Runner">
-      </a>
-      <br><b>TestCase Runner</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/deployments.png" target="_blank">
-        <img src="screenshot/deployments.png" width="240" alt="TestCase Deployment">
-      </a>
-      <br><b>TestCase Deployment</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/test_reports.png" target="_blank">
-        <img src="screenshot/test_reports.png" width="240" alt="Test Report">
-      </a>
-      <br><b>Test Report</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/test_report_2.png" target="_blank">
-        <img src="screenshot/test_report_2.png" width="240" alt="Test Report Detail">
-      </a>
-      <br><b>Test Report - Detail</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/test_report_3.png" target="_blank">
-        <img src="screenshot/test_report_3.png" width="240" alt="Test Report Detail 2">
-      </a>
-      <br><b>Test Report</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/zap_detection.png" target="_blank">
-        <img src="screenshot/zap_detection.png" width="240" alt="Zap Detection">
-      </a>
-      <br><b>Zap Detection</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/grafana_iframe.png" target="_blank">
-        <img src="screenshot/grafana_iframe.png" width="240" alt="Grafana Integration">
-      </a>
-      <br><b>Grafana Integration</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/grafana_scripts.png" target="_blank">
-        <img src="screenshot/grafana_scripts.png" width="240" alt="Grafana Dashboard">
-      </a>
-      <br><b>Grafana Dashboard</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/grafana_kpi_radar.png" target="_blank">
-        <img src="screenshot/grafana_kpi_radar.png" width="240" alt="Grafana Radar">
-      </a>
-      <br><b>Grafana Radar</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/monitoring_1.png" target="_blank">
-        <img src="screenshot/monitoring_1.png" width="240" alt="Live Monitoring">
-      </a>
-      <br><b>Live Monitoring</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/heatmap_1.png" target="_blank">
-        <img src="screenshot/heatmap_1.png" width="240" alt="Heatmap">
-      </a>
-      <br><b>Heatmap</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/heatmap_2.png" target="_blank">
-        <img src="screenshot/heatmap_2.png" width="240" alt="Heatmap Details">
-      </a>
-      <br><b>Heatmap Details</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/heatmap_report.png" target="_blank">
-        <img src="screenshot/heatmap_report.png" width="240" alt="Heatmap Report">
-      </a>
-      <br><b>Heatmap Report</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/alerts_incidents_open.png" target="_blank">
-        <img src="screenshot/alerts_incidents_open.png" width="240" alt="Incidents Open">
-      </a>
-      <br><b>Incidents Open</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/alerts_incidents_close.png" target="_blank">
-        <img src="screenshot/alerts_incidents_close.png" width="240" alt="Incidents Close">
-      </a>
-      <br><b>Incidents Close</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/api_testing_1.png" target="_blank">
-        <img src="screenshot/api_testing_1.png" width="240" alt="API Testing">
-      </a>
-      <br><b>API Testing</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/api_testing_2.png" target="_blank">
-        <img src="screenshot/api_testing_2.png" width="240" alt="API Run">
-      </a>
-      <br><b>API Run</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/postman.png" target="_blank">
-        <img src="screenshot/postman.png" width="240" alt="Postman Integration">
-      </a>
-      <br><b>Postman Integration</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/dependency_report_1.png" target="_blank">
-        <img src="screenshot/dependency_report_1.png" width="240" alt="Dependency Script Node">
-      </a>
-      <br><b>Dependency Script Node</b>
-    </td>
-  </tr>
-  <tr>
-    <td align="center" width="250">
-      <a href="screenshot/dependency_report_2.png" target="_blank">
-        <img src="screenshot/dependency_report_2.png" width="240" alt="Dependency Node Script">
-      </a>
-      <br><b>Dependency Node Script</b>
-    </td>
-    <td align="center" width="250">
-      <a href="screenshot/ask_ai.png" target="_blank">
-        <img src="screenshot/ask_ai.png" width="240" alt="Ask AI">
-      </a>
-      <br><b>Ask AI</b>
-    </td>
-    <td align="center" width="250">
-    </td>
-  </tr>
-</table>
+<style>
+.screenshot-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 20px;
+  padding: 20px 0;
+}
+
+.screenshot-card {
+  border: 1px solid #e1e4e8;
+  border-radius: 8px;
+  padding: 4px;
+  text-align: center;
+  transition: transform 0.2s, box-shadow 0.2s;
+  background: transparent;
+}
+
+.screenshot-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+
+.screenshot-card h3 {
+  margin: 0 0 2px 0;
+  font-size: 14px;
+  font-weight: 600;
+  color:rgb(255, 255, 255);
+  min-height: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.screenshot-card a {
+  display: block;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.screenshot-card img {
+  width: 100%;
+  height: 180px;
+  object-fit: cover;
+  border-radius: 4px;
+}
+</style>
+
+<div class="screenshot-grid">
+
+  <div class="screenshot-card">
+    <h3>Dashboard</h3>
+    <a href="/screenshot/dashboard.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/dashboard.png" alt="Dashboard">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Remote Eye Controller</h3>
+    <a href="/screenshot/rec.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/rec.png" alt="Remote Eye Controller">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Mobile Dump</h3>
+    <a href="/screenshot/rec_mobile_dump.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/rec_mobile_dump.png" alt="Mobile Dump">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Test Execution</h3>
+    <a href="/screenshot/testcase_runner.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/testcase_runner.png" alt="Run tests">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Navigation Tree</h3>
+    <a href="/screenshot/navigation_tree_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/navigation_tree_1.png" alt="Navigation Tree">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Navigation Tree</h3>
+    <a href="/screenshot/navigation_subtree.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/navigation_subtree.png" alt="Navigation Subtree">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Navigation Metrics</h3>
+    <a href="/screenshot/navigation_node_metric.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/navigation_node_metric.png" alt="Navigation Metrics">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Navigation Node</h3>
+    <a href="/screenshot/node_verification.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/node_verification.png" alt="Node Verification">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Navigation Edge</h3>
+    <a href="/screenshot/edge_action.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/edge_action.png" alt="Edge Action">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Pathfinding Preview</h3>
+    <a href="/screenshot/pathfinding_preview.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/pathfinding_preview.png" alt="Pathfinfind Preview">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Verification Editor</h3>
+    <a href="/screenshot/verification_editor_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/verification_editor_1.png" alt="Verification Editor">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Verification Image</h3>
+    <a href="/screenshot/verification_editor_2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/verification_editor_2.png" alt="Verification Image">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Verification Text<br>(Text)</h3>
+    <a href="/screenshot/verification_editor_3.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/verification_editor_3.png" alt="Verification Text">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>TestCase Builder</h3>
+    <a href="/screenshot/testcase_builder.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/testcase_builder.png" alt="TestCase Builder">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>TestCase Runner</h3>
+    <a href="/screenshot/testcase_runner.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/testcase_runner.png" alt="TestCase Runner">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>TestCase Deployment</h3>
+    <a href="/screenshot/deployments.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/deployments.png" alt="TestCase RunDeploymentsner">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Test Report</h3>
+    <a href="/screenshot/test_reports.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/test_reports.png" alt="Test Report">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Test Report - Detail</h3>
+    <a href="/screenshot/test_report_2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/test_report_2.png" alt="Test Report - Detail 1">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Test Report</h3>
+    <a href="/screenshot/test_report_3.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/test_report_3.png" alt="Test Report - Detail 2">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Zap Detection</h3>
+    <a href="/screenshot/zap_detection.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/zap_detection.png" alt="Zap Detection">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Grafana Integration</h3>
+    <a href="/screenshot/grafana_iframe.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/grafana_iframe.png" alt="Grafana Integration">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Grafana Dashboard</h3>
+    <a href="/screenshot/grafana_scripts.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/grafana_scripts.png" alt="Grafana Dashboard">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Grafana Radar</h3>
+    <a href="/screenshot/grafana_kpi_radar.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/grafana_kpi_radar.png" alt="Grafana Radar">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Live Monitoring</h3>
+    <a href="/screenshot/monitoring_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/monitoring_1.png" alt="Live Monitoring">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Heatmap</h3>
+    <a href="/screenshot/heatmap_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/heatmap_1.png" alt="Heatmap">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Heatmap Details</h3>
+    <a href="/screenshot/heatmap_2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/heatmap_2.png" alt="Heatmap Details">
+    </a>
+  </div>
+
+
+  <div class="screenshot-card">
+    <h3>Heatmap Report</h3>
+    <a href="/screenshot/heatmap_report.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/heatmap_report.png" alt="Heatmap Report">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Incidents Open</h3>
+    <a href="/screenshot/alerts_incidents_open.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/alerts_incidents_open.png" alt="Incidents Open">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Incidents Close</h3>
+    <a href="/screenshot/alerts_incidents_close.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/alerts_incidents_close.png" alt="Incidents Close">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>API Testing</h3>
+    <a href="/screenshot/api_testing_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/api_testing_1.png" alt="API Testing">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>API Run</h3>
+    <a href="/screenshot/api_testing_2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/api_testing_2.png" alt="API Run">
+    </a>
+  </div>
+  
+  <div class="screenshot-card">
+    <h3>Postman Integration</h3>
+    <a href="/screenshot/postman.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/postman.png" alt="Postman Integration">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Dependency Script Node</h3>
+    <a href="/screenshot/dependency_report_1.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/dependency_report_1.png" alt="Dependency Script Node">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Dependency Node Script</h3>
+    <a href="/screenshot/dependency_report_2.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/dependency_report_2.png" alt="Dependency Node Script">
+    </a>
+  </div>
+
+  <div class="screenshot-card">
+    <h3>Ask AI</h3>
+    <a href="/screenshot/ask_ai.png" target="_blank" rel="noopener noreferrer">
+      <img src="/screenshot/ask_ai.png" alt="Ask AI">
+    </a>
+  </div>
+
+</div>
