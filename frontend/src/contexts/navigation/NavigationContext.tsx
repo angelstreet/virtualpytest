@@ -1243,6 +1243,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
           // Reverse direction (action_sets[1]) is ALWAYS independent - never triggers unlink
           const isConditionalEdge = currentSelectedEdge.data?.is_conditional || currentSelectedEdge.data?.is_conditional_primary;
           const isEditingForwardDirection = edgeForm.direction === 'forward' || !edgeForm.direction; // Default to forward if not specified
+          let didUnlinkSiblings = false; // Track if we did unlink to skip redundant cache updates
           
           if (isConditionalEdge && isEditingForwardDirection) {
             const sharedActionSetId = edgeForm.default_action_set_id;
@@ -1253,6 +1254,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
             );
             
             if (siblingEdges.length > 0) {
+              didUnlinkSiblings = true;
               console.log(`[@NavigationContext:saveEdge] 🔓 UNLINKING ${siblingEdges.length + 1} conditional edges (editing FORWARD direction)`);
               
               // UNLINK: Clear conditional flags for ALL siblings
@@ -1265,7 +1267,7 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                 }
               }));
               
-              // Save each sibling to database with cleared flags
+              // Save each sibling to database with cleared flags (NO per-edge cache update - will invalidate tree once at end)
               for (const sibling of unlinkedSiblings) {
                 const siblingNormalized = {
                   edge_id: sibling.id,
@@ -1285,8 +1287,9 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
                   final_wait_time: sibling.data.final_wait_time || 2000,
                 };
                 
-                await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', siblingNormalized as any);
-                console.log(`[@NavigationContext:saveEdge] 🔓 Unlinked sibling: ${sibling.id}`);
+                // ✅ Skip cache update for siblings - will invalidate tree once at end
+                await navigationConfig?.saveEdge(navigationConfig?.actualTreeId || 'unknown', siblingNormalized as any, { skipCacheUpdate: true });
+                console.log(`[@NavigationContext:saveEdge] 🔓 Unlinked sibling (DB only, no cache): ${sibling.id}`);
               }
               
               // Update frontend state with unlinked siblings
@@ -1427,39 +1430,44 @@ export const NavigationProvider: React.FC<NavigationProviderProps> = ({ children
               }
              }
 
-                          // ✅ UPDATE CACHE: Call server to update edge cache on all hosts
-              try {
-                const edgeDataForCache = {
-                  id: updatedEdge.id,
-                  edge_id: updatedEdge.id,
-                  source_node_id: updatedEdge.source,
-                  target_node_id: updatedEdge.target,
-                  action_sets: updatedEdge.data.action_sets,
-                  default_action_set_id: updatedEdge.data.default_action_set_id,
-                  final_wait_time: updatedEdge.data.final_wait_time,
-                };
-                
-                console.log('[@NavigationContext:saveEdge] 🔄 Updating cache on all hosts...');
-                console.log('[@NavigationContext:saveEdge]   → Tree ID:', navigationConfig.actualTreeId);
-                console.log('[@NavigationContext:saveEdge]   → Edge ID:', updatedEdge.id);
-                
-                const cacheResponse = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({
-                    edge: edgeDataForCache,
-                    tree_id: navigationConfig.actualTreeId
-                  })
-                });
-                
-                if (cacheResponse.ok) {
-                  const cacheResult = await cacheResponse.json();
-                  console.log('[@NavigationContext:saveEdge] ✅ Cache updated:', cacheResult.summary);
-                } else {
-                  console.warn('[@NavigationContext:saveEdge] ⚠️ Cache update failed (non-critical):', cacheResponse.statusText);
+                          // ✅ UPDATE CACHE: Only do per-edge cache update if we DIDN'T do unlink
+              // When unlinking, the tree invalidation at the end handles all edges in one call
+              if (!didUnlinkSiblings) {
+                try {
+                  const edgeDataForCache = {
+                    id: updatedEdge.id,
+                    edge_id: updatedEdge.id,
+                    source_node_id: updatedEdge.source,
+                    target_node_id: updatedEdge.target,
+                    action_sets: updatedEdge.data.action_sets,
+                    default_action_set_id: updatedEdge.data.default_action_set_id,
+                    final_wait_time: updatedEdge.data.final_wait_time,
+                  };
+                  
+                  console.log('[@NavigationContext:saveEdge] 🔄 Updating cache on all hosts...');
+                  console.log('[@NavigationContext:saveEdge]   → Tree ID:', navigationConfig.actualTreeId);
+                  console.log('[@NavigationContext:saveEdge]   → Edge ID:', updatedEdge.id);
+                  
+                  const cacheResponse = await fetch(buildServerUrl(`/server/navigation/cache/update-edge`), {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                      edge: edgeDataForCache,
+                      tree_id: navigationConfig.actualTreeId
+                    })
+                  });
+                  
+                  if (cacheResponse.ok) {
+                    const cacheResult = await cacheResponse.json();
+                    console.log('[@NavigationContext:saveEdge] ✅ Cache updated:', cacheResult.summary);
+                  } else {
+                    console.warn('[@NavigationContext:saveEdge] ⚠️ Cache update failed (non-critical):', cacheResponse.statusText);
+                  }
+                } catch (cacheError) {
+                  console.warn('[@NavigationContext:saveEdge] ⚠️ Cache update error (non-critical):', cacheError);
                 }
-              } catch (cacheError) {
-                console.warn('[@NavigationContext:saveEdge] ⚠️ Cache update error (non-critical):', cacheError);
+              } else {
+                console.log('[@NavigationContext:saveEdge] ⏭️ Skipping per-edge cache update (unlink invalidates tree cache once)');
               }
            }
 
