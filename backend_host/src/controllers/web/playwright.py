@@ -485,6 +485,66 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             'scheduled_async_cleanup': scheduled
         }
     
+    async def _inject_consent_cookies_if_needed(self, url: str) -> bool:
+        """Inject consent cookies for YouTube/Google domains before navigation.
+        
+        Returns True if cookies were injected, False otherwise.
+        """
+        # Check if URL is YouTube or Google domain
+        consent_domains = [
+            ('.youtube.com', 'YouTube'),
+            ('.google.com', 'Google'),
+            ('.google.fr', 'Google FR'),
+            ('.google.de', 'Google DE'),
+            ('.google.co.uk', 'Google UK'),
+            ('.googlevideo.com', 'Google Video'),
+        ]
+        
+        target_domain = None
+        domain_name = None
+        
+        for domain, name in consent_domains:
+            if domain in url or domain.lstrip('.') in url:
+                target_domain = domain
+                domain_name = name
+                break
+        
+        if not target_domain:
+            return False
+        
+        try:
+            context = self.__class__._context
+            if not context:
+                print(f"[PLAYWRIGHT]: No context available for cookie injection")
+                return False
+            
+            # Generate consent cookie value (format: YES+cb.{date}-17-p0.en+FX+{random})
+            import random
+            from datetime import datetime
+            date_str = datetime.now().strftime('%Y%m%d')
+            random_suffix = random.randint(100, 999)
+            consent_value = f'YES+cb.{date_str}-17-p0.en+FX+{random_suffix}'
+            
+            # Inject consent cookies for all Google/YouTube domains
+            cookies_to_inject = [
+                {'name': 'CONSENT', 'value': consent_value, 'domain': '.youtube.com', 'path': '/'},
+                {'name': 'CONSENT', 'value': consent_value, 'domain': '.google.com', 'path': '/'},
+                {'name': 'CONSENT', 'value': consent_value, 'domain': '.google.fr', 'path': '/'},
+                {'name': 'CONSENT', 'value': consent_value, 'domain': '.google.de', 'path': '/'},
+                {'name': 'CONSENT', 'value': consent_value, 'domain': '.google.co.uk', 'path': '/'},
+                # SOCS cookie (newer Google consent format)
+                {'name': 'SOCS', 'value': 'CAISHAgBEhJnd3NfMjAyMzEyMTUtMF9SQzEaAmVuIAEaBgiA_LCrBg', 'domain': '.youtube.com', 'path': '/'},
+                {'name': 'SOCS', 'value': 'CAISHAgBEhJnd3NfMjAyMzEyMTUtMF9SQzEaAmVuIAEaBgiA_LCrBg', 'domain': '.google.com', 'path': '/'},
+            ]
+            
+            await context.add_cookies(cookies_to_inject)
+            print(f"[PLAYWRIGHT]: Injected consent cookies for {domain_name} ({target_domain})")
+            return True
+            
+        except Exception as e:
+            print(f"[PLAYWRIGHT]: Failed to inject consent cookies: {e}")
+            return False
+    
     @ensure_controller_loop
     async def navigate_to_url(self, url: str, timeout: int = 60000, follow_redirects: bool = True) -> Dict[str, Any]:
         """Navigate to a URL."""
@@ -494,6 +554,9 @@ class PlaywrightWebController(PlaywrightVerificationsMixin, WebControllerInterfa
             print(f"[PLAYWRIGHT]: Navigating to {url} (normalized: {normalized_url}) with timeout {timeout}ms")
 
             page = await self._get_persistent_page(target_url=normalized_url)
+            
+            # Inject consent cookies for YouTube/Google before navigation
+            await self._inject_consent_cookies_if_needed(normalized_url)
             
             # Wait for basic page load only - verifications will check readiness
             await page.goto(normalized_url, timeout=timeout, wait_until='load')

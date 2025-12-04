@@ -428,6 +428,37 @@ class PlaywrightConnection:
                     page = context.pages[0]
                 print(f'[PlaywrightConnection] Using existing context with browser default viewport')
             
+            # Inject localStorage-based consent bypass (runs before every page load)
+            await context.add_init_script("""
+                // Pre-set common consent keys to bypass cookie popups (localStorage-based sites)
+                try {
+                    // Generic consent keys
+                    localStorage.setItem('cookie_consent', 'true');
+                    localStorage.setItem('consent', 'true');
+                    localStorage.setItem('cookies_accepted', 'true');
+                    localStorage.setItem('cookieConsent', 'accepted');
+                    localStorage.setItem('cookie-consent', 'accepted');
+                    
+                    // OneTrust CMP
+                    localStorage.setItem('OptanonAlertBoxClosed', new Date().toISOString());
+                    
+                    // Cookiebot
+                    localStorage.setItem('CookieConsent', '{stamp:\\'1\\',necessary:true,preferences:true,statistics:true,marketing:true}');
+                    
+                    // TCF v2.0 (IAB standard)
+                    localStorage.setItem('euconsent-v2', 'CPvnKQAPvnKQAAGABCENDECgAAAAAAAAAApAAAAAAAAA.YAAAAAAAAAA');
+                    
+                    // SessionStorage equivalents
+                    sessionStorage.setItem('cookie_consent', 'true');
+                    sessionStorage.setItem('consent', 'true');
+                    
+                    console.log('[Playwright] Cookie consent bypass injected');
+                } catch(e) {
+                    console.log('[Playwright] Cookie consent bypass error:', e);
+                }
+            """)
+            print(f'[PlaywrightConnection] Injected localStorage consent bypass script')
+            
             print(f'[PlaywrightConnection] Connection established successfully')
             return playwright, browser, context, page
             

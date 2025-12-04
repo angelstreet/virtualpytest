@@ -311,6 +311,37 @@ class WebKitConnection:
                     page = context.pages[0]
                 print(f'[WebKitConnection] Using existing lightweight browser context')
             
+            # Inject localStorage-based consent bypass (runs before every page load)
+            await context.add_init_script("""
+                // Pre-set common consent keys to bypass cookie popups (localStorage-based sites)
+                try {
+                    // Generic consent keys
+                    localStorage.setItem('cookie_consent', 'true');
+                    localStorage.setItem('consent', 'true');
+                    localStorage.setItem('cookies_accepted', 'true');
+                    localStorage.setItem('cookieConsent', 'accepted');
+                    localStorage.setItem('cookie-consent', 'accepted');
+                    
+                    // OneTrust CMP
+                    localStorage.setItem('OptanonAlertBoxClosed', new Date().toISOString());
+                    
+                    // Cookiebot
+                    localStorage.setItem('CookieConsent', '{stamp:\\'1\\',necessary:true,preferences:true,statistics:true,marketing:true}');
+                    
+                    // TCF v2.0 (IAB standard)
+                    localStorage.setItem('euconsent-v2', 'CPvnKQAPvnKQAAGABCENDECgAAAAAAAAAApAAAAAAAAA.YAAAAAAAAAA');
+                    
+                    // SessionStorage equivalents
+                    sessionStorage.setItem('cookie_consent', 'true');
+                    sessionStorage.setItem('consent', 'true');
+                    
+                    console.log('[WebKit] Cookie consent bypass injected');
+                } catch(e) {
+                    console.log('[WebKit] Cookie consent bypass error:', e);
+                }
+            """)
+            print(f'[WebKitConnection] Injected localStorage consent bypass script')
+            
             return playwright, browser, context, page
             
         except Exception as e:
