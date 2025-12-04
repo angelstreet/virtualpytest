@@ -107,9 +107,9 @@ Be efficient. The user wants results, not lengthy explanations."""
         """
         message_lower = message.lower()
         
-        # CREATE indicators
-        create_keywords = ["automate", "create", "build", "new site", "set up", 
-                         "discover", "explore", "navigation tree"]
+        # CREATE indicators (must be explicit - don't default to this)
+        create_keywords = ["automate", "create new", "build", "new site", "set up", 
+                         "discover", "explore", "navigation tree", "start exploration"]
         if any(kw in message_lower for kw in create_keywords):
             return Mode.CREATE
         
@@ -119,21 +119,26 @@ Be efficient. The user wants results, not lengthy explanations."""
         if any(kw in message_lower for kw in maintain_keywords):
             return Mode.MAINTAIN
         
-        # ANALYZE indicators (analysis only, no execution)
-        analyze_keywords = ["analyze", "analysis", "why did", "root cause", 
-                          "is this a bug", "check jira", "review results",
-                          "what failed", "investigate"]
-        if any(kw in message_lower for kw in analyze_keywords):
-            return Mode.ANALYZE
-        
         # VALIDATE indicators (run + analyze)
-        validate_keywords = ["run", "test", "validate", "regression", "execute",
-                           "check", "verify"]
+        validate_keywords = ["run test", "execute test", "validate", "regression", 
+                           "run all", "execute all"]
         if any(kw in message_lower for kw in validate_keywords):
             return Mode.VALIDATE
         
-        # Default to CREATE for ambiguous requests
-        return Mode.CREATE
+        # ANALYZE indicators (queries, analysis, info retrieval)
+        # This is the default for information queries
+        analyze_keywords = ["analyze", "analysis", "why did", "root cause", 
+                          "is this a bug", "check jira", "review results",
+                          "what failed", "investigate", 
+                          # Simple query words
+                          "how many", "count", "list", "show me", "what are",
+                          "tell me", "get", "find", "search", "coverage",
+                          "requirements", "testcase", "test case"]
+        if any(kw in message_lower for kw in analyze_keywords):
+            return Mode.ANALYZE
+        
+        # Default to ANALYZE for simple queries (safer than CREATE)
+        return Mode.ANALYZE
     
     def extract_context(self, message: str) -> Dict[str, Any]:
         """Extract context information from user message"""
@@ -260,6 +265,16 @@ Respond with a brief plan."""
             # Run agent and stream events
             agent_result = None
             async for event in agent.run(task, session.context):
+                # Check for cancellation
+                if session.cancelled:
+                    yield AgentEvent(
+                        type=EventType.ERROR,
+                        agent="QA Manager",
+                        content="🛑 Operation stopped by user."
+                    )
+                    session.reset_cancellation()
+                    return
+
                 # Convert dict to AgentEvent
                 yield AgentEvent(
                     type=EventType(event.get("type", "thinking")),

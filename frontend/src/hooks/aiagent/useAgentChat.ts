@@ -228,6 +228,25 @@ export const useAgentChat = () => {
     socketRef.current?.emit('approve', { session_id: session?.id, approved });
   }, [session?.id]);
 
+  const stopGeneration = useCallback(() => {
+    if (!session?.id) return;
+    
+    setIsProcessing(false); // Optimistic update
+    setCurrentEvents([]); // Clear current stream
+    
+    // Send stop signal to backend
+    socketRef.current?.emit('stop_generation', { session_id: session.id });
+    
+    // Add system message
+    setMessages(prev => [...prev, {
+      id: `${Date.now()}-stop`,
+      role: 'agent',
+      agent: 'System',
+      content: '🛑 Generation stopped by user.',
+      timestamp: new Date().toISOString(),
+    }]);
+  }, [session?.id]);
+
   const clearHistory = useCallback(() => {
     setMessages([]);
     localStorage.removeItem(STORAGE_KEY_MESSAGES);
@@ -264,6 +283,7 @@ export const useAgentChat = () => {
     sendMessage,
     saveApiKey,
     handleApproval,
+    stopGeneration,
     clearHistory,
   };
 };

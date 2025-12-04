@@ -41,8 +41,21 @@ class Session:
     # Pending approval
     pending_approval: Optional[ApprovalRequest] = None
     
+    # Interruption control
+    cancelled: bool = False
+    
     # Results
     results: List[Dict[str, Any]] = field(default_factory=list)
+    
+    def cancel(self):
+        """Cancel current operation"""
+        self.cancelled = True
+        self.updated_at = datetime.utcnow()
+        
+    def reset_cancellation(self):
+        """Reset cancellation flag"""
+        self.cancelled = False
+        self.updated_at = datetime.utcnow()
     
     def add_message(self, role: str, content: str, agent: str = None):
         """Add a message to the conversation"""

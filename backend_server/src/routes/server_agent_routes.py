@@ -8,10 +8,47 @@ SocketIO handlers for real-time chat with QA Manager and specialist agents.
 import os
 import logging
 import asyncio
+import json
+from datetime import datetime
 
 from flask import Blueprint, request, jsonify
 
 logger = logging.getLogger(__name__)
+
+# =============================================================================
+# Agent Conversation Logger - Separate file for debugging
+# =============================================================================
+AGENT_LOG_FILE = os.path.join(os.path.dirname(__file__), '..', '..', 'logs', 'agent_conversations.log')
+
+def ensure_log_dir():
+    """Ensure log directory exists"""
+    log_dir = os.path.dirname(AGENT_LOG_FILE)
+    if not os.path.exists(log_dir):
+        os.makedirs(log_dir)
+
+def log_agent_event(event_type: str, session_id: str, data: dict):
+    """
+    Log agent conversation events to dedicated file for debugging
+    
+    Args:
+        event_type: Type of event (USER_MESSAGE, AGENT_EVENT, TOOL_CALL, ERROR, etc.)
+        session_id: Session ID
+        data: Event data
+    """
+    ensure_log_dir()
+    timestamp = datetime.now().isoformat()
+    log_entry = {
+        "timestamp": timestamp,
+        "event_type": event_type,
+        "session_id": session_id,
+        "data": data
+    }
+    
+    try:
+        with open(AGENT_LOG_FILE, 'a') as f:
+            f.write(json.dumps(log_entry, default=str) + '\n')
+    except Exception as e:
+        logger.error(f"Failed to write agent log: {e}")
 
 # Blueprint for REST endpoints
 server_agent_bp = Blueprint('server_agent', __name__, url_prefix='/server/agent')
@@ -209,6 +246,9 @@ def register_agent_socketio_handlers(socketio):
             }, namespace='/agent')
             return
         
+        # Log user message
+        log_agent_event('USER_MESSAGE', session_id, {'message': message})
+        
         session_mgr = get_session_manager()
         session = session_mgr.get_session(session_id)
         
@@ -223,14 +263,23 @@ def register_agent_socketio_handlers(socketio):
         async def process_and_stream():
             try:
                 async for event in manager.process_message(message, session):
+                    event_dict = event.to_dict()
+                    
+                    # Log every agent event for debugging
+                    log_agent_event('AGENT_EVENT', session_id, event_dict)
+                    
                     socketio.emit('agent_event', 
-                        event.to_dict(), 
+                        event_dict, 
                         room=session_id,
                         namespace='/agent'
                     )
                     await asyncio.sleep(0.05)
             except Exception as e:
                 logger.error(f"Error processing message: {e}", exc_info=True)
+                log_agent_event('ERROR', session_id, {
+                    'error': str(e),
+                    'type': type(e).__name__
+                })
                 socketio.emit('error', {
                     'error': str(e),
                     'type': type(e).__name__
@@ -281,6 +330,24 @@ def register_agent_socketio_handlers(socketio):
         socketio.start_background_task(
             lambda: asyncio.run(process_approval())
         )
+        
+    @socketio.on('stop_generation', namespace='/agent')
+    def handle_stop(data):
+        """Handle stop request"""
+        session_id = data.get('session_id')
+        
+        if session_id:
+            session_mgr = get_session_manager()
+            session = session_mgr.get_session(session_id)
+            if session:
+                session.cancel()
+                logger.info(f"Session {session_id} cancelled by user")
+                # Emit cancelled event immediately so UI updates
+                socketio.emit('agent_event', {
+                    'type': 'error',
+                    'agent': 'QA Manager',
+                    'content': '🛑 Stopping...'
+                }, room=session_id, namespace='/agent')
     
     logger.info("SocketIO handlers registered for /agent namespace")
 

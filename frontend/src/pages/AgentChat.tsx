@@ -40,6 +40,9 @@ import {
   Stop as StopIcon,
   Visibility,
   VisibilityOff,
+  ContentCopy as CopyIcon,
+  FileDownload as ExportIcon,
+  DeleteOutline as ClearIcon,
 } from '@mui/icons-material';
 import { useAgentChat, type AgentEvent } from '../hooks/aiagent';
 
@@ -98,6 +101,7 @@ const AgentChat: React.FC = () => {
     sendMessage,
     saveApiKey,
     handleApproval,
+    stopGeneration,
     clearHistory,
   } = useAgentChat();
   
@@ -109,6 +113,42 @@ const AgentChat: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, currentEvents]);
+
+  // --- Utility Functions ---
+
+  // Format messages for export/copy
+  const formatConversation = (): string => {
+    return messages.map(msg => {
+      const sender = msg.role === 'user' ? 'You' : (msg.agent || 'QA Assistant');
+      const timestamp = new Date(msg.timestamp || Date.now()).toLocaleString();
+      return `[${timestamp}] ${sender}:\n${msg.content}\n`;
+    }).join('\n---\n\n');
+  };
+
+  // Copy conversation to clipboard
+  const copyToClipboard = async () => {
+    const text = formatConversation();
+    try {
+      await navigator.clipboard.writeText(text);
+      // Could add a toast notification here
+    } catch (err) {
+      console.error('Failed to copy:', err);
+    }
+  };
+
+  // Export conversation as file
+  const exportConversation = () => {
+    const text = formatConversation();
+    const blob = new Blob([text], { type: 'text/plain' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `qa-chat-${new Date().toISOString().split('T')[0]}.txt`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  };
 
   // --- Renderers ---
 
@@ -383,15 +423,15 @@ const AgentChat: React.FC = () => {
                   display: 'flex', 
                   flexDirection: 'column', 
                   alignItems: isUser ? 'flex-end' : 'flex-start', 
-                  mb: 3 
+                  mb: 1
                 }}
               >
                  {/* Message Card */}
                  <Paper 
                    elevation={0}
                    sx={{ 
-                     p: 2.5,
-                     bgcolor: isDarkMode 
+                     p: 1.5,
+                     bgcolor: isDarkMode  
                        ? (isUser ? PALETTE.userBubble : PALETTE.agentBubble)
                        : (isUser ? 'grey.100' : 'grey.50'),
                      border: '1px solid',
@@ -406,7 +446,7 @@ const AgentChat: React.FC = () => {
                  >
                     {/* Sender Info (inside card for agent) */}
                     {!isUser && (
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, pb: 1.5, borderBottom: '1px solid', borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200' }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1, pb: 1.5, borderBottom: '1px solid', borderColor: isDarkMode ? PALETTE.borderColor : 'grey.200' }}>
                         <Avatar sx={{ width: 28, height: 28, fontSize: 12, bgcolor: agentColor, fontWeight: 600 }}>
                           {getInitials(msg.agent || 'QA')}
                         </Avatar>
@@ -418,28 +458,79 @@ const AgentChat: React.FC = () => {
 
                     {/* Tool Logs */}
                     {!isUser && msg.events && msg.events.filter(e => e.type === 'tool_call').length > 0 && (
-                       <Box sx={{ mb: 2, p: 1.5, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 2 }}>
+                       <Box sx={{ mb: 1, p: 1, bgcolor: isDarkMode ? 'rgba(0,0,0,0.2)' : 'grey.100', borderRadius: 2 }}>
                           {msg.events.filter(e => e.type === 'tool_call').map(renderToolActivity)}
                        </Box>
                     )}
                     
-                    <Typography 
-                      variant="body1" 
-                      sx={{ 
-                        whiteSpace: 'pre-wrap',
-                        lineHeight: 1.7,
-                        color: 'text.primary',
-                        fontSize: '0.95rem'
-                      }}
-                    >
-                       {msg.content}
-                    </Typography>
-
-                    {/* User label (subtle, at bottom) */}
-                    {isUser && (
-                      <Typography variant="caption" sx={{ display: 'block', mt: 1.5, opacity: 0.5, textAlign: 'right' }}>
-                        You
+                    {/* Content (Collapsible for Reasoning/Plans) */}
+                    {!isUser && msg.agent === 'QA Manager' && (msg.content.includes('**Plan**') || msg.content.includes('**Mode confirmed**')) ? (
+                      <Accordion 
+                        elevation={0} 
+                        disableGutters
+                        sx={{ 
+                          bgcolor: 'transparent', 
+                          '&:before': { display: 'none' },
+                        }}
+                      >
+                        <AccordionSummary 
+                          expandIcon={<ExpandIcon sx={{ color: 'text.secondary' }} />}
+                          sx={{ 
+                            minHeight: 'auto', 
+                            p: 0,
+                            '& .MuiAccordionSummary-content': { m: 0, alignItems: 'center', gap: 1 }
+                          }}
+                        >
+                          <ThinkingIcon sx={{ fontSize: 16, color: 'text.secondary' }} />
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            View Reasoning & Plan
+                          </Typography>
+                        </AccordionSummary>
+                        <AccordionDetails sx={{ p: 0, pt: 1 }}>
+                           <Typography 
+                             variant="body1" 
+                             sx={{ 
+                               whiteSpace: 'pre-wrap',
+                               lineHeight: 1,
+                               color: 'text.secondary', 
+                               fontSize: '0.9rem',
+                               '& p': { mb: 0 }
+                             }}
+                           >
+                              {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
+                           </Typography>
+                        </AccordionDetails>
+                      </Accordion>
+                    ) : (
+                      <Typography 
+                        variant="body1" 
+                        sx={{ 
+                          whiteSpace: 'pre-wrap',
+                          lineHeight: 1.6,
+                          color: 'text.primary',
+                          fontSize: '0.95rem',
+                          '& p': { mb: 1 }
+                        }}
+                      >
+                         {/* Clean up excessive newlines (max 1 blank line) */}
+                         {(msg.content || '').replace(/\n{3,}/g, '\n\n').trim()}
                       </Typography>
+                    )}
+
+                    {/* User label (subtle, at bottom with separator) */}
+                    {isUser && (
+                      <Box sx={{ 
+                        mt: 2, 
+                        pt: 1.5, 
+                        borderTop: '1px solid', 
+                        borderColor: isDarkMode ? 'rgba(255,255,255,0.15)' : 'grey.200', // High contrast for visibility
+                        display: 'flex',
+                        justifyContent: 'flex-end'
+                      }}>
+                        <Typography variant="caption" sx={{ opacity: 0.6, color: 'text.secondary' }}>
+                          You
+                        </Typography>
+                      </Box>
                     )}
                  </Paper>
               </Box>
@@ -620,9 +711,9 @@ const AgentChat: React.FC = () => {
                 }}
               />
               <IconButton 
-                onClick={isProcessing ? () => {} : sendMessage}
+                onClick={isProcessing ? stopGeneration : sendMessage}
                 disabled={!input.trim() && !isProcessing}
-                sx={{ 
+                sx={{  
                   m: 0.5, 
                   bgcolor: input.trim() ? PALETTE.accent : 'transparent',
                   color: input.trim() ? '#fff' : 'text.disabled',
@@ -639,28 +730,65 @@ const AgentChat: React.FC = () => {
               </IconButton>
             </Paper>
             
-            {/* Clear Button */}
-            <Button 
-              size="small" 
-              color="inherit" 
-              onClick={clearHistory}
-              disabled={messages.length === 0}
-              sx={{ 
-                minWidth: 'auto',
-                px: 1.5,
-                py: 1,
-                opacity: messages.length > 0 ? 0.6 : 0.3,
-                textTransform: 'none',
-                fontSize: '0.85rem',
-                borderRadius: 2,
-                '&:hover': { 
-                  opacity: 1,
-                  bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
-                }
-              }}
-            >
-              Clear
-            </Button>
+            {/* Action Icons */}
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              {/* Copy to Clipboard */}
+              <IconButton
+                size="small"
+                onClick={copyToClipboard}
+                disabled={messages.length === 0}
+                title="Copy conversation"
+                sx={{ 
+                  opacity: messages.length > 0 ? 0.6 : 0.3,
+                  color: 'text.secondary',
+                  '&:hover': { 
+                    opacity: 1,
+                    color: PALETTE.accent,
+                    bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                  }
+                }}
+              >
+                <CopyIcon fontSize="small" />
+              </IconButton>
+              
+              {/* Export */}
+              <IconButton
+                size="small"
+                onClick={exportConversation}
+                disabled={messages.length === 0}
+                title="Export conversation"
+                sx={{ 
+                  opacity: messages.length > 0 ? 0.6 : 0.3,
+                  color: 'text.secondary',
+                  '&:hover': { 
+                    opacity: 1,
+                    color: PALETTE.accent,
+                    bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                  }
+                }}
+              >
+                <ExportIcon fontSize="small" />
+              </IconButton>
+              
+              {/* Clear */}
+              <IconButton
+                size="small"
+                onClick={clearHistory}
+                disabled={messages.length === 0}
+                title="Clear conversation"
+                sx={{ 
+                  opacity: messages.length > 0 ? 0.6 : 0.3,
+                  color: 'text.secondary',
+                  '&:hover': { 
+                    opacity: 1,
+                    color: 'error.main',
+                    bgcolor: isDarkMode ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.05)'
+                  }
+                }}
+              >
+                <ClearIcon fontSize="small" />
+              </IconButton>
+            </Box>
           </Box>
         </Container>
       </Box>

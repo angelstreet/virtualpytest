@@ -47,3 +47,4 @@ backend_host_*/
 
 # Postman config with API keys (use .example for template)
 backend_server/config/postman/postman_config.json
+backend_server/logs/agent_conversations.log
