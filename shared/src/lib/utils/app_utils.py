@@ -144,7 +144,13 @@ def setup_flask_app(app_name="VirtualPyTest"):
         # Matches all Vercel preview and production URLs with any number of dashes
         # Examples: virtualpytest.vercel.app, virtualpytest-h9f7zer45-angelstreets-projects.vercel.app
         re.compile(r"^https://[a-zA-Z0-9\-]+\.vercel\.app$"),
-        # Localhost
+        # Localhost - explicit ports for Flask-SocketIO compatibility (regex not supported)
+        "http://localhost:5073",   # Vite dev server
+        "http://localhost:5109",   # Backend server
+        "http://localhost:3000",   # Common dev port (Grafana, etc.)
+        "http://127.0.0.1:5073",
+        "http://127.0.0.1:5109",
+        # Localhost regex for Flask-CORS (non-SocketIO routes)
         re.compile(r"^https?://localhost(:\d+)?$"),
         re.compile(r"^https?://127\.0\.0\.1(:\d+)?$"),
         # Local network IPs: 192.168.x.x (any port, HTTP or HTTPS)
