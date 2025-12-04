@@ -21,8 +21,7 @@ import {
 } from '@mui/material';
 import {
   Send as SendIcon,
-  Psychology as AgentIcon,
-  Person as UserIcon,
+  RocketLaunch as AgentIcon,
   Build as ToolIcon,
   CheckCircle as SuccessIcon,
   Error as ErrorIcon,
@@ -64,6 +63,9 @@ interface Session {
   active_agent?: string;
   created_at: string;
 }
+
+// Agent icon color
+const AGENT_ICON_COLOR = '#FFD700'; // Gold
 
 // Mode colors
 const MODE_COLORS: Record<string, string> = {
@@ -349,7 +351,7 @@ const AgentChat: React.FC = () => {
           {/* Agent name badge */}
           {!isUser && message.agent && (
             <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
-              <AgentIcon sx={{ fontSize: 16, color: agentColor, mr: 0.5 }} />
+              <AgentIcon sx={{ fontSize: 16, color: AGENT_ICON_COLOR, mr: 0.5 }} />
               <Typography variant="caption" sx={{ color: agentColor, fontWeight: 600 }}>
                 {message.agent}
               </Typography>
@@ -403,7 +405,7 @@ const AgentChat: React.FC = () => {
     <Box sx={{ height: 'calc(100vh - 180px)', display: 'flex', flexDirection: 'column' }}>
       {/* Header */}
       <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 2 }}>
-        <AgentIcon sx={{ fontSize: 32, color: 'primary.main' }} />
+        <AgentIcon sx={{ fontSize: 32, color: AGENT_ICON_COLOR }} />
         <Typography variant="h5" sx={{ flex: 1 }}>
           AI Agent
         </Typography>
@@ -428,7 +430,7 @@ const AgentChat: React.FC = () => {
         
         {session?.active_agent && (
           <Chip
-            icon={<AgentIcon />}
+            icon={<AgentIcon sx={{ color: '#FFD700' }} />}
             label={session.active_agent}
             size="small"
             variant="outlined"
