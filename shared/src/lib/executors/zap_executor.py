@@ -779,6 +779,11 @@ class ZapExecutor:
             metadata_path = get_metadata_path(capture_folder)
             last_zapping_path = os.path.join(metadata_path, 'last_zapping.json')
             
+            # 🔍 DEBUG: Show exact path being checked
+            print(f"🔍 [ZapExecutor] Looking for zapping file at: {last_zapping_path}")
+            print(f"    metadata_path: {metadata_path}")
+            print(f"    file exists: {os.path.exists(last_zapping_path)}")
+            
             if os.path.exists(last_zapping_path):
                 try:
                     # Read the zapping file
@@ -910,9 +915,11 @@ class ZapExecutor:
                     print(f"❌ [ZapExecutor] Error reading last_zapping.json: {e}")
                     return {'success': False, 'zapping_detected': False, 'error': f'Failed to read last_zapping.json: {e}'}
             
-            # ❌ File not found
-            print(f"⚠️ [ZapExecutor] last_zapping.json not found - zapping may still be processing")
-            return {'success': False, 'zapping_detected': False, 'error': 'Zapping file not found (may still be processing)'}
+            # ❌ File not found - CLEAR FAILURE MESSAGE
+            print(f"❌ [ZapExecutor] ZAP DETECTION FAILED: last_zapping.json not found at {last_zapping_path}")
+            print(f"    This means capture_monitor is NOT detecting zapping events.")
+            print(f"    Check if capture_monitor is running and processing frames for {capture_folder}")
+            return {'success': False, 'zapping_detected': False, 'error': f'ZAP DETECTION FAILED: last_zapping.json not found at {last_zapping_path}'}
             
         except Exception as e:
             print(f"❌ [ZapExecutor] Error reading zapping detection: {e}")
@@ -1048,7 +1055,8 @@ class ZapExecutor:
             'blackscreen_start_image': blackscreen_start_image,  # First blackscreen
             'blackscreen_end_image': blackscreen_end_image,  # Last blackscreen
             'first_content_after_blackscreen': first_content_after_blackscreen,  # After
-            'message': 'Zapping detected from capture_monitor' if result.zapping_detected else 'No zapping detected'
+            'message': 'Zapping detected from capture_monitor' if result.zapping_detected else zapping_data.get('error', 'No zapping detected'),
+            'error': zapping_data.get('error')  # ✅ Propagate error for clear failure messages
         }
         
         # Add R2 images (transition images uploaded when zapping confirmed)
@@ -1206,8 +1214,12 @@ class ZapExecutor:
                         filename = img.get('filename', 'unknown')
                         print(f"      - {img_type}: {filename}")
             else:
-                # Show failure reason from zapping details
+                # Show failure reason from zapping details - highlight if actual error
+                zapping_error = analysis_result.zapping_details.get('error')
                 zapping_message = analysis_result.zapping_details.get('message', 'Zapping not detected')
-                print(f"Details: {zapping_message}")
+                if zapping_error:
+                    print(f"❌ ERROR: {zapping_error}")
+                else:
+                    print(f"Details: {zapping_message}")
         
         print()  # Add blank line after analysis results
