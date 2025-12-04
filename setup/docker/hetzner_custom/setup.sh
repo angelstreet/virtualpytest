@@ -31,7 +31,7 @@ fi
 source config.env
 
 echo "📋 Configuration:"
-echo "   Deployment: ${DEPLOYMENT_NAME:-hetzner1}"
+echo "   Server Name: ${SERVER_NAME:-hetzner1}"
 echo "   Hosts: $HOST_MAX"
 echo "   Ports: ${HOST_START_PORT}-$((HOST_START_PORT + HOST_MAX - 1))"
 echo "   Domain: $DOMAIN"
@@ -559,6 +559,7 @@ services:
       - ../../../test_scripts:/app/test_scripts:ro
       - ../../../test_campaign:/app/test_campaign:ro
     environment:
+      - SERVER_NAME=${SERVER_NAME:-hetzner1}-server
       - SERVER_PORT=${SERVER_PORT}
       - SERVER_URL=\${SERVER_URL:-http://localhost:${SERVER_PORT}}
       - DEBUG=\${DEBUG:-0}
@@ -783,8 +784,8 @@ for i in $(seq 1 $HOST_MAX); do
     DIR="$PROJECT_ROOT/backend_host_${i}"
     mkdir -p "$DIR"
     
-    # Use DEPLOYMENT_NAME with fallback to 'hetzner1' if not set
-    DEPLOY_NAME="${DEPLOYMENT_NAME:-hetzner1}"
+    # Use SERVER_NAME with fallback to 'hetzner1' if not set
+    DEPLOY_NAME="${SERVER_NAME:-hetzner1}"
     
     cat > "$DIR/.env" <<EOF
 # Backend Host ${i} Configuration (Auto-generated)
@@ -834,9 +835,10 @@ echo "🛡️  Protection configured:"
 echo "   • Docker log rotation: 10MB max per file, 3 files per container"
 echo "   • Prevents disk space issues from unlimited log growth"
 echo ""
-echo "📛 Host Names (${DEPLOYMENT_NAME:-hetzner1}):"
+echo "📛 Names (${SERVER_NAME:-hetzner1}):"
+echo "   • ${SERVER_NAME:-hetzner1}-server"
 for i in $(seq 1 $HOST_MAX); do
-    echo "   • ${DEPLOYMENT_NAME:-hetzner1}-host${i}"
+    echo "   • ${SERVER_NAME:-hetzner1}-host${i}"
 done
 echo ""
 
