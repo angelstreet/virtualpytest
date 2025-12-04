@@ -765,9 +765,13 @@ export const useNavigationEditor = () => {
             onConfirm: () => {
               console.log(`[@useNavigationEditor:deleteSelected] User confirmed deletion of node with ${subtreeCount} nested trees`);
               const filteredNodes = navigation.nodes.filter((n) => n.id !== nodeId);
+              // Also delete edges connected to this node
+              const filteredEdges = navigation.edges.filter((e) => e.source !== nodeId && e.target !== nodeId);
               console.log('[@useNavigationEditor:deleteSelected] Deleting node:', nodeId, 
-                'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length);
+                'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length,
+                'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
               navigation.setNodes(filteredNodes);
+              navigation.setEdges(filteredEdges);
               navigation.setSelectedNode(null);
               navigation.markUnsavedChanges();
               resolve();
@@ -777,9 +781,13 @@ export const useNavigationEditor = () => {
       }
       
       const filteredNodes = navigation.nodes.filter((n) => n.id !== nodeId);
+      // Also delete edges connected to this node
+      const filteredEdges = navigation.edges.filter((e) => e.source !== nodeId && e.target !== nodeId);
       console.log('[@useNavigationEditor:deleteSelected] Deleting node:', nodeId, 
-        'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length);
+        'Nodes before:', navigation.nodes.length, 'Nodes after:', filteredNodes.length,
+        'Edges before:', navigation.edges.length, 'Edges after:', filteredEdges.length);
       navigation.setNodes(filteredNodes);
+      navigation.setEdges(filteredEdges);
       navigation.setSelectedNode(null);
       navigation.markUnsavedChanges();
     }
