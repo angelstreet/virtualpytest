@@ -3,6 +3,8 @@ import {
   Stop as StopIcon,
   ExpandMore as ExpandMoreIcon,
   ExpandLess as ExpandLessIcon,
+  ArrowUpward as ArrowUpwardIcon,
+  ArrowDownward as ArrowDownwardIcon,
 } from '@mui/icons-material';
 import {
   Box,
@@ -86,6 +88,10 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [isPressOkKey, setIsPressOkKey] = useState(false);
   const [isPressEscKey, setIsPressEscKey] = useState(false);
 
+  // Scroll execution states
+  const [isScrollingUp, setIsScrollingUp] = useState(false);
+  const [isScrollingDown, setIsScrollingDown] = useState(false);
+
   // Success/failure states for visual feedback
   const [navigateStatus, setNavigateStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [clickStatus, setClickStatus] = useState<'idle' | 'success' | 'error'>('idle');
@@ -97,6 +103,8 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const [backKeyStatus, setBackKeyStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [okKeyStatus, setOkKeyStatus] = useState<'idle' | 'success' | 'error'>('idle');
   const [escKeyStatus, setEscKeyStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [scrollUpStatus, setScrollUpStatus] = useState<'idle' | 'success' | 'error'>('idle');
+  const [scrollDownStatus, setScrollDownStatus] = useState<'idle' | 'success' | 'error'>('idle');
 
   // Tap animation state
   const [tapAnimation, setTapAnimation] = useState<{ x: number; y: number; show: boolean }>({
@@ -187,11 +195,17 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     if (escKeyStatus !== 'idle') {
       timers.push(setTimeout(() => setEscKeyStatus('idle'), 3000));
     }
+    if (scrollUpStatus !== 'idle') {
+      timers.push(setTimeout(() => setScrollUpStatus('idle'), 3000));
+    }
+    if (scrollDownStatus !== 'idle') {
+      timers.push(setTimeout(() => setScrollDownStatus('idle'), 3000));
+    }
 
     return () => {
       timers.forEach((timer) => clearTimeout(timer));
     };
-  }, [navigateStatus, clickStatus, tapStatus, findStatus, dumpStatus, taskStatus, semanticStatus, backKeyStatus, okKeyStatus, escKeyStatus]);
+  }, [navigateStatus, clickStatus, tapStatus, findStatus, dumpStatus, taskStatus, semanticStatus, backKeyStatus, okKeyStatus, escKeyStatus, scrollUpStatus, scrollDownStatus]);
 
   // Handle task execution (placeholder)
   const handleTaskExecution = async () => {
@@ -240,7 +254,9 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
     isBrowserUseExecuting ||
     isPressBackKey ||
     isPressOkKey ||
-    isPressEscKey;
+    isPressEscKey ||
+    isScrollingUp ||
+    isScrollingDown;
 
   // Handle browser open
   const handleOpenBrowser = async () => {
@@ -619,6 +635,40 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
   const handlePressOkKey = () => handlePressKey('OK', setIsPressOkKey, setOkKeyStatus);
   const handlePressEscKey = () => handlePressKey('ESCAPE', setIsPressEscKey, setEscKeyStatus);
 
+  // Handle scroll actions
+  const handleScroll = async (direction: string, setExecuting: React.Dispatch<React.SetStateAction<boolean>>, setStatus: React.Dispatch<React.SetStateAction<'idle' | 'success' | 'error'>>) => {
+    if (isAnyActionExecuting) return;
+
+    setExecuting(true);
+    setStatus('idle');
+
+    try {
+      // Clear response area before new command
+      clearTerminal();
+
+      // Use proper JSON format for the command
+      const commandJson = JSON.stringify({
+        command: 'scroll',
+        params: { direction, amount: 300 },
+      });
+      const result = await executeCommand(commandJson);
+
+      // Set visual feedback based on result
+      setStatus(result.success ? 'success' : 'error');
+
+      // Show response area
+      setIsResponseExpanded(true);
+    } catch (error) {
+      setStatus('error');
+      console.error(`Scroll ${direction} error:`, error);
+    } finally {
+      setExecuting(false);
+    }
+  };
+
+  const handleScrollUp = () => handleScroll('up', setIsScrollingUp, setScrollUpStatus);
+  const handleScrollDown = () => handleScroll('down', setIsScrollingDown, setScrollDownStatus);
+
   const handleClearElements = () => {
     setWebElements([]);
     setIsElementsVisible(false);
@@ -865,6 +915,30 @@ export const PlaywrightWebTerminal = React.memo(function PlaywrightWebTerminal({
                 sx={{ flex: 1 }}
               >
                 {isPressEscKey ? 'Pressing...' : 'Esc'}
+              </Button>
+            </Box>
+            <Box sx={{ display: 'flex', gap: 0.5 }}>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleScrollUp}
+                disabled={isAnyActionExecuting}
+                color={getButtonColor(scrollUpStatus)}
+                startIcon={isScrollingUp ? <CircularProgress size={16} /> : <ArrowUpwardIcon />}
+                sx={{ flex: 1 }}
+              >
+                {isScrollingUp ? 'Scrolling...' : 'Scroll Up'}
+              </Button>
+              <Button
+                variant="outlined"
+                size="small"
+                onClick={handleScrollDown}
+                disabled={isAnyActionExecuting}
+                color={getButtonColor(scrollDownStatus)}
+                startIcon={isScrollingDown ? <CircularProgress size={16} /> : <ArrowDownwardIcon />}
+                sx={{ flex: 1 }}
+              >
+                {isScrollingDown ? 'Scrolling...' : 'Scroll Down'}
               </Button>
             </Box>
           </Box>
