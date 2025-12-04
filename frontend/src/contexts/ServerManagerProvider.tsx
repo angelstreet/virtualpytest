@@ -80,6 +80,10 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   const [error, setError] = useState<string | null>(null);
   const [pendingServers, setPendingServers] = useState<Set<string>>(new Set());
   const [failedServers, setFailedServers] = useState<Set<string>>(new Set());
+  
+  // Server change transition state - blocks re-selection while streams initialize
+  const [isServerChanging, setIsServerChanging] = useState(false);
+  const serverChangeTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   // Ref to prevent duplicate API calls
   const isRequestInProgress = useRef(false);
@@ -89,7 +93,24 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
   // ========================================
 
   // Wrapper to persist server selection to localStorage
+  // Sets transition state to block re-selection while streams initialize
   const setSelectedServer = useCallback((serverUrl: string) => {
+    // Skip if already changing or same server
+    if (isServerChanging || serverUrl === selectedServer) {
+      console.log('[@ServerManager] Server change blocked:', { isServerChanging, sameServer: serverUrl === selectedServer });
+      return;
+    }
+    
+    // Set transition state
+    setIsServerChanging(true);
+    console.log('[@ServerManager] Server change started - UI blocked for stream initialization');
+    
+    // Clear any existing timeout
+    if (serverChangeTimeoutRef.current) {
+      clearTimeout(serverChangeTimeoutRef.current);
+    }
+    
+    // Update server selection
     setSelectedServerState(serverUrl);
     try {
       localStorage.setItem('selectedServer', serverUrl);
@@ -97,7 +118,13 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     } catch (error) {
       console.warn('[@ServerManager] Failed to save selected server to localStorage:', error);
     }
-  }, []);
+    
+    // Clear transition state after streams have time to initialize (2 seconds)
+    serverChangeTimeoutRef.current = setTimeout(() => {
+      setIsServerChanging(false);
+      console.log('[@ServerManager] Server change completed - UI unblocked');
+    }, 2000);
+  }, [isServerChanging, selectedServer]);
 
   // ========================================
   // SERVER DATA FETCHING
@@ -252,6 +279,15 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
     }
   }, [isLoading, failedServers, selectedServer, availableServers, setSelectedServer]);
 
+  // Cleanup timeout on unmount
+  useEffect(() => {
+    return () => {
+      if (serverChangeTimeoutRef.current) {
+        clearTimeout(serverChangeTimeoutRef.current);
+      }
+    };
+  }, []);
+
   // ========================================
   // CONTEXT VALUE
   // ========================================
@@ -270,10 +306,13 @@ export const ServerManagerProvider: React.FC<ServerManagerProviderProps> = ({ ch
       pendingServers,
       failedServers,
 
+      // Server change transition state
+      isServerChanging,
+
       // Actions
       refreshServerData,
     }),
-    [selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading, error, refreshServerData, pendingServers, failedServers]
+    [selectedServer, availableServers, setSelectedServer, serverHostsData, isLoading, error, refreshServerData, pendingServers, failedServers, isServerChanging]
   );
 
   return (

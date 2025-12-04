@@ -1,5 +1,5 @@
 import React from 'react';
-import { FormControl, InputLabel, Select, MenuItem, Chip, Box } from '@mui/material';
+import { FormControl, InputLabel, Select, MenuItem, Chip, Box, CircularProgress } from '@mui/material';
 import { useServerManager } from '../../hooks/useServerManager';
 
 interface ServerSelectorProps {
@@ -15,15 +15,26 @@ export const ServerSelector: React.FC<ServerSelectorProps> = ({
   label = 'Server',
   variant = 'outlined'
 }) => {
-  const { selectedServer, setSelectedServer, availableServers, failedServers, serverHostsData } = useServerManager();
+  const { selectedServer, setSelectedServer, availableServers, failedServers, serverHostsData, isServerChanging } = useServerManager();
 
   return (
     <FormControl size={size} sx={{ minWidth }} variant={variant}>
-      <InputLabel>{label}</InputLabel>
+      <InputLabel>{isServerChanging ? 'Switching...' : label}</InputLabel>
       <Select
         value={selectedServer}
-        label={label}
+        label={isServerChanging ? 'Switching...' : label}
         onChange={(e) => setSelectedServer(e.target.value)}
+        disabled={isServerChanging}
+        startAdornment={isServerChanging ? (
+          <CircularProgress size={16} sx={{ mr: 1, ml: -0.5 }} />
+        ) : undefined}
+        sx={{
+          opacity: isServerChanging ? 0.7 : 1,
+          '& .MuiSelect-select': {
+            display: 'flex',
+            alignItems: 'center',
+          }
+        }}
       >
         {availableServers.map((serverUrl) => {
           const isFailed = failedServers.has(serverUrl);

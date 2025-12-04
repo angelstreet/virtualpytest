@@ -15,12 +15,14 @@ import {
   SelectChangeEvent,
   TextField,
   Autocomplete,
+  Backdrop,
 } from '@mui/material';
 import React, { useEffect, useState, useMemo, useCallback, memo, useRef } from 'react';
 
 import { RecHostPreview } from '../components/rec/RecHostPreview';
 import { useRec } from '../hooks/pages/useRec';
 import { useDeviceFlags } from '../hooks/useDeviceFlags';
+import { useServerManager } from '../hooks/useServerManager';
 import { Host, Device } from '../types/common/Host_Types';
 import { RecHostStreamModal } from '../components/rec/RecHostStreamModal';
 
@@ -87,6 +89,9 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   restartStreams, 
   isRestarting 
 }) => {
+  // Server change transition state - blocks UI during stream initialization
+  const { isServerChanging } = useServerManager();
+  
   // Device flags hook
   const { deviceFlags, uniqueFlags, batchUpdateDeviceFlags } = useDeviceFlags();
 
@@ -402,7 +407,25 @@ const RecContent: React.FC<ReturnType<typeof useRec>> = memo(({
   prevDeviceFlagsRef.current = deviceFlags;
 
   return (
-    <Box sx={{ p: 3 }}>
+    <Box sx={{ p: 3, position: 'relative' }}>
+      {/* Server change loading overlay - blocks interaction during stream initialization */}
+      <Backdrop
+        open={isServerChanging}
+        sx={{
+          position: 'absolute',
+          zIndex: (theme) => theme.zIndex.drawer + 1,
+          backgroundColor: 'rgba(0, 0, 0, 0.5)',
+          borderRadius: 1,
+        }}
+      >
+        <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 2 }}>
+          <CircularProgress color="inherit" />
+          <Typography variant="body1" color="white">
+            Switching server...
+          </Typography>
+        </Box>
+      </Backdrop>
+      
       {/* Header with integrated filters */}
       <Box
         sx={{

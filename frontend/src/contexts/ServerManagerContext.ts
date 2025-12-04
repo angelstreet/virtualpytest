@@ -20,6 +20,9 @@ export interface ServerManagerContextType {
   pendingServers: Set<string>;
   failedServers: Set<string>;
 
+  // Server change transition state (blocks re-selection while streams initialize)
+  isServerChanging: boolean;
+
   // Actions
   refreshServerData: () => Promise<void>;
 }
