@@ -286,14 +286,14 @@ class AudioAIHelpers:
                     'analysis_type': 'ai_audio_transcription'
                 }
             
-            # Check Whisper availability (no API key needed for local processing)
+            # Check faster-whisper availability (no API key needed for local processing)
             try:
-                import whisper
+                from faster_whisper import WhisperModel
             except ImportError:
-                print(f"AudioAI[{self.device_name}]: Whisper not installed - run 'pip install openai-whisper'")
+                print(f"AudioAI[{self.device_name}]: faster-whisper not installed - run 'pip install faster-whisper'")
                 return {
                     'success': False,
-                    'error': 'Local Whisper not available - please install openai-whisper',
+                    'error': 'faster-whisper not available - please install faster-whisper',
                     'analysis_type': 'local_whisper_transcription'
                 }
             
