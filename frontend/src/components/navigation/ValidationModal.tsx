@@ -8,7 +8,8 @@ import {
   Typography,
   LinearProgress,
   Paper,
-  CircularProgress
+  CircularProgress,
+  Tooltip
 } from '@mui/material';
 import {
   CheckCircle as CompleteIcon,
@@ -378,21 +379,26 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
                   return (
                     <React.Fragment key={resultIndex}>
                       {/* Forward action */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5, overflow: 'hidden' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px', flexShrink: 0 }}>
                           Step {result.step}.{stepOffset}
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                  {truncate(`${result.sourceNode} → ${result.targetNode}`, 30)}
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                  {truncate(result.forward.action, 40)}
-                </Typography>
+                <Tooltip title={`${result.sourceNode} → ${result.targetNode}`} arrow>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
+                    {result.sourceNode} → {result.targetNode}
+                  </Typography>
+                </Tooltip>
+                <Tooltip title={result.forward.action} arrow>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
+                    {result.forward.action}
+                  </Typography>
+                </Tooltip>
                 <Typography 
                   variant="body2" 
                   sx={{ 
                     fontWeight: 'bold',
                     ml: 'auto',
+                    flexShrink: 0,
                     color: result.forward.result === 'success' ? 'success.main' : 'error.main'
                   }}
                 >
@@ -402,21 +408,26 @@ export const ValidationModal: React.FC<ValidationModalProps> = ({
               
                       {/* Backward action - only for vertical (OK/BACK) */}
                       {!isHorizontal && (
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: resultIndex < group.length - 1 ? 0.5 : 0, flexWrap: 'wrap' }}>
-                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px' }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: resultIndex < group.length - 1 ? 0.5 : 0, overflow: 'hidden' }}>
+                <Typography variant="body2" sx={{ fontWeight: 'bold', minWidth: '70px', flexShrink: 0 }}>
                             Step {result.step}.{stepOffset + 1}
                 </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary' }}>
-                  {truncate(`${result.targetNode} → ${result.sourceNode}`, 30)}
-                </Typography>
-                <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled' }}>
-                  {truncate(result.backward.action, 40)}
-                </Typography>
+                <Tooltip title={`${result.targetNode} → ${result.sourceNode}`} arrow>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.85rem', color: 'text.secondary', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
+                    {result.targetNode} → {result.sourceNode}
+                  </Typography>
+                </Tooltip>
+                <Tooltip title={result.backward.action} arrow>
+                  <Typography variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem', color: 'text.disabled', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', flexShrink: 1, minWidth: 0 }}>
+                    {result.backward.action}
+                  </Typography>
+                </Tooltip>
                 <Typography 
                   variant="body2" 
                   sx={{ 
                     fontWeight: 'bold',
                     ml: 'auto',
+                    flexShrink: 0,
                     color: result.backward.result === 'success' ? 'success.main' : 
                            result.backward.result === 'warning' ? 'warning.main' :
                            result.backward.result === 'skipped' ? 'text.secondary' : 'error.main'
