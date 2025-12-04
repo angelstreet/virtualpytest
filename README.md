@@ -18,6 +18,7 @@
     <a href="docs/videos/"><b>Videos</b></a> •
     <a href="#community--support"><b>Community</b></a>
   </p>
+  <p><i><a href="https://www.virtualpytest.com/" target="_blank">Try it here</a></i></p>
 </div>
 
 ---
@@ -32,7 +33,7 @@ Designed to **replace $50k+ commercial tools**, VirtualPyTest provides a free, f
   <a href="https://www.virtualpytest.com/">
     <img src="/frontend/public/screenshot/dashboard.png" alt="VirtualPyTest Dashboard" width="100%">
   </a>
-  <p><i><a href="https://www.virtualpytest.com/" target="_blank">Try the Live Sandbox</a></i></p>
+  <p><i><a href="https://www.virtualpytest.com/" target="_blank">Try it here</a></i></p>
 </div>
 
 ---
@@ -77,19 +78,6 @@ For developers who want to contribute or run locally without Docker, see our [De
 
 ---
 
-## **Examples & Demos**
-
-Learn how to automate common scenarios:
-
-- **[AI Automation Prompts](docs/examples/)** - Generate tests using AI
-- **[Mobile Automation](docs/examples/automate-prompt-mobile.md)** - Automate mobile apps
-- **[TV Automation](docs/examples/automate-prompt-tv.md)** - Automate set-top boxes and TVs
-- **[Web Automation](docs/examples/automate-prompt-web.md)** - Browser automation
-
-*See all examples in the [Examples Directory](docs/examples/).*
-
----
-
 ## **Why Choose VirtualPyTest?**
 
 | Feature | VirtualPyTest | Commercial Tools |
@@ -100,22 +88,6 @@ Learn how to automate common scenarios:
 | **Monitoring** | Built-in Grafana | Paid Add-on |
 | **AI Validation** | Included | Extra Cost |
 
----
-
-## **See It In Action**
-
-Execute tests directly from your terminal or the web UI:
-
-```bash
-# Navigate to any screen
-python test_scripts/goto.py --node live
-
-# Run channel zapping test  
-python test_scripts/fullzap.py --max_iteration 10
-
-# Complete device validation
-python test_scripts/validation.py horizon_android_mobile
-```
 
 ---
 
