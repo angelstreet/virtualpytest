@@ -211,6 +211,7 @@ const AgentChat: React.FC = () => {
                   onKeyPress={(e) => e.key === 'Enter' && sendMessage()}
                   sx={{ ml: 2, flex: 1 }}
                   variant="standard"
+                  autoComplete="off"
                   InputProps={{ disableUnderline: true }}
                 />
                 <IconButton 
@@ -307,6 +308,7 @@ const AgentChat: React.FC = () => {
                    value={apiKeyInput} 
                    onChange={(e) => setApiKeyInput(e.target.value)} 
                    type={showApiKey ? "text" : "password"}
+                   autoComplete="off"
                  />
                  <Button variant="contained" onClick={saveApiKey} disabled={isValidating}>Save</Button>
                  <IconButton onClick={() => setShowApiKey(!showApiKey)}>
@@ -439,6 +441,7 @@ const AgentChat: React.FC = () => {
                   onKeyPress={(e) => e.key === 'Enter' && !e.shiftKey && sendMessage()}
                   sx={{ ml: 2, flex: 1, py: 1 }}
                   variant="standard"
+                  autoComplete="off"
                   InputProps={{ disableUnderline: true }}
                 />
                 <IconButton 
