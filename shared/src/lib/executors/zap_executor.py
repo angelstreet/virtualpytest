@@ -640,12 +640,6 @@ class ZapExecutor:
             if result.motion_detected is None:
                 result.motion_detected = False
             
-            # DEBUG: Log the complete verification_result structure
-            print(f"🔍 [ZapExecutor] DEBUG: Motion verification_result keys: {list(verification_result.keys())}")
-            print(f"🔍 [ZapExecutor] DEBUG: Motion success: {success}")
-            print(f"🔍 [ZapExecutor] DEBUG: Motion details type: {type(verification_result.get('details'))}")
-            print(f"🔍 [ZapExecutor] DEBUG: Motion details content: {verification_result.get('details')}")
-            
             if success:
                 # Motion detection details are in the main verification_result, not nested in details
                 analyzed_count = verification_result.get('total_analyzed', 0)
@@ -664,11 +658,8 @@ class ZapExecutor:
                 # Motion detection returns nested structure: verification_result['details']['details']
                 motion_result = verification_result.get('details', {})
                 details = motion_result.get('details', []) if isinstance(motion_result, dict) else []
-                print(f"🔍 [ZapExecutor] DEBUG: Motion details for thumbnails - type: {type(details)}, length: {len(details) if isinstance(details, list) else 'N/A'}")
-                print(f"🔍 [ZapExecutor] DEBUG: Motion details content: {details}")
                 
                 if details and isinstance(details, list):
-                    print(f"🔍 [ZapExecutor] DEBUG: Processing {len(details)} motion details for thumbnails")
                     from shared.src.lib.utils.device_utils import add_existing_image_to_context
                     
                     motion_images = []
@@ -676,7 +667,6 @@ class ZapExecutor:
                     chronological_details = list(reversed(details[:3]))  # Take first 3, then reverse
                     
                     for i, detail in enumerate(chronological_details):
-                        print(f"🔍 [ZapExecutor] DEBUG: Processing detail[{i}] (chronological): {detail}")
                         if isinstance(detail, dict):
                             filename = detail.get('filename', '')
                             
@@ -685,7 +675,6 @@ class ZapExecutor:
                             
                             if image_path:
                                 # Image found and added to context - create motion image entry
-                                print(f"🔍 [ZapExecutor] DEBUG: Motion image found: {filename} -> {image_path}")
                                 motion_images.append({
                                     'path': image_path,
                                     'filename': filename,
@@ -700,15 +689,10 @@ class ZapExecutor:
                                 # Image not found - fail fast, skip this image
                                 print(f"⚠️ [ZapExecutor] Motion image missing, skipping: {filename}")
                     
-                    print(f"🔍 [ZapExecutor] DEBUG: Created {len(motion_images)} motion_analysis_images (from {len(chronological_details)} analyzed)")
                     if motion_images:
                         result.motion_details['motion_analysis_images'] = motion_images
-                        print(f"🔍 [ZapExecutor] DEBUG: Added motion_analysis_images to result.motion_details")
                     else:
                         print(f"⚠️ [ZapExecutor] No motion images found - motion_analysis_images not added")
-                else:
-                    print(f"🔍 [ZapExecutor] DEBUG: No valid details array for motion thumbnails")
-            
         elif analysis_type == 'subtitles':
             # Extract from details (where AI results are nested)
             subtitle_details = verification_result.get('details', {})
