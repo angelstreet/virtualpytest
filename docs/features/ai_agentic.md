@@ -434,9 +434,9 @@ The system pauses for human approval at:
 - Persistent failures escalate to QA Manager
 
 ### Session Management
-- Sessions timeout after 24 hours
-- Cleanup runs automatically
-- State persisted in memory (DB integration planned)
+- **In-Memory Persistence**: Sessions live in RAM and reset on server restart.
+- **Smart Context Compaction**: Automatically summarizes conversation history > 50 messages to prevent token limit crashes while preserving key context.
+- **Cleanup**: Inactive sessions (>24h) are automatically removed.
 
 ---
 

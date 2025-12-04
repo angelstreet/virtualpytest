@@ -187,6 +187,44 @@ Be efficient. The user wants results."""
         """
         self.logger.info(f"Processing message: {message[:100]}...")
         
+        # Check for context window compaction
+        if session.needs_compaction(threshold=50):
+            yield AgentEvent(
+                type=EventType.THINKING,
+                agent="System",
+                content="Compacting conversation history to save memory...",
+            )
+            
+            msgs_to_summary = session.get_messages_for_summary()
+            if msgs_to_summary:
+                # Filter keys for API
+                api_messages = [
+                    {"role": m["role"], "content": m["content"]} 
+                    for m in msgs_to_summary
+                ]
+                
+                summary_prompt = "Summarize the key actions, test results, errors, and context from this conversation history. Be concise but preserve critical details like IDs, selectors, and failure reasons."
+                
+                try:
+                    summary_response = self.client.messages.create(
+                        model=DEFAULT_MODEL,
+                        max_tokens=1024,
+                        messages=[
+                            *api_messages,
+                            {"role": "user", "content": summary_prompt}
+                        ]
+                    )
+                    summary_text = summary_response.content[0].text
+                    session.apply_summary(summary_text)
+                    
+                    yield AgentEvent(
+                        type=EventType.MESSAGE,
+                        agent="System",
+                        content="🧹 Conversation history compacted.",
+                    )
+                except Exception as e:
+                    self.logger.error(f"Compaction failed: {e}")
+
         # Add user message to session
         session.add_message("user", message)
         

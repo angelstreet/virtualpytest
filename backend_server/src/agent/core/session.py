@@ -94,6 +94,40 @@ class Session:
             "timestamp": datetime.utcnow().isoformat(),
         })
         self.updated_at = datetime.utcnow()
+
+    def needs_compaction(self, threshold: int = 50) -> bool:
+        """Check if session needs compaction"""
+        return len(self.messages) > threshold
+
+    def get_messages_for_summary(self, keep_last: int = 10) -> List[Dict[str, Any]]:
+        """Get the middle chunk of messages to summarize"""
+        if len(self.messages) <= keep_last + 1:
+            return []
+        # Exclude first (System/Init) and last N (Recent context)
+        return self.messages[1:-keep_last]
+
+    def apply_summary(self, summary_content: str, keep_last: int = 10):
+        """Replace middle messages with summary"""
+        if len(self.messages) <= keep_last + 1:
+            return
+            
+        # Keep first message (usually system init or start)
+        first_msg = self.messages[0]
+        
+        # Keep last N messages
+        recent_msgs = self.messages[-keep_last:]
+        
+        # Create summary message
+        summary_msg = {
+            "role": "assistant",
+            "content": f"**[SYSTEM SUMMARY]**\nPrevious conversation history compacted:\n{summary_content}",
+            "agent": "System",
+            "timestamp": datetime.utcnow().isoformat()
+        }
+        
+        # Rebuild list
+        self.messages = [first_msg, summary_msg] + recent_msgs
+        self.updated_at = datetime.utcnow()
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert to dictionary"""
